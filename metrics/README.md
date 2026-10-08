@@ -7,27 +7,29 @@ diffs track predictor and corpus quality over time.
 *predictor performance* is scoped to the **frozen** process partition
 ([docs/process-version.md](../docs/process-version.md)): a cell counts toward
 a frozen-scope performance artifact only if its **prediction's**
-`process_version` stamp carries a digest in `FROZEN_PROCESS_DIGESTS` with a
-stamp at or after the `FROZEN_SINCE` freeze instant — the partition keys on
-the prediction because the predictor is the competitor being ranked; the
-evaluator's own digest is recorded and never enforced for counting — *and* the
-evaluation's own harness stamp is at or after that instant (the stamp, never
-the agent-written `created_at`: the boundary rests only on clocks the agent
-cannot write), both constants set in the
-pre-registration commit the `prereg/<label>` tag marks. Everything else in
-`data/` is the **alpha/shakedown ledger** — cells written before the stamp
-existed (they carry no `process_version` at all; the absent stamp is the
-marker), or run or graded before the freeze instant, or stamped under
-predictor digests a later freeze deliberately retired: a
-**declared-shakedown cohort**, whose period is describable as a beta only
-because its declaration — a dated entry in the freeze record — preceded the
-outcomes of the claim window it governs (*the third supersession shape* in
-[docs/process-version.md](../docs/process-version.md); the declaration
-itself states any slice whose own outcomes had already resolved). For such a
-cohort the exclusion takes effect at the retiring freeze, not at the
-declaration: between the two, committed frozen-scope artifacts still count
-the cohort, and the declaration is what marks their figures as shakedown
-reading in the meantime. Alpha cells stay
+`process_version` stamp lies in a **counting window** (`COUNTING_WINDOWS`: one
+per blessing of a predictor digest, from the counting instant of the label that
+blessed it until a successor's closes it) that no revocation de-counted, and
+is its predictor's counted forecast of the event — the earliest window's, where
+the predictor holds cells from several — the partition keys on the prediction
+because the predictor is the competitor being ranked; the evaluator's own
+digest is recorded and never enforced for counting — *and* the evaluation's
+own harness stamp is at or after the instant that opened that prediction's
+window (the stamp, never the agent-written `created_at`: the boundary rests
+only on clocks the agent cannot write), each instant set in the
+pre-registration commit a `prereg/<label>` tag marks. A **closed** window's
+cells keep counting under the label that opened them; a successor de-counts
+nothing. Everything else in `data/` is the **alpha/shakedown ledger** — cells
+written before the stamp existed (they carry no `process_version` at all; the
+absent stamp is the marker), or run or graded before their window opened, or
+stamped under the predictor digests of a label before `proc-v8`: a
+**declared-shakedown cohort**, de-counted when its label was superseded,
+whose period is describable as a beta only because its declaration — a dated
+entry in the freeze record — preceded the outcomes of the claim window it
+governs (the declaration itself states any slice whose own outcomes had
+already resolved). A window's cells are otherwise de-counted only by a
+**revocation** for a defect, on its own dated entry
+([docs/process-version.md](../docs/process-version.md)). Alpha cells stay
 committed with their timestamps, but they are **excluded from every
 frozen-scope performance artifact and from any claimed performance result** —
 they exercised the pipeline while the process was still moving, and nothing
@@ -36,26 +38,69 @@ publish which scope they were built under as `process_scope` (`"frozen"` or
 `"all"`); an `"all"` build — the `--all-versions` CLI toggle — is a
 diagnostic view, never a results surface.
 
+**No figure pools windows.** A new model under an unchanged `predictor_id` is
+a different forecaster, so an engine's cells on either side of a closed window
+are two series, not one. Every frozen-scope figure is keyed on **(predictor,
+window)**: each entry on the leaderboard, its stage blocks and the claim scores,
+each ops score row and each tool-usage segment names its window as
+`process_window`, so a predictor whose counted cells span two windows has an
+entry per window, and every artifact carries the whole registry in
+`frozen_process.windows`. Two reading rules follow. **Two windows of one
+predictor share no event** — a predictor holds one counted forecast per event,
+the earliest window's — so their entries are two forecasters over disjoint
+events, and a rise across a window boundary is not a measurement of
+improvement. **A rank is read within one window label.** Where a frozen
+board's entries carry more than one label, `rank` restarts in each label's
+cohort (the cohorts listed in the order their windows opened; a
+carried-forward window ranks with the label that opened it), so a successor's
+entries — over the events the closed window did not reach, a selected
+population — are never ranked against the closed window's, and a closed
+window's standings do not move when a later window's cells land. Under one
+label there is one ranking over the board. A carried-forward window ranks in
+its opening label's cohort while it keeps accruing events its cohort peers'
+closed windows never reached, so a rank inside a cohort holding one is read
+through the per-combination grid, never on its own. And a figure keyed on something other than the
+forecaster — the claim scores' judge validation, the board's
+`evaluator_agreement` (it compares graders, and pools the predictors' windows by
+design), the ops calibration block, a tool-usage coefficient row — is the
+**record across labels** wherever its cells come from windows carrying more
+than one label: it lists each (predictor, window) series and its `n` as
+`windows` beside the pooled value, and is never a rank key. Under a single
+label nothing is listed beyond the `process_window` each row, segment and
+read carries. Engines are compared only over **events**: a cross-engine figure is
+read over events on which every compared engine holds a counted cell, each
+from one named window, and an event split across a closed window and its
+successor belongs to no complete grid (see `complete_grids` below).
+
+Two readers keep the predictor-keyed shape and so still **refuse** a ledger in
+which one predictor's counted cells span two windows rather than pool them:
+`release-sensitivity` and `semantic-summary`. The refusal reads the whole
+ledger, so once any predictor holds graded cells in two windows neither command
+builds at frozen scope — `release-sensitivity` included, although the release it
+serves is `proc-v8` inside `proc-v8`'s window — and its figures are re-derived
+before that, or the command is split, never quoted off a refusal. The refusal
+is the floor, not a figure.
+
 **One prediction per predictor per event, and re-predicting a live event is a
 registered rule.** A predictor may hold several committed runs on one event —
 a re-queue after a failed cell, or a deliberate re-forecast — and the board
 reads exactly one of them: the run the grading evaluation's harness-stamped
 `prediction_run_id` names, falling back to the predictor's **newest** run where
 that field is absent or the run it names is not on disk. So the staged and scored cell is the
-newest one, and an earlier run is history that no figure counts twice. (That is within one
-counting window: across windows, the earliest window's cell counts, as registered in
-[freeze-record.md](../docs/freeze-record.md), 2026-09-26, and held until built.)
+newest one, and an earlier run is history that no figure counts twice. That is within one
+counting window: where a predictor holds cells from several windows on an event, the
+earliest window's cell counts, and a later window's is neither counted nor staged for
+grading in its place.
 
-That matters because a predictor-half re-bless de-counts every cell stamped
-under the retired digests (declared replaced from `proc-v8` on by closed
-counting windows, and held until they are built — see
-[freeze-record.md](../docs/freeze-record.md), 2026-09-26), including cells on events that have **not yet
-resolved**. Those events would otherwise be consumed for nothing: graded on
-resolution, then dropped from this scope, leaving the frozen board with no
-population at all. The predict backlog therefore **re-owes** a cell on a
-still-forward event at a still-open moment whose whole committed cohort is
-retired ([docs/pipeline.md](../docs/pipeline.md)), so the cell that is
-eventually graded was produced under a blessed process. Two readings this does
+That matters because a de-count — the cells of a label before `proc-v8`, or of a
+revoked window — reaches cells on events that have **not yet resolved**. Those
+events would otherwise be consumed for nothing: graded on resolution, then
+dropped from this scope, leaving the frozen board with no population at all.
+The predict backlog therefore **re-owes** a cell on a still-forward event at a
+still-open moment whose whole committed cohort is de-counted
+([docs/pipeline.md](../docs/pipeline.md)), so the cell that is eventually
+graded was produced under a counted process. A supersession re-owes nothing: a
+closed window's cells still count, so its events stay covered. Two readings this does
 **not** license. It is not a re-grade: nothing about an existing evaluation
 moves, and `superseded_gradings` is untouched. And a rise in any figure across
 the re-predict boundary is **not** a measurement of model improvement — the two
@@ -65,7 +110,7 @@ or even of its own conference: the first frozen cert population is **n = 110
 cert/distribution events, all distributed for 2026-09-28** (70 baseline, 37
 elevated, 1 high, 1 federal, 1 state), with 10 cert/cvsg (all high band) and 2
 interim events beside it. It spans bands — the salience funding line does not
-cut it, because the re-predict rule re-owes a wholly retired cohort on a
+cut it, because the re-predict rule re-owes a wholly de-counted cohort on a
 declined case too — but it is **110 of the 180 in-scope petitions** distributed
 for that conference (557 distributed in all), being the previously-predicted
 residue of earlier funded rounds, and so is selected **upward on band**: 63.6%
@@ -93,8 +138,8 @@ a section away, because it is the number's population.
 And a third reading the boundary does not license: **a cohort complete on the
 board is not the same as a cohort complete in fact.** The rule's moment gate
 closes with the conference, so a cell that fails on the last tick before it
-cannot be re-minted afterwards, leaving an event with some engines blessed and
-some retired — per-predictor cells over *different event sets*, which the
+cannot be re-minted afterwards, leaving an event with some engines counted and
+some de-counted — per-predictor cells over *different event sets*, which the
 ranking (N-unweighted point estimates) cannot show. A figure over such a cohort
 is published over the events carrying every blessed engine, or it prints the
 per-engine `n` and the complete-grid `n` beside it.
@@ -336,7 +381,15 @@ stays outside the gate:
   `events_scored` union across entries. An entry **at** its population's
   figure was scored on the whole set — the entry's events are a subset of the
   union, so equal cardinality is equal set — and an entry **below** it was
-  ranked over a subset. Never sum the **entries** to recover that union: two
+  ranked over a subset. Where a frozen board's entries carry more than one
+  window label, the board union is the wrong figure — two windows cover
+  different events by construction, so every entry sits below it — and each
+  entry is read against its own label's cohort instead: the largest
+  `events_scored` among the entries sharing its `process_window`. That is a
+  lower bound on the cohort's union, so a shortfall against it is unequal
+  coverage for certain, while matching it is weaker than matching a union: two
+  entries can be equal and still cover different events, which only the
+  per-combination grid below settles. Never sum the **entries** to recover that union: two
   predictors scored on one event are one event, so the sum overstates it.
   (Summing an entry's *stratum* blocks is a different matter and does
   reproduce its figure — a predictor's strata partition its events.) A
@@ -366,7 +419,8 @@ stays outside the gate:
   pre-registered form of the condition is per-stratum, per-(predictor, event,
   evaluator); this artifact publishes the pooled grain, which is why it can
   refuse a comparison but never bless one. The build says so out loud — `fedcourts leaderboard` warns per
-  population, naming each short predictor and its coverage — so the hazard does
+  population (per label cohort where there are several), naming each short
+  entry — as `predictor@window` where two share a predictor id — and its coverage — so the hazard does
   not depend on a reader doing the subtraction, and the refresh PR's headline
   flags it too. One absence shape only the refresh PR's line catches: a
   configured predictor with **no entry at all** in a populated block (the shape
@@ -378,11 +432,13 @@ stays outside the gate:
   against the cert union would report short coverage for every one of them.
 
   **The board also names its partitions.** `frozen_process` records the freeze
-  constants in force at build time — the blessed digest set and the freeze
-  instant — so *what was blessed* is readable from the artifact rather than by
-  resolving the build's commit back to `fedcourtsai.process_version`. The
-  digest list pools predictors and evaluators; only the predictor subset is the
-  enforced membership filter, which the flat list does not distinguish. It also
+  constants in force at build time — the blessed digest set, the freeze
+  instant and the counting windows — so *what was blessed* is readable from the
+  artifact rather than by resolving the build's commit back to
+  `fedcourtsai.process_version`. The digest list pools predictors and
+  evaluators and is not a filter; the enforced membership rule is `windows`,
+  one per blessing of a predictor digest, which keeps a closed window's digest
+  counting after it leaves the blessed set. The digest list also
   drops the per-digest **bless moment** the constant carries beside each entry —
   that moment bounds retroactivity, not counting, so it changes no figure on the
   board; read it off `fedcourtsai.process_version` or the dated entry in
@@ -544,6 +600,84 @@ stays outside the gate:
   on a pack built before the case resolved it over-corrects by one unit —
   bounded by `1 / 30` and self-correcting at the next refresh.
 
+  **A third skill figure is a post-hoc descriptive benchmark, not a member of
+  the pair.** `population_in_sample_skill_score` scores each block against its
+  own **sample climatology**: the constant `in_sample_grant_rate`, `c`, is the
+  share of granted outcomes among the block's own scored events — the
+  `in_sample_events_scored` distinct events of the gradings carrying a Brier
+  score and cert outcome facts, each event counted once however many judges
+  graded it — and every such grading's reference Brier is `(c − y)²`.
+  Aggregated as the same ratio of sums, over `in_sample_skill_scored`
+  gradings: on a cert block whose cells all carry facts that is
+  `mean_brier_score`'s own population, wider than the realized-Term column's,
+  because none of that column's qualifying rules (the `risk_set` basis, the
+  Term's band under a matching version, the minimum resolved count) bear on a
+  rate read off the scored outcomes themselves. `y` and `c` are on the Brier's
+  own binary target, `actual_granted`, so a `granted-in-part` outcome counts as
+  a grant here; elsewhere `c` is the grant-family share.
+
+  What it measures follows from the Murphy decomposition of the Brier score,
+  `BS = reliability − resolution + uncertainty`, where the uncertainty term is
+  `c(1 − c)` — which, wherever every event carries the same number of
+  gradings, is exactly the mean reference Brier above. There, and with
+  forecasts grouped at their distinct values, the figure therefore **equals
+  `(resolution − reliability) / uncertainty`** against the block's own base
+  rate. (Grouped into a decile binning instead, as the cert back-test's
+  calibration view uses, reliability and resolution pick up within-bin
+  terms and the equality is not reproduced.) Where panel depth varies by event
+  it holds only approximately: `c` counts events while the sum runs over
+  gradings. Either way a forecaster reporting `c` itself scores exactly 0.
+
+  It nets out **the block's level and nothing finer**, the scored case's own
+  outcome included — so it is not a within-band discrimination measure
+  wherever a block pools bands. The salience gate selects bands for their very
+  different grant rates, and one `c` over a pooled block credits a predictor
+  for separating the bands as well as for separating cases inside them. A
+  forecaster that knew only each band's realized rate and told no two cases
+  in a band apart would score well above 0 on a pooled block. The pooled
+  `forward` figure therefore reads as discrimination within the block,
+  *between-band separation included*, net of miscalibration against the
+  block's own rate; the within-band reading is the `by_band` cell, each with
+  its own `c`, and only where that cell is defined.
+
+  No forecaster could have reported `c`: the rate exists only once every scored
+  event has resolved, and it contains the case being scored. It is
+  **hindsight by construction** and post-hoc rather than pre-registered — so it
+  is never a rank key, never a headline, never pooled with or differenced from
+  either other skill figure, and never read as in-season evidence.
+
+  It differs from both members of the pair in its baseline, not its formula.
+  The **prior-Term** figure scores against the strictly-prior pooled band rate:
+  leakage-safe, knowable when the forecast ran, the primary outcome measure and
+  the only one that may rank. The **realized-Term** figure scores against the
+  band's rate over the case's whole Term — a far larger population than the
+  scored events — leave-one-out, so the case never sits in its own baseline,
+  and read at the committed pack's term-to-date vintage, so mid-Term it carries
+  the grant-depletion bias above. The in-sample figure uses neither the band nor
+  the Term: its rate is the block's own scored events, the case included, read
+  off the committed outcomes with no vintage and no minimum. So a `by_band`
+  cell gets its own `c` over that band's scored events, and a block whose
+  events are all denied (or all granted) has `c` of 0 (or 1), every reference
+  Brier 0 and the ratio undefined: the skill is null with
+  `in_sample_skill_scored` 0 while `in_sample_grant_rate` still reads the
+  level. On a cohort with a handful of grants a degenerate rate is most bands,
+  and where the rate is not degenerate the denominator is dominated by the
+  grant events — each contributes `(1 − c)²` against a denial's `c²`, so the
+  grants carry a share `1 − c` of it. Its scale is set almost entirely by those
+  few grants: every unit of Brier, on a grant or on a denial, is measured
+  against about that many grants' worth of uncertainty, and the figure moves
+  by large steps when one more resolves. So each figure is quoted with its
+  grant count — `k` grants of `in_sample_events_scored` events, `c` counting
+  GVRs, summary reversals and partial grants as grants — and two predictors'
+  figures sit side by side only where their `in_sample_events_scored` agree,
+  since a different `c` is a different baseline.
+
+  The skill is also null, with the rate still published, wherever any of the
+  block's gradings carries a stamped Brier that no longer reproduces from its
+  scored prediction against the committed outcome — a Brier taken against an
+  outcome since superseded, the same unpaired shape that leaves the realized
+  floor null.
+
   Every **cert** stratum block also carries the **realized always-deny floor**
   on its own cells. `always_deny_accuracy` scores a constant `denied` call over
   exactly the gradings `accuracy` averages — the `accuracy_scored` cells, one
@@ -616,6 +750,28 @@ stays outside the gate:
   no per-band ordering is read. None of it ranks anything: this is where the
   per-band reading the frozen cohort requires is copied from.
 
+  On a frozen build the grid is also **per window combination**. A complete
+  event names one window per predictor, and it counts only where those windows
+  ran together (overlapped in time); an event whose predictors' counted cells
+  come from a closed window and the successor that closed it is a **split
+  event**, counted per band in `split_events_by_band` and in no grid. Where the
+  complete events fall under more than one combination — one engine's process
+  changed while another's digest carried forward — `complete_grids` lists each
+  combination's windows and per-band count, and `complete_grid_by_band` is
+  their total, each event in exactly one. `complete_grids` is listed wherever
+  the entries carry more than one window label — even when one combination, or
+  none, holds every complete event — because a per-window entry need not cover
+  the total: a successor's entry can match the total's count over events it
+  shares with no other entry. So the containment rule above is read **per
+  combination**: only the entries whose `process_window` match a combination's
+  windows, each against that combination's count; an entry whose window sits in
+  no listed combination has no grid. The total is read as the grid only while
+  `complete_grids` is absent (one label, every window opening at one instant,
+  as under `proc-v8`'s registry), when every entry covers it. `split_events_by_band` counts split
+  events among these complete graded events only. The split-event count a
+  successor's freeze-record entry discloses is a different figure, over every
+  counted cell, graded or not, and comes from `fedcourts successor-disclosures`.
+
   The ranked board is the **cert stage's first declared moment** (see the stage
   axis note below); every other population — a later cert moment included —
   reports in its own unranked `stages` block. Each entry
@@ -670,7 +826,7 @@ stays outside the gate:
 
   How strongly judges anchor depends on the evaluate prompt, so a tau is
   comparable only within one evaluator digest. The board does not split on it:
-  its scope is `graded_post_freeze`, which records the evaluator digest but does
+  its scope is `graded_in_window`, which records the evaluator digest but does
   not count by it, so a tau whose reads straddle a change to the evaluate prompt
   mixes two anchoring regimes and compares to neither. `evaluator_agreement` is
   exposed the same way: judges anchored on the same candidate's score agree with
@@ -1280,7 +1436,9 @@ cell's own evaluation recorded no skill. Every
 non-cert block — both stages and the `(none)` bucket — reports the realized-Term
 skill null with a zero count, by construction rather than by coincidence:
 only the cert segment has a salience band whose realized rate the pack
-publishes.
+publishes. The post-hoc in-sample benchmark is null there too, with
+`in_sample_grant_rate` null and both its counts zero: only a cert cell carries
+the outcome facts it reads.
 
 A merits **skill** number exists only where the pack can support it: the
 merits section publishes only once a corpus row carries a parsed judgment
@@ -2330,13 +2488,14 @@ the rendered table) and
   **Process scope, and why the default is version-blind.** `process_scope` says
   which process versions a **current read** may come from. The default is
   `all`: every committed run is eligible, shakedown, pre-freeze,
-  retired-digest and unstamped cells included, because the board is a census of
+  de-counted-digest and unstamped cells included, because the board is a census of
   what the panel said rather than a measurement of how well it said it, and a
   stakes read resolves against nothing for a partition to protect.
   `fedcourts big-cases --process-scope frozen` builds the **comparison** board,
-  admitting only runs whose harness stamp is in the blessed digest set and was
-  written at or after the freeze instant — the predicate the performance boards
-  scope on. On that build a pre-freeze, retired-digest, shakedown or unstamped
+  admitting only runs that are their predictor's counted forecast of their
+  event — a harness stamp inside a counting window, the earliest window's where
+  the predictor holds several — the predicate the performance boards scope on.
+  On that build a pre-freeze, de-counted-digest, shakedown or unstamped
   run is **history** under its event, never a current read, never in `n` and
   never in a mean; the scope is applied before the moment choice, so such a run
   cannot move a case's moment either. The per-event entries are unfiltered on

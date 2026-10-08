@@ -2507,3 +2507,287 @@ def test_capture_bakes_the_filing_fetch_count_onto_the_log(
     # The two summaries beside it are the opposite case and stay derived, so
     # this is a difference between the fields rather than a slack validator.
     assert asserted.throttled_calls is None
+
+
+# --- Engine-log shape check (`record-retrieval --strict`) -------------------
+
+_CLAUDE_PROBE_LOG: list[object] = [
+    {"type": "system", "subtype": "init"},
+    {"type": "assistant", "message": {"content": [{"type": "text", "text": "ok"}]}},
+    {"type": "result", "usage": {"input_tokens": 10, "output_tokens": 2}},
+]
+
+
+def _write_json(path: Path, doc: object) -> Path:
+    path.write_text(json.dumps(doc))
+    return path
+
+
+def test_a_no_tool_claude_log_in_the_parsed_shape_has_no_findings(tmp_path: Path) -> None:
+    # The probe's case: one text reply, no tool calls. Nothing to harvest, and
+    # nothing wrong either — the walk and the usage path are both there.
+    log = _write_json(tmp_path / "exec.json", _CLAUDE_PROBE_LOG)
+    assert parse_claude_retrieval(log) == []
+    assert retrieval.engine_log_shape_problems(claude_execution_file=log) == []
+
+
+def test_a_claude_log_the_parsers_cannot_walk_is_named(tmp_path: Path) -> None:
+    # A format that moved the content off `message.content` and dropped the
+    # terminal usage: both parsers would read it as an empty, usage-less cell.
+    moved = [
+        {"type": "assistant", "message": {"body": [{"type": "text", "text": "ok"}]}},
+        {"type": "summary", "tokens": {"input": 10}},
+    ]
+    problems = retrieval.engine_log_shape_problems(
+        claude_execution_file=_write_json(tmp_path / "exec.json", moved)
+    )
+    assert any("carry no content-block list" in p for p in problems)
+    assert any("no claude assistant event carries a content-block list" in p for p in problems)
+    assert any("no claude `result` event carries `usage`" in p for p in problems)
+
+
+def test_a_claude_tool_block_the_parser_drops_is_named_by_type_only(tmp_path: Path) -> None:
+    secret_text = "do-not-echo-this"
+    log = [
+        _CLAUDE_PROBE_LOG[0],
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "server_tool_use", "id": "s1", "input": {"q": secret_text}},
+                    {"type": "tool_use", "id": "t1", "name": "Read", "input": {}},
+                ]
+            },
+        },
+        _CLAUDE_PROBE_LOG[2],
+    ]
+    problems = retrieval.engine_log_shape_problems(
+        claude_execution_file=_write_json(tmp_path / "exec.json", log)
+    )
+    assert problems == [
+        "claude content block type(s) the tool-call parser does not read: server_tool_use"
+    ]
+    assert secret_text not in " ".join(problems)
+
+
+def test_an_unparseable_claude_log_is_one_finding(tmp_path: Path) -> None:
+    garbage = tmp_path / "exec.json"
+    garbage.write_text("not json")
+    (problem,) = retrieval.engine_log_shape_problems(claude_execution_file=garbage)
+    assert "unparseable" in problem
+    (absent,) = retrieval.engine_log_shape_problems(claude_execution_file=tmp_path / "missing")
+    assert "absent" in absent
+
+
+def _codex_probe_records() -> list[dict[str, object]]:
+    return [
+        {"type": "session_meta", "payload": {"id": "s"}},
+        {
+            "type": "response_item",
+            "payload": {"type": "message", "role": "assistant", "content": []},
+        },
+        {
+            "type": "event_msg",
+            "payload": {
+                "type": "token_count",
+                "info": {"total_token_usage": {"input_tokens": 10, "output_tokens": 2}},
+            },
+        },
+    ]
+
+
+def _codex_sessions(tmp_path: Path, lines: list[str]) -> Path:
+    sessions = tmp_path / "sessions"
+    day = sessions / "2026" / "10" / "06"
+    day.mkdir(parents=True)
+    (day / "rollout-2026-10-06T12-00-00-x.jsonl").write_text("\n".join(lines) + "\n")
+    return sessions
+
+
+def test_a_no_tool_codex_rollout_in_the_parsed_shape_has_no_findings(tmp_path: Path) -> None:
+    sessions = _codex_sessions(tmp_path, [json.dumps(r) for r in _codex_probe_records()])
+    assert parse_codex_retrieval(sessions) == []
+    assert retrieval.engine_log_shape_problems(codex_sessions_dir=sessions) == []
+
+
+def test_a_codex_rollout_the_parsers_cannot_walk_is_named(tmp_path: Path) -> None:
+    sessions = _codex_sessions(
+        tmp_path,
+        [
+            "{truncated",
+            json.dumps({"kind": "item", "body": {"type": "message"}}),
+            json.dumps({"type": "event_msg", "payload": {"type": "agent_message"}}),
+            json.dumps({"type": "response_item", "payload": {"type": "browser_call"}}),
+        ],
+    )
+    problems = retrieval.engine_log_shape_problems(codex_sessions_dir=sessions)
+    assert "1 codex rollout line(s) are not JSON objects" in problems
+    assert "1 codex record(s) carry neither a payload nor a type" in problems
+    assert "codex call item type(s) the tool-call parser does not read: browser_call" in problems
+    assert "no codex record carries `total_token_usage`" in problems
+
+
+def test_a_codex_stream_without_response_items_is_named(tmp_path: Path) -> None:
+    records = [r for r in _codex_probe_records() if r["type"] != "response_item"]
+    sessions = _codex_sessions(tmp_path, [json.dumps(r) for r in records])
+    (problem,) = retrieval.engine_log_shape_problems(codex_sessions_dir=sessions)
+    assert "no codex `response_item` record" in problem
+    (absent,) = retrieval.engine_log_shape_problems(codex_sessions_dir=tmp_path / "none")
+    assert "no codex rollout" in absent
+
+
+_GEMINI_API_RESPONSE = {
+    "attributes": [
+        {"key": "event.name", "value": {"stringValue": "gemini_cli.api_response"}},
+        {"key": "input_token_count", "value": {"intValue": "10"}},
+        {"key": "output_token_count", "value": {"intValue": "2"}},
+    ]
+}
+
+
+def test_a_no_tool_gemini_log_in_the_parsed_shape_has_no_findings(tmp_path: Path) -> None:
+    # Pretty-printed and concatenated, as the CLI's local exporter writes it.
+    telemetry = tmp_path / "telemetry.log"
+    telemetry.write_text(json.dumps(_GEMINI_API_RESPONSE, indent=2) * 2)
+    assert parse_gemini_retrieval(telemetry) == []
+    assert retrieval.engine_log_shape_problems(gemini_telemetry_file=telemetry) == []
+
+
+def test_a_gemini_log_the_parsers_cannot_walk_is_named(tmp_path: Path) -> None:
+    renamed = {
+        "attributes": [
+            {"key": "event.name", "value": {"stringValue": "gemini_cli.tool_invocation"}},
+            {"key": "function_name", "value": {"stringValue": "search"}},
+        ]
+    }
+    telemetry = tmp_path / "telemetry.log"
+    # A record cut off part-way: the loader keeps what came before and stops.
+    telemetry.write_text(json.dumps(renamed) + '\n{"attributes": [')
+    problems = retrieval.engine_log_shape_problems(gemini_telemetry_file=telemetry)
+    assert any("stops decoding part-way" in p for p in problems)
+    assert any("no gemini record carries token counts" in p for p in problems)
+    assert any(p.endswith("does not read: gemini_cli.tool_invocation") for p in problems)
+    empty = tmp_path / "empty.log"
+    empty.write_text("")
+    (problem,) = retrieval.engine_log_shape_problems(gemini_telemetry_file=empty)
+    assert "empty" in problem
+
+
+def test_naming_no_engine_log_is_itself_a_finding() -> None:
+    assert retrieval.engine_log_shape_problems() == [
+        "no engine log was named, so there is no shape to check"
+    ]
+
+
+def _strict_record_retrieval(execution: Path | None) -> list[str]:
+    args = [
+        "record-retrieval",
+        "--court",
+        "scotus",
+        "--docket",
+        "305",
+        "--event",
+        "evt-petition-disposition",
+        "--run-id",
+        "20260710T120000Z",
+        "--engine",
+        "claude-code",
+        "--role",
+        "predictor",
+        "--actor",
+        "claude-baseline",
+        "--mode",
+        "forward",
+        "--strict",
+    ]
+    if execution is not None:
+        args += ["--claude-execution-file", str(execution)]
+    return args
+
+
+def test_record_retrieval_strict_passes_a_log_in_the_parsed_shape(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    log = _write_json(tmp_path / "exec.json", _CLAUDE_PROBE_LOG)
+    result = runner.invoke(app, _strict_record_retrieval(log))
+    assert result.exit_code == 0, result.output
+    assert "in the shape the capture parsers read" in result.output
+
+
+def test_record_retrieval_strict_records_then_fails_on_an_unread_shape(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    moved = [{"type": "assistant", "message": {"body": []}}]
+    result = runner.invoke(
+        app, _strict_record_retrieval(_write_json(tmp_path / "exec.json", moved))
+    )
+    assert result.exit_code == 1, result.output
+    assert "::error::record-retrieval --strict: no claude `result` event" in result.output
+    # The log is still written — exactly what a cell's tolerant capture would
+    # have recorded — so the failure is the finding, not a lost artifact.
+    destination = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305)
+        .event("evt-petition-disposition")
+        .prediction_retrieval_log("claude-baseline", "20260710T120000Z")
+    )
+    assert json.loads(destination.read_text())["calls"] == []
+
+
+def test_record_retrieval_strict_with_no_log_named_fails(fixture_corpus: FixtureCorpus) -> None:
+    result = runner.invoke(app, _strict_record_retrieval(None))
+    assert result.exit_code == 1
+    assert "no engine log was named" in result.output
+
+
+def test_record_retrieval_without_strict_stays_tolerant(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # The cells' own capture: the same unreadable log records and exits 0.
+    moved = [{"type": "assistant", "message": {"body": []}}]
+    args = [
+        arg
+        for arg in _strict_record_retrieval(_write_json(tmp_path / "exec.json", moved))
+        if arg != "--strict"
+    ]
+    assert runner.invoke(app, args).exit_code == 0
+
+
+def test_the_gemini_shape_walk_never_reads_into_a_calls_own_arguments(tmp_path: Path) -> None:
+    # Arguments are agent-authored: a decoded object carrying the two keys the
+    # walk keys on must neither raise a finding nor have its value named.
+    call = {
+        "event.name": "gemini_cli.tool_call",
+        "function_name": "search",
+        "function_args": {"function_name": "x", "event.name": "agent_chosen_token"},
+    }
+    telemetry = tmp_path / "telemetry.log"
+    telemetry.write_text(json.dumps(call) + json.dumps(_GEMINI_API_RESPONSE))
+    assert retrieval.engine_log_shape_problems(gemini_telemetry_file=telemetry) == []
+
+
+def test_a_non_identifier_type_is_named_only_as_a_placeholder(tmp_path: Path) -> None:
+    records = [*_codex_probe_records(), {"type": "response_item", "payload": {"type": "a b_call"}}]
+    sessions = _codex_sessions(tmp_path, [json.dumps(r) for r in records])
+    (problem,) = retrieval.engine_log_shape_problems(codex_sessions_dir=sessions)
+    assert problem.endswith("does not read: <non-identifier>")
+
+
+def test_a_single_object_claude_document_is_walked_like_a_one_event_list(tmp_path: Path) -> None:
+    # The parser accepts a bare object; so does the check, judging it as one event.
+    log = _write_json(tmp_path / "exec.json", _CLAUDE_PROBE_LOG[2])
+    problems = retrieval.engine_log_shape_problems(claude_execution_file=log)
+    assert problems == [
+        "no claude assistant event carries a content-block list, so the tool-call "
+        "walk finds nothing to read"
+    ]
+
+
+def test_record_retrieval_strict_refuses_another_engines_log(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    log = _write_json(tmp_path / "exec.json", _CLAUDE_PROBE_LOG)
+    args = _strict_record_retrieval(log)
+    args[args.index("claude-code")] = "codex"
+    result = runner.invoke(app, args)
+    assert result.exit_code == 1
+    assert "no codex log was named" in result.output

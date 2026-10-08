@@ -39,10 +39,13 @@ The merits **cell** runs: both prompts carry a merits section, the fan-out
 admits the merits event on a row whose grant opened a merits proceeding
 (`store.forecastable_events`), and the provisioning guard is keyed on the
 event, so the grant order that opened the cell does not refuse it.
-What remains unpopulated: no **outcome** record carries a
-writing role or a real vote record with provenance yet (the outcome writer
+What remains unpopulated: no **merits** outcome carries a
+writing role or a vote record with provenance yet (the outcome writer
 records no votes, for the reason given below — the forecast side already
-carries both, on `Prediction.votes`); no schema carries a vote
+carries both, on `Prediction.votes`). The cert and interim outcomes the
+`order-votes` pass has stamped carry partial order-list vote lists, which the
+stage and completeness gates keep out of scoring, and writing roles, which no
+scorer reads; no schema carries a vote
 *margin*; and no aggregation rule is applied to anything. The scoring design
 was settled before any merits outcome existed to fit it to, which is the only
 order in which the choice is credible. `docs/outcome-decomposition.md` is the

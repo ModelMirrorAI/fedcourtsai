@@ -179,8 +179,7 @@ runbook, [docs/security.md](docs/security.md).
   CourtListener token whose worst case is spending pull's quota and forcing a
   rotation (above), not a model key. The GitHub credentials in reach of a cell
   are comment-shaped and nothing more: the Claude agent's own comment-only
-  token, and — in a codex cell, at the runner user's privilege rather than in
-  the agent's hands — the watchdog's issues-only mint, bounded below.
+  token, and nothing in a codex or gemini cell.
 - **Agents get a least-privilege GitHub App token, never a static one.** The
   Claude agent steps in `run-predict` / `run-evaluate` receive a short-lived
   App installation token scoped **comment-only** (`contents: read` + `issues` +
@@ -189,85 +188,20 @@ runbook, [docs/security.md](docs/security.md).
   `collect` job. The *workflow* (a distinct `contents: write` App token) does
   the commit/PR, so a prompt injection in docket text cannot push code with the
   agent's token. Issue and docket text stay untrusted input.
-- **One credential in a codex cell is not the agent's: the watchdog's.** The
-  engine hang bound (`scripts/engine-watchdog.sh`; *Graceful degradation on
-  limits* in [docs/pipeline.md](docs/pipeline.md)) is trusted
-  repo code, and the failure it guards — a step that never ends until the *job*
-  cap cancels the runner — destroys every runner-local account of itself, the
-  diagnostics bundle and the job log included. So the watchdog reports **off**
-  the runner while the runner is still alive, onto the bound channel's
-  long-lived issue (`codex-watchdog`; a staging-bound integration dispatch writes
-  `codex-watchdog-staging` instead, under a separate staging-only App whose
-  App-level grant is Issues alone), and that costs an App token minted with
-  **`issues: write` and nothing else** — no `contents`, no `pull-requests`, and
-  no widening of the job's own `permissions` block. The watchdog itself brackets
-  **every** engine's cell step; this credential stays **codex-only**, which is
-  the narrower half of a deliberate split. The watchdog's first trigger
-  *concludes* the step, so a cell it saves runs its own tail and its whole
-  account rides the artifact it uploads; the off-runner record is load-bearing
-  only where the escalation fails to end the step at all and the job cap cancels
-  the runner regardless — the deadline path, which codex is the one engine to
-  have taken. The mint therefore lives on the codex cells of `run-predict` /
-  `run-evaluate`, on the integration suite's application-repro leg — itself
-  a codex cell against a pinned record, and the one place a deadline kill has
-  been observed to cancel the whole job — and on its codex-freeze-probe job,
-  whose whole subject is the watchdog's own beat trail, on identical terms:
-  issues-only, step-scoped in distribution, failing soft, never reaching the
-  agent step.
-  Minting for every engine
-  would place an issues:write token in every cell of every round to buy a record
-  for a failure no other engine has shown. Everything it is used for is
-  that one tracking issue, found-or-created under a non-triggering label, and
-  one comment per cell on it; the detached watchdog holds it only to PATCH that
-  comment. It is step-scoped in *distribution* rather than in lifetime — an
-  installation token stays valid for its App's window, and this one is
-  deliberately handed to a process that outlives the step that minted it — and
-  no step but the arm and disarm ones receives it. The App window is also the
-  record's own bound: the detached watchdog cannot re-mint, so on a deadline
-  set past the token's hour — which the codex deadlines are, so that healthy
-  work is never killed — the check-ins issued at the fire itself fail soft,
-  and the armed row's deadline and fire ETA are what let a record frozen
-  mid-wait be read as the deadline path. The agent step is a separate
-  step and inherits neither the token nor the process. What it can say is
-  narrower than what the published artifact carries: timestamps, phase names,
-  pid numbers, counts, the configured deadline, kernel-owned resource figures
-  (`/proc/meminfo`, `/proc/loadavg` — readable, not writable, from an agent
-  shell), and the exit codes of the script's own bounded probes of the
-  already-validated check-in host, composed only from sources the agent cannot
-  write and never read back off the agent-writable bundle directory.
-  Two residuals are stated rather than denied, and the cells' `unprivileged-user`
-  codex closes the agent-reachable half of both. The watchdog runs as the runner
-  user; were the codex agent to run as that same user, its environment would be
-  readable from the agent shell exactly as the MCP sidecar's CourtListener token
-  is, and the disarm step's `fedcourts`, run out of a workspace the agent had the
-  whole cell to write, would reach the token from planted code without the
-  process read at all. Codex instead runs as a separate unprivileged account: it
-  cannot read the runner user's environment, and the only runner-owned path it
-  can write is its own output subtree, never the `src`/`scripts`/`.venv` the
-  disarm step executes — so neither residual is reachable by the cell's own agent. The watchdog token is
-  minted only on codex cells, so that is the whole of the agent-facing exposure;
-  a determined co-resident process at the runner uid stays the general
-  concession, and the cell agent is not one. Neither residual is
-  time-bounded by the job: `create-github-app-token`'s revoke step does not run
-  when a job is **cancelled**, which is precisely the wedge this feature exists
-  for, so in that case the installation token lives out its own window.
-  What either residual reaches is one credential, and the honest description of
-  it is `issues: write` **on this repository** — GitHub has no per-issue
-  scoping, so a thief gets the repo's issue surface, not the one comment the
-  token is used for: opening, editing, closing, commenting on and labelling any
-  issue, the ops and agent-feedback surfaces included. Two things bound that.
-  It starts nothing — no workflow in this repository keys on an issue event, so
-  neither a label nor a comment is a trigger (*Labels are categories, not
-  triggers*, `AGENTS.md`) — and it is strictly narrower than the token a Claude
-  cell hands its agent outright, which carries the same `issues` plus
-  `contents: read` and `pull-requests: write`. The forgeable-evidence risk that
-  leaves is answered where it lands rather than by the scope: this cell's
-  comment is identified by App authorship as well as by its marker, so a record
-  planted by an account is passed over rather than adopted.
-  The token never enters a command line, because the watchdog's own published
-  bundle dumps every argument of every process this user owns, and the arm step
-  checks the check-in URL against this repository's own comments endpoint before
-  handing it over, so a credential cannot be aimed elsewhere.
+- **The engine watchdog holds no credential.** The engine hang bound
+  (`scripts/engine-watchdog.sh`; *Graceful degradation on limits* in
+  [docs/pipeline.md](docs/pipeline.md)) is trusted repo code that brackets
+  **every** engine's cell step: one configured engine deadline per cell job,
+  which every engine step's `timeout-minutes` reads and which the watchdog
+  fires a margin ahead of, so it can end a step's whole process tree before
+  the runner's own timeout. Everything it records stays on the runner — its
+  log, a marker, and a shapes-only diagnostics bundle — and leaves through the
+  cell's own tail: the disarm step turns a marker into a `::warning::` and a
+  step-summary line, records a deadline stop in the cell's `status.json`, and
+  carries the bundle into the cell artifact. That tail runs because acting is
+  what *concludes* the step. So no step mints a token for it, its arm and
+  disarm steps hold no GitHub credential, and the script makes no network
+  call.
 - **The reaper gives a cell one runner-local switch, and it is bounded by what a
   cell already faces.** The watchdog ends a step whose required output files all
   exist, parse, and stop changing — so an agent can end its own step early by
@@ -281,8 +215,7 @@ runbook, [docs/security.md](docs/security.md).
   and not writable by that account; the codex setup additionally strips other
   access from `RUNNER_TEMP`), so this rests on that ownership, not on the uid
   alone. The runner-local marker is therefore forgeable only by the same-user
-  engines, and the off-runner comment (codex-only by the split above) is the
-  channel no cell can forge at all.
+  engines.
   What either buys is narrow and worth stating exactly: the marker sets
   `agent_ok`, which routes the cell to the run's **ready** PR instead of the
   draft one, and nothing else. `produced` and `validated` still have to hold, the
@@ -290,7 +223,10 @@ runbook, [docs/security.md](docs/security.md).
   cell's credential still carries no `contents: write`, and a compliant agent
   could land the same bytes by finishing normally. The residual is that a cell
   which stopped early can present as one that finished — a claim about review
-  routing, not a capability.
+  routing, not a capability. The deadline markers (`FIRED`, `STOOD_DOWN`) are
+  forgeable on the same terms, and a planted one buys less still: it sets the
+  cell's `engine_deadline` in `status.json`, which only changes the reason the
+  draft PR names for a stop — it never readies a cell.
 - **No workflow creates a Release or holds a Zenodo credential.** Release
   archiving is Zenodo's GitHub integration: an OAuth grant on the maintainer's
   account (webhook administration across the repositories that account
@@ -443,9 +379,7 @@ runbook, [docs/security.md](docs/security.md).
   workflow authored on a PR branch runs without them. A second environment,
   `staging`, is restricted to the `staging` branch and holds the read-only
   role, its own engine keys for the pre-promotion integration runs, the
-  staging read-write role, the staging telemetry App's client id and
-  private key — the Issues-only App the repro leg's rehearsal record is
-  minted from. A third, `review`, holds no secret and no role and admits
+  staging read-write role. A third, `review`, holds no secret and no role and admits
   `main` and `staging`; beyond that its content is a required-reviewer rule,
   and it exists only as the audit-logged hold
   between a plan that would spend and the spend — run-predict, run-evaluate,
@@ -467,7 +401,10 @@ runbook, [docs/security.md](docs/security.md).
   store other than through the `prod` writers, read-only on production and
   read-write on the staging bucket pair alone, so production's single-writer
   discipline is unchanged and the worst a staging-bound write can corrupt is
-  the re-seedable fixture the refresh lane rebuilds in one dispatch.
+  the re-seedable fixture the refresh lane rebuilds in one dispatch. Until an
+  admin deletes it, it also still holds the unused `fedcourtsai-staging` App's
+  client id and key, which no workflow references (*The GitHub Apps* in
+  [docs/security.md](docs/security.md)).
 - **Prompt-injection awareness.** Third-party text is untrusted input, and it is
   the input a cell actually reads: the docket, the filed documents provisioned
   under `record/documents/` (party-authored), and — on an evaluate cell — the

@@ -25,31 +25,38 @@ they answer different questions even where they fall on the same moment:
   cell stamped before it ran against a commitment that could still be edited,
   which is retroactive blessing and nothing licenses it. Auditable from git:
   it is the merge time of the promotion that carried the freeze commit.
-- the **counting instant**, :data:`FROZEN_SINCE`, is when the headline starts
-  counting. It sits at or after every bless moment: guessed generously late at
-  the freeze commit, then verified at step 4 of the cutover against the merge
+- the **counting instant**, :data:`FROZEN_SINCE`, is when the current label's
+  cells start counting, and it opens every window the label newly blesses.
+  It sits at or after every bless moment: guessed generously late at the
+  freeze commit, then verified at step 4 of the cutover against the merge
   that landed. Where it sits strictly later, cells minted in the window
   between the two land honestly in the ledger and are de-counted by timing —
   shakedown, not retroactivity. Where step 4 puts it *at* the merge, the
   window is zero-width and there is no such cell to mint.
 
-A later evaluator-half re-bless revises the map's evaluator entries while
-holding the instant; a predictor-half re-bless replaces the enforced entries
-and puts the instant at or after the carrying promotion — by moving it, or by
-leaving one that already sits there — de-counting every cell stamped under
-the retired digests. Where that set holds a counted cell the move is licensed
-only by a shakedown declaration dated before the de-counted claim window's
-outcomes; where the prior instant has no cells yet, nothing counted moves and
-the re-freeze is the plain supersession (the freeze record carries each). The
-cutover procedure, its verification, and the supersession
-notes live in ``docs/process-version.md``.
+**Counting is per window.** A predictor digest's blessing opens a
+:class:`~fedcourtsai.schemas.CountingWindow` at its label's counting instant;
+a successor that stops blessing it closes the window at the successor's
+instant, and the window's cells keep counting under the label that opened it.
+:data:`COUNTING_WINDOWS` is that registry and the counting rule: a prediction
+is in scope where its digest has a window containing its stamp
+(:func:`is_frozen`), and where one predictor holds cells from several windows
+on one event only the earliest still-counting window's cell counts
+(:func:`counted_on_event`). Only a **revocation** — a dated freeze-record
+entry stating a defect — de-counts a window. An evaluation is gated on the
+instant that opened its prediction's window (:func:`graded_in_window`), not on
+a successor's. A later evaluator-half re-bless revises the map's evaluator
+entries while holding the instant; a predictor-half re-bless closes the
+superseded digests' windows and opens the new ones. The cutover procedure, its
+verification, and the supersession shapes live in ``docs/process-version.md``.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from types import MappingProxyType
@@ -61,14 +68,22 @@ from .registry import (
     load_predictors,
     resolve_mcp_servers,
 )
-from .schemas import EvaluatorConfig, FrozenProcessRecord, PredictorConfig, ProcessVersion
+from .schemas import (
+    CountingWindow,
+    EvaluatorConfig,
+    FrozenProcessRecord,
+    PredictorConfig,
+    ProcessVersion,
+    WindowCount,
+)
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
 CURRENT_PROCESS_LABEL = "proc-v8"
 
-# The blessed process digests, each mapped to its bless moment — the
-# frozen-headline set: the six proc-v8
+# The blessed process digests, each mapped to its bless moment — the current
+# label's blessing and the retroactivity record, not the counting rule (that is
+# COUNTING_WINDOWS below): the six proc-v8
 # baselines (claude/codex/gemini, predictor and evaluator each), read off
 # `fedcourts process-digest --all`; set together with FROZEN_SINCE below,
 # which a test pins. proc-v8 is a **full** freeze: all six digests are newly
@@ -81,8 +96,9 @@ CURRENT_PROCESS_LABEL = "proc-v8"
 # the mask's ground becomes a counted field the grader names rather than free
 # text inside `basis`. The map holds one blessed process per actor, so
 # proc-v7's six digests are replaced rather than kept beside these. This
-# constant names the live fleet's processes alone; the retired digests and the
-# census of what ran under them live in the freeze record. Keyed
+# constant names the live fleet's processes alone; the de-counted digests of
+# earlier labels and the census of what ran under them live in the freeze
+# record. Keyed
 # on the digest, never the label,
 # so a process that drifted under an unchanged label is not silently blessed.
 #
@@ -173,6 +189,54 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
 # it so — the hold stays the control over *when* the first counted round
 # spends, not over whether its cells can count.
 FROZEN_SINCE: datetime | None = datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC)
+
+# The counting registry: one window per blessing of a predictor digest, and
+# the counting rule every frozen-scope reader applies (`is_frozen`,
+# `counted_on_event`, `graded_in_window`). A window opens at the counting
+# instant of the label that blessed its digest and closes at the counting
+# instant of the successor that stops blessing it, each as its `prereg/` tag
+# records it. Closing de-counts nothing: a closed window's cells keep counting
+# under the label that opened it. Only a revocation — `revoked_at`, on a dated
+# freeze-record entry that states a defect from committed artifacts — de-counts
+# a window, and its events are then re-owed afresh.
+#
+# A successor's freeze commit therefore *adds* to this tuple rather than
+# replacing it: it sets `closes` on each window whose digest it stops blessing
+# (to its own counting instant) and appends one window per digest it newly
+# blesses, opening at that instant. A digest carried forward byte-identical
+# keeps its window open and unbroken, still under the label that opened it; a
+# digest blessed again after its window closed opens a second window. Keyed on
+# the digest, like the bless map, so a process that drifted under an unchanged
+# label is not silently counted.
+#
+# Predictor digests only: an evaluator digest records and never partitions,
+# so it has no window; an evaluation's counting is its prediction's window's
+# timing gate (`graded_in_window`).
+#
+# The labels before proc-v8 are not windows. Their digests were de-counted when
+# each was superseded, under the rule then in force, and the freeze record's
+# 2026-09-26 entry leaves them de-counted.
+#
+# proc-v8 opens one window per predictor digest, at FROZEN_SINCE (a test pins
+# both that and that none of the three leaves this registry without a closing
+# instant): claude-baseline, codex-baseline, gemini-baseline.
+COUNTING_WINDOWS: tuple[CountingWindow, ...] = (
+    CountingWindow(
+        label="proc-v8",
+        digest="sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+        opens=datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC),
+    ),
+    CountingWindow(
+        label="proc-v8",
+        digest="sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+        opens=datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC),
+    ),
+    CountingWindow(
+        label="proc-v8",
+        digest="sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
+        opens=datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC),
+    ),
+)
 
 # The retrieval surface each engine's cells run with. Folded into the digest
 # because it is a process input as much as the model or the prompt: a cell that
@@ -283,20 +347,6 @@ def _find(
     raise KeyError(f"{role} {actor_id!r} is not in the registry")
 
 
-def at_or_after_freeze(moment: datetime) -> bool:
-    """Whether a moment is at or after :data:`FROZEN_SINCE` (trivially true unfrozen).
-
-    A naive moment has no defined order against the timezone-aware freeze
-    instant, so it reads as **before** the freeze by rule — excluded, never a
-    comparison error taking down every scoreboard at once.
-    """
-    if FROZEN_SINCE is None:
-        return True
-    if moment.tzinfo is None:
-        return False
-    return moment >= FROZEN_SINCE
-
-
 def blessed_at(digest: str) -> datetime | None:
     """The instant ``digest`` was blessed, or ``None`` if it never was.
 
@@ -312,16 +362,16 @@ def at_or_after_bless(process_version: ProcessVersion | None) -> bool:
     """Whether a stamped cell was minted at or after its own digest was blessed.
 
     The **retroactivity** boundary, not the counting one: a cell that passes
-    this and still predates :data:`FROZEN_SINCE` is an honest shakedown cell —
-    it ran against a commitment already immutable on ``main``, and only timing
-    keeps it out of the headline. A cell that *fails* it carries a digest
-    blessed after it ran, which is retroactive blessing and no declaration
-    licenses it.
+    this and still predates its window's opening instant is an honest
+    shakedown cell — it ran against a commitment already immutable on
+    ``main``, and only timing keeps it out of the headline. A cell that
+    *fails* it carries a digest blessed after it ran, which is retroactive
+    blessing and no declaration licenses it.
 
     False for an unstamped cell and for an unblessed digest — neither has a
     bless moment to be after — and false for a naive ``stamped_at``, which has
     no defined order against the aware bless instant, the same exclusion rule
-    :func:`at_or_after_freeze` applies.
+    :meth:`fedcourtsai.schemas.CountingWindow.contains` applies.
     """
     if process_version is None:
         return False
@@ -331,48 +381,321 @@ def at_or_after_bless(process_version: ProcessVersion | None) -> bool:
     return process_version.stamped_at >= bless
 
 
-def graded_post_freeze(process_version: ProcessVersion | None) -> bool:
-    """Whether an evaluation's own harness stamp is at or after the freeze.
+def freeze_in_force() -> bool:
+    """Whether a freeze is in force: a counting instant set and a window registered.
 
-    The time half only: the evaluator's digest is recorded but deliberately
-    not enforced for counting (the competitor being ranked is the predictor;
-    its retroactivity is the evaluation-ledger tripwire's job). Keyed on the
-    evaluation's **harness-written** stamp, never its agent-written
-    ``created_at`` — the pre-registration boundary must not rest on a clock
-    the agent controls. While unfrozen this is a no-op; after the freeze an
-    unstamped evaluation is out of frozen scope, the same doctrine as an
-    unstamped prediction (local runs are unstamped and stay diagnostic).
+    While none is, there is a single process scope: every committed cell is in
+    it, no grading is timing-gated, and the re-predict rule has no partition to
+    repair. The two constants move together (a test pins it), so either reads
+    the same on the live registry; requiring both keeps a registry patched
+    without an instant — digest membership alone, no time gate — behaving as
+    it reads.
     """
-    if FROZEN_SINCE is None:
-        return True
-    return process_version is not None and at_or_after_freeze(process_version.stamped_at)
+    return FROZEN_SINCE is not None and bool(COUNTING_WINDOWS)
+
+
+def window_of(process_version: ProcessVersion | None) -> CountingWindow | None:
+    """The window whose digest and span contain this stamp, revoked or not.
+
+    ``None`` for an unstamped cell, for a digest no window names, and for a
+    stamp outside every window of its digest — before the opening instant (a
+    shakedown run of the very bytes later blessed) or at or after a close. A
+    digest's windows never overlap (a test holds the registry to it), so at
+    most one matches.
+    """
+    if process_version is None:
+        return None
+    for window in COUNTING_WINDOWS:
+        if window.digest == process_version.digest and window.contains(process_version.stamped_at):
+            return window
+    return None
 
 
 def is_frozen(process_version: ProcessVersion | None) -> bool:
-    """Whether a cell's stamp is in the blessed frozen set, run post-freeze.
+    """Whether a cell's stamp lies in a counting window that still counts.
 
-    An unstamped cell (``None``) is never frozen — its digest cannot be in the
-    set — so the shakedown ledger is excluded from the headline for free. A
-    stamped cell's ``stamped_at`` must also be at or after
-    :data:`FROZEN_SINCE`: the digest says *which* process ran, never *when*,
-    and a shakedown run of the very bytes later blessed is still a shakedown
-    run. The **counting** instant is the one gated here, never the digest's own
-    bless moment — a cell minted in the window between them is a legitimate
-    ledger cell that this correctly leaves out of the headline.
+    The per-cell half of the counting rule: the digest must have a window in
+    :data:`COUNTING_WINDOWS` whose span contains ``stamped_at``, and no
+    revocation may have de-counted that window. A **closed** window still
+    counts — closing is what a successor does, and it removes nothing. An
+    unstamped cell (``None``) is never frozen, so the shakedown ledger is
+    excluded from the headline for free; and the digest says *which* process
+    ran, never *when*, so a shakedown run of the very bytes later blessed is
+    still a shakedown run. The **counting** instant is the one gated here,
+    never the digest's own bless moment.
+
+    The event half — one counted forecast per predictor and event, the
+    earliest window's — is :func:`counted_on_event`, and a reader that scores
+    or stages a cell asks that one.
     """
-    if process_version is None or process_version.digest not in FROZEN_PROCESS_DIGESTS:
+    window = window_of(process_version)
+    return window is not None and window.revoked_at is None
+
+
+def _earliest_opening() -> datetime | None:
+    """The earliest instant any registered window opens at, or ``None`` with none."""
+    return min((window.opens for window in COUNTING_WINDOWS), default=None)
+
+
+def counted_on_event(
+    process_version: ProcessVersion | None,
+    siblings: Callable[[], Iterable[ProcessVersion | None]],
+) -> bool:
+    """Whether this cell is in its predictor's counted window on the event.
+
+    ``siblings`` yields the stamps of **every** prediction the same predictor
+    committed on the same event (this one included), and is called only where
+    the answer can depend on them. Three conditions:
+
+    * the cell :func:`is_frozen` — in a window, and that window not revoked;
+    * **the earliest window counts.** No sibling sits in a still-counting
+      window that opened earlier. Where a predictor holds cells from several
+      windows on one event — a named dispatch, or an attempt still open at a
+      successor's instant — the earliest window's cell counts and a later
+      window's counts in no window;
+    * **a revocation never decides which existing forecast is scored.** Where a
+      sibling sits in an earlier window that has since been revoked, this cell
+      counts only if it was stamped at or after that revocation — the fresh
+      forecast the backlog re-owes. One stamped before it stays uncounted, and
+      an uncounted earlier-window cell does not block a later one: only a
+      sibling that itself counts takes the count.
+
+    Within one window every run is a candidate, and the run collapse picks the
+    counted cell among them exactly as it does for a single window.
+
+    Short-circuits without reading ``siblings`` for a cell in a window that
+    opened at the earliest registered instant: nothing can sit in an earlier
+    window, so there is nothing to lose the tie-break to or be revoked behind.
+    """
+    window = window_of(process_version)
+    if process_version is None or window is None or window.revoked_at is not None:
         return False
-    return at_or_after_freeze(process_version.stamped_at)
+    earliest = _earliest_opening()
+    if earliest is None or window.opens <= earliest:
+        return True
+    stamps = list(siblings())
+    return _unblocked(process_version, window, stamps)
+
+
+def _unblocked(
+    process_version: ProcessVersion, window: CountingWindow, stamps: list[ProcessVersion | None]
+) -> bool:
+    """Whether no sibling in an earlier window takes the count from this cell.
+
+    An earlier **revoked** window's sibling blocks a cell stamped before the
+    revocation, and never one stamped after it. An earlier **counting**
+    window's sibling blocks only where it is itself counted — so a stale
+    earlier-window cell that a revocation left uncounted does not stand in
+    front of the fresh forecast made after that revocation. Recursion runs over
+    strictly earlier windows, so it terminates.
+    """
+    for sibling in stamps:
+        other = window_of(sibling)
+        if sibling is None or other is None or other.opens >= window.opens:
+            continue
+        if other.revoked_at is not None:
+            if process_version.stamped_at < other.revoked_at:
+                return False
+        elif _unblocked(sibling, other, stamps):
+            return False
+    return True
+
+
+def staging_excluded(
+    process_version: ProcessVersion | None,
+    siblings: Callable[[], Iterable[ProcessVersion | None]],
+) -> bool:
+    """Whether a cell sits in a live window yet is not its predictor's counted cell.
+
+    The cells :func:`counted_on_event` leaves counting nowhere. They are never
+    the latest-run candidate — for evaluation staging, the scored-prediction
+    fallback, or the stamp's ``prediction_run_id`` — so a later window's cell
+    is not staged for grading in place of the earliest window's. Every other
+    cell, in scope or not, stays a candidate exactly as before, so which run is
+    latest is unchanged wherever the tie-break has nothing to decide.
+    """
+    return is_frozen(process_version) and not counted_on_event(process_version, siblings)
+
+
+def graded_in_window(evaluation: ProcessVersion | None, prediction: ProcessVersion | None) -> bool:
+    """Whether an evaluation's own harness stamp passes its prediction's window gate.
+
+    The timing half of an evaluation's counting: stamped at or after the
+    instant that **opened the graded prediction's window** — not a successor's
+    later instant, so a closed window's cells keep the gradings made before
+    the successor froze. The evaluator's digest is recorded but deliberately
+    not enforced (the competitor being ranked is the predictor; its
+    retroactivity is the evaluation-ledger tripwire's job). Keyed on the
+    evaluation's **harness-written** stamp, never its agent-written
+    ``created_at`` — the pre-registration boundary must not rest on a clock the
+    agent controls. While no window is registered this is a no-op; otherwise
+    an unstamped evaluation, a naive stamp, and a prediction in no window all
+    fail it (local runs are unstamped and stay diagnostic).
+    """
+    if not freeze_in_force():
+        return True
+    window = window_of(prediction)
+    if window is None or evaluation is None or evaluation.stamped_at.tzinfo is None:
+        return False
+    return evaluation.stamped_at >= window.opens
 
 
 def frozen_process_record() -> FrozenProcessRecord:
     """The freeze constants as the board-embeddable provenance block.
 
     The boards publish ``process_scope`` but the partition's *definition* lives
-    in this module's two constants, so a built artifact records them via this
+    in this module's constants, so a built artifact records them via this
     record (:class:`fedcourtsai.schemas.FrozenProcessRecord`) — what "frozen"
-    meant at build time, answerable from the artifact alone. Deterministic:
-    the constants change only with a freeze commit, so the same tree always
-    yields the same record.
+    meant at build time, the counting windows included, answerable from the
+    artifact alone. Deterministic: the constants change only with a freeze
+    commit, so the same tree always yields the same record.
     """
-    return FrozenProcessRecord(digests=sorted(FROZEN_PROCESS_DIGESTS), since=FROZEN_SINCE)
+    return FrozenProcessRecord(
+        digests=sorted(FROZEN_PROCESS_DIGESTS),
+        since=FROZEN_SINCE,
+        windows=list(COUNTING_WINDOWS),
+    )
+
+
+def resolvable_runs[T](runs: Sequence[T], stamp: Callable[[T], ProcessVersion | None]) -> list[T]:
+    """``runs`` less the cells :func:`staging_excluded` names, order kept.
+
+    ``runs`` is every prediction one predictor committed on one event, and
+    ``stamp`` reads each one's harness stamp. The one filter every
+    latest-run resolution applies before it takes the newest — evaluation
+    staging, the scored-prediction fallback, and the stamp's
+    ``prediction_run_id`` — so all three resolve the same run.
+    """
+    stamps = [stamp(run) for run in runs]
+    return [
+        run
+        for run, own in zip(runs, stamps, strict=True)
+        if not staging_excluded(own, lambda: stamps)
+    ]
+
+
+def describe_windows(windows: Iterable[CountingWindow]) -> str:
+    """A stable, human-readable listing of windows for a refusal message.
+
+    Label plus opening instant, so two windows sharing a label stay distinct.
+    """
+    ordered = sorted(windows, key=lambda w: (w.opens, w.digest))
+    return ", ".join(f"{w.label}@{w.opens.isoformat()}" for w in ordered)
+
+
+class PooledWindowsError(ValueError):
+    """A figure that would pool one predictor's cells from two counting windows as one series.
+
+    Raised where a surface keyed on ``predictor_id`` (or the engine) alone meets
+    a predictor whose in-scope cells span two windows, and where two of one
+    predictor's windows share a label, which would publish two series under one
+    name.
+    """
+
+
+#: One forecaster on a frozen-scope figure: a predictor and the counting window
+#: its counted cells come from (``None`` on an all-versions build, which keys on
+#: the predictor alone).
+type Series = tuple[str, CountingWindow | None]
+
+
+def series_sort_key(series: Series) -> tuple[str, float, str]:
+    """A total order over series: predictor id, then the window's opening instant.
+
+    One predictor's windows run in sequence, so this lists its series in the
+    order its windows opened; the digest settles the (unregistrable) tie.
+    """
+    predictor_id, window = series
+    if window is None:
+        return (predictor_id, float("-inf"), "")
+    return (predictor_id, window.opens.timestamp(), window.digest)
+
+
+def window_label(window: CountingWindow | None) -> str | None:
+    """The label a figure over ``window``'s cells is published under, or ``None``."""
+    return window.label if window is not None else None
+
+
+def refuse_shared_labels(series: Iterable[Series], *, surface: str) -> None:
+    """Raise where two of one predictor's windows share a label.
+
+    Every per-window figure is published under ``(predictor_id, label)``, so
+    two windows that both carried one label would be two series under one
+    name. A label blesses one digest per predictor, so the registry cannot
+    produce this; the check keeps a hand-edited registry from doing it silently.
+    """
+    labels: dict[tuple[str, str], set[CountingWindow]] = {}
+    for predictor_id, window in series:
+        if window is not None:
+            labels.setdefault((predictor_id, window.label), set()).add(window)
+    shared = sorted(key for key, spans in labels.items() if len(spans) > 1)
+    if shared:
+        raise PooledWindowsError(
+            f"{surface}: two counting windows share a label for "
+            + ", ".join(
+                f"{pid} ({describe_windows(labels[(pid, label)])})" for pid, label in shared
+            )
+            + " — a per-window figure could not name them apart"
+        )
+
+
+def co_current(windows: Iterable[CountingWindow]) -> bool:
+    """Whether every window was open at one instant: the latest opening precedes every close.
+
+    The windows a cross-engine comparison may read together. A closed window
+    and the successor that closed it never ran together, so an event whose
+    predictors' counted cells come from both is a **split event** and belongs
+    to no complete grid. Windows that opened at one instant (``proc-v8``'s
+    three) and a carried-forward window beside either side of a successor are
+    co-current.
+    """
+    spans = list(windows)
+    if not spans:
+        return True
+    latest = max(window.opens for window in spans)
+    return all(window.closes is None or window.closes > latest for window in spans)
+
+
+def pooled_windows(counts: Mapping[Series, int]) -> list[WindowCount]:
+    """The series a pooled figure spans, with each one's ``n`` — or ``[]`` under one label.
+
+    The record-across-labels listing (``docs/process-version.md``, *No figure
+    pools windows*): a figure keyed on something other than the forecaster
+    lists its series where they carry more than one label, and is never a rank
+    key. Under a single label — every window opening at one instant, as
+    ``proc-v8``'s do — the artifact's ``frozen_process.windows`` already names
+    it and nothing is listed; an all-versions build (series without a window)
+    lists nothing either.
+    """
+    labels = {window.label for _, window in counts if window is not None}
+    if len(labels) <= 1:
+        return []
+    return [
+        WindowCount(predictor_id=predictor_id, process_window=window.label, n=n)
+        for (predictor_id, window), n in sorted(
+            counts.items(), key=lambda item: series_sort_key(item[0])
+        )
+        if window is not None
+    ]
+
+
+@contextmanager
+def counting_windows(windows: Sequence[CountingWindow]) -> Iterator[None]:
+    """Read the counting rule over ``windows`` instead of the registry, for one block.
+
+    For the one reader that must see the ledger as a different registry would
+    count it: a revoked window's figures over its resolved slice, which lift
+    that window's revocation to show what the revocation removed
+    (:func:`fedcourtsai.window_records.revoked_window_board`). Every counting
+    function reads :data:`COUNTING_WINDOWS` at call time, so the whole rule —
+    the event tie-break, the timing gate, staging's resolver — follows the
+    override, and the committed registry is restored on exit whatever happens.
+    Never used on a path that writes the ledger.
+    """
+    global COUNTING_WINDOWS  # noqa: PLW0603 - swapping the registry is the override
+    saved = COUNTING_WINDOWS
+    COUNTING_WINDOWS = tuple(windows)
+    try:
+        yield
+    finally:
+        COUNTING_WINDOWS = saved

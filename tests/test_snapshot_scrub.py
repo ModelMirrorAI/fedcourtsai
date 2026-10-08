@@ -536,7 +536,9 @@ def test_no_code_outside_the_scrub_names_a_withheld_key() -> None:
         tree = ast.parse(path.read_text())
         named = (_key_literals(tree) & keys) - allowed.get(rel, set())
         named |= _imported_names(tree) & exports - (
-            {"scrub_snapshot_contacts"} if rel == "cli.py" else set()
+            # The record writer, which stages the scrubbed copy, is the one
+            # caller of the scrub itself.
+            {"scrub_snapshot_contacts"} if rel == "provision.py" else set()
         )
         if named:
             offenders[rel] = named

@@ -1,8 +1,11 @@
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
+from fedcourtsai.blinding import assign_aliases
 from fedcourtsai.matrix import (
     CaseRequest,
     cap_predict_cells,
@@ -10,6 +13,7 @@ from fedcourtsai.matrix import (
     evaluate_matrix,
     event_has_evaluations,
     event_has_predictions,
+    fanout_order,
     last_predicted_dates,
     merits_event_case_ids,
     parse_cases,
@@ -520,3 +524,172 @@ def test_cell_failure_count_is_per_actor_event_and_seam(tmp_path: Path) -> None:
     _write_failure(data_root, "scotus", 1, event, "claude-judge", "predict", "R1")
     _write_failure(data_root, "scotus", 1, "evt-other", "claude-judge", "evaluate", "R1")
     assert cell_failure_count(data_root, "scotus", 1, event, "claude-judge", "evaluate") == 1
+
+
+# --- fan-out order -------------------------------------------------------------
+#
+# GitHub starts a matrix's `include` entries in list order under max-parallel, so
+# list position is start time. These pin that no engine is systematically early
+# or late, and that order is the only thing the layout decides. Every input is
+# fixed, so none of these can flake: the SE-based tolerances bound how badly a
+# biased key could still pass, not run-to-run noise — never widen them for that.
+
+_BALANCE_CASES = 600
+_MatrixBuilder = Callable[[Path, list[CaseRequest], str], dict[str, list[dict[str, Any]]]]
+
+
+def _synthetic_cases(n: int) -> list[CaseRequest]:
+    return [CaseRequest("scotus", 25_000 + d, ("evt-petition-cert",)) for d in range(n)]
+
+
+def _positions(include: list[dict[str, Any]], actor_key: str) -> dict[str, list[int]]:
+    """Each actor's 0-based position within its (case, event) group of cells."""
+    groups: dict[tuple[str, int, str], list[str]] = {}
+    for cell in include:
+        group = (cell["court"], cell["docket"], cell["event_id"])
+        groups.setdefault(group, []).append(cell[actor_key])
+    positions: dict[str, list[int]] = {}
+    for actors in groups.values():
+        for i, actor in enumerate(actors):
+            positions.setdefault(actor, []).append(i)
+    return positions
+
+
+@pytest.mark.parametrize(
+    ("builder", "registry", "actor_key"),
+    [
+        (predict_matrix, PREDICTORS, "predictor_id"),
+        (evaluate_matrix, EVALUATORS, "evaluator_id"),
+    ],
+)
+def test_fanout_balances_every_engines_position(
+    builder: _MatrixBuilder, registry: Path, actor_key: str
+) -> None:
+    # Over many cases each engine's mean slot within its case sits at the centre
+    # (1.0 for three engines; per-cell sd ~0.82, so the SE over 600 cases is
+    # ~0.03 and 0.1 is >3 SE), and none takes the first or the last slot in much
+    # more than its 1/n share (SE ~0.02, so +0.06 is ~3 SE).
+    include = builder(registry, _synthetic_cases(_BALANCE_CASES), "20261006T120000Z")["include"]
+    positions = _positions(include, actor_key)
+    n = len(positions)
+    assert n == 3
+    centre = (n - 1) / 2
+    for actor, slots in positions.items():
+        assert len(slots) == _BALANCE_CASES
+        assert abs(sum(slots) / len(slots) - centre) < 0.1, actor
+        first_share = sum(1 for s in slots if s == 0) / len(slots)
+        assert first_share < 1 / n + 0.06, actor
+        last_share = sum(1 for s in slots if s == n - 1) / len(slots)
+        assert last_share < 1 / n + 0.06, actor
+
+
+@pytest.mark.parametrize(
+    ("builder", "registry", "actor_key"),
+    [
+        (predict_matrix, PREDICTORS, "predictor_id"),
+        (evaluate_matrix, EVALUATORS, "evaluator_id"),
+    ],
+)
+def test_fanout_balances_pairwise_precedence(
+    builder: _MatrixBuilder, registry: Path, actor_key: str
+) -> None:
+    # A plain rotation of the registry order would still put claude ahead of
+    # codex in two cases of three; the keyed shuffle balances every pair
+    # (SE ~0.02 over 600 cases, so 0.07 is >3 SE).
+    include = builder(registry, _synthetic_cases(_BALANCE_CASES), "RID")["include"]
+    pos = _positions(include, actor_key)
+    actors = sorted(pos)
+    for i, a in enumerate(actors):
+        for b in actors[i + 1 :]:
+            ahead = sum(1 for x, y in zip(pos[a], pos[b], strict=True) if x < y)
+            assert abs(ahead / _BALANCE_CASES - 0.5) < 0.07, (a, b)
+
+
+def test_fanout_order_is_keyed_per_event_not_only_per_case() -> None:
+    # The key carries the event, so a two-event case does not hand the same
+    # engine the first slot on both events: the two orders agree only at the
+    # 1-in-3! chance rate (SE ~0.015 over 600 cases, so +0.06 is ~4 SE).
+    two_events = ("evt-petition-a", "evt-petition-b")
+    cases = [CaseRequest("scotus", 26_000 + d, two_events) for d in range(_BALANCE_CASES)]
+    include = predict_matrix(PREDICTORS, cases, "RID")["include"]
+    orders: dict[tuple[int, str], list[str]] = {}
+    for cell in include:
+        orders.setdefault((cell["docket"], cell["event_id"]), []).append(cell["predictor_id"])
+    same = sum(
+        1
+        for d in range(_BALANCE_CASES)
+        if orders[(26_000 + d, two_events[0])] == orders[(26_000 + d, two_events[1])]
+    )
+    assert same / _BALANCE_CASES < 1 / 6 + 0.06
+
+
+def test_fanout_is_case_major_in_request_order() -> None:
+    # A case's cells sit together, cases in the order requested, so a large run
+    # interleaves engines across its whole start window.
+    cases = [
+        CaseRequest("scotus", 30, ("evt-petition-a",)),
+        CaseRequest("scotus", 10, ("evt-petition-b", "evt-petition-c")),
+        CaseRequest("scotus", 20, ("evt-petition-d",)),
+    ]
+    include = predict_matrix(PREDICTORS, cases, "RID")["include"]
+    groups = [(30, "evt-petition-a"), (10, "evt-petition-b"), (10, "evt-petition-c")]
+    groups.append((20, "evt-petition-d"))
+    assert [(c["docket"], c["event_id"]) for c in include] == [g for g in groups for _ in range(3)]
+
+
+def test_fanout_order_is_deterministic_and_keyed_on_the_run() -> None:
+    cases = _synthetic_cases(50)
+    first = predict_matrix(PREDICTORS, cases, "20261006T120000Z")["include"]
+    # A re-plan under the same run id reproduces the order exactly.
+    assert predict_matrix(PREDICTORS, cases, "20261006T120000Z")["include"] == first
+    other = predict_matrix(PREDICTORS, cases, "20261007T120000Z")["include"]
+    assert [c["predictor_id"] for c in first] != [c["predictor_id"] for c in other]
+    # The run id moves order, never membership.
+    assert sorted(map(_cell_identity, first)) == sorted(map(_cell_identity, other))
+
+
+def _cell_identity(cell: dict[str, Any]) -> tuple[str, str, int, str]:
+    return (cell["predictor_id"], cell["court"], cell["docket"], cell["event_id"])
+
+
+def test_fanout_order_does_not_track_the_blinding_shuffle() -> None:
+    # The fan-out key is domain-separated from `assign_aliases`, which hashes the
+    # same (run, case, event) joined with each predictor id: without the prefix,
+    # the predict fan-out order under a run would equal the alias order those
+    # predictors get under the same run, case and event in every trial.
+    predictors = enabled_predictors(PREDICTORS)
+    ids = [p.id for p in predictors]
+    trials = 300
+    agree = 0
+    for d in range(trials):
+        aliases = assign_aliases(ids, case_id=f"scotus/{d}", event_id="evt-x", run_id="RID")
+        fan = fanout_order(predictors, run_id="RID", case=f"scotus/{d}", event_id="evt-x")
+        agree += list(aliases.values()) == [p.id for p in fan]
+    # Independent streams agree on 1 permutation in 3! = 6 (SE ~6.5 over 300).
+    assert agree < trials / 6 + 25
+
+
+def _registry_major(include: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The same cells laid out predictor-major, a layout the cap must not care about."""
+    rank = {p.id: i for i, p in enumerate(enabled_predictors(PREDICTORS))}
+    first_seen: dict[int, int] = {}
+    for i, cell in enumerate(include):
+        first_seen.setdefault(cell["docket"], i)
+    return sorted(include, key=lambda c: (rank[c["predictor_id"]], first_seen[c["docket"]]))
+
+
+@pytest.mark.parametrize("max_cells", [1, 3, 7, 10, 20, 31, 45, 200])
+def test_cap_admits_the_same_cases_whatever_the_fanout_order(max_cells: int) -> None:
+    # Uneven per-case cell counts (two-event cases, a narrowed backfill case), so
+    # whole-case admission is exercised at boundaries that are not multiples of 3.
+    events = ("evt-petition-a", "evt-petition-b")
+    cases = [CaseRequest("scotus", 24_000 + d, events[: 1 + d % 2]) for d in range(12)]
+    cases.append(CaseRequest("scotus", 23_999, events[:1], predictors=("codex-baseline",)))
+    matrix = predict_matrix(PREDICTORS, cases, "RID")
+    reordered = {"include": _registry_major(matrix["include"])}
+    assert reordered["include"] != matrix["include"]
+    new = cap_predict_cells(matrix, max_cells)
+    old = cap_predict_cells(reordered, max_cells)
+    assert sorted(new.include, key=_cell_identity) == sorted(old.include, key=_cell_identity)
+    assert new.dropped_cases == old.dropped_cases
+    assert new.dropped_cells == old.dropped_cells

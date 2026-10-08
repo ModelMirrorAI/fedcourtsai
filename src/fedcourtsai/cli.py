@@ -24,7 +24,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
-from typing import Annotated, Any, Literal, NamedTuple, cast, get_args
+from typing import Annotated, Any, Literal, cast, get_args
 from urllib.parse import quote
 
 import httpx
@@ -66,6 +66,7 @@ from . import (
     secretscan,
     summaries,
     tool_usage,
+    window_records,
 )
 from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
 from .application_migration import (
@@ -94,7 +95,6 @@ from .cert_backtest import (
     draw_cert_backtest_set,
     replay_predictors,
     run_cert_backtest,
-    truncate_snapshot,
 )
 from .claim_metrics import agreement_summary, build_claim_scores
 from .cohort_cut import counted_by_conference
@@ -162,7 +162,6 @@ from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .handoff import HandoffRefused, read_handoff, write_handoff
 from .integrity import (
-    cell_clock,
     evaluation_clock,
     forward_claim_record,
     latest_evaluation_runs,
@@ -172,6 +171,8 @@ from .leaderboard import (
     big_case_agreement,
     build_leaderboard,
     cell_facts,
+    coverage_shortfalls,
+    entry_name,
     evaluator_agreement,
     skill_components,
     vote_scores,
@@ -225,8 +226,6 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import (
     application_backfill,
-    arrival_cut,
-    cell_context,
     granted_noted,
     historical,
     liveprobe,
@@ -280,11 +279,7 @@ from .pipeline.documents import (
     document_fetch_losses,
     document_text_coverage,
     extract_pdf_text,
-    party_contact_values,
     questions_presented_extract,
-    scrub_contact_details,
-    scrub_snapshot_contacts,
-    unrepresented_sides,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.judgment import backfill_merits_judgments
@@ -341,6 +336,12 @@ from .registry import (
     load_mcp_servers,
     load_predictors,
     resolve_mcp_servers,
+)
+from .release_sensitivity import (
+    GitBuildSource,
+    ReleaseSensitivityError,
+    release_sensitivity,
+    render_table,
 )
 from .required_checks import produced_contexts
 from .salience_replay import replay_gate
@@ -413,9 +414,11 @@ from .store import (
     iter_predicted_events,
     iter_tooling,
     iter_usage,
+    latest_resolvable,
     ledger_cell_counts,
     load_predicted_event,
     open_events,
+    prediction_counts,
     resolved_events,
     scored_prediction,
     stratify,
@@ -452,7 +455,6 @@ from .vote_writer import (
     vote_docket_numbers,
     vote_plan,
 )
-from .watchdog_telemetry import arm_checkin, disarm_checkin
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
 
@@ -4960,6 +4962,51 @@ def _require_corpus_remote_url() -> str:
     return remote_url.strip()
 
 
+def _blob_drift_text(drift: corpus_remote.BlobDrift) -> str:
+    """One clause naming a local blob that no longer matches its pointer.
+
+    The likely cause depends on the record compared: the pull sidecar names
+    exactly what was pulled, so a mismatch there is a rewrite on disk; a
+    committed ref compared for want of a sidecar may instead have moved since
+    the pull, with a checkout to another commit.
+    """
+    pulled = drift.pointer_source.name.endswith(".pulled" + corpus_ranged.POINTER_SUFFIX)
+    cause = (
+        "it was rewritten since the pull, most often by a local read that migrated "
+        "its schema in place"
+        if pulled
+        else "it is not the blob that pointer names — rewritten in place by a local "
+        "read that migrated its schema, built locally, or the committed pointer moved"
+    )
+    return (
+        f"the blob on disk no longer matches the sha256 its pointer names "
+        f"({drift.pointer_source.name} sha256 {drift.pointer_sha256}, on disk sha256 "
+        f"{drift.on_disk_sha256}): {cause}"
+    )
+
+
+def _pointer_behind_upstream(db_path: Path) -> str | None:
+    """One clause when the checkout's committed pointer differs from production's.
+
+    Production's is the pointer ``origin/main`` carries as of the clone's last
+    fetch, read from the local object store with no network. ``None`` when the
+    two agree or either cannot be read — a clone without ``origin/main``
+    (a shallow CI checkout of another branch) has nothing to compare.
+    """
+    committed_path = corpus_remote.pointer_path_for(db_path)
+    try:
+        committed = corpus_ranged.read_index_pointer(committed_path)
+    except corpus_ranged.RangedBackendError:
+        return None
+    upstream = corpus_remote.upstream_pointer(db_path)
+    if upstream is None or upstream.sha256 == committed.sha256:
+        return None
+    return (
+        f"the checkout's {committed_path.name} (sha256 {committed.sha256}) differs from "
+        f"{corpus_remote.UPSTREAM_POINTER_REF}'s as last fetched (sha256 {upstream.sha256})"
+    )
+
+
 @app.command("corpus-pull")
 def corpus_pull(
     missing_pointer: Annotated[
@@ -4978,6 +5025,11 @@ def corpus_pull(
     remote URL, streams the blob to ``corpus/corpus.db``, and verifies its
     digest and size before the file lands — a truncated or corrupted transfer
     fails loudly instead of masquerading as the corpus.
+
+    Warns on stderr, without changing what it fetches, when the local blob it
+    replaces no longer matched its pointer (a local read migrated it in place)
+    and when the committed pointer differs from the one ``origin/main``
+    carries as of the last fetch (a checkout on an old commit pulls an old blob).
     """
     if missing_pointer not in {"fail", "warn"}:
         typer.echo(f"--missing-pointer must be 'fail' or 'warn', not {missing_pointer!r}", err=True)
@@ -5003,6 +5055,22 @@ def corpus_pull(
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=1) from exc
     remote_url = _require_corpus_remote_url()
+    if isinstance(pointer, Path):
+        stale = _pointer_behind_upstream(db_path)
+        if stale is not None:
+            typer.echo(
+                f"corpus-pull: warning: {stale} — this pull fetches the checkout's "
+                "pointer's blob, not the current corpus",
+                err=True,
+            )
+    # Checked before the download replaces it: the verified copy that lands
+    # matches its pointer by construction, so the drift is only visible now.
+    drift = corpus_remote.local_blob_drift(db_path)
+    if drift is not None:
+        typer.echo(
+            f"corpus-pull: warning: {_blob_drift_text(drift)}; this pull replaces it",
+            err=True,
+        )
     try:
         remote = corpus_remote.download_index(pointer, remote_url, db_path)
     except (corpus_remote.CorpusRemoteError, corpus_ranged.RangedBackendError) as exc:
@@ -5325,13 +5393,15 @@ def leaderboard(
     panel depth (``metrics/README.md``).
 
     Defaults to the **frozen** headline: only cells whose predictor ran the
-    blessed frozen process. Until a stamped cell postdates the freeze instant
+    blessed frozen process inside its counting window. Until a stamped cell does
     that is legitimately empty. ``--all-versions`` pools every process version.
     """
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     frozen_only = not all_versions
-    run = stratify(settings.data_root, frozen_only=frozen_only)
+    # Keyed on (predictor, window) throughout, so a predictor whose counted
+    # cells span two windows gets an entry per window rather than a refusal.
+    run = stratify(settings.data_root, frozen_only=frozen_only, refuse_pooled_windows=False)
     _report_exclusions(run)
     cells = run.cells
     # The realized-Term skill column is scored at render against the committed
@@ -5355,6 +5425,7 @@ def leaderboard(
         # against a complete vote record: what `mean_vote_accuracy` averages,
         # counted as `vote_cells_scored`.
         vote_scores=vote_scores(cells, settings.data_root),
+        cell_windows=run.cell_windows,
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -5446,13 +5517,14 @@ def claim_scores_command(
     """
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
-    run = stratify(settings.data_root, frozen_only=not all_versions)
+    run = stratify(settings.data_root, frozen_only=not all_versions, refuse_pooled_windows=False)
     _report_exclusions(run)
     board = build_claim_scores(
         run.cells,
         process_scope=scope,
         forward_claim=_forward_claim_from(run),
         leakage_exclusion=_leakage_exclusion_from(run),
+        cell_windows=run.cell_windows,
     )
     destination = out if out is not None else settings.metrics_root / "claim-scores.json"
     write_json(destination, board)
@@ -5589,9 +5661,238 @@ def segment_anchors_command(
     )
 
 
+@app.command("release-sensitivity")
+def release_sensitivity_command(
+    registered_at: Annotated[
+        str,
+        typer.Option(
+            "--registered-at",
+            help="The ISO registration day of the release cohort (as `conference-set "
+            "--counted --registered-at`): adds the registered cohort's transcription "
+            "spread and each listed event's registered membership.",
+        ),
+    ] = "",
+    grant_list: Annotated[
+        str,
+        typer.Option(
+            "--grant-list",
+            help="The ISO day the considering conference's grant list issued: each "
+            "post-conference first forecast says whether its first forward cell ran after it.",
+        ),
+    ] = "",
+) -> None:
+    """Print the release's sensitivity lines beside the registered headline.
+
+    Read-only. Rebuilds the frozen board exactly as ``fedcourts leaderboard``
+    does (the same stratified cells, the same committed pack), prints its cert
+    arms' per-predictor and per-band figures as the **registered headline**, and
+    beside it three blocks, each varying one thing and never stacked:
+
+    1. ``exact_pool_anchor`` — population skill with each skill-scored cert
+       grading's baseline taken from the exact pool ``segment-anchors`` computes
+       for the scored prediction's (docket Term, band), read from the statpack
+       build at the grading's ``process_version.pipeline_sha`` rather than the
+       fill-time pack; plus the transcription spread (recorded vs exact) per
+       judge and per docket Term.
+    2. ``rule_20_excluded`` — accuracy and skill without the cases whose opening
+       petition entry, in the stored live snapshot, names a writ of mandamus,
+       prohibition or habeas corpus; the cases are listed.
+    3. ``post_conference_first_forecasts_excluded`` — every figure without the
+       cert distribution events whose first forward frozen-scope cell (harness
+       ``run_id``) ran on or after the day the conference that actually
+       considered the petition sat; the events are listed, and any board cell
+       whose scored run postdates its considering conference outside them is
+       named.
+
+    JSON on stdout, carrying the ledger commit, the corpus vintage (as
+    ``corpus-info`` reports it) and every statpack build read; a human table on
+    stderr. Run it from the fill export's checkout, with full history and the
+    content store wired. Exit 2 on an unreadable input.
+    """
+    settings = get_settings()
+    try:
+        registration_day = date.fromisoformat(registered_at) if registered_at else None
+        grant_list_day = date.fromisoformat(grant_list) if grant_list else None
+    except ValueError as exc:
+        typer.echo(f"release-sensitivity: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+    db = corpus.corpus_db_path(settings.corpus_root)
+    backend = settings.corpus_backend
+    if backend == "local" and not db.exists():
+        typer.echo(f"release-sensitivity: no corpus at {db}; `fedcourts corpus-pull` it", err=True)
+        raise typer.Exit(code=2)
+    try:
+        source = git_source(settings.data_root)
+        builds = GitBuildSource(source.toplevel)
+        fill_build = builds.build_at(source.head)
+    except (ExportError, ReleaseSensitivityError) as exc:
+        typer.echo(f"release-sensitivity: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    run = stratify(settings.data_root, frozen_only=True)
+    # The same exclusion notes `leaderboard` prints, since the headline is that board.
+    _report_exclusions(run)
+    if source.dirty:
+        typer.echo(
+            "release-sensitivity: the checkout is dirty — the board reads the working tree, "
+            "while `ledger.commit` and `fill_statpack` name HEAD",
+            err=True,
+        )
+    statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
+    committed = _read_best_effort(settings.metrics_root / "leaderboard.json", Leaderboard)
+    corpus_sha = _census_corpus_sha(settings, db)
+    with corpus.connect_readonly(db, backend=backend) as conn:
+        vintage = corpus_vintage(conn, backend)
+        registered: set[tuple[str, str]] | None = None
+        fallbacks: int | None = None
+        if registration_day is not None:
+            cut = counted_by_conference(
+                settings.data_root,
+                conn,
+                vintage=vintage,
+                corpus_sha256=corpus_sha,
+                registered_at=registration_day,
+            )
+            registered = {(e.case_id, e.event_id) for e in cut.events if e.registered}
+            fallbacks = cut.conference_fallbacks
+        result = release_sensitivity(
+            run.cells,
+            settings.data_root,
+            statpack,
+            builds=builds,
+            payloads=lambda case_id: corpus.latest_live_snapshot(conn, case_id),
+            registered=registered,
+            grant_list=grant_list_day,
+            committed_board=committed,
+        )
+    output: dict[str, Any] = {
+        "ledger": {
+            "commit": source.head,
+            "dirty": source.dirty,
+            "on_main_first_parent": source.on_main_first_parent,
+        },
+        "corpus": vintage.model_dump(mode="json") | {"sha256": corpus_sha},
+        "fill_statpack": (
+            {"build_commit": fill_build.build_commit, "blob": fill_build.blob}
+            if fill_build is not None
+            else None
+        ),
+        "registered_at": registration_day.isoformat() if registration_day else None,
+        "conference_fallbacks": fallbacks,
+        **result,
+    }
+    typer.echo(
+        f"release-sensitivity: ledger {source.head[:12]}{' (dirty)' if source.dirty else ''}, "
+        f"corpus {backend} newest pull {vintage.latest_pull or '-'}, newest stored snapshot "
+        f"{vintage.latest_snapshot or '-'}",
+        err=True,
+    )
+    for line in render_table(result):
+        typer.echo(line, err=True)
+    if result["registered_headline"]["matches_committed_board"] is False:
+        typer.echo(
+            "release-sensitivity: the committed leaderboard.json is not this ledger's board — "
+            "refresh it before quoting any figure beside it",
+            err=True,
+        )
+    if fallbacks:
+        typer.echo(
+            f"release-sensitivity: {fallbacks} registered-membership reading(s) fell back to "
+            "the current conference column",
+            err=True,
+        )
+    typer.echo(json.dumps(output, indent=2))
+
+
 def _percent_or_dash(rate: float | int | None) -> str:
     """A rate as a two-decimal percentage, or an em dash where there is none."""
     return "—" if rate is None else f"{rate:.2%}"
+
+
+@app.command("successor-disclosures")
+def successor_disclosures_command(
+    closed: Annotated[
+        str, typer.Option("--closed", help="The label whose windows the successor closed.")
+    ],
+    successor: Annotated[
+        str, typer.Option("--successor", help="The successor's label (the one that closed them).")
+    ],
+    out: Annotated[Path | None, typer.Option(help="Also write the disclosures JSON here.")] = None,
+) -> None:
+    """Print what a successor's freeze-record entry states about the windows it closed.
+
+    Read-only and offline over the committed ledger, against the registry as
+    committed — so run it at the successor's freeze commit (once its windows are
+    registered) and again at the carrying promotion. Four disclosures
+    (``docs/process-version.md``): each closed window's counted events, split
+    into resolved and pending at its close; the **split events**, on which
+    counted cells come from a closed window and a successor window that never
+    ran together, so no complete grid holds them; per predictor with
+    successor-counted events, those events partitioned four ways — a failed
+    earlier-window attempt (``attempt.json``), an uncounted earlier cell, not
+    reached before the close, or missing — since the successor's population is
+    the events the closed window did not reach; and the closed windows' counted
+    gradings per evaluator digest, with those made at or after the instant.
+    Lines on stdout, the JSON with ``--out``. Exit 2 when the registry holds no
+    such closed window or successor.
+    """
+    settings = get_settings()
+    try:
+        report = window_records.successor_disclosures(
+            settings.data_root, closed_label=closed, successor_label=successor
+        )
+    except window_records.WindowRecordError as exc:
+        typer.echo(f"successor-disclosures: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+    if out is not None:
+        write_json(out, report)
+    typer.echo(window_records.render_disclosures(report))
+
+
+@app.command("revoked-window-board")
+def revoked_window_board_command(
+    label: Annotated[str, typer.Option("--label", help="The revoked windows' label.")],
+    out: Annotated[
+        Path,
+        typer.Option(
+            help="Output path (required). Write it to a runner-local or scratch path, never "
+            "under metrics/ or the ledger: the record is a counterfactual working file, not a "
+            "results surface."
+        ),
+    ],
+) -> None:
+    """Build a revoked window's figures over the slice that had resolved when it was revoked.
+
+    The declaration's condition on a late revocation: one made after any of the
+    window's outcomes publishes the window's figures over that resolved slice
+    beside the entry, so the exclusion is visible rather than silent. Builds
+    the frozen leaderboard's cells and figures as ``fedcourts leaderboard``
+    does — same stratify pass and exclusions, same committed pack, without the
+    agreement views — with the revocation lifted for ``--label``'s revoked
+    windows only, keeps those windows' cells on events resolved on or before
+    each window's revocation day, and writes the board inside a record naming
+    the windows, the resolved slice's size and how many gradings postdate the
+    revocation (gradings are the ledger's as of the build). A counterfactual,
+    never a results surface. Exit 2 when no revoked window carries the label.
+    """
+    settings = get_settings()
+    statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
+    try:
+        record = window_records.revoked_window_board(
+            settings.data_root, label=label, statpack=statpack
+        )
+    except window_records.WindowRecordError as exc:
+        typer.echo(f"revoked-window-board: {exc}", err=True)
+        raise typer.Exit(code=2) from None
+    write_json(out, record)
+    board = record.board
+    resolved = sum(record.resolved_counted_events.values())
+    typer.echo(
+        f"revoked-window-board [{label}]: {board.evaluations_total} cert-stage evaluation(s) "
+        f"over {board.events_scored} ranked cert-moment event(s); resolved slice "
+        f"{resolved} counted event(s), all stages; excluded "
+        f"{record.forward_claim_excluded} forward-claim / {record.leakage_excluded} leakage; "
+        f"{record.graded_after_revocation} grading(s) stamped after the revocation -> {out}"
+    )
 
 
 @app.command("export")
@@ -6588,9 +6889,10 @@ def big_cases(
         typer.Option(
             "--process-scope",
             help="Which process versions a current read may come from: 'all' (default — "
-            "every committed run, shakedown, pre-freeze, retired-digest and unstamped "
+            "every committed run, shakedown, pre-freeze, de-counted-digest and unstamped "
             "included, which is what a census means) or 'frozen' (the comparison build: "
-            "only runs stamped with a blessed digest at or after the freeze instant). "
+            "only runs that are their predictor's counted forecast inside a counting "
+            "window). "
             "Either way the per-event history is unfiltered. The frozen build's hold-out "
             "is selected, not sampled — a resolved case is never re-predicted and the "
             "re-predict rule re-owes neither the cert "
@@ -6620,7 +6922,7 @@ def big_cases(
     read, which is what a census means and what the published board wants.
     ``--process-scope frozen`` builds the **comparison** board instead, admitting
     only runs whose harness stamp is blessed and post-freeze; a pre-freeze,
-    retired, shakedown or unstamped run is then history under its event, never a
+    de-counted, shakedown or unstamped run is then history under its event, never a
     current read, never in ``n`` and never in a mean. That build is not this one
     with fewer rows — a resolved case is never re-predicted and the re-predict
     rule re-owes neither the cert arrival moment nor either merits moment, so it
@@ -7605,17 +7907,28 @@ def _echo_frozen_scope(records: Sequence[tuple[Path, Evaluation]]) -> None:
     outside ``data/``'s git history recording that it did. The line puts that
     in the writer run's log and step summary, where it is greppable after the
     fact. Scope is the evaluation-side gate the headline itself uses —
-    ``graded_post_freeze``, timing alone — because an evaluation's digest is
-    recorded but never enforced: a cell graded under a since-superseded
-    evaluator digest is still counted, so it must still print as
-    frozen-scope here. It reports the stamp the record already carries,
-    which is exactly the stamp the re-grade preserves.
+    ``graded_in_window``, timing against the instant that opened the graded
+    prediction's window — because an evaluation's digest is recorded but never
+    enforced: a cell graded under a since-superseded evaluator digest is still
+    counted, so it must still print as frozen-scope here. It reports the stamp
+    the record already carries, which is exactly the stamp the re-grade
+    preserves.
     """
     for path, record in records:
         stamp = record.process_version
         if stamp is None:
             continue
-        scope = "frozen" if process_version.graded_post_freeze(stamp) else "alpha"
+        # evaluations/<evaluator>/<predictor>/<run>/evaluation.json
+        scored = scored_prediction(path.parents[4], record.predictor_id, record.prediction_run_id)
+        # The prediction's own counting on its event (a revoked window's cell,
+        # or a later window's behind a counted one, is alpha) and the
+        # grading's timing against that prediction's window.
+        graded = (
+            scored is not None
+            and prediction_counts(path.parents[4], record.predictor_id, scored)
+            and process_version.graded_in_window(stamp, scored.process_version)
+        )
+        scope = "frozen" if graded else "alpha"
         typer.echo(f"regrade: {path} — {scope}-scope cell stamped {stamp.label}")
 
 
@@ -7817,14 +8130,16 @@ def _latest_prediction_for(event_paths: EventPaths, predictor_id: str) -> Predic
     """A predictor's **latest** prediction on this event, or ``None``.
 
     By :func:`fedcourtsai.integrity.cell_clock`; ``None`` where the predictor
-    wrote none. The fallback join for evaluations with no stamped
-    ``prediction_run_id``, and the resolver the ordinary stamp reads that run
-    id from — at stamp time, immediately post-run, the latest prediction *is*
-    the scored one.
+    wrote none, and never a later window's cell the earliest-window tie-break
+    leaves uncounted (:func:`fedcourtsai.store.latest_resolvable`). The
+    fallback join for evaluations with no stamped ``prediction_run_id``, and
+    the resolver the ordinary stamp reads that run id from — at stamp time,
+    immediately post-run, the latest resolvable prediction *is* the one
+    evaluation staging handed the grader.
     """
     files = sorted(event_paths.predictions_dir.glob(f"{predictor_id}/*/prediction.json"))
     predictions = [read_model(p, Prediction) for p in files]
-    return max(predictions, key=cell_clock) if predictions else None
+    return latest_resolvable(predictions) if predictions else None
 
 
 def _outcome_for(event_paths: EventPaths) -> Outcome | None:
@@ -8254,6 +8569,16 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     gemini_telemetry_file: Annotated[
         Path | None, typer.Option(help="Gemini CLI telemetry.log to read tool calls from.")
     ] = None,
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict",
+            help="After recording, check the named engine log is in the shape the "
+            "usage and tool-call parsers read, and exit 1 naming each finding if it "
+            "is not. For a probe that wants a format change to fail; a cell's own "
+            "capture never passes it.",
+        ),
+    ] = False,
 ) -> None:
     """Record the cell's tool-call transcript to ``retrieval_log.json``.
 
@@ -8266,6 +8591,14 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     they advertise, so a later offered-vs-called rollup has a denominator rather
     than only the numerator. A cell with zero tool calls still records an
     empty log: "retrieved nothing" is itself evidence.
+
+    The parse is tolerant, so an engine log in a shape it no longer recognizes
+    records an empty log too — indistinguishable, from the file alone, from a
+    cell that called nothing. ``--strict`` is the check that separates the two
+    (:func:`fedcourtsai.retrieval.engine_log_shape_problems`): the log is still
+    recorded, then each finding is printed as an error and the command exits 1.
+    The integration workflow's action-path probe passes it; a cell never does,
+    because instrumentation must not fail a real run.
     """
     settings = get_settings()
     if mode_from_context:
@@ -8362,6 +8695,40 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
             f"::warning::retrieval capture redacted credential-shaped text in {redacted} "
             f"call(s) for {actor} ({ids.case_id(court, docket)} {event})"
         )
+    if strict:
+        _require_parsed_engine_log_shape(
+            engine, claude_execution_file, codex_sessions_dir, gemini_telemetry_file
+        )
+
+
+def _require_parsed_engine_log_shape(
+    engine: Engine,
+    claude_execution_file: Path | None,
+    codex_sessions_dir: Path | None,
+    gemini_telemetry_file: Path | None,
+) -> None:
+    """``record-retrieval --strict``: exit 1 naming each shape finding, if any.
+
+    The source has to be the ``--engine``'s own as well: a pass over another
+    engine's log under this engine's name would certify a parse nothing runs.
+    """
+    problems = retrieval.engine_log_shape_problems(
+        claude_execution_file=claude_execution_file,
+        codex_sessions_dir=codex_sessions_dir,
+        gemini_telemetry_file=gemini_telemetry_file,
+    )
+    sources = {
+        Engine.claude_code: claude_execution_file,
+        Engine.codex: codex_sessions_dir,
+        Engine.gemini: gemini_telemetry_file,
+    }
+    if any(path is not None for path in sources.values()) and sources.get(engine) is None:
+        problems.append(f"no {engine.value} log was named; the source given is another engine's")
+    for problem in problems:
+        typer.echo(f"::error::record-retrieval --strict: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"retrieval: the {engine.value} log is in the shape the capture parsers read")
 
 
 @app.command("codex-item-shapes")
@@ -8734,7 +9101,9 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     # like the prediction counts beside it), so its counts pool stages by
     # design; per-stage segmentation — and every claim that must not pool —
     # is the leaderboard's job.
-    stratified_run = stratify(settings.data_root, frozen_only=not all_versions)
+    stratified_run = stratify(
+        settings.data_root, frozen_only=not all_versions, refuse_pooled_windows=False
+    )
     _report_exclusions(stratified_run)
     stratified = [(ev, stratum) for ev, stratum, _stage, _moment in stratified_run.cells]
     substance = summarize_substance(
@@ -8746,6 +9115,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         process_scope=scope,
         forward_claim=_forward_claim_from(stratified_run),
         leakage_exclusion=_leakage_exclusion_from(stratified_run),
+        cell_windows=stratified_run.cell_windows,
     )
     report = build_ops_report(
         generated_at=when,
@@ -10840,6 +11210,12 @@ def corpus_info(
     Under ``local`` the blob is opened strictly read-only with no schema
     migration, so the report never rewrites the file it dates and a pulled
     blob keeps matching its pointer, even when it predates the code reading it.
+    Other local reads still migrate it, so the report also says when the bytes
+    on disk no longer match the sha256 their pointer names (settled by the
+    digest unless the blob is untouched since its pull), and — with no pointer
+    override set — when the checkout's committed pointer differs from the one
+    ``origin/main`` carries as of the last fetch, so a checkout on an old
+    commit does not quote its old blob's vintage as the current corpus's.
 
     Both are maxima over the whole blob: its vintage, not any one case's. The
     pull governor rotates stalest-first, so a maximum says when *anything* was
@@ -10897,34 +11273,61 @@ def corpus_info(
                     typer.echo("pointer: out-of-band override (set but unparseable)")
             else:
                 typer.echo(f"pointer: out-of-band override set (not read by the {backend} backend)")
-        # The durable half of the same claim: under `local` the vintage above
-        # is the on-disk blob's, and the pull's provenance sidecar says which
-        # pointer that blob came from — a blob pulled through the override (or
-        # left behind by a superseded pull) must not read as the committed ref's.
-        if backend == "local":
-            pulled_path = corpus_remote.pulled_pointer_path_for(db_path)
-            if pulled_path.is_file():
-                try:
-                    pulled_sha: str | None = corpus_ranged.read_index_pointer(pulled_path).sha256
-                except corpus_ranged.RangedBackendError:
-                    pulled_sha = None
-                committed_path = corpus_remote.pointer_path_for(db_path)
-                try:
-                    committed_sha: str | None = (
-                        corpus_ranged.read_index_pointer(committed_path).sha256
-                        if committed_path.is_file()
-                        else None
-                    )
-                except corpus_ranged.RangedBackendError:
-                    committed_sha = None
-                if pulled_sha is not None and pulled_sha != committed_sha:
-                    typer.echo(
-                        f"pointer: the blob on disk is not the committed ref's (pulled "
-                        f"sha256 {pulled_sha}) — re-pull before quoting this vintage"
-                    )
+        _echo_pointer_provenance(db_path, backend, override_set=settings.corpus_pointer is not None)
         if text_coverage:
             _echo_text_coverage(document_text_coverage(conn, settings.data_root))
         _echo_read_stats(conn)
+
+
+def _echo_pointer_provenance(db_path: Path, backend: str, *, override_set: bool) -> None:
+    """The `pointer:` lines that say whether the vintage is the committed pointer's.
+
+    Three ways the vintage can describe a blob other than the one the
+    checkout's pointer names, each its own line: a local blob pulled from
+    another pointer, a local blob whose bytes moved after the pull, and a
+    committed pointer that differs from production's.
+    """
+    # The durable half of the provenance claim: under `local` the vintage is
+    # the on-disk blob's, and the pull's provenance sidecar says which pointer
+    # that blob came from — a blob pulled through the override (or left behind
+    # by a superseded pull) must not read as the committed ref's.
+    if backend == "local":
+        pulled_path = corpus_remote.pulled_pointer_path_for(db_path)
+        if pulled_path.is_file():
+            try:
+                pulled_sha: str | None = corpus_ranged.read_index_pointer(pulled_path).sha256
+            except corpus_ranged.RangedBackendError:
+                pulled_sha = None
+            committed_path = corpus_remote.pointer_path_for(db_path)
+            try:
+                committed_sha: str | None = (
+                    corpus_ranged.read_index_pointer(committed_path).sha256
+                    if committed_path.is_file()
+                    else None
+                )
+            except corpus_ranged.RangedBackendError:
+                committed_sha = None
+            if pulled_sha is not None and pulled_sha != committed_sha:
+                typer.echo(
+                    f"pointer: the blob on disk is not the committed ref's (pulled "
+                    f"sha256 {pulled_sha}) — re-pull before quoting this vintage"
+                )
+        # The bytes half: a pull lands a verified blob, but a default local
+        # read migrates it in place, after which the vintage dates a file no
+        # pointer names.
+        drift = corpus_remote.local_blob_drift(db_path)
+        if drift is not None:
+            typer.echo(f"pointer: {_blob_drift_text(drift)} — re-pull before quoting this vintage")
+    # The checkout half: a pointer can match its blob exactly and still name an
+    # old one, when the checkout sits on a commit behind production's. The
+    # override names its blob outright, so the committed ref is not in play.
+    if not override_set:
+        stale = _pointer_behind_upstream(db_path)
+        if stale is not None:
+            typer.echo(
+                f"pointer: {stale} — re-read under origin/main's pointer before quoting "
+                "this vintage as current"
+            )
 
 
 @app.command("build-index")
@@ -11691,16 +12094,6 @@ def _read_cell_inputs(
     return read
 
 
-class _Placement(NamedTuple):
-    """A cell's inputs after the moment cut, and the boundary its context records."""
-
-    snapshot_date: date
-    payload: dict[str, Any]
-    documents: list[corpus.CaseDocument]
-    provenance: Literal["as-stored", "dated", "truncated"]
-    boundary: arrival_cut.CutBoundary | None
-
-
 def _place_at_moment(
     case: str,
     event: str,
@@ -11710,101 +12103,43 @@ def _place_at_moment(
     payload: dict[str, Any],
     snapshot_date: date,
     documents: list[corpus.CaseDocument],
-) -> _Placement:
-    """Cut a cell's snapshot and documents to the moment its event declares.
+) -> provision.Placement:
+    """:func:`fedcourtsai.provision.place_at_moment`, with this command's annotations.
 
-    ``cutoff is None`` is the no-cut case and passes everything through as read.
-    Otherwise two bounds compose, in this order and no other. The **anchor bound**
-    (:mod:`fedcourtsai.pipeline.arrival_cut`, on the interim arrival moment only)
-    runs on the payload as the corpus served it, so the anchor index it records is
-    a position in that list rather than in one the date rule has already thinned.
-    Then the **date rule** reconstructs, where no stored snapshot from before the
-    cutoff reaches the moment.
+    The cut itself is the shared seam, so the local cascade places its cells by
+    the same rule. What is added here is what only a command can add: the refusal
+    exit code, and the ``::notice::`` recording how much the placement excluded.
 
-    Raises ``typer.Exit(4)`` where an interim arrival's opening entry cannot be
-    anchored. There is deliberately no fall back to the date rule alone: that rule
-    is the conditioning the anchor bound replaces, and a cell taking it while its
-    context recorded the tighter one would carry the defect together with a record
-    saying it had been fixed. ``arrival-cut-ledger`` counts those refusals.
+    Exits 4 where an interim arrival's opening entry cannot be anchored — nothing
+    is written, and the caller's cell is refused. ``arrival-cut-ledger`` counts
+    those refusals.
     """
-    provenance: Literal["as-stored", "dated", "truncated"] = "as-stored"
-    if cutoff is None:
-        return _Placement(snapshot_date, payload, documents, provenance, None)
-    # Nothing is removed from a `dated` payload by the DATE rule: it is what the
-    # docket served. The anchor bound below can still remove from it.
-    dropped_entries = 0
-    reconstruct = read.dated is None or not provision.shows_the_moment(read.dated[1], cutoff)
-    if not reconstruct and read.dated is not None:
-        # What the docket really served at the moment, which also knows what had
-        # not yet been filed — strictly better than reconstructing it, so it is
-        # preferred and recorded apart. Only where it reaches the trigger, though:
-        # a stored snapshot from well before the moment would place the cell
-        # earlier than the cohort it is filed under.
-        snapshot_date, payload = read.dated
-        provenance = "dated"
-    boundary = arrival_cut.CutBoundary(kind="date")
-    if provision.is_interim_arrival(event):
-        # The anchor bound, before the date rule and on BOTH provenances. A
-        # `dated` payload is exempt from the date rule because the docket really
-        # served it — but it can have been served on the opening day itself, after
-        # that day's referral or disposition was docketed, so the one branch that
-        # reads a payload unmodified is the branch this bound is most needed on.
-        anchored = arrival_cut.cut_at_arrival(
-            payload,
-            docket_number=arrival_cut.payload_docket_number(payload),
-            opened_at=cutoff - timedelta(days=1),
+    try:
+        placement = provision.place_at_moment(
+            case,
+            event,
+            cutoff,
+            read,
+            payload=payload,
+            snapshot_date=snapshot_date,
+            documents=documents,
         )
-        if anchored is None:
-            typer.echo(
-                f"::warning::refusing to provision {case} {event}: the opening entry "
-                "could not be anchored in the snapshot, so the arrival moment's "
-                "information set cannot be located",
-                err=True,
-            )
-            raise typer.Exit(code=4)
-        payload = anchored.payload
-        boundary = arrival_cut.CutBoundary(
-            kind="arrival-position", anchor_index=anchored.anchor_index
+    except provision.UnanchorableMoment as exc:
+        typer.echo(f"::warning::{exc}", err=True)
+        raise typer.Exit(code=4) from exc
+    if cutoff is not None and placement.boundary is not None:
+        # Spoken, never written to `context.json`: the cell reads that file, and
+        # how much a cut removed separates a grant from a denial about as cleanly
+        # as the disposing order does. Here it is the harness's own record — the
+        # auditable size of what placement excluded.
+        typer.echo(
+            f"::notice::{case} placed at {cutoff.isoformat()} "
+            f"({placement.provenance}, {placement.boundary.kind}): "
+            f"{placement.dropped_entries} entr(ies) and "
+            f"{placement.dropped_documents} document(s) are outside the moment",
+            err=True,
         )
-        dropped_entries += anchored.dropped_same_day
-    if reconstruct:
-        # Reconstructed from a later payload: post-cutoff entries removed, and an
-        # entry whose date is missing or unparseable removed with them
-        # (`truncate_snapshot` fails closed — an undated entry could be the one
-        # that decides the case). Never `blind`: this path always holds a cutoff to
-        # keep entries against, so it never removes the proceedings key outright,
-        # which is what that provenance records.
-        payload, date_dropped = truncate_snapshot(payload, cutoff)
-        dropped_entries += date_dropped
-        # The same date rule over the top-level fields truncation does not reach,
-        # so the cut docket does not carry an argument date whose entry it just
-        # removed.
-        payload = provision.cut_dated_fields(payload, cutoff)
-        # The docket as at the cutoff is dated by the cutoff, not by the pull whose
-        # bytes it was reconstructed from — otherwise the one file the cell's
-        # information set is judged against carries a later date than anything in
-        # it.
-        snapshot_date = cutoff
-        provenance = "truncated"
-    # Documents take the DATE rule under either cut kind, and that residual is
-    # stated rather than closed: a document is placed by the entry date its link
-    # rode on, which cannot say where inside the opening day it sat, and the one
-    # document an arrival cell most needs — the application itself — is filed on
-    # that day. Tightening to the day before would cost the cell its own
-    # application to remove a tail the corpus cannot locate.
-    kept = provision.documents_before(documents, cutoff)
-    dropped_documents = len(documents) - len(kept)
-    # Spoken, never written to `context.json`: the cell reads that file, and how
-    # much a cut removed separates a grant from a denial about as cleanly as the
-    # disposing order does. Here it is the harness's own record — the auditable
-    # size of what placement excluded.
-    typer.echo(
-        f"::notice::{case} placed at {cutoff.isoformat()} ({provenance}, {boundary.kind}): "
-        f"{dropped_entries} entr(ies) and {dropped_documents} document(s) "
-        f"are outside the moment",
-        err=True,
-    )
-    return _Placement(snapshot_date, payload, kept, provenance, boundary)
+    return placement
 
 
 def _sides_named(sides: tuple[str, ...]) -> str:
@@ -11814,27 +12149,6 @@ def _sides_named(sides: tuple[str, ...]) -> str:
     `other` would read as the opposing side.
     """
     return "/".join("amicus" if side == OTHER_LIST else side.lower() for side in sides)
-
-
-def _staged_scrub(
-    text: str, values: tuple[str, ...], sides: tuple[str, ...]
-) -> ScrubbedText | None:
-    """One staged document's contact scrub on a docket read as self-represented on ``sides``.
-
-    None where the docket is not scrubbed. A docket read so on a party side runs
-    both passes. One read so on its `Other` list alone runs the value pass only:
-    the amicus's own brief is not a staged kind, so what is staged there is
-    counsel's filings — the staged filers there are represented — and the shape
-    pass would cost their text its misreads of legal prose. The premise is about
-    amici: a self-represented non-amicus `Other` filer whose own opposition is
-    staged gets the value pass alone as well. Where no amicus
-    value clears its floor nothing runs, and the document is staged as filed and
-    recorded as unscrubbed (None).
-    """
-    if not sides:
-        return None
-    done = scrub_contact_details(text, values, shape=any(side != OTHER_LIST for side in sides))
-    return done if done.passes else None
 
 
 def _document_scrub_echo(
@@ -12084,135 +12398,46 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     placement = _place_at_moment(
         case, event, cutoff, read, payload=payload, snapshot_date=snapshot_date, documents=documents
     )
-    snapshot_date = placement.snapshot_date
-    payload = placement.payload
-    documents = placement.documents
     paths = CasePaths(settings.data_root, court, docket)
-    dest = out or paths.snapshot(snapshot_date.isoformat())
-    # The staged snapshot is the payload with a self-represented filer's own
-    # contact keys withheld, on either party side or the `Other` list of amici
-    # (`scrub_snapshot_contacts`):
-    # the copy a cell can quote from, on the same docket-level reading the
-    # document scrub below keys on. A separate object, so everything else
-    # here — the cell context, the scrub trigger, the document scrub — reads
-    # the payload as served.
-    unrepresented = unrepresented_sides(payload)
-    staged_snapshot = scrub_snapshot_contacts(payload) if unrepresented else None
-    write_raw_json(dest, payload if staged_snapshot is None else staged_snapshot.payload)
-    # The cell's context: its mode, and the conditioning state it is about to run
-    # against. Both are stated at provisioning — the mode so the prompt contract
-    # keys replay etiquette on it rather than inferring from env vars, and the
-    # rest because the salience band only ever strengthens, so a band re-derived
-    # later is the band the petition *ended* at. Derived from the payload rather
-    # than the corpus row: the row holds current values, the payload is what this
-    # cell can read, and a baseline has to be conditioned on the latter. The
-    # cutoff rides along as the cohort marker: a forward cell whose `cutoff` is
-    # non-null was placed at its moment, and a figure that pools it with one
-    # provisioned from the latest snapshot pools two information sets.
-    write_raw_json(
-        paths.cell_context,
-        cell_context.build(
-            case,
-            snapshot_date,
-            payload,
-            mode,
-            provenance=placement.provenance,
-            cutoff=cutoff,
-            boundary=placement.boundary,
-        ).model_dump(mode="json"),
-    )
+    # The whole record — snapshot, context.json, documents and manifest, each
+    # staged copy through the contact-detail scrubs — goes through the one
+    # writer the local cascade shares (`provision.write_cell_record`), so the
+    # record a cell reads here and the record the engine smoke certifies cannot
+    # be written differently.
+    try:
+        written = provision.write_cell_record(
+            paths, case, placement, mode=mode, cutoff=cutoff, snapshot_dest=out
+        )
+    except provision.ProvisionError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
     placed = (
         f" cut at {cutoff.isoformat()} ({placement.provenance}, {placement.boundary.kind})"
         if cutoff is not None and placement.boundary is not None
         else ""
     )
-    typer.echo(f"{case} snapshot {snapshot_date.isoformat()} ({mode}){placed} -> {dest}")
-    if staged_snapshot is not None:
+    typer.echo(
+        f"{case} snapshot {placement.snapshot_date.isoformat()} ({mode}){placed} "
+        f"-> {written.snapshot}"
+    )
+    if written.snapshot_scrub is not None:
         # Counts only, never a value: the run log is public.
         typer.echo(
-            f"{case} snapshot contact scrub: {staged_snapshot.fields} value(s) withheld on "
-            f"{staged_snapshot.blocks} {_sides_named(unrepresented)}-side block(s)"
+            f"{case} snapshot contact scrub: {written.snapshot_scrub.fields} value(s) "
+            f"withheld on {written.snapshot_scrub.blocks} "
+            f"{_sides_named(written.unrepresented)}-side block(s)"
         )
-    if documents:
-        # The contact-detail scrub, keyed on the docket-level reading that
-        # separates a filing signed by counsel from one signed in person:
-        # whether the snapshot names anyone but the filer to write to, on
-        # either party side or on an amicus block.
-        # Where it does not, every document staged for this cell has its
-        # contact details withheld (shapes and served values; served values
-        # alone where only an amicus reads so, see `_staged_scrub`) — the whole
-        # docket rather than the petition alone, since deciding per document
-        # who signed it would be a second reading with its own failure mode,
-        # and a filing by the other side's counsel loses only professional
-        # details the cell has no use for. The
-        # corpus row and the source PDF are untouched: the scrub is on the copy
-        # staged under `record/`, which is the copy a cell can quote into the
-        # public ledger.
-        # The filer's own contact values, off every served block on the sides
-        # the trigger read as self-represented (on the `Other` list, off the
-        # qualifying blocks alone), key the scrub's value pass: it
-        # finds them however a scan fragmented them, which no shape pattern can
-        # promise. Read off
-        # `payload` — the payload as served — and never off the staged
-        # snapshot copy, whose contact keys hold the placeholder: keyed on
-        # that, the pass would look for the placeholder and miss the values.
-        contact_values = party_contact_values(payload, unrepresented)
-        staged = [
-            (doc, _staged_scrub(doc.text, contact_values, unrepresented)) for doc in documents
-        ]
-        for doc, scrubbed in staged:
-            write_text(paths.document(doc.kind), doc.text if scrubbed is None else scrubbed.text)
-        write_raw_json(
-            paths.documents_manifest,
-            [
-                {
-                    # Every stored field but the text itself, so the row's own
-                    # `ocr_derived` marker reaches the cell: text a recovery pass
-                    # read off a page image is a lossy derivation of the filing,
-                    # and a manifest that dropped the marker would present it as a
-                    # clean extraction.
-                    **doc.model_dump(mode="json", exclude={"text"}),
-                    # A present document whose extracted text is blank/whitespace
-                    # (a scanned PDF with no text layer) would read as usable from
-                    # pages/truncated alone; flag it so the cell distinguishes
-                    # "no document" / "document present but no text layer" /
-                    # "text present". Derived here, not stored on the row.
-                    # Read off the stored text, so the flag keeps naming what the
-                    # extraction produced — a scrub replaces a contact detail
-                    # with a placeholder and can never empty text that had any.
-                    "empty_text": not doc.text.strip(),
-                    # Whether the scrub ran over this document's staged text, and
-                    # how many details it withheld. The two are separate facts: a
-                    # scrubbed document with nothing to withhold reads `true, 0`,
-                    # which is a different statement from a document the scrub
-                    # never saw, and a cell that meets the placeholder in the text
-                    # can tell from here that the pipeline put it there.
-                    "contact_scrubbed": scrubbed is not None,
-                    "contact_replacements": 0 if scrubbed is None else scrubbed.replacements,
-                    # Which passes ran: `shape` wherever the scrub ran on a
-                    # docket read as self-represented on a party side, `value`
-                    # only where the docket served a contact value specific
-                    # enough to key on — and `value` alone on a docket read so
-                    # on its `Other` list alone. A shape-only scrub is the
-                    # weaker of the two — it misses a detail a scan split
-                    # mid-word or across a line — so the manifest says which
-                    # one the text went through rather than letting
-                    # `contact_scrubbed` read as complete.
-                    "contact_scrub_passes": [] if scrubbed is None else list(scrubbed.passes),
-                }
-                for doc, scrubbed in staged
-            ],
-        )
-        kinds = ", ".join(doc.kind for doc in documents)
+    if written.staged:
+        kinds = ", ".join(doc.kind for doc, _ in written.staged)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
-        if unrepresented:
+        if written.unrepresented:
             # Echoed for the same reason the cut counts are: the size of a
             # scrub is itself a signal. A pattern that began matching legal
             # prose would show up here as a count no signature block could
             # produce, and the run log is the only place it could show up at
             # all — the manifest that records it is gitignored with the rest of
             # `record/`.
-            typer.echo(_document_scrub_echo(case, staged, unrepresented))
+            typer.echo(_document_scrub_echo(case, written.staged, written.unrepresented))
 
 
 @app.command("summarize-plan")
@@ -12434,22 +12659,6 @@ def summary_paths_cmd(
         typer.echo(path)
 
 
-def _clear_opinion_slot(paths: CasePaths) -> None:
-    """Remove a previously staged opinion, so "no slot" always means "no body".
-
-    The slot's whole contract is that its **absence** tells a grader there is
-    nothing to grade against. A run that stages nothing and leaves an older
-    body in place would break that on the one tree where it can happen — a
-    re-provision over a dirty checkout — and the grader would read a stale
-    opinion as this cell's. Ephemeral runners never reach the state; the
-    invariant is stated unconditionally, so it holds unconditionally.
-    """
-    paths.opinion_text.unlink(missing_ok=True)
-    paths.opinion_manifest.unlink(missing_ok=True)
-    if paths.opinion_dir.is_dir() and not any(paths.opinion_dir.iterdir()):
-        paths.opinion_dir.rmdir()
-
-
 @app.command("provision-opinion")
 def provision_opinion(
     *,
@@ -12524,7 +12733,7 @@ def provision_opinion(
         raise typer.Exit(code=1)
     paths = CasePaths(settings.data_root, court, docket)
     if not row.has_opinion:
-        _clear_opinion_slot(paths)
+        provision.clear_opinion_slot(paths)
         typer.echo(f"{case} has no linked opinion; nothing staged")
         return
     body = corpus.opinion_body(row)
@@ -12538,7 +12747,7 @@ def provision_opinion(
         # case yet. Spoken as a warning rather than an exit: the grader's mask on
         # "not ingested" is the correct grade either way, and failing the step
         # would cost the cell its whole evaluation over a slot it can do without.
-        _clear_opinion_slot(paths)
+        provision.clear_opinion_slot(paths)
         typer.echo(
             f"::warning::{case} is marked as carrying an opinion but no usable "
             f"body was readable from the {backend} backend; nothing staged",
@@ -13118,7 +13327,7 @@ def _finish_integration_report(
 
 
 @app.command("local-cascade")
-def local_cascade(
+def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     court: Annotated[str, typer.Option(help="CourtListener court id, e.g. ca9 or scotus.")],
     docket: Annotated[int, typer.Option(help="CourtListener docket id.")],
     event: Annotated[
@@ -13154,12 +13363,25 @@ def local_cascade(
             "needs that to fail, not pass.",
         ),
     ] = False,
+    require_record: Annotated[
+        bool,
+        typer.Option(
+            "--require-record",
+            help="Exit non-zero, before any cell runs, when the corpus holds no "
+            "snapshot for the case. Such a cell runs with no snapshot, no "
+            "context.json and no documents; the integration smoke certifies the "
+            "production cell posture, so an unprovisioned run must fail rather "
+            "than pass having certified nothing.",
+        ),
+    ] = False,
 ) -> None:
     """Run the full predict → evaluate → validate cascade for one case locally.
 
     The repeatable, local form of the "one full cascade proven" milestone: over
-    the fixture corpus (or a real provisioned one) it provisions the snapshot,
-    materializes the git event/outcome definitions, fans the chosen engine out
+    the fixture corpus (or a real provisioned one) it materializes the git
+    event/outcome definitions, provisions each cell's whole ``record/`` through
+    the seam ``provision-snapshot`` writes with (the snapshot placed at the
+    event's moment, ``context.json``, documents), fans the chosen engine out
     over the enabled predictors then evaluators, and validates the produced
     ledger — the iteration loop that otherwise only runs inside Actions. Corpus
     reads honor the corpus-backend setting, so a ``ranged``-configured
@@ -13172,7 +13394,9 @@ def local_cascade(
     the agent's retrieval through the sidecar while provisioning reads the blob
     directly — the integration-test workflow's engine-smoke split.
     ``--predictor`` narrows the fan-out to one enabled predictor id, the
-    one-cell shape a token-spending smoke run wants.
+    one-cell shape a token-spending smoke run wants. ``--require-record`` refuses
+    a case the corpus holds no snapshot for before any token is spent, so a smoke
+    certifying the production cell posture cannot pass over an unprovisioned cell.
 
     ``--engine stub`` (the default) is deterministic, offline, and token-free.
     ``--engine replay`` is also offline but emits a captured real prediction from
@@ -13199,6 +13423,7 @@ def local_cascade(
             run_id=run_id or ids.run_id(),
             predictor=predictor or None,
             backend=_corpus_backend(corpus_backend),
+            require_record=require_record,
         )
     except KeyError as exc:
         # Unknown engine backend (get_runner names the available ones).
@@ -13213,7 +13438,21 @@ def local_cascade(
 
     typer.echo(f"local-cascade {report.case_id} via {report.engine} (run {report.run_id})")
     typer.echo(f"  events:      {', '.join(report.events)}")
+    # The provisioned record, named rather than assumed: a cell's inputs are the
+    # one thing a green cascade cannot evidence afterwards, and the engine smoke
+    # renders this block into its run summary. Per provisioning, not per run — the
+    # record on disk at the end is the last provisioning's, and on a case carrying
+    # both an open and a resolved event that is the judge's, whose posture says
+    # nothing about how the forecasters were placed.
     typer.echo(f"  snapshot:    {report.snapshot or 'none in corpus'}")
+    typer.echo(f"  context:     {report.context or 'not provisioned'}")
+    typer.echo(f"  documents:   {len(report.documents)} file(s)")
+    for placed in report.placements:
+        cut = f"cut {placed.cutoff.isoformat()}" if placed.cutoff is not None else "no cut"
+        typer.echo(
+            f"  provisioned: {placed.role} {placed.event_id or report.case_id} — "
+            f"{placed.mode}, {placed.provenance}, {cut}, {placed.documents} document(s)"
+        )
     typer.echo(f"  predictions: {len(report.predictions)} file(s)")
     typer.echo(f"  outcomes:    {len(report.outcomes)} file(s)")
     typer.echo(f"  evaluations: {len(report.evaluations)} file(s)")
@@ -14232,11 +14471,11 @@ def _scope_filtered(
     graded (:func:`fedcourtsai.store.event_has_claimable_prediction`), because
     finishing it buys only the missing engines on a case the project already
     funded; or an event the backlog deriver named in ``reopen_events``, whose
-    whole cohort a re-bless retired while the event is still forward at an open
-    moment, because a wholly retired cohort is re-minted for every engine at
+    whole cohort is de-counted while the event is still forward at an open
+    moment, because a wholly de-counted cohort is re-minted for every engine at
     once and so completes rather than manufactures a comparison. Everything else
     about the case goes with the drop — its unpredicted events, which would be
-    new spend on a case the funding gate declined, and its predicted-but-retired
+    new spend on a case the funding gate declined, and its predicted-but-de-counted
     events the rule does not re-owe, where a freshly-stamped cell would leave a
     board an event scored on one engine alone. A deferred case with no
     qualifying listed event is dropped as before, and so is one whose request
@@ -14558,7 +14797,7 @@ def _predict_backlog_cases(findings: _BacklogFindings | None = None) -> list[Cas
 
     It carries one thing a trigger body cannot: each entry's ``reopened``
     events become the request's ``reopen_events``, the fan-out's licence to
-    re-mint a cell the ledger already holds under a retired process digest (the
+    re-mint a cell the ledger already holds only as de-counted cells (the
     pre-freeze re-predict rule, spelled out on
     :func:`fedcourtsai.pipeline.pull.derive_predict_backlog`). Only this
     derivation sets it, because only it has the corpus open to ask whether the
@@ -14685,10 +14924,12 @@ def _report_predict_backlog(backlog: PredictBacklog, *, cap: int, prefix: str) -
         typer.echo(
             f"Predict backlog: {backlog.reowed_events} of the owed event(s) are "
             "RE-OWED under the pre-freeze rule — still forward, still at an open "
-            "moment, and every committed prediction on them carries a retired "
-            "process digest, so their cells would never reach a claimable board. "
+            "moment, and every committed prediction on them is de-counted "
+            "(outside every counting window, or in a revoked one), so their cells "
+            "would never reach a claimable board. "
             "Re-predicting replaces nothing: the older cells stay under their own "
-            "run ids and the newest run per predictor is the one staged for grading.",
+            "run ids and the newest resolvable run per predictor is the one staged "
+            "for grading.",
             err=True,
         )
     if backlog.held_stale:
@@ -14940,9 +15181,8 @@ def _report_uneven_coverage(board: Leaderboard) -> None:
     ]
     for population, covered, entries in populations:
         short = [
-            f"{entry.predictor_id} {entry.events_scored}/{covered}"
-            for entry in entries
-            if entry.events_scored < covered
+            f"{entry_name(entry, entries)} {entry.events_scored}/{against}"
+            for entry, against in coverage_shortfalls(covered, entries)
         ]
         if not short:
             continue
@@ -16105,7 +16345,7 @@ def _predict_ledger_gate(
     already-complete event.
 
     A third class rides beside them and removes nothing: a cell the ledger holds
-    only under **retired** process digests, on an event the backlog deriver
+    only as **de-counted** cells, on an event the backlog deriver
     reopened, survives the gate under the pre-freeze re-predict rule
     (:func:`fedcourtsai.matrix.reopened_for`). It is reported separately rather
     than silently absent from ``already_predicted``, because a maintainer
@@ -16141,9 +16381,9 @@ def _predict_ledger_gate(
                         _DropRecord(
                             case_id,
                             "every committed prediction by this predictor on the event "
-                            "carries a retired process digest, and the event is still "
+                            "is de-counted, and the event is still "
                             "forward at an open moment — re-owed a cell under the "
-                            "blessed process",
+                            "process in force",
                             event_id=event_id,
                             actor_id=predictor.id,
                         )
@@ -16312,10 +16552,11 @@ def _approval_report_table(plan: dict[str, Any]) -> list[str]:
     """The would-mint cells as a markdown table, ordered by case, truncated with its count.
 
     Sorted by (case, actor) rather than left in fan-out order so the 40 rows a
-    truncated table keeps are a **contiguous range of cases**: a reader can see
-    which cases the visible rows cover and know the rest lie past them, where
-    the registry-major fan-out order would instead show every case's first
-    engine and cut the others.
+    truncated table keeps are a **contiguous range of case ids**: a reader can
+    see which cases the visible rows cover and know the rest lie past them. The
+    fan-out keeps a case's cells together too, but in derivation order and with
+    the engines in a per-run shuffle; the sort gives the table an ascending
+    case id and a fixed actor order within each case instead.
     """
     cells = plan["would_mint"]
     if not cells:
@@ -16568,7 +16809,8 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
         str,
         typer.Option(
             help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
-            "carries it — a plan mints none — so it names the run only in the plan."
+            "carries it — a plan mints none — but it keys the engine order within each "
+            "case, so the plan lists cells in the order a run under this id starts them."
         ),
     ] = "",
     approval_report: _ApprovalReportOption = None,
@@ -16766,7 +17008,8 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
         str,
         typer.Option(
             help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
-            "carries it — a plan mints none — so it names the run only in the plan."
+            "carries it — a plan mints none — but it keys the judge order within each "
+            "case, so the plan lists cells in the order a run under this id starts them."
         ),
     ] = "",
     missed_since: Annotated[
@@ -16988,9 +17231,9 @@ def cell_outputs_cmd(
     the runner's own terms — the watchdog never re-derives it, and never reads a
     file the agent could rewrite to say what it should wait for.
 
-    Stdout is a hand-over the arm step splits, like ``watchdog-checkin``'s: the
-    **first line** is the directory whose write quiescence is watched, and
-    **every line after it** is one required file, repo-relative. An evaluate cell
+    Stdout is a hand-over the arm step splits: the **first line** is the
+    directory whose write quiescence is watched, and **every line after it** is
+    one required file, repo-relative. An evaluate cell
     names its candidates by their staging aliases, since the un-aliasing runs in
     the cell's tail, long after the sentinel has to recognize them; a cell with no
     staged candidate has no completion to wait for and exits non-zero, which
@@ -18179,124 +18422,6 @@ def post_agent_feedback_cmd(
     """
     comment = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
     typer.echo(post_agent_feedback(comment, repo))
-
-
-@app.command("watchdog-checkin")
-def watchdog_checkin_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
-    repo: Annotated[str, typer.Option(help="owner/name of the repository to post into.")],
-    run_id: Annotated[str, typer.Option(help="The round's run id.")],
-    court: Annotated[str, typer.Option(help="The cell's court id.")],
-    docket: Annotated[str, typer.Option(help="The cell's docket id.")],
-    event_id: Annotated[str, typer.Option(help="The cell's event id.")],
-    actor: Annotated[str, typer.Option(help="The cell's predictor or evaluator id.")],
-    deadline_s: Annotated[
-        int, typer.Option(help="The watchdog's deadline, in seconds (arm mode).")
-    ] = 0,
-    run_url: Annotated[str, typer.Option(help="The Actions run's URL (arm mode).")] = "",
-    disarm: Annotated[
-        bool,
-        typer.Option(
-            "--disarm/--arm",
-            help="Close the record out with the engine step's conclusion instead of opening it.",
-        ),
-    ] = False,
-    conclusion: Annotated[
-        str, typer.Option(help="The engine step's conclusion (disarm mode).")
-    ] = "",
-    healthy: Annotated[
-        bool,
-        typer.Option(
-            "--healthy/--not-healthy",
-            help="Disarm mode: the watchdog never reached its deadline, so the record collapses.",
-        ),
-    ] = True,
-    channel: Annotated[
-        str,
-        typer.Option(
-            help=(
-                "Which long-lived issue carries the record: 'prod' (the production "
-                "cells' `codex-watchdog` issue, the default) or 'staging' (the "
-                "rehearsal channel's own issue, for staging-bound repro dispatches). "
-                "An unregistered value degrades to a record-less arming with a "
-                "warning, on the command's best-effort contract."
-            ),
-        ),
-    ] = "prod",
-) -> None:
-    """Record this codex cell on the long-lived `codex-watchdog` telemetry issue.
-
-    The one channel a wedged codex cell cannot erase. Every other account the
-    watchdog leaves — the diagnostics bundle, the disarm step that publishes it,
-    the step summary, the job log — dies with the runner when the *job* cap
-    cancels a step that never ended, so a hang erases its own evidence down to
-    whether the watchdog fired at all. This writes the record **off the
-    runner** while the runner is still alive: find-or-create the channel's
-    long-lived issue (a non-triggering label), then create this cell's
-    comment or reset the one its marker already names.
-
-    Stdout is the arm step's hand-over to the detached watchdog, and it is two
-    parts: the **first line** is the comment's API URL, which the watchdog
-    PATCHes as it passes each state, and **everything after it** is the body
-    just written — the base each state is appended to. The whole body and not
-    just its marker line, because the watchdog PATCHes what it has composed, so
-    a trimmed base would have the first heartbeat erase the arming time, the
-    fire ETA and the run link. Passed rather than rebuilt in shell so the marker
-    has one spelling. The token is the comment-only App mint the cell's watchdog
-    steps hold; nothing here reads or writes a cell artifact.
-
-    Best-effort by contract: the kill duty is what the watchdog is for, so a
-    failure here warns and exits zero, leaving the arm step to arm a watchdog
-    with no check-in URL — which simply beats nowhere.
-    """
-    try:
-        if disarm:
-            url, base = disarm_checkin(
-                repo=repo,
-                run_id=run_id,
-                court=court,
-                docket=docket,
-                event_id=event_id,
-                actor=actor,
-                conclusion=conclusion or "unknown",
-                healthy=healthy,
-                channel=channel,
-            )
-        else:
-            url, base = arm_checkin(
-                repo=repo,
-                run_id=run_id,
-                court=court,
-                docket=docket,
-                event_id=event_id,
-                actor=actor,
-                deadline_s=deadline_s,
-                run_url=run_url,
-                channel=channel,
-            )
-    except (OSError, ValueError, subprocess.SubprocessError) as exc:
-        # Named exactly: a missing/unexecutable gh, an unparseable response, and
-        # the bounded runner's exhausted retries. Anything else is a bug here
-        # rather than a degraded API, and a bug should fail loudly — the call
-        # sites carry `|| true` regardless, so a loud failure still costs the
-        # record rather than the arming. The channel refusal is the one case
-        # whose message is composed by this codebase and safe to print — it
-        # names the registered set, which is what makes a typo'd channel
-        # debuggable from the one log a healthy run keeps. JSONDecodeError
-        # subclasses ValueError and reaches here from a degraded gh response,
-        # so it is excluded: this is the lane's only place that prints an
-        # exception message into a public Actions log, and the printed set
-        # stays exactly the messages this codebase composes.
-        detail = (
-            f": {exc}"
-            if isinstance(exc, ValueError) and not isinstance(exc, json.JSONDecodeError)
-            else ""
-        )
-        typer.echo(
-            f"::warning::codex watchdog check-in failed ({type(exc).__name__}{detail})", err=True
-        )
-        return
-    typer.echo(url)
-    typer.echo(base)
 
 
 def main() -> None:

@@ -548,7 +548,9 @@ Read-only consumers go through `corpus.connect_readonly`, which picks the
 backend from the corpus-backend setting (or an explicit override): `local`
 opens the pulled file (migrating it in place to the reading code's schema,
 unless the caller passes `migrate=False`, as `corpus-info` does, which opens
-it strictly read-only and leaves its bytes matching the pointer), `ranged` resolves the pointer the read paths honor —
+it strictly read-only and leaves its bytes matching the pointer; `corpus-info`
+and `corpus-pull` say when an earlier migrating read has already moved the
+bytes off their pointer's sha256), `ranged` resolves the pointer the read paths honor —
 the out-of-band override when set, else the committed one — against
 the out-of-band remote URL; writers never use this seam. Each ranged connection
 reports its `GET`s and bytes fetched to stderr — the per-query egress evidence
@@ -638,7 +640,9 @@ index facts and the content store exposes no rows — so it reads the row over
 `local`/`ranged` while the body half routes itself through the payload read
 source described below. Its own slot rather than a filed document, because an
 opinion postdates every predict moment and `record/documents/` is cut by date
-alone; the predict lane never invokes it, which is the whole of the guarantee.
+alone; the predict lane never invokes it, which is the guarantee on an ephemeral
+runner — and `provision-snapshot` also clears the slot before writing a record,
+which is the one that holds in a reused tree.
 
 *Which* point in time the record is sourced at is the cell's declared moment,
 not the corpus's newest read: where a cell names an event that declares
@@ -874,6 +878,15 @@ full text body per stored document. Both belong with the scan-heavy work
 rather than with the lookups) and **a deliberate full pull** for scan-heavy
 exploration (`uv run fedcourts corpus-pull`). Default to ranged:
 Codespaces runs on Azure, so every full pull is cross-cloud S3 egress.
+Absent the override, either mode reads the blob the checkout's committed
+pointer names, so a checkout on an old commit — or a branch off `staging`
+between syncs, since data commits land on `main` only — reads an old corpus:
+`corpus-info` and `corpus-pull` say so when that pointer differs from
+`origin/main`'s as last fetched (read ranged with that pointer supplied as the
+override before calling the vintage current). Separately,
+`corpus-info` and `corpus-pull` say when a pulled blob's bytes no longer match
+its pointer's sha256 because a default local read migrated it in place; a
+re-pull, or a ranged read, serves the published bytes again.
 
 Credentials arrive as **user-scoped** Codespaces secrets — never repo-level,
 never committed: the **maintainer** via IAM Identity Center (short-lived SSO

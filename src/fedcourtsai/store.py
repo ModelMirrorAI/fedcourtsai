@@ -10,9 +10,10 @@ case set and the event state are read from the packed corpus; the git tree under
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from types import MappingProxyType
 from typing import NamedTuple
 
 from pydantic import BaseModel
@@ -34,10 +35,20 @@ from .integrity import (
 from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.moments import first_moment
-from .process_version import FROZEN_SINCE, graded_post_freeze, is_frozen
+from .process_version import (
+    PooledWindowsError,
+    counted_on_event,
+    describe_windows,
+    freeze_in_force,
+    graded_in_window,
+    refuse_shared_labels,
+    resolvable_runs,
+    window_of,
+)
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
+    CountingWindow,
     Evaluation,
     EventKind,
     ModelUsage,
@@ -45,6 +56,7 @@ from .schemas import (
     Outcome,
     PredictableEvent,
     Prediction,
+    ProcessVersion,
     Stage,
     Stratum,
 )
@@ -727,8 +739,8 @@ def event_has_claimable_prediction(
     :func:`fedcourtsai.matrix.event_has_predictions`. Completing a cohort is
     only worth spending on when the completed cohort is one a claimable board
     actually counts, and the board's scope is the frozen partition: `stratify`
-    keeps a cell only where the scored predictor's *latest* prediction
-    :func:`fedcourtsai.process_version.is_frozen`. A cell minted now is stamped
+    keeps a cell only where the scored predictor's *latest* prediction is its
+    counted cell on the event (:func:`prediction_counts`). A cell minted now is stamped
     with a blessed digest at a post-freeze instant and so lands in that
     partition — so completing an event whose existing cohort is entirely
     **unfrozen** does not finish a cohort at all: it manufactures an event on
@@ -749,65 +761,107 @@ def event_has_claimable_prediction(
     for path in predictions_root.glob("*/*/prediction.json"):
         prediction = read_model(path, Prediction)
         by_predictor.setdefault(prediction.predictor_id, []).append(prediction)
-    if FROZEN_SINCE is None:
+    if not freeze_in_force():
         return bool(by_predictor)
-    return any(
-        is_frozen(max(runs, key=cell_clock).process_version) for runs in by_predictor.values()
-    )
+    return any(_counted_among(latest_resolvable(runs), runs) for runs in by_predictor.values())
 
 
-def predictor_holds_only_retired_predictions(
+def predictor_holds_no_counted_prediction(
     data_root: Path, court_id: str, docket_id: int, event_id: str, predictor_id: str
 ) -> bool:
-    """Whether this predictor's every committed cell on the event is out of frozen scope.
+    """Whether this predictor has committed cells on the event and none of them counts.
 
-    The **ledger half** of the pre-freeze re-predict rule
-    (:func:`fedcourtsai.pipeline.pull.derive_predict_backlog`): a predictor that
-    forecast an event under a process the current freeze has since retired holds
-    a cell no claimable board will ever count, so while the event is still
-    forward it is owed a cell under the blessed process. Answers only the ledger
-    question — whether the event is genuinely forward, and whether its moment is
-    still open, are the deriver's corpus-side gates.
+    The **ledger half** of the re-predict rule
+    (:func:`fedcourtsai.pipeline.pull.derive_predict_backlog`): a predictor
+    whose every forecast of an event is **de-counted** holds a cell no
+    claimable board will ever count, so while the event is still forward it is
+    owed a cell under the process in force. Answers only the ledger question —
+    whether the event is genuinely forward, and whether its moment is still
+    open, are the deriver's corpus-side gates.
+
+    A cell is de-counted where it sits in no counting window (unstamped, a
+    digest no window names — the labels before ``proc-v8`` — or a stamp before
+    its window opened), where its window was **revoked**, or where it is a
+    later-window cell stamped before the revocation of the earlier window it
+    stood behind (:func:`fedcourtsai.process_version.counted_on_event`). A
+    **closed** window is none of these: its cells keep counting, so a
+    supersession re-owes nothing — an event on which a closed window holds a
+    counted cell is not re-owed, and the successor's backlog reaches only the
+    events its predecessor did not.
 
     Three ways to be false, and each is a different case:
 
     * **No committed prediction at all.** That is the ordinary backlog's
       never-predicted arm, not this one; keeping the two disjoint is what lets
       the deriver order re-owed cells behind never-predicted ones.
-    * **A blessed cell already exists** for this predictor on this event, at any
-      run. Deliberately ``any`` over every run rather than
+    * **A counted cell already exists** for this predictor on this event, at
+      any run. Deliberately ``any`` over every run rather than
       :func:`event_has_claimable_prediction`'s latest-run reading: the question
-      there is which cohort a *board* counts, while the question here is whether
-      the project has already paid this engine to forecast this event under a
-      blessed process. Answered on the latest run alone, a retired re-run
-      committed after a blessed cell would buy a third forecast of the same
+      there is which cohort a *board* counts, while the question here is
+      whether the project has already paid this engine a counted forecast of
+      this event. Answered on the latest run alone, a de-counted re-run
+      committed after a counted cell would buy a third forecast of the same
       moment; answered this way it does not.
     * **No freeze is in force.** There is then one process scope, every
       committed prediction is in it, and the partition this rule repairs does
       not exist.
 
-    An **unstamped** cell counts as retired, exactly as :func:`is_frozen` reads
-    it: the shakedown ledger carries no digest, and a digest is what membership
-    is keyed on — and so does a blessed digest stamped *before*
-    :data:`FROZEN_SINCE`, since :func:`is_frozen` gates on the counting instant
-    as well as the digest. Retired here means "out of frozen scope", not
-    "carrying a retired digest".
-
     What this reading deliberately does **not** repair: a predictor holding a
-    blessed cell at an older run and a retired one at its latest. ``stratify``
-    reads the latest and drops the cell; this reads every run and declines to
-    re-owe it, so the event stays out of the board. That asymmetry is the price
-    of the choice above and not an oversight — the state needs a retired run
-    committed *after* a blessed one, which the lanes do not produce — and
-    closing it by keying on the latest run would reopen the case that choice
-    exists to refuse.
+    counted cell at an older run and a de-counted one at its latest.
+    ``stratify`` reads the latest resolvable run and drops the cell; this reads
+    every run and declines to re-owe it, so the event stays out of the board.
+    That asymmetry is the price of the choice above and not an oversight — the
+    state needs a de-counted run committed *after* a counted one, which the
+    lanes do not produce — and closing it by keying on the latest run would
+    reopen the case that choice exists to refuse.
     """
-    if FROZEN_SINCE is None:
+    if not freeze_in_force():
         return False
     predictions_root = CasePaths(data_root, court_id, docket_id).event(event_id).predictions_dir
     pattern = f"{predictor_id}/*/prediction.json"
     runs = [read_model(path, Prediction) for path in predictions_root.glob(pattern)]
-    return bool(runs) and not any(is_frozen(run.process_version) for run in runs)
+    return bool(runs) and not any(_counted_among(run, runs) for run in runs)
+
+
+def _counted_among(prediction: Prediction, runs: Sequence[Prediction]) -> bool:
+    """Whether ``prediction`` counts, given every run its predictor holds on the event."""
+    return counted_on_event(
+        prediction.process_version, lambda: [run.process_version for run in runs]
+    )
+
+
+def latest_resolvable(runs: Sequence[Prediction]) -> Prediction:
+    """The newest of one predictor's runs on one event that latest-resolution may pick.
+
+    By :func:`fedcourtsai.integrity.cell_clock`, first maximum in the given
+    order, over the runs :func:`fedcourtsai.process_version.resolvable_runs`
+    leaves — so a later window's cell is never picked in place of the earliest
+    window's counted one. ``runs`` must be non-empty; the filter never empties
+    a non-empty list, since the earliest window's cells always survive it.
+    """
+    return max(resolvable_runs(runs, lambda run: run.process_version), key=cell_clock)
+
+
+def predictor_stamps(event_dir: Path, predictor_id: str) -> list[ProcessVersion | None]:
+    """Every harness stamp one predictor committed on one event, in path order."""
+    return [
+        read_model(path, Prediction).process_version
+        for path in sorted(event_dir.glob(f"predictions/{predictor_id}/*/prediction.json"))
+    ]
+
+
+def prediction_counts(event_dir: Path, predictor_id: str, prediction: Prediction) -> bool:
+    """Whether ``prediction`` is its predictor's counted forecast of the event at ``event_dir``.
+
+    The event-aware counting rule
+    (:func:`fedcourtsai.process_version.counted_on_event`) over the predictor's
+    sibling runs, read from the ledger only where the tie-break has something
+    to decide. The one predicate every frozen-scope reader applies to the
+    prediction it scores.
+    """
+    return counted_on_event(
+        prediction.process_version, lambda: predictor_stamps(event_dir, predictor_id)
+    )
 
 
 def iter_evaluations(data_root: Path) -> list[Evaluation]:
@@ -902,8 +956,10 @@ def scored_prediction(
     before the field existed — or one naming a run whose artifact is gone, a
     state the append-only ledger does not produce and ``validate`` refuses —
     falls back to the predictor's **latest** prediction by
-    :func:`fedcourtsai.integrity.cell_clock`, the historical rule the stamp
-    exists to retire. The path is assembled inline because ``event_dir`` is a
+    :func:`fedcourtsai.integrity.cell_clock` — never a later window's cell the
+    earliest-window tie-break leaves uncounted
+    (:func:`fedcourtsai.process_version.resolvable_runs`) — the historical rule
+    the stamp exists to replace. The path is assembled inline because ``event_dir`` is a
     bare directory here, not a :class:`fedcourtsai.paths.EventPaths` — it
     mirrors the glob one line below.
     """
@@ -927,7 +983,8 @@ def scored_prediction_cell(
             return named.parent, read_model(named, Prediction)
     files = sorted(event_dir.glob(f"predictions/{predictor_id}/*/prediction.json"))
     cells = [(path.parent, read_model(path, Prediction)) for path in files]
-    return max(cells, key=lambda cell: cell_clock(cell[1])) if cells else None
+    candidates = resolvable_runs(cells, lambda cell: cell[1].process_version)
+    return max(candidates, key=lambda cell: cell_clock(cell[1])) if candidates else None
 
 
 class _ScopedCell(NamedTuple):
@@ -972,6 +1029,23 @@ def _stratum_of(
     return classify_stratum(cell_clock(scored), outcome.resolved_at)
 
 
+#: One scored cell's identity — ``(case, event, predictor, evaluator, run)``.
+#: The join key for per-cell facts a surface reads beside the cells, since
+#: ``Evaluation`` is not hashable.
+EvaluationKey = tuple[str, str, str, str, str]
+
+
+def evaluation_key(evaluation: Evaluation) -> EvaluationKey:
+    """This evaluation's :data:`EvaluationKey`."""
+    return (
+        evaluation.case_id,
+        evaluation.event_id,
+        evaluation.predictor_id,
+        evaluation.evaluator_id,
+        evaluation.run_id,
+    )
+
+
 class StratifiedRun(NamedTuple):
     """:func:`stratify`'s result: the scorable cells, and what was excluded.
 
@@ -994,6 +1068,12 @@ class StratifiedRun(NamedTuple):
     assessed" rather than "clean". A cell caught by both rules appears in
     ``excluded`` **and** ``leaked``: they answer different questions over one
     population, so the counts are published side by side and never summed.
+
+    ``cell_windows`` maps each in-scope cell (:func:`evaluation_key`) to the
+    counting window its scored prediction sits in — the second half of the
+    (predictor, window) key every frozen-scope figure is published under.
+    Empty on an all-versions pass, which pools by definition and says so in its
+    ``process_scope``.
     """
 
     cells: list[StratifiedCell]
@@ -1002,13 +1082,15 @@ class StratifiedRun(NamedTuple):
     claimed_forward: int = 0
     superseded: int = 0
     leakage_assessed: int = 0
+    cell_windows: Mapping[EvaluationKey, CountingWindow] = MappingProxyType({})
 
 
-def stratify(
+def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, both exclusions
     data_root: Path,
     *,
     frozen_only: bool = True,
     policy: ForwardClaimPolicy = FORWARD_CLAIM_POLICY,
+    refuse_pooled_windows: bool = True,
 ) -> StratifiedRun:
     """Every evaluation joined to its stratum, stage, and forecast moment, in path order.
 
@@ -1075,8 +1157,10 @@ def stratify(
     other kind stays ``None`` (no stage, never guessed into one). The
     leaderboard segments its stage axis on this value.
 
-    ``frozen_only`` (the default) keeps only cells whose latest prediction was
-    produced by a **frozen** process (:func:`process_version.is_frozen`), so every
+    ``frozen_only`` (the default) keeps only cells whose scored prediction is
+    its predictor's **counted** forecast of the event (:func:`prediction_counts`
+    — in a counting window, and the earliest window's where the predictor holds
+    cells from several), so every
     surface built on this stream — the leaderboard and the ops report both — is
     the frozen headline by construction and the two cannot disagree. It filters on
     the *prediction's* stamp, not the evaluation's digest: the competitor being
@@ -1086,15 +1170,29 @@ def stratify(
     re-run of the same cell into the counted figures — falling back, for
     records stamped before the field existed, to the predictor's latest
     prediction for the event. The evaluation's own **harness stamp**
-    must additionally be at or after the freeze instant
-    (:func:`process_version.graded_post_freeze` — its digest is recorded but
-    not enforced): under the latest-prediction fallback, without the time gate
-    a shakedown evaluation would ride into the frozen headline the moment the
-    same predictor re-ran its event under the frozen process. An unstamped
+    must additionally be at or after the instant that opened that prediction's
+    window (:func:`process_version.graded_in_window` — its digest is recorded
+    but not enforced, and a successor's later instant is not the gate): under
+    the latest-prediction fallback, without the time gate a shakedown
+    evaluation would ride into the frozen headline the moment the same
+    predictor re-ran its event under the frozen process. An unstamped
     shakedown prediction is never frozen, so the shakedown ledger drops out
     for free.
     ``frozen_only=False`` is the all-versions view, which reproduces every
     scored cell regardless of process.
+
+    **Windows are never pooled silently.** Under ``frozen_only`` each in-scope
+    cell's scored prediction sits in exactly one counting window, and
+    ``cell_windows`` names it per cell, so a caller keys its figures on
+    (predictor, window) — the series a new model under an unchanged id starts.
+    A predictor whose in-scope cells span two windows raises
+    :class:`PooledWindowsError` while ``refuse_pooled_windows`` holds (the
+    default), for a caller that keys on ``predictor_id`` alone and would
+    otherwise average the two as one series. A caller that keys on the series
+    (the leaderboard, the claim scores, the ops report) or publishes each row's
+    or event's window beside it (the dataset export, the conference cut) passes
+    ``False``. Two of one predictor's windows sharing a label raise whatever
+    the flag says, since no caller could publish them apart.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -1116,7 +1214,8 @@ def stratify(
                 f"event — the referential checks refuse this ledger"
             )
         if frozen_only and not (
-            is_frozen(scored.process_version) and graded_post_freeze(evaluation.process_version)
+            prediction_counts(event_dir, evaluation.predictor_id, scored)
+            and graded_in_window(evaluation.process_version, scored.process_version)
         ):
             continue
         scoped.append(_ScopedCell(evaluation, event_dir, scored))
@@ -1127,6 +1226,26 @@ def stratify(
     # board does not admit. Every counter below therefore sees one grading per
     # (case, event, predictor, evaluator).
     survivors = latest_evaluation_runs(scoped, lambda cell: cell.evaluation)
+    cell_windows: dict[EvaluationKey, CountingWindow] = {}
+    if frozen_only:
+        for cell in survivors:
+            window = window_of(cell.scored_prediction.process_version)
+            if window is not None:
+                cell_windows[evaluation_key(cell.evaluation)] = window
+    windows: dict[str, set[CountingWindow]] = {}
+    for (_case, _event, predictor_id, _evaluator, _run), window in cell_windows.items():
+        windows.setdefault(predictor_id, set()).add(window)
+    refuse_shared_labels(
+        ((pid, window) for pid, spans in windows.items() for window in spans),
+        surface="frozen-scope cells",
+    )
+    pooled = [pid for pid, spans in sorted(windows.items()) if len(spans) > 1]
+    if refuse_pooled_windows and pooled:
+        raise PooledWindowsError(
+            "frozen-scope cells span more than one counting window for "
+            + ", ".join(f"{pid} ({describe_windows(windows[pid])})" for pid in pooled)
+            + " — this caller keys on predictor_id alone and would pool them"
+        )
     # The one place a re-grade is still countable: every survivor below is
     # indistinguishable from a cell that was graded once, so the boards take
     # their audit line from this difference rather than re-scanning the ledger.
@@ -1153,7 +1272,15 @@ def stratify(
         event = read_model(event_dir / "event.yaml", PredictableEvent)
         stage = normalized_stage(event.kind, event.stage)
         cells.append((evaluation, stratum, stage, normalized_moment(stage, event.moment)))
-    return StratifiedRun(cells, excluded, leaked, claimed_forward, superseded, leakage_assessed)
+    return StratifiedRun(
+        cells,
+        excluded,
+        leaked,
+        claimed_forward,
+        superseded,
+        leakage_assessed,
+        cell_windows,
+    )
 
 
 def iter_stratified_evaluations(
@@ -1251,6 +1378,33 @@ class LedgerPrediction(NamedTuple):
     run_id: str
     prediction: Prediction
     cell_path: str
+
+
+def ledger_counts(rows: Sequence[LedgerPrediction]) -> list[bool]:
+    """For each row of :func:`iter_predictions`, whether it counts, in row order.
+
+    :func:`fedcourtsai.process_version.counted_on_event` with each row's
+    siblings — the same predictor's rows on the same event — read from
+    ``rows`` rather than the ledger again. ``rows`` must hold every committed
+    prediction of each (case, event, predictor) it holds any of, which a whole
+    :func:`iter_predictions` pass does.
+    """
+    siblings: dict[tuple[str, str, str], list[ProcessVersion | None]] = {}
+    for row in rows:
+        key = (row.case_id, row.event_id, row.predictor_id)
+        siblings.setdefault(key, []).append(row.prediction.process_version)
+    counts: list[bool] = []
+    for row in rows:
+        stamps = siblings[(row.case_id, row.event_id, row.predictor_id)]
+        counts.append(_counted_among_stamps(row.prediction.process_version, stamps))
+    return counts
+
+
+def _counted_among_stamps(
+    stamp: ProcessVersion | None, stamps: Sequence[ProcessVersion | None]
+) -> bool:
+    """:func:`fedcourtsai.process_version.counted_on_event` over known sibling stamps."""
+    return counted_on_event(stamp, lambda: stamps)
 
 
 def iter_predictions(data_root: Path) -> list[LedgerPrediction]:

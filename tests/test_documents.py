@@ -3687,6 +3687,7 @@ def test_document_text_coverage_share_is_none_over_an_unread_cut(tmp_path: Path)
     assert by_cut[("scored", KIND_QUESTIONS_PRESENTED)].share == 0.5
 
 
+@pytest.mark.reads_data
 def test_corpus_info_text_coverage_is_opt_in(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -3750,6 +3751,7 @@ def test_corpus_info_text_coverage_is_opt_in(
     assert "scotus/17" not in measured.stdout
 
 
+@pytest.mark.reads_data
 def test_corpus_info_text_coverage_caveats_a_blob_only_read(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -3768,6 +3770,7 @@ def test_corpus_info_text_coverage_caveats_a_blob_only_read(
     assert lines[0].startswith("text source:")
 
 
+@pytest.mark.reads_data
 def test_corpus_info_text_coverage_self_limits_when_the_store_serves_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

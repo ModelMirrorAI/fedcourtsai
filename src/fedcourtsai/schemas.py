@@ -2900,9 +2900,9 @@ class LeaderboardStratum(_Strict):
     The strata are therefore aggregated separately and never blended into one
     headline number.
 
-    Two skill columns sit here, and they are never blended either. ``population_brier_skill_score``
-    scores against the strictly-prior pooled band rate — the leakage-safe
-    baseline, and the primary outcome measure — while
+    Two skill columns form a pair here, and they are never blended either.
+    ``population_brier_skill_score`` scores against the strictly-prior pooled
+    band rate — the leakage-safe baseline, and the primary outcome measure — while
     ``population_realized_term_skill_score`` holds the level at the rate the case's own
     Term actually realized. Together they decompose skill **per cell**: the
     first rewards knowing the level *and* discriminating within it, the second
@@ -2912,7 +2912,12 @@ class LeaderboardStratum(_Strict):
     cells, which its own ``*_scored`` count records — the two are not a
     difference either.
 
-    Both are **population** skills, ``1 - sum(brier) / sum(baseline_brier)``
+    A third, ``population_in_sample_skill_score``, is a post-hoc descriptive
+    benchmark rather than a member of that pair: it scores against the block's
+    own in-sample grant rate (``in_sample_grant_rate``), which contains every
+    scored case's outcome, so it is hindsight by construction and never ranks.
+
+    All three are **population** skills, ``1 - sum(brier) / sum(baseline_brier)``
     over the cells they score, rather than means of per-cell ratios — which is
     what the ``population_`` prefix records, against the plain ``mean_*``
     fields beside them. The ratio caps at +1 but is unbounded below, so a mean
@@ -3003,6 +3008,62 @@ class LeaderboardStratum(_Strict):
         "(`pipeline.base_rates.REALIZED_BAND_RATE_MIN_RESOLVED`) after the "
         "leave-one-out, so it is omitted — visibly, here — on a thin band rather "
         "than computed on a handful of cases",
+    )
+    population_in_sample_skill_score: float | None = Field(
+        default=None,
+        le=1.0,
+        description="A **post-hoc descriptive benchmark**: Brier skill against "
+        "the constant `in_sample_grant_rate` — the sample climatology of this "
+        "very block's scored events, the case being scored included — "
+        "aggregated as the same population ratio as the other skill columns, "
+        "`1 - sum(cell Brier) / sum((c - y)^2)`, over the "
+        "`in_sample_skill_scored` gradings. Its baseline nets out the block's "
+        "level and nothing finer, the scored case's own outcome included, so it "
+        "measures discrimination within the block — between-band separation "
+        "included wherever the block pools bands; `by_band` is the within-band "
+        "reading — net of miscalibration against the block's own base rate: at "
+        "uniform panel depth, with forecasts grouped at their distinct values, "
+        "it equals (resolution - reliability) / uncertainty in the Murphy "
+        "decomposition, and only approximately where depth varies by event. "
+        "Hindsight by construction — the rate exists only once every scored "
+        "event has resolved — so it never ranks, is never a headline, and is "
+        "never pooled or differenced with population_brier_skill_score (the "
+        "strictly-prior band rate, the primary outcome measure) or "
+        "population_realized_term_skill_score (a Term-wide band rate, "
+        "leave-one-out, at the pack's term-to-date vintage). Cert cells only "
+        "(the cells carrying outcome facts); null where the rate is 0 or 1, "
+        "since every reference Brier is then 0",
+    )
+    in_sample_skill_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Gradings contributing to population_in_sample_skill_score: "
+        "every grading in the block carrying a Brier score and cert outcome "
+        "facts. 0 wherever the figure is null — including where "
+        "`in_sample_grant_rate` is 0 or 1, and where any such grading's "
+        "stamped Brier no longer reproduces from the scored prediction against "
+        "the committed outcome (a Brier taken against a superseded outcome, "
+        "which no baseline read off the current one may be paired with)",
+    )
+    in_sample_grant_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The in-sample constant population_in_sample_skill_score "
+        "scores against: the mean binary target `Outcome.actual_granted` over "
+        "the `in_sample_events_scored` distinct events of the gradings that "
+        "column scores, each event counted once however many judges graded "
+        "it. On the binary target rather than the grant family, so a "
+        "`granted-in-part` outcome counts as a grant here, as it does in "
+        "every Brier score; elsewhere the two coincide. Published even where "
+        "it is 0 or 1 and the skill is null. Null where no grading qualifies",
+    )
+    in_sample_events_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct (case, event) pairs in `in_sample_grant_rate`'s "
+        "denominator — the events of the `in_sample_skill_scored` gradings "
+        "(or, where the skill is null, of the gradings that would have been)",
     )
     always_deny_accuracy: float | None = Field(
         default=None,
@@ -3147,6 +3208,67 @@ class LeaderboardStratum(_Strict):
     )
 
 
+class WindowCount(_Strict):
+    """One (predictor, counting window) series inside a figure that pools several labels.
+
+    A frozen-scope figure keyed on something other than the forecaster — a
+    judge-validation coefficient, a grader-agreement read, a calibration over
+    every engine's cells — pools whatever series its cells come from. Where
+    those span more than one window label, the figure is the **record across
+    those labels**: it lists each series and its ``n`` beside the pooled value,
+    and is never a rank key (``docs/process-version.md``, *No figure pools
+    windows*).
+    """
+
+    predictor_id: str
+    process_window: str = Field(description="The counting window's label (e.g. `proc-v8`)")
+    n: int = Field(
+        ge=0,
+        description="This series' share of the pooled figure's population, in the unit the "
+        "containing `windows` field names (cells or reads) — not necessarily the unit of the "
+        "figure's own count, so the n need not sum to it",
+    )
+
+
+_POOLED_WINDOWS_DESCRIPTION = (
+    "Listed only where the series carry more than one window label — the figure "
+    "is then the record across those labels, never one series and never a rank "
+    "key. Omitted while every series shares one label (the artifact's "
+    "`frozen_process.windows` names it) and on an all-versions build"
+)
+
+
+def _omit_empty(payload: Any, **fields: object) -> Any:
+    """Drop each named field from a serialized payload while its value is empty."""
+    if isinstance(payload, dict):
+        for name, value in fields.items():
+            if not value:
+                payload.pop(name, None)
+    return payload
+
+
+class CompleteGrid(_Strict):
+    """One window combination's complete grid: the events every predictor holds in it.
+
+    A cross-engine comparison is read only over events on which every compared
+    engine holds a counted cell, **each from one named window**, so the grid is
+    taken per combination of windows — one window per predictor — and only over
+    windows whose spans overlap. An event whose predictors' counted cells come
+    from windows that never ran together (a closed window and the successor
+    that closed it) is a **split event** and belongs to no grid.
+    """
+
+    windows: dict[str, str] = Field(
+        description="Each predictor's counting-window label in this combination, keyed by "
+        "predictor_id"
+    )
+    by_band: dict[str, int] = Field(
+        default_factory=dict,
+        description="Per `by_band` key, the forward cert events complete under this "
+        "combination — the same rule as the population's `complete_grid_by_band`",
+    )
+
+
 class EvaluatorAgreement(_Strict):
     """How far one evaluator's big-case reads track the rest of the panel's.
 
@@ -3182,6 +3304,18 @@ class EvaluatorAgreement(_Strict):
         description="Events this evaluator and at least one peer both read — the "
         "sample the correlation rests on, and small enough to matter",
     )
+    windows: list[WindowCount] = Field(
+        default_factory=list,
+        description="The predictor windows whose graded cells this evaluator's reads came "
+        "from, each with its read count. The view compares graders, so it pools the "
+        "predictors' windows by design and states them here instead. "
+        + _POOLED_WINDOWS_DESCRIPTION,
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_single_label(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``windows`` while it lists nothing."""
+        return _omit_empty(handler(self), windows=self.windows)
 
 
 class BigCaseLeaderboard(_Strict):
@@ -3244,7 +3378,36 @@ _COMPLETE_GRID_DESCRIPTION = (
     "between engines is made only over it: where two entries' per-band "
     "`events_scored` differ they rank over different petitions, and no "
     "per-band ordering is read off them. An event whose predictors froze "
-    "different bands is complete under none. Omitted while empty"
+    "different bands is complete under none, and on a frozen build so is a "
+    "split event — one whose predictors' counted cells come from windows that "
+    "never ran together. Where the population's entries carry more than one "
+    "window label this is the total over its window combinations, each event "
+    "in exactly one, and `complete_grids` breaks it out: a comparison reads "
+    "its own combination's grid, never the total, which is read as the grid "
+    "only while `complete_grids` is absent. Omitted while empty"
+)
+
+_COMPLETE_GRIDS_DESCRIPTION = (
+    "The complete grid per window combination (one window per predictor, "
+    "windows that overlap in time), sorted by the combination's windows. "
+    "Listed wherever the population's entries carry more than one window "
+    "label, even when one combination (or none) holds every complete event: "
+    "a per-window entry need not cover the total, so a per-band comparison "
+    "reads the entries whose `process_window` match one combination against "
+    "that combination's count, and an entry whose window is in no listed "
+    "combination has no grid. Omitted under one label, where every entry "
+    "covers `complete_grid_by_band` and it is the grid"
+)
+
+_SPLIT_EVENTS_DESCRIPTION = (
+    "Per `by_band` key, the forward cert events on which every predictor holds "
+    "an accuracy-scored forward grading under that band, but from windows that "
+    "never ran together — a closed window and the successor that closed it. A "
+    "split event belongs to no complete grid, so it is counted here rather "
+    "than in one. Omitted while empty, which it is on any build whose windows "
+    "all overlap. These are split events among this population's complete "
+    "graded events only; the split-event count a successor's freeze-record "
+    "entry discloses is over every counted cell, graded or not"
 )
 
 
@@ -3268,7 +3431,24 @@ class LeaderboardEntry(_Strict):
     """
 
     predictor_id: str
-    rank: int = Field(ge=1, description="1-based standing; 1 is best")
+    process_window: str | None = Field(
+        default=None,
+        description="The label of the counting window every cell behind this entry comes "
+        "from (e.g. `proc-v8`); null on an all-versions build, which pools every process "
+        "by definition. A frozen build keys its entries on (predictor_id, process_window): "
+        "a predictor whose counted cells span two windows has one entry per window, and "
+        "no entry pools them",
+    )
+    rank: int = Field(
+        ge=1,
+        description="1-based standing; 1 is best. Ranked within this entry's `process_window` "
+        "cohort: on a frozen build whose entries carry more than one window label, the ranking "
+        "restarts per label (cohorts listed in the order their windows opened), since a rank "
+        "is a cross-engine comparison and a successor's window is not ranked against the "
+        "window it closed. A carried-forward window ranks in its opening label's cohort while "
+        "it accrues later events, so a rank inside such a cohort is read through "
+        "`complete_grids`. Under one label, one ranking over the board",
+    )
     evaluators: int = Field(ge=0, description="Distinct evaluators that scored this predictor")
     events_scored: int = Field(
         ge=0,
@@ -3335,6 +3515,14 @@ class LeaderboardStageEntry(_Strict):
     """
 
     predictor_id: str
+    process_window: str | None = Field(
+        default=None,
+        description="The label of the counting window every cell behind this entry comes "
+        "from (e.g. `proc-v8`); null on an all-versions build, which pools every process "
+        "by definition. A frozen build keys its entries on (predictor_id, process_window): "
+        "a predictor whose counted cells span two windows has one entry per window, and "
+        "no entry pools them",
+    )
     evaluators: int = Field(
         ge=0, description="Distinct evaluators that scored this predictor in this stage"
     )
@@ -3427,13 +3615,19 @@ class LeaderboardStage(_Strict):
     )
     entries: list[LeaderboardStageEntry] = Field(
         default_factory=list,
-        description="Per-predictor aggregates, ordered by predictor_id — an "
-        "ordering, not a ranking",
+        description="Per-predictor aggregates — per (predictor, counting window) on a frozen "
+        "build — ordered by predictor_id then the window's opening: an ordering, not a ranking",
     )
 
     complete_grid_by_band: dict[str, int] = Field(
         default_factory=dict,
         description=_COMPLETE_GRID_DESCRIPTION,
+    )
+    complete_grids: list[CompleteGrid] = Field(
+        default_factory=list, description=_COMPLETE_GRIDS_DESCRIPTION
+    )
+    split_events_by_band: dict[str, int] = Field(
+        default_factory=dict, description=_SPLIT_EVENTS_DESCRIPTION
     )
 
     @model_validator(mode="after")
@@ -3443,11 +3637,73 @@ class LeaderboardStage(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_empty_complete_grid(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``complete_grid_by_band`` while it is empty, as ``by_band`` is."""
-        payload = handler(self)
-        if isinstance(payload, dict) and not self.complete_grid_by_band:
-            payload.pop("complete_grid_by_band", None)
-        return payload
+        """Drop each grid field while it is empty, as ``by_band`` is."""
+        return _omit_empty(
+            handler(self),
+            complete_grid_by_band=self.complete_grid_by_band,
+            complete_grids=self.complete_grids,
+            split_events_by_band=self.split_events_by_band,
+        )
+
+
+class CountingWindow(_Strict):
+    """One blessing of one predictor digest: the span its cells count in.
+
+    The counting rule's unit (:data:`fedcourtsai.process_version.COUNTING_WINDOWS`).
+    A window opens at the counting instant of the label that blessed the digest
+    and closes at the counting instant of the successor that stops blessing it,
+    each as its ``prereg/`` tag records it. A **closed** window's cells keep
+    counting; a **revoked** one's are de-counted, which only a dated
+    freeze-record entry stating a defect licenses. A digest carried forward
+    byte-identical keeps one unbroken window; a digest blessed again after its
+    window closed opens a new one.
+    """
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
+
+    label: str = Field(
+        description="The process label whose blessing opened the window (e.g. `proc-v8`); "
+        "the label every figure over the window is reported under"
+    )
+    digest: str = Field(description="The blessed predictor process digest (`sha256:<hex>`)")
+    opens: datetime = Field(
+        description="The counting instant that opened the window: a cell stamped at or "
+        "after it (and before `closes`) is in the window"
+    )
+    closes: datetime | None = Field(
+        default=None,
+        description="The successor's counting instant that closed the window, exclusive; "
+        "null while the window is open. Closing de-counts nothing",
+    )
+    revoked_at: datetime | None = Field(
+        default=None,
+        description="When a dated revocation de-counted the window's cells for a defect — "
+        "at or after the merge of the promotion that carried it, and only on a closed "
+        "window; null for a window that counts",
+    )
+
+    @model_validator(mode="after")
+    def _revocation_follows_a_close(self) -> CountingWindow:
+        """A revoked window is a closed one, revoked at or after it opened.
+
+        Revoking a window still open would leave its digest blessed, so the
+        backlog would re-mint the re-owed events under the very process the
+        revocation found defective; a successor must close it first.
+        """
+        if self.closes is not None and self.closes <= self.opens:
+            raise ValueError("a window closes after it opens")
+        if self.revoked_at is not None:
+            if self.closes is None:
+                raise ValueError("only a closed window can be revoked: set `closes` first")
+            if self.revoked_at < self.opens:
+                raise ValueError("a window is revoked at or after it opens")
+        return self
+
+    def contains(self, moment: datetime) -> bool:
+        """Whether ``moment`` falls in ``[opens, closes)``; a naive moment never does."""
+        if moment.tzinfo is None:
+            return False
+        return self.opens <= moment and (self.closes is None or moment < self.closes)
 
 
 class FrozenProcessRecord(_Strict):
@@ -3459,23 +3715,40 @@ class FrozenProcessRecord(_Strict):
     digests were blessed and from which instant. Recording them on the board
     itself, the way ``salience_versions`` names the gate, states what was
     blessed at build time — on every build, an ``all``-scope one included, as
-    the partition's definition and never a claim it was applied. It records the
-    *blessed* set, not the *filter*: only the predictor subset is the enforced
-    membership test (``process_version.is_frozen``), while the evaluator
-    digests are record-only (timing alone enforced), and this flat list does
-    not distinguish the two — that mapping lives in ``process_version``.
+    the partition's definition and never a claim it was applied. ``digests`` is
+    the *blessed* set, not the *filter*: the enforced membership rule is
+    ``windows`` (``process_version.is_frozen`` and ``counted_on_event``), one
+    per blessing of a predictor digest, so a closed window's digest keeps
+    counting after it leaves the blessed set; evaluator digests are
+    record-only (timing alone enforced).
     """
 
     digests: list[str] = Field(
         description="The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted — "
         "predictors and evaluators together, exactly as the freeze commit "
-        "blessed them. Not a filter: the enforced membership test is the "
-        "predictor subset alone, which this pooled list does not distinguish "
-        "(see `process_version`)"
+        "blessed them. Not a filter: the enforced membership rule is `windows`, "
+        "which keeps a closed window's digest counting after it leaves this set"
     )
     since: datetime | None = Field(
-        description="The freeze instant (`FROZEN_SINCE`); null while no freeze is in force"
+        description="The current label's counting instant (`FROZEN_SINCE`); null while no "
+        "freeze is in force. The counting rule itself is `windows`"
     )
+    windows: list[CountingWindow] = Field(
+        default_factory=list,
+        description="The counting windows (`COUNTING_WINDOWS`), in registry order: a "
+        "prediction counts where its digest has a window containing its stamp that no "
+        "revocation de-counted, and where it holds cells from several windows on one "
+        "event only the earliest window's counts. Every figure over a window is "
+        "reported under that window's `label`",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_windows(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``windows`` while it is empty, so a record with none reads as before."""
+        payload = handler(self)
+        if isinstance(payload, dict) and not self.windows:
+            payload.pop("windows", None)
+        return payload
 
 
 class ForwardClaimRecord(_Strict):
@@ -3590,8 +3863,8 @@ class Leaderboard(_Strict):
     process_scope: Literal["frozen", "all"] = Field(
         default="frozen",
         description="Which process versions this board covers: `frozen` (the "
-        "default headline — only cells whose predictor ran the blessed frozen "
-        "process at or after the freeze instant, graded at or after it too) "
+        "default headline — only cells whose prediction is its predictor's counted "
+        "forecast inside a counting window, graded at or after that window opened) "
         "or `all` (every version, including the shakedown). A `frozen` "
         "board with zero predictors is the honest 'no frozen-process evaluations "
         "yet' state, not a regression.",
@@ -3632,8 +3905,10 @@ class Leaderboard(_Strict):
     )
     predictors_ranked: int = Field(
         ge=0,
-        description="Number of predictors on the cert board (a procedural-only "
-        "predictor still appears, sorted after every ranked one)",
+        description="Number of entries on the cert board — one per predictor, or on a frozen "
+        "build one per (predictor, counting window), so a predictor whose counted cells span "
+        "two windows counts twice (a procedural-only predictor still appears, sorted after "
+        "every ranked one)",
     )
     evaluations_total: int = Field(
         ge=0,
@@ -3703,11 +3978,20 @@ class Leaderboard(_Strict):
     entries: list[LeaderboardEntry] = Field(
         default_factory=list,
         description="The ranked cert-stage board — one entry per predictor with a "
-        "cert-stage evaluation",
+        "cert-stage evaluation, and on a frozen build per (predictor, counting window): two "
+        "windows of one predictor are two entries over disjoint events. Listed cohort by "
+        "cohort — the entries sharing a `process_window` label, in the order their windows "
+        "opened — each ranked within its own cohort",
     )
     complete_grid_by_band: dict[str, int] = Field(
         default_factory=dict,
         description=_COMPLETE_GRID_DESCRIPTION,
+    )
+    complete_grids: list[CompleteGrid] = Field(
+        default_factory=list, description=_COMPLETE_GRIDS_DESCRIPTION
+    )
+    split_events_by_band: dict[str, int] = Field(
+        default_factory=dict, description=_SPLIT_EVENTS_DESCRIPTION
     )
     stages: dict[str, LeaderboardStage] = Field(
         default_factory=dict,
@@ -3743,6 +4027,10 @@ class Leaderboard(_Strict):
                 payload.pop("stages", None)
             if not self.complete_grid_by_band:
                 payload.pop("complete_grid_by_band", None)
+            if not self.complete_grids:
+                payload.pop("complete_grids", None)
+            if not self.split_events_by_band:
+                payload.pop("split_events_by_band", None)
             if not self.salience_versions:
                 payload.pop("salience_versions", None)
         return payload
@@ -3909,6 +4197,16 @@ class ClaimJudgeAgreement(_Strict):
         description="Cells without a reasoning_quality grade — the semantic "
         "side's operational absences, counted for the same selection reason",
     )
+    windows: list[WindowCount] = Field(
+        default_factory=list,
+        description="The (predictor, window) series behind this stratum's cells, each with "
+        "its cell count: the validation pools predictors by design. " + _POOLED_WINDOWS_DESCRIPTION,
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_single_label(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``windows`` while it lists nothing."""
+        return _omit_empty(handler(self), windows=self.windows)
 
 
 class ClaimScoreEntry(_Strict):
@@ -3919,6 +4217,14 @@ class ClaimScoreEntry(_Strict):
     """
 
     predictor_id: str
+    process_window: str | None = Field(
+        default=None,
+        description="The label of the counting window every cell behind this entry comes "
+        "from (e.g. `proc-v8`); null on an all-versions build, which pools every process "
+        "by definition. A frozen build keys its entries on (predictor_id, process_window): "
+        "a predictor whose counted cells span two windows has one entry per window, and "
+        "no entry pools them",
+    )
     forward: ClaimScoreStratum | None = Field(
         default=None,
         description="Aggregates over true forward forecasts; null until this "
@@ -4015,8 +4321,9 @@ class ClaimScoreBoard(_Strict):
     )
     entries: list[ClaimScoreEntry] = Field(
         default_factory=list,
-        description="One entry per predictor with at least one block-carrying "
-        "cell, ordered by predictor_id — never ranked",
+        description="One entry per predictor — per (predictor, counting window) on a frozen "
+        "build — with at least one block-carrying cell, ordered by predictor_id then the "
+        "window's opening — never ranked",
     )
 
 
@@ -4595,6 +4902,12 @@ class ToolUsefulnessSegment(_Strict):
     """
 
     engine: str
+    process_window: str | None = Field(
+        default=None,
+        description="The label of the counting window the segment's cells come from; null "
+        "on an all-versions build. Part of the key on a frozen build, so one engine's cells "
+        "from two windows are two segments, never one mean",
+    )
     mode: str = Field(
         description="The cell's provisioned mode as its own `retrieval_log.json` recorded "
         "it — forward | replay | unknown. The harness's field, not the evaluator's "
@@ -4692,6 +5005,16 @@ class ToolUsefulnessCorrelation(_Strict):
         max_length=500,
         description="Why no coefficient was published, in prose, or null when one was",
     )
+    windows: list[WindowCount] = Field(
+        default_factory=list,
+        description="The (predictor, window) series behind this population's cells, each "
+        "with its cell count: the row pools engines by design. " + _POOLED_WINDOWS_DESCRIPTION,
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_single_label(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``windows`` while it lists nothing."""
+        return _omit_empty(handler(self), windows=self.windows)
 
 
 class ToolUsefulness(_Strict):
@@ -4720,8 +5043,9 @@ class ToolUsefulness(_Strict):
 
     process_scope: Literal["frozen", "all"] = Field(
         description="Which process versions the joined cells span. `frozen` (the default) "
-        "keeps only cells whose prediction carries a blessed process digest and whose "
-        "gradings were stamped at or after the freeze instant; `all` pools every version, "
+        "keeps only cells whose prediction is its predictor's counted forecast inside a "
+        "counting window and whose gradings were stamped at or after that window opened; "
+        "`all` pools every version, "
         "including pre-freeze shakedown cells whose Brier is not comparable to anything. A "
         "grade with no process scope beside it is not readable, which is why this is not "
         "optional",
@@ -7633,6 +7957,13 @@ class BigCaseCurrentRead(_Strict):
     predictor_id: str
     event_id: str
     run_id: str
+    process_window: str | None = Field(
+        default=None,
+        description="The label of the counting window this read's run sits in, on a frozen "
+        "build; null on the all-versions census. The row's mean pools predictors, so it can "
+        "pool reads from different windows — each read names its own rather than the row "
+        "naming one",
+    )
     big_case_score: float | None = Field(
         default=None,
         ge=0.0,
@@ -8228,7 +8559,8 @@ class CountedConferenceEvent(_Strict):
     bands: list[str] = Field(description="Every distinct band the counted cells froze")
     predictors: list[str] = Field(
         description="Predictors with a counted cell: the run a counted grading names, "
-        "else the staged (newest) run when it carries a frozen process. Empty only on "
+        "else the staged (newest resolvable) run when it is its predictor's counted "
+        "forecast of the event. Empty only on "
         "a registered event with no counted cell"
     )
     scored_predictors: list[str] = Field(
@@ -8236,13 +8568,13 @@ class CountedConferenceEvent(_Strict):
         "`stratify` pass the leaderboard aggregates"
     )
     reowed: bool = Field(
-        description="Whether a retired or unstamped cell predates the earliest counted "
+        description="Whether a de-counted or unstamped cell predates the earliest counted "
         "cell: a re-forecast of an earlier round's event rather than one the frozen "
         "process forecast first. Not the registered-membership test; `registered` is"
     )
     registered: bool | None = Field(
         description="The registered rule's membership as at `registered_at`, "
-        "reconstructed: a re-predict moment, a retired cell whose harness clock falls "
+        "reconstructed: a re-predict moment, a de-counted cell whose harness clock falls "
         "on or before that day, no outcome before it, and — at the distribution "
         "moment — `conference_at_registration` on or after it. Null without "
         "`--registered-at`. Fixed at registration, so a later reschedule never "
@@ -9367,6 +9699,16 @@ class SubstanceCalibration(_Strict):
         "(skill vs each case's segment base rate; positive beats the base rate, ~0 "
         "parrots it, negative is worse); null until any replay cell reports one",
     )
+    windows: list[WindowCount] = Field(
+        default_factory=list,
+        description="The (predictor, window) series behind `sample`, each with its cell "
+        "count: the calibration pools every engine's replay cells. " + _POOLED_WINDOWS_DESCRIPTION,
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_single_label(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``windows`` while it lists nothing."""
+        return _omit_empty(handler(self), windows=self.windows)
 
 
 class PredictorScoreRow(_Strict):
@@ -9378,9 +9720,16 @@ class PredictorScoreRow(_Strict):
     sits below ``evaluations`` wherever the stamp could not compute one — and
     null where none does.
     All strata pooled — the leaderboard remains the stratified reference.
+    One row per predictor and counting window on a frozen build.
     """
 
     predictor_id: str
+    process_window: str | None = Field(
+        default=None,
+        description="The label of the counting window this row's cells come from; null on an "
+        "all-versions build. A predictor whose counted cells span two windows has a row per "
+        "window",
+    )
     evaluations: int = Field(ge=0)
     accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
     accuracy_scored: int = Field(
@@ -9815,8 +10164,15 @@ class ExportPredictionRow(_Strict):
         "and configuration that ran; null on an unstamped cell"
     )
     process_frozen: bool = Field(
-        description="Whether the process is in the pre-registered frozen set and ran at or "
-        "after the freeze instant (the manifest's `frozen_process`)"
+        description="Whether the prediction counts: its digest has a counting window "
+        "containing its stamp that no revocation de-counted, and no earlier window holds "
+        "this predictor's counted cell on the event (the manifest's `frozen_process`)"
+    )
+    process_window: str | None = Field(
+        description="The label of the counting window containing the stamp (e.g. `proc-v8`), "
+        "the label its figures are reported under — set on a cell the tie-break or a "
+        "revocation leaves uncounted too, so `process_frozen` is the counting bit; null "
+        "where no window contains the stamp. No figure pools two values of this column"
     )
     stamped_at: datetime | None = Field(
         description="When the harness stamped the cell (UTC): the clock the forward / "

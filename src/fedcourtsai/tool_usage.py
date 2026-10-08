@@ -84,9 +84,17 @@ from statistics import fmean, median
 from .integrity import latest_evaluation_runs
 from .leaderboard import kendall_tau_b
 from .pipeline.moments import spec_for
-from .process_version import graded_post_freeze, is_frozen
+from .process_version import (
+    Series,
+    graded_in_window,
+    pooled_windows,
+    refuse_shared_labels,
+    window_label,
+    window_of,
+)
 from .retrieval import RETRIEVAL_CALL_CAP
 from .schemas import (
+    CountingWindow,
     Evaluation,
     ModelUsage,
     Prediction,
@@ -104,6 +112,7 @@ from .schemas import (
     normalize_call,
 )
 from .serialize import read_model
+from .store import prediction_counts
 
 TOOL_USAGE_CORRELATION_MIN_CELLS = 30
 """Cells a population needs before its call-volume/Brier correlation is published.
@@ -395,12 +404,12 @@ def build_tool_usage(
     the committed ledger alone.
 
     ``frozen_only`` scopes the **usefulness** block alone, exactly as the boards
-    scope theirs: only cells whose prediction carries a blessed process digest,
-    graded at or after the freeze instant. The tool counts above it stay
-    all-versions, because a count of what a cell called is a fact about the
-    pipeline rather than a grade, and scoping it would hide the shakedown runs
-    that are most of what there is to inspect. A Brier is a grade, so it does not
-    get that latitude.
+    scope theirs: only cells whose prediction is its predictor's counted
+    forecast inside a counting window, graded at or after that window opened.
+    The tool counts above it stay all-versions, because a count of what a cell
+    called is a fact about the pipeline rather than a grade, and scoping it
+    would hide the shakedown runs that are most of what there is to inspect. A
+    Brier is a grade, so it does not get that latitude.
 
     One walk of ``data/`` does all of it. The cost join is a stat of each log's
     own directory, and the usefulness join a bounded glob under the event the
@@ -556,11 +565,18 @@ class _JoinedCell:
     at_call_cap: bool
     briers: list[float] = field(default_factory=list)
     evaluations: int = 0
+    window: CountingWindow | None = None
+    predictor_id: str = ""
 
     @property
-    def segment_key(self) -> tuple[str, str, str, str]:
-        """The segment this cell belongs to: engine, mode, stage, moment."""
-        return (self.engine, self.mode, self.stage, self.moment)
+    def segment_key(self) -> tuple[str, str | None, str, str, str]:
+        """The segment this cell belongs to: engine, window label, mode, stage, moment.
+
+        Keyed on the window's label, the name a segment is published under, so
+        two predictors sharing an engine under one label pool as they always
+        have, while one engine's cells under two labels never do.
+        """
+        return (self.engine, window_label(self.window), self.mode, self.stage, self.moment)
 
     @property
     def population_key(self) -> tuple[str, str, str]:
@@ -568,20 +584,33 @@ class _JoinedCell:
         return (self.mode, self.stage, self.moment)
 
 
-def _in_scope_prediction(cell: _PredictedCell, *, frozen_only: bool) -> bool:
-    """Whether the cell's prediction carries a blessed process, when scope demands it.
+def _read_prediction(cell: _PredictedCell) -> Prediction | None:
+    """The cell's committed prediction, or ``None`` where none is readable."""
+    path = cell.cell_dir / "prediction.json"
+    if not path.exists():
+        return None
+    try:
+        return read_model(path, Prediction)
+    except (OSError, ValueError):
+        return None
 
-    A prediction with no readable artifact leaves the join rather than passing
-    it: the frozen scope is a membership filter, and a cell nothing can be
-    established about is not a member.
+
+def _in_scope_prediction(cell: _PredictedCell, *, frozen_only: bool) -> bool:
+    """Whether the cell's prediction is a counted forecast, when scope demands it.
+
+    Counted means its predictor's counted cell on the event
+    (:func:`fedcourtsai.store.prediction_counts`). A prediction with no
+    readable artifact leaves the join rather than passing it: the frozen scope
+    is a membership filter, and a cell nothing can be established about is not
+    a member.
     """
     if not frozen_only:
         return True
-    path = cell.cell_dir / "prediction.json"
-    if not path.exists():
+    prediction = _read_prediction(cell)
+    if prediction is None:
         return False
     try:
-        return is_frozen(read_model(path, Prediction).process_version)
+        return prediction_counts(cell.event_base, cell.predictor_id, prediction)
     except (OSError, ValueError):
         return False
 
@@ -594,8 +623,11 @@ def _scores_of(cell: _PredictedCell, *, frozen_only: bool) -> _JoinedCell | None
     (:func:`~fedcourtsai.integrity.latest_evaluation_runs`, the same collapse
     every aggregate of this ledger uses): a re-grade describes the same
     observation, so counting both would weight one judge twice. Under the frozen
-    scope a grading stamped before the freeze instant is not in the panel at all.
+    scope a grading stamped before the instant that opened the cell's counting
+    window is not in the panel at all.
     """
+    prediction = _read_prediction(cell) if frozen_only else None
+    stamp = prediction.process_version if prediction is not None else None
     found: list[Evaluation] = []
     pattern = f"*/{cell.predictor_id}/*/evaluation.json"
     for path in sorted((cell.event_base / "evaluations").glob(pattern)):
@@ -606,7 +638,7 @@ def _scores_of(cell: _PredictedCell, *, frozen_only: bool) -> _JoinedCell | None
             # is a reporting view over a ledger it does not own, and `validate` is
             # what fails loudly on a malformed artifact.
             continue
-        if frozen_only and not graded_post_freeze(evaluation.process_version):
+        if frozen_only and not graded_in_window(evaluation.process_version, stamp):
             continue
         found.append(evaluation)
     panel = latest_evaluation_runs(found, lambda evaluation: evaluation)
@@ -622,6 +654,8 @@ def _scores_of(cell: _PredictedCell, *, frozen_only: bool) -> _JoinedCell | None
         at_call_cap=cell.at_call_cap,
         briers=[e.brier_score for e in panel if e.brier_score is not None],
         evaluations=len(panel),
+        window=window_of(stamp),
+        predictor_id=cell.predictor_id,
     )
 
 
@@ -644,6 +678,13 @@ def _usefulness(
     different base rates. Engines are pooled *within* a row and split across the
     segment table, so the confound is visible in the denominators even where the
     coefficient absorbs it.
+
+    Under the frozen scope a segment is also keyed on the cell's **counting
+    window**: a new model under an unchanged engine is a different forecaster,
+    so its cells and its predecessor's are two segments, never one mean. A
+    coefficient row pools engines by design, so where its cells span more than
+    one window label it lists each (predictor, window) series and its cell
+    count rather than splitting.
     """
     joined: list[_JoinedCell] = []
     for cell in sorted(predicted.values(), key=lambda c: (c.engine, c.predictor_id, c.run_id)):
@@ -653,13 +694,17 @@ def _usefulness(
         if scores is None or not scores.briers:
             continue
         joined.append(scores)
+    refuse_shared_labels(
+        ((cell.predictor_id, cell.window) for cell in joined), surface="tool-usage usefulness"
+    )
 
     segments = [
         ToolUsefulnessSegment(
             engine=key[0],
-            mode=key[1],
-            stage=key[2],
-            moment=key[3],
+            process_window=key[1],
+            mode=key[2],
+            stage=key[3],
+            moment=key[4],
             cells=len(group),
             evaluations=sum(cell.evaluations for cell in group),
             brier_gradings=sum(len(cell.briers) for cell in group),
@@ -667,7 +712,7 @@ def _usefulness(
             mean_mcp_calls=round(fmean(cell.mcp_calls for cell in group), 3),
             mean_brier_score=round(fmean(fmean(cell.briers) for cell in group), 6),
         )
-        for key, group in _grouped(joined, lambda cell: cell.segment_key)
+        for key, group in _segments(joined)
     ]
     correlations = [
         _correlate(key, group) for key, group in _grouped(joined, lambda cell: cell.population_key)
@@ -690,6 +735,7 @@ def _correlate(
 ) -> ToolUsefulnessCorrelation:
     """One population's coefficient, or the refusal and the reason for it."""
     mode, stage, moment = population
+    series: Counter[Series] = Counter((cell.predictor_id, cell.window) for cell in group)
     points = [(float(cell.calls), fmean(cell.briers)) for cell in group]
     tau = kendall_tau_b(points) if len(points) >= TOOL_USAGE_CORRELATION_MIN_CELLS else None
     reason: str | None = None
@@ -712,7 +758,33 @@ def _correlate(
         published=tau is not None,
         calls_brier_tau=round(tau, 4) if tau is not None else None,
         withheld_reason=reason,
+        windows=pooled_windows(series),
     )
+
+
+def _segments(
+    joined: list[_JoinedCell],
+) -> list[tuple[tuple[str, str | None, str, str, str], list[_JoinedCell]]]:
+    """The joined cells grouped by segment, ordered engine, label (by opening), mode, moment.
+
+    :func:`_grouped`'s rule with the label placed by the earliest opening among
+    its windows rather than compared as text, so ``proc-v10`` follows ``proc-v9``.
+    """
+    grouped: defaultdict[tuple[str, str | None, str, str, str], list[_JoinedCell]] = defaultdict(
+        list
+    )
+    opening: dict[str | None, float] = {}
+    for cell in joined:
+        grouped[cell.segment_key].append(cell)
+        if cell.window is not None:
+            stamp = cell.window.opens.timestamp()
+            opening[cell.window.label] = min(stamp, opening.get(cell.window.label, stamp))
+
+    def order(key: tuple[str, str | None, str, str, str]) -> tuple[object, ...]:
+        engine, label, *rest = key
+        return (engine, opening.get(label, float("-inf")), label or "", *rest)
+
+    return [(key, grouped[key]) for key in sorted(grouped, key=order)]
 
 
 def _grouped[K: tuple[str, ...]](
@@ -1120,10 +1192,18 @@ def _render_usefulness(usage: ToolUsage) -> list[str]:
         + "| of which MCP | mean Brier |",
         "| --- | --- | --- | --- | --: | --: | --: | --: | --: |",
     ]
+    # The window rides the engine only once the segments carry two labels;
+    # under one label the scope line already names the process.
+    labelled = len({segment.process_window for segment in useful.segments}) > 1
     for segment in useful.segments:
         brier = "—" if segment.mean_brier_score is None else f"{segment.mean_brier_score:.4f}"
+        engine = (
+            f"{segment.engine} ({segment.process_window or 'no window'})"
+            if labelled
+            else segment.engine
+        )
         lines.append(
-            f"| {segment.engine} | {segment.mode} | {segment.stage} | {segment.moment} "
+            f"| {engine} | {segment.mode} | {segment.stage} | {segment.moment} "
             f"| {segment.cells} | {segment.brier_gradings} | {segment.mean_calls} "
             f"| {segment.mean_mcp_calls} | {brier} |"
         )
@@ -1188,6 +1268,15 @@ def _render_correlations(useful: ToolUsefulness) -> list[str]:
     for row in useful.correlations:
         tau = "withheld" if row.calls_brier_tau is None else f"{row.calls_brier_tau:+.3f}"
         lines.append(f"| {row.mode} / {row.stage} / {row.moment} | {row.cells} | {tau} |")
+    pooled = [row for row in useful.correlations if row.windows]
+    if pooled:
+        lines.append("")
+        lines += [
+            f"_{row.mode} / {row.stage} / {row.moment} pools process windows — "
+            + ", ".join(f"`{w.predictor_id}` {w.process_window} (n={w.n})" for w in row.windows)
+            + ": a record across labels, not one series._"
+            for row in pooled
+        ]
     lines += [
         "",
         f"_{floor}_",

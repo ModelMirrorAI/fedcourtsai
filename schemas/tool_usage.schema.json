@@ -385,7 +385,7 @@
           "type": "integer"
         },
         "process_scope": {
-          "description": "Which process versions the joined cells span. `frozen` (the default) keeps only cells whose prediction carries a blessed process digest and whose gradings were stamped at or after the freeze instant; `all` pools every version, including pre-freeze shakedown cells whose Brier is not comparable to anything. A grade with no process scope beside it is not readable, which is why this is not optional",
+          "description": "Which process versions the joined cells span. `frozen` (the default) keeps only cells whose prediction is its predictor's counted forecast inside a counting window and whose gradings were stamped at or after that window opened; `all` pools every version, including pre-freeze shakedown cells whose Brier is not comparable to anything. A grade with no process scope beside it is not readable, which is why this is not optional",
           "enum": [
             "frozen",
             "all"
@@ -455,6 +455,14 @@
           "description": "The population's decision stage, or `unknown`",
           "title": "Stage",
           "type": "string"
+        },
+        "windows": {
+          "description": "The (predictor, window) series behind this population's cells, each with its cell count: the row pools engines by design. Listed only where the series carry more than one window label \u2014 the figure is then the record across those labels, never one series and never a rank key. Omitted while every series shares one label (the artifact's `frozen_process.windows` names it) and on an all-versions build",
+          "items": {
+            "$ref": "#/$defs/WindowCount"
+          },
+          "title": "Windows",
+          "type": "array"
         },
         "withheld_reason": {
           "anyOf": [
@@ -547,6 +555,19 @@
           "title": "Moment",
           "type": "string"
         },
+        "process_window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The label of the counting window the segment's cells come from; null on an all-versions build. Part of the key on a frozen build, so one engine's cells from two windows are two segments, never one mean",
+          "title": "Process Window"
+        },
         "stage": {
           "description": "The event's declared decision stage (cert | interim | merits), or `unknown` for an event the moment registry does not declare. Part of the key because a cert Brier and a merits Brier score different questions against different base rates, so pooling them would mix outcome vocabularies into one meaningless mean",
           "title": "Stage",
@@ -560,6 +581,34 @@
         "moment"
       ],
       "title": "ToolUsefulnessSegment",
+      "type": "object"
+    },
+    "WindowCount": {
+      "additionalProperties": false,
+      "description": "One (predictor, counting window) series inside a figure that pools several labels.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. Where\nthose span more than one window label, the figure is the **record across\nthose labels**: it lists each series and its ``n`` beside the pooled value,\nand is never a rank key (``docs/process-version.md``, *No figure pools\nwindows*).",
+      "properties": {
+        "n": {
+          "description": "This series' share of the pooled figure's population, in the unit the containing `windows` field names (cells or reads) \u2014 not necessarily the unit of the figure's own count, so the n need not sum to it",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "process_window": {
+          "description": "The counting window's label (e.g. `proc-v8`)",
+          "title": "Process Window",
+          "type": "string"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "process_window",
+        "n"
+      ],
+      "title": "WindowCount",
       "type": "object"
     }
   },

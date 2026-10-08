@@ -1,6 +1,7 @@
 """Leaderboard aggregation and stratification over a small fixture ledger."""
 
 import json
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -1208,6 +1209,15 @@ def _write_big_case_cell(
     )
 
 
+def _by_predictor(
+    result: dict[tuple[str, str | None], BigCaseLeaderboard],
+) -> dict[str, BigCaseLeaderboard]:
+    """The agreement map keyed on the predictor alone, for a single-window ledger."""
+    keyed = {predictor_id: value for (predictor_id, _window), value in result.items()}
+    assert len(keyed) == len(result), "a predictor spans two windows"
+    return keyed
+
+
 def test_big_case_agreement_correlates_predictor_and_panel_orderings(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     # A predictor whose stakes ordering matches the panel's → tau +1.
@@ -1219,7 +1229,7 @@ def test_big_case_agreement_correlates_predictor_and_panel_orderings(tmp_path: P
     _write_big_case_cell(data_root, "invert", "scotus/5", pred_score=0.5, eval_scores=[0.5])
     _write_big_case_cell(data_root, "invert", "scotus/6", pred_score=0.1, eval_scores=[0.9])
 
-    result = big_case_agreement(data_root, frozen_only=False)
+    result = _by_predictor(big_case_agreement(data_root, frozen_only=False))
 
     assert result["agree"].rank_agreement == 1.0
     assert result["agree"].cases == 3
@@ -1246,7 +1256,7 @@ def test_the_agreement_views_keep_a_leakage_suspected_cell(tmp_path: Path) -> No
     # Every cell is flagged, so the stratified join keeps none of them...
     assert stratify(data_root, frozen_only=False).cells == []
     # ...while the agreement view still reads all three.
-    assert big_case_agreement(data_root, frozen_only=False)["agree"].cases == 3
+    assert _by_predictor(big_case_agreement(data_root, frozen_only=False))["agree"].cases == 3
 
 
 def test_big_case_agreement_averages_the_evaluator_panel(tmp_path: Path) -> None:
@@ -1255,7 +1265,7 @@ def test_big_case_agreement_averages_the_evaluator_panel(tmp_path: Path) -> None
     data_root = tmp_path / "data"
     _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.9, eval_scores=[0.2, 1.0])
     _write_big_case_cell(data_root, "p", "scotus/2", pred_score=0.1, eval_scores=[0.1, 0.1])
-    result = big_case_agreement(data_root, frozen_only=False)
+    result = _by_predictor(big_case_agreement(data_root, frozen_only=False))
     # case1 panel mean = 0.6 > case2's 0.1, and pred 0.9 > 0.1 → concordant → +1.
     assert result["p"].rank_agreement == 1.0
     assert result["p"].cases == 2
@@ -1287,7 +1297,7 @@ def test_big_case_agreement_uses_the_latest_prediction_score(tmp_path: Path) -> 
             big_case_score=0.9,
         ),
     )
-    result = big_case_agreement(data_root, frozen_only=False)
+    result = _by_predictor(big_case_agreement(data_root, frozen_only=False))
     assert result["p"].rank_agreement == 1.0
     assert result["p"].cases == 2
 
@@ -1297,7 +1307,7 @@ def test_big_case_agreement_single_case_reports_null_agreement(tmp_path: Path) -
     # is undefined with a single point — distinct from the absent-from-map case.
     data_root = tmp_path / "data"
     _write_big_case_cell(data_root, "p", "scotus/1", pred_score=0.5, eval_scores=[0.5])
-    entry = big_case_agreement(data_root, frozen_only=False)["p"]
+    entry = _by_predictor(big_case_agreement(data_root, frozen_only=False))["p"]
     assert entry.cases == 1
     assert entry.rank_agreement is None
 
@@ -1307,17 +1317,17 @@ def test_big_case_agreement_skips_a_predictor_without_a_score(tmp_path: Path) ->
     # case is not comparable, so the predictor is absent from the map.
     data_root = tmp_path / "data"
     _write_big_case_cell(data_root, "p", "scotus/1", pred_score=None, eval_scores=[0.5])
-    assert big_case_agreement(data_root, frozen_only=False) == {}
+    assert _by_predictor(big_case_agreement(data_root, frozen_only=False)) == {}
 
 
 def test_big_case_agreement_empty_when_no_ledger(tmp_path: Path) -> None:
-    assert big_case_agreement(tmp_path / "nope") == {}
+    assert _by_predictor(big_case_agreement(tmp_path / "nope")) == {}
 
 
 def test_build_leaderboard_attaches_big_case_when_supplied() -> None:
     ev = _evaluation("p1")
     board = build_leaderboard(
-        [_forward(ev)], big_case={"p1": BigCaseLeaderboard(rank_agreement=0.5, cases=4)}
+        [_forward(ev)], big_case={("p1", None): BigCaseLeaderboard(rank_agreement=0.5, cases=4)}
     )
     assert board.entries[0].big_case is not None
     assert board.entries[0].big_case.rank_agreement == 0.5
@@ -1438,9 +1448,9 @@ def test_big_case_agreement_defaults_to_frozen(
     data_root = tmp_path / "data"
     _write_big_case_cell(data_root, "shakedown", "scotus/1", pred_score=0.5, eval_scores=[0.6, 0.4])
     # Frozen default: the unstamped shakedown read is excluded.
-    assert big_case_agreement(data_root) == {}
+    assert _by_predictor(big_case_agreement(data_root)) == {}
     # All-versions still sees it.
-    assert "shakedown" in big_case_agreement(data_root, frozen_only=False)
+    assert "shakedown" in _by_predictor(big_case_agreement(data_root, frozen_only=False))
 
 
 def _big_case_cell(
@@ -1642,7 +1652,9 @@ def test_big_case_agreement_counts_cases_not_events(tmp_path: Path) -> None:
             _evaluation("p", event_id=event_id, big_case=BigCaseAssessment(evaluator_score=panel)),
             big_case_score=own,
         )
-    ((predictor, agreement),) = big_case_agreement(tmp_path, frozen_only=False).items()
+    ((predictor, agreement),) = _by_predictor(
+        big_case_agreement(tmp_path, frozen_only=False)
+    ).items()
     assert predictor == "p"
     assert agreement.cases == 1  # one case, two moments
 
@@ -2345,7 +2357,7 @@ def test_the_big_case_column_keys_frozen_scope_on_the_named_run(
             ),
         )
 
-    frozen = big_case_agreement(data_root)
+    frozen = _by_predictor(big_case_agreement(data_root))
     assert "alpha" not in frozen, (
         "the stamped shakedown read must stay keyed to its unfrozen run, not "
         "ride the frozen re-run into the frozen view"
@@ -2553,7 +2565,7 @@ def test_big_case_agreement_counts_a_regraded_read_once(tmp_path: Path) -> None:
     _write_big_case_read(data_root, "p", "scotus/1", "eval-0", "r2", 1.0)
     _write_big_case_cell(data_root, "p", "scotus/2", pred_score=0.1, eval_scores=[0.8, 0.8])
 
-    result = big_case_agreement(data_root, frozen_only=False)
+    result = _by_predictor(big_case_agreement(data_root, frozen_only=False))
 
     # Panel mean 1.0 on case 1 (not 0.667 over three reads) keeps it above
     # case 2's 0.8, so the predictor's ordering is concordant with the panel's.
@@ -2586,7 +2598,7 @@ def test_the_agreement_views_collapse_inside_the_scope_they_are_read_under(
 
     The reachable shape is a local re-run: the re-grade is unstamped, so its
     `created_at` fallback clocks newer than the frozen grading's harness stamp
-    while failing `graded_post_freeze`. Collapsing before the scope gate would
+    while failing `graded_in_window`. Collapsing before the scope gate would
     hand the collapse to the shakedown run and then drop it at the gate, taking
     the frozen read out of the frozen board with it — so the frozen view keeps
     the frozen reads, and only the pooled view sees the re-grade.
@@ -2617,8 +2629,8 @@ def test_the_agreement_views_collapse_inside_the_scope_they_are_read_under(
         ),
     )
 
-    frozen = big_case_agreement(data_root)
-    pooled = big_case_agreement(data_root, frozen_only=False)
+    frozen = _by_predictor(big_case_agreement(data_root))
+    pooled = _by_predictor(big_case_agreement(data_root, frozen_only=False))
 
     # Frozen: the r1 reads order with the predictor's own scores.
     assert frozen["alpha"].cases == 2
@@ -2749,7 +2761,7 @@ def test_a_gvr_is_a_miss_for_always_deny_and_for_a_granted_call(tmp_path: Path) 
     # A GVR grants the petition, so it sits on the granted side of the binary
     # target — but the label is `gvr`, and exact match scores both a `granted`
     # call and the synthetic `denied` one as misses.
-    ev = _evaluation("alpha", event_id="evt-a", correct=0)
+    ev = _evaluation("alpha", event_id="evt-a", correct=0, brier_score=0.09)
     _write_cell(
         tmp_path,
         ev,
@@ -2763,7 +2775,12 @@ def test_a_gvr_is_a_miss_for_always_deny_and_for_a_granted_call(tmp_path: Path) 
     run = stratify(tmp_path, frozen_only=False)
     (fact,) = cell_facts(run.cells, tmp_path).values()
     assert fact == CellFacts(
-        band_key="sal-v1/high", always_deny_correct=0, recomputed_correct=0, grant_family=True
+        band_key="sal-v1/high",
+        always_deny_correct=0,
+        recomputed_correct=0,
+        grant_family=True,
+        granted=1,
+        brier_reproduces=True,
     )
     (entry,) = _banded_board(tmp_path).entries
     assert entry.forward is not None
@@ -2781,6 +2798,8 @@ def _cert_facts(
             always_deny_correct=always_deny_correct,
             recomputed_correct=ev.correct or 0,
             grant_family=False,
+            granted=0,
+            brier_reproduces=True,
         )
         for ev in evals
     }
@@ -2900,6 +2919,10 @@ def test_grants_count_the_grant_family_not_the_binary_target(tmp_path: Path) -> 
     run = stratify(tmp_path, frozen_only=False)
     families = {key[1]: fact.grant_family for key, fact in cell_facts(run.cells, tmp_path).items()}
     assert families == {"evt-gip": False, "evt-gvr": True}
+    # The in-sample rate reads the Brier's own binary target, so both are grants.
+    targets = {key[1]: fact.granted for key, fact in cell_facts(run.cells, tmp_path).items()}
+    assert targets == {"evt-gip": 1, "evt-gvr": 1}
+    assert entry.forward.in_sample_grant_rate == 1.0
 
 
 def test_realized_grants_are_paired_to_the_expected_events() -> None:
@@ -2909,7 +2932,12 @@ def test_realized_grants_are_paired_to_the_expected_events() -> None:
     unrated = _evaluation("alpha", event_id="evt-b")
     facts = {
         _evaluation_key(ev): CellFacts(
-            band_key="sal-v1/high", always_deny_correct=0, recomputed_correct=1, grant_family=True
+            band_key="sal-v1/high",
+            always_deny_correct=0,
+            recomputed_correct=1,
+            grant_family=True,
+            granted=1,
+            brier_reproduces=True,
         )
         for ev in (rated, unrated)
     }
@@ -2927,6 +2955,200 @@ def test_realized_grants_are_paired_to_the_expected_events() -> None:
     assert forward.grants_expected == pytest.approx(0.3)
     assert forward.grants_expected_scored == 1
     assert forward.grants_realized_expected_scored == 1
+
+
+def _in_sample_facts(graded: Sequence[tuple[Evaluation, int]]) -> dict[Any, CellFacts]:
+    return {
+        _evaluation_key(ev): CellFacts(
+            band_key="sal-v1/high",
+            always_deny_correct=1 - target,
+            recomputed_correct=ev.correct or 0,
+            grant_family=bool(target),
+            granted=target,
+            brier_reproduces=True,
+        )
+        for ev, target in graded
+    }
+
+
+def test_in_sample_skill_scores_against_the_blocks_own_grant_rate() -> None:
+    # Four events, one granted: c = 1/4. Reference Briers (c - y)^2 are 0.5625
+    # on the grant and 0.0625 on each denial, summing to 0.75; the forecast
+    # Briers sum to 0.16, so skill = 1 - 0.16 / 0.75.
+    evals = [
+        (_evaluation("alpha", event_id="evt-a", brier_score=0.1), 1),
+        (_evaluation("alpha", event_id="evt-b", brier_score=0.01), 0),
+        (_evaluation("alpha", event_id="evt-c", brier_score=0.02), 0),
+        (_evaluation("alpha", event_id="evt-d", brier_score=0.03), 0),
+    ]
+    board = build_leaderboard([_forward(ev) for ev, _ in evals], facts=_in_sample_facts(evals))
+    (entry,) = board.entries
+    for block in (entry.forward, (entry.by_band or {})["sal-v1/high"]):
+        assert block is not None
+        assert block.in_sample_grant_rate == pytest.approx(0.25)
+        assert block.in_sample_events_scored == 4
+        assert block.in_sample_skill_scored == 4
+        assert block.population_in_sample_skill_score == pytest.approx(1 - 0.16 / 0.75)
+
+
+def test_a_forecaster_reporting_the_in_sample_rate_scores_exactly_zero() -> None:
+    # The defining property: c = 1/3 over three events, each forecast at c, so
+    # every Brier is the reference (c - y)^2 and the skill is 0 — on the binary
+    # target, one per event, whatever the panel depth.
+    c = 1 / 3
+    evals = [
+        (
+            _evaluation("alpha", event_id="evt-a", evaluator_id="eval-a", brier_score=(c - 1) ** 2),
+            1,
+        ),
+        (
+            _evaluation("alpha", event_id="evt-a", evaluator_id="eval-b", brier_score=(c - 1) ** 2),
+            1,
+        ),
+        (_evaluation("alpha", event_id="evt-b", brier_score=c**2), 0),
+        (_evaluation("alpha", event_id="evt-c", brier_score=c**2), 0),
+    ]
+    forward = (
+        build_leaderboard([_forward(ev) for ev, _ in evals], facts=_in_sample_facts(evals))
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.in_sample_grant_rate == pytest.approx(c)
+    assert forward.population_in_sample_skill_score == pytest.approx(0.0, abs=1e-12)
+
+
+def test_in_sample_skill_is_null_where_the_rate_is_degenerate() -> None:
+    # Every event denied: c = 0, every reference Brier is 0, and the ratio is
+    # undefined — null with a zero count, never an infinity and never a zero.
+    # The rate itself is still published.
+    evals = [
+        (_evaluation("alpha", event_id="evt-a", brier_score=0.01), 0),
+        (_evaluation("alpha", event_id="evt-b", brier_score=0.04), 0),
+    ]
+    forward = (
+        build_leaderboard([_forward(ev) for ev, _ in evals], facts=_in_sample_facts(evals))
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.in_sample_grant_rate == 0.0
+    assert forward.in_sample_events_scored == 2
+    assert forward.population_in_sample_skill_score is None
+    assert forward.in_sample_skill_scored == 0
+    granted = [(_evaluation("alpha", event_id="evt-a", brier_score=0.01), 1)]
+    forward = (
+        build_leaderboard([_forward(ev) for ev, _ in granted], facts=_in_sample_facts(granted))
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.in_sample_grant_rate == 1.0
+    assert forward.population_in_sample_skill_score is None
+    assert forward.in_sample_skill_scored == 0
+
+
+def test_in_sample_rate_counts_each_event_once_however_deep_its_panel() -> None:
+    # evt-a (granted) is graded by three judges, evt-b (denied) by one. The
+    # rate is 1/2 over the two events — not 3/4 over the four gradings — while
+    # every grading still enters the skill's ratio of sums at (0.5 - y)^2.
+    evals = [
+        (_evaluation("alpha", event_id="evt-a", evaluator_id="eval-a", brier_score=0.04), 1),
+        (_evaluation("alpha", event_id="evt-a", evaluator_id="eval-b", brier_score=0.09), 1),
+        (_evaluation("alpha", event_id="evt-a", evaluator_id="eval-c", brier_score=0.16), 1),
+        (_evaluation("alpha", event_id="evt-b", brier_score=0.01), 0),
+    ]
+    forward = (
+        build_leaderboard([_forward(ev) for ev, _ in evals], facts=_in_sample_facts(evals))
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.in_sample_grant_rate == pytest.approx(0.5)
+    assert forward.in_sample_events_scored == 2
+    assert forward.in_sample_skill_scored == 4
+    assert forward.population_in_sample_skill_score == pytest.approx(1 - 0.30 / 1.0)
+
+
+def test_in_sample_skill_needs_cert_facts_and_a_brier() -> None:
+    # A grading with no Brier, or with no facts (a non-cert cell), is outside
+    # the column; with no facts at all the fields stay at their empty values.
+    scored = _evaluation("alpha", event_id="evt-a", brier_score=0.1)
+    unscored = _evaluation("alpha", event_id="evt-b", brier_score=None)
+    uncovered = _evaluation("alpha", event_id="evt-c", brier_score=0.2)
+    denied = _evaluation("alpha", event_id="evt-d", brier_score=0.05)
+    facts = _in_sample_facts([(scored, 1), (unscored, 0), (denied, 0)])
+    cells = [_forward(ev) for ev in (scored, unscored, uncovered, denied)]
+    forward = build_leaderboard(cells, facts=facts).entries[0].forward
+    assert forward is not None
+    assert forward.in_sample_events_scored == 2
+    assert forward.in_sample_skill_scored == 2
+    assert forward.population_in_sample_skill_score == pytest.approx(1 - 0.15 / 0.5)
+    plain = build_leaderboard(cells).entries[0].forward
+    assert plain is not None
+    assert plain.in_sample_grant_rate is None
+    assert plain.population_in_sample_skill_score is None
+    assert (plain.in_sample_events_scored, plain.in_sample_skill_scored) == (0, 0)
+
+
+@pytest.mark.parametrize(("stamped", "reproduces"), [(0.49, True), (0.09, False)])
+def test_in_sample_skill_needs_every_brier_to_reproduce(
+    tmp_path: Path, stamped: float, reproduces: bool
+) -> None:
+    # Both cells forecast `granted` at 0.7. evt-a was granted (Brier 0.09);
+    # evt-b is now denied (Brier 0.49). A grading of evt-b still stamped 0.09
+    # was taken against a superseded outcome, so the figure is null rather
+    # than pairing that Brier with a baseline read off the current one.
+    _write_cell(
+        tmp_path,
+        _evaluation("alpha", event_id="evt-a", correct=1, brier_score=0.09),
+        context=_band_context("high"),
+        predicted_disposition=Disposition.granted,
+        actual_disposition=Disposition.granted,
+    )
+    _write_cell(
+        tmp_path,
+        _evaluation("alpha", event_id="evt-b", correct=0, brier_score=stamped),
+        context=_band_context("high"),
+        predicted_disposition=Disposition.granted,
+        actual_disposition=Disposition.denied,
+    )
+    (entry,) = _banded_board(tmp_path).entries
+    forward = entry.forward
+    assert forward is not None
+    assert forward.in_sample_grant_rate == pytest.approx(0.5)
+    if reproduces:
+        assert forward.in_sample_skill_scored == 2
+        assert forward.population_in_sample_skill_score == pytest.approx(1 - 0.58 / 0.5)
+    else:
+        assert forward.in_sample_skill_scored == 0
+        assert forward.population_in_sample_skill_score is None
+
+
+def test_in_sample_skill_never_moves_the_ranking() -> None:
+    # `alpha` is the more accurate; `beta` is far ahead on in-sample skill. The
+    # order is the accuracy order whatever the in-sample column reads. beta's
+    # evt-b is deliberately a miss at Brier 0: the two columns are set
+    # independently so that they point opposite ways.
+    alpha = [
+        (_evaluation("alpha", event_id="evt-a", correct=1, brier_score=0.5), 1),
+        (_evaluation("alpha", event_id="evt-b", correct=1, brier_score=0.5), 0),
+    ]
+    beta = [
+        (_evaluation("beta", event_id="evt-a", correct=1, brier_score=0.0), 1),
+        (_evaluation("beta", event_id="evt-b", correct=0, brier_score=0.0), 0),
+    ]
+    cells = [_forward(ev) for ev, _ in (*alpha, *beta)]
+    banded = build_leaderboard(cells, facts=_in_sample_facts([*alpha, *beta]))
+    assert [e.predictor_id for e in banded.entries] == ["alpha", "beta"]
+    skills = [
+        e.forward.population_in_sample_skill_score if e.forward else None for e in banded.entries
+    ]
+    assert skills == [pytest.approx(-1.0), pytest.approx(1.0)]
+    plain = build_leaderboard(cells)
+    assert [(e.rank, e.predictor_id) for e in banded.entries] == [
+        (e.rank, e.predictor_id) for e in plain.entries
+    ]
 
 
 def test_a_grading_stamped_against_a_superseded_outcome_leaves_the_floor_null(

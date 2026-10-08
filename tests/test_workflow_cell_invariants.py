@@ -102,6 +102,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 from pydantic import AliasChoices
 
@@ -125,7 +126,6 @@ from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest, _cell_env
 from fedcourtsai.registry import load_mcp_servers, load_predictors, resolve_mcp_servers
 from fedcourtsai.schemas import UsageRole
-from fedcourtsai.watchdog_telemetry import _CHANNEL_LABELS, CHANNELS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
@@ -909,6 +909,10 @@ def _joined_run_blocks(name: str) -> list[str]:
 GEMINI_CONTEXT_FILENAMES = ("GEMINI.md", "MEMORY.md")
 
 
+# Walks the whole checkout, data/ and docs/ included, so it carries both lane
+# marks; a change that adds such a file is `code` and runs the full suite.
+@pytest.mark.reads_data
+@pytest.mark.reads_docs
 def test_no_file_in_the_checkout_is_a_gemini_context_file() -> None:
     """The checkout is a context-file discovery root for every gemini cell.
 
@@ -931,6 +935,9 @@ def test_no_file_in_the_checkout_is_a_gemini_context_file() -> None:
     )
 
 
+# Walks data/, so it carries the data lane's mark; a change that adds such a
+# file is `code` and runs the full suite.
+@pytest.mark.reads_data
 def test_no_file_under_data_is_an_agent_instruction_file() -> None:
     """Every engine's cells read the ledger, so no agent context file lives in it.
 
@@ -1212,7 +1219,6 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
         "Configure agent retrieval (MCP)",
         "Materialize the event definition for the ledger",
         "Predict with Claude Code",
-        "Mint the codex watchdog telemetry token",
         "Arm the engine watchdog",
         "Predict with Codex",
         "Install the Gemini CLI",
@@ -2324,34 +2330,13 @@ CODEX_LOCKSTEP_INPUTS = (
     "allow-bot-users",
 )
 
-# The codex invocations held OUT of the lockstep equality below, by step id and
-# scoped to the integration workflow. Both are integration-test.yml's
-# freeze-probe family, which reproduces the runner-wedge rather than running the
-# cells' invocation. The cells run `safety-strategy: unprivileged-user` (codex
-# as a separate account, so the runner user's account is never mutated); the
-# freeze-probe family keeps a `drop-sudo` arm to reproduce the wedge that
-# posture removes, so its steps deliberately do NOT match the cells' block:
-#   * `turn` — the base probe, held at `drop-sudo` on purpose. It is the
-#     positive control: the arm that mutates the runner account and wedges the
-#     VM, so the family keeps showing the defect the cells do not run.
-#   * `turn_unprivuser` — `safety-strategy: unprivileged-user` with a
-#     `codex-user`, the same posture the cells run, kept as the family's clean
-#     arm.
-# The real cell/smoke/repro invocations — both cell steps and the integration
-# suite's `repro_codex` and `actions_smoke_codex` legs — stay fully pinned, so
-# they cannot drift from the cells' `unprivileged-user` + `codexcell` block. The
-# exemption is scoped to the smoke workflow on purpose: a second codex step
-# sneaked into a CELL workflow under any of these ids must NOT inherit the
-# exemption. `turn_unprivuser` is not left free-floating: its every-other-field
-# equality with the base `turn` step is pinned positively in the freeze-probe
-# arms test below. Keyed on (workflow, step id) so the exemption cannot travel
-# to another file.
-CODEX_LOCKSTEP_EXEMPT_STEPS = frozenset(
-    {
-        ("integration-test.yml", "turn"),
-        ("integration-test.yml", "turn_unprivuser"),
-    }
-)
+# The codex invocations held OUT of the lockstep equality below, keyed on
+# (workflow, step id) so an exemption cannot travel to another file. Empty: every
+# codex invocation in the tree — both cell steps and the integration suite's
+# `repro_codex` and `actions_smoke_codex` legs — is held to the cells'
+# `unprivileged-user` + `codexcell` block. A future diagnostic that must diverge
+# names itself here, with its reason.
+CODEX_LOCKSTEP_EXEMPT_STEPS: frozenset[tuple[str, str]] = frozenset()
 
 # The action path and the bare-CLI path express ONE network posture in two
 # dialects, so they cannot be compared for equality.
@@ -2639,57 +2624,66 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
 # concluded step the tail salvages, and every clause of it is YAML nothing at
 # runtime notices: an arm step that does not precede *every* engine step leaves
 # some engine unguarded, a disarm step that does not follow the last of them
-# leaves a killer running through the capture steps, a deadline at or above a
-# step's own backstop never bites first, a sentinel the arm step does not hand
+# leaves a killer running through the capture steps, a fire time at or above a
+# step's own timeout never bites first, a sentinel the arm step does not hand
 # over leaves only the deadline, and a bundle the artifact does not carry is
 # thrown away with the runner.
 ENGINE_WATCHDOG_SCRIPT = "scripts/engine-watchdog.sh"
 ENGINE_WATCHDOG_DIR = "engine-watchdog"
-# Per engine, and both halves matter. Codex fires at 65 minutes — the engine
-# whose wedges are the reason any of this exists, and the one whose work
-# envelope has been measured past 50 minutes on application records, so a
-# deadline inside that envelope kills healthy mid-work cells (and the kill can
-# take the whole job down, dropping every runner-local account). Claude and
-# gemini fire at 47, because a deadline is the one half of the bracket that can
-# *cost* a healthy cell and neither engine has ever wedged or been observed
-# near it. Each deadline stays under its own engine step's backstop and inside
-# the 85-minute job cap; the arm steps carry the arithmetic.
-ENGINE_WATCHDOG_DEADLINE_EXPR = "${{ matrix.engine == 'codex' && '3900' || '2820' }}"
-ENGINE_WATCHDOG_CODEX_DEADLINE_S = 3900
-ENGINE_WATCHDOG_OTHER_DEADLINE_S = 2820
-# The integers are what the bound check below runs on and the expression is
-# what the YAML is held to, so the two must be one claim: an expression raised
-# without its integer would leave the ordering check running against a stale
-# bound, silently.
-assert f"'{ENGINE_WATCHDOG_CODEX_DEADLINE_S}'" in ENGINE_WATCHDOG_DEADLINE_EXPR
-assert f"'{ENGINE_WATCHDOG_OTHER_DEADLINE_S}'" in ENGINE_WATCHDOG_DEADLINE_EXPR
+#: The **engine deadline**: one value, in minutes, for every engine of every
+#: cell. Each cell job sets it once as job env; every engine step's
+#: `timeout-minutes` reads it and the arm step derives the watchdog's fire time
+#: from it, `ENGINE_DEADLINE_MARGIN_S` earlier. Fifty minutes is over 3.5x the
+#: longest completed engine step observed since 2026-08-01 (13.9 minutes, any
+#: engine, either workflow) — docs/pipeline.md carries the distribution.
+ENGINE_DEADLINE_MINUTES = 50
+ENGINE_DEADLINE_MARGIN_S = 180
+#: The engine-actions-smoke legs' own value: the same bracket around a
+#: one-word boot probe: 13 minutes, so the watchdog fires at the probe's
+#: ten-minute budget.
+ENGINE_SMOKE_DEADLINE_MINUTES = 13
+ENGINE_DEADLINE_STEP_TIMEOUT = "${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}"
+ENGINE_DEADLINE_ARITHMETIC = (
+    "WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S))"
+)
+#: The worst setup ahead of an engine step plus the worst capture tail behind
+#: it, measured since 2026-08-01 (5.4 and 1.3 minutes), rounded up. The job cap
+#: has to hold the deadline plus this, or a cell the deadline ended is cancelled
+#: before its tail runs.
+CELL_JOB_OVERHEAD_MINUTES = 7
 ENGINE_WATCHDOG_CELL_JOBS = {"run-predict.yml": "predict", "run-evaluate.yml": "evaluate"}
-# The arm step's whole configuration: the three the script has always read, the
-# cell's identifiers and run URL for the off-runner record, and the comment-only
-# token in its two roles (`gh` opens the record; the watchdog PATCHes it). The
-# sentinel is deliberately absent — it is *computed* in the run block from the
-# identifiers already here and exported onto the detached process, so a key here
-# would be a second, un-derived source for what a finished cell owes.
+#: The disarm step's guard on the pid it signals: the pid file sits on a path
+#: the agent can write, so only a pid whose command line names this script is
+#: ever killed.
+PID_OWNERSHIP_CHECK = 'grep -qa engine-watchdog.sh "/proc/$pid/cmdline"'
+# The arm step's whole configuration: the bundle's home, the codex home it
+# lists, the cell's identifiers (the sentinel is resolved from them), and the
+# margin the fire time is derived with. The deadline itself is deliberately
+# absent — it is *derived* in the run block from the job's one value, so a key
+# here would be a second source for it. So is the sentinel, for the same reason.
 ENGINE_WATCHDOG_ARM_ENV = {
     "CODEX_HOME",
     "WATCHDOG_DIR",
-    "WATCHDOG_DEADLINE_S",
     "COURT_ID",
     "DOCKET_ID",
     "EVENT_ID",
     "ACTOR_ID",
     "RUN_ID",
-    "RUN_URL",
-    "GH_TOKEN",
-    "WATCHDOG_CHECKIN_TOKEN",
+    "DEADLINE_MARGIN_S",
 }
-CODEX_WATCHDOG_TOKEN_STEP = "Mint the codex watchdog telemetry token"
-CODEX_WATCHDOG_TOKEN_REF = "${{ steps.watchdog-token.outputs.token }}"
 #: The role each cell workflow's arm step must ask `cell-outputs` for. A
 #: sentinel resolved for the wrong role names files the cell never writes, so it
 #: would never fire — silently, which is the failure mode the whole bracket
 #: exists to remove.
 ENGINE_WATCHDOG_SENTINEL_ROLE = {"run-predict.yml": "predict", "run-evaluate.yml": "evaluate"}
+
+
+def _shipped_watchdog_default(var: str) -> int:
+    """A watchdog knob's shipped default, read from the script itself."""
+    script = (REPO_ROOT / ENGINE_WATCHDOG_SCRIPT).read_text()
+    match = re.search(r'="\$\{' + var + r':-(\d+)\}"', script)
+    assert match, f"no shipped default for {var}"
+    return int(match.group(1))
 
 
 def _engine_step_indices(steps: list[dict[str, object]]) -> list[int]:
@@ -2728,9 +2722,8 @@ def test_every_engine_step_of_a_cell_is_bracketed_by_the_watchdog() -> None:
         # The gate may narrow the *window* (a refused predict cell runs no engine)
         # but must never narrow it to one engine: re-adding `matrix.engine ==
         # 'codex'` here would leave every claude and gemini cell unbracketed with
-        # the whole suite green, which is the regression this rework exists to
-        # prevent. `run-evaluate` has no refusal gate at all, so its arm step
-        # carries no condition; only `run-predict` has one to check for.
+        # the whole suite green. `run-evaluate` has no refusal gate at all, so
+        # its arm step carries no condition; only `run-predict` has one.
         assert "matrix.engine" not in str(arm.get("if") or ""), (
             f"{name}: the arm step is gated on one engine, so the others run unguarded"
         )
@@ -2747,35 +2740,39 @@ def test_every_engine_step_of_a_cell_is_bracketed_by_the_watchdog() -> None:
         # be wedged inside that tree, so the tree must not be able to rewrite
         # it. The disarm step is what carries it back for the upload.
         assert arm["env"]["WATCHDOG_DIR"] == f"${{{{ runner.temp }}}}/{ENGINE_WATCHDOG_DIR}"
-        assert arm["env"]["WATCHDOG_DEADLINE_S"] == ENGINE_WATCHDOG_DEADLINE_EXPR
-        # Each engine step's own deadline < that step's `timeout-minutes` < the
-        # job cap. The middle bound is a backstop for an overrun the runner can
-        # end, not evidence that it ends this one — a wedged step has run
-        # straight through it; what this pins is that the watchdog is the bound
-        # that comes first and that its kill still leaves the tail inside the
-        # job. Per engine, because the deadlines are: codex's 65-minute
-        # deadline needs its 75-minute step backstop, while claude and gemini
-        # keep 47 under their own 50 — a single max-deadline check would force
-        # every step's bound up to codex's.
-        # The codex step is named by the same marker `_engine_step_indices`
-        # discovers it with, so the classifier and the discovery cannot drift
-        # apart — and exactly one step must classify as codex, so a spelling
-        # change fails red here rather than checking a 75-minute backstop
-        # against the shorter deadline, silently.
-        codex_flags = ["openai/codex-action@" in str(steps[i].get("uses") or "") for i in engines]
-        assert sum(codex_flags) == 1, f"{name}: expected exactly one codex engine step"
-        for index, is_codex in zip(engines, codex_flags, strict=True):
-            engine = steps[index]
-            deadline_s = (
-                ENGINE_WATCHDOG_CODEX_DEADLINE_S if is_codex else ENGINE_WATCHDOG_OTHER_DEADLINE_S
+        # One deadline, one place: the job's env, read by every engine step and
+        # by the arm step's derivation — never a per-engine literal.
+        assert job["env"]["ENGINE_DEADLINE_MINUTES"] == str(ENGINE_DEADLINE_MINUTES)
+        assert arm["env"]["DEADLINE_MARGIN_S"] == str(ENGINE_DEADLINE_MARGIN_S)
+        arm_run = str(arm["run"])
+        assert ENGINE_DEADLINE_ARITHMETIC in arm_run
+        assert 'WATCHDOG_DEADLINE_S="$WATCHDOG_DEADLINE_S"' in arm_run, (
+            f"{name}: the derived fire time never reaches the detached watchdog"
+        )
+        for index in engines:
+            assert steps[index].get("timeout-minutes") == ENGINE_DEADLINE_STEP_TIMEOUT, (
+                f"{name}: {steps[index]['name']} does not honour the engine deadline"
             )
-            assert deadline_s / 60 < engine["timeout-minutes"] < job["timeout-minutes"], (
-                f"{name}: {engine['name']}'s bounds do not sit under the watchdog and the job cap"
-            )
+        # fire time < step timeout < job cap, with room on both sides: the
+        # watchdog's whole escalation (three graces, each rounded up to a poll)
+        # fits inside the margin, so a step it ends concludes before the runner's
+        # own timeout; and the job cap holds the deadline plus the setup and tail
+        # around it, so the tail still runs.
+        escalation_s = 3 * (
+            _shipped_watchdog_default("WATCHDOG_STEP_GRACE_S")
+            + _shipped_watchdog_default("WATCHDOG_POLL_S")
+        )
+        assert escalation_s < ENGINE_DEADLINE_MARGIN_S < ENGINE_DEADLINE_MINUTES * 60
+        assert job["timeout-minutes"] > ENGINE_DEADLINE_MINUTES + CELL_JOB_OVERHEAD_MINUTES, (
+            f"{name}: the job cap leaves no room for the tail after the engine deadline"
+        )
         # `always()`, so an engine that failed, timed out, or never ran still
         # stands its killer down before the capture tail.
         assert disarm.get("if") == "${{ always() }}"
         assert "engine-watchdog.pid" in str(disarm["run"])
+        assert PID_OWNERSHIP_CHECK in str(disarm["run"]), (
+            f"{name}: the disarm step signals a pid it has not checked is the watchdog's"
+        )
         assert ENGINE_WATCHDOG_DIR in str(disarm["run"]), (
             f"{name}: the disarm step does not carry the bundle back for the upload"
         )
@@ -2786,8 +2783,64 @@ def test_every_engine_step_of_a_cell_is_bracketed_by_the_watchdog() -> None:
         assert ENGINE_WATCHDOG_DIR in str(upload["with"]["path"]).split()
 
 
+def test_the_engine_deadline_is_one_value_across_every_cell_surface() -> None:
+    """Every surface that runs a real cell carries the same engine deadline.
+
+    A workflow env cannot be shared across workflow files, so the value is
+    spelled once per workflow and held equal here: the two cell jobs and the
+    integration suite's application-repro leg, which runs a real evaluate cell
+    and would otherwise certify a bound production does not run. The
+    engine-actions-smoke legs carry the probe's own 13 minutes on the same
+    expression, and nothing else in the suite may set the variable.
+    """
+    for name, job_name in ENGINE_WATCHDOG_CELL_JOBS.items():
+        assert _load(name)["jobs"][job_name]["env"]["ENGINE_DEADLINE_MINUTES"] == str(
+            ENGINE_DEADLINE_MINUTES
+        )
+    scenario = _load("integration-test.yml")["jobs"]["scenario"]
+    assert scenario["env"]["ENGINE_DEADLINE_MINUTES"] == (
+        f"${{{{ matrix.scenario == 'engine-actions-smoke' && "
+        f"'{ENGINE_SMOKE_DEADLINE_MINUTES}' || '{ENGINE_DEADLINE_MINUTES}' }}}}"
+    )
+    expected = {"run-predict.yml": 1, "run-evaluate.yml": 1, "integration-test.yml": 1}
+    for name in sorted(p.name for p in WORKFLOWS.glob("*.yml")):
+        text = (WORKFLOWS / name).read_text()
+        spelled = len(re.findall(r"^\s+ENGINE_DEADLINE_MINUTES:", text, flags=re.MULTILINE))
+        assert spelled == expected.get(name, 0), f"{name} sets the engine deadline {spelled}x"
+
+
+def test_the_boot_probe_runs_inside_the_same_deadline_bracket() -> None:
+    """engine-actions-smoke arms the cells' bracket around every engine's probe.
+
+    It is a required leg of the promotion gate and the daily canary, so this is
+    what exercises the deadline wiring — arm, the derived fire time, the step
+    timeouts that read the one value, and the disarm — on each engine's real
+    invocation block before a paid round does.
+    """
+    steps = _load("integration-test.yml")["jobs"]["scenario"]["steps"]
+    names = [str(s.get("name") or "") for s in steps]
+    arm_at = names.index("Arm the engine deadline for the boot probe")
+    probes = [
+        "Smoke the Claude Code cell invocation",
+        "Smoke the Codex cell invocation",
+        "Smoke the Gemini cell invocation",
+    ]
+    assert names[arm_at + 1 : arm_at + 4] == probes, "a non-probe step sits inside the bracket"
+    assert names[arm_at + 4] == "Disarm the engine deadline for the boot probe"
+    arm, disarm = steps[arm_at], steps[arm_at + 4]
+    assert arm.get("if") == "${{ matrix.scenario == 'engine-actions-smoke' }}"
+    assert ENGINE_DEADLINE_ARITHMETIC in str(arm["run"])
+    assert arm["env"]["DEADLINE_MARGIN_S"] == str(ENGINE_DEADLINE_MARGIN_S)
+    assert ENGINE_DEADLINE_MARGIN_S < ENGINE_SMOKE_DEADLINE_MINUTES * 60
+    for probe in steps[arm_at + 1 : arm_at + 4]:
+        assert probe.get("timeout-minutes") == ENGINE_DEADLINE_STEP_TIMEOUT
+    assert disarm.get("if") == "${{ always() && matrix.scenario == 'engine-actions-smoke' }}"
+    assert "engine-watchdog.pid" in str(disarm["run"])
+    assert PID_OWNERSHIP_CHECK in str(disarm["run"])
+
+
 # The workflows that read the watchdog's bundle: the two cell workflows plus
-# integration-test's two standalone disarm sites (the repro leg and the freeze
+# integration-test's two standalone disarm sites (the repro leg and the boot
 # probe).
 ENGINE_WATCHDOG_MARKER_WORKFLOWS = (
     "run-predict.yml",
@@ -2800,11 +2853,10 @@ def test_every_disarm_surface_names_every_watchdog_marker() -> None:
     """The script's marker set is the single source of truth for its readers.
 
     A marker the watchdog grows that no disarm surface reads is invisible
-    exactly when it matters: the bundle still carries it, but the run summary,
-    the warning, and the telemetry close-out all report a cell where nothing
-    happened. So the set is derived from the script's own writes and asserted
-    against every surface that enumerates markers — the summary loops and the
-    health checks — rather than pinned twice by hand.
+    exactly when it matters: the bundle still carries it, but the run summary
+    and the warning both report a cell where nothing happened. So the set is
+    derived from the script's own writes and asserted against every surface
+    that enumerates markers, rather than pinned twice by hand.
     """
     script = (REPO_ROOT / ENGINE_WATCHDOG_SCRIPT).read_text()
     markers = set(re.findall(r'>>?\s*"\$dir/([A-Z][A-Z_]*)"', script))
@@ -2812,7 +2864,6 @@ def test_every_disarm_surface_names_every_watchdog_marker() -> None:
     # the regex honest (a parse that finds nothing would vacuously pass below).
     assert markers == {"REAPED", "FIRED", "STOOD_DOWN", "SUSPENDED"}
     loops = 0
-    health_checks = 0
     for name in ENGINE_WATCHDOG_MARKER_WORKFLOWS:
         text = (WORKFLOWS / name).read_text()
         for match in re.finditer(r"for marker in ([A-Z_ ]+); do", text):
@@ -2820,17 +2871,56 @@ def test_every_disarm_surface_names_every_watchdog_marker() -> None:
                 f"{name}: a marker summary loop enumerates {match.group(1)!r}"
             )
             loops += 1
-        # Each health check resets to --healthy and then tests marker files on
-        # the way to --not-healthy; every marker must appear in that window.
-        for match in re.finditer(
-            r"healthy_flag=--healthy\n((?:.*\n){1,8}?).*healthy_flag=--not-healthy", text
-        ):
-            window = match.group(1)
-            for marker in markers:
-                assert marker in window, f"{name}: a health check does not read {marker}"
-            health_checks += 1
-    assert loops == 3, f"marker summary loops found: {loops}"
-    assert health_checks == 4, f"marker health checks found: {health_checks}"
+    assert loops == 4, f"marker summary loops found: {loops}"
+
+
+def test_no_watchdog_surface_holds_a_github_credential() -> None:
+    """The watchdog reports on the runner only, so it holds no credential.
+
+    Every account it leaves — log, marker, bundle — rides the cell's own tail
+    (a step the watchdog ends *concludes*, which is what lets that tail run),
+    so nothing about it needs a token: no mint step beside the arming, no
+    GitHub credential in an arm or disarm step's env, and no HTTP client in
+    the script.
+    """
+    script = (REPO_ROOT / ENGINE_WATCHDOG_SCRIPT).read_text()
+    assert "curl" not in script and "PATCH" not in script
+    for name in ENGINE_WATCHDOG_MARKER_WORKFLOWS:
+        workflow = _load(name)
+        for job_name, job in workflow["jobs"].items():
+            for step in job.get("steps", []):
+                step_name = str(step.get("name") or "")
+                assert "watchdog" not in str(step.get("id") or ""), (
+                    f"{name}/{job_name}: a watchdog-named step id survives ({step.get('id')})"
+                )
+                if "watchdog" in step_name.lower() or "engine deadline" in step_name.lower():
+                    env = step.get("env") or {}
+                    assert not any("TOKEN" in key for key in env), (
+                        f"{name}/{job_name}: {step_name} holds a credential"
+                    )
+                    assert "secrets." not in str(env)
+
+
+def test_a_deadline_stop_is_recorded_in_the_cells_status() -> None:
+    """A watchdog that acted at the deadline leaves a record that outlives the runner.
+
+    The disarm step reads the `FIRED` / `STOOD_DOWN` markers from the copy the
+    watchdog wrote and publishes `deadline`; the status step folds it into
+    `status.json` beside `agent_ok` (never into it), which the collect job
+    renders into the draft PR's reason column.
+    """
+    for name, job_name in ENGINE_WATCHDOG_CELL_JOBS.items():
+        steps = _load(name)["jobs"][job_name]["steps"]
+        disarm_run = str(next(s for s in steps if s.get("id") == "disarm")["run"])
+        assert '"$RUNNER_TEMP/engine-watchdog/FIRED"' in disarm_run
+        assert '"$RUNNER_TEMP/engine-watchdog/STOOD_DOWN"' in disarm_run
+        assert 'echo "deadline=$deadline" >> "$GITHUB_OUTPUT"' in disarm_run
+        status = next(s for s in steps if s.get("name") == "Record cell status")
+        assert status["env"]["ENGINE_DEADLINE"] == "${{ steps.disarm.outputs.deadline == 'true' }}"
+        assert "deadline" not in str(status["env"]["AGENT_OK"]), (
+            f"{name}: the deadline must name a stop, never decide readiness"
+        )
+        assert "engine_deadline:$engine_deadline" in str(status["run"])
 
 
 def test_the_arm_step_hands_the_watchdog_this_cells_completion_sentinel() -> None:
@@ -2857,7 +2947,7 @@ def test_the_arm_step_hands_the_watchdog_this_cells_completion_sentinel() -> Non
         assert "timeout 60 uv run fedcourts cell-outputs" in arm_run, (
             f"{name}: resolving the sentinel is unbounded, so it can delay the deadline"
         )
-        # Handed over on the launch line itself, beside the check-in pair.
+        # Handed over on the launch line itself.
         for var in ("WATCHDOG_OUTPUT_DIR=", "WATCHDOG_SENTINEL_PATHS="):
             assert var in arm_run, f"{name}: the watchdog is launched without {var}"
         # A resolution that failed leaves the deadline armed rather than the
@@ -2941,205 +3031,39 @@ def test_the_cell_artifact_ships_only_the_cells_own_event_directory() -> None:
         )
 
 
-def test_the_codex_watchdog_reports_off_the_runner_on_a_comment_only_token() -> None:
-    """The channel a cancelled job cannot erase, and the credential it runs on.
-
-    Every other account the watchdog leaves is runner-local, and the wedge it
-    documents is what cancels the runner — so the bundle, the disarm step that
-    publishes it, the step summary and the job log are destroyed by exactly the
-    failure they exist to describe. The off-runner record is what survives it,
-    and what it costs is a GitHub token in a codex cell.
-
-    **Codex cells only**, while the watchdog brackets every engine — a split
-    this pins rather than tolerates. The reaper works without telemetry: it
-    concludes the step, so the cell runs its own tail and its whole account
-    rides the artifact; the off-runner record is load-bearing only where the
-    runner is destroyed first, which is the deadline kill, and codex is the one
-    engine that has taken it. Minting for every engine would put an issues:write
-    App token in every cell of every round to buy a record for a failure no
-    other engine has shown.
-
-    The whole of that concession is pinned here: **issues alone**, minted under
-    the codex engine step's own gate, reaching the watchdog rather than the
-    agent, and failing soft so the reporting can never cost the kill.
-    """
-    for name, job_name in ENGINE_WATCHDOG_CELL_JOBS.items():
-        job = _load(name)["jobs"][job_name]
-        steps = job["steps"]
-        arm_at = next(i for i, s in enumerate(steps) if s.get("name") == "Arm the engine watchdog")
-        mint = steps[arm_at - 1]
-        assert mint.get("name") == CODEX_WATCHDOG_TOKEN_STEP, (
-            f"{name}: nothing mints the watchdog's telemetry token before the arming"
-        )
-        # Exactly the *codex* engine step's window — not the arm step's, which
-        # is every engine's — so no other engine's cell mints a live credential
-        # for a channel it does not use, and a refused predict cell mints none.
-        codex_step = next(
-            s for s in steps if str(s.get("uses") or "").startswith("openai/codex-action@")
-        )
-        assert mint.get("if") == codex_step.get("if"), (
-            f"{name}: the telemetry mint's gate is not the codex step's"
-        )
-        # Comment-only, and narrower than the Claude cell's token beside it:
-        # everything it is used for is one tracking issue and one comment on it.
-        assert str(mint.get("uses", "")).startswith("actions/create-github-app-token@")
-        assert set(mint["with"]) == {"client-id", "private-key", "permission-issues"}, (
-            f"{name}: the watchdog token asks for more than issues:write"
-        )
-        assert mint["with"]["permission-issues"] == "write"
-        # A mint that failed hard would leave the arm step and the engine step
-        # skipped on their implicit `success()` — killing the cell to protect
-        # its own reporting, which inverts the whole priority. Failing soft
-        # leaves an empty token, which both consumers guard on.
-        assert mint.get("continue-on-error") is True, (
-            f"{name}: a failed telemetry mint would skip the engine step"
-        )
-        # The job's own permission block is untouched: this is a step-scoped App
-        # mint, not a widening of what every step in the cell may do.
-        assert "issues" not in job["permissions"]
-        # The token reaches the arm step (which opens the record and hands the
-        # watchdog its env) and the disarm step (which closes it out) — never an
-        # agent step, which is a separate step and inherits neither.
-        holders = [s for s in steps if CODEX_WATCHDOG_TOKEN_REF in str(s.get("env", {}))]
-        assert [s.get("name") for s in holders] == [
-            "Arm the engine watchdog",
-            "Disarm the engine watchdog",
-        ], f"{name}: the telemetry token reaches steps it has no business in"
-        # It travels as env on both, never as an argument: the watchdog's own
-        # published bundle dumps every argument of every process this user owns.
-        for holder in holders:
-            assert CODEX_WATCHDOG_TOKEN_REF not in str(holder.get("run", ""))
-        arm_run = str(steps[arm_at]["run"])
-        assert "watchdog-checkin" in arm_run
-        # The watchdog appends to the armed body it is handed, so the arm step
-        # must pass the *whole* of what the check-in wrote. A base trimmed to
-        # the marker would have the first heartbeat erase the arming time, the
-        # fire ETA and the run link — the entire record on a run that never
-        # comes back.
-        assert "WATCHDOG_CHECKIN_BASE=" in arm_run
-        # The watchdog authenticates with WATCHDOG_CHECKIN_TOKEN and never runs
-        # `gh`, so `GH_TOKEN` is cleared rather than inherited into a process
-        # that outlives this step by the whole deadline.
-        assert "GH_TOKEN=''" in arm_run, f"{name}: the watchdog inherits a credential it never uses"
-        # And the destination that credential is sent to for the whole deadline
-        # is checked against this repository's own comments endpoint before it is
-        # handed over: it arrived on a stdout this step does not otherwise police.
-        assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"' in arm_run, (
-            f"{name}: the check-in URL is handed to the watchdog unvalidated"
-        )
-        # An engine that was never offered the channel must not warn about
-        # missing it: the arming warning is conditioned on the token's presence.
-        assert 'if [ -n "${GH_TOKEN:-}" ] && [ -z "$checkin_url" ]' in arm_run, (
-            f"{name}: every non-codex cell would warn about a record it never wanted"
-        )
-        # Both check-ins are bounded outside the command's own gh retry, whose
-        # budget is per call: the arming one must not delay the deadline it
-        # starts, and the disarming one runs ahead of the artifact upload.
-        assert "timeout 90 uv run fedcourts watchdog-checkin" in arm_run
-        disarm = next(s for s in steps if s.get("name") == "Disarm the engine watchdog")
-        assert "timeout 90 uv run fedcourts watchdog-checkin --disarm" in str(disarm["run"])
-
-
-#: The repro leg's bounds, which the occurrence they reproduce inverted. The
-#: defect begins *after* the agent finishes, so every bound has to sit above the
-#: work envelope (see REPRO_WORK_ENVELOPE_MINUTES below) or the leg kills a healthy
-#: mid-grading cell and never reaches the phase it exists to observe — a red leg
-#: that certifies nothing, which is worse than no leg. Ordered, not merely
-#: large: watchdog < step < job, so the watchdog is what concludes a step the
-#: runner cannot, and the job cap is never what ends the leg.
 REPRO_SCENARIO = "codex-application-repro"
-#: The deadline the bounds arithmetic below runs on, carried on the arm step as
-#: a literal — like the cell workflows' own, and pinned here so it cannot drift
-#: from the work envelope the assertion checks it against.
-REPRO_WATCHDOG_DEADLINE_S = "4200"
-REPRO_STEP_TIMEOUT_MINUTES = 80
-REPRO_JOB_TIMEOUT_MINUTES = 95
-#: The observed work envelope, in minutes, which the watchdog deadline must
-#: clear. Production judge cells on this record shape run 40-50 minutes, and
-#: this leg has been observed still mid-work past 50 — a deadline that fired
-#: there killed a healthy cell and took the job with it — so the working
-#: ceiling sits at 60 and the 70-minute deadline clears it with margin.
-REPRO_WORK_ENVELOPE_MINUTES = 60
+#: The repro leg's job cap: the cell jobs' own, since the leg runs a real
+#: evaluate cell under the same engine deadline.
+REPRO_JOB_TIMEOUT_MINUTES = 65
 
 
-def test_the_repro_legs_bounds_sit_above_the_work_it_reproduces() -> None:
-    steps = _load("integration-test.yml")["jobs"]["scenario"]["steps"]
+def test_the_repro_leg_runs_under_the_cells_engine_deadline() -> None:
+    """The repro leg reproduces a production cell, bound and all.
+
+    Its engine step reads the same engine deadline the cells do, its watchdog
+    fires the cells' margin earlier, and its job cap leaves the tail room after
+    the deadline — raised for this leg alone, because a cap this long on the
+    boot probes would turn a hung smoke into an hour of billed silence.
+    """
+    job = _load("integration-test.yml")["jobs"]["scenario"]
+    steps = job["steps"]
     arm = next(s for s in steps if s.get("name") == "Arm the engine watchdog")
-    assert arm["env"]["WATCHDOG_DEADLINE_S"] == REPRO_WATCHDOG_DEADLINE_S
-    deadline_minutes = int(REPRO_WATCHDOG_DEADLINE_S) / 60
-    assert deadline_minutes >= REPRO_WORK_ENVELOPE_MINUTES, (
-        "the repro leg's watchdog would kill a healthy cell before it finished"
-    )
+    assert REPRO_SCENARIO in str(arm.get("if"))
+    assert "WATCHDOG_DEADLINE_S" not in arm["env"], "the repro deadline is a second literal"
+    assert arm["env"]["DEADLINE_MARGIN_S"] == str(ENGINE_DEADLINE_MARGIN_S)
+    assert ENGINE_DEADLINE_ARITHMETIC in str(arm["run"])
     engine = next(
         s
         for s in steps
         if str(s.get("uses") or "").startswith("openai/codex-action@")
         and REPRO_SCENARIO in str(s.get("if"))
     )
-    assert engine["timeout-minutes"] == REPRO_STEP_TIMEOUT_MINUTES
-    assert deadline_minutes < REPRO_STEP_TIMEOUT_MINUTES < REPRO_JOB_TIMEOUT_MINUTES
-    # The job cap is raised for this leg alone: a cap this long on the
-    # boot probes would turn a hung smoke into an hour of billed silence.
-    cap = str(_load("integration-test.yml")["jobs"]["scenario"]["timeout-minutes"])
+    assert engine["timeout-minutes"] == ENGINE_DEADLINE_STEP_TIMEOUT
+    assert ENGINE_DEADLINE_MINUTES + CELL_JOB_OVERHEAD_MINUTES < REPRO_JOB_TIMEOUT_MINUTES
+    cap = str(job["timeout-minutes"])
     assert f"'{REPRO_SCENARIO}' && {REPRO_JOB_TIMEOUT_MINUTES} ||" in cap, (
-        f"the repro leg's job cap is not raised to {REPRO_JOB_TIMEOUT_MINUTES}: {cap}"
+        f"the repro leg's job cap is not {REPRO_JOB_TIMEOUT_MINUTES}: {cap}"
     )
-
-
-def test_the_repro_leg_arms_the_watchdogs_off_runner_record() -> None:
-    """The deadline path's only surviving account, armed on the leg that took it.
-
-    A deadline kill on this leg has been observed to end the whole job — the
-    disarm and upload tail skipped, the job log dropped — so every runner-local
-    account of what the watchdog did dies with exactly the failure it exists to
-    describe. The off-runner record is what survives that, and this pins the
-    leg to the cell workflows' arming: the same comment-only mint (issues
-    alone, failing soft, gated to this scenario, never reaching the agent
-    step), the same URL-shape check before a live credential is aimed anywhere,
-    the same bounded check-ins, and the same close-out on the disarm.
-    """
-    job = _load("integration-test.yml")["jobs"]["scenario"]
-    steps = job["steps"]
-    arm_at = next(i for i, s in enumerate(steps) if s.get("name") == "Arm the engine watchdog")
-    mint = steps[arm_at - 1]
-    assert mint.get("name") == CODEX_WATCHDOG_TOKEN_STEP, (
-        "nothing mints the repro watchdog's telemetry token before the arming"
-    )
-    # Exactly this scenario's window, so no other leg of the suite mints a live
-    # credential for a channel it does not use.
-    assert mint.get("if") == f"${{{{ matrix.scenario == '{REPRO_SCENARIO}' }}}}"
-    assert str(mint.get("uses", "")).startswith("actions/create-github-app-token@")
-    assert set(mint["with"]) == {"client-id", "private-key", "permission-issues"}, (
-        "the repro watchdog token asks for more than issues:write"
-    )
-    assert mint["with"]["permission-issues"] == "write"
-    assert mint.get("continue-on-error") is True, (
-        "a failed telemetry mint would skip the arm and engine steps"
-    )
-    # A step-scoped App mint, not a widening of what every step in the job may
-    # do — and it reaches the arm and disarm steps only, never the agent's.
-    assert "issues" not in job["permissions"]
-    holders = [s for s in steps if CODEX_WATCHDOG_TOKEN_REF in str(s.get("env", {}))]
-    assert [s.get("name") for s in holders] == [
-        "Arm the engine watchdog",
-        "Disarm the engine watchdog",
-    ], "the repro telemetry token reaches steps it has no business in"
-    for holder in holders:
-        assert CODEX_WATCHDOG_TOKEN_REF not in str(holder.get("run", ""))
-    arm_run = str(steps[arm_at]["run"])
-    assert "timeout 90 uv run fedcourts watchdog-checkin" in arm_run
-    assert "WATCHDOG_CHECKIN_BASE=" in arm_run
-    assert "GH_TOKEN=''" in arm_run, "the watchdog inherits a credential it never uses"
-    assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"' in arm_run, (
-        "the check-in URL is handed to the watchdog unvalidated"
-    )
-    # Unlike a cell, this leg always attempts the mint, so an empty token is a
-    # failure worth naming, never an engine that was not offered the channel.
-    assert 'if [ -z "${GH_TOKEN:-}" ]' in arm_run, (
-        "a credential-less repro leg would arm silently with no off-runner record"
-    )
-    disarm = next(s for s in steps if s.get("name") == "Disarm the engine watchdog")
-    assert "timeout 90 uv run fedcourts watchdog-checkin --disarm" in str(disarm["run"])
 
 
 def test_the_repro_leg_reports_its_two_halves_separately() -> None:
@@ -3268,6 +3192,12 @@ def test_the_action_path_smoke_invokes_each_engine_the_way_the_cells_do() -> Non
     assert steps, "the engine-actions-smoke scenario has no steps at all"
     for step in steps:
         condition = str(step["if"])
+        # The deadline bracket's disarm is the one `always()` member: an
+        # invocation that failed or timed out must still stand its watchdog
+        # down. It invokes nothing, so it cannot make the leg vacuously green.
+        if step.get("name") == "Disarm the engine deadline for the boot probe":
+            assert condition == "${{ always() && " + ACTIONS_SMOKE_IF.removeprefix("${{ ")
+            continue
         engine_clause = [
             f" && matrix.engine == '{engine}' }}}}" for engine in ACTIONS_SMOKE_ENGINES
         ]
@@ -3411,6 +3341,91 @@ def test_the_action_path_smoke_probes_the_model_a_cell_would_run() -> None:
     }, f"an invocation does not read the resolved model: {sorted(readers)}"
 
 
+ACTIONS_SMOKE_CAPTURE_STEP = "Assert the cells' usage and retrieval capture parses the probe's log"
+# The engine-to-log flags the cells' capture tail passes, each naming the env
+# var it reads. Shared by the cell steps and the probe, so a source the cells
+# move to cannot leave the probe parsing a log nothing reads.
+CAPTURE_SOURCE_FLAGS = (
+    '--claude-execution-file "$CLAUDE_EXECUTION_FILE"',
+    '--codex-sessions-dir "$CODEX_HOME/sessions"',
+    '--gemini-telemetry-file "$GEMINI_TELEMETRY_FILE"',
+)
+
+
+def test_the_action_path_smoke_runs_the_cells_capture_tail_and_fails_on_a_miss() -> None:
+    """The probe's engine log goes through the cells' own usage and retrieval parse.
+
+    On a cell the two captures are best-effort, so a log format an action or
+    CLI bump moved would cost every cell its `usage.json` and an honest
+    `retrieval_log.json` while the run stays green. The probe runs the same two
+    commands over the log it already produced and makes them fail: so the
+    pins are fidelity to the cells' capture (the same commands, sources, env
+    and retrieval mode flags), the failing posture (`--strict`, no
+    continue-on-error, a validate over exactly the two artifacts), and a
+    scratch data root under the runner temp dir rather than `data/`.
+    """
+    steps = _actions_smoke_steps()
+    names = [str(step.get("name")) for step in steps]
+    assert ACTIONS_SMOKE_CAPTURE_STEP in names, "the probe no longer runs the cells' capture"
+    probe = steps[names.index(ACTIONS_SMOKE_CAPTURE_STEP)]
+    # After every invocation and the codex teardown that surfaces the rollout:
+    # earlier, the codex leg would parse an empty sessions dir.
+    ids = [step.get("id") for step in steps]
+    for engine_step in ("actions_smoke_claude", "actions_smoke_codex", "actions_smoke_gemini"):
+        assert ids.index(engine_step) < names.index(ACTIONS_SMOKE_CAPTURE_STEP)
+    teardown = next(
+        i
+        for i, step in enumerate(steps)
+        if str(step.get("uses") or "").endswith("/codex-user-teardown")
+    )
+    assert teardown < names.index(ACTIONS_SMOKE_CAPTURE_STEP)
+
+    # A failing step, never the cells' tolerant one.
+    assert probe["if"] == ACTIONS_SMOKE_IF
+    assert "continue-on-error" not in probe
+    run = " ".join(str(probe["run"]).split())
+    assert "set -euo pipefail" in run
+    assert "uv run fedcourts record-usage" in run
+    assert "uv run fedcourts record-retrieval" in run
+    assert "--strict" in run
+    assert 'uv run fedcourts validate "$FEDCOURTS_DATA_ROOT"' in run
+    assert '"OK: 2 artifact(s) valid"*' in run, "validate must be held to the two artifacts"
+    assert ".output_tokens > 0" in run
+
+    # Into scratch, never the ledger.
+    env = probe["env"]
+    assert str(env["FEDCOURTS_DATA_ROOT"]).startswith("${{ runner.temp }}/")
+    assert env["CLAUDE_EXECUTION_FILE"] == (
+        "${{ steps.actions_smoke_claude.outputs.execution_file }}"
+    )
+
+    # Both cell workflows' capture tails, which share one engine-to-log shape.
+    for name, job_name in (("run-predict.yml", "predict"), ("run-evaluate.yml", "evaluate")):
+        cell_steps = [
+            step
+            for step in _load(name)["jobs"][job_name]["steps"]
+            if str(step.get("name")) in ("Capture model usage", "Capture retrieval log")
+        ]
+        assert len(cell_steps) == 2, f"{name}: the capture steps were renamed"
+        for cell in cell_steps:
+            cell_run = " ".join(str(cell["run"]).split())
+            for flag in CAPTURE_SOURCE_FLAGS:
+                assert flag in cell_run, f"{name}: {cell['name']} no longer passes {flag}"
+                assert flag in run, f"the probe's capture does not pass the cells' {flag}"
+            # The same files: the codex rollout root and gemini's telemetry log.
+            for var in ("CODEX_HOME", "GEMINI_TELEMETRY_FILE"):
+                assert env[var] == cell["env"][var], f"the probe reads {var} from elsewhere"
+    (retrieval_step,) = [
+        step
+        for step in _load("run-predict.yml")["jobs"]["predict"]["steps"]
+        if str(step.get("name")) == "Capture retrieval log"
+    ]
+    retrieval_cell = " ".join(str(retrieval_step["run"]).split())
+    for flags in ("--role predictor", "--mode forward --mode-from-context"):
+        assert flags in retrieval_cell, f"the cell's retrieval capture dropped {flags}"
+        assert flags in run, f"the probe's retrieval capture does not pass {flags}"
+
+
 def test_the_text_coverage_summary_truncation_matches_the_cli_ledger_headers() -> None:
     """The text-coverage job's step summary is truncated at the first ledger
     header by an awk sentinel, because the summary is readable without login
@@ -3512,10 +3527,9 @@ def test_the_daily_digest_job_is_parked_by_the_pause_variable_and_nothing_else()
 def test_no_workflow_triggers_on_a_digest_label() -> None:
     """Every label the reporting surfaces create must stay non-triggering.
 
-    A reporting job holding `issues: write` opens an issue every day, and the
-    watchdog's arm steps create their channels' labels with `--force`; if any
-    workflow ever keyed on one of those labels, a report or an arming would
-    start a run — a spending one, if the label were ever added to a fan-out.
+    A reporting job holding `issues: write` opens an issue every day, creating
+    its label with `--force`; if any workflow ever keyed on one of those labels,
+    a report would start a run — a spending one, if the label were ever added to a fan-out.
     Nothing enforces the property but this assertion, so it reads every
     workflow rather than the ones that post.
     """
@@ -3523,7 +3537,7 @@ def test_no_workflow_triggers_on_a_digest_label() -> None:
         workflow = _load(path.name)
         # `on` parses to the truthy bool key in YAML; tolerate either spelling.
         triggers = workflow.get("on") or workflow.get(True) or {}
-        for label in (DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL, *_CHANNEL_LABELS.values()):
+        for label in (DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL):
             assert label not in yaml.safe_dump(triggers), (
                 f"{path.name} triggers on the non-triggering {label} label"
             )
@@ -4033,292 +4047,6 @@ def test_the_big_case_board_job_reaches_nothing_but_the_ledger_and_its_own_pr() 
     assert "uv run fedcourts big-cases" in dumped
 
 
-def test_the_repro_legs_telemetry_selects_credentials_and_channel_per_environment() -> None:
-    """The staging rehearsal's record rides the staging-only App and channel.
-
-    One ref keys both selections, and a cross-bind between that ref and the
-    environment (whose own expression admits an input override) is refused
-    at the deployment gate — with a second, independent floor: each App's
-    pair is scoped to its own environment, so a cross-bind would resolve the
-    other side's credentials empty and the mint would fail soft anyway. So a
-    prod-bound dispatch mints the dev App's pair and writes the production
-    issue exactly as the cell workflows do, and a staging-bound one mints
-    from the Issues-only staging App with this step pair aiming it at the
-    rehearsal channel alone. The staging credentials must also appear
-    nowhere else: docs/security.md's inventory says exactly which steps, and
-    a copy-paste of that key onto another staging-bindable job is the
-    realistic regression. The cell workflows keep the plain
-    dev-App mint: cells bind `prod` from `main` only, and a ternary there
-    would imply a rehearsal lane those workflows do not have.
-    """
-    steps = _load("integration-test.yml")["jobs"]["scenario"]["steps"]
-    mint = next(s for s in steps if s.get("id") == "watchdog-token")
-    assert mint["with"]["client-id"] == (
-        "${{ github.ref_name == 'main' && vars.DEV_APP_CLIENT_ID || vars.STAGING_APP_CLIENT_ID }}"
-    )
-    assert mint["with"]["private-key"] == (
-        "${{ github.ref_name == 'main' && secrets.DEV_APP_PRIVATE_KEY"
-        " || secrets.STAGING_APP_PRIVATE_KEY }}"
-    )
-    channel = "${{ github.ref_name == 'main' && 'prod' || 'staging' }}"
-    # The expression's two literals are the module's registered channels: a
-    # CHANNELS rename would otherwise leave the workflow naming a channel the
-    # command refuses, stranding the record under a green suite.
-    for registered in ("prod", "staging"):
-        assert registered in CHANNELS, f"{registered!r} fell out of watchdog CHANNELS"
-    for step_name in ("Arm the engine watchdog", "Disarm the engine watchdog"):
-        step = next(s for s in steps if s.get("name") == step_name)
-        assert step["env"]["TELEMETRY_CHANNEL"] == channel, step_name
-        assert '--channel "$TELEMETRY_CHANNEL"' in str(step["run"]), step_name
-    # The staging pair appears in exactly the telemetry mints — the repro
-    # leg's and the freeze probe's, both in this one workflow — and each
-    # requests issues:write and nothing else. Those two are the whole of the
-    # watchdog surface: the leg that presents the wedge, and the probe that
-    # reads the beat trail across one codex sandbox's life. A third holder is
-    # the copy-paste regression this count exists to catch.
-    holders = []
-    for path in sorted(WORKFLOWS.glob("*.y*ml")):
-        for job_id, job in _load(path.name)["jobs"].items():
-            for step in job.get("steps", []) or []:
-                text = yaml.safe_dump(step)
-                if "STAGING_APP_CLIENT_ID" in text or "STAGING_APP_PRIVATE_KEY" in text:
-                    holders.append((path.name, job_id, step))
-    assert len(holders) == 2, (
-        f"the staging telemetry credentials spread: {[(n, j) for n, j, _ in holders]}"
-    )
-    assert {(n, j) for n, j, _ in holders} == {
-        ("integration-test.yml", "scenario"),
-        ("integration-test.yml", "codex-freeze-probe"),
-    }, f"the staging telemetry credentials spread: {[(n, j) for n, j, _ in holders]}"
-    for _, _, holder_step in holders:
-        assert holder_step.get("id") == "watchdog-token"
-        assert set(holder_step["with"]) == {"client-id", "private-key", "permission-issues"}
-        assert holder_step["with"]["permission-issues"] == "write"
-    # No dispatch input reaches a watchdog deadline on any surface: every
-    # deadline here is a literal or matrix-derived, so nothing a dispatcher
-    # types can move the bound that decides when a cell is killed. Read off the
-    # parsed step rather than the file's text, so a folded scalar or a wrapped
-    # expression cannot carry an input past this.
-    for workflow_path in sorted(WORKFLOWS.glob("*.y*ml")):
-        for job in _load(workflow_path.name)["jobs"].values():
-            for step in job.get("steps") or []:
-                deadline = str((step.get("env") or {}).get("WATCHDOG_DEADLINE_S", ""))
-                assert "inputs." not in deadline, f"{workflow_path.name}: {deadline}"
-    for name in ("run-predict.yml", "run-evaluate.yml"):
-        jobs = _load(name)["jobs"]
-        cell_steps = jobs[ENGINE_WATCHDOG_SENTINEL_ROLE[name]]["steps"]
-        cell_mint = next(s for s in cell_steps if s.get("name") == CODEX_WATCHDOG_TOKEN_STEP)
-        assert cell_mint["with"]["client-id"] == "${{ vars.DEV_APP_CLIENT_ID }}", name
-        assert cell_mint["with"]["private-key"] == "${{ secrets.DEV_APP_PRIVATE_KEY }}", name
-        assert '--channel "$TELEMETRY_CHANNEL"' not in str(
-            next(s for s in cell_steps if s.get("name") == "Arm the engine watchdog")["run"]
-        ), f"{name}: a cell arm step gained a channel it has no lane for"
-
-
-def test_the_freeze_probe_arms_the_telemetry_token_on_the_siblings_terms() -> None:
-    """The second holder of the watchdog telemetry token, pinned like the
-    repro leg's — and with one thing that leg does not have to prove.
-
-    The repro leg holds this token around a cell. The freeze probe holds it
-    around a *sandboxed agent on the same runner*, so every piece of the
-    plumbing below costs more here when it drifts: the URL-shape gate that
-    decides where the token is sent, the cleared `GH_TOKEN` on the detached
-    launch, the ownership guard on a pid file sitting on a path the agent had a
-    shell on, and the disarm that has to survive a cancellation. Its two
-    credential floors — a token-free retrieval sidecar and no OIDC — are
-    asserted in docs/security.md and are enforced nowhere else.
-    """
-    workflow = _load("integration-test.yml")
-    probe = workflow["jobs"]["codex-freeze-probe"]
-    steps = probe["steps"]
-    # One job serves the whole family, so the gate is a prefix test — and
-    # every dispatchable value carrying that prefix must reach it, or a
-    # scenario added to the options and to nothing else would dispatch a run
-    # in which no job at all is selected.
-    assert probe["if"] == "${{ startsWith(inputs.scenario, 'codex-freeze-probe') }}"
-    family = {
-        option
-        for option in workflow[True]["workflow_dispatch"]["inputs"]["scenario"]["options"]
-        if option.startswith("codex-freeze-probe")
-    }
-    assert family == {
-        "codex-freeze-probe",
-        "codex-freeze-probe-unprivuser",
-    }
-    arm = next(s for s in steps if s.get("id") == "arm")
-    assert arm["env"]["WATCHDOG_DEADLINE_S"] == "1800", (
-        "the probe's deadline must stay far above the whole experiment — one "
-        "that fires replaces the measurement with an escalation"
-    )
-    arm_run = str(arm["run"])
-    assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*' in arm_run, (
-        "the freeze probe lost the check-in URL-shape gate"
-    )
-    assert "GH_TOKEN='' WATCHDOG_CHECKIN_URL=" in arm_run, (
-        "the freeze probe's watchdog launch must clear GH_TOKEN"
-    )
-    assert "timeout 90 uv run fedcourts watchdog-checkin" in arm_run
-    assert "WATCHDOG_CHECKIN_BASE=" in arm_run, (
-        "the watchdog must be handed the armed body it appends to"
-    )
-    disarm = next(s for s in steps if s.get("name") == "Disarm and read the beat trail")
-    disarm_run = str(disarm["run"])
-    # `always()` first, then the schedule's fail-closed conjunct, then the
-    # affirmative list of armed members: a cancelled probe must still close
-    # its row. A disarm that lost the `always()` would strand an armed record
-    # on a long-lived issue, where a reader would later take it for a hang.
-    #
-    # Affirmative rather than a deny-list: the gated step produces a
-    # credential, so a member the list does not name must arrive UNARMED
-    # rather than armed by default — which is what makes silence the safe
-    # default for anything added later.
-    armed_members = (
-        'contains(fromJSON(\'["codex-freeze-probe", '
-        '"codex-freeze-probe-unprivuser"]\'), inputs.scenario)'
-    )
-    assert disarm.get("if") == (
-        f"${{{{ always() && github.event_name == 'workflow_dispatch' && {armed_members} }}}}"
-    ), "a cancelled probe must still close its row"
-    # Nothing armed that the job does not offer. Asserted in this direction
-    # and not the other: requiring every member to appear would push the next
-    # deliberately unarmed member into the credential-minting list to go
-    # green, which is the opposite of the default this list exists to hold.
-    assert set(re.findall(r'"(codex-freeze-probe[^"]*)"', armed_members)) <= family, (
-        "the armed list names a scenario no dispatch can select"
-    )
-    armed_only = f"${{{{ github.event_name == 'workflow_dispatch' && {armed_members} }}}}"
-    for step_name in (
-        "Mint the codex watchdog telemetry token",
-        "Arm the watchdog around the turn",
-    ):
-        step = next(s for s in steps if s.get("name") == step_name)
-        assert str(step.get("if")) == armed_only, step_name
-    upload = next(s for s in steps if s.get("name") == "Upload the watchdog log")
-    assert str(upload["if"]) == disarm["if"], (
-        "the watchdog log upload must carry the disarm's condition exactly — "
-        "`always()` included, so a cancelled probe still ships its log"
-    )
-    # The post-exit margin is one literal for every member, so a gap in one
-    # member's trail is comparable with the other's. A dispatch-varied margin
-    # here would leave the trail length decided by the run rather than by the
-    # experiment, with nothing saying which member measured what.
-    margin = next(
-        s for s in steps if s.get("name") == "Stamp the turn's end and let post-exit beats land"
-    )
-    assert margin["env"]["POST_EXIT_MARGIN_S"] == "180", "the post-exit margin drifted"
-    assert 'sleep "$POST_EXIT_MARGIN_S"' in str(margin["run"])
-    assert 'grep -qa engine-watchdog.sh "/proc/$pid/cmdline"' in disarm_run, (
-        "the pid must be ownership-checked before it is signalled — the agent "
-        "held a shell on the path that pid file sits on"
-    )
-    # The gate is re-applied where the token is actually spent, not only where
-    # the URL was minted: the hand-over crosses an agent's turn.
-    assert '"${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/comments/"[0-9]*' in disarm_run, (
-        "the freeze probe must re-check the URL shape before sending the token to it"
-    )
-    # `outcome`, not `conclusion`: the turn carries `continue-on-error`, which
-    # rewrites `conclusion` to success — and this value reaches a durable
-    # telemetry row, where it would report a turn that died as a clean one.
-    # The unprivuser member runs its turn as a separate step (`turn_unprivuser`,
-    # held out of the lockstep pin so it can vary the block), so the env reads
-    # whichever step ran — and `.outcome` on every branch, which is what keeps
-    # this the outcome the swallow has not rewritten.
-    assert disarm["env"]["TURN_OUTCOME"] == (
-        "${{ inputs.scenario == 'codex-freeze-probe-unprivuser'"
-        " && steps.turn_unprivuser.outcome || steps.turn.outcome }}"
-    ), "the probe must read the turn's outcome, not the conclusion `continue-on-error` rewrites"
-    # The retrieval posture the probe's whole credential story rests on: its
-    # sidecar is launched with NO CourtListener token, so the config.toml the
-    # turn reads names a localhost URL and no credential exists for the agent
-    # to find. A token input added here would contradict docs/security.md
-    # under a green suite.
-    sidecar = next(s for s in steps if str(s.get("uses") or "") == "./.github/actions/mcp-sidecar")
-    assert "courtlistener-api-token" not in (sidecar.get("with") or {}), (
-        "the freeze probe's sidecar must stay token-free: its turn uses no "
-        "tools, and a handshake is the whole requirement"
-    )
-    # No OIDC: without it even an action's credential fallback cannot mint an
-    # installation token, which is the floor under a job that runs an agent.
-    assert "id-token" not in probe["permissions"], (
-        "the freeze probe must hold no id-token — it reads no corpus and assumes no role"
-    )
-
-
-def test_the_freeze_probe_unprivuser_turn_is_the_base_turn_with_two_fields_varied() -> None:
-    """The second lockstep-exempt turn, re-pinned field-by-field against the base.
-
-    `turn_unprivuser` is held out of the cross-surface pin so it can vary the
-    block; the exemption is only safe while it stays the base
-    `turn` with exactly its two intended changes (`safety-strategy`, the added
-    `codex-user`) and the deliberately-dropped `CODEX_HOME` env. Anything else
-    drifting to a codex the base member never runs would ship under a green suite.
-    """
-    steps = _load("integration-test.yml")["jobs"]["codex-freeze-probe"]["steps"]
-    turn = next(s for s in steps if s.get("id") == "turn")
-    # The base turn's own strategy, pinned here because it is what the member
-    # below is varied AGAINST — and because it is the repository's one
-    # privileged codex invocation, which docs/security.md states as posture.
-    # Drift to `read-only` would leave the family measuring nothing under a
-    # green suite; drift the other way would widen an agent turn's reach.
-    assert turn["with"]["safety-strategy"] == "drop-sudo", (
-        "the base probe turn must keep `drop-sudo` — it is the posture under study"
-    )
-    # The unprivuser member's turn (`turn_unprivuser`) is the other step held
-    # out of the cross-surface lockstep pin, re-pinned here the same way: equal
-    # `uses`, its two varied fields set to the values that ARE the experiment,
-    # and every other lockstep input equal to the base turn. It differs from the
-    # base in three ways and no more — `safety-strategy`, the added `codex-user`,
-    # and the DROPPED `CODEX_HOME` env (the `sudo -u` hop cannot carry it, so the
-    # action derives the codex user's own home instead). So its `env` is asserted
-    # to omit CODEX_HOME rather than equal the base's, and everything else is
-    # held to the base.
-    turn_unprivuser = next(s for s in steps if s.get("id") == "turn_unprivuser")
-    assert turn_unprivuser["uses"] == turn["uses"], (
-        "the unprivuser turn must run the same codex-action SHA as the base turn"
-    )
-    assert turn_unprivuser["with"]["safety-strategy"] == "unprivileged-user", (
-        "the unprivuser turn's whole reason is to run codex as a separate account"
-    )
-    assert turn_unprivuser["with"]["codex-user"] == "codexcell", (
-        "the unprivileged-user strategy needs a pre-existing user to run codex as"
-    )
-    for key in CODEX_LOCKSTEP_INPUTS:
-        # `codex-user` is the second intended variation (asserted above) and the
-        # base turn carries none, so skip it here alongside `safety-strategy`.
-        if key in ("safety-strategy", "codex-user"):
-            continue
-        assert turn_unprivuser["with"][key] == turn["with"][key], (
-            f"the unprivuser turn's {key!r} drifted from the base turn's — it "
-            f"must vary `safety-strategy` and add `codex-user` alone"
-        )
-    # No `CODEX_HOME` env: the `sudo -u` boundary drops it, so the action derives
-    # the codex user's own `~/.codex` as CODEX_HOME. Setting it here would send
-    # the config and rollout to a home codex never reads and void the probe.
-    assert "CODEX_HOME" not in (turn_unprivuser.get("env") or {}), (
-        "the unprivuser turn must NOT set CODEX_HOME — the sudo hop drops it and "
-        "the action derives the codex user's own home"
-    )
-    assert turn_unprivuser.get("timeout-minutes") == turn.get("timeout-minutes")
-    assert turn_unprivuser.get("continue-on-error") == turn.get("continue-on-error")
-    # The `codex-user` string is load-bearing in three steps — the turn, the
-    # provisioning step that creates the account, and the rollout-surfacing step
-    # that reads its home — and a drift in any one voids the member silently,
-    # green. Pin all three equal.
-    codex_user = turn_unprivuser["with"]["codex-user"]
-    provision = next(s for s in steps if s.get("name") == "Provision the unprivileged codex user")
-    surface = next(
-        s
-        for s in steps
-        if s.get("name") == "Surface the unprivileged turn's rollout for the shared assertion"
-    )
-    assert provision["env"]["CODEX_USER"] == codex_user, (
-        "the provisioning step creates a different user than the turn runs as"
-    )
-    assert surface["env"]["CODEX_USER"] == codex_user, (
-        "the rollout-surfacing step reads a different user's home than the turn wrote"
-    )
-
-
 def _repair_job(job: str) -> dict[str, Any]:
     found = _load("run-repair.yml")["jobs"][job]
     assert isinstance(found, dict)
@@ -4698,3 +4426,55 @@ def test_the_application_writer_validates_the_whole_plan_before_it_writes() -> N
         'uv run fedcourts backfill-applications --term "${REPAIR_TARGET}" '
         '--from-plan "${HANDOFF_PLAN}" --apply --max-rows "${REPAIR_BOUND}"'
     ) in run
+
+
+def test_the_evaluate_cell_provisions_its_snapshot_before_its_opinion() -> None:
+    """Snapshot first, opinion second — the order the grader's slot depends on.
+
+    `provision-snapshot` empties the record subtrees it owns, the opinion slot
+    among them, because a body postdates every predict moment and must never
+    survive into a forecaster's record. That makes the two steps order-dependent
+    in one direction only: reversed, the evaluate cell's opinion is staged and
+    then silently blanked, and the semantic family's coverage census would read
+    the gap as the Court having written nothing to grade against.
+    """
+    steps = [
+        step
+        for job in _load("run-evaluate.yml")["jobs"].values()
+        for step in job.get("steps", []) or []
+        if "provision-snapshot" in (step.get("run") or "")
+        or "provision-opinion" in (step.get("run") or "")
+    ]
+    order = ["snapshot" if "provision-snapshot" in step["run"] else "opinion" for step in steps]
+    assert order == ["snapshot", "opinion"], order
+
+
+def test_the_settled_case_cascades_keep_both_of_their_refusals() -> None:
+    """The cascade legs' two guards, pinned where they are invisible at runtime.
+
+    `--require-predictions` and `--require-record` are the only two things that
+    make a green cascade leg over the settled case mean anything: without the
+    first, an agent that finishes blocked exits 0 over a validly-empty ledger;
+    without the second, a cell with no snapshot, no `context.json` and no
+    documents certifies a production posture it never ran in. Both fail *open*
+    if the flag is dropped — the run goes green — so nothing at runtime would
+    report the loss. Both legs carry them: the engine smoke, and the token-free
+    stub leg that exercises the same seam and refusal at no cost.
+    """
+    lines = [
+        line
+        for run in _run_blocks(_load("integration-test.yml"))
+        for line in run.replace("\\\n", " ").splitlines()
+        if "local-cascade" in line and not line.lstrip().startswith("#")
+    ]
+    # The settled case is the plan job's `$COURT`/`$DOCKET`; the collect leg's
+    # fixture cells name their own case and are not this guard's subject.
+    settled = [line for line in lines if '--court "$COURT"' in line]
+    engines = sorted(
+        "real" if '--engine "$ENGINE"' in line else "stub" if "--engine stub" in line else "?"
+        for line in settled
+    )
+    assert engines == ["real", "stub"], settled
+    for line in settled:
+        assert "--require-predictions" in line, line
+        assert "--require-record" in line, line

@@ -15,8 +15,10 @@ the change workflow every contributor follows, see [AGENTS.md](../AGENTS.md).
 The gate is the contract: "passes the local gate" and "green CI" mean the same
 thing, because [`ci.yml`](../.github/workflows/ci.yml) and the local gate invoke
 the same script — [`scripts/gate.sh`](../scripts/gate.sh), the single definition of
-what the gate runs (stages and usage: [AGENTS.md](../AGENTS.md)). It needs nothing
-secret.
+what the gate runs (stages and usage: [AGENTS.md](../AGENTS.md)). That holds for a
+code change; a data-only or docs-only change runs a subset of the stages in CI
+([The CI lanes](#the-ci-lanes-what-a-data-only-or-docs-only-change-runs)). It
+needs nothing secret.
 
 The `test` stage includes an offline **stub-cascade smoke** (`tests/test_cascade_smoke.py`):
 it drives provision → predict → evaluate (blinded, then un-aliased) → `validate` over the fixture corpus with no
@@ -76,6 +78,91 @@ schemas and fails on drift — so regenerate and commit them in the same change.
 Run it all in the included devcontainer (`.devcontainer/`) or any environment with
 [uv](https://docs.astral.sh/uv/).
 
+### The CI lanes: what a data-only or docs-only change runs
+
+CI's `gate` job does not run every stage for every change. The step after
+checkout runs [`scripts/ci_lane.py`](../scripts/ci_lane.py), which classifies
+the change and names a lane, and the stages that change cannot affect are
+skipped:
+
+| Lane | Every changed path is… | lint, types, test, coverage summary | lane tests | data, schemas |
+| --- | --- | --- | --- | --- |
+| `data` | under `data/` (but not an agent instruction file), or the corpus pointer `corpus/corpus.db.ref` | skipped | `scripts/gate.sh data-tests` | run |
+| `docs` | `*.md`, `*.png` or `*.svg` under `docs/`; a top-level `*.md` **except** `SECURITY.md` and any agent instruction file; `metrics/README.md`; `corpus/README.md`; or `CITATION.cff` | skipped | `scripts/gate.sh docs-tests` | run |
+| `code` | anything else — and every doubt | run | — | run |
+
+The exceptions are not prose. `SECURITY.md` is the security policy. And a
+path that names an agent instruction, context or config file or directory —
+`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `MEMORY.md`, `.claude/` and the rest of
+the path jail's set (`fedcourtsai.collect.AGENT_CONTEXT_FILENAMES` /
+`AGENT_CONFIG_DIRS`, which `ci_lane.py` copies and a test pins equal) — is
+`code` at any depth, under `data/` and `docs/` included, because coding agents
+and cells read it as instructions. A change to one runs the full gate.
+
+The lanes are allow-lists and every doubt lands on `code`: an empty diff, a
+mixed diff (a data file beside a source file, or data beside prose), a path the
+script does not recognise, a symlink or submodule entry, and a diff it cannot
+compute. Prompts, configs, schemas, workflows, scripts, tests and source are
+never data or prose, whatever their extension. The diff is the one the gate
+actually tests: on a pull request, the merge ref against its first parent (the
+base tip it was computed against); on a push, the pushed commit against the
+prior tip, which the script accepts only when the prior tip is the commit's
+first parent — a single commit or a merged PR, the shape of the writer lanes'
+pushes. A multi-commit push, a branch creation, or a force push runs the full
+gate.
+
+The classifier that runs is the **base's** copy — `HEAD^1`'s
+`scripts/ci_lane.py` — never the change's own, so a change cannot grade itself
+into a lighter lane. An edit to the classifier is itself `code`, and so gets
+the full gate under the trusted version; a base without the file, or a base
+copy that fails, runs the full gate. Only the classifier is the base's: the
+lane step itself is the change's own `ci.yml`, so an edit to the step is a
+workflow change, which runs the full gate and waits for the maintainer.
+
+A skipped step still lets the job conclude, so `gate` reports in every lane
+and the required check is satisfied without a trigger-level `paths:` filter
+(which would leave the context unproduced and hang the PR). That is also why
+the lane is a step inside `gate` rather than a job before it: a job whose
+prerequisite fails is *skipped*, and a skipped `gate` would pass. Every
+skipping condition compares with `!=` against a named lane, so a missing
+output runs the stage.
+
+**The lane tests.** Some tests read the committed tree itself — the committed
+data a test validates, a tripwire that walks the checkout. A change to those
+files can fail those tests, so the `data` and `docs` lanes run the tests that
+open them: each lane runs the tests carrying its own mark, `reads_data` or
+`reads_docs`. The marks are kept
+in step by an executed check rather than by review:
+[`tests/lane_guard.py`](../tests/lane_guard.py) installs an audit hook on the
+`open` and directory-listing events each test raises, and the full suite —
+which every code change runs — fails any test it sees open a lane's files
+without that lane's mark, and fails collection when a module reads one at
+import time without every test in it marked. The file-to-lane mapping is
+`ci_lane.py`'s own, imported by the guard, so the lanes and the guard cannot
+disagree.
+
+The guard has blind spots, and each one has a rule:
+
+- **A subprocess's reads** raise no event in the test's process. A test that
+  shells out to something reading a lane file marks itself by hand.
+- **Existence and metadata checks** — `Path.exists()`, `is_file()`,
+  `os.stat()` — raise no audit event. A test whose verdict depends on whether a
+  lane file exists, rather than on its content, marks itself by hand.
+- **Reads through a module- or session-scoped fixture or a cache** are charged
+  to whichever test first triggers them — under xdist, a different test on
+  each worker, and nondeterministically. A module whose fixture or cache reads
+  a lane file marks the whole module with `pytestmark`.
+- **Security tripwires over `data/`** (a test that asserts nothing dangerous is
+  committed there) are marked by hand, whatever the guard sees. The agent
+  instruction files they look for already make a change `code`, so the mark
+  is the second line, for whatever a tripwire checks beyond those names.
+
+```bash
+python3 scripts/ci_lane.py --event pull_request   # classify a merge-ref checkout
+scripts/gate.sh data-tests                          # what the data lane runs in place of test
+scripts/gate.sh docs-tests                          # what the docs lane runs in place of test
+```
+
 ## What's covered where
 
 **The deterministic core** — schemas and ids/paths, the registry and matrix
@@ -103,8 +190,7 @@ That infrastructure has a dedicated path:
 dispatch plus one daily canary, read-only role — collect binds no environment
 and no role at all, and the labeler smoke binds an environment but assumes no
 role — side-effect
-free but for the application-repro leg's and the freeze probe's watchdog
-telemetry rows) runs one
+free) runs one
 scenario per dispatch, or — `scenario=all` — the
 promotion gate's whole required suite as one run (every required scenario, with
 engine-smoke and engine-actions-smoke once per engine each, so three cells'
@@ -185,7 +271,9 @@ committed outcome — since the guard reads the record as well as the snapshot,
 which is exactly the gate the resolver asks on the dispatcher's behalf, and the
 obligation a pinned case carries by hand), then runs one offline stub
 `local-cascade` cell over the ranged
-backend, covering provisioning end to end. `mcp-sidecar` launches the same
+backend, covering provisioning end to end — under the same `--require-record`
+the engine smoke passes, so the token-free leg arms the same record seam and
+refusal the paid one does. `mcp-sidecar` launches the same
 CourtListener MCP sidecar composite the
 cell workflows use, deliberately without its optional token input, and runs
 the tested `fedcourts mcp-integration-check` client against it (initialize +
@@ -219,7 +307,7 @@ force-include, the stratified fill's proportions, exclusion of already-published
 rows, a frame clearing over repeated dispatches without relabeling a row, and
 the converged and under-coverage refusals — all over corpora and frames built in
 `tmp_path`), and the model call is exactly what `run-analytics` pays for.
-`engine-smoke` is the first of the five token-spending scenario classes: a single
+`engine-smoke` is the first of the four token-spending scenario classes: a single
 real-engine
 predictor cell (the `engine` input picks which — an `all` dispatch ignores it
 and runs one smoke per engine; one predict cell's spend
@@ -229,7 +317,42 @@ service sidecar and the cascade's own provisioning reads pinned to `ranged`
 via `--corpus-backend` — the full production cell posture, including each
 engine's real sandbox semantics, which is exactly the layer an engine-level
 integration break (a sandbox denying localhost, a CLI behavior change) hides
-in. Its codex leg additionally wires the CourtListener MCP sidecar and the
+in. The posture includes the cell's **record**, because a cell's posture is its
+inputs: the cascade provisions the snapshot placed at the event's declared
+moment, the `context.json` freezing the cell's mode, band and cutoff, and the
+documents cut with the snapshot and passed through the contact-detail scrubs —
+through the same placement and record writer `provision-snapshot` uses for a
+live cell. A regression that breaks that write reddens this leg instead of
+surfacing in a paid production cell; one that changes what is written — a
+wrong band or cutoff, an over-inclusive document selector, a scrub that
+withholds nothing — stays green, because the ledger check skips the gitignored
+`record/`, and shows only in the leg's `provisioned:` lines (the unit suite pins
+those rules). The moment cut runs too wherever the settled case carries an event
+whose opening date is its declared moment (a cert petition baseline's opening
+date is docketing rather than its moment, so that target takes no cut).
+Every predict target is placed before the first cell runs, so a target the
+cascade cannot place (an interim arrival whose opening entry has no anchor) or a
+document kind that cannot name a file refuses the run before any token is spent.
+`--require-record` adds the one case the cascade would otherwise run through
+silently — an estate holding no snapshot for the case the plan job settled — so
+an unprovisioned run fails rather than certifying a posture it never ran in. The
+leg's evidence for all of this is the `CascadeReport` block it appends to the
+run summary, which carries a `provisioned:` line per provisioning — role,
+event, mode, provenance, cutoff, document count. Per provisioning rather than
+per run, because the record on disk at the end is the last provisioning's: on a
+case carrying a resolved event as well as an open one the evaluate half
+re-provisions last, and its uncut record says nothing about how the
+forecasters were placed.
+
+What the leg still does not reach, each covered somewhere else: the **invocation
+block** (`engine-actions-smoke`'s whole subject, below), the **post-agent harness
+steps** — `stamp-cell` and collect, which the local cascade path does not run
+([process-version.md](process-version.md)) — the provisioning command's own
+**forward gate**, which `stub-cascade` exercises directly above, its **staleness
+bound**, pinned in the unit suite, and, except on the codex leg, the
+**CourtListener MCP surface**.
+
+Its codex leg additionally wires the CourtListener MCP sidecar and the
 generated client config the live cells get, and uploads the cell's rollout
 distilled to item shapes alone (`fedcourts codex-item-shapes` — types and key
 names, never a value, with the key screen's residual and the shape cap stated
@@ -273,15 +396,46 @@ see that class either — a bump moves every pin consistently, and only running
 the action shows what it does with them. So this
 scenario sends each engine the cell's own block on a prompt that asks for a
 single word and asserts **acceptance** — that the invocation was taken and a
-turn completed — never output quality. One boot probe per engine, per leg — one a
+turn completed — never output quality.
+
+It then runs the cells' **capture tail** over the probe's own engine log, so a
+bump that changes the log's format reddens the leg (and the next morning's
+canary) instead of silently costing every cell its harness-owned artifacts.
+After a cell, `record-usage` and `record-retrieval` parse the engine log into
+`usage.json` and `retrieval_log.json`, best-effort, so a parse that stopped
+matching would ship cells without them and stay green. The leg runs the same
+two commands with the cells' flags and engine-to-log mapping — claude's
+execution file, codex's session rollout, gemini's telemetry log (the file the
+cells read, not the CLI's JSON result) — into a scratch data root under the
+runner temp dir, and fails unless usage parses to non-zero input (cache reads
+and writes included) and output tokens, `record-retrieval --strict` finds the log in the shape the parsers
+walk, and `validate` passes exactly the two artifacts. The probe calls no tools,
+so an empty transcript is the expected one: the leg asserts the parse, never a
+call count, and the strict check's screen for tool-shaped items it cannot read
+has nothing to screen on this leg — what it certifies is the structural half
+(the records decode, and the path each parser walks is present; see
+`record-retrieval` in [cli.md](cli.md)). The step spends no model tokens, and
+no GitHub token reaches either command, so claude's job-token deviation below
+does not bear on it.
+
+One boot probe per engine, per leg — one a
 day per engine on the canary, on the order of fifteen cents an engine, so a couple
-of hundred dollars a year at three engines and linear in engine count. No cell
-writes a `usage.json` beside a probe, so that spend sits outside the ex-post
-backstop and is bounded by the cadence instead. The fidelity of the
+of hundred dollars a year at three engines and linear in engine count. The
+probe's `usage.json` lands in that scratch root and is discarded with the
+runner, so the spend sits outside the ex-post backstop and is bounded by the
+cadence instead. The fidelity of the
 blocks is the whole claim, so the codex one is held in lockstep with both cell
 workflows' by a test, and the two deliberate deviations — the kickoff prompt,
 and handing claude the job's read-capped token instead of minting the cells'
-App token — are marked in the workflow where they are made.
+App token — are marked in the workflow where they are made. Each probe also
+runs inside the cells' **engine-deadline bracket**: the same watchdog script,
+armed the same way from the job's `ENGINE_DEADLINE_MINUTES` (the probe's own
+13 minutes on this leg, so the watchdog fires at the probe's ten-minute
+budget), with every probe step's `timeout-minutes` reading that
+value. So a required leg of the promotion gate arms and disarms the deadline on
+all three engines' real invocation blocks, and its step summary says so per
+engine — `engine deadline armed (<engine>): …` and then `disarmed before it was
+reached`, or the marker the watchdog left.
 
 `qp-labeler-smoke` extends the actions-smoke doctrine to the one invocation
 block the engine legs cannot cover: the qp-topic labeler's, which is not a
@@ -318,81 +472,7 @@ avoids running the agent's own workspace Python with the engine key in its
 environment, so replicating it here would invert the control it exists to be.
 Neither whole-suite selection fans it out.
 
-**`codex-freeze-probe`** arms the cells' own off-runner record mechanism — the
-comment-only telemetry channel, on the bound environment's own issue — around
-ONE trivial codex turn — the boot probe's one-word
-prompt under the family's base-turn block, which keeps `drop-sudo` to reproduce
-the wedge, so what it spends is a boot probe — and reads what the beat trail
-does while a sandbox lives and after it exits. The design constraint it answers is that every runner-local witness
-(the watchdog's log, its markers, its captures) dies with the runner, so on a
-wedged cell the watchdog's state during the turn can only be inferred from
-silence. A turn that exits cleanly keeps its runner, which is what makes the
-trail readable at all: two clean beats land before the sandbox starts, and
-the leg idles three minutes after it exits so post-exit beats have room. The
-step summary states the derived verdict — `gap` (the largest silence between
-two beats), `tail` (the silence still running when the record is read), and
-`resumed` — computed from the record itself. A `gap` far above the 60-second
-cadence with `resumed=yes` is a suspended watchdog observed directly rather
-than inferred; an unbroken trail says suspension does not happen on a turn
-this short; a large `tail` with `resumed=no` is the third world, a watchdog
-that stopped and never came back, which is a dead process and not a frozen
-one. All three are results and none is a failure. So the leg's own
-conclusion gates nothing about the measurement: a codex turn that started
-and then failed still had a sandbox, and the trail across it is the whole
-subject. What the leg does fail on is a turn that never started — no session
-rollout means no sandbox, so the trail spans nothing and a green would be
-vacuous. Read the figures for what they are: the record is a comment anyone
-with write access can edit, so the trail is only as trustworthy as that
-comment — forged beat lines would skew all three figures, though nothing from
-the body is ever echoed or executed. It is
-dispatch-only, out of the promotion gate's required set, and neither
-whole-suite selection fans it out.
-
-The probe is a family of two scenario values over one job, varying
-`safety-strategy` alone, and both carry a second instrument
-the trail cannot supply: a step-progress stamp written into the step summary
-after the turn and its margin. A wedge fails no step — the runner stops
-executing steps at all and the job is cancelled at its `timeout-minutes` with
-the turn green and nothing after it — so the stamp's presence says the runner
-was still running steps, and its absence under a timed-out job with a green
-turn is the wedge itself, read off the run page with no on-runner witness
-needed. **`codex-freeze-probe`** is the armed shape above, and the family's
-positive control: its turn keeps `drop-sudo`, the strategy whose account and
-socket drop `openai/codex-action`'s own docs call irreversible and say must be
-a job's last step — the base probe runs it mid-job, which is the mutation the
-wedge follows. Its turn is a separate step held out of the cross-surface codex
-lockstep pin — one of two exemptions, with the `unprivuser` turn — while the
-pin keeps enforcing the cells' block on every real invocation: both cell steps
-and the suite's own repro and actions-smoke codex legs.
-
-**`codex-freeze-probe-unprivuser`** varies that strategy with a genuine
-session, and it runs the same posture the production cells run. It runs the
-base member's turn under `safety-strategy: unprivileged-user` with a
-`codex-user`, so codex builds and tears down its real profile sandbox —
-network, disk writes, a rollout — but as a SEPARATE unprivileged account the
-setup step provisions, which leaves the runner user's sudo, sockets and groups
-wholly intact. That is the one axis it isolates: the sandbox lifecycle the
-production cells run happens in full, while
-the runner account is never mutated. Read it simply: a wedge that still follows
-the turn implicates the sandbox teardown, while a clean run implicates the
-account drop `drop-sudo` performs — the clean run this member and the cells
-both run. Its turn is the other lockstep exemption — it varies
-`safety-strategy` and adds `codex-user`. It sets no `CODEX_HOME` (neither the
-input nor a `CODEX_HOME` env is set, so the action derives that user's own
-`~/.codex`); setting it would misdirect the config and rollout, because the
-`sudo -u` hop cannot carry that env to the codex process. The config is copied
-into that home and the rollout lands there, and a small step relocates the
-rollout so the one shared sandbox-started assertion reads it. The setup step
-also gives that user a working directory it owns, because the checkout is not
-world-readable to it. The runner keeps its sudo — the base turn's `drop-sudo`
-is what mutates it — and the codex user is granted only its own home; no secret
-reaches it, because the model key never enters its environment or any file it
-can read — it stays behind the action's localhost proxy. On the same throwaway,
-dispatch-only probe runner, that is bounded and acceptable; the production cells
-run this same `unprivileged-user` posture, with the account granted read over
-the checkout and write over its one output subtree.
-
-**The repro family** is the fifth token-spending class, and it exists
+**The repro family** is the fourth token-spending class, and it exists
 because the two engine families above share a blind spot: the resolver
 applies no stage screen, but
 what it settles on in practice is a cert-stage petition, so a defect keyed on
@@ -415,35 +495,11 @@ whose corpus carries the pinned docket, and reads as red when it does not.
 Three properties are the family's, not this member's. The record is **pinned in
 the scenario's own steps**, not taken from the `court`/`docket` inputs: the
 record is what the scenario is, and a dispatcher who could re-point it could
-make a red leg mean something else. The bounds sit **above the work envelope**
-— a 70-minute watchdog deadline inside an 80-minute step backstop inside a
-95-minute job cap for this leg, against a judge cell on this record shape that
-runs 40–50 minutes on production cells and has been observed still mid-work
-past 50 on this leg — because the defect being reproduced begins only *after*
-the agent finishes: a bound inside the envelope kills a healthy mid-grading
-cell and never reaches the teardown phase the leg exists to observe, and the
-deadline kill can end the whole *job*, which skips the disarm and upload tail
-and drops the log. That is also why the leg arms the **off-runner record** the
-production codex cells keep — the comment-only telemetry channel, on the
-bound environment's own issue: `codex-watchdog` from a prod-bound dispatch,
-or `codex-watchdog-staging` from a staging-bound one, whose token is minted
-from the Issues-only staging App and whose separation is the arm step's own
-channel selection — so a deadline path that destroys every runner-local
-account still leaves one a cancelled job cannot erase, and a rehearsal's
-rows never mix into the production record. Two bounds on that
-record, both stated where they bind: a leg bound to neither environment
-resolves no credentials, arms no record and warns; and the token
-lives an hour, so on the deadline path the record may end at its last
-pre-expiry heartbeat — the armed row's fire ETA is what makes that frozen tail
-readable as the deadline path. Each heartbeat carries the runner's memory
-headroom and load, and a send whose failure diagnosis is new appends what it
-looked like from the runner — the transport and HTTP result, plus a bounded
-probe of the check-in host where the transport itself failed — to the body
-the next landed send uploads whole. What that buys: the resource trajectory
-up to the last landed beat, transport separated from HTTP in every failure,
-and the full failure history on any recovery; a record that stays frozen
-remains ambiguous between a dead watchdog process and a channel that never
-came back, which only a landed later send can split. What must stay well
+make a red leg mean something else. The bounds are the **cells' own**: the
+engine step reads the same 50-minute engine deadline the cell workflows set,
+the watchdog fires three minutes earlier, and the leg's job cap is the cells'
+65 — a workflow-shape test holds the deadline equal across the three, so the
+leg can never certify a bound production does not run. What must stay well
 inside the job cap is the watchdog, since a job that runs to its cap is
 *cancelled* and GitHub drops a cancelled job's logs. The leg arms the
 **completion sentinel** too, so on a reproduced hang it is the *reap* that
@@ -454,13 +510,11 @@ reproducing and being handled, while `FIRED` or `STOOD_DOWN` says the completion
 set was never satisfied — work still running at the deadline, or a required file
 the judge never wrote — which is a finding about the cell rather than about
 teardown. `SUSPENDED` is a fourth reading and not a fourth escalation: the
-watchdog lost wall clock it did not observe, so it signalled nothing and became
-an observer. The disarm surfaces it like the others — the row stays expanded and
-the summary carries the note — but the **bundle** is still the primary evidence
-(the gaps it lost, the stand-down, and a process forest taken at the thaw),
-because the off-runner lines are best-effort and a suspension long enough to
-matter has often outlived the telemetry credential's hour. No marker of an
-action was written, and none should have been. The bundle rides the
+watchdog lost wall clock it did not observe, so it signalled nothing and stood
+down. The disarm surfaces it like the others — a warning and a summary note —
+and the **bundle** is the evidence (the gaps it lost, the stand-down, and a
+process forest taken at the thaw). No marker of an action was written, and none
+should have been. The bundle rides the
 run's artifact whichever way the leg went, and it is this leg's whole account
 of a hang: the rollout stays on the runner, because item shapes are the
 `engine-smoke` codex leg's instrument — what they certify is that the
@@ -534,17 +588,17 @@ That is what lets a change's read seams run against real infrastructure once it
 is on `staging` and before it is promoted — the capability the trigger path
 structurally cannot provide.
 
-What those staging-bound runs read is production's corpus today, and is meant
-to become the **staging corpus**: a lean slice of real cases in its own
-bucket/prefix pair, seeded by the dispatch-only `staging-corpus-refresh`
-workflow (`fedcourts corpus-seed-slice`), so orchestration and the read/write
-seams get live verification for runner minutes without anything gaining write
-access to production. The scenario lane does not read it yet — a consumer
-resolves the committed pointer, which names the production blob, unless the
-out-of-band pointer override names the staging one (*Developer access* in
-[data-pipeline.md](data-pipeline.md)), and the scenario jobs' environment
-supplies no override — so provisioning it, and the repointing that remains,
-are the staging corpus runbook in [security.md](security.md). Changed seams are therefore validated after the
+What those staging-bound runs read is the **staging corpus**: a lean slice of
+real cases in its own bucket/prefix pair, seeded by the dispatch-only
+`staging-corpus-refresh` workflow (`fedcourts corpus-seed-slice`), so
+orchestration and the read/write seams get live verification for runner
+minutes without anything gaining write access to production. The `staging`
+environment supplies the out-of-band pointer override (*Developer access* in
+[data-pipeline.md](data-pipeline.md)), so a scenario job resolves the staging
+blob rather than the committed production pointer; provisioning and refreshing
+the slice is the staging corpus runbook in [security.md](security.md). The
+ranged-reads scenario's wall-clock budget therefore runs at slice scale, not
+production's. Changed seams are validated after the
 merge to `staging` rather than on the PR branch; nothing broken reaches `main`
 regardless: the gate needs the twelve required integration runs — all eight
 required scenarios, with engine-smoke and engine-actions-smoke counted once per
@@ -677,10 +731,13 @@ step between them, whose arm-step env is pinned as an exact set, so a
 kill, whose completion sentinel is pinned to this cell's own role, to a bounded
 resolution and to reaching the watchdog as environment rather than as a file the
 agent could rewrite, whose reaped cell must reach `AGENT_OK` (or the fix would
-convert destroyed work into demoted work) off a flag read from runner temp, and
-whose comment-only telemetry mint is pinned to `issues: write`, to the codex
-engine step's own gate, to the two steps that may hold it, and to
-`continue-on-error`, since a mint that failed hard would skip the engine step —
+convert destroyed work into demoted work) off a flag read from runner temp,
+whose deadline is one job-env value every engine step's `timeout-minutes`
+reads and the arm step derives the fire time from (held equal across both cell
+workflows and the repro leg, with the escalation inside the margin and the
+setup and tail inside the job cap), whose deadline stop is recorded in
+`status.json` without ever deciding readiness, and whose arm and disarm steps
+hold no GitHub credential —
 the run-surface retry with
 its inline copies, the absence
 of any step that applies a fan-out label, the 10-input `workflow_dispatch`
@@ -738,23 +795,11 @@ runner-infrastructure arguments, which must survive — signalling the runner's
 own worker force-kills the job the watchdog exists to save — and two more pin
 the ends of the window that decides *which* step is the guarded one. Every
 process the suite signals is one it spawned: the discovery patterns are
-fixture-scoped and asserted to be, so it cannot reach the step running it. Its
-off-runner half is driven too, against a localhost sink standing in for the
-telemetry comment's REST endpoint: the PATCH sequence through arm, heartbeat,
-deadline, discovery tally, fire and escalation; that every PATCH extends the
-armed record rather than replacing it, so the fire ETA and the run link survive
-the first heartbeat; the payload's strictness (no argv, no runner path, and no
-token — which reaches the sink's Authorization header and not the watchdog's own
-log, which rides the published artifact); and that a watchdog handed no check-in
-URL still kills on the same terms. `test_watchdog_telemetry` covers `fedcourts
-watchdog-checkin` beside the latch it is built on and off the same injectable
-`gh` seam — find-or-reset, the recency window that makes the page bound search
-the right end of a long-lived issue, the App-authorship test that stops a
-stranger pre-claiming a record on a public repo, the channel routing (the
-staging rehearsal channel's own label and issue, the production default, and
-the pre-write refusal of an unregistered channel), and the
-exit-zero-with-a-warning
-contract a degraded API has to keep. For a heavier
+fixture-scoped and asserted to be, so it cannot reach the step running it. The
+discovery tally that separates a refused candidate from an empty field rides
+the watchdog's own log, and its thaw guard is driven by freezing the watchdog
+process itself: one that lost wall clock signals nothing, reaps nothing, and
+leaves only its `SUSPENDED` marker. For a heavier
 local check of the
 deterministic jobs (the `plan` job, matrix generation, the collect seam),
 [`nektos/act`](https://github.com/nektos/act) can run them in Docker — useful for

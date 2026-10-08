@@ -605,6 +605,105 @@ def test_a_wrapped_line_opening_on_a_docket_number_is_not_a_caption() -> None:
     assert [p.dockets for p in split.pieces] == [("25-100",)]
 
 
+# The shape the order list of February 24, 2025 prints a consolidated caption
+# in: the docket numbers alone, a column of brackets, one caption line each.
+CONSOLIDATED_CAPTIONS = """(ORDER LIST: 604 U.S.)
+MONDAY, FEBRUARY 24, 2025
+CERTIORARI -- SUMMARY DISPOSITIONS
+24-100 ROE, JANE V. DOE, JOHN
+  The motion for leave to file under seal is granted.
+23-1067
+23-1068
+)
+ )
+)
+ OKLAHOMA, ET AL. V. EPA, ET AL.
+ PACIFICORP, ET AL. V. EPA, ET AL.
+  The motion of petitioners for divided argument is granted.
+ Justice Alito took no part in the consideration or decision of
+this motion.
+23-1229 EPA V. CALUMET SHREVEPORT RFG., ET AL.
+  The motion of respondents in support of petitioner for
+divided argument is granted.
+24-354
+24-422
+ )
+)
+)
+FCC, ET AL. V. CONSUMERS' RESEARCH, ET AL.
+SHLB COALITION, ET AL. V. CONSUMERS' RESEARCH, ET AL.
+  The motion of the Acting Solicitor General for divided
+ argument is granted.
+"""
+
+
+def test_a_consolidated_caption_printed_as_bare_dockets_opens_one_entry() -> None:
+    split = split_document(CONSOLIDATED_CAPTIONS)
+    assert split.problems == ()
+    by_dockets = {p.dockets: p.text for p in split.pieces}
+    assert list(by_dockets) == [
+        ("24-100",),
+        ("23-1067", "23-1068"),
+        ("23-1229",),
+        ("24-354", "24-422"),
+    ]
+    assert by_dockets[("23-1067", "23-1068")].endswith(
+        "Justice Alito took no part in the consideration or decision of this motion."
+    )
+    # Neither the next entry's docket numbers nor its brackets run into the one above.
+    assert by_dockets[("24-100",)] == "The motion for leave to file under seal is granted."
+    assert by_dockets[("23-1229",)].endswith("divided argument is granted.")
+    assert by_dockets[("24-354", "24-422")].startswith("The motion of the Acting Solicitor")
+
+
+def test_a_bracket_line_between_two_captions_does_not_end_the_first() -> None:
+    # The shape of the order list of October 21, 2024: each caption line carries
+    # its bracket, and a lone bracket line sits between them.
+    split = split_document(
+        "CERTIORARI GRANTED\n"
+        + "23-1067  )  OKLAHOMA, ET AL. V. EPA, ET AL.\n"
+        + ") \n"
+        + "23-1068  )  PACIFICORP, ET AL. V. EPA, ET AL.\n"
+        + "  The petitions for writs of certiorari are granted.  The\n"
+        + "cases are consolidated. Justice Alito took no part in the\n"
+        + "consideration or decision of these petitions.\n"
+    )
+    assert split.problems == ()
+    (entry,) = split.pieces
+    assert entry.dockets == ("23-1067", "23-1068")
+    assert entry.text.endswith(
+        "Justice Alito took no part in the consideration or decision of these petitions."
+    )
+
+
+def test_a_docket_number_left_alone_by_a_wrap_is_not_a_caption() -> None:
+    split = split_document(
+        "25-100 SMITH V. JONES\n"
+        + "  The motion to consolidate this case with No.\n"
+        + "25-200\n"
+        + "is granted.  Justice Alito took no part in the consideration or decision of\n"
+        + "this motion.\n"
+    )
+    assert split.problems == ()
+    (entry,) = split.pieces
+    assert entry.dockets == ("25-100",)
+    assert "No. 25-200 is granted." in entry.text
+
+
+def test_a_docket_number_left_alone_before_a_section_heading_is_not_a_caption() -> None:
+    split = split_document(
+        "CERTIORARI GRANTED\n"
+        + "25-100 SMITH V. JONES\n"
+        + "  The petition is granted. The case is consolidated with No.\n"
+        + "25-200\n"
+        + "CERTIORARI DENIED\n"
+        + "25-300 DOE V. ROE\n"
+        + "  The petition is denied. Justice Alito would grant the petition.\n"
+    )
+    assert split.problems == ()
+    assert [p.dockets for p in split.pieces] == [("25-100",), ("25-300",)]
+
+
 def test_a_body_line_opening_on_a_name_is_not_a_header() -> None:
     body = RELATING + (
         "JUSTICE KAGAN, dissenting from the denial of certiorari in Doe v.\n"

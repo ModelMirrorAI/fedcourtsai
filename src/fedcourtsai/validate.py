@@ -68,6 +68,7 @@ from .pipeline.interim_signals import ApplicationKind
 from .pipeline.justices import resolve_surname
 from .pipeline.semantic import semantic_claim_problems, semantic_grade_problems
 from .pipeline.vote_sources import REGISTERED_VOTE_SOURCES, VoteSource
+from .process_version import resolvable_runs
 from .schemas import (
     FILENAME_MODELS,
     MERITS_PROCEEDING_DISPOSITIONS,
@@ -1110,8 +1111,10 @@ def _scored_prediction_context(
     """The frozen context of the scored prediction for one evaluation file.
 
     The scored prediction is the run the evaluation's harness-stamped
-    ``prediction_run_id`` names, falling back to the predictor's **latest**
-    for the event by :func:`fedcourtsai.integrity.cell_clock` — the same
+    ``prediction_run_id`` names, falling back to the predictor's **latest
+    resolvable** run for the event by :func:`fedcourtsai.integrity.cell_clock`
+    (:func:`fedcourtsai.process_version.resolvable_runs`, so never a later
+    window's cell in place of the earliest window's counted one) — the same
     named-first join every scoring surface uses
     (:func:`fedcourtsai.store.scored_prediction`), re-implemented here in
     this module's tolerant raw-parse style. Both ids are the evaluation
@@ -1143,7 +1146,8 @@ def _scored_prediction_context(
             continue
     if not predictions:
         return None
-    return max(predictions, key=cell_clock).context
+    resolvable = resolvable_runs(predictions, lambda prediction: prediction.process_version)
+    return max(resolvable, key=cell_clock).context
 
 
 def check_prediction_docs(data_root: Path) -> CorpusCheck:

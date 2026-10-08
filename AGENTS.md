@@ -97,7 +97,10 @@ non-interactive** container. Two consequences shape everything you do:
   risk: anything under `.github/workflows/` or `.github/actions/` (the
   permission surface), `SECURITY.md` or the security posture it describes, the
   promotion gate itself (`scripts/promotion-gate.sh`, `promote.yml`,
-  `sync-staging.yml`, ci.yml's gate jobs), and `config/predictors.yaml` /
+  `sync-staging.yml`, ci.yml's gate jobs, and the lane machinery that decides
+  which of the gate's checks a change gets: `scripts/gate.sh`,
+  `scripts/ci_lane.py`, `tests/test_ci_lane.py`, `tests/lane_guard.py` and its
+  registration in `tests/conftest.py`), and `config/predictors.yaml` /
   `config/evaluators.yaml` (what agents are and what they may reach). Open
   those, get them green, and report them ready.
   The branch rulesets do not encode this: both require zero approvals, so the
@@ -151,7 +154,10 @@ non-interactive** container. Two consequences shape everything you do:
   snapshot row, across the whole blob. That is a corpus-wide vintage, not
   per-case provenance — the pull governor rotates stalest-first, so the maximum
   says when *anything* was last refreshed, and a claim about one case quotes
-  that case's own `last_pulled` (a `query` away). Refresh the blob yourself
+  that case's own `last_pulled` (a `query` away). `corpus-info` and
+  `corpus-pull` also warn when the local blob no longer matches its pointer or
+  the checkout's pointer differs from `origin/main`'s; act on that warning
+  before quoting a figure. Refresh the blob yourself
   with `fedcourts corpus-pull`, which a dev checkout's read-only role serves;
   when the *remote* is the stale one, compose the `run-pull` dispatch for the
   maintainer rather than reporting a stale number as current. The same role
@@ -240,13 +246,16 @@ transcript is invisible to the one human who sees the change.
 ## Local gate
 
 The gate that actually blocks a merge is the **required status checks on your
-PR** — CI runs the full suite below; locally you have **discretion** to run
-the subset that fits what you changed, enough for honest confidence (a
-docs-only change needs none of the Python checks).
+PR** — CI runs the full suite below for a code change, and a lighter lane for
+a change that is only data or only prose (*The CI lanes* in `docs/testing.md`);
+locally you have **discretion** to run the subset that fits what you changed,
+enough for honest confidence (a change the docs lane covers needs only
+`docs-tests`).
 
 ```bash
 uv sync                    # once, to sync the env the stages assume
-scripts/gate.sh            # every stage, in CI order — CI runs all but lock
+scripts/gate.sh            # every stage, in CI order — CI runs all but lock for
+                           # a code change; `all` excludes the two lane-test stages
 # or run just the stages that fit your change:
 scripts/gate.sh lock       # uv lock --check (the lock matches pyproject); CI
                            # enforces it instead in setup-python-env, which
@@ -258,9 +267,16 @@ scripts/gate.sh test       # pytest, fanned across cores (GATE_COV=1 adds
                            # serially, which is what debugging wants)
 scripts/gate.sh data       # validate data + corpus-status
 scripts/gate.sh schemas    # export-schemas + schema-drift check (CI fails on drift)
+scripts/gate.sh data-tests # only the tests marked reads_data (CI's data lane)
+scripts/gate.sh docs-tests # only the tests marked reads_docs (CI's docs lane)
 # several stages may be named at once (`scripts/gate.sh lint types`); an unknown
 # name is refused before any stage runs
 ```
+
+A test that opens a committed file under `data/`, the corpus pointer, or the
+prose the docs lane covers carries `@pytest.mark.reads_data` /
+`@pytest.mark.reads_docs`; the full suite fails one that does not
+(`tests/lane_guard.py`).
 
 `scripts/gate.sh` is the single definition of the gate; `ci.yml` and `README.md`
 invoke the same script, so a change to what the gate runs lands in one place.
@@ -398,10 +414,10 @@ task-specific instructions: the prompt file named in your run
 | How does the SCOTUS live channel work? | `docs/live-sources.md` |
 | Which command does X, and with which flags? | `docs/cli.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
-| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, two batches have landed, and the cut renders at the next `fedcourts docket`) | `docs/qp-topic.md` |
+| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, ten batches have landed covering the scoped frame; the committed `metrics/docket.md` still renders the two-batch cut until the next `fedcourts docket` run regenerates it) | `docs/qp-topic.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` (the rules), `docs/freeze-record.md` (the dated record) |
 | How is a predicted outcome decomposed and scored? (mechanical cert, interim, and merits-judgment claims implemented; vote/writing pre-registered; the semantic family an alpha declared, elicited, staged and graded on the merits moments, producing only the availability mask while opinion coverage is a rounding error) | `docs/outcome-decomposition.md` |
-| How many votes decide this, and what can I ever observe? (merits scoring registered and wired; vote accuracy scored, merits-gated and completeness-gated, and recomputed over the whole bench for the leaderboard's `mean_vote_accuracy` — the opinions (merits) and orders (cert and interim, banked unscored) vote sources registered with a dispatch-only writer, none populated yet; margins pre-registered only) | `docs/decision-model.md` |
+| How many votes decide this, and what can I ever observe? (merits scoring registered and wired; vote accuracy scored, merits-gated and completeness-gated, and recomputed over the whole bench for the leaderboard's `mean_vote_accuracy` — the orders vote source (cert and interim, banked unscored) is stamped on committed outcomes, while the opinions source (merits) is registered with a dispatch-only writer and not yet populated; margins pre-registered only) | `docs/decision-model.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
 | What does one prediction actually consist of, file by file? | `docs/predicted-artifacts.md` |
 | What does a cell agent have to produce? | `.github/prompts/` |

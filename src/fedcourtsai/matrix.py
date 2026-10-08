@@ -19,6 +19,12 @@ and resolved events are still skipped because the caller resolves each case's
 default event list (open case-baseline events for predict, resolved events for
 evaluate).
 
+Both fan-outs are laid out **case-major**: a case's cells sit together, in the
+order the cases were requested, and within each (case, event) the engines come
+in a per-run keyed shuffle (:func:`fanout_order`). GitHub starts ``include``
+entries in list order, so this is what spreads every engine across the run's
+start window rather than queueing one engine's cells behind another's.
+
 Keeping this in the library (rather than inline YAML/JS) makes the routing
 testable and keeps the registry the single source of truth for which agents
 exist — the same place the future hypothesis-generation harness will add new
@@ -27,6 +33,7 @@ predictors.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections.abc import Sequence
@@ -34,7 +41,7 @@ from dataclasses import dataclass, replace
 from datetime import date, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from .collect import parse_cell_artifact_name, parse_run_branch
 from .finalize import FinalizeRole
@@ -44,7 +51,7 @@ from .pipeline.moments import declares
 from .pricing import DEFAULT_MODELS
 from .registry import enabled_evaluators, enabled_predictors
 from .schemas import Stage
-from .store import predictor_holds_only_retired_predictions
+from .store import predictor_holds_no_counted_prediction
 
 _JSON_BLOCK = re.compile(r"```json\s*(.+?)\s*```", re.S)
 
@@ -69,16 +76,16 @@ class CaseRequest:
 
     ``reopen_events`` is, as the predict backlog deriver builds it, a subset of
     ``events``: those admitted on the pre-freeze re-predict ground — still-forward events at a
-    still-open moment whose committed cohort a re-bless has retired
+    still-open moment whose committed cohort is de-counted
     (:func:`fedcourtsai.pipeline.pull.derive_predict_backlog`). A later
     narrowing of ``events`` does not prune it, so the containment is the
     deriver's guarantee rather than a standing invariant of the class; nothing
     depends on it, because the field is only ever consulted for an event
     :func:`predict_matrix` is already iterating. Listing one
     lifts :func:`predict_matrix`'s already-predicted skip for it — and only for
-    the predictors that hold no blessed cell on it, which the matrix decides
-    for itself from the ledger, so a partly-blessed cohort re-mints only the
-    retired half. Empty for evaluate and for a case list parsed from a trigger
+    the predictors that hold no counted cell on it, which the matrix decides
+    for itself from the ledger, so a partly-counted cohort re-mints only the
+    de-counted half. Empty for evaluate and for a case list parsed from a trigger
     body: the corpus-side half of the rule (is the event still forward, is its
     moment still open) is not answerable from a body, so a hand-replayed case
     list re-derives nothing and a deliberate re-predict stays
@@ -131,14 +138,59 @@ def reopened_for(data_root: Path, case: CaseRequest, event_id: str, predictor_id
     ``reopen_events`` is reopenable at all, because whether the event is still
     forward and its moment still open are corpus questions the matrix cannot
     answer. The **predictor** half is the ledger's, and the matrix answers it
-    itself (:func:`fedcourtsai.store.predictor_holds_only_retired_predictions`)
+    itself (:func:`fedcourtsai.store.predictor_holds_no_counted_prediction`)
     rather than taking a per-engine list from the deriver — so a blessed cell
     committed between the derivation and the fan-out drops its engine from the
     re-predict rather than buying a second blessed forecast of the same moment.
     """
-    return event_id in case.reopen_events and predictor_holds_only_retired_predictions(
+    return event_id in case.reopen_events and predictor_holds_no_counted_prediction(
         data_root, case.court, case.docket, event_id, predictor_id
     )
+
+
+class _Actor(Protocol):
+    """A registry entry the fan-out orders: anything carrying a stable ``id``."""
+
+    @property
+    def id(self) -> str: ...
+
+
+#: Domain separation for the fan-out key. The blinding shuffle
+#: (:func:`fedcourtsai.blinding.assign_aliases`) hashes the same run, case and
+#: event joined with each predictor id, so without a distinct prefix a predict
+#: fan-out's engine order would be byte-for-byte the alias order those
+#: predictors get under the same arguments — two orders that must not be one.
+_FANOUT_KEY_DOMAIN = "fanout-order"
+
+
+def fanout_order[A: _Actor](
+    actors: Sequence[A], *, run_id: str, case: str, event_id: str
+) -> list[A]:
+    """The engine order one ``(run, case, event)`` group of cells is dispatched in.
+
+    GitHub dispatches a matrix's ``include`` entries in list order under the
+    workflow's ``max-parallel`` throttle, so an engine's place in the list is
+    when its cell starts — and with it how much of the shared retrieval quota is
+    left and how fresh the docket is when it forecasts or grades. A fixed order
+    would hand one engine the first slot and another the last in every case of
+    every run. Instead each group's order is a keyed shuffle: actors sort by
+    ``sha256(domain, run_id, case, event_id, actor_id)``, the same keyed-sort
+    pattern as :func:`fedcourtsai.blinding.assign_aliases`, so every permutation
+    is equally likely and no engine is systematically first, last, or ahead of
+    another.
+
+    Deterministic, so the same inputs give the same order: a re-plan under the
+    same ``run_id`` (the run's report step, a dry-run plan given that id)
+    reproduces the fan-out exactly. A different run reorders, which is the
+    point. Order is all this decides — the set of cells is the caller's.
+    """
+    seed = "\x00".join((_FANOUT_KEY_DOMAIN, run_id, case, event_id))
+
+    def key(actor: _Actor) -> tuple[str, str]:
+        digest = hashlib.sha256(f"{seed}\x00{actor.id}".encode()).hexdigest()
+        return (digest, actor.id)
+
+    return sorted(actors, key=key)
 
 
 def predict_matrix(
@@ -174,12 +226,17 @@ def predict_matrix(
     ``CaseRequest.reopen_events`` is the gate's one standing exception, and it
     is narrower than ``skip_predicted=False`` in both directions: it lifts the
     skip for the named events only, and within them only for the predictors
-    whose every committed cell carries a retired process digest
+    whose every committed cell is de-counted
     (:func:`reopened_for`). That is the fan-out half of the backlog deriver's
     pre-freeze re-predict rule — the deriver decides *which events* are still
     forward at a still-open moment, this decides *which engines* on them are
     owed a blessed cell. A predictor already holding one is skipped here as
     before.
+
+    The list is case-major — case, then event, then the predictors in
+    :func:`fanout_order` for that ``(run_id, case, event)`` — so the order cells
+    start in favours no engine. The gates above decide which cells exist; the
+    order decides nothing about that set.
     """
     predictors = enabled_predictors(predictors_path)
     enabled_ids = {p.id for p in predictors}
@@ -193,11 +250,12 @@ def predict_matrix(
                 f"registry ids (enabled: {sorted(enabled_ids)})."
             )
     include: list[dict[str, Any]] = []
-    for predictor in predictors:
-        for case in cases:
-            if case.predictors and predictor.id not in case.predictors:
-                continue
-            for event_id in case.events:
+    for case in cases:
+        cid = case_id(case.court, case.docket)
+        for event_id in case.events:
+            for predictor in fanout_order(predictors, run_id=run_id, case=cid, event_id=event_id):
+                if case.predictors and predictor.id not in case.predictors:
+                    continue
                 if (
                     data_root is not None
                     and skip_predicted
@@ -285,8 +343,9 @@ def cap_predict_cells(matrix: dict[str, list[dict[str, Any]]], max_cells: int) -
     include = matrix["include"]
     if len(include) <= max_cells:
         return CappedMatrix(include, 0, ())
-    # Cells for one case are scattered across the predictor-major list, so first
-    # tally each case's cell count, then admit whole cases in a stable order.
+    # Tally each case's cell count from the cells themselves rather than from
+    # list adjacency, so admission depends only on the set of cells and never on
+    # the fan-out order; then admit whole cases in a stable order.
     per_case: dict[str, int] = {}
     for cell in include:
         cid = case_id(str(cell["court"]), int(cell["docket"]))
@@ -1023,15 +1082,21 @@ def evaluate_matrix(
     re-grade — a prompt or rubric change, where the point *is* to score an
     already-graded event again — so that never requires deleting committed
     artifacts to get a cell minted.
+
+    The list is case-major with the judges in :func:`fanout_order` per
+    ``(run_id, case, event)``, as in :func:`predict_matrix`, so no judge
+    systematically grades first or last.
     """
+    evaluators = enabled_evaluators(evaluators_path)
     include: list[dict[str, Any]] = []
-    for evaluator in enabled_evaluators(evaluators_path):
-        for case in cases:
-            for event_id in case.events:
-                if data_root is not None and not event_has_predictions(
-                    data_root, case.court, case.docket, event_id
-                ):
-                    continue
+    for case in cases:
+        cid = case_id(case.court, case.docket)
+        for event_id in case.events:
+            if data_root is not None and not event_has_predictions(
+                data_root, case.court, case.docket, event_id
+            ):
+                continue
+            for evaluator in fanout_order(evaluators, run_id=run_id, case=cid, event_id=event_id):
                 if (
                     data_root is not None
                     and skip_evaluated
