@@ -1,0 +1,14 @@
+case_id: scotus/9026000187
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-08-13'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Chasity Congious, By and Through Her Guardian, Kimberly Hammond, on Behalf
+  of Herself and as Mother and Next Friend of Z. C. H., Deceased v. Aaron Ivy Shaw,
+  DO

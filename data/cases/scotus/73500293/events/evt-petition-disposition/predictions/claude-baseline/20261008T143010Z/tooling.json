@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500293",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "WebFetch (supremecourt.gov docket page and reply brief PDF)"],
+  "helpful": ["Provisioned petition, BIO and QP text with documents.json metadata", "Segment base rate by salience band table with bracketed reached rates", "Relist-count and CVSG cuts on the paid scored segment"],
+  "gaps": ["The cert-stage reply brief was on the docket before the snapshot but not provisioned; I had to fetch and extract it myself", "fedcourts query has no subject filter usable on SCOTUS rows, so it cannot surface copyright or extraterritoriality priors; the one query I ran returned generic recent grants", "No per-amicus-count cut in the statpack, though cert-stage amicus volume is a strong grant correlate", "A statpack cut for first-circuit-to-decide (no split) petitions with elite counsel would help calibrate the main uncertainty here"],
+  "notes": "The CourtListener MCP server was reachable and confirmed the Fifth Circuit opinion is published. WebFetch returned the reply PDF as binary; I extracted its text locally with pypdf. Roughly five retrieval calls in total, well under budget."
+}

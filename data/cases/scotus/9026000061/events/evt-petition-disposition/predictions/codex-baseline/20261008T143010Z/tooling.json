@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000061",
+  "gaps": [
+    "No opposition yet provisioned; the response deadline is still in the future.",
+    "General-precedent web attempts returned no usable content."
+  ],
+  "helpful": [
+    "Frozen distribution count separated administrative redistribution from substantive relisting.",
+    "The full petition and QP text exposed the claimed split and related en banc proceeding.",
+    "CourtListener precedent snippets checked a potentially overstated jury-right framing.",
+    "Statpack JSON supplied exact reached-rate denominators."
+  ],
+  "notes": "The default uv cache location was read-only; using a temporary writable cache allowed the CLI to run. No live corpus freshness claim is made. No data-quality blocker was identified.",
+  "role": "predictor",
+  "run_id": "20261008T143010Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and petition",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

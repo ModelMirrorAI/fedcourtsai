@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000462",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The 46-page petition is marked empty_text=true and ocr_derived=false; petition.txt contains only whitespace and no questions-presented text was provisioned. The exact petition PDF web lookup yielded no readable content, and a date-bounded MCP search for the lower-court opinion returned no results. The prediction therefore rests on procedural inputs and base rates, not the legal question. Stakes are explicitly null rather than inferred from the caption; readable petition text or OCR would materially improve this cell."
+    },
+    {
+      "category": "ambiguous-event",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen distribution_count=1 appears to count the September 9 distribution for the September 28 conference on linked sealing motion 26M22, granted October 5, before this petition was docketed October 7. The distribution-stage cell has null cutoff/cut_kind. This may be a motion distribution misattributed to the cert moment; it is not a known cert outcome. I retain the supplied baseline band/count and predict a high count increment because the next entry may be the first substantive cert distribution, not a true relist. Please review event-moment attribution."
+    }
+  ]
+}

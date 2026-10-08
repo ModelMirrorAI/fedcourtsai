@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000457",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener search (opinions, dockets, recap)", "web search"],
+  "helpful": [
+    "Full petition text with the questions-presented cut: the petition's own account of the circuit landscape and its CVSG request carried most of the forecast.",
+    "Salience band table with per-Term bracketed reached rates: a clean, leakage-safe anchor for the arrival moment.",
+    "CourtListener opinion search confirmed the dates of the circuit decisions the petition cites in one call."
+  ],
+  "gaps": [
+    "fedcourts query has no caption/party-name filter and caps at 500 recency-ranked rows, so a known prior denial on the same issue (McClain, No. 24-118, Dec 2024) could not be pulled from the corpus and had to come from a web search.",
+    "CourtListener's SCOTUS docket and RECAP indexes returned nothing for 340B petitions; a supremecourt.gov docket lookup for a named companion application (26A356) would have been more direct.",
+    "No brief in opposition yet at the arrival moment is expected, but a pointer to related pending SCOTUS applications linked to the same lower-court decisions (beyond the docket's own 'Links' field) would help pair companion vehicles."
+  ],
+  "notes": "Corpus service refused limit=600 with a pydantic error rather than clamping; the CLI help does not state the 500 cap."
+}

@@ -1,0 +1,13 @@
+# Forecast: what the Court will do with No. 26-462, Hauber v. Honkamp Krueger & Co., P.C.
+
+**Disposition: denied**, without separate writing, at the first conference the petition itself is distributed for.
+
+**Relists.** The docket shows one distribution so far (Sep 9, 2026, for the Sep 28 long conference). That distribution carried the linked motion 26M22 (leave to file the petition with a supplemental appendix under seal), which the Court granted on Oct 5; the petition was docketed on Oct 7 and the respondent waived the same day. So the petition itself has not yet been considered on the merits of the cert question, and it will be distributed at least once more — almost certainly. Expect that distribution around Oct 21–28, 2026, for the Nov 7 or Nov 14 conference, and a denial on the order list the following Monday (Nov 10 or Nov 17). I do not expect any relist beyond that single further distribution: the petition is pro se, the respondent has waived, and nothing on the docket would prompt a call for a response. P(at least one more distribution) = 0.97; P(two or more further distributions) well under 0.1.
+
+**CVSG.** None, and none is on the docket. This is a private ADA employment dispute between an individual and an accounting firm, dismissed below as a discovery sanction; no federal party or federal program is implicated. P(CVSG issues) = 0.002.
+
+**Which question.** The petition's text could not be extracted (46 pages, no text layer; no questions-presented file was produced), so I forecast from the posture rather than the drafted QPs. The grievances available to the petitioner are (a) the Rule 37(b)(2) dismissal with prejudice and $500 sanction imposed for violating a discovery order, (b) the district court's denial of his requests for accommodations as a pro se litigant with a disability, and (c) the handling of sealed material. None is a question the Court would take as framed; if it granted anything, it would be only on a narrow sanction-proportionality theory, which I regard as remote.
+
+**Summary disposition versus plenary review.** Conditional on any grant, the likelier route by far is a summary order (a GVR or a short per curiam) rather than argument: this is the shape of petition the Court corrects, if at all, without briefing. P(summary route | grant) = 0.75. There is no intervening decision of this Court bearing on Rule 37 sanctions that would make a GVR the natural vehicle, which is one reason a grant of any kind is unlikely.
+
+**Dissent from denial.** None expected. A pro se discovery-sanction affirmance does not draw a statement respecting denial. P(dissent or statement | denial) = 0.01.

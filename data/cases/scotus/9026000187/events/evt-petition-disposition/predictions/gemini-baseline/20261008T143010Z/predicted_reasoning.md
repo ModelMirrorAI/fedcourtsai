@@ -1,0 +1,5 @@
+Distributed once so far, but the Court requested a response on October 5, 2026. Expect at least one further distribution once the respondent files their brief in opposition. No CVSG is expected, as the case involves local jail administration and does not implicate the interests of the federal government. 
+
+If granted, the Court is likely to take the single question presented as written—whether a pretrial detainee’s Due Process Clause denial of medical care claim is governed by a subjective or objective standard—and resolve the entrenched circuit split that has developed in the wake of *Kingsley v. Hendrickson*. A summary disposition is unlikely (0.05), as resolving this split will require plenary review rather than a simple GVR in light of existing precedent. 
+
+Should the Court deny review, there is a moderate chance of a dissent from denial (0.15) from the more liberal Justices (e.g., Justice Sotomayor or Justice Jackson), who may argue that the Court should resolve the split to ensure pretrial detainees are not subject to the more stringent subjective standard applicable to convicted prisoners.

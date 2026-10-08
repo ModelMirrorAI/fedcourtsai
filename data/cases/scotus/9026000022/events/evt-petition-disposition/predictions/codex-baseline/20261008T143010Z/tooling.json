@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000022",
+  "gaps": [
+    "No BIO yet provisioned; the snapshot gives a future November 24 response deadline.",
+    "Petition extraction is marked truncated, although key orders and the pertinent rehearing discussion are present.",
+    "General web attempts returned no visible content; targeted CourtListener retrieval succeeded."
+  ],
+  "helpful": [
+    "Petition appendices allowed checking advocacy against the actual lower-court reasoning.",
+    "Exact JSON risk-set denominators supported pooling the matching sal-v4 state band.",
+    "The snapshot's response-request and extension entries distinguished redistribution from substantive relisting."
+  ],
+  "notes": "Default uv cache was read-only; a temporary writable cache allowed CLI execution. No pipeline or input files were changed. Distribution-increment probability is high because requested briefing remains outstanding, not because repeated substantive consideration was observed.",
+  "role": "predictor",
+  "run_id": "20261008T143010Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned documents",
+    "committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

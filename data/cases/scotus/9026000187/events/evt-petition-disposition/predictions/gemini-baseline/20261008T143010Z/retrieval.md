@@ -1,0 +1,2 @@
+- CourtListener search for "pretrial detainee" "medical care" "objective standard" "subjective" Kingsley
+- Local corpus lookup via `cat metrics/statpack.md` to review base rates (modern cert section, by fee class, and salience band for `sal-v4` `baseline`).

@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will most likely deny certiorari in Shosh Yonay, et al. v. Paramount Pictures Corporation. I assign an 18% probability to any grant, including a GVR or summary reversal.
+
+The supplied docket records **one distribution**, on August 5, 2026, for the September 28 conference. After Paramount waived a response, the Court requested one on August 17; the extended response deadline is October 16. There is no CVSG in the record. The most likely next sequence is an opposition, a reply, and a fresh distribution before disposition. I assign **94%** to at least one additional distribution beyond the frozen count of one. The modal increment is one, with two plausible. This largely forecasts redistribution after requested briefing, not a finding that the Justices already considered the completed petition and chose a substantive relist. I expect a disposition in November or December 2026, with a material longer tail if the Court holds the petition for related litigation.
+
+I assign **8%** to a new CVSG. The issue affects federal copyright law broadly, but the Court is more likely to decide whether to take this private infringement dispute after adversarial briefing than to seek government views. A response requested from Paramount is not a request for the Solicitor General's views.
+
+If review is granted, the Court will most likely take the petition's single question in substantially its present form, concentrating on whether the substantial-similarity inquiry must evaluate protectable expression holistically before judgment can be entered against the copyright owner. I do not expect a freestanding adjudication of the heirs' termination rights or a determination that Paramount necessarily infringed. If the Court rejects the Ninth Circuit's methodology, remand for application of the proper standard is more likely than a Supreme Court finding of liability.
+
+Conditional on any grant, I assign **12%** to disposition in the cert order itself and **88%** to plenary review. Settling a contested methodology across circuits is more naturally an argued case than a summary reversal. The petition's request for a possible hold pending Sedlik creates a secondary path to later reconsideration, but a related circuit proceeding is not itself an intervening Supreme Court decision requiring a GVR. I forecast no summary disposition as the modal route.
+
+Conditional on denial, I assign **4%** to any noted dissent or statement respecting denial. The modal denial is an unexplained order without a separate writing; I do not forecast a particular Justice as an author or infer an individual vote lineup.

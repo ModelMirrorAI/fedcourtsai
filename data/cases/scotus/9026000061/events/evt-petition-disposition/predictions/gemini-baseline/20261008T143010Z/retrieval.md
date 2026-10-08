@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. (Only `metrics/statpack.md` was read for anchoring the base rates).

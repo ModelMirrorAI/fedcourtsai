@@ -1,0 +1,7 @@
+P(grant) 0.01. The base rate for a paid petition in the baseline salience band (based on the prior Term's OT2025 cohort) is 0.9%, with a reached rate of 3.9%. Adjusting for the Fourth Circuit origin, the rate remains historically low (~1.3% overall for CA4). 
+
+The most decisive factor is the docket activity: the respondents filed a "Waiver of right of respondent John and Jane Doe to respond" on September 4, 2026. A waiver of the right to respond strongly indicates that the respondents do not view the petition as a serious threat of being granted, and the Court rarely grants a petition without first calling for a response if one is not filed. 
+
+Furthermore, the petitioners explicitly acknowledge in their Questions Presented that the Fourth Circuit affirmed based on a "novel public-interest rationale" that the "United States never asserted" and "the district court never invoked." The Court is typically hesitant to take cases where the lower court rested on an unbriefed, novel rationale because the record and lower court percolation on that exact issue are usually poorly developed.
+
+I assign a 1% probability of grant, aligning closely with the baseline band base rate but constrained tightly by the waiver of response and the vehicle issues apparent from the QP.

@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000187",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "ambiguous-event",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot's single distribution (for the 10/16/2026 conference) was superseded by the Oct. 5, 2026 call for a response (due Nov. 4, 2026): the petition will not be considered at that conference and will be redistributed once the response and reply are in. The frozen distribution_count of 1 is therefore a conference the petition never reaches, and the relist-increment claim (0.96) is stated from that state; the near-certain redistribution is a mechanical consequence of the response request, not a relist signal. The salience band stayed at baseline despite the response request, so the evaluator's yardstick (baseline reached rate, ~5.0% pooled OT2017-OT2025) does not price that signal; the forecast does."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward signal from public dockets predating the snapshot, used in the forecast: the Court has already declined this exact question at least four times since Kingsley (Cope v. Cogdill, No. 21-783; Jordan v. Howell, No. 23-210, response requested, then held and dismissed under Rule 46; Lewis County v. Helphenstine, No. 23-259, response requested, three amici, denied Jan. 22, 2024; Hartman v. Short, No. 23-1097, denied June 10, 2024 at its first conference). No disposition of this petition exists; the live supremecourt.gov docket for 26-187 read on Oct. 8, 2026 matches the provisioned snapshot entry for entry."
+    }
+  ]
+}

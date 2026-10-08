@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279966",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "WebFetch (supremecourt.gov docket PDFs and the No. 26-71 docket page)",
+    "curl + pypdf (ephemeral uv env) for PDF text extraction",
+    "courtlistener MCP search + read_document"
+  ],
+  "helpful": [
+    "context.json band + cvsg_date + distribution_count made the conditioning state unambiguous",
+    "statpack CVSG and salience-band cuts gave a clean unconditional anchor",
+    "documents.json truncation flags told me what I was not seeing"
+  ],
+  "gaps": [
+    "No text extraction for PDFs fetched at run time: WebFetch's summarizer cannot read supremecourt.gov PDFs, and neither pdftotext nor pypdf is on the runner; I had to spin an ephemeral uv env. A provisioned text for the SG's CVSG brief (and supplemental briefs) on post-CVSG cells would remove this.",
+    "fedcourts query has no text or docket-number lookup, so it cannot surface a named companion petition; the corpus citation filter is near-empty for scotus rows.",
+    "The statpack CVSG cut is not split by the SG's recommendation, which is the conditional that actually matters once the brief is in."
+  ],
+  "notes": "Retrieval ran to roughly 12 calls: 2 corpus queries, 3 MCP calls, 3 web fetches, 1 curl. The second corpus query (court=scotus, disposition=granted, era=2020s) returned recent grants but nothing topically close; it was used only as a record of the surface, not as an anchor."
+}

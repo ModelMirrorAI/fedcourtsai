@@ -1,0 +1,3 @@
+This petition is at the arrival moment and has not yet been distributed for conference (0 distributions). I expect it will be distributed but not relisted; however, given the significant federal interests in the 340B Drug Pricing Program, there is a moderate chance (about 40%) that the Court will call for the views of the Solicitor General (CVSG) before disposing of the petition. 
+
+If granted, the Court would likely take the question presented as written to determine whether the federal 340B statute preempts state laws mandating more expansive contract pharmacy terms. A summary disposition route is unlikely as there is no clear intervening precedent. Should the Court deny the petition, I do not expect any Justice to note a dissent or separate statement.

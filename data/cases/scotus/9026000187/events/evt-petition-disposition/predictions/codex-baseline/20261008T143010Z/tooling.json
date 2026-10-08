@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000187",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local provisioned-record reads",
+    "committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search and open attempts",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen sal-v4 conditioning and exact risk-set denominators supported a matched prior-Term anchor.",
+    "The snapshot preserved the response request after distribution, crucial to forecasting another distribution.",
+    "CourtListener excerpt search verified opposing precedents without querying the target case."
+  ],
+  "gaps": [
+    "The opposition is not yet in the provisioned record, and the lower-court appendix is not provisioned.",
+    "Web retrieval attempts returned no usable content."
+  ],
+  "notes": "The default uv cache was read-only; a temporary cache allowed the CLI to run. The high distribution-increment probability reflects likely post-response redistribution, not a forecast of repeated substantive relists."
+}

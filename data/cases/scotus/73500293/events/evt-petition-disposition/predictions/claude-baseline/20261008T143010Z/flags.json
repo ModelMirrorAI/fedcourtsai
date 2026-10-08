@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500293",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The petitioners' reply brief (docketed Sep 30 2026, before the 2026-10-08 snapshot) was not among the provisioned documents under record/documents/ (petition, BIO, QP only). In forward mode I fetched it from supremecourt.gov myself and used it; other predictors in this fan-out that did not will have reasoned from a thinner common baseline. Consider adding the cert-stage reply to the document pipeline where one is on the docket before the snapshot."
+    }
+  ]
+}

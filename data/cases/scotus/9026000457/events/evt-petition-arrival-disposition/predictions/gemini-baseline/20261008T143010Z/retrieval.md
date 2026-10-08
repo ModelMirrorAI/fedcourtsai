@@ -1,0 +1,1 @@
+- Web search: "Novartis Pharmaceuticals" "Fitch" "340B" 5th Circuit to ascertain the 5th Circuit's holding and check for a circuit split.

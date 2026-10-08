@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000457",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Forward signal predating the snapshot shaped this forecast: PhRMA's time to petition from the Fifth Circuit's published Louisiana 340B decision (AbbVie v. Murrill) was extended to 2026-11-03 (application 26A356), and the Fourth Circuit granted rehearing en banc in PhRMA v. McCuskey on 2026-05-28. The grant probability here is mostly the chance this petition rides a grant or hold of the Louisiana companion; it is not this case's disposition and nothing retrieved revealed one."
+    }
+  ]
+}

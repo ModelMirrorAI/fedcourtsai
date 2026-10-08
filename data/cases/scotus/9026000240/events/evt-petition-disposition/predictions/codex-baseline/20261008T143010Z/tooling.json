@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000240",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned file reads", "committed statpack", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web search and open attempts", "local pool arithmetic"],
+  "helpful": ["The petition identified the before-judgment posture and the overlapping Hall proceeding.", "The snapshot's response deadline materially informed the redistribution forecast.", "The statpack separated reached from terminal salience rates.", "Targeted MCP precedent retrieval checked the claimed doctrinal distinction."],
+  "gaps": ["The petition manifest reports a truncated 219-page filing.", "No empirical cut conditioned jointly on certiorari before judgment and a requested response was available in the statpack.", "Official-site web attempts returned no usable content."],
+  "notes": "No opposition is provisioned; the snapshot says the requested response is due November 4, 2026. The default uv cache was read-only; using a temporary writable cache allowed the paths command to run. No current case disposition was retrieved."
+}

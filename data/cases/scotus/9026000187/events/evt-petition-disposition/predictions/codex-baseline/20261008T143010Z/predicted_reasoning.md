@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will most likely deny certiorari after receiving the requested response. I assign a 22% probability to any grant, including a GVR or summary reversal, and predict denial as the disposition.
+
+The October 8, 2026 snapshot records exactly one distribution: September 30 for the October 16 conference. It also records an October 5 request for a response due November 4. I expect consideration to move beyond the listed October conference and the petition to be distributed at least once more after briefing. My probability of a distribution-count increase is 94%. The modal path is one additional distribution followed by denial; another conference after that is a substantial alternative. A renewed distribution following the response would satisfy this claim even if it merely reschedules initial consideration, rather than reflecting a substantive relist.
+
+I expect no invitation to the Solicitor General: the probability of a new CVSG is 1.5%. This is a constitutional damages dispute about local detention, and I do not expect the Court to need a federal executive assessment before acting. A disposition in December 2026 or January 2027 is my central timing forecast, assuming the response is timely; additional briefing time or relists would push it later. Timing is context, not a scored claim.
+
+If the Court grants review, I expect it to take the petition's single question substantially as framed: whether the Fourteenth Amendment medical-care claim of a pretrial detainee requires subjective awareness of risk or can rest on an objective standard after Kingsley. I expect full briefing and argument rather than an order resolving the merits immediately; P(summary disposition | grant) is 10%. Conditional on plenary review, the central doctrinal choice will be whether Kingsley's reasoning extends beyond excessive force, with the distinction between objective recklessness and ordinary negligence central to the boundary of any holding.
+
+If review is denied, I expect no public separate writing. P(a noted dissent or statement respecting denial | denial) is 12%. I do not forecast an individual Justice's undisclosed cert vote or identify a likely author.

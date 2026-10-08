@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000464",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener search",
+    "courtlistener get_endpoint_item"
+  ],
+  "helpful": [
+    "The provisioned petition.txt and questions-presented.txt were complete and legible; reading the petition directly was the single most useful input.",
+    "The sal-v4 band table with bracketed reached rates gave a clean arrival-population anchor once pooled over prior Terms.",
+    "CourtListener get_endpoint_item on the Federal Circuit opinion exposed the forfeiture holdings, which the petition does not mention and which drove the forecast."
+  ],
+  "gaps": [
+    "fedcourts query has no originating-court or free-text filter, so pulling topical priors (e.g. prior CAFC government-contracts cert petitions) is not possible from the corpus.",
+    "The statpack does not cut grant or GVR rates by respondent class (SG respondent vs private), which is the one conditional I would most want for a government-respondent petition.",
+    "The SCOTUS docket was not yet on CourtListener a day after docketing, so post-docketing entries (a waiver) could not be checked."
+  ],
+  "notes": "Roughly five MCP calls and one corpus query; well under the advisory budget."
+}

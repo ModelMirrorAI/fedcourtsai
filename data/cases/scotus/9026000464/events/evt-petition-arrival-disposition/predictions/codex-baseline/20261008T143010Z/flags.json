@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000464",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The supplied 19-page petition text ends at its signed conclusion and does not contain the Federal Circuit and Board opinions referenced as appendices, although the manifest correctly describes the fetched text as nonempty and untruncated. The prediction relies on the petition's attributed descriptions, including its acknowledgment of forfeiture, without independently verifying those opinions. No case outcome was retrieved or encountered.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261008T143010Z",
+  "schema_version": "1.0"
+}

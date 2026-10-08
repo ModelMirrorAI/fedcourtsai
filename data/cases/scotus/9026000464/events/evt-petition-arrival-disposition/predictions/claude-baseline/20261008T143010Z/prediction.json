@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "A single contractor's $3.9M Type I differing-site-condition claim under FAR 52.236-2, decided on forfeiture and substantial-evidence grounds with no circuit split possible (Federal Circuit exclusive jurisdiction). Routine government-contracts dispute; recurring clause, but no public or doctrinal stakes beyond the parties.",
+  "big_case_score": 0.06,
+  "case_id": "scotus/9026000464",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.008
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.95
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.002
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.55
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.01
+    }
+  ],
+  "confidence": 0.8,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-08",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-08",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-08T14:53:50Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-08.json",
+  "judgment": null,
+  "model": "claude-fable-5-1",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.008,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+    "label": "proc-v8",
+    "pipeline_sha": "89b21ce8ac23ce690b763b6a1e2d89aee676e649",
+    "stamped_at": "2026-10-08T14:55:38.840321Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261008T143010Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

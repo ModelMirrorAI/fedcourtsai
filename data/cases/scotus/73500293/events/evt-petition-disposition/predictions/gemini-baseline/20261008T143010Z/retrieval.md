@@ -1,0 +1,2 @@
+- Read `metrics/statpack.md` for baseline rates.
+- No retrieval beyond the provisioned inputs and statpack.
