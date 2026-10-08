@@ -555,9 +555,8 @@ land; recording and tagging that commit complete the procedure:
    pins that the two move together — and edit `COUNTING_WINDOWS` to match:
    append one window per newly blessed **predictor** digest, labelled with the
    new label and opening at the instant, and set `closes` to the instant on
-   every window whose digest this label stops blessing (a close is still held
-   until the successor's disclosures come from a command; see *The windows are
-   built* below). Never delete a window:
+   every window whose digest this label stops blessing; the entry quotes
+   `fedcourts successor-disclosures` for what the close owes. Never delete a window:
    a closed window's cells keep counting, and a test fails the suite if a
    `proc-v8` predictor digest leaves the registry without a close. Each digest's value is its **bless
    moment**, which is not known yet at this step: it is the merge time of the
@@ -709,13 +708,23 @@ earlier-window attempt, since the successor's population is the events the
 closed window did not reach and that population is selected, not random; and,
 where it is a full freeze, the count per evaluator digest of closed-window
 cells graded under the successor's rubric, since a window's figure can then pool
-rubrics. An unbroken window licenses no other pooling: a salience, baseline,
+rubrics. `fedcourts successor-disclosures --closed <label> --successor <label>`
+prints every count in that list from the committed ledger (the evidence for the
+change is the entry's own prose). The declaration's "failed or missing
+earlier-window attempt" is printed as four buckets that partition each engine's
+successor-counted events — failed (a committed failure fact in its earlier
+span), uncounted (a cell in that span that did not count), not reached before
+the close, and missing (reached, and nothing from the predictor in its span) —
+and the entry quotes all four, since every one of them is an event the closed
+window did not reach. Run it at the successor's freeze commit once its windows
+are registered (provisional: outcomes and gradings keep landing until the
+instant), again at any instant correction, and at the tagged commit, and quote
+the last run's lines. An unbroken window licenses no other pooling: a salience, baseline,
 evaluator or other boundary registered elsewhere still cuts inside it.
 
 **The windows are built in every frozen-scope surface**, so a bless that adds a
-predictor can land: it opens a window rather than ranking a later span beside
-the earlier ones. A predictor-half re-bless closes windows rather than
-de-counting, and so waits on the close hold at the end of this paragraph.
+predictor opens a window rather than ranking a later span beside the earlier
+ones, and a predictor-half re-bless closes windows rather than de-counting.
 The frozen scope, the counting rule, the run collapse,
 evaluation staging, the dataset export and the re-predict rule read the
 windows; every aggregate keys on (predictor, window) and every pooled figure
@@ -725,11 +734,11 @@ events, ranked within its own label's cohort, and a cross-engine reading of it
 goes through the complete grid of its window combination. Tests build every board over a synthetic
 two-window registry and check that each is per window and that nothing pools
 unlisted (`tests/test_counting_windows.py`); `release-sensitivity` and
-`semantic-summary` still refuse a predictor that spans two windows. **A window
-still may not close** until the successor's disclosures listed above come from
-a command rather than by hand — a test fails the suite while any window carries
-a `closes` — and a test fails it if one of `proc-v8`'s predictor digests leaves
-the registry without a close.
+`semantic-summary` still refuse a predictor that spans two windows. The
+successor's disclosures come from `fedcourts successor-disclosures`, and a
+revoked window's record from `fedcourts revoked-window-board`, so nothing a
+close or a revocation owes is derived by hand; a test fails the suite if one of
+`proc-v8`'s predictor digests leaves the registry without a close.
 
 **Revoking a window** is the one route by which counted cells are de-counted,
 and it is for a defect that invalidates the window's forecasts, never a better
@@ -741,7 +750,11 @@ revocation — on a dated freeze-record entry that
 states the defect and shows it from committed artifacts without reference to
 any outcome, made while the affected outcomes are unknown — or disclosing the
 slice that had already resolved, and then publishing the revoked window's
-figures over that slice beside the entry, so the exclusion is visible rather
+figures over that slice beside the entry (`fedcourts revoked-window-board
+--label <label>`: the frozen board with that window's revocation lifted, cut to
+its own cells on events resolved by the revocation day; the entry transcribes
+the per-predictor board figures from the `--out` JSON, a runner-local working
+file, never committed), so the exclusion is visible rather
 than silent. A revoked window's cells leave every frozen-scope artifact; its
 still-forward events are re-owed afresh under the re-predict rule below; and a
 later-window cell stamped before the revocation stays uncounted, so revoking

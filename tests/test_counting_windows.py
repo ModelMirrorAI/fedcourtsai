@@ -541,23 +541,6 @@ def test_the_big_case_board_names_each_reads_window(
     assert all(read.process_window is None for row in census.rows for read in row.current_reads)
 
 
-def test_no_window_closes_until_the_successor_disclosures_are_a_command() -> None:
-    """The hold that remains once the boards are per window.
-
-    A successor's freeze-record entry states the closed windows' resolved and
-    pending counts at its instant, the split-event count, per engine the
-    failed or missing earlier-window attempts, and the gradings per evaluator
-    digest. Until a command produces them they would be hand-derived, so no
-    window may close yet. Remove this test in the change that adds that command.
-    """
-    closed = [w for w in process_version.COUNTING_WINDOWS if w.closes is not None]
-    assert not closed, (
-        "a counting window closed before the successor's disclosures come from a command "
-        "(docs/process-version.md, the windows are built): "
-        + process_version.describe_windows(closed)
-    )
-
-
 def test_a_successor_entry_shares_no_grid_it_does_not_cover(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
