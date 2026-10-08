@@ -226,9 +226,14 @@ def test_an_outcome_on_the_boundary_day_counts_as_resolved(
     assert (census.resolved_at_close, census.pending_at_close) == (1, 0)
 
 
-def test_the_registry_is_restored_when_the_block_raises() -> None:
-    before = process_version.COUNTING_WINDOWS
-    with pytest.raises(RuntimeError), process_version.counting_windows([CLOSED]):
+def _raise_inside_counting_windows() -> None:
+    with process_version.counting_windows([CLOSED]):
         assert process_version.COUNTING_WINDOWS == (CLOSED,)
         raise RuntimeError
+
+
+def test_the_registry_is_restored_when_the_block_raises() -> None:
+    before = process_version.COUNTING_WINDOWS
+    with pytest.raises(RuntimeError):
+        _raise_inside_counting_windows()
     assert process_version.COUNTING_WINDOWS is before
