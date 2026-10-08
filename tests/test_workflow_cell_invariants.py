@@ -4478,3 +4478,31 @@ def test_the_settled_case_cascades_keep_both_of_their_refusals() -> None:
     for line in settled:
         assert "--require-predictions" in line, line
         assert "--require-record" in line, line
+
+
+#: The runner image every workflow job runs on, named exactly.
+PINNED_RUNNER = "ubuntu-24.04"
+
+
+def test_every_workflow_job_runs_on_the_pinned_runner_image() -> None:
+    """Every job names the pinned runner image, never a moving alias.
+
+    The runner image sits under every cell, writer and gate but is no input to
+    the process digest, so a moving label such as `ubuntu-latest` changes the
+    harness under unchanged digests whenever GitHub re-points it — and during
+    a phased migration two runs of one workflow can land on different images.
+    A move to a new image is a deliberate edit of this constant and every job,
+    with its own integration run and freeze-record note. Checked per job rather
+    than per file, so a new job or workflow inherits it.
+    """
+    checked = 0
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        for name, job in (_load(path.name).get("jobs") or {}).items():
+            if "uses" in job:  # a reusable-workflow call takes its runner from the callee
+                continue
+            assert job.get("runs-on") == PINNED_RUNNER, (
+                f"{path.name}: job {name!r} runs on {job.get('runs-on')!r}, "
+                f"not the pinned {PINNED_RUNNER!r}"
+            )
+            checked += 1
+    assert checked >= 50, f"only {checked} jobs checked — did the workflow glob move?"

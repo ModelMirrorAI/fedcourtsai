@@ -199,7 +199,7 @@ permissions: {}
 jobs:
   corpus-stats:
     if: ${{ inputs.mode == 'corpus-stats' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
@@ -274,7 +274,7 @@ jobs:
     # — the JSON *is* the review, so it leaves the runner as an artifact rather
     # than living only on a summary page.
     if: ${{ inputs.mode == 'census' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # What bounds this job is the credential clock, not the wall clock. The
     # census walks the gate's scored segment and, with the corpus-split mode on,
     # takes a latest-snapshot read per frame case — one `snapshots/` listing plus
@@ -426,7 +426,7 @@ jobs:
     # corpus, no network, no credentials — so unlike the sibling jobs it binds
     # no environment and assumes no role: there is nothing for it to reach.
     if: ${{ inputs.mode == 'tool-usage' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
       group: run-analytics-tool-usage-${{ github.ref_name }}
@@ -457,7 +457,7 @@ jobs:
     # path. Read-only on exactly corpus-stats's terms: the read-only role, no
     # contents:write, no App token, nothing written to git or the corpus.
     if: ${{ inputs.mode == 'text-coverage' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The credential clock bounds this job the census's way: the walk reads the
     # documents of every live-slice case — under the split a content-store
     # manifest round trip per case plus a text body per stored document, on the
@@ -578,7 +578,7 @@ jobs:
     if: >-
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '41 ')) ||
       inputs.mode == 'metrics-refresh'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
@@ -786,7 +786,7 @@ jobs:
     if: >-
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '36 ')) ||
       inputs.mode == 'big-cases'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
@@ -942,7 +942,7 @@ jobs:
     # its own job rather than sharing an environment with the labeler. What
     # crosses the boundary is one artifact: the texts, and nothing else.
     if: ${{ inputs.mode == 'qp-topic-label' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
@@ -1109,7 +1109,7 @@ jobs:
     # tripwire.
     needs: qp-topic-extract
     if: ${{ inputs.mode == 'qp-topic-label' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The step caps have to fit inside this one or the run loses its artifact
     # to the job clock: the 40-minute labeler, the 5-minute CLI install, the
     # three post-agent transcript steps at 5 each and the 3-minute labels scan

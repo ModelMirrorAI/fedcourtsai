@@ -1222,6 +1222,15 @@ forward on any corpus job (the invariants are pinned in
 `tests/test_workflow_cell_invariants.py`), so the mode's first run can be a
 staging rehearsal rather than its production run.
 
+**Every job runs on the pinned runner image, `ubuntu-24.04`, never a moving alias
+such as `ubuntu-latest`.** The image sits under every cell, writer and gate but is
+no input to the process digest, so a label GitHub re-points changes the harness
+under unchanged digests, and during a phased migration two runs of one workflow
+can land on different images. Moving to a new image is a deliberate change: every
+job and `PINNED_RUNNER` in `tests/test_workflow_cell_invariants.py` together, an
+`integration-test` run on `staging` on the new image, and a freeze-record note.
+`test_every_workflow_job_runs_on_the_pinned_runner_image` pins it repo-wide.
+
 **A `workflow_dispatch` may declare at most 10 inputs, and the "Run workflow"
 form is where the limit bites** — inputs past it are reachable by API but the
 UI silently stops rendering them, so a maintainer dispatching by hand cannot

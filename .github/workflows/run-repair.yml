@@ -124,7 +124,7 @@ jobs:
   # one mistake can never produce two differently worded refusals depending on
   # where it was caught. A test pins the pairing.
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Seconds of bash over five environment variables.
     timeout-minutes: 5
     permissions: {}
@@ -355,7 +355,7 @@ jobs:
     concurrency:
       group: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","amicus-rederive"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Headroom over the longest chain of capped steps a dispatch can run, which
     # is the OCR recovery's: the dedupe prerequisite (10m), its own binary
     # install (5m), the fresh credential pair (the assume-role's own 120s
@@ -2033,7 +2033,7 @@ jobs:
   handoff-projection:
     needs: [validate]
     if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Setup and the read-only corpus pull (about a gigabyte); each projection
     # is one local query.
     timeout-minutes: 20
@@ -2135,7 +2135,7 @@ jobs:
   handoff-parse:
     needs: [validate, handoff-projection]
     if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The longest pass step's 60-minute cap plus setup.
     timeout-minutes: 80
     permissions:
@@ -2364,7 +2364,7 @@ jobs:
     concurrency:
       group: ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes') && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Setup, a local re-validation and write per planned stamp, and the push.
     timeout-minutes: 20
     environment: prod
@@ -2544,7 +2544,7 @@ jobs:
     concurrency:
       group: ${{ inputs.repair == 'application-backfill' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Setup, the corpus pull, the land step's 30 minutes and the commit.
     timeout-minutes: 50
     environment: prod
@@ -2749,7 +2749,7 @@ jobs:
     concurrency:
       group: ${{ inputs.repair == 'decision-record' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The pass step's 25-minute cap plus setup, the corpus pull and the commit.
     timeout-minutes: 45
     environment: prod
@@ -2922,7 +2922,7 @@ jobs:
     concurrency:
       group: ${{ inputs.repair == 'opinion-record' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Setup, the corpus pull (about a gigabyte), the insert step's 25 minutes
     # (a local insert plus the blob push) and the commit.
     timeout-minutes: 50
@@ -3094,7 +3094,7 @@ jobs:
     concurrency:
       group: ${{ inputs.repair == 'regrade-stale' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # One local recompute per named cell over a maintainer-sized list, plus
     # setup.
     timeout-minutes: 25

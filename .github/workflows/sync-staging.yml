@@ -47,7 +47,7 @@ concurrency:
 
 jobs:
   sync:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     # The App credentials live on the prod environment, like every other
     # App-minting job. Its deployment-branch policy is `main`-only, which is also

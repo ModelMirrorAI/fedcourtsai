@@ -139,7 +139,7 @@ jobs:
   # anything to add to that.
   cadence:
     if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Two short checks; the cap is the runner's own setup with room.
     timeout-minutes: 5
     permissions:
@@ -250,7 +250,7 @@ jobs:
   plan:
     needs: cadence
     if: needs.cadence.outputs.proceed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # A corpus pull plus two local reads. Bounded so a wedged pull names itself
     # rather than running out the runner's six-hour default: this job takes no
     # lock, but a run stuck here counts as an in-flight back-test for the
@@ -336,7 +336,7 @@ jobs:
   # gains a `needs` on this one.
   approval:
     needs: plan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: review
     permissions: {}
@@ -353,7 +353,7 @@ jobs:
   rejected:
     needs: [cadence, plan, approval]
     if: ${{ always() && needs.cadence.outputs.proceed == 'true' && needs.approval.result != 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
     steps:
@@ -386,7 +386,7 @@ jobs:
               || (needs.cadence.outputs.proceed == 'true'
                   && needs.plan.result == 'success'
                   && needs.approval.result == 'success')) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # One back-test at a time, and the lock sits on the job that does the work
     # rather than on the workflow: a group is assigned before any job condition
     # runs, so a workflow-level group would let the ~26 odd-week no-ops a year

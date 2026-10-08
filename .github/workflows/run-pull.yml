@@ -105,7 +105,7 @@ jobs:
     if: >-
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '17 ')) ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # A single window's refresh (≤ max_cases_per_run dockets ≈ a few dozen
     # CourtListener fetches + S3 corpus transfer) finishes well inside this; the cap
     # releases the shared corpus-write lock far sooner than GitHub's 6h default if
@@ -427,7 +427,7 @@ jobs:
     if: >-
       (github.event_name == 'schedule' && startsWith(github.event.schedule, '47 ')) ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'live')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The cycle re-polls the pending watchlist and onboards the frontier at ~1
     # req/s, plus document fetches on distribution transitions (which cluster at
     # the September long conference) and the S3 transfer. `live-poll` self-bounds
@@ -675,7 +675,7 @@ jobs:
     # off"; nothing alarms. Dispatching in a dead zone between the pull
     # windows avoids ever queuing.
     if: github.event_name == 'workflow_dispatch' && inputs.mode == 'enrich-opinions'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # <= max_cases dockets at ~3 CourtListener fetches each plus the corpus S3
     # round-trip finishes well inside this; the cap frees the shared
     # corpus-write lock if a network step hangs.

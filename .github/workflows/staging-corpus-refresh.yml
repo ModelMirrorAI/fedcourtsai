@@ -94,7 +94,7 @@ concurrency:
 
 jobs:
   refresh:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The slice is bounded by the command's own --max-cases, and each case
     # costs a handful of small S3 objects plus point lookups over the ranged
     # index, so a refresh is minutes. The cap is a backstop against a degraded
