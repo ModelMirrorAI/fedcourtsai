@@ -1,0 +1,30 @@
+{
+  "case_id": "scotus/9026000457",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "local provisioned document reads",
+    "committed statpack markdown and JSON",
+    "jq weighted-rate calculation",
+    "web search",
+    "CourtListener search",
+    "CourtListener get_more_results",
+    "CourtListener search_document"
+  ],
+  "helpful": [
+    "The arrival context distinguishes the zero-distribution claim denominator from a true relist.",
+    "The petition exposes the vacated Fourth Circuit decisions and the agency-versus-state distinction underlying the alleged split.",
+    "Exact JSON risk-set rates permit pooling every displayed prior Term without rounding error.",
+    "CourtListener opinion snippets clarified the scope of the historical Astra holding."
+  ],
+  "gaps": [
+    "No opposition brief was provisioned; this is normal at arrival but leaves vehicle arguments one-sided.",
+    "The committed statpack lacks explicit newest-pull and newest-stored-snapshot freshness stamps.",
+    "Two web searches returned no visible payload; broad CourtListener citation and name searches initially returned irrelevant opinions."
+  ],
+  "notes": "Used the authoritative model identifier verbatim. A writable temporary cache resolved the initial CLI cache-permission failure. No outcome retrieval, corpus refresh, or pipeline changes were undertaken."
+}

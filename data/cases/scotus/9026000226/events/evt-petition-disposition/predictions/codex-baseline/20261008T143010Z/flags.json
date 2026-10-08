@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000226",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The manifest marks the 134-page petition document truncated; supplied text ends mid-sentence at appendix App. 66. The substantive petition and appellate majority/dissent are available and informed the forecast, but the remaining district-court appendix was not available. No BIO is provisioned, consistent with the respondent's recorded waiver. This limitation did not block prediction."
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000464",
+  "gaps": [
+    "Referenced lower-court appendix was not included in the supplied petition text",
+    "General official-guidance web requests returned no readable content"
+  ],
+  "helpful": [
+    "Explicit arrival context with zero-distribution baseline",
+    "Readable petition and questions presented",
+    "Exact prior-Term reached rates in the JSON statpack"
+  ],
+  "notes": "The default uv cache was read-only; a temporary writable cache allowed CLI use. No case-specific external retrieval was needed. An opposition brief was not provisioned at this arrival moment; its absence was not treated as acquiescence. The forecast distinguishes an initial distribution from a genuine relist.",
+  "role": "predictor",
+  "run_id": "20261008T143010Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "committed statpack",
+    "jq",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

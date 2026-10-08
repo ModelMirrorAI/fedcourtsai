@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will most likely deny this petition for certiorari before judgment. I assign a 24% probability to any grant, including a GVR, not merely plenary review. The likely institutional choice is to leave the pending appeal to the Fourth Circuit rather than bypass it, while considering the overlapping issues through the separately presented Hall petition described in this petition. A denial here would not decide whether Virginia's funding exclusions are constitutional.
+
+The snapshot records one distribution, on September 30 for the October 16, 2026 conference, and an October 5 request for a response due November 4. I predict at least one additional distribution, with probability 95%. The central path is one or two further distribution entries after the response and any reply, followed by denial in December 2026 or January 2027. The first additional distribution is more likely to reflect completing briefing and rescheduling than repeated substantive conference consideration. The numeric increment counts either kind. A hold associated with Hall could instead extend disposition into the spring or summer of 2027.
+
+No CVSG is on the record. I expect none, assigning 3% to a new call. The Court's outstanding request is directed to the respondents, not the Solicitor General. The constitutional education-funding questions do not appear to require federal administrative expertise, although the National Guard program gives the federal government some potential interest.
+
+If the Court grants plenary review here, I expect it to take the first question concerning selective exclusion of religious degrees, with Locke's continuing validity implicated by the second question. A narrower decision about discriminatory classifications could resolve the dispute without wholesale overruling. I do not predict a merits opinion unless review is granted.
+
+Conditional on a grant, I assign 60% to disposition in the cert order and 40% to plenary proceedings. The principal summary route is a hold followed by a GVR if the overlapping Hall litigation produces a controlling decision; this is a contingent forecast, not an assertion that Hall has been granted. Direct summary reversal is less likely because the petition seeks substantial doctrinal change and part of the underlying record remains undeveloped. The modal unconditional outcome remains denial.
+
+Conditional on denial, I assign 18% to an accompanying dissent or statement respecting denial. The religious-funding issue could attract a separate writing, but the before-judgment posture provides a reason to deny without addressing the ultimate merits. I predict no separate writing and make no individual-Justice vote forecast.

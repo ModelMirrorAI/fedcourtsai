@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/9026000226",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener search (MCP)",
+    "provisioned petition.txt and questions-presented.txt"
+  ],
+  "helpful": [
+    "The sal-v4 band table's bracketed reached figures gave a directly usable anchor for a frozen baseline band.",
+    "The provisioned petition text (including the appendix with the Fourth Circuit majority and dissent) carried everything needed to assess vehicle quality without leaving the record."
+  ],
+  "gaps": [
+    "fedcourts query has no subject or free-text filter, so comparable First Amendment or party-presentation priors could not be pulled; the rows returned were unrelated recent grants.",
+    "CourtListener's docket index has no rows for current-Term SCOTUS paid dockets (26-226, 26-164), so a forward cell cannot check for post-snapshot entries or a companion petition's status through MCP.",
+    "A relist-count forward hazard (P(another distribution) from a given count, split by call-for-response versus relist) would replace guesswork on relist-increment."
+  ],
+  "notes": "The petition names a companion SCOTUS petition (A.A. v. Mast, No. 26-164) that the snapshot's RelatedCaseNumber field does not list; a related-docket provision step would help on linked petitions."
+}

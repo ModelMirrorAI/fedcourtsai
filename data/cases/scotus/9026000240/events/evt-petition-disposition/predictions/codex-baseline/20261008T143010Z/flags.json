@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000240",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition manifest reports truncated=true for a 219-page filing. The questions presented, substantive petition, and relevant district-court opinion excerpts are available, so the forecast is completed, but it does not assume access to the full appendix. No BIO is provisioned; the snapshot places the requested response deadline on November 4, 2026, after this prediction."
+    }
+  ]
+}

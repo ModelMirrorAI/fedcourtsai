@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000461",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener mcp search",
+    "courtlistener mcp call_endpoint",
+    "courtlistener mcp read_document",
+    "web search",
+    "web fetch",
+    "pypdf (local text extraction of fetched PDFs)"
+  ],
+  "helpful": [
+    "The sal-v4 segment base-rate table with bracketed reached rates gave a clean anchor for the frozen band.",
+    "CourtListener read_document returned the full D.C. Circuit opinion in three chunks, which settled the panel, the holding, and what the petitioner conceded below.",
+    "supremecourt.gov docket pages for the linked stay application were the single most informative retrieval: the stay denial order and the respondent's text-extractable opposition previewed the BIO."
+  ],
+  "gaps": [
+    "No OCR path: the petition, the redacted application, and the reply are image-only scans, so the questions presented were unavailable from any first-party source. An OCR fallback in document provisioning (or in the cell) would have closed this.",
+    "fedcourts query has no subject filter usable here (--topic is circuit-only), so corpus priors could not be narrowed to reporter's-privilege or contempt cases; the returned priors were unrelated.",
+    "The distribution parser counted a linked motion's distribution as the petition's; a per-entry attribution (petition vs. linked motion) in context.json would avoid an off-by-one in relist-increment baselines.",
+    "Linked-docket provisioning: the snapshot's Links field names 26M17 and the case has a prior stay docket (25A1448); provisioning those dockets' entries alongside the petition's would have saved several web fetches."
+  ],
+  "notes": "Two news fetches hit a paywall (HTTP 402 after redirect); the underlying facts were recovered from the Court's own docket pages instead."
+}

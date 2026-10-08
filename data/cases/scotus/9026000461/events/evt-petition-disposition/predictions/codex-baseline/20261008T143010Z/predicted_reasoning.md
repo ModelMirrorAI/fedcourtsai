@@ -1,0 +1,9 @@
+# Forecast of the Court's action
+
+The Court will most likely deny certiorari without a separate writing, after ordinary petition briefing and consideration, approximately December 2026 through March 2027. The October 5 grant of sealing motion 26M17 will not itself supply review of the judgment below.
+
+The snapshot records **one distribution** and **no CVSG**. That distribution appears to have served the sealing motion before the petition was docketed. I expect **one additional distribution** to put the petition itself before the Court, with another one or two possible if it draws genuine cert relists. The probability of at least one further distribution from the frozen count is **0.96**; this forecasts the defined count increment, not an already-established cert relist. I expect no CVSG; the probability of a new invitation is **0.10**, most plausibly following completion of petition briefing in late 2026 or early 2027.
+
+If review is granted, the Court will most likely take a focused question about whether, and under what standard, a journalist may withhold confidential-source identities in federal civil litigation when the requesting litigant has shown centrality and exhausted alternative sources. Federal common-law protection under Rule 501 could provide the narrower route than a broad constitutional holding. This is a forecast of issue selection derived from the lower opinion, not a representation of the unavailable petition's exact QP wording.
+
+Conditional on a grant, plenary briefing and argument are substantially likelier than an immediate cert-order disposition: **P(summary disposition | grant) = 0.05**. The privilege issue calls for resolving competing legal rules rather than simply applying an identified intervening decision. Conditional on denial, **P(a noted dissent or statement respecting denial) = 0.18**; the modal outcome is no separate writing, and no particular Justice is forecast to author one.

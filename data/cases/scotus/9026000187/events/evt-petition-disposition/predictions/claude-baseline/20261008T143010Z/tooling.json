@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/9026000187",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener MCP search", "courtlistener MCP read_document", "WebFetch", "WebSearch"],
+  "helpful": [
+    "provisioned petition text and questions-presented cut",
+    "statpack sal-v4 segment base rate table (bracketed reached rate, pooled over prior Terms)",
+    "CourtListener read_document on the published Fifth Circuit opinion, which exposed the qualified-immunity concurrence the petition does not mention",
+    "WebFetch of supremecourt.gov dockets for the prior petitions on the same question (23-210, 23-259, 23-1097)"
+  ],
+  "gaps": [
+    "fedcourts query has no text or subject filter on SCOTUS rows, so it cannot surface priors on the same legal question; the one query returned no analogue",
+    "CourtListener's SCOTUS docket index did not surface the Helphenstine petitions (23-210 / 23-259); supremecourt.gov had to be fetched directly",
+    "no provisioned pointer to prior petitions presenting the same question presented, which was the decisive context here",
+    "the statpack has no response-requested cut, although the snapshot carries the entry and it is the strongest signal on this docket"
+  ],
+  "notes": "Twelve retrieval calls: one corpus query, three CourtListener MCP calls, four WebFetch, four WebSearch. The lower-court opinion was not provisioned; reading it on CourtListener changed the forecast materially (alternative qualified-immunity ground)."
+}

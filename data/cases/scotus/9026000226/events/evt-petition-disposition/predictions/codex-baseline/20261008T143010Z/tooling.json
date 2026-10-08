@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000226",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and document text",
+    "committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "web search and open attempts",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "The petition appendix allowed comparison of advocacy against the actual appellate majority and jurisdictional dissent.",
+    "Exact risk-set denominators supported pooling all displayed prior Terms without averaging rounded rates.",
+    "CourtListener provided the recent precedent central to the requested GVR."
+  ],
+  "gaps": [
+    "The petition appendix is truncated at App. 66; the brief itself and appellate opinion are present.",
+    "Web calls returned no usable text; MCP supplied the needed precedent instead.",
+    "Default uv cache initialization failed on the read-only home directory; no-cache, no-sync operation worked."
+  ],
+  "notes": "No BIO was supplied, consistent with the response waiver. No corpus query was necessary after consulting the aggregate priors and the specific procedural precedent. External case retrieval was limited to Margolin, not this petition's outcome."
+}
