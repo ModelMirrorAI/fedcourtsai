@@ -1,0 +1,5 @@
+Distributed once so far, but the Court pulled the petition from conference to request a response. Expect at least one further relist once the response is filed and the case is redistributed. The petition presents a direct challenge to *Locke v. Davey* and has attracted significant amicus support from religious liberty groups and conservative states. However, because this is a petition for certiorari before judgment, it faces a steep procedural hurdle. 
+
+Expect a denial without a CVSG. The federal government is not a party and does not have an institutional interest in Virginia's education grant program. A summary disposition route (such as a GVR) is unlikely given that the petitioners are asking the Court to overrule precedent, which typically requires plenary review.
+
+If the Court denies review, expect a dissent from denial (or a statement respecting the denial) by Justices Thomas or Alito, signaling their interest in revisiting *Locke v. Davey* in a more suitable vehicle after a final judgment below. If granted, the Court would likely take both questions as presented to directly address the viability of *Locke*.

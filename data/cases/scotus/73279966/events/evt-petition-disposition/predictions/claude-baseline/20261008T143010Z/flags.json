@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279966",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward cell; two public signals predating the snapshot were decisive and were retrieved rather than provisioned: (1) the Solicitor General's CVSG brief on this docket (filed Sep 15 2026) recommends that the petition be granted and the judgment reversed; (2) GEO's companion petition against Washington, No. 26-71 (GEO Group v. Ferguson), was rescheduled and redistributed on Oct 6-7 2026 for the same Nov 6 2026 conference as this petition, which reads as the Court pairing the two. Neither reveals this petition's disposition. Respondents' Sep 29 supplemental briefs (also retrieved) raise two post-petition developments: Hencely v. Fluor Corp. (decided Apr 22 2026) and ICE's June 2026 revised detention standards."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Provisioned documents: petition.txt and brief-in-opposition.txt are both marked truncated in documents.json (the BIO file concatenates the State's and the class respondents' briefs; the class brief's reasons section is cut off mid-argument). The SG's amicus brief and both supplemental briefs, all on the docket before the snapshot date, were not provisioned; on a post-CVSG cell the SG brief is the single most informative filing."
+    }
+  ]
+}

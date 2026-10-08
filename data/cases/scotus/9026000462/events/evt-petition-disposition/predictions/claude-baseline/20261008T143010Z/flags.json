@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000462",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition (46 pages) was fetched with empty_text: true, so no text could be extracted and no questions-presented.txt exists. The forecast rests on the docket snapshot and the district-court docket retrieved through CourtListener, not on the petition's own questions."
+    },
+    {
+      "category": "ambiguous-event",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "context.json freezes distribution_count: 1, but the only distribution on the docket (Sep 9, 2026, for the Sep 28 conference) carried the linked motion 26M22 to file a supplemental appendix under seal; the petition itself was docketed Oct 7 after that motion was granted, and has not yet been distributed. The relist-increment claim here therefore measures the petition's first distribution, not a relist in the statpack's sense, and the cell was opened at a moment that predates the petition's first conference."
+    }
+  ]
+}

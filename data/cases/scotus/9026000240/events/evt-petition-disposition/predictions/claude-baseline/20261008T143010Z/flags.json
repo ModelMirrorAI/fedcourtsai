@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000240",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal from outside the provisioned record: the companion petition Hall v. Fleming (No. 26-193, same respondent, same Locke v. Davey question) has its brief in opposition due 2026-10-14 after an extension and thirteen amicus briefs, and the Fourth Circuit appeal underlying this cert-before-judgment petition (No. 26-1437) remains undecided with argument tentatively set for December 2026. Both predate the snapshot and shaped the forecast; neither reveals this petition's disposition."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The statpack publishes no cut for a Court-requested response after a respondent waiver, which is the strongest docket signal on this record (Oct 5, 2026 entry). The adjustment from the 5.0% baseline band anchor rests on judgment rather than a committed rate; a response-requested cut on the paid scored segment would make this class of cell anchorable."
+    }
+  ]
+}

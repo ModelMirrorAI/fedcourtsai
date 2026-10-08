@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000461",
+  "run_id": "20261008T143010Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "context.json freezes distribution_count=1, but the only DISTRIBUTED entry on this docket (Sep 2, 2026, Conference of 9/28/2026) is the distribution of motion 26M17 (leave to file the petition under seal with redacted copies), granted Oct 5. The petition itself was docketed Oct 7 with a response due Nov 6 and has not been distributed. The `moment: distribution` event therefore opened on a motion's distribution rather than the petition's, and the relist-increment claim is anchored on a count the petition has not actually reached. I forecast from the frozen count as instructed; a maintainer may want the distribution parser to ignore distributions of linked motions."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "petition.txt is empty_text: true (47-page scan, no text layer), so no questions-presented.txt was derived. The public copy on supremecourt.gov is image-only, as are the redacted stay application and reply in No. 25A1448. My reading of the questions presented comes from the respondent's July 1, 2026 stay opposition (text-extractable) and the D.C. Circuit opinion, not from the petition; the brief in opposition, when filed, is likely to be text-extractable."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-signal disclosure: the Court denied Herridge's stay application (No. 25A1448) on July 2, 2026 with Justice Kavanaugh noting he would grant. This is public information that predates the snapshot and bears directly on grant likelihood; it was decisive in holding the number near the band anchor rather than well above it. No material about this petition's own disposition was encountered; none exists."
+    }
+  ]
+}

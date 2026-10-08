@@ -1,0 +1,7 @@
+P(grant) 0.08. This is a forward prediction for a cert petition at its arrival moment (0 distributions). The petition raises a preemption challenge to a Mississippi state law (H.B. 728) regulating 340B drug contract pharmacies. 
+
+I anchored my base rate on the metrics/statpack.md table for the "baseline" salience band (a private petitioner). The pooled bracketed "reached" grant rate for this band over the last nine Terms is approximately 5.0%. 
+
+I adjusted the probability upward slightly to 8% because this is a highly salient and heavily litigated national issue affecting major pharmaceutical companies and the federal HHS 340B program. A web search indicates that the 5th Circuit upheld the Mississippi law, aligning with the 8th Circuit which upheld a similar Arkansas law in PhRMA v. McClain. While there is widespread litigation, there does not yet appear to be a deep circuit split specifically on the preemption of state laws mandating contract pharmacy access (as opposed to HHS's enforcement authority, which was the focus in the 3rd and D.C. Circuits). Thus, while the issue's importance makes a grant more likely than the baseline, the lack of a stark circuit split keeps the probability relatively low. 
+
+I set the CVSG probability at 0.40 because preemption of state laws relating to federal healthcare programs frequently draws the Court's interest in the Solicitor General's views.
