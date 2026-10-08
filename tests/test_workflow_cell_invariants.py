@@ -4498,7 +4498,14 @@ def test_every_workflow_job_runs_on_the_pinned_runner_image() -> None:
     checked = 0
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         for name, job in (_load(path.name).get("jobs") or {}).items():
-            if "uses" in job:  # a reusable-workflow call takes its runner from the callee
+            if "uses" in job:
+                # A reusable-workflow call takes its runner from the callee, so
+                # only a callee in this repo — whose own jobs this test checks —
+                # keeps the pin; an external one would escape it unseen.
+                assert str(job["uses"]).startswith("./"), (
+                    f"{path.name}: job {name!r} calls an external workflow "
+                    f"({job['uses']}) whose runner this pin cannot see"
+                )
                 continue
             assert job.get("runs-on") == PINNED_RUNNER, (
                 f"{path.name}: job {name!r} runs on {job.get('runs-on')!r}, "
