@@ -6730,3 +6730,86 @@ freeze commit is recorded here.
   2026, pools OT2017–OT2025 with elevated 16.89% (n=3085), while
   `metrics/statpack.json` is the build this entry read (unchanged from
   `808f812e9`). A later build moves both rows, and they are re-read from it.
+- **The batch that follows the OT2026 long conference's grading, and one
+  out-of-band change already on `main`, move no digest but change what a
+  reader may pool or compare; recorded 2026-10-08.** A **disclosure** entry.
+  Every resolved event of the 2026-09-28 conference cohort was graded before
+  any `staging` change in this batch reached `main`: on `main` at
+  `776cf4ef3`, `uv run fedcourts conference-set --counted --registered-at
+  2026-09-15` reports that conference's 109 registered events as 91 scored,
+  0 resolved unscored and 18 pending (corpus newest pull 2026-10-08, newest
+  stored snapshot 2026-07-13). The out-of-band spend-ceiling change below
+  did reach `main` before the cohort's last grading; it is what let that
+  grading run. `uv run fedcourts process-digest --all` prints `proc-v8` and
+  the same six digests on either side of the batch.
+  - **The claude cells' engine CLI moves under unchanged digests.** The
+    predict and evaluate claude cells run the CLI bundled with
+    `anthropics/claude-code-action`, and the CLI version is not a digest
+    input. The batch moves that pin from v1.0.217 (bundling Claude Code
+    2.1.263) to v1.0.241 (bundling 2.1.289), through v1.0.236 (#1971, #2288).
+    Every claude cell stamped `proc-v8` before this promotion ran the older
+    CLI, and every one after it runs the newer, under the same digest. A
+    reading that compares claude cells across the promotion is a comparison
+    across two harnesses, and says so. The qp-topic labeler keeps its own
+    pinned CLI (2.1.280), which it hands to the action; only the action
+    around it moves.
+  - **Cells start case by case, not engine by engine** (#2275). Before this
+    promotion a run's matrix listed every claude cell, then every codex
+    cell, then every gemini cell, under a six-cell parallel cap, so gemini's
+    cells always started last against the shared CourtListener quota. After
+    it, the matrix is case-major with each case's engine order shuffled by a
+    key on (run, case, event). Every long-conference cohort cell ran under
+    the engine-major order, which the release discloses. Any analysis whose
+    figure depends on start order (quota exposure, retrieval starvation,
+    time-to-finish) treats runs before and after this promotion as two
+    regimes and does not pool them.
+  - **One engine deadline for every engine** (#2271). The engine step's
+    deadline is 50 minutes for all three engines, with the watchdog firing
+    at 2820 s; codex's watchdog previously fired at 3900 s. A codex cell that
+    would have finished between about 47 and 65 minutes now ends as a
+    deadline failure and is re-owed within its attempt cap. The codex step
+    bound (75 to 50 minutes) and the cell job cap (85 to 65) move with it. Cohort cells all ran under the earlier
+    limits.
+  - **The ex-post spend ceiling was raised on `main` outside a promotion**
+    (#2291, merged `2026-10-07T18:37:03Z`, `fa687ee4c`). `spend.ceiling_usd`
+    in `config/tracking.yaml` went from $2,500 to $4,000 because the cohort's
+    own predict and grading spend held the trailing 30-day sum above $2,500
+    (a $2,577 floor on 2026-10-07), so every predict and evaluate plan minted no cells, including
+    the cohort's last grading. The maintainer merged it by removing `main`'s
+    `main-base` required check for that merge only, then restoring it. The
+    ceiling is not a digest input and gates no counted cell's membership
+    directly; it decides when cells run, and through that whether a held
+    forward cell is still forward when it runs. Raising it held none back. It returns to $2,500 by a staging PR
+    once the campaign's spend has left the window.
+  - **A post-hoc in-sample benchmark joins the cert board** (#2302). Each
+    cert block now also carries `in_sample_grant_rate` and
+    `population_in_sample_skill_score`: Brier skill against the scored
+    block's in-sample grant rate (its sample climatology), the case's own
+    outcome included. It was
+    **defined after the long-conference outcomes were known**, is not
+    pre-registered, is never a rank key, never a headline and never pooled
+    with the registered prior-Term and realized-Term skill pair. The
+    registered headline stays the prior-Term figure.
+  - **The counting windows the 2026-09-26 entry registered are built**
+    (#2032, #2292, #2294). On the registry this promotion carries, proc-v8
+    is three open windows opening at `2026-09-16T00:26:04Z`, and every
+    frozen-scope output, `release-sensitivity` included, is identical to the
+    pre-window code's once only the added fields are stripped (the identity
+    checks are in those PRs). The entry's "binding until built" hold is
+    lifted by this promotion: a later predictor-half re-bless closes
+    proc-v8's windows rather than de-counting them.
+
+  Carried to `main` by `promotion/<FILL: promotion tag date>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merged at>`).
+
+  The runnable effect check once it is live: on `main`, `uv run fedcourts
+  process-digest --all` prints `proc-v8` and its six digests unchanged; `jq
+  '.frozen_process.windows' metrics/leaderboard.json` after the next metrics
+  refresh lists three proc-v8 windows with `closes` null; `jq '.entries[] |
+  {predictor_id, process_window, s: .forward.population_in_sample_skill_score}'
+  metrics/leaderboard.json` on that board prints one row per predictor, each
+  in window `proc-v8` with a non-null value while the block has both granted
+  and denied events; the next `run-predict` matrix
+  (`predict-plan`) lists cells case-major; and `grep -n
+  'claude-code-action@' .github/workflows/run-predict.yml` shows the v1.0.241
+  pin.
