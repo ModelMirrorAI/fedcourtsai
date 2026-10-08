@@ -98,7 +98,7 @@ from .integrity import (
     latest_evaluations,
 )
 from .pipeline.base_rates import realized_band_rate
-from .pipeline.evaluate import bench_vote_accuracy, is_correct
+from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
 from .pipeline.moments import first_moment, scores_votes
 from .process_version import (
     Series,
@@ -222,6 +222,15 @@ class CellSkill:
     realized_term_baseline: float | None = None
 
 
+#: How far a stamped cert ``brier_score`` may sit from the Brier recomputed off
+#: the scored prediction and the committed outcome before
+#: ``CellFacts.brier_reproduces`` reads false. Committed records carry three
+#: decimals, so rounding stays well inside it; an outcome whose binary target
+#: flipped moves the Brier by ``|1 - 2p|``, far beyond it except for a forecast
+#: within a hair of one half.
+BRIER_REPRODUCTION_TOLERANCE = 1e-3
+
+
 @dataclass(frozen=True)
 class CellFacts:
     """One cert cell's band key and the outcome facts its floor fields read.
@@ -246,6 +255,13 @@ class CellFacts:
     #: The outcome's binary target, ``Outcome.actual_granted`` — the ``y`` every
     #: Brier score on the cell is taken against.
     granted: int
+    #: The grading's stamped ``brier_score`` reproduces, within
+    #: :data:`BRIER_REPRODUCTION_TOLERANCE`, from the scored prediction against
+    #: the committed outcome (vacuously true where none is stamped). A
+    #: disagreement means the Brier was taken against an outcome since
+    #: superseded, so pairing it with a baseline read off the current one would
+    #: be an unpaired ratio.
+    brier_reproduces: bool
 
 
 def band_key(context: PredictionContext | None) -> str:
@@ -382,7 +398,9 @@ def _in_sample_fields(
     resolved, and it contains the scored case's own outcome — so it is a
     post-hoc descriptive benchmark: never a rank key, never a headline. Where
     ``c`` is 0 or 1 every reference Brier is 0 and the ratio is undefined, so
-    the skill is null and its count 0 rather than a signed infinity.
+    the skill is null and its count 0 rather than a signed infinity. The skill
+    is null too wherever any scored grading's stamped Brier no longer
+    reproduces against the committed outcome (``CellFacts.brier_reproduces``).
     """
     if facts is None:
         return {}
@@ -401,7 +419,15 @@ def _in_sample_fields(
         "in_sample_grant_rate": rate,
         "in_sample_events_scored": len(outcomes),
     }
+    # A rate of exactly 0 or 1 (an integer sum over an integer count) is the one
+    # shape that makes a reference Brier zero, so past this guard every term
+    # `_skill_of_means` sums is strictly positive.
     if rate in (0.0, 1.0):
+        return fields
+    # A stamped Brier taken against a superseded outcome cannot be paired with
+    # a baseline (and a rate) read off the current one: the whole figure goes
+    # null, as the realized floor does, rather than running over fewer gradings.
+    if not all(fact.brier_reproduces for _, _, fact in scored):
         return fields
     terms = [(brier, (rate - fact.granted) ** 2) for _, brier, fact in scored]
     fields.update(
@@ -1114,6 +1140,15 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
             recomputed_correct=is_correct(scored, outcome),
             grant_family=outcome.actual_disposition in GRANT_FAMILY_DISPOSITIONS,
             granted=outcome.actual_granted,
+            brier_reproduces=(
+                evaluation.brier_score is None
+                or math.isclose(
+                    brier_score(scored, outcome),
+                    evaluation.brier_score,
+                    rel_tol=0.0,
+                    abs_tol=BRIER_REPRODUCTION_TOLERANCE,
+                )
+            ),
         )
     return facts
 

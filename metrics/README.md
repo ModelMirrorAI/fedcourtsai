@@ -659,7 +659,10 @@ stays outside the gate:
   events are all denied (or all granted) has `c` of 0 (or 1), every reference
   Brier 0 and the ratio undefined: the skill is null with
   `in_sample_skill_scored` 0 while `in_sample_grant_rate` still reads the
-  level. On a cohort with a handful of grants that is most bands, and where it
+  level. The skill is null the same way wherever any of the block's gradings
+  carries a stamped Brier that no longer reproduces from its scored prediction
+  against the committed outcome — a Brier taken against an outcome since
+  superseded, the same unpaired shape that leaves the realized floor null. On a cohort with a handful of grants that is most bands, and where it
   is defined the denominator is dominated by the grant events — each
   contributes `(1 − c)²` against a denial's `c²`, so the grants carry a share
   `1 − c` of it. Its scale is set almost entirely by those few grants: every

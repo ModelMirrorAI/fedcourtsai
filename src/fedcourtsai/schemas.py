@@ -3040,7 +3040,10 @@ class LeaderboardStratum(_Strict):
         description="Gradings contributing to population_in_sample_skill_score: "
         "every grading in the block carrying a Brier score and cert outcome "
         "facts. 0 wherever the figure is null — including where "
-        "`in_sample_grant_rate` is 0 or 1",
+        "`in_sample_grant_rate` is 0 or 1, and where any such grading's "
+        "stamped Brier no longer reproduces from the scored prediction against "
+        "the committed outcome (a Brier taken against a superseded outcome, "
+        "which no baseline read off the current one may be paired with)",
     )
     in_sample_grant_rate: float | None = Field(
         default=None,

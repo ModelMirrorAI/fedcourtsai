@@ -2761,7 +2761,7 @@ def test_a_gvr_is_a_miss_for_always_deny_and_for_a_granted_call(tmp_path: Path) 
     # A GVR grants the petition, so it sits on the granted side of the binary
     # target — but the label is `gvr`, and exact match scores both a `granted`
     # call and the synthetic `denied` one as misses.
-    ev = _evaluation("alpha", event_id="evt-a", correct=0)
+    ev = _evaluation("alpha", event_id="evt-a", correct=0, brier_score=0.09)
     _write_cell(
         tmp_path,
         ev,
@@ -2780,6 +2780,7 @@ def test_a_gvr_is_a_miss_for_always_deny_and_for_a_granted_call(tmp_path: Path) 
         recomputed_correct=0,
         grant_family=True,
         granted=1,
+        brier_reproduces=True,
     )
     (entry,) = _banded_board(tmp_path).entries
     assert entry.forward is not None
@@ -2798,6 +2799,7 @@ def _cert_facts(
             recomputed_correct=ev.correct or 0,
             grant_family=False,
             granted=0,
+            brier_reproduces=True,
         )
         for ev in evals
     }
@@ -2935,6 +2937,7 @@ def test_realized_grants_are_paired_to_the_expected_events() -> None:
             recomputed_correct=1,
             grant_family=True,
             granted=1,
+            brier_reproduces=True,
         )
         for ev in (rated, unrated)
     }
@@ -2962,6 +2965,7 @@ def _in_sample_facts(graded: Sequence[tuple[Evaluation, int]]) -> dict[Any, Cell
             recomputed_correct=ev.correct or 0,
             grant_family=bool(target),
             granted=target,
+            brier_reproduces=True,
         )
         for ev, target in graded
     }
@@ -3087,9 +3091,45 @@ def test_in_sample_skill_needs_cert_facts_and_a_brier() -> None:
     assert (plain.in_sample_events_scored, plain.in_sample_skill_scored) == (0, 0)
 
 
+@pytest.mark.parametrize(("stamped", "reproduces"), [(0.49, True), (0.09, False)])
+def test_in_sample_skill_needs_every_brier_to_reproduce(
+    tmp_path: Path, stamped: float, reproduces: bool
+) -> None:
+    # Both cells forecast `granted` at 0.7. evt-a was granted (Brier 0.09);
+    # evt-b is now denied (Brier 0.49). A grading of evt-b still stamped 0.09
+    # was taken against a superseded outcome, so the figure is null rather
+    # than pairing that Brier with a baseline read off the current one.
+    _write_cell(
+        tmp_path,
+        _evaluation("alpha", event_id="evt-a", correct=1, brier_score=0.09),
+        context=_band_context("high"),
+        predicted_disposition=Disposition.granted,
+        actual_disposition=Disposition.granted,
+    )
+    _write_cell(
+        tmp_path,
+        _evaluation("alpha", event_id="evt-b", correct=0, brier_score=stamped),
+        context=_band_context("high"),
+        predicted_disposition=Disposition.granted,
+        actual_disposition=Disposition.denied,
+    )
+    (entry,) = _banded_board(tmp_path).entries
+    forward = entry.forward
+    assert forward is not None
+    assert forward.in_sample_grant_rate == pytest.approx(0.5)
+    if reproduces:
+        assert forward.in_sample_skill_scored == 2
+        assert forward.population_in_sample_skill_score == pytest.approx(1 - 0.58 / 0.5)
+    else:
+        assert forward.in_sample_skill_scored == 0
+        assert forward.population_in_sample_skill_score is None
+
+
 def test_in_sample_skill_never_moves_the_ranking() -> None:
     # `alpha` is the more accurate; `beta` is far ahead on in-sample skill. The
-    # order is the accuracy order whatever the in-sample column reads.
+    # order is the accuracy order whatever the in-sample column reads. beta's
+    # evt-b is deliberately a miss at Brier 0: the two columns are set
+    # independently so that they point opposite ways.
     alpha = [
         (_evaluation("alpha", event_id="evt-a", correct=1, brier_score=0.5), 1),
         (_evaluation("alpha", event_id="evt-b", correct=1, brier_score=0.5), 0),
