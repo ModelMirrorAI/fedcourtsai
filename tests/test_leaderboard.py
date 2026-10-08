@@ -2987,6 +2987,33 @@ def test_in_sample_skill_scores_against_the_blocks_own_grant_rate() -> None:
         assert block.population_in_sample_skill_score == pytest.approx(1 - 0.16 / 0.75)
 
 
+def test_a_forecaster_reporting_the_in_sample_rate_scores_exactly_zero() -> None:
+    # The defining property: c = 1/3 over three events, each forecast at c, so
+    # every Brier is the reference (c - y)^2 and the skill is 0 — on the binary
+    # target, one per event, whatever the panel depth.
+    c = 1 / 3
+    evals = [
+        (
+            _evaluation("alpha", event_id="evt-a", evaluator_id="eval-a", brier_score=(c - 1) ** 2),
+            1,
+        ),
+        (
+            _evaluation("alpha", event_id="evt-a", evaluator_id="eval-b", brier_score=(c - 1) ** 2),
+            1,
+        ),
+        (_evaluation("alpha", event_id="evt-b", brier_score=c**2), 0),
+        (_evaluation("alpha", event_id="evt-c", brier_score=c**2), 0),
+    ]
+    forward = (
+        build_leaderboard([_forward(ev) for ev, _ in evals], facts=_in_sample_facts(evals))
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.in_sample_grant_rate == pytest.approx(c)
+    assert forward.population_in_sample_skill_score == pytest.approx(0.0, abs=1e-12)
+
+
 def test_in_sample_skill_is_null_where_the_rate_is_degenerate() -> None:
     # Every event denied: c = 0, every reference Brier is 0, and the ratio is
     # undefined — null with a zero count, never an infinity and never a zero.

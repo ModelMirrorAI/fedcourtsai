@@ -618,18 +618,32 @@ stays outside the gate:
 
   What it measures follows from the Murphy decomposition of the Brier score,
   `BS = reliability − resolution + uncertainty`, where the uncertainty term is
-  `c(1 − c)` — exactly the mean reference Brier above. With one grading per
-  event the figure therefore **equals `(resolution − reliability) /
-  uncertainty`** against the block's own base rate: it nets the level out
-  entirely, the scored case's own outcome included, and leaves discrimination
-  net of miscalibration. Where panel depth varies by event it is that reading
-  weighted by gradings rather than events. A forecaster reporting `c` itself
-  scores exactly 0, but no forecaster could have: the rate exists only once
-  every scored event has resolved, and it contains the case being scored. It is
-  **hindsight by construction**, and it was added to the board after the
-  OT2026 long conference's outcomes were known — so it is never a rank key,
-  never a headline, never pooled with or differenced from either other skill
-  figure, and never read as in-season evidence.
+  `c(1 − c)` — exactly the mean reference Brier above. Wherever every event
+  carries the same number of gradings, and with forecasts grouped at their
+  distinct values, the figure therefore **equals `(resolution − reliability) /
+  uncertainty`** against the block's own base rate. (Grouped into the decile
+  calibration bins instead, reliability and resolution pick up within-bin
+  terms and the equality is not reproduced.) Where panel depth varies by event
+  it holds only approximately: `c` counts events while the sum runs over
+  gradings. Either way a forecaster reporting `c` itself scores exactly 0.
+
+  It nets out **the block's level and nothing finer**, the scored case's own
+  outcome included — so it is not a within-band discrimination measure
+  wherever a block pools bands. The salience gate selects bands for their very
+  different grant rates, and one `c` over a pooled block credits a predictor
+  for separating the bands as well as for separating cases inside them. A
+  forecaster that knew only each band's realized rate and told no two cases
+  in a band apart would score well above 0 on a pooled block. The pooled
+  `forward` figure therefore reads as discrimination within the block,
+  *between-band separation included*, net of miscalibration against the
+  block's own rate; the within-band reading is the `by_band` cell, each with
+  its own `c`, and only where that cell is defined.
+
+  No forecaster could have reported `c`: the rate exists only once every scored
+  event has resolved, and it contains the case being scored. It is
+  **hindsight by construction** and post-hoc rather than pre-registered — so it
+  is never a rank key, never a headline, never pooled with or differenced from
+  either other skill figure, and never read as in-season evidence.
 
   It differs from both members of the pair in its baseline, not its formula.
   The **prior-Term** figure scores against the strictly-prior pooled band rate:
@@ -647,9 +661,15 @@ stays outside the gate:
   `in_sample_skill_scored` 0 while `in_sample_grant_rate` still reads the
   level. On a cohort with a handful of grants that is most bands, and where it
   is defined the denominator is dominated by the grant events — each
-  contributes `(1 − c)²` against a denial's `c²` — so the figure leans on how a
-  predictor scored on those few cases and moves by large steps when one more
-  resolves.
+  contributes `(1 − c)²` against a denial's `c²`, so the grants carry a share
+  `1 − c` of it. Its scale is set almost entirely by those few grants: every
+  unit of Brier, on a grant or on a denial, is measured against about that many
+  grants' worth of uncertainty, and the figure moves by large steps when one
+  more resolves. So each figure is quoted with its grant count — `k` grants of
+  `in_sample_events_scored` events, `c` counting GVRs and summary reversals as
+  grants — and two predictors' figures sit side by side only where their
+  `in_sample_events_scored` agree, since a different `c` is a different
+  baseline.
 
   Every **cert** stratum block also carries the **realized always-deny floor**
   on its own cells. `always_deny_accuracy` scores a constant `denied` call over

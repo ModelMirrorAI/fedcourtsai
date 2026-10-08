@@ -582,9 +582,12 @@ neither registered nor a sensitivity line: Brier skill against each block's own
 **in-sample grant rate** (`population_in_sample_skill_score`), defined after
 the conference's outcomes were known. It scores every grading against the
 share of granted outcomes among the block's own scored events, the case being
-scored included, so it nets the level out entirely — with one grading per event
-it is (resolution − reliability) / uncertainty in the Murphy decomposition —
-and no forecaster could have known its baseline. It is read off the same
+scored included, so it nets out the block's level and nothing finer — at
+uniform panel depth it is (resolution − reliability) / uncertainty in the Murphy
+decomposition against that rate — and no forecaster could have known its
+baseline. The pooled `forward` figure spans the salience bands, so it credits
+separating the bands as well as separating cases within one; the within-band
+reading is the `by_band` cell, where it is defined. It is read off the same
 refreshed board:
 
 ```bash
@@ -600,16 +603,22 @@ jq '.entries[] | {predictor_id, forward: (.forward | {in_sample_events_scored, i
 > every scored petition's outcome, including the one being scored — so it
 > ranks nothing, carries no claim, and is not the measure this release
 > pre-registered; the prior-Term skill above is. It answers a narrower
-> question: setting the level aside entirely, how well did each engine
-> separate the petitions that were granted from those that were not? It is
-> undefined in any band where no scored petition was granted, and where it is
-> defined the few granted petitions dominate it.
+> question: against the grant rate these petitions actually realized, how well
+> did each engine separate the ones that were granted from those that were
+> not? Over all bands together that separation includes telling the bands
+> apart, which the salience gate already does in part; within a single band it
+> is case-level separation alone. It is undefined in any band where no scored
+> petition was granted, and where it is defined the few granted petitions set
+> its scale, so each figure is given with its count of grants.
 
 ‹per predictor, over the forward stratum of the ranked board, the in-sample
 benchmark — `population_in_sample_skill_score` with `in_sample_skill_scored`,
-beside `in_sample_grant_rate` over `in_sample_events_scored` — and per band
-where it is defined, every row labelled post-hoc and placed after the
-registered prior-Term figure it sits beside, never before it; from the `jq`
+and in the same sentence its grant count as "k grants of n events"
+(`in_sample_grant_rate` × `in_sample_events_scored`), noting that GVRs and
+summary reversals count as grants — and per band where it is defined, as the
+within-band reading; every row labelled post-hoc and placed after the
+registered prior-Term figure it sits beside, never before it; predictors set
+side by side only where their `in_sample_events_scored` agree; from the `jq`
 line above›
 
 ‹the whole-docket per-Term cert rate, quoted as context only and labelled as
