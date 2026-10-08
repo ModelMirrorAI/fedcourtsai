@@ -697,7 +697,7 @@
         },
         "in_sample_events_scored": {
           "default": 0,
-          "description": "Distinct (case, event) pairs in `in_sample_grant_rate`'s denominator \u2014 the events of the `in_sample_skill_scored` gradings (or, where the rate is 0 or 1, of the gradings that would have been)",
+          "description": "Distinct (case, event) pairs in `in_sample_grant_rate`'s denominator \u2014 the events of the `in_sample_skill_scored` gradings (or, where the skill is null, of the gradings that would have been)",
           "minimum": 0,
           "title": "In Sample Events Scored",
           "type": "integer"

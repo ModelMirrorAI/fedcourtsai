@@ -618,11 +618,12 @@ stays outside the gate:
 
   What it measures follows from the Murphy decomposition of the Brier score,
   `BS = reliability − resolution + uncertainty`, where the uncertainty term is
-  `c(1 − c)` — exactly the mean reference Brier above. Wherever every event
-  carries the same number of gradings, and with forecasts grouped at their
-  distinct values, the figure therefore **equals `(resolution − reliability) /
-  uncertainty`** against the block's own base rate. (Grouped into the decile
-  calibration bins instead, reliability and resolution pick up within-bin
+  `c(1 − c)` — which, wherever every event carries the same number of
+  gradings, is exactly the mean reference Brier above. There, and with
+  forecasts grouped at their distinct values, the figure therefore **equals
+  `(resolution − reliability) / uncertainty`** against the block's own base
+  rate. (Grouped into a decile binning instead, as the cert back-test's
+  calibration view uses, reliability and resolution pick up within-bin
   terms and the equality is not reproduced.) Where panel depth varies by event
   it holds only approximately: `c` counts events while the sum runs over
   gradings. Either way a forecaster reporting `c` itself scores exactly 0.
@@ -659,20 +660,23 @@ stays outside the gate:
   events are all denied (or all granted) has `c` of 0 (or 1), every reference
   Brier 0 and the ratio undefined: the skill is null with
   `in_sample_skill_scored` 0 while `in_sample_grant_rate` still reads the
-  level. The skill is null the same way wherever any of the block's gradings
-  carries a stamped Brier that no longer reproduces from its scored prediction
-  against the committed outcome — a Brier taken against an outcome since
-  superseded, the same unpaired shape that leaves the realized floor null. On a cohort with a handful of grants that is most bands, and where it
-  is defined the denominator is dominated by the grant events — each
-  contributes `(1 − c)²` against a denial's `c²`, so the grants carry a share
-  `1 − c` of it. Its scale is set almost entirely by those few grants: every
-  unit of Brier, on a grant or on a denial, is measured against about that many
-  grants' worth of uncertainty, and the figure moves by large steps when one
-  more resolves. So each figure is quoted with its grant count — `k` grants of
-  `in_sample_events_scored` events, `c` counting GVRs and summary reversals as
-  grants — and two predictors' figures sit side by side only where their
-  `in_sample_events_scored` agree, since a different `c` is a different
-  baseline.
+  level. On a cohort with a handful of grants a degenerate rate is most bands,
+  and where the rate is not degenerate the denominator is dominated by the
+  grant events — each contributes `(1 − c)²` against a denial's `c²`, so the
+  grants carry a share `1 − c` of it. Its scale is set almost entirely by those
+  few grants: every unit of Brier, on a grant or on a denial, is measured
+  against about that many grants' worth of uncertainty, and the figure moves
+  by large steps when one more resolves. So each figure is quoted with its
+  grant count — `k` grants of `in_sample_events_scored` events, `c` counting
+  GVRs, summary reversals and partial grants as grants — and two predictors'
+  figures sit side by side only where their `in_sample_events_scored` agree,
+  since a different `c` is a different baseline.
+
+  The skill is also null, with the rate still published, wherever any of the
+  block's gradings carries a stamped Brier that no longer reproduces from its
+  scored prediction against the committed outcome — a Brier taken against an
+  outcome since superseded, the same unpaired shape that leaves the realized
+  floor null.
 
   Every **cert** stratum block also carries the **realized always-deny floor**
   on its own cells. `always_deny_accuracy` scores a constant `denied` call over

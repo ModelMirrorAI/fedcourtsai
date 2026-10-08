@@ -3063,7 +3063,7 @@ class LeaderboardStratum(_Strict):
         ge=0,
         description="Distinct (case, event) pairs in `in_sample_grant_rate`'s "
         "denominator — the events of the `in_sample_skill_scored` gradings "
-        "(or, where the rate is 0 or 1, of the gradings that would have been)",
+        "(or, where the skill is null, of the gradings that would have been)",
     )
     always_deny_accuracy: float | None = Field(
         default=None,
