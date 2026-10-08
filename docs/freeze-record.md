@@ -6799,8 +6799,8 @@ freeze commit is recorded here.
     lifted by this promotion: a later predictor-half re-bless closes
     proc-v8's windows rather than de-counting them.
 
-  Carried to `main` by `promotion/<FILL: promotion tag date>` (merge commit
-  `<FILL: merge commit>`, merged `<FILL: merged at>`).
+  Carried to `main` by `promotion/2026-10-08` (merge commit
+  `9a2dc8168`, merged `2026-10-08T21:49:48Z`).
 
   The runnable effect check once it is live: on `main`, `uv run fedcourts
   process-digest --all` prints `proc-v8` and its six digests unchanged; `jq
