@@ -1,0 +1,2 @@
+- Read `metrics/statpack.md` for the interim docket base rates.
+- CourtListener MCP lookup for `"B.P.J."` to find `West Virginia v. B. P. J.` (SCOTUS, 2026).

@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73292885",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "CourtListener dockets/73292885 returns docket_number 25-1249 (matching the provisioned supremecourt.gov snapshot, Pestarino v. Pestarino) but case_name 'Roy J. Meidinger, Petitioner v. Commissioner of Internal Revenue'. The corpus id-to-docket-number link is sound; the caption mismatch is upstream in CourtListener. gemini-baseline's predictor retrieval note reported the same mismatch; this evaluator's MCP call on 2026-10-06 reproduced it. Noted so a case-name-keyed join or display does not mislabel this case.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0"
+}

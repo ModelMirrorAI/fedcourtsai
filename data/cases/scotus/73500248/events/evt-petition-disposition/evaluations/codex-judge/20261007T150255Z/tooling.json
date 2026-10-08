@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500248",
+  "gaps": [
+    "gemini-baseline's result bodies are unobserved; its query audit cannot establish what those searches returned."
+  ],
+  "helpful": [
+    "Frozen candidate band, salience version, and Term make baseline selection reproducible.",
+    "Capture markers distinguish unobserved search results from failed or empty retrieval.",
+    "The provisioned petition appendix supports checking the central circuit-consensus premise."
+  ],
+  "notes": "Scored all three aliases without attempting identification. No corpus, CourtListener, or web retrieval was needed. Baselines use the rounded displayed reached rates, not an inferred exact numerator. The project virtual environment lacks jsonschema; the system Python provides it. Full-tree validation is deferred to the harness because the prediction tree is intentionally hidden and outputs remain alias-keyed.",
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Local shell and jq for provisioned blinded artifacts and schemas",
+    "Committed metrics/statpack.md",
+    "Python decimal arithmetic",
+    "Local JSON Schema validation",
+    "apply_patch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

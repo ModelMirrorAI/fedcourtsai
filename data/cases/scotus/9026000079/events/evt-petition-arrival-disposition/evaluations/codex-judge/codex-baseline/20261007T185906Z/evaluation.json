@@ -1,0 +1,81 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": null,
+  "brier_score": 0.0025,
+  "brier_skill_score": null,
+  "case_id": "scotus/9026000079",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05015723270440252,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 1.5747992563585125e-05
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 1.5747992563585125e-05,
+    "total": 1.5747992563585125e-05
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:19:34Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The prediction and seven logged calls date to August 16, 2026, before the October 5 denial. Capture coverage is 1.0 for those calls, but several shell query slices are truncated and the reported failed MCP lookup is not separately visible. The prose discloses the August 14 waiver and says it was not used as an arrival signal. Nothing shown reveals or presupposes this petition's eventual disposition; null dates and redaction markers are not evidence of empty results or leakage.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260816T111104Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:22:32.462861Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": null,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

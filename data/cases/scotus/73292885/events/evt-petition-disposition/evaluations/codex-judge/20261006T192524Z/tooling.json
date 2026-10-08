@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73292885",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["functions.exec_command", "apply_patch", "jq", "Python", "Pydantic"],
+  "helpful": ["Alias-keyed candidate staging", "Frozen prediction contexts", "Capture-coverage markers", "Versioned per-Term statpack table"],
+  "gaps": ["Staged retrieval logs expose query slices and digests, not complete response bodies; unobserved calls limit verification."],
+  "notes": "Scored all three candidates using only provisioned artifacts and the committed Markdown statpack. No corpus query, external legal lookup, or web search. The current opposition manifest reflects OCR enrichment after prediction time; it was not treated as evidence that candidates had readable opposition text. Validation is restricted to this evaluator's artifacts while aliases remain in place."
+}

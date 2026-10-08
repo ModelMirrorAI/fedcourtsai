@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500245",
+  "gaps": [
+    "Unobserved result contents limit gemini-baseline retrieval audit; codex-baseline web results are also unobserved."
+  ],
+  "helpful": [
+    "Blinded candidate artifacts",
+    "Harness-captured retrieval queries and capture markers",
+    "Versioned per-Term risk-set table"
+  ],
+  "notes": "The supplied inputs suffice for cert-stage scoring. Capture gaps were treated as uncertainty, not as failed retrieval or a candidate defect. No external case research was needed.",
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local file reads",
+    "local arithmetic",
+    "schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

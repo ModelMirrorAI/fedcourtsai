@@ -1,0 +1,1 @@
+The prediction was correct (granted). The predictor recognized the SG's involvement in a federal immigration petition implies a high probability of a circuit split or statutory invalidation, even when rate limits blocked retrieval of the underlying opinion. Solid deductive reasoning. Segment base rate omitted due to sal-v3 vs sal-v4 mismatch. No leakage observed.

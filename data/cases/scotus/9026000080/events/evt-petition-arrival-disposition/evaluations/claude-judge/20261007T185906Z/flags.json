@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000080",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Salience-version mismatch, all three candidates: each prediction froze context.band=baseline under context.salience_version=sal-v3, but the committed metrics/statpack.md 'Segment base rate by salience band' table is headed sal-v4. Per the evaluate prompt, segment_base_rate, brier_skill_score and base_rate_basis are omitted (null) on every evaluation in this cell. For re-derivation: `uv run fedcourts segment-anchors --term 2026 --salience-version sal-v3` prints the version-pinned baseline risk-set pool at 5.02% (n=12720, OT2017-OT2025) and the sal-v4 command prints the identical figure, consistent with docs/salience.md's statement that a sal-v3 cell's post-rebuild baseline is sal-v4's pool under sal-v3's name. If the intended policy is that superseded-but-registered versions take that pool, a re-grade or stamp rule could restore the skill column; the candidates themselves anchored on ~6.5% (n~13163) from the pre-rebuild sal-v3 pack, so their stated anchors no longer match any rendered table."
+    }
+  ]
+}

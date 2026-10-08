@@ -1,0 +1,81 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": null,
+  "brier_score": 3.6e-05,
+  "brier_skill_score": 0.9856625127087469,
+  "case_id": "scotus/9026000066",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05015723270440252,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.006,
+        "score": 0.0024797479925635856
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024797479925635856,
+    "total": 0.0024797479925635856
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:18:56Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "October 4 forward calls precede the October 5 denial. The log shows provisioned-input and aggregate-statpack reads, plus a generic Rule 10 search and two rules-guidance page requests. These three web rows are unobserved; the reported lack of usable content is not independently established by their null dates or digests. Their queries do not target this case. No logged query or reasoning passage discloses its disposition. Capture coverage is 0.9.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261004T201824Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:21:27.691315Z"
+  },
+  "reasoning_quality": 0.94,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05010888364779874,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

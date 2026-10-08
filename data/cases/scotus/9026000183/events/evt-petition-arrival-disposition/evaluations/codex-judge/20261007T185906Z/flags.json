@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000183",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "gemini-baseline, claude-baseline, and codex-baseline freeze band baseline under sal-v3 for Term 2026, but the committed metrics/statpack.md segment table is headed sal-v4. Per the evaluation contract, segment_base_rate and brier_skill_score are omitted and base_rate_basis is null for all three. A frozen band cannot use the terminal fallback. Outcome correctness and Brier scores are unaffected; individual evaluation.md files explain the unavailable baseline.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0"
+}

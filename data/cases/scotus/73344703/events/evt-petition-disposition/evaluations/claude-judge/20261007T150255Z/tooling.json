@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73344703",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file-read",
+    "shell",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The blinded staging area with the per-call retrieval_log.json (call class, capture marker, doc date) made the forward leakage check mechanical.",
+    "The sal-v4 per-Term table rendering all 10 Terms it holds, so the pooled window needed no divergence flag."
+  ],
+  "gaps": [
+    "A pre-pooled prior-Term `reached` rate per band in statpack.json would remove the hand arithmetic over rounded percentages that every cell repeats.",
+    "The candidates' tooling.json/flags.json are deliberately unstaged, so a predictor's self-disclosed corpus query could only be cross-checked against retrieval.md."
+  ],
+  "notes": "Read the three candidates only from record/blinded/; no corpus or CourtListener lookups were needed for a one-distribution unopposed denial."
+}

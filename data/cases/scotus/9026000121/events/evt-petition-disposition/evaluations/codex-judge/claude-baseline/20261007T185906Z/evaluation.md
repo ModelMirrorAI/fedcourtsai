@@ -1,0 +1,21 @@
+# Evaluation: claude-baseline
+
+## Outcome and numerical scores
+
+This is a cert-stage distribution event. The authoritative outcome records denial on October 5, 2026, with `actual_granted = 0`; the provisioned October 5 snapshot also records that denial. The predicted label, `denied`, matches exactly: **correct = 1**. With P(any grant) = 0.006, the Brier loss is `(0.006 - 0)^2 = 0.000036`.
+
+The prediction freezes Term 2026, band `baseline`, and version `sal-v4`. The committed statpack's matching sal-v4 table therefore supplies the **risk-set**, not terminal, baseline. Pooling every displayed strictly-prior Term, OT2017–OT2025, yields weighted denominator 12,720 and weighted rate numerator 637.385, hence `segment_base_rate = 0.050108883647798745`. The numerator is reconstructed from rounded published percentages, not an integer count of grants; the resulting baseline is approximate. The table renders 10 of 10 Terms, including an excluded OT2026 row, so there is no rendered-window truncation to flag. The baseline Brier is approximately 0.002510900220428632, giving skill `1 - 0.000036 / baseline_Brier = 0.9856625127087469`. These are committed-pack, denial-reweighted live/historical-slice estimates, not a claim about current remote-corpus freshness or population-wide forecast performance.
+
+## Reasoning quality: 0.68
+
+The rationale correctly starts from the frozen band's reached population and distinguishes it from terminal-band rates. It connects a substantial downward adjustment to case-specific considerations: disputed employment timing, the one-sided and fact-bound record, an undeveloped interjurisdictional conflict, a state-law fee question, and the response waiver. It acknowledges that its corpus samples are mostly application dockets rather than comparable cert petitions. The petition's reproduced appellate discussion, printed pages 35–37, supports treating the timing evidence as unsettled.
+
+Two material overstatements limit the grade. First, the rationale says the Court cannot GVR on a state decision. Lawrence v. Chater, 516 U.S. 163, 166–67 (1996), expressly identifies state supreme court decisions among developments that have supported GVRs; I checked that passage in the Court's opinion through CourtListener, opinion 9433233. This does not establish that this petition warranted a GVR, but it defeats the categorical premise used in the rationale. Second, the heading asserting an independent state ground is more definitive than the supplied material supports. The petition describes a procedural dismissal on a different question and contests that characterization; without resolving how that dismissal relates to the federal claim, a vehicle concern is defensible but an established jurisdictional barrier is not demonstrated. The additional assertion about the Court's entire post-Caperton private-party recusal docket is not substantiated by the few lookups shown.
+
+These limitations matter even though denial was correctly forecast. The recorded denial provides no explanation that validates these asserted reasons, and a single low-loss outcome does not validate the precision of 0.6%. I grade only `reasoning.md`; the forecast document and quantitative claims were read for context, not independently scored or folded into this grade.
+
+## Leakage and scope
+
+The harness log says forward. All 27 calls are captured and occurred October 4, before the recorded October 5 resolution. The candidate's current-docket search was legitimate forward retrieval, not a replay-cutoff violation. Its note reports no result for that search, and the dated precedent/lower-court results are from 2016 and 2017. No logged query or prose exposes this petition's eventual disposition. I record no retrieved outcome material, influence `not_applicable`, and `leakage_suspected = false`. A captured digest is not a full result body, so the assessment rests on the combined timing, query, and narrative evidence rather than null document dates alone.
+
+No cert-stage vote accuracy or semantic grades are written. Mechanical claim scores and provenance stamps remain the harness's responsibility. I omit the optional independent stakes assessment rather than supply a score after exposure to the candidate's own stakes discussion.

@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500236",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline describes 2021\u20132025 as its prior-Term baseline, but its frozen context.term is 2025. The stated anchor includes its own Term and omits displayed eligible earlier Terms. Evaluation uses the matching sal-v4 baseline risk set over 2017\u20132024 (rendered weighted rate 0.05120250431778929). This lowers confidence in the rationale, not the mechanical outcome score; no own-case outcome retrieval is evidenced in this forward cell. See gemini-baseline evaluation.md.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0"
+}

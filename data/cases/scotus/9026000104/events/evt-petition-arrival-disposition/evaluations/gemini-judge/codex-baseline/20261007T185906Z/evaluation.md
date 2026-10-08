@@ -1,0 +1,1 @@
+The prediction was correct (granted). The predictor correctly anchored on the federal-band base rate but was unable to fetch lower-court documents due to API rate limits, keeping its prediction close to the base rate. Reasoning is sound within those constraints. There was a salience version mismatch (sal-v3 vs sal-v4), so the segment base rate is omitted. No leakage observed.

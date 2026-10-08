@@ -1,0 +1,5 @@
+Read the provisioned event, outcome, blinded prediction/rationale/forecast/retrieval artifacts for gemini-baseline, codex-baseline, and claude-baseline, case context, October 5 snapshot, questions presented, and targeted passages of the staged petition. Read AGENTS.md, the evaluation prompt, and the evaluation, tooling, and flags schemas for the output contract.
+
+Additional local context: read committed `metrics/statpack.md`, principally the `sal-v4` per-Term salience-band table. Recomputed the resolved-weighted reached-baseline rate over displayed Terms 2017–2024 using the rounded published rates and denominators: 0.05120250431778929, weighted denominator 11,580. This is not a fresh remote corpus measurement.
+
+No corpus query, open-events lookup, CourtListener lookup, or web retrieval was performed by this evaluator. The candidates' staged retrieval logs were read as evidence; their historical queries were not re-executed. Local schema and arithmetic validation do not retrieve case facts.

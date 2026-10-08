@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73318133",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/python over the provisioned record, blinded staging area, schemas, and committed statpack)"
+  ],
+  "helpful": [
+    "The sal-v4 band table's bracketed reached figures with per-Term n made the pooled risk-set baseline a one-line computation.",
+    "retrieval_log.json's result_capture markers made the three engines' very different capture shapes gradable on the same rule."
+  ],
+  "gaps": [
+    "A per-call note of whether a shell query merely names a forbidden path (e.g. a find that excludes data/qp-topics/) versus reads it would save the evaluator a manual read of each such row.",
+    "A staged copy of the lower-court memorandum would let the evaluator check candidates' second-hand accounts of the judgment below."
+  ],
+  "notes": "Cert cell, all three candidates forward, same frozen band and salience version as the table heading, so no version mismatch and no flags. No corpus query was needed: the three predictions agree on disposition and differ only in how far below the band anchor they sit."
+}

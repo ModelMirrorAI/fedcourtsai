@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73329541",
+  "gaps": [
+    "Unobserved retrieval results and truncated query slices limit leakage-audit visibility; result digests are not full source text."
+  ],
+  "helpful": [
+    "Blinded candidate artifacts preserve frozen baseline context and retrieval capture markers.",
+    "The committed sal-v4 statpack exposes all Terms needed for the strictly-prior risk-set calculation.",
+    "Local JSON schemas permit validation without restoring identity-bearing prediction trees."
+  ],
+  "notes": "Evaluated all three aliases using staged records and the committed statpack. No external web, CourtListener, or corpus calls were made. The project virtual environment lacks jsonschema; the system Python provides it for direct schema validation. No candidate identity was sought.",
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "python",
+    "apply_patch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

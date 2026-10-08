@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.05,
+    "notes": "Pro se APA challenge by one former employee to his debarment from a single DLA installation; unpublished Fourth Circuit affirmance below, Solicitor General waived, denied without noted dissent at the first conference the petition itself reached. The record-rule exceptions question has some abstract general importance, but this petition would not have been the vehicle to settle it, and the decision binds no one beyond the petitioner."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9991,
+  "case_id": "scotus/9026000173",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.16888168557536468,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.028496023722776338
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.028496023722776338,
+    "total": 0.028496023722776338
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:12:32Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-18 against the 2026-09-18 snapshot, resolution 2026-10-05. Log (23 calls, 100% captured): reads of provisioned inputs, prompt, schemas and statpack; one fedcourts query (era 2020s, granted, limit 5; newest retrieved_doc_date 2026-09-10, before resolution, unrelated rows); two CourtListener searches for the Fourth Circuit opinion below (ca4 No. 24-1166; party-name query), both 0 results, and neither reaches this petition's disposition. No post-resolution material, no qp-topics read. Reasoning states the petition is pending for the September 28 conference.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:14:28.449720Z"
+  },
+  "reasoning_quality": 0.87,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.169,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

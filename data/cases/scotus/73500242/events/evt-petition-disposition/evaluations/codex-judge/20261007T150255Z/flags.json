@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500242",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned record/snapshots/2026-10-05.json dates the petition-filed entry April 13, 2026, while its linked petition filename and the provisioned petition's signature indicate May 26, 2026; docketing is June 1. codex-baseline identifies the same chronology discrepancy. This is a conflict within the supplied record, not a live-corpus freshness claim. No timeliness inference is made, no input is changed, and the denial outcome and evaluation scores are unaffected.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0"
+}

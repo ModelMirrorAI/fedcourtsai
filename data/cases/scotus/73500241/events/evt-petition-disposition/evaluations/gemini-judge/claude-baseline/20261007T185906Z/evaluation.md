@@ -1,0 +1,1 @@
+The predictor accurately recognized the narrow, state-specific nature of this takings dispute and the returned-property vehicle issue, properly discounting the likelihood of a grant. The reasoning correctly identified the lack of broad significance. I scored reasoning_quality as 0.85.

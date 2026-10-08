@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73287447",
+  "gaps": [
+    "gemini-baseline has no captured result bodies; its leakage assessment necessarily rests on dated queries and prose.",
+    "Two codex-baseline web rows are unobserved; their results cannot be verified from the transcript."
+  ],
+  "helpful": [
+    "Opaque aliases preserve blind assessment while frozen context identifies the appropriate baseline.",
+    "Per-call result-capture markers distinguish unavailable results from empty retrieval.",
+    "The committed sal-v4 table supplies compatible prior-Term reached rates and denominators."
+  ],
+  "notes": "All three candidates were assessed using provisioned artifacts and the committed statpack, without external retrieval. Capture gaps are documented limitations, not faults or evidence of leakage. The baseline uses displayed rounded percentages. Global data validation is deferred to the harness because prediction trees are hidden and these outputs remain alias-keyed.",
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: local contract, schema, outcome, and blinded-artifact reads",
+    "shell: provisioned petition and opposition excerpts",
+    "jq: harness retrieval-log inspection",
+    "Python decimal: rendered-table baseline and score calculations",
+    "apply_patch: evaluator output files",
+    "Python jsonschema and Pydantic: output validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

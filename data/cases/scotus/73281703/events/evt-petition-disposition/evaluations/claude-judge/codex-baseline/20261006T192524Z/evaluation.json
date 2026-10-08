@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "Acknowledged inter-court division on whether section 504 reaches non-employees (independent contractors), a question of real reach for federally funded programs and the disability-rights bar. But a weak vehicle: a $7,000 general verdict, a retaliation claim by a staffing-agency employee who was not the district's own contractor, a state-court origin, no amicus support, and a plain denial after one conference with no noted writing. Modest stakes overall."
+  },
+  "brier_score": 0.1296,
+  "brier_skill_score": -3.360442,
+  "case_id": "scotus/73281703",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.36,
+        "score": -0.09993269588784336
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.43,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.09993269588784336,
+    "total": -0.09993269588784336
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:30:41Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-18, before the 2026-09-28 conference and the 2026-10-05 denial. Log: 33 calls, 31 captured. Shell reads of the provisioned record and statpack; two unobserved web-search rows whose queries name a 2016 Fifth Circuit opinion (Flynn, 15-50314) and Supreme Court Rule 10, not this case; CourtListener lookups of historical authorities only (812 F.3d 422 Flynn, 2016; Redd v. Summers, 2000). No query names this petition's docket, caption, or disposition; no retrieved_doc_date on or after 2026-10-05. Reasoning explicitly states no disposition was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:32:11.719409Z"
+  },
+  "reasoning_quality": 0.62,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1724,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

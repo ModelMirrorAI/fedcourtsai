@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73286453",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (file reads of the blinded staging area, outcome, event, snapshot, documents, statpack, schemas)",
+    "python (base-rate pooling, Brier and skill arithmetic, JSON writing, pydantic validation)"
+  ],
+  "helpful": [
+    "The blinded retrieval_log.json with per-call result_capture markers and retrieved_doc_date made the forward-mode leakage check mechanical.",
+    "The statpack's sal-v4 band table caption stating the rendered window (10 of 10 Terms) removed any ambiguity about the pooling window.",
+    "Candidates' retrieval.md files cross-checked cleanly against the captured logs."
+  ],
+  "gaps": [
+    "A pre-pooled strictly-prior reached rate per band and Term in the statpack would remove a hand computation from rounded percentages that every evaluator repeats.",
+    "The prompt is long enough that reading it in one tool call exceeds the output cap; a short per-stage summary section at the top would help."
+  ],
+  "notes": "Cert-stage forward cell with three candidates, all predicting denial on a denied petition. No flags raised: no version mismatch, no window divergence, no leakage, no missing inputs."
+}

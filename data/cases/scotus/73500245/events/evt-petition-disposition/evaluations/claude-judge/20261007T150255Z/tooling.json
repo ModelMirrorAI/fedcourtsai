@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500245",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "mcp:courtlistener:call_endpoint"
+  ],
+  "helpful": [
+    "The blinded retrieval_log.json with result_capture markers and retrieved_doc_date made the forward leakage check mechanical: every dated retrieval could be placed against the resolution date.",
+    "statpack.json's per-Term prefix_est_grant_rate / prefix_weighted_resolved fields let the pooled risk-set rate be computed exactly rather than from rounded table percentages.",
+    "CourtListener call_endpoint on the lower-court cluster let a candidate's characterization of the opinion below be verified in one call."
+  ],
+  "gaps": [
+    "The predictors' big_case_score sits inside the staged prediction.json that must be read for the context block, so the prompt's instruction to form the evaluator's big-case read before seeing it cannot be honoured in practice; staging that field separately (or masking it) would make the independence real.",
+    "A ready-made pooled risk-set figure per band and Term window in the statpack (or a CLI subcommand) would remove the per-cell arithmetic every evaluator repeats."
+  ],
+  "notes": "Cert cell, three forward candidates, all correct on a denial. No flags.json written: band and salience version matched the rendered table, the rendered window equals the pack's holdings, and no leakage or data-quality issue surfaced."
+}

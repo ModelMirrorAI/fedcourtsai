@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73303792",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "Python decimal arithmetic", "apply_patch", "Pydantic validation"],
+  "helpful": ["Blinded candidate artifacts", "Frozen prediction context", "Per-call result-capture markers", "Versioned per-Term reached-rate table"],
+  "gaps": ["Captured retrieval results are represented by digests rather than inspectable bodies; some call results are unobserved."],
+  "notes": "Scored all three aliases without external retrieval. Used the committed Markdown statpack, including its displayed-rate rounding, and validated output with the repository's schema models. Did not assess big_case after encountering candidate stakes scores. Full-tree validation is reserved for the harness after restoration and unblinding."
+}

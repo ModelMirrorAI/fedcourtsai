@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000183",
+  "gaps": [
+    "Rounded statpack markdown rates permit only an approximate pooled baseline.",
+    "Unobserved candidate results constrain retrospective verification of what was returned."
+  ],
+  "helpful": [
+    "Alias-keyed candidates and frozen contexts preserve the blind and identify the baseline.",
+    "Result-capture markers distinguish unavailable results from failed retrieval.",
+    "The committed statpack supplies a matching sal-v4 risk-set table."
+  ],
+  "notes": "Used only the supplied record and committed statistical context. No missing required input or blocking ambiguity. Standalone schema checks are used while aliases remain unresolved; repository-wide validation belongs to the post-run harness.",
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell/file reads",
+    "jq",
+    "Python decimal arithmetic",
+    "apply_patch",
+    "Pydantic validation",
+    "JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,81 @@
+{
+  "base_rate_basis": null,
+  "base_rate_salience_version": null,
+  "big_case": null,
+  "brier_score": 1.6e-05,
+  "brier_skill_score": null,
+  "case_id": "scotus/9026000095",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05015723270440252,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.004,
+        "score": 0.0024997479925635857
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3534090909090909,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024997479925635857,
+    "total": 0.0024997479925635857
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T19:23:17Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The August 16, 2026 prediction predates the October 5 cert denial. The supplied log has capture coverage 1.0 for its listed calls, principally local record/statpack reads, and shows no retrieval of the disposition. The prose expressly declines to use post-arrival stay activity and identifies chronology uncertainty. It reports a rate-limited general authority search and an empty Caperton citation lookup, but those calls are not individually identifiable in the staged log; their results are self-reported, not independently confirmed. Nothing in the available evidence shows this petition's outcome being known.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260816T111104Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "fa687ee4cbb43236f5eaf181ff62b8048c394869",
+    "stamped_at": "2026-10-07T19:26:01.591485Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "segment_base_rate": null,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

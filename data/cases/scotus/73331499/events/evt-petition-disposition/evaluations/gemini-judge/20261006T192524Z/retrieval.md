@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. Evaluated based on the `statpack.md` and candidate records.

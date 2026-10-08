@@ -1,0 +1,23 @@
+# Evaluation: claude-baseline
+
+## Outcome and quantitative scores
+
+The cert-stage event resolved by denial on October 5, 2026, according to `outcome.json`, corroborated by the provisioned snapshot. claude-baseline's `denied` label is correct. With P(any grant) = 0.01 and `actual_granted = 0`, **correct = 1** and **Brier = 0.0001**. A denial without reasons does not establish that the Court adopted the predictor's explanation.
+
+The prediction's frozen context is Term 2025, `baseline`, `sal-v4`; the table heading names the same salience version. I pool the bracketed reached rates for all rendered prior Terms 2017–2024, not terminal-band rates and not the evaluator's current band. In ascending Term order, the rate/denominator pairs are 4.7%/1643, 4.6%/1524, 4.6%/1399, 4.5%/1739, 5.6%/1500, 5.8%/1192, 5.9%/1312, and 5.7%/1271. The denominator sums to 11,580, yielding **segment_base_rate = 0.05120250431778929** and `base_rate_basis = risk_set`. The denial-reweighted published rates are rounded, so this is an approximate reconstruction rather than an exact grant-count ratio. Brier skill = 1 - 0.0001 / baseline^2 = **0.961856758794282**.
+
+The table exposes 10 of 10 available Terms, so there is no omitted-table-window discrepancy. Terms 2025 and 2026 are excluded. These calculations describe the supplied committed statpack only; no live corpus refresh or corpus-vintage claim is made. This one-event skill score does not establish aggregate forecasting performance.
+
+## Reasoning quality: 0.80
+
+The rationale is substantive and tied to this vehicle: it addresses the opposition's preservation objection, official-capacity and remedial obstacles, lack of an identified appellate conflict, unpublished decisions, and limited procedural interest. Its approximate 5.1% reached-band anchor is appropriate, and it explains a downward adjustment to 1% rather than merely asserting the modal outcome. It also discloses unsuccessful attempts to obtain the lower opinion and recognizes some uncertainty about the underlying record.
+
+The main weakness is source discipline. It says the petition and opposition agree about the lower courts' grounds. They do not: the petition's sections D–E, printed pages 7–8, describe dismissal and affirmance solely on judicial immunity, while the opposition's pages 5–7 describe sovereign immunity, prospective-relief limitations, and amendment futility as well. Without the underlying decisions, claude-baseline should present the additional grounds and preservation account as substantial, specifically supported adversarial assertions, not as conclusively reconciled facts. The claims that the vehicle is unusable and the Court could not reach the issue are more categorical than its admitted information limits support. Its general formulation of the injunction restriction also omits the unavailable-declaratory-relief alternative that appears in the provisioned opposition. Finally, pooled terminal-band, relist, and circuit statistics are less well matched to this forward state than the primary reached-band anchor, though they do not replace that anchor in the scored baseline.
+
+These limitations reduce the qualitative score despite a persuasive overall denial analysis. I score only `reasoning.md`, not the forecast document or quantitative claim block. The judgment and vote fields are inapplicable to this cert event, and no semantic set is declared. Mechanical claims remain unscored by the evaluator. The optional independent significance assessment is omitted.
+
+## Leakage assessment
+
+The prediction was made September 16, 2026, in forward mode, before the recorded October 5 denial. The harness log contains 19 calls with result-capture coverage 1.0. Local reads concern the provisioned record and statpack. The external searches seek the Sixth Circuit decision below, including docket 25-5722, rather than the Supreme Court disposition; the candidate reports no hits. Its topical corpus-query attempt is disclosed as rejected by the CLI. The available log does not independently reproduce full result bodies, so the candidate's account of the search results remains distinguished from the recorded queries and capture markers.
+
+No call or reasoning passage demonstrates this petition's outcome already being available or read. Null retrieved-document dates are not independently credited as proof of clean retrieval. On the combined scope, chronology, and prose evidence, `retrieved_outcome_material = false`, `influenced_prediction = not_applicable`, and `leakage_suspected = false`. The evaluator's October 5 snapshot is not treated as the predictor's September 16 information set.

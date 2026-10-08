@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281687",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "Python decimal arithmetic", "Pydantic schema validation", "apply_patch"],
+  "helpful": ["Blinded candidate inputs", "Per-call result-capture markers", "Frozen salience context", "Prior-Term reached-rate table", "Provisioned petition and opposition"],
+  "gaps": ["Unobserved candidate retrieval results limit inspection of returned content"],
+  "notes": "All candidates were scored from local staged evidence without external retrieval. Quantitative scores use the shared matched-version risk-set baseline. Capture gaps were acknowledged without treating null result dates as proof of empty results."
+}

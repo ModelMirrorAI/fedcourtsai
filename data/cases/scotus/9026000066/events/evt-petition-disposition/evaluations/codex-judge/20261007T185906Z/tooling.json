@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000066",
+  "gaps": [
+    "Rounded Markdown rates limit baseline precision.",
+    "Retrieval digests do not expose result bodies; unobserved calls require query-based assessment."
+  ],
+  "helpful": [
+    "Blinded candidates retain frozen salience context.",
+    "Capture markers distinguish unobserved results from empty results.",
+    "The statpack caption identifies the full rendered Term window."
+  ],
+  "notes": "Evaluated only provisioned case evidence and the committed aggregate table. Used local model validation rather than the full data validator because the harness must restore prediction trees and resolve aliases first.",
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "Python decimal",
+    "Pydantic schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

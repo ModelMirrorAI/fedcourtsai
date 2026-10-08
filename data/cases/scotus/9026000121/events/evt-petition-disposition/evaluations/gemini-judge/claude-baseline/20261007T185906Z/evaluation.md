@@ -1,0 +1,3 @@
+This is a cert-stage cell. The baseline `0.05011` was calculated from the statpack over the `baseline` band across strictly prior terms (OT2017-OT2025). The predicted disposition was correct (denied).
+
+Reasoning is detailed, effectively combining quantitative statpack anchors with qualitative case-specific details (state-court origin, no split, vehicle quality, waiver of response) to arrive at a well-calibrated and highly accurate low probability.

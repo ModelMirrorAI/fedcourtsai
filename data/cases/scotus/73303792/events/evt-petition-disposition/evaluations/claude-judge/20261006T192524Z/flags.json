@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73303792",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Not leakage, noted for the predict-prompt maintainers: claude-baseline's captured log shows one shell call that globbed data/cases/scotus/*/events/evt-petition-disposition/predictions/<its own id>/20260916T170237Z, took the first match, and read that cell's prediction.json, tooling.json and retrieval.md as a format template. That is another case's committed prediction output from an earlier run, carrying nothing about this petition's outcome, and the candidate's own prose and retrieval note do not mention it. Graded clean. If reading the committed predictions tree is meant to be off-limits for predictors (as it is for evaluators), the predict prompt does not currently say so.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0"
+}

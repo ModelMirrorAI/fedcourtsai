@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73302615",
+  "gaps": [
+    "Unobserved result rows limit verification of what a candidate actually received."
+  ],
+  "helpful": [
+    "Blinded rationales and captured query logs support identity-independent assessment.",
+    "Frozen band and salience-version fields resolve the cert baseline population."
+  ],
+  "notes": "All grades use staged inputs and the committed statpack. Result-capture coverage is respected rather than treating unobserved calls as empty. No external retrieval was needed.",
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local-file-read",
+    "local-arithmetic",
+    "local-schema-validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

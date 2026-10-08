@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73500232",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval.md states 'No corpus lookups executed', while its harness-captured retrieval_log.json carries one shell call invoking fedcourts query (Rule 4(a)(5) priors, --decided-before 2026-09-17), result unobserved (the engine's capture coverage is 0.0). The self-report and the captured log disagree; most likely a failed call reported as none. No leakage bearing (the query is topical and date-bounded), but the mismatch is worth knowing when weighing that engine's self-reported retrieval notes against capture.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0"
+}

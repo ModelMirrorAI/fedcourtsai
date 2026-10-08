@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000080",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "codex-baseline, claude-baseline, and gemini-baseline froze the baseline band under sal-v3 for Term 2026, but the committed metrics/statpack.md band table is sal-v4. Per the evaluation contract, segment_base_rate and brier_skill_score are omitted and base_rate_basis is null for every candidate. No terminal-rate substitution or reconstruction from the candidates' own claimed priors was made.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "gemini-baseline's retrieval.md says no corpus query calls were made, but the harness log records two query attempts on August 16 at 12:37:13Z and 12:37:17Z, plus a curl CourtListener request omitted from the note. All results are unobserved, so success, returned material, and transfer counts cannot be established. This is a retrieval-accounting discrepancy, not evidence of outcome leakage; the forward calls preceded the October 5 disposition.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0"
+}

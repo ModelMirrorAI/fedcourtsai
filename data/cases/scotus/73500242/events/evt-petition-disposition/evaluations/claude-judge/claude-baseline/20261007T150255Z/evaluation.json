@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "Single-plaintiff section 1981 restaurant dress-code suit; unpublished Fifth Circuit per curiam applying existing circuit precedent on summary judgment; no brief in opposition, no amici, no call for a response; denied without comment or noted dissent at the long conference. The underlying question (what section 1981(b)'s 'benefits, privileges, terms, and conditions' cover during a meal) has some doctrinal interest, but nothing about this vehicle or the Court's handling of it suggests stakes beyond the parties."
+  },
+  "brier_score": 0.000144,
+  "brier_skill_score": 0.945087625445,
+  "case_id": "scotus/73500242",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": 0.002478359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002478359735235249,
+    "total": 0.002478359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T16:20:30Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-17, event resolved 2026-10-05. Log fully captured (coverage 1.0): one corpus query for 2020s granted priors, a docket-entries call (0 rows), two CourtListener searches (Hager v. Brinker; Nwosu, both 0 results), and a dockets item read whose retrieved_doc_date is 2026-06-01 (the filing date; the candidate reports date_terminated null). No web search, no data/qp-topics read, no post-resolution material. Reasoning anchors on the provisioned snapshot and petition only.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:23:19.953772Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051208981002,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

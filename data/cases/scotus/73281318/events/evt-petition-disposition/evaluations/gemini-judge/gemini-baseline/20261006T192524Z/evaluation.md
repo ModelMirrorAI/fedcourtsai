@@ -1,0 +1,1 @@
+Candidate accurately parsed the interlocutory posture and the recent precedent (Case v. Montana) defeating the claim, adjusting the probability sharply downward appropriately.

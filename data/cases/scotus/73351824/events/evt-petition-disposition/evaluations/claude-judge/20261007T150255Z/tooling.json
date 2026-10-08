@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73351824",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "file-write"
+  ],
+  "helpful": [
+    "metrics/statpack.json beside statpack.md made the band pool exact (593 / 11,580) rather than a rounding of the rendered percentages.",
+    "The staged retrieval_log.json's result_capture markers made the forward-mode check straightforward: unobserved rows could be graded on their queries without guessing.",
+    "The provisioned 2026-10-06 snapshot's docket entries confirmed the timeline (first conference 9/28, denial 10/05) against the predictions' 9/16 creation date."
+  ],
+  "gaps": [
+    "A per-candidate created_at-versus-resolved_at summary in the staging area would save re-deriving the forward-mode timeline by hand on every cell.",
+    "The predictors' big_case_score sits in prediction.json beside the fields the grade needs, so the read-before-seeing ordering the prompt asks for is hard to keep; staging it in a separate file would help."
+  ],
+  "notes": "Cert cell, denied at first conference; all three candidates called denial, all three sat above the 5.1% band rate and so carry negative skill. No flags raised."
+}

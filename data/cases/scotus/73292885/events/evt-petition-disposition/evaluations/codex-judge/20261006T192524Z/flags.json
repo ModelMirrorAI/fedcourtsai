@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73292885",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline reports that a CourtListener lookup for docket 73292885 returned an unrelated Meidinger tax case rather than the provisioned Pestarino case. Its staged log confirms the lookup query but marks the response unobserved, so this is an unverified identifier-mismatch report, not a confirmed mapping error. Evaluation uses the supplied Pestarino outcome only; no external re-query or outcome substitution was made. Maintainer follow-up may be warranted.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0"
+}

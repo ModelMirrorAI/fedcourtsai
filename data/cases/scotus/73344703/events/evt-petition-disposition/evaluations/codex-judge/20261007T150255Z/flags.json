@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73344703",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's retrieval.md says no retrieval beyond provisioned inputs, but its captured call list includes two topical fedcourts query attempts at 2026-09-16T21:44:32.987Z and 21:44:37.061Z. Both result_capture values are unobserved, so success, failure, returned content, and transfer cannot be established; do not treat the null dates as empty results. The queries were bounded before September 16 and the event resolved October 5, so this reporting discrepancy does not establish outcome leakage. See gemini-baseline's evaluation.md.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73318742",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell file reads (cat, sed, grep)",
+    "local python for pooling the statpack band table and writing JSON"
+  ],
+  "helpful": [
+    "The sal-v4 band table's caption stating 10 of 10 Terms rendered, which settles the window question without a flag.",
+    "The provisioned brief in opposition, which let me verify the candidates' vehicle readings directly.",
+    "The retrieval_log result_capture markers, which made the forward-mode leakage check mechanical."
+  ],
+  "gaps": [
+    "A precomputed strictly-prior pooled reached rate per band and Term in the statpack would remove the hand pooling every cert cell repeats.",
+    "A schema check command runnable against an alias-keyed evaluation.json would be handier than loading the pydantic model by hand."
+  ],
+  "notes": "Cert-stage forward cell with a denied outcome and three well-behaved candidates; nothing was needed beyond the provisioned inputs and the committed statpack."
+}

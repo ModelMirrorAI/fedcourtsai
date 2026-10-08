@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500245",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The staged petition jurisdiction paragraph dates the Alabama Supreme Court decision December 19, 2026; its factual narrative and the provisioned docket identify December 19, 2025. Treated as an apparent source typo, not a later decision or outcome leakage. codex-baseline and claude-baseline explicitly noticed the discrepancy. No input was changed; all three predictions remain scoreable.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0"
+}

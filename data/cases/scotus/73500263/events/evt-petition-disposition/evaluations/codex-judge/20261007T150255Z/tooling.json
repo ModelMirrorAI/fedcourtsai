@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500263",
+  "gaps": [
+    "Unobserved results limit result-level leakage assessment for gemini-baseline and two generic rule queries for codex-baseline."
+  ],
+  "helpful": [
+    "Blinded candidate documents and mode-aware retrieval logs",
+    "Frozen salience contexts and rendered prior-Term risk-set table"
+  ],
+  "notes": "No external case retrieval was needed. Quantitative scores use the provisioned outcome and the committed rendered statpack. Candidate outputs are alias-keyed; harness-owned fields are omitted.",
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "Python decimal arithmetic",
+    "Pydantic model validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

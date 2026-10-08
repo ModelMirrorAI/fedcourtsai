@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000458",
+  "run_id": "20261007T142810Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned files", "committed interim statpack", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP read_document", "web search", "fedcourts validate"],
+  "helpful": ["Frozen arrival-position context makes increment baselines explicit.", "Application text exposes both the requested relief and the applicant's account of the lower-court obstacles.", "Per-Term interim counts support a strictly-prior pooled anchor.", "CourtListener retrieved a general injunction precedent without seeking the target outcome."],
+  "gaps": ["Combined application appendix was truncated before the lower-court orders most relevant to reviewing their reasoning.", "Web searches returned no usable results for independent corroboration of the recent precedents cited by the applicant.", "Inspected statpack metadata did not identify corpus freshness."],
+  "notes": "Default uv cache was read-only; a temporary writable cache allowed CLI execution. No live target-case lookup or corpus query was needed. Recent precedents are discussed as characterized by the provisioned application, not as independently verified holdings."
+}

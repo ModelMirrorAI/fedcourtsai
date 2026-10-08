@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73303792",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "python3"
+  ],
+  "helpful": [
+    "metrics/statpack.json exposes the per-Term prefix_est_grant_rate and prefix_weighted_resolved fields, so the risk-set pool can be reproduced exactly rather than from the rounded table",
+    "the staged retrieval_log.json's result_capture markers made the all-unobserved log readable on its queries alone",
+    "the frozen context block on each staged prediction carried both band and salience_version, so the basis choice was mechanical"
+  ],
+  "gaps": [
+    "the evaluator's own snapshot is the decided one, so confirming that a forward cell was not mis-provisioned relies on the prediction's created_at and context.snapshot_date rather than on seeing the snapshot it read"
+  ],
+  "notes": "No corpus query, CourtListener call, or web search was needed: a cert cell with a resolved outcome, a version-matched band table, and three forward logs that name no outcome material."
+}

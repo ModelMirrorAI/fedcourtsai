@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/9026000121",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "The statpack rendered table allows for precise exact base rate pooling."
+  ],
+  "gaps": [],
+  "notes": "Evaluation complete with explicit statpack pooling."
+}

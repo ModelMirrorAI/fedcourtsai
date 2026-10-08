@@ -1,0 +1,25 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73291758",
+  "gaps": [
+    "A pre-pooled per-band prior-Term risk-set figure in the statpack (or a CLI that prints it for a given band/version/Term) would remove the hand arithmetic every cert evaluator repeats",
+    "The predictor's own input snapshot is not staged; for a forward cell the decided docket is a superset so absence checks still work, but a presence check would not"
+  ],
+  "helpful": [
+    "The statpack caption stating 10 of 10 Terms rendered settled the window question in one line",
+    "retrieval_log.json's per-call result_capture marker made the three different engine shapes gradeable on the same rule",
+    "The decided snapshot's proceedings list let me check a candidate's docket assertion (a waiver) against the record"
+  ],
+  "notes": "Cert cell, all three candidates forward. No corpus query was needed: the grading turned on the provisioned inputs, the statpack, and the candidates' own documents and logs.",
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell reads of the blinded staging area, event.yaml, outcome.json, the decided snapshot and documents",
+    "metrics/statpack.md sal-v4 segment table (hand-pooled)",
+    "metrics/statpack.json (cross-check of the pooled rate)",
+    "fedcourtsai.pipeline.evaluate / base_rates source, to match the pooling definition"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

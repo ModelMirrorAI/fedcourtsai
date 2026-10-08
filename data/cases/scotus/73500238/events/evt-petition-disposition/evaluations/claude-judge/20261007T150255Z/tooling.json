@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500238",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/sed/grep/python3) over the provisioned record and blinded staging",
+    "metrics/statpack.md and metrics/statpack.json (sal-v4 band table)",
+    "schemas/*.json via python3",
+    "fedcourtsai.schemas pydantic models for output validation"
+  ],
+  "helpful": [
+    "The staged retrieval_log.json with result_capture markers and retrieved_doc_date made the forward leakage check mechanical.",
+    "The statpack's bracketed reached figures with weighted n let the risk-set baseline be pooled exactly, and statpack.json carries the unrounded rates the in-code pool uses."
+  ],
+  "gaps": [
+    "A single harness-printed pooled risk-set baseline per band/Term (the number stamp-cell would compute) would remove the hand pooling and any rounding ambiguity between statpack.md and statpack.json.",
+    "The outcome's 'took no part' recusal is only visible in the docket text; a structured field would let a judge note it without parsing the order."
+  ],
+  "notes": "Cert cell, denied at first conference. No corpus query or MCP lookup was needed: the question was fully answered by the provisioned record, the blinded staging, and the committed statpack.",
+  "tool_manifest": [
+    "courtlistener"
+  ]
+}

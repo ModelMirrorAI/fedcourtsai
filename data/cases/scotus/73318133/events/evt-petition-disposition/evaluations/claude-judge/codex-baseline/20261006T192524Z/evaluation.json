@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "A pro se, single-plaintiff California Labor Code retaliation suit resolved on summary judgment and affirmed in an unpublished Ninth Circuit memorandum. The nine questions presented ask for penalties, divestiture, and a nationwide injunction rather than stating any question of federal law decided below. The respondent's name and the 737 MAX references carry no doctrinal stake; the one-line denial after a single distribution confirms the Court saw nothing in it. Formed before reading the candidates' own scores."
+  },
+  "brier_score": 9e-06,
+  "brier_skill_score": 0.996567,
+  "case_id": "scotus/73318133",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": 0.002613359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002613359735235249,
+    "total": 0.002613359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:43:06Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; the case was open at prediction time (predicted 2026-09-16, denied 2026-10-05). External calls are three unobserved web-search rows for Supreme Court Rule 10 and one captured curl of Rule 10's text from Cornell LII, none naming this case; graded on their queries, they are general-rule lookups, not outcome material. One shell find excludes data/qp-topics/ by path rather than reading it. No retrieved_doc_date on or after the resolution and the reasoning states it did not retrieve the disposition. Capture coverage 0.875.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:44:34.771332Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

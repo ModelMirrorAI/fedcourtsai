@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500232",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (cat/ls/python3 over provisioned inputs and the committed statpack)",
+    "python3 for base-rate pooling, Brier and skill arithmetic, and jsonschema validation"
+  ],
+  "helpful": [
+    "The blinded staging area with retrieval_log.json per candidate: call classes, capture markers, and query slices made the forward leakage check a few minutes' work.",
+    "The sal-v4 band table's bracketed reached figures with n, which pool directly for the cert base rate.",
+    "The frozen context block on each staged prediction (band, salience_version, term, snapshot_date), which fixes the basis choice without re-deriving anything."
+  ],
+  "gaps": [
+    "A per-candidate summary of the retrieval log (call-class counts, any own-docket or post-cutoff query, capture coverage) would save re-deriving it from the raw calls on every cell.",
+    "A committed per-Term pooled figure for each band (strictly-prior cumulative) beside the table would remove the hand arithmetic and its rounding-error caveat."
+  ],
+  "notes": "Cert-stage forward cell, three candidates, all denied-correct. Everything needed was in the provisioned inputs and the committed statpack; no corpus, MCP, or web lookup was warranted."
+}

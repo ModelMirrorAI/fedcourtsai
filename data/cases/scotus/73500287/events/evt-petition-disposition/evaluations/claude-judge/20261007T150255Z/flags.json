@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73500287",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "codex-baseline's captured log carries a shell call `find data -name AGENTS.md -not -path 'data/qp-topics/*'`. The forbidden path appears only as an exclusion predicate and the command lists files named AGENTS.md, so no qp-topics membership reached the predictor; I graded it as not outcome-material (forward cell, case open at prediction). Recording it because the evaluate prompt's rule reads literally on a query that 'names data/qp-topics/', and a maintainer may want the predict prompt or the log classifier to distinguish an exclusion from a read.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0"
+}

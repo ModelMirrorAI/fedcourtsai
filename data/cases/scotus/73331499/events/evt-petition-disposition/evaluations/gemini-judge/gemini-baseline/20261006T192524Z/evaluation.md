@@ -1,0 +1,3 @@
+The prediction correctly forecasted the denial. The base rate used was `risk_set` for the `baseline` band under `sal-v4`. The predictor stated ~5.5% which is a reasonable approximation of the unweighted average, though the strict pooled rate is 5.12%. 
+
+The reasoning provides a brief but accurate summary of why the petition would be denied (lack of circuit split, state criminal procedural posture, lack of a Brief in Opposition or a Call for Response). The qualitative reasoning is sound, though slightly shorter and less rigorous than other predictions in terms of investigating the exact nature of the case. Thus, the reasoning quality is scored solidly but slightly lower.

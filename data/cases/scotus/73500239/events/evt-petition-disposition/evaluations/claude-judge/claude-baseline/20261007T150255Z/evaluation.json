@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "Fired tenured professor's First Amendment retaliation claim against a public university, raising the Garcetti academic-freedom reservation and a Sullivan-malice gloss on Pickering. The doctrinal question is genuinely open and the race-and-intelligence research subject draws attention, but the vehicle was an unpublished Sixth Circuit affirmance on causation, the respondents waived, and the denial drew no noted dissent or statement. Low stakes as decided; any merits decision on this record would have been narrow."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.8474,
+  "case_id": "scotus/73500239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.0022223597352352487
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0022223597352352487,
+    "total": 0.0022223597352352487
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T16:16:19Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-17, conference 2026-09-28, petition denied 2026-10-05. Log coverage 1.0. Four CourtListener searches named this case's caption (Pesta / Cleveland State University / Bloomberg); three returned nothing and one returned the N.D. Ohio docket dated 2023-03-16, the pre-petition procedural history. One corpus query for granted 2020s rows (latest doc date 2025-02-11) touched no row for this case. Caption searches on an open docket are the ordinary forward shape, not leakage. No web search, no data/qp-topics read. Reasoning discloses the searches and that nothing revealed the disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T181231Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:18:06.619979Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500220",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "shell"
+  ],
+  "helpful": [
+    "Shell tools were very effective for quickly parsing the statpack and reading blinded logs."
+  ],
+  "gaps": [],
+  "notes": "Tooling was sufficient for the task."
+}

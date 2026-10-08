@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.04,
+    "notes": "Pro se, paid, non-capital state habeas petition from an unpublished Seventh Circuit COA denial; the questions turn on one Wisconsin self-defense statute and one Wisconsin pattern instruction, the State waived its response, and the petition was denied at its first conference with no separate writing. Negligible stakes beyond the petitioner."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9904641896985705,
+  "case_id": "scotus/73335108",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.002597359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.5,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002597359735235249,
+    "total": 0.002597359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:48:20Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-16; petition denied 2026-10-05. Log (26 calls, capture coverage 1.0): record and statpack reads; one corpus query (era 2020s, disposition denied, limit 5; retrieved_doc_date 2026-09-10) for unrelated denied rows, not this case; CourtListener MCP calls \u2014 opinion search for the Seventh Circuit caption (0 results), SCOTUS docket search for 25-1279 (0 results), docket item 73335108 (date_filed 2026-05-13, date_terminated null, date_modified 2026-06-17) and docket-entries (0 results). The docket lookup confirmed an open, unchanged docket as of 2026-09-16 \u2014 legitimate forward signal, not outcome material. No post-resolution dates, no qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:51:08.877094Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

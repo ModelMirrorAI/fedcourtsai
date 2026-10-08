@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000104",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The prediction's context.salience_version (sal-v3) does not match the statpack's salience version (sal-v4), so segment_base_rate and related skill score have been omitted according to the prompt instructions.",
+      "event_id": "evt-petition-arrival-disposition"
+    }
+  ]
+}

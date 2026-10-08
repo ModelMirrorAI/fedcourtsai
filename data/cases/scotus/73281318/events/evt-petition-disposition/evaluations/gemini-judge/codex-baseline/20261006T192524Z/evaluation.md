@@ -1,0 +1,1 @@
+Candidate accurately identified the interlocutory posture and fact-bound nature of the petition, properly anchoring on the elevated base rate and adjusting downwards.

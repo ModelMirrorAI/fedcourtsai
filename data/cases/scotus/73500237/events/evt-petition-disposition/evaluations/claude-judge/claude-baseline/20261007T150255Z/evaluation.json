@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.1,
+    "notes": "A single former Federal Air Marshal's Rehabilitation Act failure-to-accommodate claim, dismissed at the pleading stage on two independent grounds (not a qualified individual; reasonable reassignment provided), affirmed by a unanimous published Fourth Circuit panel. The dual-track disability-retirement/accommodation problem recurs in federal employment but the petition joins no clean split, the SG waived, and the Court denied in one pass without writing. Stakes are confined to federal-employee accommodation practice."
+  },
+  "brier_score": 0.000144,
+  "brier_skill_score": 0.945074,
+  "case_id": "scotus/73500237",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": 0.002478359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002478359735235249,
+    "total": 0.002478359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T16:15:12Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-17, petition denied 2026-10-05. Log (28 calls, capture 1.0) shows one corpus query for granted 2020s priors (retrieved_doc_date 2025-02-11, shape only) and two CourtListener docket searches, one on this docket number, both returning 0 results before resolution. No outcome material; the predictor discloses it did not seek the disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T181231Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:16:44.281851Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.051203,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

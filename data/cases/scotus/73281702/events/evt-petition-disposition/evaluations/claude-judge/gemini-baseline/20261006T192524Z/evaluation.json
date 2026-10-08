@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.35,
+    "notes": "A genuine post-Ramos question (whether the predicate acts of a continuous-course-of-conduct offense are elements requiring unanimity) that reaches continuous-sexual-abuse statutes in Texas and several other states and long sentences under them. But the petition alleged no split, drew no amici, and was denied without any noted dissent or statement after one full-briefing conference; the denial drew no visible reaction. Specialist criminal-procedure stakes, below the median of the elevated band."
+  },
+  "brier_score": 0.0025,
+  "brier_skill_score": 0.9159,
+  "case_id": "scotus/73281702",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 0.027167304112156634
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.027167304112156634,
+    "total": 0.027167304112156634
+  },
+  "correct": 1,
+  "created_at": "2026-10-06T19:29:11Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; prediction created 2026-09-17, petition denied 2026-10-05, so the case was genuinely open. Log capture coverage 0.0 (every call unobserved, the engine's standing shape), so every call is graded on its query: provisioned record files, the statpack, three fedcourts query attempts (reported by the candidate as failed), and one CourtListener opinion search for the legal topic. No query names this docket, caption, or disposition; no web fetch; no data/qp-topics read. Reasoning reads the outcome as pending.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-1",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+    "label": "proc-v8",
+    "pipeline_sha": "1e0bc294c3b701ff03da5bb94ae8b1e3604805d0",
+    "stamped_at": "2026-10-06T19:31:22.589176Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1724,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

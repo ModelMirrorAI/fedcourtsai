@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000183",
+  "gaps": [
+    "The committed sal-v4 table cannot supply the frozen sal-v3 baselines.",
+    "gemini-baseline's search results are unobserved; codex-baseline's self-reported MCP attempts have no separate rows in its staged log."
+  ],
+  "helpful": [
+    "Blinded candidate documents and capture markers supported identity-independent reasoning and leakage assessments.",
+    "Frozen salience versions and the statpack heading made the baseline mismatch explicit."
+  ],
+  "notes": "Used only staged inputs, committed schemas, and the committed statpack. No external search or corpus lookup was needed. Local schema validation is used while outputs remain alias-keyed; full target validation belongs to the post-run harness.",
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "python-jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

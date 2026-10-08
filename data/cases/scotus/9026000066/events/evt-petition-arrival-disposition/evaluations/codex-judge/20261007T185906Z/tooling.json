@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000066",
+  "gaps": [
+    "The available sal-v4 table cannot score skill for these frozen sal-v3 bands.",
+    "gemini-baseline has no captured results; codex-baseline reports authority lookups not individually represented in its staged log."
+  ],
+  "helpful": [
+    "Blinded candidate artifacts preserve scoring inputs without revealing identities.",
+    "Frozen salience versions and the statpack heading expose incompatible baseline populations.",
+    "Result-capture markers distinguish unobserved results from captured calls."
+  ],
+  "notes": "No external retrieval was needed. Validation is limited to this cell's schemas and alias consistency; full-tree target validation belongs to the harness after restoration and un-aliasing.",
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "local schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

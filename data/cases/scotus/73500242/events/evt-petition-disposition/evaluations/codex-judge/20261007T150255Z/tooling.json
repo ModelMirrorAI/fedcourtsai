@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500242",
+  "gaps": [
+    "gemini-baseline has no captured tool results; leakage assessment is necessarily query- and prose-based.",
+    "The statpack markdown rounds rates, so weighted pooling is approximate at the printed precision."
+  ],
+  "helpful": [
+    "Blinded candidate inputs preserve identity separation.",
+    "Frozen salience contexts and the matching statpack permit a common risk-set baseline.",
+    "Per-call result-capture markers distinguish unseen results from empty results."
+  ],
+  "notes": "All three blinded candidates were evaluated without external retrieval. The system Python supplies jsonschema; the project environment supplies the artifact models. Whole-tree validation is intentionally deferred until the harness restores and unaliases the committed trees.",
+  "role": "evaluator",
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell reads",
+    "jq",
+    "Python arithmetic",
+    "apply_patch",
+    "JSON Schema validation",
+    "Pydantic validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

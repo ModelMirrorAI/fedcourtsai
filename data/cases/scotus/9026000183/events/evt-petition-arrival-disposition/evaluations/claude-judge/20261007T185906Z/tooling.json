@@ -1,0 +1,24 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000183",
+  "gaps": [
+    "The rendered statpack table carries one salience version (sal-v4) while every prediction on this cell froze sal-v3, so no evaluator-computable baseline exists; a rendered per-version table (or the sal-v3 block the JSON still holds, rendered) would let the cert-cell rate be written rather than omitted.",
+    "The candidates' own statpack reads cannot be reconstructed: both pooled anchors quoted (6.5%, n~13,163) differ from what the committed pack now pools, and nothing staged shows the table a cell read.",
+    "codex-baseline's disclosed MCP calls (HTTP 429 failures) do not appear in its captured log as an mcp call class, so the log and the candidate's retrieval.md cannot be reconciled from the staged view."
+  ],
+  "helpful": [
+    "The staged retrieval_log.json with result_capture markers made the forward-mode leakage check concrete per call.",
+    "The provisioned brief in opposition let the stakes read and the reasoning grades check the candidates' vehicle analysis against the actual adversarial filing."
+  ],
+  "notes": "Cert cell, forward mode on all three candidates, no opinion slot. Evaluator-written fields: correct, brier_score, reasoning_quality, leakage, big_case; segment_base_rate / brier_skill_score / base_rate_basis omitted on the salience-version mismatch per the prompt.",
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "file-read (provisioned record, blinded candidates, retrieval logs)",
+    "shell (python inspection of statpack.json and schemas)",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

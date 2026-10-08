@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281703",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads of the provisioned record, blinded candidates, and retrieval logs",
+    "metrics/statpack.md (sal-v4 segment table)",
+    "fedcourtsai.schemas model validation via uv run"
+  ],
+  "helpful": [
+    "retrieval_log.json's per-call result_capture marker and retrieved_doc_date",
+    "the statpack caption stating how many Terms are rendered",
+    "schema models importable for pre-write validation"
+  ],
+  "gaps": [
+    "a rendered per-Term pooled figure (or a CLI) for the bracketed reached rate, so the evaluator need not re-pool rounded percentages by hand",
+    "the predictor's own flags.json is not staged, so disclosure can only be read from prose"
+  ],
+  "notes": "No corpus query or CourtListener lookup was needed: a cert cell's grading rests on the outcome, the blinded candidates, their logs, and the committed statpack. Pooling the rounded table percentages reproduces the two candidates' 17.24% exactly."
+}

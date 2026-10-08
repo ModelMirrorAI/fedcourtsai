@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000183",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Salience-version mismatch on every candidate (gemini-baseline, claude-baseline, codex-baseline): each prediction froze band 'baseline' under salience_version 'sal-v3', while the committed metrics/statpack.md renders the 'Segment base rate by salience band' table under 'sal-v4'. Per the evaluate prompt the table is no baseline for that band, so segment_base_rate and brier_skill_score are omitted and base_rate_basis is null on all three evaluation.json files. Note for the stamp: statpack.json still carries a sal-v3 alt_segments block (OT2017-OT2025; baseline-band reached figures pool to ~5.0% over n~12,720), so the harness's version-pinned pooling may resolve a claim baseline even though the rendered table cannot. The evaluator-written trio is left null as the prompt's only sanctioned answer.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "codex-baseline's retrieval.md discloses three CourtListener MCP searches that failed with HTTP 429, but its captured retrieval_log.json (29 calls, coverage 1.0) carries no mcp call class; the only non-shell rows are two 'other' entries whose text the harness redacted as credential-shaped. The disclosed calls are therefore unobserved in the log. Not a leakage concern (forward cell, searches named companion cases only); noted because the staged log and the candidate's own disclosure cannot be reconciled from the blinded view.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0"
+}

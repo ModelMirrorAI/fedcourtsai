@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73351824",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local file reads", "jq", "Python decimal arithmetic", "apply_patch", "JSON Schema validation"],
+  "helpful": ["Alias-keyed staging preserves blinded comparison.", "Result-capture markers distinguish missing telemetry from empty results.", "The versioned statpack table supports a common frozen-band baseline.", "The provisioned petition appendix supports direct checks of procedural reasoning."],
+  "gaps": [],
+  "notes": "All three candidates were evaluable from staged materials. No external retrieval was needed. Optional stakes assessments were omitted because independent reads were not fixed before candidate stakes values appeared in the staged prose or transcript. Full-tree validation is reserved for the harness after restoration and un-aliasing."
+}

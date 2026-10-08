@@ -1,0 +1,84 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_salience_version": "sal-v4",
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "Assessed from the provisioned questions and outcome before reading candidate scores: potentially recurring ERISA notice/QDRO issues, but a particular benefit dispute with no merits holding in this disposition."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.961856758794282,
+  "case_id": "scotus/73500263",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.002522359735235249
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002522359735235249,
+    "total": 0.002522359735235249
+  },
+  "correct": 1,
+  "created_at": "2026-10-07T16:45:47.273790Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction dated September 17, 2026, before the October 5 denial. All marked calls are captured. Queries cover provisioned September inputs, aggregate priors, and the lower-court Gasper opinion (search document date December 8, 2025; opinion 11216613). The corpus query's legible document date is February 11, 2025. Neither the log nor the reasoning shows this petition already disposed of. No evidence of mis-provisioned decided-case material; generic prior-case retrieval is not this petition's outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260917T214606Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+    "label": "proc-v8",
+    "pipeline_sha": "6282fde457410ebd1be77945b31e764c61a18b84",
+    "stamped_at": "2026-10-07T16:46:20.284125Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261007T150255Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120250431778929,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/73281699",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell_commands", "file_reads"],
+  "helpful": ["cat", "grep", "rg"],
+  "notes": "No major gaps. The process went smoothly, taking advantage of standard shell commands for searching and reading files."
+}

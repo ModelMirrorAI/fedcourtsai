@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500287",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "metrics/statpack.md",
+    "metrics/statpack.json"
+  ],
+  "helpful": [
+    "The blinded staging area with the retrieval_log.json per candidate, including result_capture markers, made the forward leakage check mechanical.",
+    "The statpack sal-v4 table's bracketed reached figures and the statpack.json prefix fields agree to four decimals, so the pooled baseline could be cross-checked."
+  ],
+  "gaps": [
+    "A harness-rendered pooled prior-Term base rate per band (already computed from statpack.json) would remove the one hand computation left to a cert evaluator.",
+    "The retrieval log's tool field collapses shell commands to `other`; a `shell` class would make the qp-topics path scan easier to audit."
+  ],
+  "notes": "Cert cell, forward mode, three candidates, all denied-correct. Nothing beyond the provisioned inputs and committed metrics was consulted."
+}

@@ -1,0 +1,38 @@
+# Rationale
+
+## Record and target
+
+This is a forward, interim-stage response-requested cell. I read the event definition, the case-level snapshot `2026-10-06.json`, `record/context.json`, the document manifest, and relevant portions of `record/documents/application.txt`, including the application's principal arguments, requested relief, and the available district-court discussion. The context freezes a date cutoff of October 7, 2026, response requested=true, referral=false, and zero amicus briefs. Its null salience band is normal for this stage; no cert-band anchor applies.
+
+The snapshot shows an October 2 application submitted to Justice Kagan and her October 6 request for a response by October 13. The application seeks an injunction pending the Ninth Circuit appeal; it alternatively requests certiorari before judgment. Only an unqualified grant of interim relief is the scored positive outcome. The prediction of denial and P(grant)=0.38 concern that binary, not eventual success on the underlying claims.
+
+## Numerical anchor
+
+The committed `metrics/statpack.md` interim section and the matching `metrics/statpack.json` publish the appropriate raw-count anchor. For application Term 2026, the eligible window is 2016–2025. Pooling every eligible row gives **31 grants / 296 resolved substantive applications = 0.1047297297**: 17/226 in 2025 plus 14/70 in 2024, with zero parsed substantive resolutions in the remaining eligible Terms. The pool exceeds the required 50-resolution floor. I excluded Term 2026 and used neither the all-Term interim rate nor a cert rate.
+
+This is the committed pack version last changed in commit `808f812e9`, dated September 28, 2026, not a freshly queried corpus estimate. The pack does not expose the underlying blob's newest pull/snapshot stamps; I did not retrieve that blob and make no claim about its current freshness. The case-specific supplied snapshot and document fetch date are October 6, 2026; a separate case `last_pulled` value was not supplied.
+
+Coverage sharply limits the anchor: 2024 has 972 unparsed applications, while 2025 has none, and earlier eligible Terms have no parsed substantive outcomes. The observed rate difference is not evidence of a behavioral change. The pack's escalation counts include pending applications and are not prediction-time conditional grant rates. The selection of response-requested applications also makes this cell systematically unlike the unconditioned pool. Raising the forecast above 10.47% therefore does not itself demonstrate predictive skill.
+
+## Why 0.38
+
+I adjust substantially upward from the pool because the Circuit Justice affirmatively requested an answer; because the application identifies impending lost athletic participation, not merely an abstract legal disagreement; and because its arguments concern nationally consequential issues. The application also presents an asserted circuit conflict over the heightened standard for mandatory injunctions and argues that recent sports and parental-rights decisions support relief. These are substantial routes to intervention, even though the request for a response is not an endorsement of them. See application pp. 11–19, 32–43.
+
+I nevertheless keep an unqualified grant below even odds for four reasons:
+
+1. This asks the Supreme Court to issue affirmative relief withheld by both lower courts, not simply to pause an injunction already entered. As general procedural context, the December 26, 2012 in-chambers Supreme Court opinion in *Hobby Lobby Stores, Inc. v. Sebelius*, No. 12A644, distinguishes that posture and describes a demanding All Writs Act standard. I read the opinion through Cornell LII. The applicants invoke later emergency decisions using likelihood-of-success and equitable-factor analysis (application p. 13); I do not assume the older formulation alone decides this application. The narrower inference is that this procedural posture deserves a substantial discount.
+2. The available district-court opinion gives multiple independent obstacles: the scope of the asserted parental right, disputed facts bearing on equal athletic opportunity and safety, funding-recipient notice, and the response to the alleged assault. Those are the court's stated reasons, not factual findings I independently endorse. The application's account of the Ninth Circuit likewise describes merits, privacy, feasibility, and equitable concerns. A disagreement with the mandatory-injunction standard would not necessarily eliminate all those obstacles. See appendix pp. 2a–3a and application pp. 11–13, 36–40.
+3. The statutory step matters: allowing sex-separated sports and requiring the particular exclusion or accommodation requested here are not necessarily the same proposition. Similarly, general parental authority does not automatically settle notice concerning other students or a penalty-free opt-out. I treat the application's readings of *B.P.J.*, *Mirabelli*, and other recent authorities as advocacy disclosed in the pre-decision record, not as independently verified holdings that compel this remedy.
+4. The upcoming season supports expedition, but the record places it in mid-November rather than immediately upon filing. The Court has time to review a response, and the underlying appeal remains available. A tailored or mixed order is also plausible; any disposing order that both grants and denies relief falls on the ungranted side of this scoring convention. See application pp. 12, 37–40.
+
+The resulting 0.38 is a judgmental forecast, not a fitted conditional estimate or a mechanically estimated uplift. Missing opposition and incomplete lower-court reasoning are material uncertainties, so I avoid greater confidence. The 0.90 referral forecast rests on the requested briefing and the substantive institutional stakes. The 0.70 amicus forecast rests on those stakes and the interval before the response deadline, not on treating the pack's terminal signal counts as hazards. Response-requested-increment is stated as zero only because the first request is already in the frozen record and the harness masks that claim.
+
+## Stakes and limitations
+
+The 0.76 stakes score reflects the potential national implications of athletics eligibility, parental rights, and injunction standards, while discounting for an individualized interim remedy. It is not another expression of grant probability. I omit optional votes because this record does not support a reliable individual lineup.
+
+The manifest reports a 134-page source with `truncated: true` and `empty_text: false`. The extracted file includes the application through its conclusion but stops during the district-court appendix at page 18a. The complete district-court analysis and Ninth Circuit order at appendix 68a–78a are not independently available in that extracted file. I distinguish the lower court's available text from the applicants' characterization of missing portions. No respondent brief was provisioned; with the response still due, that is not evidence of a waiver.
+
+There is also an internal chronology inconsistency: the August 23, 2026 district-court appendix places some communications in December 2026, adjacent to a narrative beginning in December 2025. I do not silently correct those dates or use them to infer later events. The snapshot's procedural dates and October 13 deadline govern my forecast. Both limitations are recorded in `flags.json`.
+
+I did not seek this application's disposition or subsequent history, did not consult another predictor's work, and encountered no known outcome for this application. External retrieval was confined to general procedural law; the separate historical application's outcome is not this case's outcome.

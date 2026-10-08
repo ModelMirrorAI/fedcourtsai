@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000121",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell (file reads of the blinded staging area, event/outcome, snapshot, petition text, statpack, schemas, and the in-code scoring helpers)",
+    "python (base-rate pooling, Brier/skill arithmetic, schema validation)"
+  ],
+  "helpful": [
+    "metrics/statpack.md sal-v4 per-Term reached table with its n, which made the risk_set pooling a one-line computation",
+    "the provisioned petition.txt, which let me verify the candidates' procedural-history claims without any external fetch",
+    "retrieval_log.json's result_capture markers, which made the fully-unobserved log gradeable on queries rather than mis-read as empty"
+  ],
+  "gaps": [
+    "a committed statpack build stamp or vintage line next to the band table, so the write-up can state the baseline's vintage without inferring it",
+    "a harness-side note of the in-code pooled baseline (unrounded) beside the rendered table, so the hand-pooled figure from rounded percentages can be checked rather than approximated"
+  ],
+  "notes": "No corpus query or CourtListener call was needed: the outcome, snapshot, petition, and statpack settled every fact the grades rest on. Opinion slot absent, as expected on a cert cell."
+}

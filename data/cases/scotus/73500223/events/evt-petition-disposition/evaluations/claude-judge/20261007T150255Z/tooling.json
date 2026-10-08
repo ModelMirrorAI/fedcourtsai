@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500223",
+  "run_id": "20261007T150255Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "metrics/statpack.md",
+    "metrics/statpack.json"
+  ],
+  "helpful": [
+    "The blinded staging area with the harness-captured retrieval_log.json per candidate, including result_capture markers and the throttled_calls count, made the forward-cell leakage scan mechanical.",
+    "The statpack's sal-v4 band table heading naming its salience version let the version-match rule be checked in one read.",
+    "The unrounded prefix fields in statpack.json confirmed the pooled rate from the rendered table to four significant figures."
+  ],
+  "gaps": [
+    "The schema summary of evaluation.json is large; a compact required-fields and enum cheat sheet in the prompt would save a read on every cell.",
+    "A pre-pooled per-band, per-Term prior-window rate in the statpack (keyed on term and salience_version) would remove the hand pooling the cert cell still asks of the evaluator."
+  ],
+  "notes": "Cert cell, three forward candidates, no opinion slot. No corpus or external lookups were needed to grade."
+}

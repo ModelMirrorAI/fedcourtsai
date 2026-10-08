@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73300246",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "file-read", "metrics/statpack.md"],
+  "helpful": [
+    "The blinded retrieval_log.json with per-call result_capture markers: the 0.0-coverage candidate could be graded on its queries without guessing, and the two unobserved hosted web calls on another candidate were readable the same way.",
+    "The statpack's sal-v4 table caption stating '10 of 10 Term(s)' made the no-divergence determination explicit.",
+    "The candidates' own retrieval.md disclosures matched their logs, which made the forward leakage pass fast."
+  ],
+  "gaps": [
+    "A rendered pooled strictly-prior figure per band and Term (or a one-line command that prints it) would remove the hand arithmetic over eight rounded rows that every evaluator repeats.",
+    "The snapshot's distribution entries would be easier to count against outcome.signals.distribution_count if the snapshot listed its dist-v2 reading alongside."
+  ],
+  "notes": "Cert cell, three forward candidates, all correct on a denial. No corpus or MCP lookups were needed: the question was base-rate reading and record-grounded reasoning, which the provisioned inputs covered."
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281694",
+  "run_id": "20261006T192524Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "Python decimal arithmetic", "apply_patch", "JSON Schema validation"],
+  "helpful": [
+    "Blinded candidate inputs preserve identity-independent scoring.",
+    "Frozen band and salience version select the correct risk-set baseline.",
+    "Result-capture markers distinguish unobserved results from empty results."
+  ],
+  "gaps": [
+    "Compact retrieval logs do not expose full returned source text; unobserved results cannot be independently assessed."
+  ],
+  "notes": "All three candidates were evaluated against the provisioned cert denial. Baseline arithmetic uses all eight eligible prior-Term rows in the fully rendered ten-Term table. No external retrieval or live corpus freshness claim was needed. Optional big-case assessments were omitted. Full data-tree validation is deferred to the harness after restoration, un-aliasing, and stamping, as the evaluation contract requires."
+}

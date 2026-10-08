@@ -1,0 +1,3 @@
+# Evaluation
+
+Candidate C correctly predicted a denial. The candidate noted the government's waiver and correctly argued that the case was fact-bound despite presenting a question regarding the *Remmer* standard. However, the candidate inappropriately substituted the `baseline` band rate with the terminal 0-relist bucket rate (1.2%) for their baseline, which deviates from the instructed method (using the bracketed `reached` rate). This resulted in a slight deduction to the reasoning quality score, but the final outcome was sound.

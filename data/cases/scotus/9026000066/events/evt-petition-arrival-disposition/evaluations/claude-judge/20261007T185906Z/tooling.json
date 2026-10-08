@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000066",
+  "run_id": "20261007T185906Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "file reads of the blinded staging area and record/",
+    "metrics/statpack.md (band table heading and rows)",
+    "python json/pydantic check of the written outputs"
+  ],
+  "helpful": [
+    "The statpack table heading naming its salience version made the version-mismatch rule mechanical to apply.",
+    "The staged retrieval_log.json with result_capture markers and retrieved_doc_date let the forward leakage check rest on the log rather than the candidates' word."
+  ],
+  "gaps": [
+    "No rendered band table for a superseded salience version (sal-v3), so three otherwise-scoreable cert cells lose their skill score.",
+    "The captured log does not appear to carry one engine's MCP calls, so a disclosed search could only be cross-checked against the candidate's own retrieval.md."
+  ],
+  "notes": "No corpus query was needed: a one-entry pro se docket with a denial at the first conference leaves nothing for a prior lookup to add."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000458",
+  "run_id": "20261007T142810Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "Decisive forward signal from outside the snapshot: CourtListener retrieval of the Ninth Circuit appeal docket (26-5488) showed the panel (Hawkins, W. Fletcher, Mendoza), three amicus filings supporting the applicants at that stage (State of Iowa et al., Women's Liberation Front, Do No Harm), and an appellee motion to extend merits-briefing time filed 2026-10-05. These shaped the amicus-increment and timing forecasts. I also read the Mirabelli v. Bonta per curiam (25A810, 2026-03-02) via CourtListener. Nothing about this application's own disposition was sought or encountered."
+    }
+  ]
+}

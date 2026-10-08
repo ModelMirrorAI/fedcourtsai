@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281699",
+  "flags": [
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's harness log includes an attempted git restore of the prohibited labeling reference artifact qp-topic-reference.json. The call is unobserved, as are all 34 calls in that log; neither successful restoration nor a subsequent content read is established. No outcome-revealing fact appears in the reasoning, and the prediction predates the supplied resolution. Recorded as an out-of-scope artifact-restoration concern, not proven outcome exposure or a leakage exclusion. The evaluator did not access the labeling artifact. See gemini-baseline's evaluation.md.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261006T192524Z",
+  "schema_version": "1.0"
+}

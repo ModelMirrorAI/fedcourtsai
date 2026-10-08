@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000080",
+  "gaps": [
+    "No matching sal-v3 baseline table in the current committed statpack",
+    "Unobserved results limit verification of gemini-baseline retrieval"
+  ],
+  "helpful": [
+    "Blinded candidate artifacts",
+    "Per-call result-capture markers",
+    "Frozen salience version and current statpack heading"
+  ],
+  "notes": "All evaluation used the staged artifacts and committed contracts/statpack. No external retrieval or corpus lookup was needed. The current band table was checked for eligibility, not used to substitute a mismatched baseline. Full data validation is deferred to the harness after restoration and alias resolution.",
+  "role": "evaluator",
+  "run_id": "20261007T185906Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell reads",
+    "jq",
+    "metrics/statpack.md",
+    "apply_patch",
+    "JSON Schema validation",
+    "Pydantic validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
