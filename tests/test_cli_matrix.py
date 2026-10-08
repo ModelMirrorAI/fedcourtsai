@@ -2013,7 +2013,11 @@ def test_predict_plan_enumerates_exactly_the_cells_predict_matrix_would_mint(
     minted = runner.invoke(
         app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
     )
-    planned = runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env)
+    # Under the same run id, as the workflow's report step re-plans it: the run
+    # id keys the fan-out order, so parity is field for field *and* in order.
+    planned = runner.invoke(
+        app, ["predict-plan", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
 
     assert minted.exit_code == 0
     assert planned.exit_code == 0
@@ -2111,7 +2115,10 @@ def test_evaluate_plan_enumerates_exactly_the_cells_evaluate_matrix_would_mint(
     minted = runner.invoke(
         app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
     )
-    planned = runner.invoke(app, ["evaluate-plan", "--body-file", str(body)], env=env)
+    # Same run id, so the judge order is comparable too (see the predict twin).
+    planned = runner.invoke(
+        app, ["evaluate-plan", "--run-id", "RID", "--body-file", str(body)], env=env
+    )
 
     assert minted.exit_code == 0
     assert planned.exit_code == 0

@@ -16464,10 +16464,11 @@ def _approval_report_table(plan: dict[str, Any]) -> list[str]:
     """The would-mint cells as a markdown table, ordered by case, truncated with its count.
 
     Sorted by (case, actor) rather than left in fan-out order so the 40 rows a
-    truncated table keeps are a **contiguous range of cases**: a reader can see
-    which cases the visible rows cover and know the rest lie past them, where
-    the registry-major fan-out order would instead show every case's first
-    engine and cut the others.
+    truncated table keeps are a **contiguous range of case ids**: a reader can
+    see which cases the visible rows cover and know the rest lie past them. The
+    fan-out keeps a case's cells together too, but in derivation order and with
+    the engines in a per-run shuffle; the sort gives the table an ascending
+    case id and a fixed actor order within each case instead.
     """
     cells = plan["would_mint"]
     if not cells:
@@ -16720,7 +16721,8 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
         str,
         typer.Option(
             help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
-            "carries it — a plan mints none — so it names the run only in the plan."
+            "carries it — a plan mints none — but it keys the engine order within each "
+            "case, so the plan lists cells in the order a run under this id starts them."
         ),
     ] = "",
     approval_report: _ApprovalReportOption = None,
@@ -16918,7 +16920,8 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
         str,
         typer.Option(
             help="Run id to plan under, echoed on the plan; defaults to now (UTC). No cell "
-            "carries it — a plan mints none — so it names the run only in the plan."
+            "carries it — a plan mints none — but it keys the judge order within each "
+            "case, so the plan lists cells in the order a run under this id starts them."
         ),
     ] = "",
     missed_since: Annotated[
