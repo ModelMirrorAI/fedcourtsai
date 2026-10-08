@@ -390,6 +390,23 @@ def test_the_registered_headline_is_the_board(ledger: Path) -> None:
     assert math.isclose(forward["population_brier_skill_score"], expected)
 
 
+def test_the_in_sample_benchmark_rides_beside_the_headline_not_inside_it(ledger: Path) -> None:
+    result = _run(ledger)
+    headline = _forward(result["registered_headline"]["figures"])
+    assert "population_in_sample_skill_score" not in headline
+    assert "in_sample_grant_rate" not in headline
+    benchmark = _forward(result["post_hoc_in_sample_benchmark"]["figures"])
+    assert set(benchmark) == {
+        "events_scored",
+        "in_sample_events_scored",
+        "in_sample_grant_rate",
+        "population_in_sample_skill_score",
+        "in_sample_skill_scored",
+    }
+    assert benchmark["events_scored"] == headline["events_scored"]
+    assert benchmark["in_sample_events_scored"] == 4
+
+
 def test_the_anchor_reads_the_build_each_grading_read(ledger: Path) -> None:
     block = _run(ledger)["blocks"]["exact_pool_anchor"]
     forward = _forward(block["figures"])

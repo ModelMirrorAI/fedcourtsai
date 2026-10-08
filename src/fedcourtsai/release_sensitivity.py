@@ -32,6 +32,11 @@ computes them, and the registered headline is the board itself. Three blocks:
    actually considered the petition sat (:func:`considering_conference`), and
    every board cell on them is dropped.
 
+Beside the blocks, ``post_hoc_in_sample_benchmark`` projects the registered
+board's in-sample skill figures (:data:`IN_SAMPLE_FIELDS`): a post-hoc
+descriptive benchmark rather than a departure from the registered computation,
+so it sits outside both the headline and the blocks.
+
 Read-only and offline over the ledger: the corpus supplies only the payloads
 (blocks 2 and 3) and git supplies only the statpack builds (block 1). Nothing
 here writes anything, and no figure here reaches the board.
@@ -122,6 +127,18 @@ ACCURACY_SKILL_FIELDS: tuple[str, ...] = (
     "event_accuracy_lift",
     "population_brier_skill_score",
     "skill_scored",
+)
+
+#: The board's post-hoc in-sample benchmark, read off the registered board itself.
+#: Kept out of ``ALL_FIELDS``: it is neither a registered figure nor a departure
+#: from one, so it rides beside the headline rather than inside it — and
+#: ``matches_committed_board`` keeps comparing the registered figures only.
+IN_SAMPLE_FIELDS: tuple[str, ...] = (
+    "events_scored",
+    "in_sample_events_scored",
+    "in_sample_grant_rate",
+    "population_in_sample_skill_score",
+    "in_sample_skill_scored",
 )
 
 #: A recorded rate within this of the exact pool is exact to six decimals: half a
@@ -1034,6 +1051,7 @@ def release_sensitivity(
             "figures": headline,
         },
         "blocks": blocks,
+        "post_hoc_in_sample_benchmark": {"figures": project(registered_board, IN_SAMPLE_FIELDS)},
     }
 
 

@@ -335,6 +335,11 @@ is the Court's page for that date, which a reader checks by hand.
   gives a figure a sensitivity line, the table shows the registered figure and
   the line appears only in the plain sentence that discloses it; no sensitivity
   figure is put in a table cell or the headline.
+- **The post-hoc benchmark stays in the audit write-up.** The in-sample skill
+  figure section 3 labels post-hoc is neither registered nor a sensitivity
+  line, so it goes in no table cell, no headline and no model comparison; if
+  the page mentions it at all, it is one plain sentence that names it as
+  chosen after the outcomes were known and links section 3.
 - **Every number keeps its `n`** in the table or the sentence carrying it.
 - **Same page for everyone.** No outside party sees the filled page before it
   publishes.

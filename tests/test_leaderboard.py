@@ -1,6 +1,7 @@
 """Leaderboard aggregation and stratification over a small fixture ledger."""
 
 import json
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -2760,7 +2761,7 @@ def test_a_gvr_is_a_miss_for_always_deny_and_for_a_granted_call(tmp_path: Path) 
     # A GVR grants the petition, so it sits on the granted side of the binary
     # target — but the label is `gvr`, and exact match scores both a `granted`
     # call and the synthetic `denied` one as misses.
-    ev = _evaluation("alpha", event_id="evt-a", correct=0)
+    ev = _evaluation("alpha", event_id="evt-a", correct=0, brier_score=0.09)
     _write_cell(
         tmp_path,
         ev,
@@ -2774,7 +2775,12 @@ def test_a_gvr_is_a_miss_for_always_deny_and_for_a_granted_call(tmp_path: Path) 
     run = stratify(tmp_path, frozen_only=False)
     (fact,) = cell_facts(run.cells, tmp_path).values()
     assert fact == CellFacts(
-        band_key="sal-v1/high", always_deny_correct=0, recomputed_correct=0, grant_family=True
+        band_key="sal-v1/high",
+        always_deny_correct=0,
+        recomputed_correct=0,
+        grant_family=True,
+        granted=1,
+        brier_reproduces=True,
     )
     (entry,) = _banded_board(tmp_path).entries
     assert entry.forward is not None
@@ -2792,6 +2798,8 @@ def _cert_facts(
             always_deny_correct=always_deny_correct,
             recomputed_correct=ev.correct or 0,
             grant_family=False,
+            granted=0,
+            brier_reproduces=True,
         )
         for ev in evals
     }
@@ -2911,6 +2919,10 @@ def test_grants_count_the_grant_family_not_the_binary_target(tmp_path: Path) -> 
     run = stratify(tmp_path, frozen_only=False)
     families = {key[1]: fact.grant_family for key, fact in cell_facts(run.cells, tmp_path).items()}
     assert families == {"evt-gip": False, "evt-gvr": True}
+    # The in-sample rate reads the Brier's own binary target, so both are grants.
+    targets = {key[1]: fact.granted for key, fact in cell_facts(run.cells, tmp_path).items()}
+    assert targets == {"evt-gip": 1, "evt-gvr": 1}
+    assert entry.forward.in_sample_grant_rate == 1.0
 
 
 def test_realized_grants_are_paired_to_the_expected_events() -> None:
@@ -2920,7 +2932,12 @@ def test_realized_grants_are_paired_to_the_expected_events() -> None:
     unrated = _evaluation("alpha", event_id="evt-b")
     facts = {
         _evaluation_key(ev): CellFacts(
-            band_key="sal-v1/high", always_deny_correct=0, recomputed_correct=1, grant_family=True
+            band_key="sal-v1/high",
+            always_deny_correct=0,
+            recomputed_correct=1,
+            grant_family=True,
+            granted=1,
+            brier_reproduces=True,
         )
         for ev in (rated, unrated)
     }
@@ -2938,6 +2955,200 @@ def test_realized_grants_are_paired_to_the_expected_events() -> None:
     assert forward.grants_expected == pytest.approx(0.3)
     assert forward.grants_expected_scored == 1
     assert forward.grants_realized_expected_scored == 1
+
+
+def _in_sample_facts(graded: Sequence[tuple[Evaluation, int]]) -> dict[Any, CellFacts]:
+    return {
+        _evaluation_key(ev): CellFacts(
+            band_key="sal-v1/high",
+            always_deny_correct=1 - target,
+            recomputed_correct=ev.correct or 0,
+            grant_family=bool(target),
+            granted=target,
+            brier_reproduces=True,
+        )
+        for ev, target in graded
+    }
+
+
+def test_in_sample_skill_scores_against_the_blocks_own_grant_rate() -> None:
+    # Four events, one granted: c = 1/4. Reference Briers (c - y)^2 are 0.5625
+    # on the grant and 0.0625 on each denial, summing to 0.75; the forecast
+    # Briers sum to 0.16, so skill = 1 - 0.16 / 0.75.
+    evals = [
+        (_evaluation("alpha", event_id="evt-a", brier_score=0.1), 1),
+        (_evaluation("alpha", event_id="evt-b", brier_score=0.01), 0),
+        (_evaluation("alpha", event_id="evt-c", brier_score=0.02), 0),
+        (_evaluation("alpha", event_id="evt-d", brier_score=0.03), 0),
+    ]
+    board = build_leaderboard([_forward(ev) for ev, _ in evals], facts=_in_sample_facts(evals))
+    (entry,) = board.entries
+    for block in (entry.forward, (entry.by_band or {})["sal-v1/high"]):
+        assert block is not None
+        assert block.in_sample_grant_rate == pytest.approx(0.25)
+        assert block.in_sample_events_scored == 4
+        assert block.in_sample_skill_scored == 4
+        assert block.population_in_sample_skill_score == pytest.approx(1 - 0.16 / 0.75)
+
+
+def test_a_forecaster_reporting_the_in_sample_rate_scores_exactly_zero() -> None:
+    # The defining property: c = 1/3 over three events, each forecast at c, so
+    # every Brier is the reference (c - y)^2 and the skill is 0 — on the binary
+    # target, one per event, whatever the panel depth.
+    c = 1 / 3
+    evals = [
+        (
+            _evaluation("alpha", event_id="evt-a", evaluator_id="eval-a", brier_score=(c - 1) ** 2),
+            1,
+        ),
+        (
+            _evaluation("alpha", event_id="evt-a", evaluator_id="eval-b", brier_score=(c - 1) ** 2),
+            1,
+        ),
+        (_evaluation("alpha", event_id="evt-b", brier_score=c**2), 0),
+        (_evaluation("alpha", event_id="evt-c", brier_score=c**2), 0),
+    ]
+    forward = (
+        build_leaderboard([_forward(ev) for ev, _ in evals], facts=_in_sample_facts(evals))
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.in_sample_grant_rate == pytest.approx(c)
+    assert forward.population_in_sample_skill_score == pytest.approx(0.0, abs=1e-12)
+
+
+def test_in_sample_skill_is_null_where_the_rate_is_degenerate() -> None:
+    # Every event denied: c = 0, every reference Brier is 0, and the ratio is
+    # undefined — null with a zero count, never an infinity and never a zero.
+    # The rate itself is still published.
+    evals = [
+        (_evaluation("alpha", event_id="evt-a", brier_score=0.01), 0),
+        (_evaluation("alpha", event_id="evt-b", brier_score=0.04), 0),
+    ]
+    forward = (
+        build_leaderboard([_forward(ev) for ev, _ in evals], facts=_in_sample_facts(evals))
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.in_sample_grant_rate == 0.0
+    assert forward.in_sample_events_scored == 2
+    assert forward.population_in_sample_skill_score is None
+    assert forward.in_sample_skill_scored == 0
+    granted = [(_evaluation("alpha", event_id="evt-a", brier_score=0.01), 1)]
+    forward = (
+        build_leaderboard([_forward(ev) for ev, _ in granted], facts=_in_sample_facts(granted))
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.in_sample_grant_rate == 1.0
+    assert forward.population_in_sample_skill_score is None
+    assert forward.in_sample_skill_scored == 0
+
+
+def test_in_sample_rate_counts_each_event_once_however_deep_its_panel() -> None:
+    # evt-a (granted) is graded by three judges, evt-b (denied) by one. The
+    # rate is 1/2 over the two events — not 3/4 over the four gradings — while
+    # every grading still enters the skill's ratio of sums at (0.5 - y)^2.
+    evals = [
+        (_evaluation("alpha", event_id="evt-a", evaluator_id="eval-a", brier_score=0.04), 1),
+        (_evaluation("alpha", event_id="evt-a", evaluator_id="eval-b", brier_score=0.09), 1),
+        (_evaluation("alpha", event_id="evt-a", evaluator_id="eval-c", brier_score=0.16), 1),
+        (_evaluation("alpha", event_id="evt-b", brier_score=0.01), 0),
+    ]
+    forward = (
+        build_leaderboard([_forward(ev) for ev, _ in evals], facts=_in_sample_facts(evals))
+        .entries[0]
+        .forward
+    )
+    assert forward is not None
+    assert forward.in_sample_grant_rate == pytest.approx(0.5)
+    assert forward.in_sample_events_scored == 2
+    assert forward.in_sample_skill_scored == 4
+    assert forward.population_in_sample_skill_score == pytest.approx(1 - 0.30 / 1.0)
+
+
+def test_in_sample_skill_needs_cert_facts_and_a_brier() -> None:
+    # A grading with no Brier, or with no facts (a non-cert cell), is outside
+    # the column; with no facts at all the fields stay at their empty values.
+    scored = _evaluation("alpha", event_id="evt-a", brier_score=0.1)
+    unscored = _evaluation("alpha", event_id="evt-b", brier_score=None)
+    uncovered = _evaluation("alpha", event_id="evt-c", brier_score=0.2)
+    denied = _evaluation("alpha", event_id="evt-d", brier_score=0.05)
+    facts = _in_sample_facts([(scored, 1), (unscored, 0), (denied, 0)])
+    cells = [_forward(ev) for ev in (scored, unscored, uncovered, denied)]
+    forward = build_leaderboard(cells, facts=facts).entries[0].forward
+    assert forward is not None
+    assert forward.in_sample_events_scored == 2
+    assert forward.in_sample_skill_scored == 2
+    assert forward.population_in_sample_skill_score == pytest.approx(1 - 0.15 / 0.5)
+    plain = build_leaderboard(cells).entries[0].forward
+    assert plain is not None
+    assert plain.in_sample_grant_rate is None
+    assert plain.population_in_sample_skill_score is None
+    assert (plain.in_sample_events_scored, plain.in_sample_skill_scored) == (0, 0)
+
+
+@pytest.mark.parametrize(("stamped", "reproduces"), [(0.49, True), (0.09, False)])
+def test_in_sample_skill_needs_every_brier_to_reproduce(
+    tmp_path: Path, stamped: float, reproduces: bool
+) -> None:
+    # Both cells forecast `granted` at 0.7. evt-a was granted (Brier 0.09);
+    # evt-b is now denied (Brier 0.49). A grading of evt-b still stamped 0.09
+    # was taken against a superseded outcome, so the figure is null rather
+    # than pairing that Brier with a baseline read off the current one.
+    _write_cell(
+        tmp_path,
+        _evaluation("alpha", event_id="evt-a", correct=1, brier_score=0.09),
+        context=_band_context("high"),
+        predicted_disposition=Disposition.granted,
+        actual_disposition=Disposition.granted,
+    )
+    _write_cell(
+        tmp_path,
+        _evaluation("alpha", event_id="evt-b", correct=0, brier_score=stamped),
+        context=_band_context("high"),
+        predicted_disposition=Disposition.granted,
+        actual_disposition=Disposition.denied,
+    )
+    (entry,) = _banded_board(tmp_path).entries
+    forward = entry.forward
+    assert forward is not None
+    assert forward.in_sample_grant_rate == pytest.approx(0.5)
+    if reproduces:
+        assert forward.in_sample_skill_scored == 2
+        assert forward.population_in_sample_skill_score == pytest.approx(1 - 0.58 / 0.5)
+    else:
+        assert forward.in_sample_skill_scored == 0
+        assert forward.population_in_sample_skill_score is None
+
+
+def test_in_sample_skill_never_moves_the_ranking() -> None:
+    # `alpha` is the more accurate; `beta` is far ahead on in-sample skill. The
+    # order is the accuracy order whatever the in-sample column reads. beta's
+    # evt-b is deliberately a miss at Brier 0: the two columns are set
+    # independently so that they point opposite ways.
+    alpha = [
+        (_evaluation("alpha", event_id="evt-a", correct=1, brier_score=0.5), 1),
+        (_evaluation("alpha", event_id="evt-b", correct=1, brier_score=0.5), 0),
+    ]
+    beta = [
+        (_evaluation("beta", event_id="evt-a", correct=1, brier_score=0.0), 1),
+        (_evaluation("beta", event_id="evt-b", correct=0, brier_score=0.0), 0),
+    ]
+    cells = [_forward(ev) for ev, _ in (*alpha, *beta)]
+    banded = build_leaderboard(cells, facts=_in_sample_facts([*alpha, *beta]))
+    assert [e.predictor_id for e in banded.entries] == ["alpha", "beta"]
+    skills = [
+        e.forward.population_in_sample_skill_score if e.forward else None for e in banded.entries
+    ]
+    assert skills == [pytest.approx(-1.0), pytest.approx(1.0)]
+    plain = build_leaderboard(cells)
+    assert [(e.rank, e.predictor_id) for e in banded.entries] == [
+        (e.rank, e.predictor_id) for e in plain.entries
+    ]
 
 
 def test_a_grading_stamped_against_a_superseded_outcome_leaves_the_floor_null(

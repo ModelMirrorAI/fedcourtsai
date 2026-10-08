@@ -600,6 +600,84 @@ stays outside the gate:
   on a pack built before the case resolved it over-corrects by one unit —
   bounded by `1 / 30` and self-correcting at the next refresh.
 
+  **A third skill figure is a post-hoc descriptive benchmark, not a member of
+  the pair.** `population_in_sample_skill_score` scores each block against its
+  own **sample climatology**: the constant `in_sample_grant_rate`, `c`, is the
+  share of granted outcomes among the block's own scored events — the
+  `in_sample_events_scored` distinct events of the gradings carrying a Brier
+  score and cert outcome facts, each event counted once however many judges
+  graded it — and every such grading's reference Brier is `(c − y)²`.
+  Aggregated as the same ratio of sums, over `in_sample_skill_scored`
+  gradings: on a cert block whose cells all carry facts that is
+  `mean_brier_score`'s own population, wider than the realized-Term column's,
+  because none of that column's qualifying rules (the `risk_set` basis, the
+  Term's band under a matching version, the minimum resolved count) bear on a
+  rate read off the scored outcomes themselves. `y` and `c` are on the Brier's
+  own binary target, `actual_granted`, so a `granted-in-part` outcome counts as
+  a grant here; elsewhere `c` is the grant-family share.
+
+  What it measures follows from the Murphy decomposition of the Brier score,
+  `BS = reliability − resolution + uncertainty`, where the uncertainty term is
+  `c(1 − c)` — which, wherever every event carries the same number of
+  gradings, is exactly the mean reference Brier above. There, and with
+  forecasts grouped at their distinct values, the figure therefore **equals
+  `(resolution − reliability) / uncertainty`** against the block's own base
+  rate. (Grouped into a decile binning instead, as the cert back-test's
+  calibration view uses, reliability and resolution pick up within-bin
+  terms and the equality is not reproduced.) Where panel depth varies by event
+  it holds only approximately: `c` counts events while the sum runs over
+  gradings. Either way a forecaster reporting `c` itself scores exactly 0.
+
+  It nets out **the block's level and nothing finer**, the scored case's own
+  outcome included — so it is not a within-band discrimination measure
+  wherever a block pools bands. The salience gate selects bands for their very
+  different grant rates, and one `c` over a pooled block credits a predictor
+  for separating the bands as well as for separating cases inside them. A
+  forecaster that knew only each band's realized rate and told no two cases
+  in a band apart would score well above 0 on a pooled block. The pooled
+  `forward` figure therefore reads as discrimination within the block,
+  *between-band separation included*, net of miscalibration against the
+  block's own rate; the within-band reading is the `by_band` cell, each with
+  its own `c`, and only where that cell is defined.
+
+  No forecaster could have reported `c`: the rate exists only once every scored
+  event has resolved, and it contains the case being scored. It is
+  **hindsight by construction** and post-hoc rather than pre-registered — so it
+  is never a rank key, never a headline, never pooled with or differenced from
+  either other skill figure, and never read as in-season evidence.
+
+  It differs from both members of the pair in its baseline, not its formula.
+  The **prior-Term** figure scores against the strictly-prior pooled band rate:
+  leakage-safe, knowable when the forecast ran, the primary outcome measure and
+  the only one that may rank. The **realized-Term** figure scores against the
+  band's rate over the case's whole Term — a far larger population than the
+  scored events — leave-one-out, so the case never sits in its own baseline,
+  and read at the committed pack's term-to-date vintage, so mid-Term it carries
+  the grant-depletion bias above. The in-sample figure uses neither the band nor
+  the Term: its rate is the block's own scored events, the case included, read
+  off the committed outcomes with no vintage and no minimum. So a `by_band`
+  cell gets its own `c` over that band's scored events, and a block whose
+  events are all denied (or all granted) has `c` of 0 (or 1), every reference
+  Brier 0 and the ratio undefined: the skill is null with
+  `in_sample_skill_scored` 0 while `in_sample_grant_rate` still reads the
+  level. On a cohort with a handful of grants a degenerate rate is most bands,
+  and where the rate is not degenerate the denominator is dominated by the
+  grant events — each contributes `(1 − c)²` against a denial's `c²`, so the
+  grants carry a share `1 − c` of it. Its scale is set almost entirely by those
+  few grants: every unit of Brier, on a grant or on a denial, is measured
+  against about that many grants' worth of uncertainty, and the figure moves
+  by large steps when one more resolves. So each figure is quoted with its
+  grant count — `k` grants of `in_sample_events_scored` events, `c` counting
+  GVRs, summary reversals and partial grants as grants — and two predictors'
+  figures sit side by side only where their `in_sample_events_scored` agree,
+  since a different `c` is a different baseline.
+
+  The skill is also null, with the rate still published, wherever any of the
+  block's gradings carries a stamped Brier that no longer reproduces from its
+  scored prediction against the committed outcome — a Brier taken against an
+  outcome since superseded, the same unpaired shape that leaves the realized
+  floor null.
+
   Every **cert** stratum block also carries the **realized always-deny floor**
   on its own cells. `always_deny_accuracy` scores a constant `denied` call over
   exactly the gradings `accuracy` averages — the `accuracy_scored` cells, one
@@ -1358,7 +1436,9 @@ cell's own evaluation recorded no skill. Every
 non-cert block — both stages and the `(none)` bucket — reports the realized-Term
 skill null with a zero count, by construction rather than by coincidence:
 only the cert segment has a salience band whose realized rate the pack
-publishes.
+publishes. The post-hoc in-sample benchmark is null there too, with
+`in_sample_grant_rate` null and both its counts zero: only a cert cell carries
+the outcome facts it reads.
 
 A merits **skill** number exists only where the pack can support it: the
 merits section publishes only once a corpus row carries a parsed judgment

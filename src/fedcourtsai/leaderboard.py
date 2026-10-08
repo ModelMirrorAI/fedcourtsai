@@ -76,7 +76,9 @@ outcome measure, and the only one that may rank.
 against the rate the case's own Term realized — computed at render rather than
 carried on the cell, because a Term's own rate keeps moving until the Term
 closes. Both are aggregated as a **ratio of sums** rather than a mean of
-per-cell ratios; :class:`CellSkill` says why.
+per-cell ratios; :class:`CellSkill` says why. Beside the pair sits a post-hoc
+descriptive benchmark, skill against each block's own in-sample grant rate
+(:func:`_in_sample_fields`) — hindsight by construction, never a rank key.
 """
 
 from __future__ import annotations
@@ -96,7 +98,7 @@ from .integrity import (
     latest_evaluations,
 )
 from .pipeline.base_rates import realized_band_rate
-from .pipeline.evaluate import bench_vote_accuracy, is_correct
+from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
 from .pipeline.moments import first_moment, scores_votes
 from .process_version import (
     Series,
@@ -220,6 +222,15 @@ class CellSkill:
     realized_term_baseline: float | None = None
 
 
+#: How far a stamped cert ``brier_score`` may sit from the Brier recomputed off
+#: the scored prediction and the committed outcome before
+#: ``CellFacts.brier_reproduces`` reads false. Committed records carry three
+#: decimals, so rounding stays well inside it; an outcome whose binary target
+#: flipped moves the Brier by ``|1 - 2p|``, far beyond it except for a forecast
+#: within a hair of one half.
+BRIER_REPRODUCTION_TOLERANCE = 1e-3
+
+
 @dataclass(frozen=True)
 class CellFacts:
     """One cert cell's band key and the outcome facts its floor fields read.
@@ -241,6 +252,16 @@ class CellFacts:
     recomputed_correct: int
     #: The outcome is in the grant family the band rates count.
     grant_family: bool
+    #: The outcome's binary target, ``Outcome.actual_granted`` — the ``y`` every
+    #: Brier score on the cell is taken against.
+    granted: int
+    #: The grading's stamped ``brier_score`` reproduces, within
+    #: :data:`BRIER_REPRODUCTION_TOLERANCE`, from the scored prediction against
+    #: the committed outcome (vacuously true where none is stamped). A
+    #: disagreement means the Brier was taken against an outcome since
+    #: superseded, so pairing it with a baseline read off the current one would
+    #: be an unpaired ratio.
+    brier_reproduces: bool
 
 
 def band_key(context: PredictionContext | None) -> str:
@@ -350,7 +371,70 @@ def _aggregate(
             [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]
         ),
         **_floor_fields(evals, skills, facts),
+        **_in_sample_fields(evals, facts),
     )
+
+
+def _in_sample_fields(
+    evals: Sequence[Evaluation], facts: Mapping[EvaluationKey, CellFacts] | None
+) -> dict[str, float | int | None]:
+    """Brier skill against the block's own in-sample grant rate, and that rate.
+
+    The **sample-climatology** baseline: ``c`` is the mean binary target
+    (``Outcome.actual_granted``, the ``y`` each Brier is taken against) over the
+    distinct events of the gradings scored here — one per event, so a panel of
+    three judges enters an event's outcome once — and the case being scored is
+    inside it. Each grading's reference Brier is ``(c - y)^2``, and the skill is
+    the same ratio of sums as the other two columns (:func:`_skill_of_means`).
+
+    Scored over every grading carrying a Brier score and :class:`CellFacts` —
+    not the realized-Term column's narrower set, whose extra conditions (the
+    ``risk_set`` basis, the Term's band under a matching salience version, the
+    minimum resolved count) qualify a *band rate* this baseline never reads. On
+    a cert block whose cells all carry facts that is ``mean_brier_score``'s own
+    population.
+
+    Hindsight by construction — the rate exists only once every scored event has
+    resolved, and it contains the scored case's own outcome — so it is a
+    post-hoc descriptive benchmark: never a rank key, never a headline. Where
+    ``c`` is 0 or 1 every reference Brier is 0 and the ratio is undefined, so
+    the skill is null and its count 0 rather than a signed infinity. The skill
+    is null too wherever any scored grading's stamped Brier no longer
+    reproduces against the committed outcome (``CellFacts.brier_reproduces``).
+    """
+    if facts is None:
+        return {}
+    scored: list[tuple[Evaluation, float, CellFacts]] = []
+    for ev in evals:
+        fact = facts.get(_evaluation_key(ev))
+        if ev.brier_score is not None and fact is not None:
+            scored.append((ev, ev.brier_score, fact))
+    if not scored:
+        return {}
+    # One entry per event: the outcome is the event's, so every grading of it
+    # carries the same target.
+    outcomes = {(ev.case_id, ev.event_id): fact.granted for ev, _, fact in scored}
+    rate = sum(outcomes.values()) / len(outcomes)
+    fields: dict[str, float | int | None] = {
+        "in_sample_grant_rate": rate,
+        "in_sample_events_scored": len(outcomes),
+    }
+    # A rate of exactly 0 or 1 (an integer sum over an integer count) is the one
+    # shape that makes a reference Brier zero, so past this guard every term
+    # `_skill_of_means` sums is strictly positive.
+    if rate in (0.0, 1.0):
+        return fields
+    # A stamped Brier taken against a superseded outcome cannot be paired with
+    # a baseline (and a rate) read off the current one: the whole figure goes
+    # null, as the realized floor does, rather than running over fewer gradings.
+    if not all(fact.brier_reproduces for _, _, fact in scored):
+        return fields
+    terms = [(brier, (rate - fact.granted) ** 2) for _, brier, fact in scored]
+    fields.update(
+        population_in_sample_skill_score=_skill_of_means(terms),
+        in_sample_skill_scored=len(terms),
+    )
+    return fields
 
 
 def _floor_fields(
@@ -612,7 +696,8 @@ def _rank_key(entry: LeaderboardEntry) -> tuple[float, float, float, float, str]
 
     No skill column is a rank key, and the realized-Term one could not be: it
     scores against a rate no predictor could have known in-season, so ranking on
-    it would rank in-season on an ex-post fact.
+    it would rank in-season on an ex-post fact. The in-sample column is further
+    out still: its baseline contains the scored case's own outcome.
     """
 
     def acc(stratum: LeaderboardStratum | None) -> float:
@@ -1054,6 +1139,16 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
             always_deny_correct=is_correct(always_deny, outcome),
             recomputed_correct=is_correct(scored, outcome),
             grant_family=outcome.actual_disposition in GRANT_FAMILY_DISPOSITIONS,
+            granted=outcome.actual_granted,
+            brier_reproduces=(
+                evaluation.brier_score is None
+                or math.isclose(
+                    brier_score(scored, outcome),
+                    evaluation.brier_score,
+                    rel_tol=0.0,
+                    abs_tol=BRIER_REPRODUCTION_TOLERANCE,
+                )
+            ),
         )
     return facts
 

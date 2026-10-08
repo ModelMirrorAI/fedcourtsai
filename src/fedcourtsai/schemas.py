@@ -2900,9 +2900,9 @@ class LeaderboardStratum(_Strict):
     The strata are therefore aggregated separately and never blended into one
     headline number.
 
-    Two skill columns sit here, and they are never blended either. ``population_brier_skill_score``
-    scores against the strictly-prior pooled band rate — the leakage-safe
-    baseline, and the primary outcome measure — while
+    Two skill columns form a pair here, and they are never blended either.
+    ``population_brier_skill_score`` scores against the strictly-prior pooled
+    band rate — the leakage-safe baseline, and the primary outcome measure — while
     ``population_realized_term_skill_score`` holds the level at the rate the case's own
     Term actually realized. Together they decompose skill **per cell**: the
     first rewards knowing the level *and* discriminating within it, the second
@@ -2912,7 +2912,12 @@ class LeaderboardStratum(_Strict):
     cells, which its own ``*_scored`` count records — the two are not a
     difference either.
 
-    Both are **population** skills, ``1 - sum(brier) / sum(baseline_brier)``
+    A third, ``population_in_sample_skill_score``, is a post-hoc descriptive
+    benchmark rather than a member of that pair: it scores against the block's
+    own in-sample grant rate (``in_sample_grant_rate``), which contains every
+    scored case's outcome, so it is hindsight by construction and never ranks.
+
+    All three are **population** skills, ``1 - sum(brier) / sum(baseline_brier)``
     over the cells they score, rather than means of per-cell ratios — which is
     what the ``population_`` prefix records, against the plain ``mean_*``
     fields beside them. The ratio caps at +1 but is unbounded below, so a mean
@@ -3003,6 +3008,62 @@ class LeaderboardStratum(_Strict):
         "(`pipeline.base_rates.REALIZED_BAND_RATE_MIN_RESOLVED`) after the "
         "leave-one-out, so it is omitted — visibly, here — on a thin band rather "
         "than computed on a handful of cases",
+    )
+    population_in_sample_skill_score: float | None = Field(
+        default=None,
+        le=1.0,
+        description="A **post-hoc descriptive benchmark**: Brier skill against "
+        "the constant `in_sample_grant_rate` — the sample climatology of this "
+        "very block's scored events, the case being scored included — "
+        "aggregated as the same population ratio as the other skill columns, "
+        "`1 - sum(cell Brier) / sum((c - y)^2)`, over the "
+        "`in_sample_skill_scored` gradings. Its baseline nets out the block's "
+        "level and nothing finer, the scored case's own outcome included, so it "
+        "measures discrimination within the block — between-band separation "
+        "included wherever the block pools bands; `by_band` is the within-band "
+        "reading — net of miscalibration against the block's own base rate: at "
+        "uniform panel depth, with forecasts grouped at their distinct values, "
+        "it equals (resolution - reliability) / uncertainty in the Murphy "
+        "decomposition, and only approximately where depth varies by event. "
+        "Hindsight by construction — the rate exists only once every scored "
+        "event has resolved — so it never ranks, is never a headline, and is "
+        "never pooled or differenced with population_brier_skill_score (the "
+        "strictly-prior band rate, the primary outcome measure) or "
+        "population_realized_term_skill_score (a Term-wide band rate, "
+        "leave-one-out, at the pack's term-to-date vintage). Cert cells only "
+        "(the cells carrying outcome facts); null where the rate is 0 or 1, "
+        "since every reference Brier is then 0",
+    )
+    in_sample_skill_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Gradings contributing to population_in_sample_skill_score: "
+        "every grading in the block carrying a Brier score and cert outcome "
+        "facts. 0 wherever the figure is null — including where "
+        "`in_sample_grant_rate` is 0 or 1, and where any such grading's "
+        "stamped Brier no longer reproduces from the scored prediction against "
+        "the committed outcome (a Brier taken against a superseded outcome, "
+        "which no baseline read off the current one may be paired with)",
+    )
+    in_sample_grant_rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The in-sample constant population_in_sample_skill_score "
+        "scores against: the mean binary target `Outcome.actual_granted` over "
+        "the `in_sample_events_scored` distinct events of the gradings that "
+        "column scores, each event counted once however many judges graded "
+        "it. On the binary target rather than the grant family, so a "
+        "`granted-in-part` outcome counts as a grant here, as it does in "
+        "every Brier score; elsewhere the two coincide. Published even where "
+        "it is 0 or 1 and the skill is null. Null where no grading qualifies",
+    )
+    in_sample_events_scored: int = Field(
+        default=0,
+        ge=0,
+        description="Distinct (case, event) pairs in `in_sample_grant_rate`'s "
+        "denominator — the events of the `in_sample_skill_scored` gradings "
+        "(or, where the skill is null, of the gradings that would have been)",
     )
     always_deny_accuracy: float | None = Field(
         default=None,
