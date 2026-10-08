@@ -33,6 +33,13 @@ from .analytics import _GRANT_LABELS
 from .collect import flags_table
 from .integrity import FORWARD, RETROSPECTIVE
 from .metrics_refresh import arm_mix_text, arm_score_text, outcome_mix
+from .process_version import (
+    Series,
+    pooled_windows,
+    refuse_shared_labels,
+    series_sort_key,
+    window_label,
+)
 from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
@@ -40,6 +47,7 @@ from .schemas import (
     BacktestEntry,
     CertBacktest,
     CostEstimate,
+    CountingWindow,
     DataHealth,
     Evaluation,
     FlagsDigest,
@@ -68,10 +76,12 @@ from .schemas import (
 )
 from .spend import SpendVerdict
 from .store import (
+    EvaluationKey,
     PredictedEvent,
     PredictedEventRef,
     PredictionCell,
     RecentCells,
+    evaluation_key,
     normalized_stage,
 )
 
@@ -264,7 +274,7 @@ def _delta(current: int, previous: int | None) -> int | None:
     return None if previous is None else current - previous
 
 
-def summarize_substance(
+def summarize_substance(  # noqa: PLR0913 - one keyword per stratify-pass input it publishes
     *,
     cell_counts: tuple[int, int, int],
     stratified_evaluations: Sequence[tuple[Evaluation, Stratum]],
@@ -274,6 +284,7 @@ def summarize_substance(
     process_scope: Literal["frozen", "all"] = "frozen",
     forward_claim: ForwardClaimRecord | None = None,
     leakage_exclusion: LeakageExclusionRecord | None = None,
+    cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
 ) -> SubstanceDigest:
     """Roll the committed ledger + metrics artifacts into the substance section.
 
@@ -286,7 +297,15 @@ def summarize_substance(
     compare against ``previous``'s substance counts and stay null without a
     comparable prior — a missing or pre-substance snapshot degrades the deltas,
     never the section.
+
+    ``cell_windows`` (``store.StratifiedRun.cell_windows``, from the same pass)
+    names each cell's counting window. The per-predictor score rows are per
+    (predictor, window), so a predictor whose counted cells span two windows
+    gets a row per window; the calibration block pools every engine's replay
+    cells, so it lists the series it pools where they span labels. Unsupplied
+    — an all-versions build — rows key on the predictor alone.
     """
+    windows = cell_windows or {}
     predictions, events_predicted, predicted_resolved = cell_counts
     # Strictly the timing strata: a procedural (mootness-basis) cell counts in
     # neither — the leaderboard segments it out of the skill aggregates, and
@@ -337,14 +356,19 @@ def summarize_substance(
         segment_grant_rate=segment_rate,
         segment_base_rate_cases=segment_cases,
         mean_brier_skill=round(sum(skills) / len(skills), 4) if skills else None,
+        windows=pooled_windows(
+            Counter((ev.predictor_id, windows.get(evaluation_key(ev))) for ev in replay)
+        ),
     )
 
-    by_predictor: dict[str, list[Evaluation]] = {}
+    by_series: dict[Series, list[Evaluation]] = {}
     for ev, _stratum in stratified_evaluations:
-        by_predictor.setdefault(ev.predictor_id, []).append(ev)
+        by_series.setdefault((ev.predictor_id, windows.get(evaluation_key(ev))), []).append(ev)
+    refuse_shared_labels(by_series, surface="ops report")
     scores = []
-    for predictor_id in sorted(by_predictor):
-        evals = by_predictor[predictor_id]
+    for series in sorted(by_series, key=series_sort_key):
+        predictor_id, window = series
+        evals = by_series[series]
         quality = [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]
         # Same rule as the calibration block above: a null `correct` is a
         # missing figure, not a zero, so it leaves the row's fraction entirely
@@ -353,6 +377,7 @@ def summarize_substance(
         scores.append(
             PredictorScoreRow(
                 predictor_id=predictor_id,
+                process_window=window_label(window),
                 evaluations=len(evals),
                 accuracy=(round(sum(row_correct) / len(row_correct), 4) if row_correct else None),
                 accuracy_scored=len(row_correct),
@@ -459,6 +484,14 @@ def render_substance(digest: SubstanceDigest) -> str:
             else f"n={cal.accuracy_scored} of {cal.sample}"
         )
         cal_lines.append(f"Mean Brier **{brier}** · accuracy **{accuracy}** ({scored})")
+    if cal.windows:
+        # The pooled figure spans more than one window label, so it is the
+        # record across them: name each series and its n beside it.
+        cal_lines.append(
+            "Pooled across process windows — "
+            + ", ".join(f"`{w.predictor_id}` {w.process_window} (n={w.n})" for w in cal.windows)
+            + "; a record across labels, not one series"
+        )
     if cal.deny_base_rate is not None:
         lift = "—" if cal.lift_over_always_deny is None else f"{cal.lift_over_always_deny:+.1%}"
         cal_lines.append(
@@ -487,7 +520,15 @@ def render_substance(digest: SubstanceDigest) -> str:
             "| Predictor | Cells | Accuracy | Scored | Median | p25-p75 |",
             "|-----------|------:|---------:|-------:|-------:|---------|",
         ]
+        # The window rides the name only once the rows carry two labels;
+        # under one label the report's scope line already names it.
+        labelled = len({row.process_window for row in digest.predictor_scores}) > 1
         for row in digest.predictor_scores:
+            name = (
+                f"{row.predictor_id} ({row.process_window or 'no window'})"
+                if labelled
+                else row.predictor_id
+            )
             accuracy = "—" if row.accuracy is None else f"{row.accuracy:.0%}"
             median = "—" if row.median is None else f"{row.median:.2f}"
             spread = "—" if row.p25 is None or row.p75 is None else f"{row.p25:.2f}-{row.p75:.2f}"
@@ -495,7 +536,7 @@ def render_substance(digest: SubstanceDigest) -> str:
             # rather than replacing it: the gap is the cells the stamp could
             # not score, and a column that hid it would read as a full sample.
             lines.append(
-                f"| {row.predictor_id} | {row.evaluations} | {accuracy} | "
+                f"| {name} | {row.evaluations} | {accuracy} | "
                 f"{row.accuracy_scored} | {median} | {spread} |"
             )
 

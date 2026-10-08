@@ -76,7 +76,7 @@ pooled coefficient at any n.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import fmean, median
@@ -84,7 +84,14 @@ from statistics import fmean, median
 from .integrity import latest_evaluation_runs
 from .leaderboard import kendall_tau_b
 from .pipeline.moments import spec_for
-from .process_version import describe_windows, graded_in_window, window_of
+from .process_version import (
+    Series,
+    graded_in_window,
+    pooled_windows,
+    refuse_shared_labels,
+    window_label,
+    window_of,
+)
 from .retrieval import RETRIEVAL_CALL_CAP
 from .schemas import (
     CountingWindow,
@@ -105,7 +112,7 @@ from .schemas import (
     normalize_call,
 )
 from .serialize import read_model
-from .store import PooledWindowsError, prediction_counts
+from .store import prediction_counts
 
 TOOL_USAGE_CORRELATION_MIN_CELLS = 30
 """Cells a population needs before its call-volume/Brier correlation is published.
@@ -559,11 +566,17 @@ class _JoinedCell:
     briers: list[float] = field(default_factory=list)
     evaluations: int = 0
     window: CountingWindow | None = None
+    predictor_id: str = ""
 
     @property
-    def segment_key(self) -> tuple[str, str, str, str]:
-        """The segment this cell belongs to: engine, mode, stage, moment."""
-        return (self.engine, self.mode, self.stage, self.moment)
+    def segment_key(self) -> tuple[str, str | None, str, str, str]:
+        """The segment this cell belongs to: engine, window label, mode, stage, moment.
+
+        Keyed on the window's label, the name a segment is published under, so
+        two predictors sharing an engine under one label pool as they always
+        have, while one engine's cells under two labels never do.
+        """
+        return (self.engine, window_label(self.window), self.mode, self.stage, self.moment)
 
     @property
     def population_key(self) -> tuple[str, str, str]:
@@ -642,26 +655,8 @@ def _scores_of(cell: _PredictedCell, *, frozen_only: bool) -> _JoinedCell | None
         briers=[e.brier_score for e in panel if e.brier_score is not None],
         evaluations=len(panel),
         window=window_of(stamp),
+        predictor_id=cell.predictor_id,
     )
-
-
-def _refuse_pooled_windows(joined: Sequence[_JoinedCell]) -> None:
-    """Raise where one engine's frozen-scope cells come from two counting windows.
-
-    The segments and coefficients key on the engine, so a new model under the
-    same engine would otherwise be averaged with its predecessor as one series
-    — the pooling across windows the frozen scope never does silently.
-    """
-    by_engine: dict[str, set[CountingWindow]] = {}
-    for cell in joined:
-        if cell.window is not None:
-            by_engine.setdefault(cell.engine, set()).add(cell.window)
-    pooled = sorted(engine for engine, spans in by_engine.items() if len(spans) > 1)
-    if pooled:
-        raise PooledWindowsError(
-            "frozen-scope tool-usage cells span more than one counting window for "
-            + ", ".join(f"{engine} ({describe_windows(by_engine[engine])})" for engine in pooled)
-        )
 
 
 def _usefulness(
@@ -683,6 +678,13 @@ def _usefulness(
     different base rates. Engines are pooled *within* a row and split across the
     segment table, so the confound is visible in the denominators even where the
     coefficient absorbs it.
+
+    Under the frozen scope a segment is also keyed on the cell's **counting
+    window**: a new model under an unchanged engine is a different forecaster,
+    so its cells and its predecessor's are two segments, never one mean. A
+    coefficient row pools engines by design, so where its cells span more than
+    one window label it lists each (predictor, window) series and its cell
+    count rather than splitting.
     """
     joined: list[_JoinedCell] = []
     for cell in sorted(predicted.values(), key=lambda c: (c.engine, c.predictor_id, c.run_id)):
@@ -692,15 +694,17 @@ def _usefulness(
         if scores is None or not scores.briers:
             continue
         joined.append(scores)
-    if frozen_only:
-        _refuse_pooled_windows(joined)
+    refuse_shared_labels(
+        ((cell.predictor_id, cell.window) for cell in joined), surface="tool-usage usefulness"
+    )
 
     segments = [
         ToolUsefulnessSegment(
             engine=key[0],
-            mode=key[1],
-            stage=key[2],
-            moment=key[3],
+            process_window=key[1],
+            mode=key[2],
+            stage=key[3],
+            moment=key[4],
             cells=len(group),
             evaluations=sum(cell.evaluations for cell in group),
             brier_gradings=sum(len(cell.briers) for cell in group),
@@ -708,7 +712,7 @@ def _usefulness(
             mean_mcp_calls=round(fmean(cell.mcp_calls for cell in group), 3),
             mean_brier_score=round(fmean(fmean(cell.briers) for cell in group), 6),
         )
-        for key, group in _grouped(joined, lambda cell: cell.segment_key)
+        for key, group in _segments(joined)
     ]
     correlations = [
         _correlate(key, group) for key, group in _grouped(joined, lambda cell: cell.population_key)
@@ -731,6 +735,7 @@ def _correlate(
 ) -> ToolUsefulnessCorrelation:
     """One population's coefficient, or the refusal and the reason for it."""
     mode, stage, moment = population
+    series: Counter[Series] = Counter((cell.predictor_id, cell.window) for cell in group)
     points = [(float(cell.calls), fmean(cell.briers)) for cell in group]
     tau = kendall_tau_b(points) if len(points) >= TOOL_USAGE_CORRELATION_MIN_CELLS else None
     reason: str | None = None
@@ -753,7 +758,33 @@ def _correlate(
         published=tau is not None,
         calls_brier_tau=round(tau, 4) if tau is not None else None,
         withheld_reason=reason,
+        windows=pooled_windows(series),
     )
+
+
+def _segments(
+    joined: list[_JoinedCell],
+) -> list[tuple[tuple[str, str | None, str, str, str], list[_JoinedCell]]]:
+    """The joined cells grouped by segment, ordered engine, label (by opening), mode, moment.
+
+    :func:`_grouped`'s rule with the label placed by the earliest opening among
+    its windows rather than compared as text, so ``proc-v10`` follows ``proc-v9``.
+    """
+    grouped: defaultdict[tuple[str, str | None, str, str, str], list[_JoinedCell]] = defaultdict(
+        list
+    )
+    opening: dict[str | None, float] = {}
+    for cell in joined:
+        grouped[cell.segment_key].append(cell)
+        if cell.window is not None:
+            stamp = cell.window.opens.timestamp()
+            opening[cell.window.label] = min(stamp, opening.get(cell.window.label, stamp))
+
+    def order(key: tuple[str, str | None, str, str, str]) -> tuple[object, ...]:
+        engine, label, *rest = key
+        return (engine, opening.get(label, float("-inf")), label or "", *rest)
+
+    return [(key, grouped[key]) for key in sorted(grouped, key=order)]
 
 
 def _grouped[K: tuple[str, ...]](
@@ -1161,10 +1192,18 @@ def _render_usefulness(usage: ToolUsage) -> list[str]:
         + "| of which MCP | mean Brier |",
         "| --- | --- | --- | --- | --: | --: | --: | --: | --: |",
     ]
+    # The window rides the engine only once the segments carry two labels;
+    # under one label the scope line already names the process.
+    labelled = len({segment.process_window for segment in useful.segments}) > 1
     for segment in useful.segments:
         brier = "—" if segment.mean_brier_score is None else f"{segment.mean_brier_score:.4f}"
+        engine = (
+            f"{segment.engine} ({segment.process_window or 'no window'})"
+            if labelled
+            else segment.engine
+        )
         lines.append(
-            f"| {segment.engine} | {segment.mode} | {segment.stage} | {segment.moment} "
+            f"| {engine} | {segment.mode} | {segment.stage} | {segment.moment} "
             f"| {segment.cells} | {segment.brier_gradings} | {segment.mean_calls} "
             f"| {segment.mean_mcp_calls} | {brier} |"
         )
@@ -1229,6 +1268,15 @@ def _render_correlations(useful: ToolUsefulness) -> list[str]:
     for row in useful.correlations:
         tau = "withheld" if row.calls_brier_tau is None else f"{row.calls_brier_tau:+.3f}"
         lines.append(f"| {row.mode} / {row.stage} / {row.moment} | {row.cells} | {tau} |")
+    pooled = [row for row in useful.correlations if row.windows]
+    if pooled:
+        lines.append("")
+        lines += [
+            f"_{row.mode} / {row.stage} / {row.moment} pools process windows — "
+            + ", ".join(f"`{w.predictor_id}` {w.process_window} (n={w.n})" for w in row.windows)
+            + ": a record across labels, not one series._"
+            for row in pooled
+        ]
     lines += [
         "",
         f"_{floor}_",

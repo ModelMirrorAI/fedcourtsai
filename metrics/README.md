@@ -40,18 +40,46 @@ diagnostic view, never a results surface.
 
 **No figure pools windows.** A new model under an unchanged `predictor_id` is
 a different forecaster, so an engine's cells on either side of a closed window
-are two series, not one. Each frozen-scope entry names its window as
-`process_window`, and every artifact carries the whole registry in
-`frozen_process.windows`. The boards key on `predictor_id`, so while one
-predictor's in-scope cells come from a single window the entry *is* the
-(predictor, window) figure; the build **refuses** a ledger in which they span
-two rather than average them. A view over several windows is named as the
-record across those labels, lists them, shows each window's `n` beside the
-pooled figure, and is never a rank key; a rise across a window boundary is not
-a measurement of improvement. Engines are compared only over **events**: a
-cross-engine figure is read over events on which every compared engine holds a
-counted cell, each from one named window, and an event split across a closed
-window and its successor belongs to no complete grid.
+are two series, not one. Every frozen-scope figure is keyed on **(predictor,
+window)**: each entry on the leaderboard, its stage blocks and the claim scores,
+each ops score row and each tool-usage segment names its window as
+`process_window`, so a predictor whose counted cells span two windows has an
+entry per window, and every artifact carries the whole registry in
+`frozen_process.windows`. Two reading rules follow. **Two windows of one
+predictor share no event** — a predictor holds one counted forecast per event,
+the earliest window's — so their entries are two forecasters over disjoint
+events, and a rise across a window boundary is not a measurement of
+improvement. **A rank is read within one window label.** Where a frozen
+board's entries carry more than one label, `rank` restarts in each label's
+cohort (the cohorts listed in the order their windows opened; a
+carried-forward window ranks with the label that opened it), so a successor's
+entries — over the events the closed window did not reach, a selected
+population — are never ranked against the closed window's, and a closed
+window's standings do not move when a later window's cells land. Under one
+label there is one ranking over the board. A carried-forward window ranks in
+its opening label's cohort while it keeps accruing events its cohort peers'
+closed windows never reached, so a rank inside a cohort holding one is read
+through the per-combination grid, never on its own. And a figure keyed on something other than the
+forecaster — the claim scores' judge validation, the board's
+`evaluator_agreement` (it compares graders, and pools the predictors' windows by
+design), the ops calibration block, a tool-usage coefficient row — is the
+**record across labels** wherever its cells come from windows carrying more
+than one label: it lists each (predictor, window) series and its `n` as
+`windows` beside the pooled value, and is never a rank key. Under a single
+label nothing is listed beyond the `process_window` each row, segment and
+read carries. Engines are compared only over **events**: a cross-engine figure is
+read over events on which every compared engine holds a counted cell, each
+from one named window, and an event split across a closed window and its
+successor belongs to no complete grid (see `complete_grids` below).
+
+Two readers keep the predictor-keyed shape and so still **refuse** a ledger in
+which one predictor's counted cells span two windows rather than pool them:
+`release-sensitivity` and `semantic-summary`. The refusal reads the whole
+ledger, so once any predictor holds graded cells in two windows neither command
+builds at frozen scope — `release-sensitivity` included, although the release it
+serves is `proc-v8` inside `proc-v8`'s window — and its figures are re-derived
+before that, or the command is split, never quoted off a refusal. The refusal
+is the floor, not a figure.
 
 **One prediction per predictor per event, and re-predicting a live event is a
 registered rule.** A predictor may hold several committed runs on one event —
@@ -353,7 +381,15 @@ stays outside the gate:
   `events_scored` union across entries. An entry **at** its population's
   figure was scored on the whole set — the entry's events are a subset of the
   union, so equal cardinality is equal set — and an entry **below** it was
-  ranked over a subset. Never sum the **entries** to recover that union: two
+  ranked over a subset. Where a frozen board's entries carry more than one
+  window label, the board union is the wrong figure — two windows cover
+  different events by construction, so every entry sits below it — and each
+  entry is read against its own label's cohort instead: the largest
+  `events_scored` among the entries sharing its `process_window`. That is a
+  lower bound on the cohort's union, so a shortfall against it is unequal
+  coverage for certain, while matching it is weaker than matching a union: two
+  entries can be equal and still cover different events, which only the
+  per-combination grid below settles. Never sum the **entries** to recover that union: two
   predictors scored on one event are one event, so the sum overstates it.
   (Summing an entry's *stratum* blocks is a different matter and does
   reproduce its figure — a predictor's strata partition its events.) A
@@ -383,7 +419,8 @@ stays outside the gate:
   pre-registered form of the condition is per-stratum, per-(predictor, event,
   evaluator); this artifact publishes the pooled grain, which is why it can
   refuse a comparison but never bless one. The build says so out loud — `fedcourts leaderboard` warns per
-  population, naming each short predictor and its coverage — so the hazard does
+  population (per label cohort where there are several), naming each short
+  entry — as `predictor@window` where two share a predictor id — and its coverage — so the hazard does
   not depend on a reader doing the subtraction, and the refresh PR's headline
   flags it too. One absence shape only the refresh PR's line catches: a
   configured predictor with **no entry at all** in a populated block (the shape
@@ -634,6 +671,28 @@ stays outside the gate:
   puts each engine's per-petition figures over exactly the grid; anywhere else
   no per-band ordering is read. None of it ranks anything: this is where the
   per-band reading the frozen cohort requires is copied from.
+
+  On a frozen build the grid is also **per window combination**. A complete
+  event names one window per predictor, and it counts only where those windows
+  ran together (overlapped in time); an event whose predictors' counted cells
+  come from a closed window and the successor that closed it is a **split
+  event**, counted per band in `split_events_by_band` and in no grid. Where the
+  complete events fall under more than one combination — one engine's process
+  changed while another's digest carried forward — `complete_grids` lists each
+  combination's windows and per-band count, and `complete_grid_by_band` is
+  their total, each event in exactly one. `complete_grids` is listed wherever
+  the entries carry more than one window label — even when one combination, or
+  none, holds every complete event — because a per-window entry need not cover
+  the total: a successor's entry can match the total's count over events it
+  shares with no other entry. So the containment rule above is read **per
+  combination**: only the entries whose `process_window` match a combination's
+  windows, each against that combination's count; an entry whose window sits in
+  no listed combination has no grid. The total is read as the grid only while
+  `complete_grids` is absent (one label, every window opening at one instant,
+  as under `proc-v8`'s registry), when every entry covers it. `split_events_by_band` counts split
+  events among these complete graded events only. The split-event count a
+  successor's freeze-record entry discloses is a different figure, over every
+  counted cell, graded or not.
 
   The ranked board is the **cert stage's first declared moment** (see the stage
   axis note below); every other population — a later cert moment included —

@@ -73,6 +73,7 @@ from .schemas import (
     FrozenProcessRecord,
     PredictorConfig,
     ProcessVersion,
+    WindowCount,
 )
 
 # Human label the current process is stamped with. Bump on a deliberate,
@@ -579,3 +580,99 @@ def describe_windows(windows: Iterable[CountingWindow]) -> str:
     """
     ordered = sorted(windows, key=lambda w: (w.opens, w.digest))
     return ", ".join(f"{w.label}@{w.opens.isoformat()}" for w in ordered)
+
+
+class PooledWindowsError(ValueError):
+    """A figure that would pool one predictor's cells from two counting windows as one series.
+
+    Raised where a surface keyed on ``predictor_id`` (or the engine) alone meets
+    a predictor whose in-scope cells span two windows, and where two of one
+    predictor's windows share a label, which would publish two series under one
+    name.
+    """
+
+
+#: One forecaster on a frozen-scope figure: a predictor and the counting window
+#: its counted cells come from (``None`` on an all-versions build, which keys on
+#: the predictor alone).
+type Series = tuple[str, CountingWindow | None]
+
+
+def series_sort_key(series: Series) -> tuple[str, float, str]:
+    """A total order over series: predictor id, then the window's opening instant.
+
+    One predictor's windows run in sequence, so this lists its series in the
+    order its windows opened; the digest settles the (unregistrable) tie.
+    """
+    predictor_id, window = series
+    if window is None:
+        return (predictor_id, float("-inf"), "")
+    return (predictor_id, window.opens.timestamp(), window.digest)
+
+
+def window_label(window: CountingWindow | None) -> str | None:
+    """The label a figure over ``window``'s cells is published under, or ``None``."""
+    return window.label if window is not None else None
+
+
+def refuse_shared_labels(series: Iterable[Series], *, surface: str) -> None:
+    """Raise where two of one predictor's windows share a label.
+
+    Every per-window figure is published under ``(predictor_id, label)``, so
+    two windows that both carried one label would be two series under one
+    name. A label blesses one digest per predictor, so the registry cannot
+    produce this; the check keeps a hand-edited registry from doing it silently.
+    """
+    labels: dict[tuple[str, str], set[CountingWindow]] = {}
+    for predictor_id, window in series:
+        if window is not None:
+            labels.setdefault((predictor_id, window.label), set()).add(window)
+    shared = sorted(key for key, spans in labels.items() if len(spans) > 1)
+    if shared:
+        raise PooledWindowsError(
+            f"{surface}: two counting windows share a label for "
+            + ", ".join(
+                f"{pid} ({describe_windows(labels[(pid, label)])})" for pid, label in shared
+            )
+            + " — a per-window figure could not name them apart"
+        )
+
+
+def co_current(windows: Iterable[CountingWindow]) -> bool:
+    """Whether every window was open at one instant: the latest opening precedes every close.
+
+    The windows a cross-engine comparison may read together. A closed window
+    and the successor that closed it never ran together, so an event whose
+    predictors' counted cells come from both is a **split event** and belongs
+    to no complete grid. Windows that opened at one instant (``proc-v8``'s
+    three) and a carried-forward window beside either side of a successor are
+    co-current.
+    """
+    spans = list(windows)
+    if not spans:
+        return True
+    latest = max(window.opens for window in spans)
+    return all(window.closes is None or window.closes > latest for window in spans)
+
+
+def pooled_windows(counts: Mapping[Series, int]) -> list[WindowCount]:
+    """The series a pooled figure spans, with each one's ``n`` — or ``[]`` under one label.
+
+    The record-across-labels listing (``docs/process-version.md``, *No figure
+    pools windows*): a figure keyed on something other than the forecaster
+    lists its series where they carry more than one label, and is never a rank
+    key. Under a single label — every window opening at one instant, as
+    ``proc-v8``'s do — the artifact's ``frozen_process.windows`` already names
+    it and nothing is listed; an all-versions build (series without a window)
+    lists nothing either.
+    """
+    labels = {window.label for _, window in counts if window is not None}
+    if len(labels) <= 1:
+        return []
+    return [
+        WindowCount(predictor_id=predictor_id, process_window=window.label, n=n)
+        for (predictor_id, window), n in sorted(
+            counts.items(), key=lambda item: series_sort_key(item[0])
+        )
+        if window is not None
+    ]

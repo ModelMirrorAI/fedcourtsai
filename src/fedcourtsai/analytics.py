@@ -60,7 +60,12 @@ from .pipeline.salience import (
     salience_bands,
     scorer,
 )
-from .process_version import CURRENT_PROCESS_LABEL, frozen_process_record
+from .process_version import (
+    CURRENT_PROCESS_LABEL,
+    frozen_process_record,
+    window_label,
+    window_of,
+)
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     AnalyticsReport,
@@ -3745,6 +3750,7 @@ def _big_case_row(
     leakage: _Leakage,
     docket_numbers: Mapping[str, str],
     captions: _CaptionIndex,
+    frozen: bool = False,
 ) -> BigCaseRow | None:
     """One case's board row, or ``None`` where no predictor holds a current score.
 
@@ -3760,6 +3766,13 @@ def _big_case_row(
     so an out-of-scope run cannot move a case's moment any more than it can be
     its read. ``case_rows`` stays whole and feeds only ``events``, which is where
     the excluded runs remain visible as history.
+
+    ``frozen`` names each current read's counting window. The row's mean pools
+    *predictors*, one read each, so on a ledger where a successor has closed a
+    window it can pool reads from different windows; it is not split by window
+    because nothing here is a per-predictor series — no score, no ranking, no
+    figure that follows one forecaster across cases — and each read names its
+    own window instead.
     """
     if not eligible:
         return None
@@ -3835,6 +3848,9 @@ def _big_case_row(
                 big_case_score=row.prediction.big_case_score,
                 big_case_rationale=row.prediction.big_case_rationale,
                 leakage_suspected=_is_leakage_flagged(row, leakage),
+                process_window=(
+                    window_label(window_of(row.prediction.process_version)) if frozen else None
+                ),
             )
             for predictor_id, row in current.items()
         ],
@@ -3908,6 +3924,7 @@ def build_big_case_board(
                 leakage=leakage,
                 docket_numbers=docket_numbers,
                 captions=captions,
+                frozen=process_scope == "frozen",
             )
         )
         is not None
