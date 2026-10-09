@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000436",
+  "run_id": "20261009T143059Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local shell reads and jq",
+    "fedcourts paths",
+    "committed statpack",
+    "web search and open attempts",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document"
+  ],
+  "helpful": [
+    "Frozen context supplied the correct band, version, and distribution count.",
+    "Petition Appendix A supplied the actual appellate preservation reasoning rather than only counsel's characterization.",
+    "Statpack JSON made the prior-Term reached-band pooling exact.",
+    "CourtListener literal opinion search corroborated general precedent without querying the target case."
+  ],
+  "gaps": [
+    "Petition source is marked truncated; complete appendix availability is not guaranteed.",
+    "Web tools returned no usable content for the general-precedent requests."
+  ],
+  "notes": "No target-case external retrieval was needed. A read-only default CLI cache was worked around with a temporary writable cache. The aggregate pack's commit timestamp is known; its corpus pull freshness was not independently checked."
+}

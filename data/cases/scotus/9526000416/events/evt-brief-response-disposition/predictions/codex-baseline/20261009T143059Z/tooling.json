@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000416",
+  "run_id": "20261009T143059Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local provisioned files", "committed interim statpack", "fedcourts paths", "fedcourts corpus-info (failed)", "web.run open (no usable content)", "urllib.request and pypdf"],
+  "helpful": ["Frozen escalation state distinguishes the already-requested response from future referral.", "Snapshot's exact filing link allowed opposition retrieval without a current-docket search.", "Per-Term substantive counts support an exact prior-Term baseline calculation."],
+  "gaps": ["The response-filed cell provisioned the application but not the opposition text.", "Corpus-info cannot report vintage through this cell's service backend."],
+  "notes": "Recovered the October 8 opposition directly from the official PDF in memory. The default uv cache was read-only; a temporary writable cache enabled the CLI. Used installed pypdf after discovering pymupdf was unavailable. No corpus priors or outcome material were retrieved."
+}

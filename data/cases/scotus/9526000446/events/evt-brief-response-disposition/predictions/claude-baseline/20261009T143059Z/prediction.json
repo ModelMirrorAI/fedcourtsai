@@ -1,0 +1,67 @@
+{
+  "big_case_rationale": "Politically charged facts (anti-ICE speech, a self-described Antifa member detained pretrial) draw attention, but the legal question is a technical appellate standard-of-review issue under the Bail Reform Act, and a stay ruling is interim and non-precedential.",
+  "big_case_score": 0.3,
+  "case_id": "scotus/9526000446",
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.04
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.65
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.08
+    }
+  ],
+  "confidence": 0.8,
+  "context": {
+    "amicus_briefs": 0,
+    "band": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-09",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": false,
+    "response_requested": true,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-08",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-09T14:42:32Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-response-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-08.json",
+  "judgment": null,
+  "model": "claude-fable-5-1",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.04,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+    "label": "proc-v8",
+    "pipeline_sha": "5eb31f13d2e366185097cc7d28db38889ec8aaef",
+    "stamped_at": "2026-10-09T14:43:36.936607Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261009T143059Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
