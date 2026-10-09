@@ -263,9 +263,7 @@ a forecast from all three models.
 - Full audit write-up, with every denominator:
   [docs/release-ot2026-long-conference.md at `results/ot2026-longconf`](https://github.com/ModelMirrorAI/fedcourtsai/blob/results/ot2026-longconf/docs/release-ot2026-long-conference.md)
 - The ledger: [fedcourts.ai/ledger](https://fedcourts.ai/ledger/)
-- The exact data behind this page: ‹the dataset record's reserved DOI link —
-  a manual step: the DOI Zenodo shows on the draft deposit reserved in section
-  8, step 3 of the audit write-up› ·
+- The exact data behind this page: [10.5281/zenodo.23263986](https://doi.org/10.5281/zenodo.23263986) ·
   the code that produced it: tag `results/ot2026-longconf`, in
   [10.5281/zenodo.22966596](https://doi.org/10.5281/zenodo.22966596)
 
