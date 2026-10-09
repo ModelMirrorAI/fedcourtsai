@@ -1,11 +1,158 @@
 {
-  "cells_with_claims": 0,
-  "entries": [],
-  "evaluations_total": 0,
-  "forward_agreement": null,
+  "cells_with_claims": 873,
+  "entries": [
+    {
+      "forward": {
+        "cells": 291,
+        "claims": [
+          {
+            "claim_id": "disposition",
+            "mean_score": 0.017784659815936046,
+            "scored": 97
+          },
+          {
+            "claim_id": "relist-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "cvsg-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "summary-disposition-route",
+            "mean_score": 0.3026025461467722,
+            "scored": 3
+          },
+          {
+            "claim_id": "dissent-from-denial",
+            "mean_score": null,
+            "scored": 0
+          }
+        ],
+        "declared_set_versions": [
+          "cert-v2"
+        ],
+        "events": 97,
+        "largest_claim_id": "disposition",
+        "largest_claim_score": 0.5269518970727389,
+        "mean_floor": 0.0,
+        "mean_lift": 0.02714350144934137,
+        "mean_total": 0.02714350144934137,
+        "scored_events": 97
+      },
+      "predictor_id": "claude-baseline",
+      "procedural": null,
+      "process_window": "proc-v8",
+      "retrospective": null
+    },
+    {
+      "forward": {
+        "cells": 291,
+        "claims": [
+          {
+            "claim_id": "disposition",
+            "mean_score": 0.012280814455111306,
+            "scored": 97
+          },
+          {
+            "claim_id": "relist-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "cvsg-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "summary-disposition-route",
+            "mean_score": 0.30166921281343884,
+            "scored": 3
+          },
+          {
+            "claim_id": "dissent-from-denial",
+            "mean_score": null,
+            "scored": 0
+          }
+        ],
+        "declared_set_versions": [
+          "cert-v2"
+        ],
+        "events": 97,
+        "largest_claim_id": "disposition",
+        "largest_claim_score": 0.49945189707273896,
+        "mean_floor": 0.0,
+        "mean_lift": 0.021610790109135185,
+        "mean_total": 0.021610790109135185,
+        "scored_events": 97
+      },
+      "predictor_id": "codex-baseline",
+      "procedural": null,
+      "process_window": "proc-v8",
+      "retrospective": null
+    },
+    {
+      "forward": {
+        "cells": 291,
+        "claims": [
+          {
+            "claim_id": "disposition",
+            "mean_score": -0.0114003298747856,
+            "scored": 97
+          },
+          {
+            "claim_id": "relist-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "cvsg-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "summary-disposition-route",
+            "mean_score": -0.16906412051989447,
+            "scored": 3
+          },
+          {
+            "claim_id": "dissent-from-denial",
+            "mean_score": null,
+            "scored": 0
+          }
+        ],
+        "declared_set_versions": [
+          "cert-v2"
+        ],
+        "events": 97,
+        "largest_claim_id": "disposition",
+        "largest_claim_score": -0.6427326958878432,
+        "mean_floor": 0.0,
+        "mean_lift": -0.016629117107359658,
+        "mean_total": -0.016629117107359658,
+        "scored_events": 97
+      },
+      "predictor_id": "gemini-baseline",
+      "procedural": null,
+      "process_window": "proc-v8",
+      "retrospective": null
+    }
+  ],
+  "evaluations_total": 873,
+  "forward_agreement": {
+    "masked_claim_total": 0,
+    "missing_claim_block": 0,
+    "missing_reasoning_quality": 0,
+    "pair_events": 97,
+    "pairs": 873,
+    "rank_agreement": 0.087574946245926,
+    "suppressed": false
+  },
   "forward_claim": {
     "by_predictor": {},
-    "claimed_forward": 0,
+    "claimed_forward": 987,
     "excluded": 0,
     "policy": "exclude"
   },
@@ -18,12 +165,37 @@
       "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
       "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13"
     ],
-    "since": "2026-09-16T00:26:04Z"
+    "since": "2026-09-16T00:26:04Z",
+    "windows": [
+      {
+        "closes": null,
+        "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+        "label": "proc-v8",
+        "opens": "2026-09-16T00:26:04Z",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+        "label": "proc-v8",
+        "opens": "2026-09-16T00:26:04Z",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
+        "label": "proc-v8",
+        "opens": "2026-09-16T00:26:04Z",
+        "revoked_at": null
+      }
+    ]
   },
   "leakage_exclusion": {
-    "assessed": 0,
-    "by_predictor": {},
-    "excluded": 0
+    "assessed": 987,
+    "by_predictor": {
+      "gemini-baseline": 2
+    },
+    "excluded": 2
   },
   "procedural_agreement": null,
   "process_scope": "frozen",
