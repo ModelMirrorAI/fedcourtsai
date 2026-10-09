@@ -320,7 +320,7 @@ def replay_gate(
     """
     cells: list[SalienceReplayCell] = []
     versions = registered_versions()
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_local_read(corpus_db_path) as conn:
         by_term: dict[int, list[corpus.CorpusRow]] = {}
         for row in select_replay_population(conn, terms=terms):
             term = corpus.scotus_term_year(row.docket_number)

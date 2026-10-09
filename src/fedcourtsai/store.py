@@ -73,6 +73,8 @@ def iter_tracked_cases(corpus_db_path: Path) -> list[tuple[str, int]]:
     if not corpus_db_path.exists():
         return []
     found: list[tuple[str, int]] = []
+    # A writer-path read (the pull governor), so it opens the file the way the
+    # writer that follows does rather than through `connect_local_read`.
     with corpus.connect(corpus_db_path) as conn:
         for row in corpus.iter_rows(conn):
             court_id, _, docket_raw = row.case_id.partition("/")
@@ -103,6 +105,8 @@ def cases_due_for_pull(
     """
     if not corpus_db_path.exists():
         return []
+    # A writer-path read, like `iter_tracked_cases`: the pull that follows
+    # writes this file anyway.
     with corpus.connect(corpus_db_path) as conn:
         rows = corpus.rotation_for_pull(
             conn, limit=limit, skip_closed=skip_closed, eligible_reserve=eligible_reserve
