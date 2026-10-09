@@ -24,9 +24,14 @@ against resolved events, score against the known label) and a retrieval source
 
 from __future__ import annotations
 
+import atexit
 import json
+import logging
 import re
+import shutil
 import sqlite3
+import tempfile
+import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import date
@@ -67,6 +72,8 @@ from .supremecourt import (
     parse_scotus_application_number,
     parse_scotus_docket_number,
 )
+
+logger = logging.getLogger(__name__)
 
 CORPUS_DB_FILENAME = "corpus.db"
 
@@ -1342,15 +1349,147 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
         # Before any page exists: a fresh database is born with the ranged-read
         # page size (inert on an existing file, whose size is already fixed).
         conn.execute(f"PRAGMA page_size = {RANGED_PAGE_SIZE}")
-        conn.executescript(_SCHEMA)
-        _migrate_cases(conn)
-        _migrate_live_cursors(conn)
-        _migrate_events(conn)
-        _migrate_documents(conn)
-        _migrate_opinions(conn)
+        _apply_schema(conn)
         yield conn
     finally:
         conn.close()
+
+
+def _apply_schema(conn: sqlite3.Connection) -> None:
+    """Create the schema and run every additive migration — the one definition
+    :func:`connect` applies in place and :func:`schema_is_current` dry-runs."""
+    conn.executescript(_SCHEMA)
+    _migrate_cases(conn)
+    _migrate_live_cursors(conn)
+    _migrate_events(conn)
+    _migrate_documents(conn)
+    _migrate_opinions(conn)
+
+
+def _schema_entries(conn: sqlite3.Connection) -> list[tuple[str, str, str]]:
+    """Every user schema object's ``(type, name, sql)``, in a stable order."""
+    rows = conn.execute(
+        "SELECT type, name, sql FROM sqlite_master "
+        "WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' "
+        "ORDER BY rowid"
+    ).fetchall()
+    return [(str(r[0]), str(r[1]), str(r[2])) for r in rows]
+
+
+def schema_is_current(conn: sqlite3.Connection) -> bool:
+    """Whether :func:`connect` would leave ``conn``'s schema exactly as it is.
+
+    Decided on a schema-only replica, never on ``conn``: the database's DDL is
+    replayed into an empty in-memory database, the schema and migrations run
+    there, and the two schemas are compared. The migrations are purely
+    additive DDL, so an unchanged schema means an in-place open would not
+    have changed the file either — which is what lets a read open a current
+    blob strictly read-only and still see every column this code knows.
+
+    A blob whose DDL does not replay into the replica reads as not current, so
+    the caller falls back to a migrated copy rather than failing the read.
+    """
+    entries = _schema_entries(conn)
+    replica = sqlite3.connect(":memory:")
+    replica.row_factory = sqlite3.Row
+    replica.create_function("norm_dn", 1, normalize_docket_number, deterministic=True)
+    try:
+        try:
+            for _, _, sql in entries:
+                replica.execute(sql)
+        except sqlite3.Error:
+            return False
+        before = _schema_entries(replica)
+        _apply_schema(replica)
+        return _schema_entries(replica) == before
+    finally:
+        replica.close()
+
+
+# The per-process migrated copies `connect_local_read` reads when the pulled blob
+# predates this code's schema, keyed by the blob's identity at copy time so a blob
+# that changes (a writer migrated it, a re-pull replaced it) is re-examined.
+_READ_COPIES: dict[tuple[str, int, int], Path] = {}
+_READ_COPIES_LOCK = threading.Lock()
+
+
+def _discard_read_copies() -> None:
+    for copy in _READ_COPIES.values():
+        shutil.rmtree(copy.parent, ignore_errors=True)
+    _READ_COPIES.clear()
+
+
+atexit.register(_discard_read_copies)
+
+
+def _migrated_read_copy(db_path: Path) -> Path:
+    """A temporary, migrated copy of ``db_path``, made at most once per process.
+
+    Per process, not per checkout: every ``fedcourts`` command is its own
+    process, so each read command run while the blob predates the code's
+    schema copies the whole blob once (about a gigabyte for the production
+    corpus). A copy for an earlier state of the same file is removed when a
+    new one is made, and every copy is removed at exit.
+    """
+    stat = db_path.stat()
+    resolved = str(db_path.resolve())
+    key = (resolved, stat.st_size, stat.st_mtime_ns)
+    with _READ_COPIES_LOCK:
+        cached = _READ_COPIES.get(key)
+        if cached is not None and cached.is_file():
+            return cached
+        for stale in [k for k in _READ_COPIES if k[0] == resolved]:
+            shutil.rmtree(_READ_COPIES.pop(stale).parent, ignore_errors=True)
+        logger.warning(
+            "corpus: %s predates this code's schema; reading a migrated temporary "
+            "copy so the file keeps the bytes its pointer names",
+            db_path,
+        )
+        copy = Path(tempfile.mkdtemp(prefix="fedcourts-corpus-read-")) / CORPUS_DB_FILENAME
+        shutil.copyfile(db_path, copy)
+        with connect(copy):
+            pass
+        _READ_COPIES[key] = copy
+        return copy
+
+
+@contextmanager
+def connect_local_read(db_path: Path) -> Iterator[sqlite3.Connection]:
+    """Open the local corpus file for reading, never changing its bytes.
+
+    The read-side counterpart of :func:`connect`, for every caller that only
+    reads: it sees the full current schema, as :func:`connect` would give it,
+    without migrating the pulled blob in place — so the file keeps matching
+    the sha256 its pointer names.
+
+    - **The file's schema is current** (:func:`schema_is_current`): it is
+      opened strictly read-only (SQLite ``mode=ro``), the common case.
+    - **The file predates this code's schema** (a checkout whose code is newer
+      than the published blob): a temporary copy is migrated and read
+      instead, made once per process and removed at exit. Each read command
+      pays one copy of the blob (time and temporary disk) for that window,
+      which closes when the next writer job publishes a blob carrying the new
+      schema.
+    - **No file** (before a pull): an empty in-memory database with the
+      current schema, so a read answers empty without creating the file.
+    """
+    if not db_path.exists():
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.create_function("norm_dn", 1, normalize_docket_number, deterministic=True)
+        try:
+            _apply_schema(conn)
+            yield conn
+        finally:
+            conn.close()
+        return
+    with connect_local_unmigrated(db_path) as ro:
+        current = schema_is_current(ro)
+        if current:
+            yield ro
+    if not current:
+        with connect(_migrated_read_copy(db_path)) as conn:
+            yield conn
 
 
 def resolve_backend(override: CorpusBackend | None = None) -> CorpusBackend:
@@ -1404,17 +1543,18 @@ def connect_readonly(
 ) -> Iterator[ReadConnection]:
     """Open the corpus for reading via the selected backend.
 
-    ``local`` (the default) opens the pulled file exactly like
-    :func:`connect`; ``ranged`` queries the immutable blob in place on the
+    ``local`` (the default) opens the pulled file through
+    :func:`connect_local_read`, which sees the current schema and never
+    changes the file's bytes; ``ranged`` queries the immutable blob in place on the
     corpus remote (see :mod:`fedcourtsai.corpus_ranged`), resolving the
     committed ``.ref`` pointer next to ``db_path`` against the out-of-band
     remote URL. ``backend`` overrides the ``FEDCOURTS_CORPUS_BACKEND`` setting.
     ``migrate=False`` opens the local file strictly read-only (SQLite
-    ``mode=ro``) and runs no schema migration, so the pulled blob's bytes stay
-    the ones its pointer names. It is for a caller that reads only columns every
-    blob carries, such as the ``corpus-info`` vintage report; a caller that reads
-    a column newer than the pulled blob keeps the default, which migrates the
-    local file in place.
+    ``mode=ro``) with no schema view at all — the blob as packed, even when it
+    predates this code's schema. It is for a caller that reads only columns
+    every blob carries, such as the ``corpus-info`` vintage report, and never
+    pays for a migrated copy; a caller that reads a column newer than the
+    pulled blob keeps the default. Neither mode writes the local file.
     ``remote_url`` pins which remote the ranged read resolves against, for a
     caller whose source must not follow the ambient setting (the staging
     seeder); unset, the environment's value serves as ever.
@@ -1455,7 +1595,7 @@ def connect_readonly(
         with connect_local_unmigrated(db_path) as conn:
             yield conn
     else:
-        with connect(db_path) as conn:
+        with connect_local_read(db_path) as conn:
             yield conn
 
 
@@ -1554,7 +1694,8 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
 def _optional_date(record: RecordRow, column: str) -> date | None:
     """Read a date column that a remote blob packed under an older schema lacks.
 
-    A default local read sees every column (``connect`` migrates on open), but
+    A default local read sees every column (``connect_local_read`` serves the
+    current schema), but
     the ranged backend and a ``migrate=False`` local read serve the blob as-is,
     and their ``Row`` raises for a column the blob predates — treat that as
     unset rather than failing the row.
@@ -1875,6 +2016,15 @@ def _update_clause(column: str) -> str:
 class MirrorSink(Protocol):
     """The dual-write callbacks casestore registers via :func:`set_mirror_sink`."""
 
+    def mirrors_connection(self, conn: ReadConnection) -> bool:
+        """Whether a write on ``conn`` may mirror at all.
+
+        The write seams ask before every mirror call, so the sink — which knows
+        which store it would write to — decides per connection: a temporary or
+        scratch database is never the corpus, and its rows stay local.
+        """
+        ...
+
     def mirror_cases(self, rows: Sequence[CorpusRow]) -> None: ...
 
     def mirror_snapshot(
@@ -1899,8 +2049,12 @@ def set_mirror_sink(sink: MirrorSink | None) -> None:
         _MIRROR["sink"] = sink
 
 
-def _mirror_sink() -> MirrorSink | None:
-    return _MIRROR.get("sink")
+def _mirror_sink(conn: ReadConnection) -> MirrorSink | None:
+    """The registered sink when a write on ``conn`` may mirror, else ``None``."""
+    sink = _MIRROR.get("sink")
+    if sink is None or not sink.mirrors_connection(conn):
+        return None
+    return sink
 
 
 # --- payload read source (dependency-inverted, symmetric to the mirror sink) --
@@ -2011,7 +2165,7 @@ def upsert_rows(conn: sqlite3.Connection, rows: list[CorpusRow]) -> int:
 
     with conn:
         conn.executemany(sql, [tuple(_stored(r)[c] for c in _COLUMNS) for r in rows])
-    if (sink := _mirror_sink()) is not None:
+    if (sink := _mirror_sink(conn)) is not None:
         sink.mirror_cases(rows)
     return len(rows)
 
@@ -4444,7 +4598,7 @@ def upsert_events(conn: sqlite3.Connection, events: list[CorpusEvent]) -> int:
         )
     # The mirror reads the full committed set back per case (guarded on the flag,
     # so this is a pure no-op when the store is off).
-    if (sink := _mirror_sink()) is not None:
+    if (sink := _mirror_sink(conn)) is not None:
         sink.mirror_events_for_cases(conn, [e.case_id for e in events])
     return len(events)
 
@@ -4553,7 +4707,7 @@ def set_event_resolved(
     # the case's events here too — otherwise the casestore events.json keeps the
     # stale resolved=0 until the next re-ingest, and a casestore-provisioned
     # event.yaml would carry a stale flag for a replay cell's resolved target.
-    if (sink := _mirror_sink()) is not None:
+    if (sink := _mirror_sink(conn)) is not None:
         sink.mirror_events_for_cases(conn, [case_id])
 
 
@@ -4582,7 +4736,7 @@ def stamp_first_moments(conn: sqlite3.Connection, stage: Stage, moment: Moment) 
             "UPDATE events SET moment = ? WHERE stage = ? AND moment IS NULL",
             (moment.value, stage.value),
         ).rowcount
-    if case_ids and (sink := _mirror_sink()) is not None:
+    if case_ids and (sink := _mirror_sink(conn)) is not None:
         sink.mirror_events_for_cases(conn, case_ids)
     return int(stamped)
 
@@ -4614,7 +4768,7 @@ def stamp_event_opened_at(conn: sqlite3.Connection, stamps: Sequence[tuple[str, 
             ).rowcount
             for case_id, event_id, opened_at in stamps
         )
-    if (sink := _mirror_sink()) is not None:
+    if (sink := _mirror_sink(conn)) is not None:
         sink.mirror_events_for_cases(conn, sorted({case_id for case_id, _, _ in stamps}))
     return int(written)
 
@@ -4675,7 +4829,7 @@ def rename_event(
     # Re-mirror the case's committed event set, exactly as `upsert_events` does,
     # so the casestore events.json reflects the rename rather than keeping the
     # old identity until the next re-ingest.
-    if (sink := _mirror_sink()) is not None:
+    if (sink := _mirror_sink(conn)) is not None:
         sink.mirror_events_for_cases(conn, [case_id])
 
 
@@ -4698,7 +4852,7 @@ def delete_event(conn: sqlite3.Connection, case_id: str, event_id: str) -> None:
     if not deleted:
         raise ValueError(f"delete_event: no event {event_id!r} on {case_id!r} to delete")
     # Re-mirror as the rename does, so the casestore events.json drops it too.
-    if (sink := _mirror_sink()) is not None:
+    if (sink := _mirror_sink(conn)) is not None:
         sink.mirror_events_for_cases(conn, [case_id])
 
 
@@ -4919,7 +5073,7 @@ def upsert_snapshot(
                 "ON CONFLICT(case_id, snapshot_date) DO UPDATE SET payload = excluded.payload",
                 (case_id, snapshot_date.isoformat(), json.dumps(payload, sort_keys=True)),
             )
-    if (sink := _mirror_sink()) is not None:
+    if (sink := _mirror_sink(conn)) is not None:
         sink.mirror_snapshot(case_id, snapshot_date, payload)
 
 
@@ -5100,7 +5254,7 @@ def upsert_documents(conn: sqlite3.Connection, documents: list[CaseDocument]) ->
                     for d in documents
                 ],
             )
-    if (sink := _mirror_sink()) is not None:
+    if (sink := _mirror_sink(conn)) is not None:
         if split:
             # The blob holds no documents to read back; the store is the system of
             # record, so mirror the in-hand batch and let it merge with the case's
@@ -5128,7 +5282,7 @@ def documents_for_case(conn: ReadConnection, case_id: str) -> list[CaseDocument]
         return source.documents_for_case(case_id)
     try:
         # `SELECT *`, not the bound column list: a default local read sees every
-        # column (`connect` migrates on open), but the ranged backend and a
+        # column (`connect_local_read` serves the current schema), but the ranged backend and a
         # `migrate=False` local read serve the blob as-is, and naming a column
         # the blob predates fails the whole read rather than the one field (see
         # :func:`_optional_date`).

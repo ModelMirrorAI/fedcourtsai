@@ -46,6 +46,11 @@ with no writer signature threading. It stays **gated on ``FEDCOURTS_CASESTORE_UR
 the default and the state in every test that does not opt in) — so with the flag
 off the pipeline is byte-for-byte unchanged, and a mirror failure with the flag on
 only logs (it never breaks the SQLite write that is the phase-1 system of record).
+An addressed store is a *write* target only inside a GitHub Actions job (where the
+role scoping leaves the writer jobs as the only ones whose writes succeed): a store
+the environment names mirrors only there, and only writes to the configured
+corpus file (:func:`_mirror_transport`, :func:`mirrors_connection`),
+so writer code run anywhere else, or against a temporary database, stays local.
 ``set_event_resolved`` also re-mirrors, so a resolved event's ``events.json`` stays
 current. **Known gap:** the direct-``UPDATE`` writers on ``cases`` columns — scope
 reconcile (``set_predict_excluded`` / ``normalize_predict_eligible``),
@@ -72,11 +77,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date
+from pathlib import Path
 from typing import Any, Protocol
 
 from . import paths
@@ -86,6 +93,7 @@ from .corpus import (
     CorpusEvent,
     CorpusRow,
     ReadConnection,
+    corpus_db_path,
     documents_for_case,
     events_for_case,
     set_mirror_sink,
@@ -254,8 +262,11 @@ def transport_from_settings() -> ObjectTransport | None:
 # every test that does not opt in).
 
 # A one-slot container (not a rebindable module global) holds the cached
-# transport, so the accessors need no `global` statement.
+# transport, so the accessors need no `global` statement. Beside it, whether
+# that transport came from the ambient settings or was injected in code: the
+# remote-write gates below bind only the ambient one (see `_mirror_transport`).
 _ACTIVE: dict[str, ObjectTransport | None] = {}
+_AMBIENT: dict[str, bool] = {}
 
 
 def active_transport() -> ObjectTransport | None:
@@ -264,8 +275,13 @@ def active_transport() -> ObjectTransport | None:
     A build failure (a malformed ``FEDCOURTS_CASESTORE_URL``, a boto3/region
     problem) disables the store — it logs and caches ``None`` rather than raising,
     so a fat-fingered flag can never crash an ingestion write.
+
+    This is the *read* seam: payload reads use it wherever the store is
+    addressed. Mirror writes go through :func:`_mirror_transport`, which adds
+    the remote-write gates on top of it.
     """
     if "transport" not in _ACTIVE:
+        _AMBIENT["ambient"] = True
         try:
             _ACTIVE["transport"] = transport_from_settings()
         except Exception as exc:  # broad by design: a bad flag disables, never crashes
@@ -275,13 +291,20 @@ def active_transport() -> ObjectTransport | None:
 
 
 def set_active_transport(transport: ObjectTransport | None) -> None:
-    """Override the process transport (tests / explicit wiring)."""
+    """Override the process transport (tests / explicit wiring).
+
+    An injected transport is the code's own choice of store rather than one
+    the environment happened to name, so the ambient-only gates of
+    :func:`_mirror_transport` and :func:`mirrors_connection` do not apply to it.
+    """
     _ACTIVE["transport"] = transport
+    _AMBIENT["ambient"] = False
 
 
 def reset_active_transport() -> None:
     """Clear the cache so the next access rebuilds from settings (tests)."""
     _ACTIVE.clear()
+    _AMBIENT.clear()
 
 
 def transport_is_built() -> bool:
@@ -324,7 +347,8 @@ def transport_override(transport: ObjectTransport | None) -> Iterator[None]:
     """
     had = "transport" in _ACTIVE
     previous = _ACTIVE.get("transport")
-    _ACTIVE["transport"] = transport
+    previous_ambient = _AMBIENT.get("ambient")
+    set_active_transport(transport)
     try:
         yield
     finally:
@@ -332,11 +356,42 @@ def transport_override(transport: ObjectTransport | None) -> Iterator[None]:
             _ACTIVE["transport"] = previous
         else:
             _ACTIVE.pop("transport", None)
+        if previous_ambient is None:
+            _AMBIENT.pop("ambient", None)
+        else:
+            _AMBIENT["ambient"] = previous_ambient
 
 
-# Mutable one-slot state so the withheld-mirror warning fires once per
+# Mutable one-slot state so each withheld-mirror warning fires once per
 # process rather than once per mirrored object.
-_MIRROR_WITHHELD = {"warned": False}
+_MIRROR_WITHHELD = {"warned": False, "outside_actions": False, "not_corpus": False}
+
+# The variable the GitHub Actions runner sets to ``true`` in every job step.
+_ACTIONS_MARKER = "GITHUB_ACTIONS"
+
+
+def in_actions_job() -> bool:
+    """Whether this process runs inside a GitHub Actions job step.
+
+    The runner sets the marker itself in every job, so a workflow need not
+    declare it, and a dev shell, a codespace or a bare script does not carry
+    it. It is a context gate, not an authorization: the corpus-write
+    credentials exist only in the writer jobs, and this keeps a process
+    anywhere else from even attempting a remote write with whatever
+    credential it holds.
+    """
+    return os.environ.get(_ACTIONS_MARKER) == "true"
+
+
+def _transport_is_ambient() -> bool:
+    """Whether the process transport was built from settings rather than injected."""
+    return _AMBIENT.get("ambient", True)
+
+
+def _warn_withheld_once(key: str, message: str) -> None:
+    if not _MIRROR_WITHHELD[key]:
+        logger.warning(message)
+        _MIRROR_WITHHELD[key] = True
 
 
 def _mirror_blocked() -> bool:
@@ -351,26 +406,107 @@ def _mirror_blocked() -> bool:
     """
     if get_settings().corpus_pointer is None:
         return False
-    if not _MIRROR_WITHHELD["warned"]:
-        logger.warning(
-            "casestore: mirrors withheld — the out-of-band corpus pointer override is set"
-        )
-        _MIRROR_WITHHELD["warned"] = True
+    _warn_withheld_once(
+        "warned", "casestore: mirrors withheld — the out-of-band corpus pointer override is set"
+    )
     return True
 
 
-def _best_effort(description: str, write: Callable[[ObjectTransport], object]) -> None:
-    """Run one mirror write against the active transport, swallowing any failure.
+def _mirror_transport() -> ObjectTransport | None:
+    """The transport a mirror write may use, or ``None`` when mirrors are withheld.
 
-    Dual-write is secondary to the SQLite blob (the phase-1 system of record), so a
-    store hiccup logs and is swallowed — it must never fail an ingestion write.
-    A no-op when the store is disabled (transport ``None``) or when the pointer
-    override withholds mirrors (see :func:`_mirror_blocked`).
+    :func:`active_transport` plus the remote-write gates, in order:
+
+    1. the store is addressed at all (else a pure no-op);
+    2. the out-of-band pointer override is unset (:func:`_mirror_blocked`);
+    3. an ambient transport — one the environment named — writes only inside
+       a GitHub Actions job (:func:`in_actions_job`). A dev checkout, a
+       codespace or a bare script whose environment names the store reads
+       from it freely but never writes to it, whatever credential it holds,
+       so a local run of writer code stays local. Warned once per process.
+
+    An injected transport (:func:`set_active_transport`) skips gate 3: the code
+    chose that store itself, which is what tests and explicit wiring do.
     """
     transport = active_transport()
     if transport is None:
-        return
+        return None
     if _mirror_blocked():
+        return None
+    if _transport_is_ambient() and not in_actions_job():
+        _warn_withheld_once(
+            "outside_actions",
+            "casestore: mirrors withheld — remote content-store writes run only "
+            "inside a GitHub Actions job; this run's corpus writes stay local",
+        )
+        return None
+    return transport
+
+
+def _main_database_file(conn: ReadConnection) -> Path | None:
+    """The file behind ``conn``'s main schema, or ``None`` (in-memory, temporary,
+    or a connection that is not SQLite)."""
+    try:
+        rows = conn.execute("PRAGMA database_list").fetchall()
+    except Exception:  # broad by design: a non-SQLite connection names no file
+        return None
+    for row in rows:
+        if row[1] == "main":
+            return Path(row[2]) if row[2] else None
+    return None
+
+
+def mirrors_connection(conn: ReadConnection) -> bool:
+    """Whether a corpus write on ``conn`` may mirror to the content store.
+
+    The per-connection half of the remote-write gate, which the corpus write
+    seams consult before mirroring. An ambient transport mirrors only writes to
+    **the configured corpus file** — the blob under the corpus root that the
+    pointer publishes. A write to any other SQLite database (a temporary or
+    scratch file, an in-memory database) is local by construction: its rows
+    are not the corpus, so they never land in the store the environment
+    names. Warned once per process.
+
+    ``False`` whenever :func:`_mirror_transport` withholds, so a disabled store
+    reads nothing back. An injected transport mirrors any connection, as with
+    :func:`_mirror_transport`.
+    """
+    if _mirror_transport() is None:
+        return False
+    if not _transport_is_ambient():
+        return True
+    target = _main_database_file(conn)
+    configured = corpus_db_path(get_settings().corpus_root)
+    if target is not None and target.resolve() == configured.resolve():
+        return True
+    if in_actions_job() and get_settings().corpus_split:
+        # Inside a job, with the split on, the blob keeps no payloads: a write
+        # withheld here is stored nowhere, so it is said loudly on every write
+        # rather than once per process.
+        logger.error(
+            "casestore: mirror withheld inside an Actions job for a database that is "
+            "not the configured corpus file (%s) — under the corpus split its "
+            "payloads are stored nowhere",
+            target,
+        )
+        return False
+    _warn_withheld_once(
+        "not_corpus",
+        "casestore: mirrors withheld — the written database is not the configured "
+        "corpus file, so its rows stay local",
+    )
+    return False
+
+
+def _best_effort(description: str, write: Callable[[ObjectTransport], object]) -> None:
+    """Run one mirror write against the mirror transport, swallowing any failure.
+
+    Dual-write is secondary to the SQLite blob (the phase-1 system of record), so a
+    store hiccup logs and is swallowed — it must never fail an ingestion write.
+    A no-op whenever :func:`_mirror_transport` withholds the write.
+    """
+    transport = _mirror_transport()
+    if transport is None:
         return
     try:
         write(transport)
@@ -380,10 +516,8 @@ def _best_effort(description: str, write: Callable[[ObjectTransport], object]) -
 
 def mirror_cases(rows: Sequence[CorpusRow]) -> None:
     """Best-effort mirror of each row's ``case.json``; never raises."""
-    transport = active_transport()
+    transport = _mirror_transport()
     if transport is None:
-        return
-    if _mirror_blocked():
         return
     for row in rows:
         try:
@@ -407,10 +541,8 @@ def mirror_documents_for_cases(conn: ReadConnection, case_ids: Iterable[str]) ->
     makes the mirrored manifest reflect every stored kind, not just the batch that
     triggered the write.
     """
-    transport = active_transport()
+    transport = _mirror_transport()
     if transport is None:
-        return
-    if _mirror_blocked():
         return
     for case_id in dict.fromkeys(case_ids):
         try:
@@ -426,10 +558,8 @@ def mirror_documents(documents: Sequence[CaseDocument]) -> None:
     merged onto each case's existing store manifest (:func:`merge_documents`)
     rather than read back from the corpus. Transport-guarded (store off → no-op).
     """
-    transport = active_transport()
+    transport = _mirror_transport()
     if transport is None:
-        return
-    if _mirror_blocked():
         return
     by_case: dict[str, list[CaseDocument]] = {}
     for doc in documents:
@@ -447,10 +577,8 @@ def mirror_events_for_cases(conn: ReadConnection, case_ids: Iterable[str]) -> No
     Transport-guarded before any read-back (flag off → pure no-op); the committed
     set is read back per case so ``events.json`` is the complete list.
     """
-    transport = active_transport()
+    transport = _mirror_transport()
     if transport is None:
-        return
-    if _mirror_blocked():
         return
     for case_id in dict.fromkeys(case_ids):
         try:
@@ -922,6 +1050,7 @@ class _CorpusMirrorSink:
     the storage layer free of the S3 mirror and free of an import cycle.
     """
 
+    mirrors_connection = staticmethod(mirrors_connection)
     mirror_cases = staticmethod(mirror_cases)
     mirror_snapshot = staticmethod(mirror_snapshot)
     mirror_documents_for_cases = staticmethod(mirror_documents_for_cases)

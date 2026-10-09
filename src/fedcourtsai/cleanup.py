@@ -101,7 +101,7 @@ def find_out_of_scope_predictions(data_root: Path, corpus_db: Path) -> list[Prun
         by_case.setdefault(case_id, []).append(predictions_dir.relative_to(repo_root).as_posix())
 
     prunable: list[PrunableCase] = []
-    with corpus.connect(corpus_db) as conn:
+    with corpus.connect_local_read(corpus_db) as conn:
         for case_id in sorted(by_case):
             row = corpus.get_row(conn, case_id)
             if row is None:

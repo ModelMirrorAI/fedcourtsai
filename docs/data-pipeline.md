@@ -230,6 +230,29 @@ live in different stores, split by **kind**:
    act; mirroring is best-effort — a store failure logs, never breaking the
    SQLite write.
 
+   **Only an Actions job's writes to the corpus file reach the store.** An
+   addressed store is the read seam everywhere, but a mirror *write* passes two
+   more gates (`casestore.mirrors_connection`): the process runs inside a GitHub
+   Actions job — the runner sets that marker in every job, so no workflow
+   declares it and no dev shell, codespace or bare script carries it unless
+   exported by hand — and the written database is the configured corpus file
+   under the corpus root. Anywhere else writer code runs, its corpus writes stay
+   local, whatever credential the environment holds: a local dry run of a writer
+   pass, or a script seeding a temporary database through the write helpers,
+   attempts no remote write and logs once that it withheld. The marker is a
+   guard against accidents, not a control: anyone can set it, so outside Actions
+   the read-only role remains what refuses a write, and the marker only keeps a
+   local run from attempting one. Inside a job with the split on, a write
+   withheld because its database is not the corpus file logs an error each time,
+   since the blob keeps no payloads and they are then stored nowhere. Inside
+   Actions the credentials narrow writes to the writer jobs: a read-only job
+   that ran a corpus write would attempt the mirror and be refused by its role,
+   the refusal logged and swallowed like any mirror failure. The out-of-band
+   pointer override withholds mirrors too. A transport injected in code
+   (`casestore.set_active_transport`, as the tests do) is the code's own choice
+   of store and skips both of those gates (the pointer override still withholds
+   it).
+
    **The mode is never wired beside the address.** `Settings` still accepts an
    explicit `FEDCOURTS_CORPUS_SPLIT`, which decides in both directions, and a
    dev shell or a test uses it to pin the mode outright (`scripts/corpus-env`,
@@ -546,11 +569,25 @@ QUERY PLAN` tests), keeping a ranged point lookup at KB scale.
 
 Read-only consumers go through `corpus.connect_readonly`, which picks the
 backend from the corpus-backend setting (or an explicit override): `local`
-opens the pulled file (migrating it in place to the reading code's schema,
-unless the caller passes `migrate=False`, as `corpus-info` does, which opens
-it strictly read-only and leaves its bytes matching the pointer; `corpus-info`
-and `corpus-pull` say when an earlier migrating read has already moved the
-bytes off their pointer's sha256), `ranged` resolves the pointer the read paths honor —
+opens the pulled file through `corpus.connect_local_read`, which never changes
+its bytes — a blob already at the reading code's schema is opened strictly
+read-only (SQLite `mode=ro`), and an older one (a checkout whose code adds a
+column the published blob predates) is read through a migrated temporary copy,
+made once per process and removed at exit, so the reader still sees every
+column (a process killed before exit, by SIGKILL or an unhandled SIGTERM,
+leaves its `fedcourts-corpus-read-*` directory in the temporary directory to
+remove by hand). Every `fedcourts` command is its own process, so in that window each
+local read command pays one full copy of the blob — time and temporary disk
+the size of the blob (about a gigabyte for production's) — until the next
+writer publish carries the new schema; `migrate=False`, as
+`corpus-info` passes, opens the blob as packed and never makes the copy. The
+read-only commands that open the local file directly (validation, analytics,
+the back-tests, the salience replay, the cleanup scan) use the same seam, so
+a pulled blob keeps matching its pointer's sha256 until a writer or
+maintenance command rewrites it — its default dry run included, since it opens
+the file through the writer seam (`corpus.connect`) and so migrates a blob
+older than the code — which `corpus-info` and `corpus-pull` then report.
+`ranged` resolves the pointer the read paths honor —
 the out-of-band override when set, else the committed one — against
 the out-of-band remote URL; writers never use this seam. Each ranged connection
 reports its `GET`s and bytes fetched to stderr — the per-query egress evidence
@@ -885,8 +922,12 @@ between syncs, since data commits land on `main` only — reads an old corpus:
 `origin/main`'s as last fetched (read ranged with that pointer supplied as the
 override before calling the vintage current). Separately,
 `corpus-info` and `corpus-pull` say when a pulled blob's bytes no longer match
-its pointer's sha256 because a default local read migrated it in place; a
-re-pull, or a ranged read, serves the published bytes again.
+its pointer's sha256 because a writer or maintenance command ran against it
+locally — a dry run included, since it opens the file through the writer seam
+(the read-only commands never rewrite it); a re-pull, or a ranged read, serves the published
+bytes again. Such a local writer run stays local: outside an Actions job its
+writes never mirror to the content store, whatever credential the shell holds
+(*Only an Actions job's writes to the corpus file reach the store*, above).
 
 Credentials arrive as **user-scoped** Codespaces secrets — never repo-level,
 never committed: the **maintainer** via IAM Identity Center (short-lived SSO

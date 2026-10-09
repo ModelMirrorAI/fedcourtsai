@@ -4972,11 +4972,12 @@ def _blob_drift_text(drift: corpus_remote.BlobDrift) -> str:
     """
     pulled = drift.pointer_source.name.endswith(".pulled" + corpus_ranged.POINTER_SUFFIX)
     cause = (
-        "it was rewritten since the pull, most often by a local read that migrated "
-        "its schema in place"
+        "it was rewritten since the pull, by a writer or maintenance command run "
+        "against it locally (a dry run included; the read-only commands never rewrite it)"
         if pulled
-        else "it is not the blob that pointer names — rewritten in place by a local "
-        "read that migrated its schema, built locally, or the committed pointer moved"
+        else "it is not the blob that pointer names — rewritten in place by a "
+        "writer or maintenance command run locally (a dry run included), built locally, "
+        "or the committed pointer moved"
     )
     return (
         f"the blob on disk no longer matches the sha256 its pointer names "
@@ -5027,8 +5028,8 @@ def corpus_pull(
     fails loudly instead of masquerading as the corpus.
 
     Warns on stderr, without changing what it fetches, when the local blob it
-    replaces no longer matched its pointer (a local read migrated it in place)
-    and when the committed pointer differs from the one ``origin/main``
+    replaces no longer matched its pointer (a writer or maintenance command,
+    or its dry run, rewrote it) and when the committed pointer differs from the one ``origin/main``
     carries as of the last fetch (a checkout on an old commit pulls an old blob).
     """
     if missing_pointer not in {"fail", "warn"}:
@@ -6274,7 +6275,7 @@ def backtest(
         write_json(destination, report)
         typer.echo(f"No corpus at {db_path} — wrote empty back-test report -> {destination}")
         return
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_local_read(db_path) as conn:
         items = select_backtest_set(conn, court=court or None, limit=limit)
         report = run_backtest(default_backtesters(conn), items)
     write_json(destination, report)
@@ -6559,7 +6560,7 @@ def cert_backtest_cmd(
     # the floor is what `--scope selected` means, and the lookback window sets
     # every segment base rate the per-band skill is scored against.
     salience_cfg = load_salience_config(settings.config_root)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_local_read(db_path) as conn:
         # An engine replay draws from the replayable petitions, passing over the
         # rest as it walks, so the limit is the set's size and an unreplayable
         # petition never costs the draw a slot it would have filled.
@@ -10138,8 +10139,8 @@ def _vote_pass(  # noqa: PLR0913 - one shared body for the two commands' identic
     )
     settings = get_settings()
     if emit_projection is not None:
-        # Strictly read-only: the projection reads two columns every blob
-        # carries, so the pulled file is never migrated in place.
+        # The projection reads two columns every blob carries, so it opens the
+        # blob as packed and never pays for a migrated read copy.
         with corpus.connect_readonly(db_path, migrate=False) as conn:
             numbers = vote_docket_numbers(conn, settings.data_root, source=source)
         write_handoff(emit_projection, numbers)
@@ -11210,7 +11211,9 @@ def corpus_info(
     Under ``local`` the blob is opened strictly read-only with no schema
     migration, so the report never rewrites the file it dates and a pulled
     blob keeps matching its pointer, even when it predates the code reading it.
-    Other local reads still migrate it, so the report also says when the bytes
+    No read-only command rewrites it, but a writer or maintenance command
+    run against it does — its dry run included, which opens the file through
+    the writer seam — so the report also says when the bytes
     on disk no longer match the sha256 their pointer names (settled by the
     digest unless the blob is untouched since its pull), and — with no pointer
     override set — when the checkout's committed pointer differs from the one
@@ -11312,9 +11315,9 @@ def _echo_pointer_provenance(db_path: Path, backend: str, *, override_set: bool)
                     f"pointer: the blob on disk is not the committed ref's (pulled "
                     f"sha256 {pulled_sha}) — re-pull before quoting this vintage"
                 )
-        # The bytes half: a pull lands a verified blob, but a default local
-        # read migrates it in place, after which the vintage dates a file no
-        # pointer names.
+        # The bytes half: a pull lands a verified blob, but a writer or
+        # maintenance command (a dry run included) run locally rewrites it in
+        # place, after which the vintage dates a file no pointer names.
         drift = corpus_remote.local_blob_drift(db_path)
         if drift is not None:
             typer.echo(f"pointer: {_blob_drift_text(drift)} — re-pull before quoting this vintage")

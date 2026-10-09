@@ -910,6 +910,19 @@ Developer access is separate from the workflow roles: the maintainer uses IAM
 Identity Center SSO, and a contributor gets an on-demand IAM user scoped
 read-only to the corpus bucket — the one static credential in the system.
 
+The code holds the same line without relying on the credential. A corpus
+write mirrors to the content store only inside a GitHub Actions job (a marker
+the runner sets in every job) and only from the configured corpus file, so a
+writer pass run locally, or a script that seeds a temporary database through
+the corpus write helpers, never attempts a store write even where the
+environment names production's store. The marker is a guard against
+accidents, not a control — anyone can set it — so outside Actions the
+read-only role remains what refuses a write; the marker only keeps a local
+writer run from attempting one. Inside Actions the role scoping above is what
+confines writes to the writer jobs. The mechanism is *Only an
+Actions job's writes to the corpus file reach the store* in
+[data-pipeline.md](data-pipeline.md).
+
 Every role's OIDC trust is scoped to named environments of this repo
 (`...:sub` like `repo:<owner>/<repo>:environment:prod`), so only a job binding
 one of those environments can assume it. The production read-write role names

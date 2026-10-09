@@ -1891,7 +1891,7 @@ def run_corpus_validation(
     if not corpus_db_path.exists():
         return CorpusValidation(ok=True, skipped=True)
     try:
-        with corpus.connect(corpus_db_path) as conn:
+        with corpus.connect_local_read(corpus_db_path) as conn:
             return _run_checks(
                 conn,
                 data_root=data_root,
@@ -2000,7 +2000,7 @@ def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
     shapes: Counter[str] = Counter()
     seen_rows: dict[str, corpus.CorpusRow | None] = {}
     open_events = 0
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_local_read(corpus_db_path) as conn:
         corpus_rows = corpus.count(conn)
         for event in corpus.iter_open_events(conn, court="scotus"):
             open_events += 1

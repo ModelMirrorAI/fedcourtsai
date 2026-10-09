@@ -43,6 +43,10 @@ The corpus has two halves:
     documents/<kind>/<YYYY-MM-DD>-<digest>.txt   # extracted text (content-addressed)
   ```
 
+  A corpus write mirrors to production's store only inside a GitHub Actions
+  job and only from the configured corpus file — and only production's writer
+  jobs hold a role that may write there — so a local writer run or a temporary database never
+  reaches the store (see [docs/data-pipeline.md](../docs/data-pipeline.md)).
   Document text leaves are content-addressed and dated snapshots immutable per
   day, so bulk content is never overwritten in place; the small manifests are
   versioned by the bucket rather than deleted. The `questions-presented` leaf is

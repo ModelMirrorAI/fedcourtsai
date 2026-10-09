@@ -72,8 +72,14 @@ def _clear_ambient_corpus_addressing(monkeypatch: pytest.MonkeyPatch) -> None:
     would put the *writers* in split mode for the whole session, leaving the
     fixture blobs these tests build payload-free. A test that wants the mode
     says so itself.
+
+    The Actions runner marker goes too: an ambient content store mirrors only
+    inside an Actions job (``casestore.in_actions_job``), so without this a
+    test's mirroring would differ between CI and a dev shell. A test that
+    exercises the writer-job path sets it itself.
     """
     for name in (
+        "GITHUB_ACTIONS",
         "FEDCOURTS_CORPUS_POINTER",
         "CORPUS_POINTER",
         "FEDCOURTS_CORPUS_BASE_URL",
