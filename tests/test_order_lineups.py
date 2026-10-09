@@ -656,6 +656,107 @@ def test_a_consolidated_caption_printed_as_bare_dockets_opens_one_entry() -> Non
     assert by_dockets[("24-354", "24-422")].startswith("The motion of the Acting Solicitor")
 
 
+# The shape the long-conference order lists (October 7, 2024; October 6, 2025;
+# October 5, 2026) extract to: on some pages the serial of every caption whose
+# number ends in 0 or 5 is lifted out of its line, the caption keeping only
+# ``25-``, and the page's lifted serials land together as a column of bare
+# numbers above its captions, after the page number. Captions are invented or
+# institutional; the layout (padding, blank lines, trailing spaces) is the
+# extracted text's.
+LIFTED_SERIALS = "\n".join(
+    [
+        "(ORDER LIST: 607 U.S.)",
+        "MONDAY, OCTOBER 5, 2026",
+        "CERTIORARI DENIED",
+        "25-1030 DOE, JANE V. UNITED STATES ",
+        "25-1373   ACME CORP. V. ROE, JOHN, ET AL. ",
+        "10 ",
+        " ",
+        "    ",
+        "       ",
+        "1375 ",
+        "1380 ",
+        "1385  ",
+        "25-1374   SMITH, JOHN V. UNITED STATES ",
+        "25- ROE, RICHARD V. ACME CORP. ",
+        "25-1377   DOE, JOHN V. TEXAS ",
+        "25-1379 ROE, JANE V. JONES, WARDEN ",
+        "25- UNITED STATES V. DOE, JANE ",
+        "25-1382 NATIONAL ASSN. OF ACME V. FTC ",
+        "25-1384 SMITH, JANE V. FLORIDA ",
+        "25-  DOE, RICHARD V. ROE, JOHN, ET AL. ",
+        "25-1386   JONES, JOHN V. UNITED STATES ",
+        "11 ",
+        "  The petitions for writs of certiorari are denied. ",
+        "",
+    ]
+)
+
+
+def test_lifted_serials_are_rejoined_to_their_captions() -> None:
+    split = split_document(LIFTED_SERIALS)
+    assert split.problems == ()
+    (entry,) = split.pieces
+    assert entry.dockets == (
+        "25-1030",
+        "25-1373",
+        "25-1374",
+        "25-1375",
+        "25-1377",
+        "25-1379",
+        "25-1380",
+        "25-1382",
+        "25-1384",
+        "25-1385",
+        "25-1386",
+    )
+    # The column is not read as any entry's order text.
+    assert entry.text == "The petitions for writs of certiorari are denied."
+
+
+def test_a_column_that_does_not_fit_its_captions_is_a_problem_not_a_guess() -> None:
+    # 1390 cannot sit between 25-1374 and 25-1377, so no serial is rejoined.
+    split = split_document(LIFTED_SERIALS.replace("1375 \n", "1390 \n", 1))
+    assert any("could not be rejoined" in p for p in split.problems)
+    dockets = {d for p in split.pieces for d in p.dockets}
+    assert not dockets & {"25-1375", "25-1380", "25-1385", "25-1390"}
+    # Every entry still reads the real order, never the column.
+    assert {p.text for p in split.pieces} == {"The petitions for writs of certiorari are denied."}
+
+
+def test_a_lifted_caption_with_no_column_is_a_problem() -> None:
+    split = split_document(
+        LIFTED_SERIALS.replace("1375 \n1380 \n1385  \n", "").replace("10 \n", "")
+    )
+    assert sum("printed without a serial" in p for p in split.problems) == 3
+    assert {p.text for p in split.pieces} == {"The petitions for writs of certiorari are denied."}
+
+
+def test_a_column_no_caption_claims_is_dropped_as_a_problem() -> None:
+    split = split_document(
+        "CERTIORARI DENIED\n"
+        + "25-1030 DOE, JANE V. UNITED STATES\n"
+        + "1375\n"
+        + "1380\n"
+        + "25-1374 SMITH, JOHN V. UNITED STATES\n"
+        + "  The petitions for writs of certiorari are denied.\n"
+    )
+    assert any("no caption claims: '1375 1380'" in p for p in split.problems)
+    (entry,) = split.pieces
+    assert entry.dockets == ("25-1030", "25-1374")
+
+
+def test_entry_text_with_no_letters_is_a_problem() -> None:
+    split = split_document(
+        "CERTIORARI DENIED\n"
+        + "25-1030 DOE, JANE V. UNITED STATES\n"
+        + "  --- ; 12.\n"
+        + "25-1374 SMITH, JOHN V. UNITED STATES\n"
+        + "  The petition for a writ of certiorari is denied.\n"
+    )
+    assert any("has no letters" in p for p in split.problems)
+
+
 def test_a_bracket_line_between_two_captions_does_not_end_the_first() -> None:
     # The shape of the order list of October 21, 2024: each caption line carries
     # its bracket, and a lone bracket line sits between them.

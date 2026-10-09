@@ -98,11 +98,11 @@ COURT: Final = "scotus"
 #: The notation grammar's stamp.
 NOTATIONS_GRAMMAR: Final = "scotus-order-notations"
 #: Bump whenever the same notation text could read differently.
-NOTATIONS_VERSION: Final = 2
+NOTATIONS_VERSION: Final = 3
 #: The separate-writing header grammar's stamp.
 HEADERS_GRAMMAR: Final = "scotus-writing-headers"
 #: Bump whenever the same header could read differently.
-HEADERS_VERSION: Final = 2
+HEADERS_VERSION: Final = 3
 
 _TITLE_WORDS: Final = frozenset({"JUSTICE", "JUSTICES", "THE", "CHIEF"})
 _SPLIT_INITIAL_RE = re.compile(r"\b([A-Z]) ([A-Za-z]{2,})\b")
