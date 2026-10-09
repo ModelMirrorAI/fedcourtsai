@@ -1984,14 +1984,14 @@ give the data **invariants** worth asserting on their own, distinct from
 - **Referential integrity** — every judgment references an event and case that
   exist in the corpus, every evaluation targets a real prediction, and every
   prose document a prediction names exists beside it (so a pointer to a document
-  the cell never wrote fails rather than passing as a valid record), and every
-  event directory holds only its `event.yaml`, `outcome.json`, `predictions/`
-  and `evaluations/` (so cell output committed beside them, where no reader
-  looks, fails rather than sitting there unscored). The rule
+  the cell never wrote fails rather than passing as a valid record). The rule
   runs both ways: the corpus→ledger direction requires every **minted** moment
   in the corpus to carry the `event.yaml` that defines it, so a moment is
   declared in git on the day it became forecastable rather than whenever a
-  cell or a resolution next touches it.
+  cell or a resolution next touches it. Every event directory also holds only
+  its `event.yaml`, `outcome.json`, `predictions/` and `evaluations/`, so cell
+  output committed beside them, where no reader looks, fails rather than
+  sitting there unscored.
 - **Record completeness** — a row that should have resolved by now has. A cert
   grant that opens a merits proceeding and is more than two Terms old, carrying
   neither a parsed judgment nor a recorded termination, is a decided docket the

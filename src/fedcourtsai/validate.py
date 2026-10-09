@@ -1813,16 +1813,17 @@ _EVENT_DIR_ENTRIES: dict[str, bool] = {
 }
 
 #: Stray event-directory entries on ``main`` that the rule above refuses, pending
-#: removal, as ``<court>/<docket>/<event_id>/<entry>``. Each leaves through a
-#: maintainer-reviewed ``cleanup/*`` PR to ``main``. That PR's ``cleanup-paths``
-#: jail admits deletions under ``predictions/`` only, so it reports this shape
-#: red; the jail is review-time defense outside ``main``'s required checks, and
-#: the maintainer merges over it having read the two-path delete. A member's
-#: line here comes out in a code PR once that removal has reached ``staging``,
-#: never before, or the gate turns red on a tree a code PR cannot change. Like the off-docket
-#: terminal cases, a member is **excepted, never dropped**: it stays in
-#: ``checked`` and the check's ``detail`` names it, so the exemption is as
-#: visible on the verdict as a failure would be.
+#: removal (or whatever disposition the maintainer chooses), as
+#: ``<court>/<docket>/<event_id>/<entry>``. Each leaves through a
+#: maintainer-reviewed ``cleanup/*`` PR to ``main``. That PR's
+#: ``cleanup-paths`` jail admits deletions under ``predictions/`` only, so it
+#: reports this shape red; the jail is review-time defense outside ``main``'s
+#: required checks, and the maintainer merges over it having read the delete.
+#: A member's line here comes out in a code PR once that removal has reached
+#: ``staging``, never before, or the gate turns red on a tree a code PR cannot
+#: change. Like the off-docket terminal cases, a member is **excepted, never
+#: dropped**: it stays in ``checked`` and the check's ``detail`` names it, so
+#: the exemption is as visible on the verdict as a failure would be.
 _STRAY_EVENT_ENTRIES_PENDING_CLEANUP: frozenset[str] = frozenset(
     {
         # A gemini prediction.json + reasoning.md for run 20260916T201911Z that a
