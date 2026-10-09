@@ -11187,7 +11187,8 @@ def corpus_info(
         typer.Option(
             "--text-coverage",
             help="Also count the stored documents whose text is empty, per kind "
-            "(petition / application / brief-in-opposition / "
+            "(petition / application / appendix / brief-in-opposition / "
+            "cert-reply / sg-invited-brief / "
             "merits-brief-petitioner / merits-brief-respondent / "
             "merits-reply-petitioner / merits-reply-respondent / "
             "questions-presented) and split on "
@@ -12276,11 +12277,13 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     the per-case content store (``--corpus-backend casestore``, the default under
     the corpus-split mode) — and write it where the agent reads it (a gitignored
     ``record/`` path, never committed). Any stored filed-document text (petition,
-    questions presented, the cert-stage brief in opposition, each side's brief on
-    the merits once the petition is granted, and the application itself wherever
-    one was filed — fetched pipeline-side by the live poller) is
-    materialized alongside, under ``record/documents/`` with a
-    ``documents.json`` manifest, so the cell reads identical content with no
+    questions presented, the separately linked appendix, the cert-stage brief in
+    opposition, the petitioner's cert-stage reply, the Solicitor General's invited
+    brief, each side's brief on the merits once the petition is granted, and the
+    application itself wherever one was filed — fetched pipeline-side by the live
+    poller) is materialized alongside, under ``record/documents/`` with a
+    ``documents.json`` manifest whose rows each carry a one-sentence
+    ``kind_description``, so the cell reads identical content with no
     fetch rights. That staged text is passed through the **contact-detail
     scrub** where the snapshot names nobody but the filer to write to on
     either party side, petitioner or respondent, or on an amicus block of the

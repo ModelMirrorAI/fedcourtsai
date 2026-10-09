@@ -703,14 +703,18 @@ class CaseDocument(BaseModel):
     kind: str = Field(
         description="petition (the case-opening filing on a cert-form docket, "
         "whichever writ it seeks) | application (the interim relief an "
-        "application-form docket is opened by) | brief-in-opposition (the "
-        "cert-stage opposition, every respondent's in one row) | "
+        "application-form docket is opened by) | appendix (the appendix the "
+        "case-opening or application entry posts under its own link) | "
+        "brief-in-opposition (the cert-stage opposition, every respondent's in one "
+        "row) | cert-reply (the petitioner's cert-stage reply, before the grant) | "
+        "sg-invited-brief (the brief for the United States as amicus curiae "
+        "filed on the Court's invitation) | "
         "merits-brief-petitioner | merits-brief-respondent (each side's brief on "
         "the merits, one row per side, selected only after the cert grant) | "
         "merits-reply-petitioner | merits-reply-respondent (each side's reply on "
         "the merits, one row per side, on the same post-grant bound — the "
         "cert-stage reply to a brief in opposition is spelled identically and is "
-        "not this kind) | questions-presented | …"
+        "cert-reply) | questions-presented | …"
     )
     url: str = Field(
         description="The supremecourt.gov DocumentUrl fetched; for a combined "
