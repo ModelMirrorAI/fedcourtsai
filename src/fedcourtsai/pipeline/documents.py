@@ -678,7 +678,7 @@ def select_documents(
     member's (:func:`_select_lead_own`).
 
     Ten arms, all entry-keyed rather than form-keyed — the payload says which
-    filings it carries, and nothing here needs to be told the docket's form. Six
+    filings it carries, and nothing here needs to be told the docket's form. Seven
     of them are additionally **stage**-keyed, on the grant date read off the same
     payload (:func:`cert_signals.cert_grant_date`), because the cert stage and the
     merits stage spell a party's brief and a party's reply identically and only
@@ -1484,7 +1484,7 @@ def extract_pdf_text(
     mostly-digital filing with a few scanned exhibit pages honest, since a page
     that *did* extract is never overwritten by a lossier reading of it. The cap
     and the truncation flag bound the result identically either way, so a
-    recovered document is bounded exactly like a fetched one, and
+    recovered document is bounded like a plain-cut fetched one, and
     ``ocr_derived`` is set only where OCR actually contributed text. A raising
     ``ocr_page`` costs its own page and no more.
 
@@ -3263,7 +3263,8 @@ def fetch_case_documents(
             FETCH_LOSS_NOT_SELECTED,
             case_id,
             _NOT_SELECTED_KIND,
-            "no case-opening, application, opposition, or merits entry carried a document link",
+            "no case-opening, application, opposition, reply, invited-brief or merits entry"
+            " carried a document link",
         )
         return []
     bio_refs = [ref for ref in refs if ref.kind == KIND_BRIEF_IN_OPPOSITION]
@@ -3639,27 +3640,38 @@ TEXT_COVERAGE_KINDS: tuple[str, ...] = (*FETCHED_DOCUMENT_KINDS, KIND_QUESTIONS_
 # (:func:`fedcourtsai.provision.document_manifest`), so the manifest names what
 # each file is and how it was cut without the cell having to know the kind
 # vocabulary. Stated as what the file *is*, never what it predicts.
+# The cut-note sentence the three appendix-bearing kinds share. Conditional on
+# purpose: a row stored under the plain head cut, an OCR-recovered row, and
+# a fetched filing too long for any appendix budget may carry no item note.
+_CUT_NOTE_DESCRIPTION = (
+    "Where a cut is made around an appendix it is marked in the text by a "
+    "'[pipeline note: ...]' line; a truncated row with no such line was cut at "
+    "the cap from the end."
+)
 KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_PETITION: (
         "The filing that opened the case (a petition for certiorari, an extraordinary "
         "writ, or a jurisdictional statement), with any appendix bound into the same PDF. "
-        "Over the text cap the filing's own body is kept whole and the appendix is cut, "
-        "each cut marked in the text by a '[pipeline note: ...]' line."
+        "Over the text cap the appendix, where one is found, is cut before the filing's "
+        "own body. "
+        f"{_CUT_NOTE_DESCRIPTION}"
     ),
     KIND_APPLICATION: (
         "The application for interim relief, with any appendix bound into the same PDF. "
-        "Over the text cap the application's own body is kept whole and the appendix is "
-        "cut, the shorter court orders kept whole first, each cut marked in the text by "
-        "a '[pipeline note: ...]' line."
+        "Over the text cap the appendix, where one is found, is cut before the "
+        "application's own body: every item keeps its opening, then the shorter court "
+        "decisions are completed first. "
+        f"{_CUT_NOTE_DESCRIPTION}"
     ),
     KIND_APPENDIX: (
         "The appendix filed under its own link beside the petition or application: the "
         "opinions and orders below and the record material the filer reproduced. Over "
         "the text cap every item keeps its opening and the court decisions are completed "
-        "first, each cut marked in the text by a '[pipeline note: ...]' line."
+        "first. "
+        f"{_CUT_NOTE_DESCRIPTION}"
     ),
     KIND_BRIEF_IN_OPPOSITION: (
-        "Every respondent's cert-stage brief in opposition or response to the petition, "
+        "Every non-amicus cert-stage brief in opposition or response to the petition, "
         "combined in docket order, each under a '=== <docket entry> ===' header where "
         "there is more than one."
     ),

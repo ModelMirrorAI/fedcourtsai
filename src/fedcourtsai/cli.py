@@ -2201,7 +2201,7 @@ def ocr_recover_petitions_cmd(
     its pages go through the extractor with the OCR seam supplied, which reads a
     page off its rendered image only where that page's own extraction yielded
     nothing. The same per-document character cap and truncation flag bound the
-    result, so a recovered row is bounded exactly like a fetched one, and
+    result — the plain head cut, never the appendix-aware one — and
     every recovered row carries `ocr_derived`: OCR output is derived text, and
     must never read as a clean extraction. Additive — text is written only where
     the stored row held none — and a recovered **petition** re-derives its

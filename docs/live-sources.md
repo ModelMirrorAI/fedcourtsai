@@ -439,8 +439,9 @@ lead docket — one whose consolidation entry names its own number — carries
 every member's merits filings as well as its own, so a first match there can
 store a member's brief as the lead's. Its merits kinds therefore prefer an entry
 attributed to the lead (an "(as to No. …)" mark naming it, or a filer on its own
-side list), fall back to an entry that names no placeable filer, and never take
-one the Clerk marked for other dockets alone. Its cert-stage kinds are its own
+side list), fall back to any entry not marked for other dockets alone (most
+often an unmarked "Brief for the petitioner"), and never take one the Clerk
+marked for other dockets alone. Its cert-stage kinds are its own
 docket's, as on any other.
 **Implemented:** each lane fetches at the moment it queues prediction, which is
 not the same moment for both. On a cert docket that is the **distribution
@@ -478,7 +479,8 @@ after its first long opinion — the short lower-court orders an application tur
 on above all — is dropped. Those three kinds read every page and are cut so
 that:
 
-- **under the cap nothing changes** — the text is every page joined, as before;
+- **under the cap nothing is cut** — the text is every page joined, exactly the
+  plain extractor's output;
 - **the filing's own body is never cut for its appendix** — the body (every page
   before the appendix starts: an `APPENDIX` divider, the appendix's own contents
   page or its first folio, read from the fourth page on and never on a contents
@@ -499,9 +501,11 @@ that:
 
 Where a filing runs past ten times the cap, reading stops there and a last
 note names the pages never read. A page that fails to extract costs that page
-alone. The cut applies to rows stored from now on: fetching is idempotent per
+alone. The cut applies to rows stored under it: fetching is idempotent per
 kind and URL, so a petition or application already stored keeps its head cut
-until its link changes, and the corpus holds both vintages side by side.
+until its link changes, and the corpus holds both vintages side by side —
+which is why each kind's `kind_description` says a truncated row with no
+`[pipeline note:` line was cut at the cap from the end.
 
 The OCR recovery pass keeps the plain head cut for the rows it recovers: the
 appendix-aware cut reads every page, which on a scan means recognizing every
@@ -675,7 +679,10 @@ the causes differ: an empty petition or brief in opposition is the scan; a
 near-zero count on any of the four merits kinds is the shape of the granted
 slice, since nothing selects them before a grant, rather than a coverage gap
 (and the two reply rows are narrower again, bounded by the granted cases whose
-docket carries a reply at all); and an empty
+docket carries a reply at all); the `appendix`, `cert-reply` and
+`sg-invited-brief` counts are bounded the same way, by the dockets that post a
+separate appendix, carry a cert-stage reply, or were answered after a call for
+the Solicitor General's views; and an empty
 derived questions-presented row is as likely to be a capture the deriver would
 not vouch for. And the command reports the **absent** petition
 beside the empty one, because that is the larger failure and a different
@@ -881,8 +888,9 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   ceiling on the possible one, so the step's cap stays the backstop for what
   runs past it.
 - **What it reads.** Stored rows of a **fetched** kind — every kind a cell
-  reads that arrived as a PDF: the petition, the application, the brief in
-  opposition and the four merits filings, which is the text-coverage set less
+  reads that arrived as a PDF: the petition, the application, the separately
+  linked appendix, the brief in opposition, the cert-stage reply, the invited
+  brief and the four merits filings, which is the text-coverage set less
   its one derived member — whose text is empty or whitespace-only, whose page
   count is above zero, and whose stored URL is one link. A zero-page row is
   either a PDF the extractor could not open or a derived section — `pages`
@@ -918,8 +926,9 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   an injected `ocr_page` seam, defaulted to none, so this pass is the only
   caller that supplies one and no fetching lane grows the dependency —
   and the same per-document text cap the fetching lane applies and the same
-  truncation flag bound the result, because they are the same code. A recovered
-  row is bounded exactly like a fetched one. Additive by construction: text
+  truncation flag bound the result, because they are the same code — the plain
+  head cut, never the appendix-aware one a fetched petition, application or
+  appendix takes (see *The appendix-aware cut*). Additive by construction: text
   is written only where extraction stored none, so the pass cannot overwrite an
   extraction. Nor is a recovery overwritten later — the row keeps its URL, and
   both the poller and the Term walker re-fetch a kind only when its link
