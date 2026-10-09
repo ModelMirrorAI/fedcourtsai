@@ -93,7 +93,7 @@ concurrency:
 
 jobs:
   seed:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The checkpointed loop caps each chunk to its remaining LOOP_BUDGET_SECONDS
     # (--max-run-seconds), stopping itself at the soft budget; this hard cap is
     # the backstop headroom above it — setup + the final checkpoint + the
@@ -1121,7 +1121,7 @@ jobs:
   guard:
     needs: [seed]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Sized to the retry worst case: 4 retried call groups x 3 bounded 30s
     # attempts plus 60s of backoff sleeps. Nothing downstream waits on this job.
     timeout-minutes: 10

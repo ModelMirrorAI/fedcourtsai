@@ -27,36 +27,48 @@ does not match itself.
 
 ## Draft
 
-### ‹headline — one sentence, written last, in the form the rules below allow, and no stronger than the weakest caveat›
+### Three AI models forecast which petitions the Supreme Court would take up at its 2026-09-28 conference; on the 97 scored petitions it has decided (91 of them pre-registered), the Court granted 3, two of them sent back for reconsideration, too few to measure a difference between the models.
 
 **What this is.** Before the Supreme Court's first conference of the term, three
 frontier AI models each forecast whether the Court would take up a set of
-pending cases. Every forecast was merged into a public ledger before the Court
-met, so anyone can check that it came first. This is the first scored result.
+pending cases. Every forecast for that pre-registered set was merged into a
+public ledger before the Court met, so anyone can check that it came first.
+Six further petitions in the scores were first forecast only after the
+conference had met, though before the Court acted on them (see *What this
+does and doesn't show*). This is the first scored result.
+
+**Written by AI.** This page, like the audit write-up behind it, was written by
+AI agents (Claude, from Anthropic) under the project maintainer's direction:
+they drafted it before the conference and copied in each figure from the audit
+write-up and the release's dataset. AI reviewer agents checked the figures, and
+the maintainer reviewed the page before it was published.
 
 ### What was predicted, and when
 
 - **Cases forecast:** 110 petitions distributed for the 2026-09-28 conference
   when the cohort was registered, plus 10 where the Court had asked for the
   Solicitor General's views — the cohort registered before any outcome existed
-  (section 5 of the audit write-up). Of those, ‹n scored on each of the two cert
-  arms, distribution and Solicitor General views, copied from section 5's
-  reconciliation› had been decided and scored when this page was written.
-- **Models:** ‹predictor ids and the resolved model each ran, from the export's
-  predictions table›, each run the same way, under the same instructions and
-  with the same case materials.
-- **Last forecast in the ledger:** ‹the latest merge into `main` of a counted
-  cohort forecast: the export locates its commit, and the time is that pull
-  request's merge time as GitHub recorded it — the first and second commands
-  under *Where the timing and links come from* below›. **The Court acted:**
-  ‹order list date(s): the third command below›.
+  (section 5 of the audit write-up). Of those, 91 of the 110 distributed
+  petitions and none of the 10 Solicitor General petitions had been decided
+  and scored when this page was written.
+- **Models:** `claude-baseline` ran `claude-fable-5-1`, `codex-baseline` ran
+  `gpt-6-astra` and `gemini-baseline` ran `gemini-3.1-pro-preview`, under the
+  same instructions and with the same case materials, though not under
+  identical conditions (see *The models did not run side by side* below).
+- **Last forecast for the pre-registered set:** merged into `main` at
+  2026-09-19 19:45:51 UTC
+  ([pull request #1921](https://github.com/ModelMirrorAI/fedcourtsai/pull/1921)).
+  **The Court acted:** 2026-10-01 (one grant) and 2026-10-05 (the order list
+  carrying the other 90 decided pre-registered petitions, and the six
+  late-forecast ones).
 - **Check it yourself:** every forecast is a file in the public repo. The proof
   of timing is the time GitHub recorded when the forecast's pull request merged
   into `main`, and the `prereg/proc-v8` tag that fixed the rules beforehand;
-  a commit's own date is set by whoever made it and proves nothing.
-  ‹one-line recipe: a link to an example forecast's merged pull request — the
-  second command below, run on any cohort row's `ledger_commit` — beside the
-  order list›.
+  a commit's own date is set by whoever made it and proves nothing. For
+  example, the three models' forecasts for No. 25-901 arrived in
+  [pull request #1845](https://github.com/ModelMirrorAI/fedcourtsai/pull/1845),
+  merged 2026-09-16 18:43:21 UTC; the Court acted on that petition in its
+  2026-10-05 order list.
 
 These were not all the petitions at the conference. The set was chosen by a
 pre-registered ranking that favours petitions showing signs of the Court's
@@ -75,46 +87,59 @@ petitions, and the lift is the difference, because beating that is the actual
 test.
 
 The rows are the ranking's bands. **Baseline** petitions had not been relisted
-when they were ranked; **elevated** petitions had been relisted once. Each band
+when they were ranked; **elevated** petitions had been relisted. Each band
 has its own historical grant rate, and the skill column is measured against it.
 
 | Model | Band | Petitions scored | Right calls | "Always deny" on the same petitions | Lift | Skill vs. history |
 | --- | --- | --- | --- | --- | --- | --- |
-| ‹model› | elevated | ‹n› | ‹accuracy› | ‹always-deny accuracy› | ‹points› | ‹skill› |
-| ‹model› | baseline | ‹n› | ‹accuracy› | ‹always-deny accuracy› | ‹points› | ‹skill› |
-| ‹…one row per model per band, from section 3 of the audit write-up› | | | | | | |
+| claude-baseline | elevated | 28 | 96.4% | 92.9% | +3.6 | +0.40 |
+| codex-baseline | elevated | 28 | 92.9% | 92.9% | +0.0 | +0.13 |
+| gemini-baseline | elevated | 28 | 85.7% | 92.9% | −7.1 | −0.60 |
+| claude-baseline | baseline | 67 | 100.0% | 100.0% | +0.0 | +0.50 |
+| codex-baseline | baseline | 67 | 100.0% | 100.0% | +0.0 | +0.12 |
+| gemini-baseline | baseline | 67 | 100.0% | 100.0% | +0.0 | −0.33 |
 
-‹per band: how many of its petitions carry a scored forecast from all three
-models, and,
-over the petitions carrying a historical rate, how many the Court granted
-against how many that rate expected — from section 3›
+Every petition in both bands carries a scored forecast from all three models:
+28 of 28 elevated and 67 of 67 baseline. Among the elevated petitions the
+Court granted 2, where the band's historical rate expected about 4.8; among
+the baseline petitions it granted none, where about 3.4 were expected.
 
 Petitions the Court relisted or held are not scored yet, and relisted petitions
 are granted more often than others, so the petitions scored so far lean toward
 denials. That raises what "always deny" scores and lowers each band's realized
-grant share below its historical rate, which moves the skill column too.
+grant share below its historical rate, which moves the skill column too, in
+favour of lower forecasts.
 
 A **right call** is a forecast whose named outcome matched the Court's action
 exactly. So a "grant" call on a petition the Court sent back for
 reconsideration (a GVR) counts as a miss here, even though sent-back petitions
-count as grants in the probability scores and the calls below. **Skill vs.
+count as grants in the probability scores and the calls below. In this set no
+model made a plain "grant" call on either GVR: the right calls on them
+(claude-baseline on both, codex-baseline on one) were forecasts that named a
+GVR. **Skill vs.
 history** compares each model's probabilities with the band's historical grant
 rate: above 0 means the forecasts beat that rate, and a model that just
 repeated the rate would score 0.
 
-‹one or two plain sentences on what the table shows, each figure with its `n`›
+On the 67 baseline petitions the Court denied every one, so every model's
+right calls equal "always deny" exactly, and only the skill column differs
+there: +0.50, +0.12 and −0.33. With every baseline petition denied, that
+column rewards forecasting low rather than telling grants from denials, and
+because the likelier-granted relisted and held petitions are still pending,
+the shortfall currently favours whichever model forecast lowest. On the 28 elevated petitions, one model's
+right calls beat "always deny" by 3.6 points, one matched it and one fell 7.1
+points below it — one or two petitions either way, out of 28.
 
-Bands with only one or two petitions (‹list, e.g. high, federal and state on
-distribution›) are left out of the table because a single case cannot measure
-anything; each such petition appears in the calls below whatever its outcome.
+Bands with only one petition (high and federal on distribution; the one state
+petition is still pending) are left out of the table because a single case
+cannot measure anything; each such petition appears in the calls below
+whatever its outcome.
 
 **Where the Court had asked for the Solicitor General's views.** These
 petitions are scored on their own and never mixed into the table above. They
-are read per band like the rest, so a row is one band:
-
-| Model | Band | Petitions scored | Right calls | "Always deny" on the same petitions | Lift | Skill vs. history |
-| --- | --- | --- | --- | --- | --- | --- |
-| ‹model› | ‹band› | ‹n› | ‹accuracy› | ‹always-deny accuracy› | ‹points› | ‹skill› |
+are read per band like the rest, so a row is one band. None of the 10 has
+been acted on yet, so none is scored and this table has no rows; they are
+counted under *Still pending* below.
 
 ### The calls
 
@@ -132,13 +157,18 @@ forecast for a petition, the cell reads "no forecast".
 back for reconsideration (GVR) or summarily reversed — with each model's
 forecast probability of a grant:
 
-| Case | Arm | Court's action | ‹model A› | ‹model B› | ‹model C› |
-| --- | --- | --- | --- | --- | --- |
-| ‹caption, linked to its ledger event› | ‹distribution or SG views› | ‹G, GIP, GVR or SR› | ‹p› | ‹p› | ‹p› |
+Petitions are named by docket number, each linked to its ledger event.
 
-A petition sent back only because the case became moot is listed with its
-action and marked "not scored": that kind of order says nothing about whether
-the Court would have taken the case.
+| Case | Arm | Court's action | claude-baseline | codex-baseline | gemini-baseline |
+| --- | --- | --- | --- | --- | --- |
+| [No. 25-1131](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73281619/events/evt-petition-disposition) | distribution | granted (2026-10-01, limited to Question 1) | 0.30 | 0.30 | 0.05 |
+| [No. 25-901](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73280412/events/evt-petition-disposition) | distribution | GVR (2026-10-05) | 0.60 | 0.84 | 0.15 |
+| [No. 25-918](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73280426/events/evt-petition-disposition) | distribution | GVR (2026-10-05) | 0.55 | 0.30 | 0.25 |
+
+Both GVRs sent the case back for reconsideration in light of the same
+intervening decision, *Louisiana v. Callais*. The one full grant, No. 25-1131,
+drew no model's forecast above 0.30. No petition was sent back only because
+the case became moot.
 
 **The highest grant forecasts among denied petitions:** each model's three
 highest grant forecasts among the distribution-arm petitions the Court denied,
@@ -147,36 +177,47 @@ included. A 30% forecast is expected to be denied most of the time, so these
 are not errors on their own; they are shown so that a model's confident misses
 are as visible as its hits.
 
-| Case | ‹model A› | ‹model B› | ‹model C› |
+| Case | claude-baseline | codex-baseline | gemini-baseline |
 | --- | --- | --- | --- |
-| ‹caption› | ‹p› | ‹p› | ‹p› |
+| [No. 25-1105](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73281388/events/evt-petition-disposition) | 0.14 | 0.22 | **0.55** |
+| [No. 25-1141](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73281628/events/evt-petition-disposition) | **0.30** | **0.38** | 0.15 |
+| [No. 25-1191](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73281673/events/evt-petition-disposition) | 0.08 | 0.05 | **0.40** |
+| [No. 25-1197](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73281703/events/evt-petition-disposition) | 0.18 | **0.36** | 0.11 |
+| [No. 25-1208](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73281694/events/evt-petition-disposition) | **0.25** | **0.36** | **0.82** |
+| [No. 25-1210](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73281693/events/evt-petition-disposition) | **0.35** | 0.26 | 0.07 |
+| [No. 25-1256](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73302615/events/evt-petition-disposition) | 0.21 | 0.14 | **0.40** |
+
+A bold figure is one of that model's top three; gemini-baseline's third place
+is a tie at 0.40, so it has four. All seven petitions are in the elevated
+band and were denied on 2026-10-05. Two of gemini-baseline's, No. 25-1208 at
+0.82 and No. 25-1105 at 0.55, were calls that the petition would be granted.
 
 **Petitions left out of the table above:** every petition in a band too small to
 score, and every Solicitor General petition not already listed, with its action
 and each model's forecast:
 
-| Case | Arm and band | Court's action | ‹model A› | ‹model B› | ‹model C› |
+| Case | Arm and band | Court's action | claude-baseline | codex-baseline | gemini-baseline |
 | --- | --- | --- | --- | --- | --- |
-| ‹caption› | ‹arm, band› | ‹action› | ‹p› | ‹p› | ‹p› |
+| [No. 25-901](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73280412/events/evt-petition-disposition) | distribution, high | GVR (2026-10-05) | 0.60 | 0.84 | 0.15 |
+| [No. 25-1219](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73248556/events/evt-petition-disposition) | distribution, federal | denied (2026-10-05) | 0.07 | 0.18 | 0.05 |
 
-**Still pending:** ‹n on the distribution arm, copied from section 5's
-reconciliation› petitions were relisted, held or rescheduled, and ‹n on the
-Solicitor General arm, from the same place› petitions where the Court had asked
-for the Solicitor General's views have not yet been acted on; none of them is
-scored yet. They will be scored when the Court
-acts. ‹if section 5 reports any on the cert arms: n petitions the Court has
-acted on whose forecasts are not yet graded, and n the cohort registered that
-no model forecast, each named as such›
+No. 25-901 is also in the granted list above. No Solicitor General petition has
+been acted on, so none is listed here.
 
-‹optional: two or three sentences on one instructive call, drawn from the
-model's committed reasoning file and quoted from it, not paraphrased into
-something stronger›
+**Still pending:** 19 petitions on the distribution arm were relisted, held
+or rescheduled, and 10 petitions where the Court had asked for the Solicitor
+General's views have not yet been acted on; none of them is scored yet. They
+will be scored when the Court acts. No petition in either group has been
+acted on without its forecasts being graded, and every one of the 120 carries
+a forecast from all three models.
 
 ### What this does and doesn't show
 
 - **It's small.** In each band the Court granted only a handful of the scored
   petitions (the counts are under the table), set against what the band's
-  historical rate over ‹the base-rate lookback window, from section 3› expected.
+  historical rate over the eight Terms OT2017–OT2024 (a ten-Term lookback
+  that the records available shorten to eight; OT2017–OT2025 for the seven
+  petitions docketed in OT2026) expected.
   One or two cases can reorder the models, so any ordering points to a possible
   difference rather than measuring one.
 - **It's a selected set,** not the conference and not a random sample.
@@ -192,33 +233,43 @@ something stronger›
   in section 3 of the audit write-up). How often each model's research
   requests were turned away for lack of allowance cannot be measured from the
   logs, so no such figure is given.
-- **Some petitions asked for something rarer than review.** ‹how many, copied
-  from section 5› of the petitions asked the Court to order a lower court to
-  act (a writ of mandamus), which it almost never does; they are scored like
-  the others, against the ordinary historical rate (section 5 of the audit
-  write-up). ‹how far the table's figures move without them, copied from
-  section 3›
-- ‹only if section 5 reports any of them graded: **Some forecasts on the
-  wider board came late.** A few petitions were first forecast only after
-  their conference had met; they are not among the cases this page lists, but
-  they are in the scores (section 5 of the audit write-up) — then how many,
-  and how far the table's figures move without them, copied from sections 5
-  and 3›
+- **Some petitions asked for something rarer than review.** Two of the
+  petitions (Nos. 25-1252 and 25-1315, both baseline band, both denied) asked
+  the Court to order a lower court to act (a writ of mandamus), which it
+  almost never does; they are scored like the others, against the ordinary
+  historical rate (section 5 of the audit write-up). Without them the
+  baseline row covers 65 petitions, the right calls and "always deny" are
+  unchanged at 100%, and the skill column reads +0.49, +0.12 and −0.37
+  instead of +0.50, +0.12 and −0.33.
+- **Some forecasts on the wider board came late.** Six petitions (Nos. 26-66,
+  26-79, 26-80, 26-95, 26-121 and 26-183, all baseline band, all denied) were
+  first forecast only on 2026-10-04, after their conference had met but the
+  day before the order list that denied them; they are not among the cases
+  this page lists, but they are in the scores (section 5 of the audit
+  write-up). They are why the table counts 67 baseline petitions where the
+  pre-registered set has 61 decided. Without them the baseline row covers 61
+  petitions, the right calls and "always deny" are unchanged at 100%, and the
+  skill column reads +0.56, +0.13 and −0.38 instead of +0.50, +0.12 and
+  −0.33; the elevated row does not change.
 - **The historical rates were worked out by the graders.** Each grader
   worked out and wrote down the band's historical rate it scored against;
-  ‹how far those differ from the exact rates, and skill recomputed against the
-  exact rates, copied from section 3›.
-- ‹any exclusion or coverage gap the audit write-up reports that changes how a
-  reader should take the table, in one plain sentence each›
+  across all 873 gradings of the 291 scored forecasts none differs from the exact rate by more
+  than 0.34% of that rate, and skill recomputed against the exact rates moves
+  no row of the table by more than 0.001.
+- **Two of the three grants were sent back, not taken up.** Both GVRs turned
+  on one intervening decision, and the one petition the Court actually agreed
+  to hear drew no model's forecast above 0.30. So the right calls on granted
+  petitions here measure whether a model spotted a send-back, not whether it
+  spotted a case the Court would hear (section 3 of the audit write-up).
+- **Nothing was set aside.** No forecast on this page was excluded or flagged
+  by any judge as possibly having seen its own outcome.
 
 ### Go deeper
 
 - Full audit write-up, with every denominator:
   [docs/release-ot2026-long-conference.md at `results/ot2026-longconf`](https://github.com/ModelMirrorAI/fedcourtsai/blob/results/ot2026-longconf/docs/release-ot2026-long-conference.md)
 - The ledger: [fedcourts.ai/ledger](https://fedcourts.ai/ledger/)
-- The exact data behind this page: ‹the dataset record's reserved DOI link —
-  a manual step: the DOI Zenodo shows on the draft deposit reserved in section
-  8, step 3 of the audit write-up› ·
+- The exact data behind this page: [10.5281/zenodo.23263986](https://doi.org/10.5281/zenodo.23263986) ·
   the code that produced it: tag `results/ot2026-longconf`, in
   [10.5281/zenodo.22966596](https://doi.org/10.5281/zenodo.22966596)
 

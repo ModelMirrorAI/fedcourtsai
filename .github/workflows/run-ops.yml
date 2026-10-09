@@ -64,7 +64,7 @@ concurrency:
 
 jobs:
   ops:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Setup + report is a couple of minutes; the cap is sized for the degraded
     # API this job's retries exist to survive. Seven retryable shell calls
     # across its three retried steps, plus the three the weekly digest's poster
@@ -281,7 +281,7 @@ jobs:
     # filtered-out job cannot make that up. Running on the 08:30 tick too
     # recovers it, and posts nothing on a day already digested.
     if: ${{ vars.DAILY_DIGEST_PAUSED != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Setup plus a read of `data/`; the headroom is for the four bounded `gh`
     # calls the command can make (two listings, the label, the create), each
     # worth up to 105s against a degraded API.

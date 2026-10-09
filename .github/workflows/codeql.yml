@@ -27,7 +27,7 @@ concurrency:
 jobs:
   analyze:
     name: analyze (python)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       # Upload results to code scanning; read the tree to analyze it.

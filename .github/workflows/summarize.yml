@@ -70,7 +70,7 @@ concurrency:
 
 jobs:
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # A full index pull plus a few content-store reads per predicted case.
     timeout-minutes: 30
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -219,7 +219,7 @@ jobs:
   approval:
     needs: plan
     if: needs.plan.outputs.has_cases == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: review
     permissions: {}
@@ -233,7 +233,7 @@ jobs:
   rejected:
     needs: [plan, approval]
     if: ${{ always() && needs.plan.outputs.has_cases == 'true' && needs.approval.result != 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
     steps:
@@ -251,7 +251,7 @@ jobs:
   stage:
     needs: [plan, approval]
     if: ${{ needs.approval.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # One content-store read per planned case.
     timeout-minutes: 30
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -331,7 +331,7 @@ jobs:
   generate:
     needs: [plan, stage]
     if: ${{ needs.stage.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # ~200 cases at tens of seconds each, plus bounded retries; the summarize
     # step carries its own cap inside this one so a slow run still reaches the
     # scan and the upload.
@@ -456,7 +456,7 @@ jobs:
       && needs.generate.outputs.written != ''
       && needs.generate.outputs.written != '0'
       && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: prod
     permissions:
