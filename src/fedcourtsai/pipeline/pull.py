@@ -207,6 +207,11 @@ class PullQueues:
     # log (recorded / unrecorded / failed / deferred), or ``{"error": <type>}``
     # when the pass itself raised and was skipped. Empty when it did not run.
     convergence: dict[str, object] = field(default_factory=dict)
+    # Live-channel only: the document-freshness pass's ledger for the run log
+    # (`live.refresh_stale_documents`) — candidates, checked, stale, refreshed,
+    # documents written, deferred by the cap or the deadline, and the owed
+    # kinds. Empty when the pass is disabled.
+    document_freshness: dict[str, object] = field(default_factory=dict)
 
 
 def _in_predict_scope(

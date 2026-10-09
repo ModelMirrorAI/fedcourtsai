@@ -274,6 +274,16 @@ _RESPONSE_FILED_RE = re.compile(
 )
 
 
+def is_response_filed_entry(text: str) -> bool:
+    """Whether one entry is a response to an application being filed.
+
+    The entry-level reading :func:`response_filed_date` dates the moment by, so
+    the document selector's ``application-response`` arm takes the filing off
+    exactly the entry that opens the response-filed moment.
+    """
+    return _RESPONSE_FILED_RE.search(text) is not None
+
+
 def response_requested_date(entries: list[tuple[str, str | None]]) -> date | None:
     """When the Court asked for a response, or ``None``.
 

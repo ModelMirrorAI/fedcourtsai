@@ -350,6 +350,12 @@ class LiveConfig(BaseModel):
     # ~150k characters is roughly 40 dense pages — the petition's argument in
     # full for a typical filing; a longer one is stored truncated (and flagged).
     document_text_cap: int = Field(default=150_000, ge=1_000)
+    # Cases per cycle whose stored documents the freshness pass may fetch for
+    # (`live.refresh_stale_documents`): a polled, predict-relevant case not
+    # provisioned on a trigger whose stored set lacks a link the docket now
+    # selects. A spend cap on filing downloads, not a refusal — a case past it
+    # is owed again at its next poll. 0 disables the pass.
+    document_freshness_per_run: int = Field(default=20, ge=0)
     # Days after the July docket-number roll during which discovery also probes
     # the *outgoing* Term (`supremecourt.current_docket_term`). At the roll new
     # filings take the incoming Term's prefix, so the primary probe leaves the

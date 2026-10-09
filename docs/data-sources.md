@@ -613,7 +613,8 @@ public-record docket facts in the course of explaining a prediction, and may
 characterize what a provisioned filing argues — a petition, its separately
 linked appendix, a brief in opposition, the petitioner's cert-stage reply, the
 Solicitor General's invited brief, a questions-presented section, either side's
-brief on the merits or reply on the merits — on the same public-record footing as the questions-presented text above: those
+brief on the merits or reply on the merits, an application, the response to it
+and the applicant's reply — on the same public-record footing as the questions-presented text above: those
 PDFs are fetched from supremecourt.gov, outside the CC BY-ND term, and the
 staged copies are gitignored and never committed. The prompt contract asks a
 cell to summarize rather than reproduce, which is what keeps that a

@@ -11188,7 +11188,8 @@ def corpus_info(
         typer.Option(
             "--text-coverage",
             help="Also count the stored documents whose text is empty, per kind "
-            "(petition / application / appendix / brief-in-opposition / "
+            "(petition / application / appendix / application-response / "
+            "application-reply / brief-in-opposition / "
             "cert-reply / sg-invited-brief / "
             "merits-brief-petitioner / merits-brief-respondent / "
             "merits-reply-petitioner / merits-reply-respondent / "
@@ -12249,9 +12250,9 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "by default; it acts on a cell whose --event names a declared "
             "moment whose opened_at is that moment's trigger and whose corpus "
             "row records it, so a case-baseline cell and an evaluate cell (no "
-            "--event) are untouched either way. Forward-only except on the "
-            "interim arrival moment, whose bound is a property of the moment "
-            "rather than the lane and so applies in either mode.",
+            "--event) are untouched either way. Applies in either mode: a "
+            "moment's information set is a property of the moment rather than "
+            "the lane, so a replay cell is cut exactly as a forward one is.",
         ),
     ] = True,
     max_snapshot_age_days: Annotated[
@@ -12281,8 +12282,9 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     questions presented, the separately linked appendix, the cert-stage brief in
     opposition, the petitioner's cert-stage reply, the Solicitor General's invited
     brief, each side's brief on the merits once the petition is granted, and the
-    application itself wherever one was filed — fetched pipeline-side by the live
-    poller) is materialized alongside, under ``record/documents/`` with a
+    application itself wherever one was filed, with the first response to it and
+    the applicant's reply — fetched pipeline-side by the live poller) is
+    materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest whose rows each carry a one-sentence
     ``kind_description``, so the cell reads identical content with no
     fetch rights. That staged text is passed through the **contact-detail
@@ -12343,14 +12345,13 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         case,
         event,
         want_row=gate_active,
-        # The interim arrival moment takes its cut in EITHER mode. Every other
-        # moment's cut is forward-only because the replay provisioners take their
-        # own; the arrival bound is a property of the moment rather than of the
-        # lane, and a replay path that provisioned one uncut would reconstruct the
-        # exact conditioning the forward path refuses.
-        cut=moment_cutoff
-        and bool(event)
-        and (mode == "forward" or provision.is_interim_arrival(event)),
+        # The cut is taken in EITHER mode. A moment's information set is a
+        # property of the moment rather than of the lane: the stored documents
+        # are as fresh as the last poll that read the docket, so a replay cell
+        # read uncut would stage every filing docketed after its cutoff — the
+        # exact conditioning the forward path refuses — and the interim arrival
+        # bound would be skipped with it.
+        cut=moment_cutoff and bool(event),
     )
     found = read.latest
     documents = read.documents
@@ -14032,6 +14033,12 @@ def live_poll(
         typer.echo(
             "Ledger-outcome convergence: "
             + ", ".join(f"{key}={value}" for key, value in queues.convergence.items())
+            + "."
+        )
+    if queues.document_freshness:
+        typer.echo(
+            "Document freshness: "
+            + ", ".join(f"{key}={value}" for key, value in queues.document_freshness.items())
             + "."
         )
     # The window's document-fetch ledger. Last, after the queue counts, because

@@ -105,7 +105,7 @@ from .cert_signals import entry_date as _parse_entry_date
 # queue admits (:func:`interim_signals.is_predictable_application`), and so a
 # change to either moves both. The import direction is safe — `interim_signals`
 # reaches only `schemas` and `cert_signals`, neither of which reaches here.
-from .interim_signals import ApplicationKind, application_kind
+from .interim_signals import ApplicationKind, application_kind, is_response_filed_entry
 
 # The merits lane's reading of which entry is each side's brief. Imported rather
 # than restated so the selector fetches exactly the filing the merits signal
@@ -177,8 +177,23 @@ logger = logging.getLogger(__name__)
 #   views of the Solicitor General. The one amicus filing any arm takes, because
 #   it is the Court's own request and the filing that most often decides an
 #   invited petition; every other amicus brief stays unselected.
+#
+# Two interim kinds sit beside the application, one row at one URL each:
+#
+# - `application-response` is the **respondent's response to the application**:
+#   the first "Response to application … filed." entry in docket order, read by
+#   the same anchor that dates the interim response-filed moment
+#   (:func:`~fedcourtsai.pipeline.interim_signals.is_response_filed_entry`), so
+#   the document that opens that moment and the moment's own date are read off
+#   the same entry. The first one only, because it is the one that opens the
+#   moment; a later respondent's response is a known loss, as a later respondent
+#   group's merits brief is.
+# - `application-reply` is the **applicant's reply** to that response ("Reply of
+#   applicant … filed."): the last word before the Justice or the Court acts.
 KIND_PETITION = "petition"
 KIND_APPLICATION = "application"
+KIND_APPLICATION_RESPONSE = "application-response"
+KIND_APPLICATION_REPLY = "application-reply"
 KIND_APPENDIX = "appendix"
 KIND_BRIEF_IN_OPPOSITION = "brief-in-opposition"
 KIND_CERT_REPLY = "cert-reply"
@@ -430,6 +445,34 @@ _SG_BRIEF_RE = re.compile(
 _SG_AMICUS_RE = re.compile(r"\bamicus\b", re.IGNORECASE)
 
 
+# The applicant's **reply** to the response to an application, as the Clerk
+# enters it:
+#
+#   "Reply of applicant Ryan Thornell, et al. filed."
+#   "Reply of applicant U.S. Department of Homeland Security, et al. filed."
+#
+# Start-anchored on the reply opening and the party word, the way the cert-stage
+# reply is on "petitioner", and requiring the filing verb. The party word is what
+# keeps it apart from every other reply arm: those name a petitioner or a
+# respondent, and an applicant files on an application alone. Excluded: an
+# amicus's reply, and replies on the collateral motion practice that rides an
+# application docket.
+_APPLICATION_REPLY_RE = re.compile(
+    r"^\s*(?:redacted\s+)?reply\s+(?:brief\s+)?(?:of|for|from)\s+(?:the\s+)?(?:\S+\s+){0,3}?applicants?\b",
+    re.IGNORECASE,
+)
+_APPLICATION_REPLY_EXCLUDE_RE = re.compile(r"\bamic(?:us|i)\b|\bmotion\b", re.IGNORECASE)
+
+
+def _is_application_reply_entry(text: str) -> bool:
+    """Whether an entry is the applicant's reply on an interim application."""
+    return bool(
+        _APPLICATION_REPLY_RE.search(text)
+        and _BIO_VERB_RE.search(text)
+        and not _APPLICATION_REPLY_EXCLUDE_RE.search(text)
+    )
+
+
 def _is_cert_reply_entry(text: str, *, filed: date | None, granted_on: date | None) -> bool:
     """Whether an entry is the petitioner's reply at the **cert** stage.
 
@@ -677,7 +720,7 @@ def select_documents(
     **lead**, its merits kinds prefer the filings made for the lead over a
     member's (:func:`_select_lead_own`).
 
-    Ten arms, all entry-keyed rather than form-keyed — the payload says which
+    Twelve arms, all entry-keyed rather than form-keyed — the payload says which
     filings it carries, and nothing here needs to be told the docket's form. Seven
     of them are additionally **stage**-keyed, on the grant date read off the same
     payload (:func:`cert_signals.cert_grant_date`), because the cert stage and the
@@ -701,6 +744,16 @@ def select_documents(
       too where an interim application was filed into one, which is the right
       reading: the filing is real and the cell should read it. An
       administrative application — more time, more pages — is not selected.
+    - The **response to the application**
+      (:func:`~fedcourtsai.pipeline.interim_signals.is_response_filed_entry`),
+      stored as ``application-response``: the first "Response to application …
+      filed." entry, from its ``Main Document`` link alone — the entry that
+      dates the interim response-filed moment, so that moment's cell holds the
+      filing that opened it, and a cell cut before it never does.
+    - The **applicant's reply** (:func:`_is_application_reply_entry`), stored as
+      ``application-reply``: the first "Reply of applicant … filed." entry, from
+      its ``Reply`` link — the label the Clerk posts it under — or its ``Main
+      Document`` link, and from no other.
     - The **separately linked appendix** (:func:`_appendix_ref`), stored as
       ``appendix``: the ``Appendix`` link the case-opening or application entry
       posts beside the filing itself, and no other link. One per docket, the
@@ -780,7 +833,7 @@ def select_documents(
     return sorted([*own, *borrowed], key=lambda ref: order[ref.kind])
 
 
-def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR0912 - one arm per kind
+def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR0912,PLR0915 - one arm per kind
     """:func:`select_documents` over one docket's own entries."""
     granted_on = cert_grant_date(payload)
     petition: DocumentRef | None = None
@@ -792,6 +845,8 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     merits_respondent: DocumentRef | None = None
     reply_petitioner: DocumentRef | None = None
     reply_respondent: DocumentRef | None = None
+    application_response: DocumentRef | None = None
+    application_reply: DocumentRef | None = None
     bios: list[DocumentRef] = []
     seen_bio_urls: set[str] = set()
     # Docket-order stage markers for the reply and invited-brief arms: whether
@@ -822,6 +877,17 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
                 # reader of the manifest needs to know the document is.
                 application = DocumentRef(KIND_APPLICATION, found[0], entry_date, text.strip())
             appendix = appendix or _appendix_ref(entry, entry_date, filing=application)
+        elif application_response is None and is_response_filed_entry(text):
+            application_response = _merits_filing_ref(entry, KIND_APPLICATION_RESPONSE, entry_date)
+        elif application_reply is None and _is_application_reply_entry(text):
+            # The Clerk posts an applicant's reply under a `Reply` link rather
+            # than `Main Document`; both are named and nothing else is taken,
+            # since the entry's other link is its proof of service.
+            found = _entry_link(entry, prefer=("reply", "main document"), fallback=False)
+            if found is not None:
+                application_reply = DocumentRef(
+                    KIND_APPLICATION_REPLY, found[0], entry_date, text.strip()
+                )
         elif _is_bio_entry(text, filed=filed, granted_on=granted_on):
             found = _entry_link(entry, prefer=("main document",))
             if found is not None and found[0] not in seen_bio_urls:
@@ -878,6 +944,8 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             petition,
             application,
             appendix,
+            application_response,
+            application_reply,
             *bios,
             cert_reply,
             sg_brief,
@@ -3054,6 +3122,49 @@ def _earliest_entry_date(refs: list[DocumentRef]) -> str | None:
     return next((ref.entry_date for ref in refs if ref.entry_date), None)
 
 
+def bio_set_key(refs: Sequence[DocumentRef]) -> str:
+    """The stored ``url`` of a combined ``brief-in-opposition`` row over ``refs``.
+
+    The canonical join of the briefs' links, sorted, so the key names the *set*
+    whatever docket order it was read in, and a single brief joins to its own
+    link. The one spelling of the key: the fetch writes it, the fetch's own
+    idempotency test compares against it, and the freshness check
+    (:func:`unheld_document_kinds`) does too.
+    """
+    return BIO_URL_JOIN.join(sorted(ref.url for ref in refs))
+
+
+def unheld_document_kinds(refs: Sequence[DocumentRef], stored_urls: Mapping[str, str]) -> list[str]:
+    """The selected kinds the stored set does not hold at the selected link, in ``refs`` order.
+
+    ``refs`` is a selection (:func:`select_documents`) over a docket JSON, and
+    ``stored_urls`` the stored kind -> url mapping. A kind is unheld where the
+    stored row is absent or carries a different link — a filing docketed after
+    the case was last provisioned, a superseding re-filing, a kind the selector
+    gained an arm for since — and, for the combined opposition, where the stored
+    set key differs from the selected set's (a respondent's brief filed later,
+    or one lost at the earlier fetch). That is exactly the test
+    :func:`fetch_case_documents` skips a ref on, so a kind listed here is a
+    kind that call would fetch, and an empty list means it would fetch nothing.
+
+    Pure, and network-free: the question it answers is whether a provisioning
+    call is owed at all, asked of a payload already in hand. It never asks
+    whether a stored row's *text* is current — a row at an unchanged link is
+    held whatever cut it was stored under, so nothing here re-downloads one.
+    """
+    unheld: list[str] = []
+    bios = [ref for ref in refs if ref.kind == KIND_BRIEF_IN_OPPOSITION]
+    for ref in refs:
+        if ref.kind in unheld:
+            continue
+        if ref.kind == KIND_BRIEF_IN_OPPOSITION:
+            if stored_urls.get(ref.kind) != bio_set_key(bios):
+                unheld.append(ref.kind)
+        elif stored_urls.get(ref.kind) != ref.url:
+            unheld.append(ref.kind)
+    return unheld
+
+
 def _combine_bio_documents(
     client: SupremeCourtClient,
     case_id: str,
@@ -3101,7 +3212,7 @@ def _combine_bio_documents(
     # "missing document is expected" case — leaves the stored key short of the
     # selected set, so the next poll re-fetches and self-heals instead of being
     # skipped forever.
-    if stored_url == BIO_URL_JOIN.join(sorted(ref.url for ref in bio_refs)):
+    if stored_url == bio_set_key(bio_refs):
         return None
     # Off the SELECTED refs, deliberately, and it must stay that way: a group of
     # two that fetches one is then stored under its per-brief header where a
@@ -3186,7 +3297,7 @@ def _combine_bio_documents(
         # its stored URL carries no join, so a multi-respondent set key is never
         # handed to it as a URL, while a lone opposition — which joins to itself
         # — stays as recoverable as a petition.
-        url=BIO_URL_JOIN.join(sorted(ref.url for ref in fetched_refs)),
+        url=bio_set_key(fetched_refs),
         # The EARLIEST constituent's date, and of the briefs actually fetched.
         #
         # Earliest, because a combined row is one document from the moment its
@@ -3289,6 +3400,8 @@ def fetch_case_documents(
         if ref.kind == KIND_BRIEF_IN_OPPOSITION:
             continue  # combined as a group below
         if stored_urls.get(ref.kind) == ref.url:
+            # The same test `unheld_document_kinds` makes, so the freshness
+            # check and this fetch cannot disagree about what is already held.
             continue
         try:
             data = client.get_document(ref.url)
@@ -3605,6 +3718,8 @@ FETCHED_DOCUMENT_KINDS: tuple[str, ...] = (
     KIND_PETITION,
     KIND_APPLICATION,
     KIND_APPENDIX,
+    KIND_APPLICATION_RESPONSE,
+    KIND_APPLICATION_REPLY,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_CERT_REPLY,
     KIND_SG_INVITED_BRIEF,
@@ -3648,7 +3763,9 @@ FETCHED_DOCUMENT_KINDS: tuple[str, ...] = (
 # link, a `cert-reply` only where the petitioner replied, and an
 # `sg-invited-brief` only on the invited petitions the Solicitor General has
 # answered — each column's `n` is the dockets that carry one, not a share of
-# the live slice.
+# the live slice. The two interim additions are bounded the same way: an
+# `application-response` row exists only where a respondent answered the
+# application, and an `application-reply` only where the applicant replied.
 TEXT_COVERAGE_KINDS: tuple[str, ...] = (*FETCHED_DOCUMENT_KINDS, KIND_QUESTIONS_PRESENTED)
 
 # One sentence per kind, written into every row of a cell's `documents.json`
@@ -3685,6 +3802,11 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
         "first. "
         f"{_CUT_NOTE_DESCRIPTION}"
     ),
+    KIND_APPLICATION_RESPONSE: (
+        "The respondent's response to the application for interim relief: the first "
+        "one filed, which is the filing that opens the response-filed moment."
+    ),
+    KIND_APPLICATION_REPLY: "The applicant's reply to the response to the application.",
     KIND_BRIEF_IN_OPPOSITION: (
         "Every non-amicus cert-stage brief in opposition or response to the petition, "
         "combined in docket order, each under a '=== <docket entry> ===' header where "
