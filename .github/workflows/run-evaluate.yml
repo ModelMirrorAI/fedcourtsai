@@ -576,8 +576,8 @@ jobs:
       # Every tracked path under them is marked skip-worktree first, so the
       # removal leaves `git status` clean and an agent "tidying" its checkout
       # with `git restore .`, `git checkout -- .` or `git reset --hard` cannot
-      # write them back — a plain deletion shows as a change, and engines have
-      # restored the oracle that way. The bits are never cleared: the runner is
+      # write them back — a plain deletion shows as a change, which an agent
+      # may restore. The bits are never cleared: the runner is
       # discarded, and nothing after the agent reads git's view of the tree.
       - name: Remove the de-blinding surfaces from the agent's tree
         run: |

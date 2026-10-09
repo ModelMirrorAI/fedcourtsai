@@ -1223,7 +1223,7 @@ def test_the_predict_cell_brackets_its_agent_with_the_committed_record_hide() ->
 def test_the_hidden_trees_are_marked_skip_worktree_before_they_leave(name: str) -> None:
     """A deletion `git status` shows is one an agent restores.
 
-    Engines have "tidied" a removed oracle back with a plain restore, so each
+    An agent may "tidy" a plain deletion back with a restore, so each
     cell marks every tracked path it removes skip-worktree first: the status
     stays clean, and `git restore .` / `git checkout -- .` / `git reset --hard`
     leave the paths alone. The mark must cover the oracle and both cell trees,

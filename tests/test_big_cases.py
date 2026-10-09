@@ -20,6 +20,7 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.moments import DECLARED_MOMENTS
 from fedcourtsai.pipeline.qp_topics import labels_path as qp_topic_labels_path
 from fedcourtsai.process_version import (
+    COUNTING_WINDOWS,
     CURRENT_PROCESS_LABEL,
     FROZEN_PROCESS_DIGESTS,
     FROZEN_SINCE,
@@ -49,10 +50,16 @@ runner = CliRunner()
 
 _EVENT = "evt-petition-disposition"
 
-#: A blessed digest, so a fixture's run is in the frozen partition by default —
-#: the board's default `process_scope`. Read off the registry rather than spelled
-#: out, so a re-bless does not silently push every fixture out of scope.
-_BLESSED = sorted(FROZEN_PROCESS_DIGESTS)[0]
+#: A blessed predictor digest with an open counting window, so a fixture's run is
+#: in the frozen partition by default — the board's default `process_scope`. Read
+#: off the registry rather than spelled out, so a re-bless does not silently push
+#: every fixture out of scope; an evaluator digest is blessed but has no window,
+#: and a closed window would not contain the fixtures' clock.
+_BLESSED = sorted(
+    w.digest
+    for w in COUNTING_WINDOWS
+    if w.closes is None and w.revoked_at is None and w.digest in FROZEN_PROCESS_DIGESTS
+)[0]
 #: A digest no freeze commit blessed: a stamped run that is still out of scope.
 _RETIRED = "sha256:" + "0" * 64
 #: The default harness clock, after the freeze instant so the default fixture is

@@ -347,6 +347,17 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
     assert masked["relist-increment"]["outcome"] == 1
     assert masked["disposition"]["score"] == pytest.approx(0.06**2 - 0.2**2)
 
+    # An event definition that does not parse names no party: the stamp still
+    # lands, and the claim goes to its own resolver rather than failing the cell.
+    event_paths.event_file.write_text("a: [\n")
+    result = _stamp("evaluator", "claude-judge", 3, event, "RID")
+    assert result.exit_code == 0, result.output
+    unparsed = {
+        row["claim_id"]: row
+        for row in json.loads(eval_path.read_text())["claim_scores"]["claims"]
+    }
+    assert unparsed["cvsg-increment"]["outcome"] == 0
+
 
 def test_stamp_evaluator_clears_claim_scores_where_nothing_supports_a_block(
     _data_root: Path,

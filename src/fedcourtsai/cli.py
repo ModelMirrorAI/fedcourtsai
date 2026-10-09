@@ -8136,7 +8136,7 @@ def _names_federal_party(event_paths: EventPaths) -> bool:
         return False
     try:
         event = read_model(event_file, PredictableEvent)
-    except (OSError, ValueError, ValidationError):
+    except (OSError, ValueError, ValidationError, yaml.YAMLError):
         return False
     return caption_names_federal_party(event.title)
 
@@ -8520,7 +8520,7 @@ def _event_stage_and_opened(event_paths: EventPaths) -> tuple[Stage | None, date
         return (None, None)
     try:
         event = read_model(event_file, PredictableEvent)
-    except (OSError, ValueError, ValidationError):
+    except (OSError, ValueError, ValidationError, yaml.YAMLError):
         return (None, None)
     return (event.stage, event.opened_at)
 
