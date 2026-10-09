@@ -800,7 +800,7 @@ def big_case_agreement(
     Deterministic and offline over the committed ledger. For every
     ``(predictor, case, event)`` an evaluator gave a big-case read on, pairs the
     predictor's latest ``big_case_score`` with the **mean** of the panel's
-    independent reads for that event, then correlates the predictor's ordering
+    own reads for that event, then correlates the predictor's ordering
     against the panel's with Kendall's tau-b (:func:`kendall_tau_b`) across the
     scored **cases**. A case carrying several forecast moments contributes one
     point, both sides averaged over its moments: big-caseness is a property of

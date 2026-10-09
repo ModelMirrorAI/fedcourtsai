@@ -170,7 +170,11 @@ nothing in the artifact to say so: the documents live in the cell's gitignored
 that read its petition from one that did not. It is therefore the same shape as
 the scoring baseline and takes the same remedy, which is the only one available:
 a freeze-record entry, since the record is the only place the boundary can
-exist.
+exist. What the predict cell takes *off* disk is the same member from the other
+side: it hides the committed `predictions/` and `evaluations/` trees and deletes
+the labeling oracle for the agent's run, exactly as the evaluate cell does, so
+which directories those steps name moves a predictor's information set under an
+unchanged digest and is registered the same way.
 
 A **membership rule** — which cells a published figure is computed over — is the
 list's last member and the one that moves no value at all. The scoring funnel's

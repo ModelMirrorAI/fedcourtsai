@@ -128,7 +128,7 @@ What the step adds:
   aim of this step.
 
 Circuit records are larger than SCOTUS ones, so a fully evaluated event is
-estimated at ≈$30–60 rather than $15–17, to be re-measured on the first
+estimated at ≈$30–60 rather than SCOTUS's ~$10, to be re-measured on the first
 events. Two moments on about 50 cases is about 100 events a year, ≈$5K of
 model spend; the post-argument moment adds about half again, plus
 transcription. Circuit forecasts are scored in their own stratum and never

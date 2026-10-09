@@ -2,7 +2,7 @@
   "$defs": {
     "BigCaseAssessment": {
       "additionalProperties": false,
-      "description": "The evaluator's independent read of a case's stakes (the big-case dimension).\n\nThe evaluator forms its **own** opinion of how big / significant the case is,\n**before** it is shown the predictor's ``big_case_score`` \u2014 so, under\ncross-evaluation, the panel's reads stay independent and the agreement is not\ncircular. Unlike the blind grant forecast, this is a *judge's* read: the\nevaluator may use post-decision context available at evaluation time (the\noutcome, the immediate reaction). The predictor's pre-registered score is\ngraded by its agreement with this read \u2014 **rank-agreement across the evaluated\ncohort** at leaderboard time, since bigness is comparative (a per-case\nabsolute delta is a secondary diagnostic); this record stores only the\nindependent read, never the grade. Optional on the evaluation so records\nwritten before the dimension existed still validate. See ``docs/salience.md``.",
+      "description": "The evaluator's own read of a case's stakes (the big-case dimension).\n\nThe evaluator forms its **own** opinion of how big / significant the case is.\nIt is not blind: the predictions it grades carry the predictors'\n``big_case_score`` and ``big_case_rationale``, so the read is formed with\nthem in view and the prompt asks only that it not anchor on them \u2014 which is\nwhy the agreement it grades is read as an upper bound (``metrics/README.md``,\nthe ``big_case`` reading rule). Unlike the blind grant forecast, this is a *judge's* read: the\nevaluator may use post-decision context available at evaluation time (the\noutcome, the immediate reaction). The predictor's pre-registered score is\ngraded by its agreement with this read \u2014 **rank-agreement across the evaluated\ncohort** at leaderboard time, since bigness is comparative (a per-case\nabsolute delta is a secondary diagnostic); this record stores only the\nevaluator's read, never the grade. Optional on the evaluation so records\nwritten before the dimension existed still validate. See ``docs/salience.md``.",
       "properties": {
         "evaluator_score": {
           "description": "The evaluator's own 0-1 stakes / significance read, formed before seeing the predictor's big_case_score",
@@ -68,7 +68,7 @@
             }
           ],
           "default": null,
-          "description": "How the claim resolved: 1 true, 0 false. None when the record does not disclose it \u2014 the availability mask, a property of the record and never of the predictor: an outcome without a signals block discloses no increment, a context whose signals were unobservable fixes no prediction-time value, and a CVSG already on the docket at prediction time makes the cvsg-increment claim vacuous",
+          "description": "How the claim resolved: 1 true, 0 false. None when the record does not disclose it \u2014 the availability mask, a property of the record and never of the predictor: an outcome without a signals block discloses no increment, a context whose signals were unobservable fixes no prediction-time value, and a CVSG already on the docket at prediction time, or a federal party named in the case's caption, makes the cvsg-increment claim vacuous",
           "title": "Outcome"
         },
         "probability": {
@@ -407,7 +407,7 @@
         }
       ],
       "default": null,
-      "description": "The evaluator's independent big-case read (see BigCaseAssessment); null when not assessed and on records written before the dimension existed. The predictor's big_case_score is graded against these reads by rank-agreement at leaderboard time."
+      "description": "The evaluator's own big-case read (see BigCaseAssessment); null when not assessed and on records written before the dimension existed. The predictor's big_case_score is graded against these reads by rank-agreement at leaderboard time."
     },
     "brier_score": {
       "anyOf": [

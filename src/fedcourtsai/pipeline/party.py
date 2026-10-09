@@ -485,6 +485,22 @@ def classify_party_v2(text: str) -> PetitionerClass:
     return "federal" if _FEDERAL_PARTY_SUPPLEMENT_RE.search(stripped) else "private"
 
 
+def caption_names_federal_party(caption: str) -> bool:
+    """Whether either half of a ``<petitioner> v. <respondent>`` caption reads ``federal``.
+
+    :func:`classify_party_v2` over each half of the split, so the answer is
+    ``party-v2``'s federal class on either side — the ``federal_party != "none"``
+    reading of :func:`party_annotations_v2`, taken off a caption string rather
+    than a corpus row. Its one caller is the claim scorer, which reads the
+    committed event's ``title`` (a caption in this shape) at stamp time and has
+    no corpus row to hand. A caption with no separator is read as a single
+    petitioner half, and an empty one names no federal party.
+    """
+    petitioner, separator, respondent = caption.partition(_CAPTION_SEPARATOR)
+    halves = (petitioner, respondent) if separator else (petitioner,)
+    return any(classify_party_v2(half) == "federal" for half in halves if half.strip())
+
+
 def party_annotations_v2(row: corpus.CorpusRow, as_of: date | None) -> PartyAnnotations:
     """The ``party-v2`` annotation: :func:`party_annotations` over :func:`classify_party_v2`."""
     return _annotate(row, as_of, classify=classify_party_v2, rule_version=PARTY_RULE_VERSION_V2)

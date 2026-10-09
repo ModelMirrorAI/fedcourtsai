@@ -319,8 +319,33 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
     assert by_id["disposition"]["score"] == pytest.approx(0.06**2 - 0.2**2)
     assert by_id["relist-increment"]["outcome"] == 1
     assert by_id["relist-increment"]["score"] is None
+    # No event definition on disk names a party, so the CVSG increment resolves.
+    assert by_id["cvsg-increment"]["outcome"] == 0
     assert block["floor"] == 0.0
     assert block["total"] == pytest.approx(0.06**2 - 0.2**2)
+
+    # The committed caption names the United States: the Court does not invite
+    # the Solicitor General's views there, so the stamp masks the CVSG increment
+    # and leaves every other claim's resolution where it was.
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/3",
+            kind=EventKind.petition,
+            stage=Stage.cert,
+            title="Jane Roe, Petitioner v. United States",
+            opened_at=date(2026, 1, 1),
+        ),
+    )
+    result = _stamp("evaluator", "claude-judge", 3, event, "RID")
+    assert result.exit_code == 0, result.output
+    masked = {
+        row["claim_id"]: row for row in json.loads(eval_path.read_text())["claim_scores"]["claims"]
+    }
+    assert masked["cvsg-increment"]["outcome"] is None
+    assert masked["relist-increment"]["outcome"] == 1
+    assert masked["disposition"]["score"] == pytest.approx(0.06**2 - 0.2**2)
 
 
 def test_stamp_evaluator_clears_claim_scores_where_nothing_supports_a_block(

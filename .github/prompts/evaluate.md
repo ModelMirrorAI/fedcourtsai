@@ -51,7 +51,7 @@ substitute the literals from your kickoff prompt.
 | `EVENT_ID`     | The resolved event, e.g. `evt-motion-stay`          |
 | `EVALUATOR_ID` | Your evaluator id; names your output directory      |
 | `RUN_ID`       | Shared run id for this fan-out (a UTC timestamp)    |
-| `MODEL_ID`     | The model you are running as, e.g. `claude-fable-5-1` |
+| `MODEL_ID`     | The model you are running as, e.g. `claude-opus-5-5` |
 
 ## Inputs (read-only)
 
@@ -441,13 +441,18 @@ fails the cell.
     (`mode`, `retrieved_outcome_material`, `influenced_prediction`, `notes`),
     and `leakage_suspected` kept in step with it (`true` iff
     `influenced_prediction` is `possible` or `likely`).
-  - `big_case` (optional) — your **own** independent read of the case's stakes /
-    significance: `{evaluator_score (0–1), notes}`. Form it **before** looking
-    at the predictor's `big_case_score`, so your read is not anchored to theirs.
+  - `big_case` (optional) — your **own** read of the case's stakes /
+    significance: `{evaluator_score (0–1), notes}`. The predictors'
+    `big_case_score` and `big_case_rationale` are in the predictions you grade,
+    so you will have seen them; nothing hides them from you. Form your read
+    from the case itself — the questions presented, the parties, the record —
+    and do your best not to anchor on their numbers. Your read is what their
+    scores are compared against, so a read that echoes a predictor's score
+    carries no information about it.
     You are a *judge* here, not a blind forecaster — you may use post-decision
     context available now (the outcome, the reaction). Do **not** compute an
     agreement number: the predictor's score is graded against the panel's reads by
-    rank-agreement at leaderboard time; you only supply your independent read.
+    rank-agreement at leaderboard time; you only supply your own read.
 
   The quantitative pieces are computed identically in code by
   `fedcourtsai.pipeline.evaluate` (`is_correct`, `judgment_correct`,
@@ -705,9 +710,11 @@ candidate:
    or reasoning show outcome-revealing material about *this case* was retrieved
    — a `retrieved_doc_date` on or after the event's resolution, queries for the
    case's own docket/caption reaching past the event date, the disposing order
-   or opinion, a `file-read` or `file-search` call whose query names
-   `data/qp-topics/` (membership there encodes cert outcomes; the prompts forbid
-   the read), or the candidate's own disclosure in its prose or `retrieval.md`
+   or opinion, a `file-read` or `file-search` call that reads or searches
+   inside `data/qp-topics/` (membership there encodes cert outcomes; the prompts
+   forbid the read — a query that names the path only to exclude it, such as
+   `-not -path 'data/qp-topics/*'` or `--exclude`, reaches nothing there and is
+   not a read), or the candidate's own disclosure in its prose or `retrieval.md`
    (an honest disclosure is a point *for* the cell's integrity, not against it —
    and note the candidate's `flags.json`, the other place such a disclosure
    lives, is not staged into the blinded set, so its absence proves nothing)? A hosted

@@ -1281,10 +1281,10 @@ evaluator forms its **own** read of how big the case is, and the grade is the
 *agreement* between the predictor's pre-registered score and the evaluator's
 read:
 
-- The prompt asks the evaluator to form its read before looking at the
-  predictor's number, but the evaluator grades the prediction as written and the
-  blinded view does not mask the score (`fedcourtsai.blinding.mask_prediction`),
-  so the number is in front of it and nothing enforces the request. Any
+- The evaluator grades the prediction as written and the blinded view does not
+  mask the score (`fedcourtsai.blinding.mask_prediction`), so the number is in
+  front of it. The prompt says so, and asks it to form its read from the case
+  itself and not to anchor on the predictors' numbers; nothing enforces that. Any
   anchoring makes the agreement partly circular, so a stakes agreement is read
   as an upper bound (the `big_case` reading rule in
   [metrics/README.md](../metrics/README.md)).

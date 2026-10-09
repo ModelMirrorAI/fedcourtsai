@@ -189,8 +189,9 @@ def frozen_stamp() -> ProcessVersion:
     """
     since = process_version.FROZEN_SINCE or datetime(2026, 1, 1, tzinfo=UTC)
     # A counting window's digest, so the stamp counts: only a predictor digest
-    # has a window, and the bless map holds the evaluator half too.
-    windows = process_version.COUNTING_WINDOWS
+    # has a window, and the bless map holds the evaluator half too. The window
+    # must contain the instant — a window the current label closed ends there.
+    windows = [w for w in process_version.COUNTING_WINDOWS if w.contains(since)]
     digest = windows[0].digest if windows else sorted(process_version.FROZEN_PROCESS_DIGESTS)[0]
     return ProcessVersion(
         label=process_version.CURRENT_PROCESS_LABEL, digest=digest, stamped_at=since

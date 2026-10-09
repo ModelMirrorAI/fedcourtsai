@@ -6813,3 +6813,220 @@ freeze commit is recorded here.
   (`predict-plan`) lists cells case-major; and `grep -n
   'claude-code-action@' .github/workflows/run-predict.yml` shows the v1.0.241
   pin.
+- **`proc-v9`: the claude pair moves to `claude-opus-5-5`, the judges are
+  told the predictors' stakes scores are in view, and the codex and gemini
+  predictors carry forward unchanged; recorded 2026-10-09.** Freeze commit:
+  `<FILL: freeze commit hash>`, to be tagged **`prereg/proc-v9`**. The first
+  label under the window rule the 2026-09-26 entry declared. It is two
+  supersession shapes at one carrying promotion
+  ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
+  - **the third shape, for `claude-baseline` alone.** Its digest moves because
+    the claude engine's default model, a digest input, is `claude-opus-5-5`.
+    Its `proc-v8` window **closes** at this label's instant and a `proc-v9`
+    window opens there for the new digest. Nothing is de-counted and nothing is
+    re-owed: every `claude-baseline` cell counted in its `proc-v8` window keeps
+    counting under `proc-v8`.
+  - **the second shape, for all three evaluators.** Their digests move because
+    the evaluate prompt's bytes move (the stakes-read and `qp-topics` wording
+    below), and `claude-judge`'s model with them. The instant is **not** held,
+    because the predictor half moves too.
+
+  `codex-baseline` and `gemini-baseline` are **byte-identical** to `proc-v8`:
+  no predictor prompt byte moves in this label, and the codex and gemini
+  engine defaults are unchanged. They keep `proc-v8`'s bless moment verbatim and
+  one unbroken window each, still labelled `proc-v8`; their cells stamped from
+  the carrying promotion on carry the label string `proc-v9` inside that window.
+  The predictor-prompt amendments owed to the next re-bless (the predict
+  prompt's "independent evaluator" sentence on the stakes read, a read rule for
+  the committed predictions tree, and a line saying `data/qp-topics/` is removed
+  on purpose) are deferred to the next label, so that this one breaks no codex
+  or gemini window.
+
+  **Digests** (`uv run fedcourts process-digest --all`, before this commit on
+  `staging` `f77fee4a0` and at it):
+
+  | Actor | `proc-v8` | `proc-v9` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:1a0b2bef…22e89a` | `sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734` (new) |
+  | `codex-baseline` | `sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c` | same, carried forward |
+  | `gemini-baseline` | `sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f` | same, carried forward |
+  | `claude-judge` | `sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13` | `sha256:2a41ec38238636499f87117d63beca20f555315af403b9927ad607dadff61636` (new) |
+  | `codex-judge` | `sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1` | `sha256:bc68570ffc33c63515883e74971f41dba3c3c056a0d438e8a06094dd4729d475` (new) |
+  | `gemini-judge` | `sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe` | `sha256:fa1371304ba83f692086d0120418305b000ceeeb67d5b25996f4c6bac6e856ac` (new) |
+
+  The replaced `proc-v8` `claude-baseline` digest is
+  `sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a`.
+
+  **Step 0.** At `origin/main` `d77b4e1b0` (`2026-10-09T20:42:51Z`), `git grep
+  -l '<digest>' origin/main -- data/cases | wc -l` is **0** for each of the
+  four newly blessed digests. The wider census, `git grep -l
+  '"process_version": {' origin/main -- data/cases | wc -l`, is **2293**
+  stamped cells, all under `proc-v8`'s six digests or earlier labels'.
+  Promotion-time re-run: `<FILL: per-digest counts and census at the carrying
+  promotion>`.
+
+  **Bless moments and instant.** The four new digests carry step 2's early
+  forecast, `2026-10-09T00:00:00Z`; the two carried-forward predictor digests
+  keep `2026-09-16T00:26:04Z`. The instant is guessed late, at
+  `2026-10-16T00:00:00Z`, a week after this commit, so a promotion that waits on
+  the staging rehearsal below still lands before it. The cost of guessing late
+  falls on `claude-baseline` alone: a cell its new digest stamps between the
+  carrying merge and the instant counts in no window, and its event is re-owed
+  once the window opens. The codex and gemini windows are unaffected. Step 4
+  corrects the bless moments to the carrying merge's committed instant and
+  checks the instant is at or after it: `<FILL: carrying merge's
+  committed instant, the command that yields it, and the instant as verified or
+  bumped>`.
+
+  **Windows** (`COUNTING_WINDOWS`):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`1a0b2bef…`, `claude-fable-5-1`) | `proc-v8` | `2026-09-16T00:26:04Z` | `2026-10-16T00:00:00Z` (was open) |
+  | `codex-baseline` | `proc-v8` | `2026-09-16T00:26:04Z` | open |
+  | `gemini-baseline` | `proc-v8` | `2026-09-16T00:26:04Z` | open |
+  | `claude-baseline` (`605201bd…`, `claude-opus-5-5`) | `proc-v9` | `2026-10-16T00:00:00Z` | open (new) |
+
+  **What the close owes, provisional.** `uv run fedcourts successor-disclosures
+  --closed proc-v8 --successor proc-v9`, run at this commit's registry over
+  `main`'s ledger at `d77b4e1b0`:
+
+  ```
+  successor proc-v9 closes proc-v8 at 2026-10-16T00:00:00+00:00
+    closed proc-v8 claude-baseline: 251 counted event(s) — 110 resolved, 141 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    graded by claude-judge @ sha256:fbc0e9c3…: 110 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:9670e1c1…: 110 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:dbdc9064…: 110 grading(s), 0 at or after the instant
+  ```
+
+  Outcomes and gradings keep landing until the instant, so these lines are
+  re-run at any instant correction and at the tagged commit, and the last
+  run's lines replace them here: `<FILL: successor-disclosures at the tagged
+  commit>`. The per-engine partition of the successor's counted events
+  (failed, uncounted, not reached, missing) prints nothing at this commit,
+  because the `proc-v9` window holds no cell yet; the same holds at the tagged
+  commit, which precedes the instant. Split events are 0 for the same reason.
+  Both become non-empty only once `proc-v9` `claude-baseline` cells count, and
+  a reading of the `proc-v9` window alone, or of any cross-engine grid that
+  includes it, quotes them from a run made then.
+
+  **Evidence for the change other than the closed window's board.** The close
+  is decided while 110 of that window's 251 counted events have resolved, so
+  it rests on nothing those outcomes say:
+  - **Cost.** Opus 5.5 is priced at $4 / $20 per million input / output tokens
+    and $0.20 per million cache reads, 40% of Fable 5.1's $10 / $50. Re-priced
+    at those rates, the token counts `claude-baseline` recorded on its 251
+    `proc-v8` predictions cost about $1.38 a prediction against a recorded
+    $4.22 mean, and `claude-judge`'s 118 grading runs about $1.15 against
+    $3.41. A fully evaluated event goes from about $15 to about $10
+    ([budget.md](budget.md)). Those figures are priced, not measured; they
+    assume Opus spends the same tokens.
+  - **Published capability.** Anthropic's published evaluations place Opus 5.5
+    ahead of Fable 5.1. That is the vendor's claim, not a measurement here.
+  - **When it was decided.** The move to Opus 5.5 was proposed and staged on
+    2026-09-22, when none of the long-conference cohort's events had resolved,
+    and it waited for the window rule rather than for any outcome.
+  - **The engine floor.** Opus 5.5 needs Claude Code 2.1.280 or later. The
+    pinned `claude-code-action` v1.0.241 bundles 2.1.289 and has run every
+    claude cell since `promotion/2026-10-08`, so this label moves no pin.
+
+  **The evaluator half: what the replaced digests graded, and the exposure.**
+  Counted gradings under the replaced digests, frozen scope (`store.stratify`'s
+  scorable cells) on `main`'s ledger at `d77b4e1b0`: `claude-judge`
+  `fbc0e9c3…` **329** (110 `claude-baseline`, 110 `codex-baseline`, 109
+  `gemini-baseline`), `codex-judge` `9670e1c1…` **327** (110 / 110 / 107),
+  `gemini-judge` `dbdc9064…` **329** (110 / 110 / 109). An evaluator digest
+  records and never partitions, so every grading series pools across this
+  rubric boundary, and three things change at it:
+  - **The stakes read.** The prompt no longer asks a judge to form its
+    `big_case` read before looking at the predictor's `big_case_score`; it says
+    the scores are in the predictions it grades and asks it not to anchor on
+    them. Judges have always had the scores in view, so the information set is
+    unchanged and the wording is what moves. A `big_case` tau or an
+    `evaluator_agreement` figure whose reads straddle the carrying promotion
+    mixes two prompts and compares to neither (the `big_case` reading rule in
+    [metrics/README.md](../metrics/README.md)).
+  - **The `qp-topics` leakage rule.** A call that names `data/qp-topics/` only
+    to exclude it (`-not -path`, `--exclude`) is no longer read as touching
+    the path. A leakage grade on such a call can differ on either side of the
+    boundary.
+  - **`claude-judge`'s grader model** moves from `claude-fable-5-1` to
+    `claude-opus-5-5`, so `claude-judge`'s grading series pools two graders.
+    The `proc-v8` cells still collecting gradings after the carrying promotion,
+    in all three `proc-v8` windows, are graded under the new rubric, the
+    closed `claude-baseline` window included; the successor-disclosures lines
+    above count those "at or after the instant", and the count from the
+    carrying merge onwards is `<FILL: closed- and carried-window gradings
+    stamped under the proc-v9 evaluator digests at the tagged commit>`.
+
+  **Disclosed with the label, moving no digest:**
+  - **Effort is not pinned.** Claude cells set no effort level and take the
+    Claude Code CLI's default for the model; the CLI version and its default
+    are not digest inputs. Opus 5.5's API default is `medium`, one level below
+    the Opus line before it.
+  - **Recorded Fable costs overstate cache reads.** The rate table bills every
+    model's cache reads at 0.1x its input rate unless a row carries its own
+    rate, and only `claude-opus-5-5` does. Fable 5.1's published cache-read rate
+    is $0.25 per million, against the $1.00 the multiplier charged, so every
+    `proc-v8` `claude-baseline` and `claude-judge` `usage.json` overstates its
+    cost; `usage.json` is never re-priced. A cost comparison across the claude
+    window boundary re-prices the token counts rather than differencing the
+    recorded dollars.
+  - **The blinding scrub gains one term.** `claude-opus-5-5` joins the rate
+    table, so the evaluate cell's identity scrub masks it. Only prose naming
+    that model is affected.
+  - **Predict cells no longer see the committed record.** From the carrying
+    promotion, `run-predict` hides every committed `predictions/` and
+    `evaluations/` tree for the agent's run, with the evaluate cell's own
+    bracket (`hide-cell-record` / `restore-cell-record`), so a predictor cannot
+    read another engine's forecast, the same case's earlier moments included.
+    Both cells also mark every tracked path under those trees and
+    `data/qp-topics/` `skip-worktree` before removing them, so `git status`
+    stays clean and a tidying `git restore .`, `git checkout -- .` or `git
+    reset --hard` no longer writes them back. Engines had restored the oracle
+    that way. This moves a predictor's information set under unchanged digests,
+    including inside the carried-forward codex and gemini windows. Committed
+    logs record three cross-predictor reads, each of another case's prediction
+    used as a format template and none on the same case. A reading that splits
+    those windows at the promotion splits them here.
+  - **The CVSG increment is masked where a federal party is named.** The claim
+    scorer resolves `cvsg-increment` as `None` where the event's committed
+    `title` (the case caption) names a federal party on either side, under
+    `party-v2`'s federal class, because the Court does not invite the Solicitor
+    General's views where the United States is already a party. Scoring only:
+    the claim set, its version and every prompt are unchanged. On `main` at
+    `d77b4e1b0` the ledger carries 936 `cvsg-increment` rows and none is
+    scored, since the claim has no baseline. 162 of those rows, on 18 events,
+    sit on a federal-party caption and would resolve `None` on a re-grade;
+    none is re-stamped by this change. No published figure moves today. The
+    mask governs the claim from the first baseline that scores it.
+  - **Gemini cells retry a transient engine fault in place.** From this
+    promotion a gemini predict or evaluate cell whose turn ends on a transient
+    engine fault (gemini-cli's INVALID_STREAM, or the runner's other transient
+    signatures) is retried in place, up to three attempts in all, from a clean
+    output root and only while 20 minutes of the 50-minute engine deadline
+    remain. This is a harness change under unchanged digests, and a gemini
+    cell can now be produced by a second or third turn, whose tokens and tool
+    calls (failed turns included) are all counted in its `usage.json` and
+    `retrieval_log.json`.
+  - **No cell effect:** corpus reads outside Actions no longer rewrite the local
+    blob, and the integration suite's promotion evidence runs as its own `gate`
+    scenario. Neither reaches a cell's inputs, prompt or scoring.
+  - `<FILL: the document-selector change (cert-reply, SG invited brief and
+    appendix kinds, and the appendix-aware cut) and any other provisioning
+    change merged to staging before the carrying promotion, each stated as
+    what a cell is newly handed, or "none">`.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
+  hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live: on `main`, `uv run fedcourts
+  process-digest --all` prints `proc-v9` and the digests in the table above;
+  the first `claude-baseline` and `claude-judge` cells after the promotion
+  carry `process_version.label` `proc-v9` and a `usage.json` `model` of
+  `claude-opus-5-5`; the first codex and gemini predictions carry the
+  unchanged `proc-v8` digests; `jq '.frozen_process.windows'
+  metrics/leaderboard.json` after the next metrics refresh lists the four
+  windows above; and a predict cell's job log shows `hid … committed cell
+  tree(s)` and `restored … file(s)`.

@@ -1180,6 +1180,72 @@ def test_the_evaluate_cell_brackets_its_agent_with_the_committed_record_hide() -
     assert "continue-on-error" not in steps[restore]
 
 
+def test_the_predict_cell_brackets_its_agent_with_the_committed_record_hide() -> None:
+    """A predictor forecasts from its own record, not from the other engines'.
+
+    The committed `predictions/`/`evaluations/` trees carry every predictor's
+    forecasts, the same case's earlier moments included, so a cell that reads
+    one is no longer an independent forecaster. The predict cell takes them out
+    of the tree with the evaluate cell's own bracket: the hide after
+    provisioning (the last pre-agent reader of the committed trees), before
+    every engine step, unconditionally; the restore as the first post-agent
+    reader, even behind a failed agent.
+    """
+    steps = _load("run-predict.yml")["jobs"]["predict"]["steps"]
+    runs = [str(step.get("run") or "") for step in steps]
+
+    def index(needle: str) -> int:
+        found = [i for i, run in enumerate(runs) if needle in run]
+        assert len(found) == 1, f"expected exactly one step running {needle!r}, found {found}"
+        return found[0]
+
+    provision = next(i for i, s in enumerate(steps) if s.get("id") == "provision")
+    materialize = index("materialize-event")
+    hide = index("hide-cell-record")
+    restore = index("restore-cell-record")
+    consumers = [
+        index("record-usage"),
+        index("record-retrieval"),
+        index("stamp-cell"),
+        index("validate data"),
+    ]
+    agents = [i for i, step in enumerate(steps) if str(step.get("id") or "").startswith("predict_")]
+    assert len(agents) == 3, "expected the three engine steps"
+
+    assert max(provision, materialize) < hide < min(agents)
+    assert max(agents) < restore < min(consumers), "the restore is the first post-agent reader"
+    assert "if" not in steps[hide]
+    assert steps[restore].get("if") == "${{ !cancelled() }}"
+    assert "continue-on-error" not in steps[restore]
+
+
+@pytest.mark.parametrize("name", ["run-predict.yml", "run-evaluate.yml"])
+def test_the_hidden_trees_are_marked_skip_worktree_before_they_leave(name: str) -> None:
+    """A deletion `git status` shows is one an agent restores.
+
+    Engines have "tidied" a removed oracle back with a plain restore, so each
+    cell marks every tracked path it removes skip-worktree first: the status
+    stays clean, and `git restore .` / `git checkout -- .` / `git reset --hard`
+    leave the paths alone. The mark must cover the oracle and both cell trees,
+    and precede both removals in the same step.
+    """
+    (step,) = [
+        s
+        for job in _load(name)["jobs"].values()
+        for s in job.get("steps", []) or []
+        if "hide-cell-record" in str(s.get("run") or "")
+    ]
+    run = str(step["run"])
+    mark = run.index("--skip-worktree")
+    for pathspec in (
+        "data/qp-topics",
+        "':(glob)data/cases/*/*/events/*/predictions/**'",
+        "':(glob)data/cases/*/*/events/*/evaluations/**'",
+    ):
+        assert run.index(pathspec) < mark, pathspec
+    assert mark < run.index("rm -rf data/qp-topics") < run.index("hide-cell-record")
+
+
 def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
     """A refused forward cell runs no agent at all.
 

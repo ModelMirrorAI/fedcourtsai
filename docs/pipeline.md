@@ -2260,9 +2260,16 @@ A second pair of steps keeps the aliases worth having. The committed `prediction
 judge before it has read the contract that forbids that tree; `fedcourts
 hide-cell-record` moves both out of the working tree after the staging step and
 `fedcourts restore-cell-record` moves them back the moment the agent stops,
-ahead of every step that reads them. It narrows the accidental
-route only — the checkout carries full history — and nothing a cell hides or
-fails to restore can reach the run PR as a deletion: the collect job unions each
+ahead of every step that reads them. A predict cell runs the same pair around
+its agent, after provisioning, for a different reason: the trees hold every
+other predictor's forecasts, the same case's earlier moments included, and a
+predictor that reads one is no longer the independent forecaster a cross-engine
+comparison assumes. Both cells first mark every tracked path under the two
+trees and `data/qp-topics/` `skip-worktree`, so the removal leaves `git status`
+clean and a tidying `git restore .`, `git checkout -- .` or `git reset --hard`
+cannot write them back. It narrows the accidental route only — the checkout
+carries full history, so the bytes stay one `git show` away — and nothing a cell
+hides or fails to restore can reach the run PR as a deletion: the collect job unions each
 cell's `data/` *add-only* onto a freshly fetched clean `origin/main` checkout —
 a file the checkout already carries is never overwritten, and a differing copy
 is refused with the checkout's kept — and `assert-paths` rejects any

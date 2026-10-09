@@ -811,10 +811,10 @@ stays outside the gate:
   carry the coefficient.
 
   The panel's reads are **not blind to the scores they are compared against**.
-  The prompt asks a judge to form its read before looking at the predictor's
-  `big_case_score`, but the score is a field of the `prediction.json` the judge
-  must read to grade, and the blinded view does not mask it
-  (`fedcourtsai.blinding.mask_prediction`), so nothing enforces the request. A
+  The score is a field of the `prediction.json` the judge must read to grade,
+  and the blinded view does not mask it (`fedcourtsai.blinding.mask_prediction`).
+  The prompt tells a judge the scores are in front of it and asks it to form its
+  read from the case itself without anchoring on them; nothing enforces that. A
   judge records one stakes read per candidate, beside that candidate's own score
   and rationale, and a predictor's panel is built only from the reads recorded
   beside its predictions. Anchoring therefore pulls each predictor's panel toward
