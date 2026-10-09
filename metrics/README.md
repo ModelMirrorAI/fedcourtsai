@@ -822,7 +822,12 @@ stays outside the gate:
   same amount — most for whichever predictor's score and rationale judges defer
   to — so the comparison *between* predictors is affected as well as the level.
   Read a `big_case` tau as an **upper bound** on how far a predictor's stakes read
-  tracks an independent panel, never as evidence that it does.
+  tracks an independent panel, never as evidence that it does. The bound
+  assumes residual anchoring pulls a read *toward* the score. The prompt tells a
+  judge that a read echoing a predictor's score carries no information, and a
+  judge that over-corrects away from the score pushes agreement down instead;
+  nothing in the record separates the two, so the bound is a reading rule, not
+  a measured property.
 
   How strongly judges anchor depends on the evaluate prompt, so a tau is
   comparable only within one evaluator digest. The board does not split on it:

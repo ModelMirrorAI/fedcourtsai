@@ -6850,9 +6850,9 @@ freeze commit is recorded here.
   | `claude-baseline` | `sha256:1a0b2bef…22e89a` | `sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734` (new) |
   | `codex-baseline` | `sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c` | same, carried forward |
   | `gemini-baseline` | `sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f` | same, carried forward |
-  | `claude-judge` | `sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13` | `sha256:2a41ec38238636499f87117d63beca20f555315af403b9927ad607dadff61636` (new) |
-  | `codex-judge` | `sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1` | `sha256:bc68570ffc33c63515883e74971f41dba3c3c056a0d438e8a06094dd4729d475` (new) |
-  | `gemini-judge` | `sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe` | `sha256:fa1371304ba83f692086d0120418305b000ceeeb67d5b25996f4c6bac6e856ac` (new) |
+  | `claude-judge` | `sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13` | `sha256:083b45d2ecfd4ef0c6fe3475e1f1e23ef1c2c1fe0f60a758c5d348d6b0390adf` (new) |
+  | `codex-judge` | `sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1` | `sha256:274930779d6d986638eb71ff9a5e4352daa21f2394ecabcd770d72f22f5aa579` (new) |
+  | `gemini-judge` | `sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe` | `sha256:3f8a033b7c8171b6e214912a5476ebe6f151c4b73d1ba1d7a4c45af63ce06835` (new) |
 
   The replaced `proc-v8` `claude-baseline` digest is
   `sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a`.
@@ -6871,8 +6871,15 @@ freeze commit is recorded here.
   `2026-10-16T00:00:00Z`, a week after this commit, so a promotion that waits on
   the staging rehearsal below still lands before it. The cost of guessing late
   falls on `claude-baseline` alone: a cell its new digest stamps between the
-  carrying merge and the instant counts in no window, and its event is re-owed
-  once the window opens. The codex and gemini windows are unaffected. Step 4
+  carrying merge and the instant counts in no window. Its event is re-owed
+  only while the event is still forward and its declared moment still open
+  when the window opens; a moment that closes inside the gap leaves
+  `claude-baseline` with no counted forecast on that event in either window,
+  and the event then sits in no complete grid. No `successor-disclosures`
+  bucket reports such an event, so the tagged-commit completion states their
+  count: `<FILL: claude-baseline cells stamped under the proc-v9 digest before
+  the instant, and how many of their events' moments closed before it>`. The
+  codex and gemini windows are unaffected. Step 4
   corrects the bless moments to the carrying merge's committed instant and
   checks the instant is at or after it: `<FILL: carrying merge's
   committed instant, the command that yields it, and the instant as verified or
@@ -6903,25 +6910,51 @@ freeze commit is recorded here.
   Outcomes and gradings keep landing until the instant, so these lines are
   re-run at any instant correction and at the tagged commit, and the last
   run's lines replace them here: `<FILL: successor-disclosures at the tagged
-  commit>`. The per-engine partition of the successor's counted events
-  (failed, uncounted, not reached, missing) prints nothing at this commit,
-  because the `proc-v9` window holds no cell yet; the same holds at the tagged
-  commit, which precedes the instant. Split events are 0 for the same reason.
-  Both become non-empty only once `proc-v9` `claude-baseline` cells count, and
-  a reading of the `proc-v9` window alone, or of any cross-engine grid that
-  includes it, quotes them from a run made then.
+  commit>`. **Split events are 0 by construction for this label's whole
+  life**, not only now: only `claude-baseline` changes window, and a
+  carried-forward open window is co-current with both sides of the close, so
+  the claude `proc-v8` and claude `proc-v9` combinations with the codex and
+  gemini `proc-v8` windows are each a complete grid. The per-engine partition
+  of the successor's counted events (failed, uncounted, not reached, missing)
+  prints nothing at this commit, because the `proc-v9` window holds no cell
+  yet, and nothing at the tagged commit either, which precedes the instant.
+  Neither required run can therefore carry it, so it is registered here as
+  owed: a dated follow-up entry quotes those four buckets from a
+  `successor-disclosures` run made once the `proc-v9` `claude-baseline` window
+  holds its first counted cells, and before any figure over that window is
+  published.
+
+  **What a reading across engines can be after this label.** Ranks restart
+  within each window label. The `proc-v9` cohort holds `claude-baseline` alone,
+  so it is never ranked against codex or gemini; the `proc-v8` cohort ranks a
+  claude window frozen at the close against codex and gemini windows that keep
+  adding later events, so those ranks are over different, time-shifted
+  populations and are no like-for-like comparison. The like-for-like reading
+  of Opus 5.5 is the complete grid of (`claude-baseline` `proc-v9`,
+  `codex-baseline` `proc-v8`, `gemini-baseline` `proc-v8`), and inside it the
+  codex and gemini cells may predate the predict-cell hide below while the
+  `proc-v9` claude cells never do. Two builds stop at frozen scope:
+  `release-sensitivity` and `semantic-summary` refuse once a predictor holds
+  graded cells in two windows, which the first graded `proc-v9`
+  `claude-baseline` cell makes true. Any long-conference release figure they
+  source is generated before that grading lands: `<FILL: whether the release
+  figures from release-sensitivity were built before the first graded proc-v9
+  claude cell, and at which commit>`.
 
   **Evidence for the change other than the closed window's board.** The close
   is decided while 110 of that window's 251 counted events have resolved, so
   it rests on nothing those outcomes say:
-  - **Cost.** Opus 5.5 is priced at $4 / $20 per million input / output tokens
-    and $0.20 per million cache reads, 40% of Fable 5.1's $10 / $50. Re-priced
-    at those rates, the token counts `claude-baseline` recorded on its 251
-    `proc-v8` predictions cost about $1.38 a prediction against a recorded
-    $4.22 mean, and `claude-judge`'s 118 grading runs about $1.15 against
-    $3.41. A fully evaluated event goes from about $15 to about $10
-    ([budget.md](budget.md)). Those figures are priced, not measured; they
-    assume Opus spends the same tokens.
+  - **Cost.** Opus 5.5 is priced at $4 / $20 per million input / output tokens,
+    40% of Fable 5.1's $10 / $50, and $0.20 per million cache reads, 80% of
+    Fable's $0.25. Both models re-priced at their published rates over the
+    same token counts — the 251 `proc-v8` `claude-baseline` predictions and
+    `claude-judge`'s 118 grading runs on `main` at `d77b4e1b0` — give about
+    $3.07 a prediction at Fable against $1.38 at Opus, and $2.63 a grading run
+    against $1.16, a ratio of about 0.45. With codex's and gemini's measured
+    costs beside them, a fully evaluated event goes from about $13 to about
+    $10 ([budget.md](budget.md)). The recorded Fable dollars ($4.22 and $3.41)
+    are not the comparison, for the cache-read reason below. The Opus figures
+    are priced, not measured; they assume Opus spends the same tokens.
   - **Published capability.** Anthropic's published evaluations place Opus 5.5
     ahead of Fable 5.1. That is the vendor's claim, not a measurement here.
   - **When it was decided.** The move to Opus 5.5 was proposed and staged on
@@ -6947,10 +6980,18 @@ freeze commit is recorded here.
     `evaluator_agreement` figure whose reads straddle the carrying promotion
     mixes two prompts and compares to neither (the `big_case` reading rule in
     [metrics/README.md](../metrics/README.md)).
-  - **The `qp-topics` leakage rule.** A call that names `data/qp-topics/` only
-    to exclude it (`-not -path`, `--exclude`) is no longer read as touching
-    the path. A leakage grade on such a call can differ on either side of the
-    boundary.
+  - **The `qp-topics` leakage rule.** A search that keeps `data/qp-topics/` out
+    of what it opens (`-not -path`, `-prune`, `grep --exclude-dir`, an `rg`
+    negative glob) is no longer read as touching the path; a filter applied to
+    output after the files were opened (`… | grep -v qp-topics`) still is. A
+    leakage grade on such a call can differ on either side of the boundary,
+    and `leakage_suspected` drops a cell from every scored stratum, so this is
+    a membership boundary as well, inside the open codex and gemini windows
+    and mostly codex's (on `main` at `d77b4e1b0`, 165 `codex-baseline`
+    prediction logs mention `qp-topics`, against 39 `claude-baseline` and 2
+    `gemini-baseline`). It costs nothing today: of the counted `proc-v8`
+    gradings on that ledger, 2 are leakage-excluded, both `codex-judge` on
+    `gemini-baseline`, and neither cites `qp-topics`.
   - **`claude-judge`'s grader model** moves from `claude-fable-5-1` to
     `claude-opus-5-5`, so `claude-judge`'s grading series pools two graders.
     The `proc-v8` cells still collecting gradings after the carrying promotion,
@@ -6984,12 +7025,17 @@ freeze commit is recorded here.
     Both cells also mark every tracked path under those trees and
     `data/qp-topics/` `skip-worktree` before removing them, so `git status`
     stays clean and a tidying `git restore .`, `git checkout -- .` or `git
-    reset --hard` no longer writes them back. Engines had restored the oracle
-    that way. This moves a predictor's information set under unchanged digests,
-    including inside the carried-forward codex and gemini windows. Committed
-    logs record three cross-predictor reads, each of another case's prediction
-    used as a format template and none on the same case. A reading that splits
-    those windows at the promotion splits them here.
+    reset --hard` no longer writes them back. Two `gemini-baseline` predict
+    cells on `main` restored the oracle that way, one of them in the counted
+    `proc-v8` window (`scotus/73281699`, run `20260917T214606Z`), each as its
+    last shell call after its outputs were written and with no later read of
+    the restored file. This moves a predictor's information set under
+    unchanged digests, including inside the carried-forward codex and gemini
+    windows. The committed logs show at least three cross-predictor reads,
+    each of another case's prediction used as a format template and none on
+    the same case; the count rests on what the log parsers capture, so it is a
+    floor. A reading that splits those windows at the promotion splits them
+    here.
   - **The CVSG increment is masked where a federal party is named.** The claim
     scorer resolves `cvsg-increment` as `None` where the event's committed
     `title` (the case caption) names a federal party on either side, under
@@ -6999,8 +7045,16 @@ freeze commit is recorded here.
     `d77b4e1b0` the ledger carries 936 `cvsg-increment` rows and none is
     scored, since the claim has no baseline. 162 of those rows, on 18 events,
     sit on a federal-party caption and would resolve `None` on a re-grade;
-    none is re-stamped by this change. No published figure moves today. The
-    mask governs the claim from the first baseline that scores it.
+    none is re-stamped by this change, so until a re-stamp a census of
+    `cvsg-increment` resolutions over the ledger mixes the two rules, and reads
+    those 18 events apart. No published figure moves today, and the rule is
+    not chosen by score: no committed row, federal or not, records a realized
+    increment. The mask governs the claim from the first baseline that scores
+    it, and that baseline is computed over the same non-federal-caption
+    population, since folding in cases that structurally cannot draw a CVSG
+    would dilute the anchor. The rule is conservative at its edges: a caption
+    naming a federal official only by a facility title reads non-federal, and
+    the claim stays resolvable there.
   - **Gemini cells retry a transient engine fault in place.** From this
     promotion a gemini predict or evaluate cell whose turn ends on a transient
     engine fault (gemini-cli's INVALID_STREAM, or the runner's other transient

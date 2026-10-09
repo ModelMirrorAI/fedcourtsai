@@ -26,16 +26,17 @@ Model spend is `events × cost per event`, and two dials set it:
   adding a predictor buys one more prediction run and makes each of the three
   grading runs a little larger. So `P` raises the cost *per event*, by an amount
   that depends on which model is added: prediction runs span roughly $0.60 to
-  $3.00 across the current three.
+  $3.05 across the current three.
 
 At today's `P = 3` with three evaluators, one fully predicted and evaluated
 event costs roughly **$10**. The claude pair's share of that is priced rather
 than measured: its cells run Claude Opus 5.5, priced at the token counts the
-pair recorded on the Fable tier it replaced — about $1.40 a prediction (251
-runs) and $1.15 a grading run (118 runs) — on the assumption that Opus spends
-the same tokens, which the first round's `fedcourts usage-summary` replaces
-with a measurement. The other four figures are measured: about $3.05 and $0.60
-a prediction and $2.90 and $0.75 a grading run for codex and gemini. The evaluator count holds at 3 as `P` grows.
+pair recorded on the Fable tier it replaced — a mean of about $1.38 a
+prediction (251 runs) and $1.16 a grading run (118 runs) — on the assumption
+that Opus spends the same tokens, which the first round's `fedcourts
+usage-summary` replaces with a measurement. The other four figures are
+measured means: about $3.04 and $0.58 a prediction and $2.90 and $0.73 a
+grading run for codex and gemini. The evaluator count holds at 3 as `P` grows.
 Per-run token usage and cost are recorded on the ledger (`usage.json`, rolled
 up by `fedcourts usage-summary`), so the rates can be re-anchored from
 measurement rather than assumed. Re-anchoring is a deliberate edit to the pinned
