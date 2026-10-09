@@ -732,6 +732,32 @@ def test_a_lifted_caption_with_no_column_is_a_problem() -> None:
     assert {p.text for p in split.pieces} == {"The petitions for writs of certiorari are denied."}
 
 
+def test_a_page_number_alone_above_lifted_captions_is_a_problem_not_a_crash() -> None:
+    # The column is gone but the page number above the captions remains, so
+    # the run is shorter than its claimants.
+    split = split_document(LIFTED_SERIALS.replace("1375 \n1380 \n1385  \n", "", 1))
+    assert any("could not be rejoined" in p for p in split.problems)
+    dockets = {d for p in split.pieces for d in p.dockets}
+    assert {"25-1374", "25-1377", "25-1386"} <= dockets
+
+
+@pytest.mark.parametrize(
+    ("column", "why"),
+    [
+        ("1375 \n1385 \n1380 \n", "descending"),
+        ("1373 \n1380 \n1385 \n", "not above the caption below it"),
+        ("9 \n1375 \n1380 \n1385 \n", "two numbers ahead of the serials"),
+        ("1375 \n1380 \n1395 \n", "not below the caption above it"),
+    ],
+)
+def test_a_column_that_breaks_a_guard_is_not_rejoined(column: str, why: str) -> None:
+    split = split_document(LIFTED_SERIALS.replace("1375 \n1380 \n1385  \n", column, 1))
+    assert any("could not be rejoined" in p for p in split.problems), why
+    dockets = {d for p in split.pieces for d in p.dockets}
+    assert not dockets & {"25-1375", "25-1380", "25-1385", "25-1395"}
+    assert {"25-1374", "25-1377", "25-1386"} <= dockets
+
+
 def test_a_column_no_caption_claims_is_dropped_as_a_problem() -> None:
     split = split_document(
         "CERTIORARI DENIED\n"
@@ -878,3 +904,16 @@ def test_a_plural_unwritten_dissent_is_read_and_a_bare_one_is_not() -> None:
         + " grant of the application."
     ) == {"Sotomayor": VoteValue.deny, "Jackson": VoteValue.deny}
     assert parse_order_notations("Justice Thomas dissents.", bench=BENCH).problems
+
+
+def test_a_lifted_caption_no_whole_caption_bounds_is_not_rejoined() -> None:
+    # A lone page number above a lone lifted caption could pass for its serial;
+    # with no same-prefix caption around it, nothing says it is one.
+    split = split_document(
+        "CERTIORARI DENIED\n"
+        + "2\n"
+        + "25- DOE, JANE V. UNITED STATES\n"
+        + "  The petition for a writ of certiorari is denied.\n"
+    )
+    assert any("could not be rejoined" in p for p in split.problems)
+    assert not {d for p in split.pieces for d in p.dockets}

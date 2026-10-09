@@ -323,6 +323,13 @@ says `complete`, which this source's never does
     print the date its listing gives.
   - A Justice who took no part must not sign a writing.
   - A document's text must not be cut at the extraction cap.
+  - Where the extracted text lifts captions' serial numbers out of their
+    lines (`25- DOE …`) into a column of bare numbers, the column must fit
+    those captions: one serial each, ascending, each between the whole
+    captions around it. A column that does not fit, a lifted caption with no
+    column, and a column no caption claims are each a problem; the column is
+    never read as order text.
+  - An entry's order text must contain a letter.
 - **Completeness.** The vote list is always `complete: false`, because a
   Justice who noted nothing is unobserved, not a vote to deny; `validate`
   refuses a record from this source claiming otherwise. Writings differ, as

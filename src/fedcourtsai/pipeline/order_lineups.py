@@ -156,6 +156,7 @@ _APPLICATION_LINE_RE = re.compile(r"^\((?P<docket>\d{2}A\d{1,5})\)$")
 _LIFTED_CAPTION_RE = re.compile(r"^(?P<prefix>\d{2})-\s+(?!.*[a-z]{3})\S")
 _NUMBER_LINE_RE = re.compile(r"^\d{1,5}$")
 _DOCKET_SERIAL_RE = re.compile(r"^(?P<prefix>\d{2})-(?P<serial>\d{1,5})$")
+_LETTER_RE = re.compile(r"[A-Za-z]")
 _PAGE_NUMBER_RE = re.compile(r"^\d{1,3}$")
 _RULE_RE = re.compile(r"^[_\u2014\u2013\-]{3,}$")
 _CITE_AS_RE = re.compile(r"^(?:\d+\s+)?Cite as:.*$")
@@ -292,8 +293,11 @@ class SplitDocument:
     """A document cut into grammar-sized pieces, with what the cut itself found.
 
     ``problems`` are the document's own: text the cut could assign to no
-    docket that is shaped like a Justice's act, a section with no dockets, or
-    a running head naming nobody on the roster. ``docket_problems`` belong to
+    docket that is shaped like a Justice's act, a section with no dockets, a
+    running head naming nobody on the roster, a column of lifted caption
+    serials that does not fit its captions (or a lifted caption with no
+    column, or a column no caption claims), or an entry whose order text has
+    no letters. ``docket_problems`` belong to
     single dockets (a section dated other than its document).
     """
 
@@ -423,8 +427,11 @@ def _pair_column(
     The run's last numbers are the serials, in the claimants' order; at most
     one number ahead of them may be a page number. Every serial must ascend
     and sit between the whole captions printed around its claimant
-    (``25-1374`` < ``25-1375`` < ``25-1377``).
+    (``25-1374`` < ``25-1375`` < ``25-1377``), at least one of which must be
+    there to bound it.
     """
+    if len(run) < len(claimants):
+        return None
     lead = run[: len(run) - len(claimants)]
     if len(lead) > 1 or not all(_PAGE_NUMBER_RE.match(lines[i]) for i in lead):
         return None
@@ -439,6 +446,8 @@ def _pair_column(
     for claimant, prefix, serial in pairs:
         below = _neighbor_serial(lines, range(claimant - 1, -1, -1), prefix)
         above = _neighbor_serial(lines, range(claimant + 1, len(lines)), prefix)
+        if below is None and above is None:
+            return None
         if (below is not None and below >= serial) or (above is not None and above <= serial):
             return None
     return {claimant: f"{prefix}-{serial}" for claimant, prefix, serial in pairs}
@@ -538,7 +547,7 @@ def _split_list(  # noqa: PLR0912 - one branch per line shape the list prints
     for group in groups:
         if group.lines:
             text = "\n".join(group.lines)
-            if not re.search(r"[A-Za-z]", text):
+            if not _LETTER_RE.search(text):
                 # A run of bare numbers or punctuation is never an order.
                 problems.append(f"an entry's order text has no letters: {text[:160]!r}")
             pieces.extend(_inline_pieces(tuple(group.dockets), text, day))
