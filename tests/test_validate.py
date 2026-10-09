@@ -1085,7 +1085,7 @@ def test_legitimate_name_as_the_wrong_kind_is_refused(
     _write_event(data_root, "ca9", 2, "evt-motion-stay")
     event_dir = CasePaths(data_root, "ca9", 2).event("evt-motion-stay").base
     entry = event_dir / name
-    if entry.exists():
+    if entry.exists():  # event.yaml, written above as a file
         entry.unlink()
     if make_dir:
         entry.mkdir()
