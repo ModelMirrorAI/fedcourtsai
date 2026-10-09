@@ -1812,28 +1812,6 @@ _EVENT_DIR_ENTRIES: dict[str, bool] = {
     "evaluations": True,
 }
 
-#: Stray event-directory entries on ``main`` that the rule above refuses, pending
-#: removal (or whatever disposition the maintainer chooses), as
-#: ``<court>/<docket>/<event_id>/<entry>``. Each leaves through a
-#: maintainer-reviewed ``cleanup/*`` PR to ``main``. That PR's
-#: ``cleanup-paths`` jail admits deletions under ``predictions/`` only, so it
-#: reports this shape red; the jail is review-time defense outside ``main``'s
-#: required checks, and the maintainer merges over it having read the delete.
-#: A member's line here comes out in a code PR once that removal has reached
-#: ``staging``, never before, or the gate turns red on a tree a code PR cannot
-#: change. Like the off-docket terminal cases, a member is **excepted, never
-#: dropped**: it stays in ``checked`` and the check's ``detail`` names it, so
-#: the exemption is as visible on the verdict as a failure would be.
-_STRAY_EVENT_ENTRIES_PENDING_CLEANUP: frozenset[str] = frozenset(
-    {
-        # A gemini prediction.json + reasoning.md for run 20260916T201911Z that a
-        # salvage commit wrote beside predictions/ rather than under it. The
-        # scored gemini cell for this event is a different run, so nothing
-        # counted reads it.
-        "scotus/73280426/evt-petition-disposition/gemini-baseline",
-    }
-)
-
 
 def check_event_dir_entries(data_root: Path) -> CorpusCheck:
     """Every entry under an event directory must be one the ledger layout defines.
@@ -1846,12 +1824,9 @@ def check_event_dir_entries(data_root: Path) -> CorpusCheck:
     schema check cannot see this shape: a ``prediction.json`` one level too high
     still validates as a prediction, it is just never read.
 
-    Corpus-free, so it runs in the PR gate. Members of
-    :data:`_STRAY_EVENT_ENTRIES_PENDING_CLEANUP` are excepted and named in the
-    detail rather than failed.
+    Corpus-free, so it runs in the PR gate.
     """
     problems: list[str] = []
-    excepted: list[str] = []
     checked = 0
     cases_dir = data_root / "cases"
     events_dirs = sorted(cases_dir.glob("*/*/events")) if cases_dir.is_dir() else []
@@ -1868,10 +1843,8 @@ def check_event_dir_entries(data_root: Path) -> CorpusCheck:
                 expect_dir = _EVENT_DIR_ENTRIES.get(entry.name)
                 if expect_dir is not None and entry.is_dir() == expect_dir:
                     continue
-                court, docket, _events, event_id, name = entry.relative_to(cases_dir).parts
-                if f"{court}/{docket}/{event_id}/{name}" in _STRAY_EVENT_ENTRIES_PENDING_CLEANUP:
-                    excepted.append(f"{court}/{docket}/{event_id}/{name}")
-                elif expect_dir is None:
+                name = entry.name
+                if expect_dir is None:
                     problems.append(
                         f"{entry}: {name!r} is not an event-directory entry (only "
                         f"{', '.join(sorted(_EVENT_DIR_ENTRIES))}); cell output belongs "
@@ -1880,8 +1853,7 @@ def check_event_dir_entries(data_root: Path) -> CorpusCheck:
                 else:
                     kind = "a directory" if expect_dir else "a file"
                     problems.append(f"{entry}: {name!r} must be {kind}")
-    detail = f"excepted (stray, pending cleanup): {', '.join(excepted)}" if excepted else ""
-    return _check(CHECK_EVENT_DIR_ENTRIES, problems, checked=checked, detail=detail)
+    return _check(CHECK_EVENT_DIR_ENTRIES, problems, checked=checked)
 
 
 def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
