@@ -431,7 +431,10 @@ on all 91 events for each predictor, and gemini-judge records `not_applicable`
 on 63 and `none` on 28 for each predictor. `retrieved_outcome_material` is
 false in 814, null (not determined by the judge) in 5, and true in none. The ops report's
 uncollapsed `leakage` digest is a different population and is not differenced
-against these.
+against these. Board-wide, over all 873 counted cert/distribution gradings
+in the fill export (the 97 board events × 3 predictors × 3 judges, the six
+post-conference first forecasts included), `leakage_suspected` is false in
+every one.
 
 Evaluator set: the fill export's 985 counted gradings carry exactly one
 digest per evaluator — claude-judge `sha256:fbc0e9c364d8…` (329 gradings),
@@ -1524,7 +1527,7 @@ commit's boards, the fill export, `release-sensitivity`, the cohort cut,
 
 1. *Blocker, public page:* the headline counted the 97 board petitions while
    "every forecast … before the Court met" and the last-merge line held only
-   for the 91 pre-registered ones. **Fixed:** the headline names the 91, those
+   for the 91 pre-registered ones. **Fixed:** the headline separates the 91 pre-registered from the 97 scored, those
    lines are scoped to the pre-registered set, and the six late-forecast
    petitions are named beside them.
 2. *Blocker, public page:* "each run the same way" overstated section 3's
