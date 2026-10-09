@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9526000446",
+  "run_id": "20261009T143059Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "courtlistener search", "courtlistener get_endpoint_item", "courtlistener read_document", "WebSearch", "WebFetch", "pypdf (local PDF text extraction)"],
+  "helpful": [
+    "The provisioned application.txt was complete and readable; it carried the whole of the applicant's case.",
+    "CourtListener read_document on the Sixth Circuit opinion gave the facts the application understates.",
+    "The statpack interim section's per-Term counts were enough to compute the strictly-prior pooled rate."
+  ],
+  "gaps": [
+    "The government's response in opposition is the entry that opened this event, but it was not provisioned under record/documents/; a response-filed cell should get the response text alongside the application.",
+    "WebFetch returns raw PDF bytes for supremecourt.gov DocketPDF links; a PDF-to-text step in the fetcher would save a local extraction detour.",
+    "No conditioned interim cut exists for 'response requested' or 'private criminal-defendant applicant', so the ladder and applicant-class adjustments were judgment, not table reads."
+  ],
+  "notes": "fedcourts query with --include-applications ranks by recency, so it surfaced extension applications rather than comparable stay applications; a --application-kind filter would make it useful for interim cells."
+}
