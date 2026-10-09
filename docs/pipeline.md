@@ -2692,6 +2692,45 @@ claim — that a cell of some shape legitimately runs past fifty — would move
 this one number, in the three places a workflow-shape test holds equal (both
 cell jobs and the integration suite's application-repro leg).
 
+**Gemini's in-step retry** spends part of that deadline on purpose. gemini-cli
+ends a turn whose model stream went bad — after its own mid-stream retries —
+with a zero exit and an `INVALID_STREAM` error inside its JSON result, seconds
+into a cell while sibling cells on the same model complete. Left alone, such a
+cell lands no output and waits for a later scheduled run, by which time a
+fast-moving event may have resolved and the cell turned retrospective. So both
+cell workflows' gemini step runs `scripts/gemini-cell.sh`, which takes up to
+three turns, each a fresh CLI process, under four rules the script states and
+`tests/test_gemini_cell.py` drives against a stub engine. Each attempt is
+classified by `fedcourts engine-attempt-class` — the local runner's own
+classifier over its own signature sets — and only a `transient` verdict
+retries: a content-filter or context-length fault, a spent quota, or anything
+unrecognized ends the step on that attempt. A retry starts only while 20
+minutes of the deadline would remain after its backoff (the backoff is 15
+seconds per attempt so far, plus up to 15 of jitter): past the watchdog's
+three-minute margin by more than the longest cell observed, so a retry is a
+whole fresh chance and not a cell the deadline then kills. It runs inside the
+same step, under the same `timeout-minutes` and the same watchdog bracket, so
+no retry can carry the step past the deadline. Before the first attempt the
+cell's output root is snapshotted (`cell-output-snapshot`), and before each
+retry everything an attempt added under it is removed (`cell-output-reset`),
+so a half-written file from a failed turn is never read as the cell's output;
+an attempt that already wrote the cell's judgment artifact is never retried, and
+neither is one that wrote the cell's `flags.json` — a disclosure (in a replay
+cell, of outcome-revealing material) that a fresh session would know nothing
+of, so the reset declines rather than discard it. Files an attempt leaves
+outside the output root are not reset; the cell contract writes nothing there.
+The telemetry log stays in place across attempts — gemini-cli opens it for
+append — so `usage.json` and `retrieval_log.json` count every attempt's tokens
+and tool calls, failed turns included. The step's exit status is its last
+attempt's, and each non-`ok` attempt leaves a `::warning::` naming the cell, the
+verdict and, where the result names one, the engine's fault type. A cell that
+still lands nothing is named by its record step in a `::warning::` too, beside
+the failure fact the collect job records against its attempt cap (`no_output`,
+or `quota` when the whole engine produced nothing); the job stays green, as
+collect needs it to. The
+claude and codex steps have no equivalent: they are pinned actions, which a
+step cannot loop, and each of those CLIs retries transient API faults itself.
+
 Agent steps need more than that bound, because a step can stay `in_progress`
 straight through its own timeout until the *job* cap cancels the runner — and a
 cancelled job runs none of the salvage tail and has its logs dropped by GitHub,

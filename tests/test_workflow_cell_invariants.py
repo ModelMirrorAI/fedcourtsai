@@ -2676,6 +2676,26 @@ ENGINE_WATCHDOG_ARM_ENV = {
 #: would never fire — silently, which is the failure mode the whole bracket
 #: exists to remove.
 ENGINE_WATCHDOG_SENTINEL_ROLE = {"run-predict.yml": "predict", "run-evaluate.yml": "evaluate"}
+#: The cells' gemini step: the one invocation, retried in place on a transient
+#: fault inside the same engine deadline (the script states the rules;
+#: tests/test_gemini_cell.py drives them against a stub engine).
+GEMINI_CELL_SCRIPT = "scripts/gemini-cell.sh"
+GEMINI_INVOCATION = 'gemini --yolo --model "$MODEL_ID" --prompt "$PROMPT" --output-format json'
+#: The actor variable each cell workflow's gemini step names its cell by.
+GEMINI_CELL_ACTOR = {"run-predict.yml": "$PREDICTOR_ID", "run-evaluate.yml": "$EVALUATOR_ID"}
+#: The script's knobs. The workflows leave every one at its shipped default, so
+#: the bound a test pins below is the bound production runs.
+GEMINI_CELL_KNOBS = {
+    "GEMINI_MAX_ATTEMPTS",
+    "GEMINI_RETRY_MIN_REMAINING_S",
+    "GEMINI_RETRY_BACKOFF_S",
+    "GEMINI_RESULT_FILE",
+}
+#: The longest completed engine step observed since 2026-08-01 (13.9 minutes,
+#: any engine, either workflow), rounded up — docs/pipeline.md carries the
+#: distribution. A retry must have at least this much runway inside the
+#: watchdog's fire time, or it is a cell the deadline then kills.
+LONGEST_OBSERVED_ENGINE_STEP_S = 14 * 60
 
 
 def _shipped_watchdog_default(var: str) -> int:
@@ -2837,6 +2857,100 @@ def test_the_boot_probe_runs_inside_the_same_deadline_bracket() -> None:
     assert disarm.get("if") == "${{ always() && matrix.scenario == 'engine-actions-smoke' }}"
     assert "engine-watchdog.pid" in str(disarm["run"])
     assert PID_OWNERSHIP_CHECK in str(disarm["run"])
+
+
+def _shipped_gemini_cell_default(var: str) -> int:
+    """A gemini-cell knob's shipped default, read from the script itself."""
+    script = (REPO_ROOT / GEMINI_CELL_SCRIPT).read_text()
+    match = re.search(r'="\$\{' + var + r':-(\d+)\}"', script)
+    assert match, f"no shipped default for {var}"
+    return int(match.group(1))
+
+
+def test_the_gemini_engine_step_retries_in_place_inside_the_engine_deadline() -> None:
+    """Only gemini's step retries, a bounded number of times, inside the bracket.
+
+    The retry lives in the engine step itself, so it inherits the step's
+    `timeout-minutes` and the watchdog bracket around it — the bracket test
+    above holds both — and can add no step inside that bracket. What is pinned
+    here is the rest of the bound: the cells run the shared script at its
+    shipped knobs, those knobs allow one or two extra attempts, a retry starts
+    only with a whole longest-observed cell's runway left before the watchdog
+    fires, and an attempt is classified by the runner's own classifier and
+    retried only on a transient fault, from a reset output root.
+    """
+    for name, job_name in ENGINE_WATCHDOG_CELL_JOBS.items():
+        steps = _load(name)["jobs"][job_name]["steps"]
+        engine_steps = [steps[i] for i in _engine_step_indices(steps)]
+        runners = [s for s in engine_steps if GEMINI_CELL_SCRIPT in yaml.safe_dump(s)]
+        assert [str(s["name"]) for s in runners] == [
+            next(str(s["name"]) for s in engine_steps if str(s["name"]).endswith("with Gemini"))
+        ], f"{name}: the in-step retry must be gemini's step and only gemini's"
+        (step,) = runners
+        run = " ".join(str(step["run"]).split())
+        role = ENGINE_WATCHDOG_SENTINEL_ROLE[name]
+        assert f'cp {GEMINI_CELL_SCRIPT} "$RUNNER_TEMP/gemini-cell.sh"' in run, (
+            f"{name}: the step must run a copy taken before the agent has the tree"
+        )
+        assert f'bash "$RUNNER_TEMP/gemini-cell.sh" {role} "{GEMINI_CELL_ACTOR[name]}"' in run, (
+            f"{name}: the gemini step names the wrong cell role or actor"
+        )
+        assert set(step["env"]) & GEMINI_CELL_KNOBS == set(), (
+            f"{name}: the gemini step overrides the script's bound"
+        )
+        assert "continue-on-error" not in step
+        assert step.get("timeout-minutes") == ENGINE_DEADLINE_STEP_TIMEOUT
+
+    script = (REPO_ROOT / GEMINI_CELL_SCRIPT).read_text()
+    # One or two extra attempts, never more.
+    assert 2 <= _shipped_gemini_cell_default("GEMINI_MAX_ATTEMPTS") <= 3
+    # A retry's runway: past the watchdog's margin by a whole longest cell, and
+    # short of the deadline itself, so a retry is reachable at all.
+    min_remaining = _shipped_gemini_cell_default("GEMINI_RETRY_MIN_REMAINING_S")
+    assert (
+        ENGINE_DEADLINE_MARGIN_S + LONGEST_OBSERVED_ENGINE_STEP_S
+        < min_remaining
+        < ENGINE_DEADLINE_MINUTES * 60
+    )
+    # The backoff is spent inside the same check, never beside it.
+    assert "deadline_s=$((ENGINE_DEADLINE_MINUTES * 60))" in script
+    assert '[ $((SECONDS + wait_s + min_remaining_s)) -gt "$deadline_s" ]' in script
+    # Classified by the runner's own classifier; retried only on `transient`.
+    assert "harness engine-attempt-class" in script
+    assert '[ "$verdict" != transient ]' in script
+    # From a clean root: snapshotted before the loop, reset before each retry.
+    assert script.index("harness cell-output-snapshot") < script.index("while :; do")
+    assert script.index("harness cell-output-reset") > script.index("while :; do")
+    # The harness never holds the engine's key.
+    assert 'harness() { env -u GEMINI_API_KEY uv run fedcourts "$@"; }' in script
+
+
+def test_a_cell_that_lands_no_output_is_named_in_the_job_log() -> None:
+    """A no-output cell concludes green, so its record step names it.
+
+    The collect job owns the miss (its `no_output` fact counts against the
+    cell's attempt cap), but a fan-out with one silent cell reads as a clean
+    run until someone counts the cells. A warning annotation names it in the
+    run's own summary, without failing the job collect still needs to finish.
+    """
+    for name, job_name in ENGINE_WATCHDOG_CELL_JOBS.items():
+        steps = _load(name)["jobs"][job_name]["steps"]
+        (record,) = [s for s in steps if s.get("name") == "Record cell status"]
+        run = " ".join(str(record["run"]).split())
+        actor = GEMINI_CELL_ACTOR[name].removeprefix("$")
+        assert (
+            f"::warning::cell ${{{actor}}} ${{COURT_ID}}/${{DOCKET_ID}} ${{EVENT_ID}} "
+            "produced no output (no_output;"
+        ) in run, f"{name}: a no-output cell is not named in the job log"
+        # A warning, never an error: the job must still conclude for collect.
+        assert "::error::" not in run
+    # A refused predict cell ran no engine and its gate has said so already.
+    steps = _load("run-predict.yml")["jobs"]["predict"]["steps"]
+    (record,) = [s for s in steps if s.get("name") == "Record cell status"]
+    assert '[ "$CELL_REFUSED" != "true" ]' in str(record["run"])
+    assert record["env"]["CELL_REFUSED"] == (
+        "${{ steps.provision.outputs.refused == 'true' || steps.record.outputs.refused == 'true' }}"
+    )
 
 
 # The workflows that read the watchdog's bundle: the two cell workflows plus
@@ -3244,21 +3358,31 @@ def test_the_action_path_smoke_invokes_each_engine_the_way_the_cells_do() -> Non
     )
 
     # Gemini has no pinned action (the upstream one `uses:` unpinned actions),
-    # so its production invocation is the CLI call in run-predict's own step —
-    # which is what this leg must reproduce, flag for flag.
+    # so its production invocation is the CLI call the cells' gemini step makes
+    # through `scripts/gemini-cell.sh` — which this leg runs too, so the probe
+    # reproduces the invocation flag for flag and the wrapper around it.
     gemini = by_id["actions_smoke_gemini"]
     cell_gemini = next(
         step
         for step in _load("run-predict.yml")["jobs"]["predict"]["steps"]
         if str(step.get("name") or "") == "Predict with Gemini"
     )
-    invocation = 'gemini --yolo --model "$MODEL_ID" --prompt "$PROMPT" --output-format json'
-    assert invocation in " ".join(str(cell_gemini["run"]).split()), (
-        "the cell's gemini invocation moved; this test's expectation is stale"
+    script = (REPO_ROOT / GEMINI_CELL_SCRIPT).read_text()
+    assert script.count(GEMINI_INVOCATION) == 1, (
+        "the cell's gemini invocation moved out of its script; this test's expectation is stale"
     )
-    assert invocation in " ".join(str(gemini["run"]).split()), (
-        "the smoke's gemini invocation differs from the cell step's"
-    )
+    for step in (cell_gemini, gemini):
+        run = " ".join(str(step["run"]).split())
+        assert f'cp {GEMINI_CELL_SCRIPT} "$RUNNER_TEMP/gemini-cell.sh"' in run
+        assert 'bash "$RUNNER_TEMP/gemini-cell.sh" predict "$PREDICTOR_ID"' in run, (
+            f"{step['name']} does not run the cells' gemini script as a predict cell"
+        )
+    # Nothing calls the CLI around the script, where a second copy of the
+    # invocation could drift from the one the cells and the probe share.
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        assert "gemini --yolo" not in path.read_text(), (
+            f"{path.name} invokes gemini directly rather than through {GEMINI_CELL_SCRIPT}"
+        )
     # The settings file is part of what gemini is invoked *with* — the CLI
     # reads it at startup and `mcp-config --base-settings` merges over it — and
     # its schema has twice produced a silent no-op from a wrong namespace, so a
