@@ -1,0 +1,8 @@
+P(grant) 0.90. The application seeks to stay a district court order enjoining the Bureau of Prisons' (BOP) 2026 policy regarding gender dysphoria treatment. The injunction prevents the federal government from enforcing its own policy, adopted in response to an Executive Order, across the prison system. 
+
+The statpack's pooled substantive interim grant rate for the application-Terms strictly before this case (2025 and 2024) is approximately 10.3%. I adjust this base rate upward significantly for several reasons:
+1. **Federal Government as Applicant**: The Solicitor General is seeking the stay on behalf of the Executive Branch. The current Court regularly grants relief when a lower court enjoins a federal policy or program on a nationwide/classwide basis.
+2. **Subject Matter**: The case implicates prison administration under the PLRA and agency deference under the APA. The application stresses that the district court failed to defer to BOP's security and administrative expertise, a strong argument before the Supreme Court.
+3. **Escalation Signals**: A response has already been requested, and two amicus briefs were submitted on the same day the response was filed. This indicates high affirmative interest from the Court and external parties.
+
+My main uncertainty is whether the Court will grant a complete stay or a partial one. Given the PLRA arguments about the injunction being overbroad, the Court might stay the injunction entirely or at least narrow it. Since a full grant is the standard for the `granted` label in this binary prediction, I place the probability at 0.90.

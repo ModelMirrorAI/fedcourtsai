@@ -1,0 +1,67 @@
+{
+  "big_case_rationale": "The application concerns nationwide federal-prison treatment of gender dysphoria, the consequences of interrupting ongoing care, executive control of prison policy, and statutory limits on classwide interim relief. These are substantial stakes independent of the stay's likelihood.",
+  "big_case_score": 0.78,
+  "case_id": "scotus/9526000416",
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.61
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.0
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.94
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.3
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": 2,
+    "band": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-09",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": false,
+    "response_requested": true,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-08",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-09T14:38:17Z",
+  "engine": "codex",
+  "event_id": "evt-brief-response-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-10-08.json",
+  "judgment": null,
+  "model": "gpt-6-astra",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.61,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v8",
+    "pipeline_sha": "5eb31f13d2e366185097cc7d28db38889ec8aaef",
+    "stamped_at": "2026-10-09T14:40:24.095457Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261009T143059Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
