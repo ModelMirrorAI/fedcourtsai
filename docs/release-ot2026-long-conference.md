@@ -6,6 +6,15 @@ It is the definition of done for the publication, written before its data
 exists so the claims are bounded by the process rather than by what the numbers
 turn out to be.
 
+**Written by AI.** This document was written by AI agents: Claude (Anthropic),
+working in Claude Code under the maintainer's direction. They drafted the
+skeleton before the conference, then filled every figure from the commands
+each section names, run at the refresh commit, with a log of each command and
+its output. AI reviewer agents checked the statistics and the prose against the
+code and the data (section 7), and the maintainer reviewed it before it was
+published. The forecasts and gradings it reports are themselves the output of
+AI models (section 1).
+
 **Dates.** The conference sits 2026-09-28. The opening order list lands
 ~2026-10-05 and is the first realized outcome set. The write-up window is
 ~2026-10-05 → 10-20: evaluations drain as the order list is ingested, the
@@ -67,6 +76,23 @@ checkout and corpus as the fill export (section 8, step 2), with full git
 history (the anchor block reads the statpack each grading's checkout carried)
 and the content store wired (the other two read the stored live snapshots), so
 its figures and the board's are read off one ledger.
+
+**What this fill was read from.** Every figure filled below was produced at
+the refresh commit `0918fb18e74fb89adc9a0882411996400986925e` (the merge of
+the metrics refresh on `main`'s first-parent line), from a checkout of that
+commit with the corpus pulled. The corpus vintage throughout is `corpus-info`'s
+newest pull **2026-10-09** and newest stored snapshot row **2026-07-13**
+(blob sha256 `eee1ae41…e0302ce9`). The fill export (section 8, step 2)
+manifest reads `source_commit` the refresh commit, `source_dirty: false`,
+`source_on_main_first_parent: true`, `ledger_commits: "git"`,
+`docket_numbers: "corpus"` and `predictions_without_ledger_commit: 0`, over
+743 predictions (329 scored, 0 set aside) and 987 gradings (985 counted). The
+release sensitivity command read the same ledger (`dirty: false`,
+`on_main_first_parent: true`) and corpus blob, 208 stored payloads (none
+missing, dated 2026-10-02 to 2026-10-09), the fill statpack build `3f3ca14f`,
+with `conference_fallbacks` 0 and `registered_headline.matches_committed_board`
+true. The cohort cut (`conference-set --counted --registered-at 2026-09-15`)
+read the same vintage with `conference_fallbacks` 0.
 
 ## 1. The counted population
 
@@ -211,6 +237,31 @@ that every cell read what it was given.
 > event sets, the figure is published over the events carrying every blessed
 > engine, or it prints the per-engine `n` and the complete-grid `n` beside it.
 
+**Filled at the refresh commit.** `process-digest --all` on the refresh
+commit's tree prints `proc-v8` and exactly the six digests the board's
+`frozen_process.digests` lists, one per predictor and evaluator — the
+comparison made is the refresh tree against the board's frozen set, and it
+shows nothing moved. The board's `frozen_process` reads
+`since: 2026-09-16T00:26:04Z` and its `windows` are exactly the three
+`proc-v8` predictor windows, each opening at that instant with null `closes`
+and null `revoked_at`. Cohort completeness, read off the cut at the corpus
+vintage above: the *owed* command returns three empty lists — no cohort cell
+would be minted, withheld or deferred (the plan's backlog-wide
+`would_mint_cells` is 9, all on later events) — and the *short of the full
+grid* command returns one row, the registered interim/arrival event
+`scotus/9526000273` (No. 26A273, `evt-motion-disposition`) with no counted
+predictor and status `unforecast`. Every registered cert event, all 110 on
+cert/distribution and all 10 on cert/cvsg, carries all three counted
+predictors. The per-digest census over the refresh commit's ledger
+(`data/cases`, files carrying each digest; the ledger-wide count the
+pre-registration record uses, not a cohort count): claude-baseline 248,
+codex-baseline 248, gemini-baseline 247; claude-judge, codex-judge and
+gemini-judge 353 each; 2,284 files carry a stamped `process_version` object.
+Snapshot uptake: of the ledger's 1,411 committed `prediction.json` files,
+743 carry the mark (the fill export likewise carries 743 predictions), and all
+743 read `snapshot_uptake: read`, none `unread`; a self-report, as stated
+above.
+
 ### Engine losses stay owed; they are not scored as failures
 
 **State.** Which cells the engines did not produce, on which engine, and that
@@ -253,8 +304,38 @@ find data/cases -name attempt.json | wc -l                 # the failure facts
 > rather than by design, that is stated too: the absence is attrition, and no
 > evaluator-agreement or cross-engine figure may read it as a choice.
 
-‹which engines lost which cells, and how many of each `error_class` — from the
-committed `attempt.json` facts and the owed counts above›
+The ledger at the refresh commit carries 160 `attempt.json` failure facts in
+all, 40 of them from runs at or after the counting instant. On the registered
+cohort's events there are 35, and every one was later made good: each cohort
+cert event carries a counted cell from every predictor, each resolved one a
+counted grading from every judge (section 2), and the plans owe the cohort
+nothing (above, and `evaluate-plan`'s `would_mint_cells` is 0). By engine and
+seam:
+
+| Seam | Engine | On cohort events | Of which since the counting instant |
+| --- | --- | --- | --- |
+| predict | codex-baseline | 4 `no_output` | 4 `no_output` |
+| predict | gemini-baseline | 4 `no_output`, 2 `partial`, 1 `quota` | 3 `no_output`, 2 `partial`, 1 `quota` |
+| evaluate | codex-judge | 1 `died` | 1 `died` |
+| evaluate | gemini-judge | 13 `died`, 7 `no_output`, 3 `partial` | 13 `died`, 7 `no_output`, 3 `partial` |
+
+claude-baseline and claude-judge lost no cohort cell. The one pre-freeze cohort
+fact is gemini-baseline's `no_output` on the CVSG event `scotus/73275236`
+(run 20260820T181919Z). The 13 gemini-judge `died` facts are one run
+(20261007T150255Z), whose 13 failed gemini-judge jobs are the first jobs that
+run started (*Comparing the engines*, below); the codex-judge `died` fact is
+the job cancelled in run 20261006T192524Z. Ledger-wide, the 160 split
+predict 108 (claude-baseline 27 `died`; codex-baseline 31 `died`,
+4 `no_output`, 2 `quota`; gemini-baseline 27 `died`, 11 `no_output`,
+4 `partial`, 2 `quota`) and evaluate 52 (codex-judge 22 `died`, 4 `quota`;
+gemini-judge 13 `died`, 8 `no_output`, 4 `partial`, 1 `quota`). No cohort
+cert cell is missing, so no engine left a graded population by exhausting its
+attempt cap. The one cohort event no engine forecast, 26A273 above, carries no
+`attempt.json` fact: its only cells are the pre-freeze run 20260901T014205Z,
+no frozen cell was minted for it, and the application resolved `withdrawn` on
+2026-09-25. It is an interim event, outside every scored figure here. Read from the
+committed `attempt.json` files at the refresh commit and `predict-plan` /
+`evaluate-plan` at the corpus vintage above.
 
 ## 2. Evaluations over the realized order list
 
@@ -339,9 +420,37 @@ print(len(rows), collections.Counter((r["evaluator_id"], r["process_digest"]) fo
 One digest per evaluator means one evaluator set graded the list; a second
 digest under any evaluator is the protocol boundary the state above names.
 
-‹the two exclusion counts and their per-predictor split — from
-`metrics/leaderboard.json` after the refresh in section 3 — and the distinct
-evaluator digests over the counted gradings, from the command above›
+At the refresh commit, `evaluate-plan` would mint 0 cells and `validate data`
+reads OK (35,899 artifacts valid, 49,319 references consistent). The board's
+two exclusion blocks, both stage-blind and counted over gradings:
+
+- `forward_claim`: policy `exclude`, `claimed_forward` 987, `excluded` **0**,
+  no per-predictor entries.
+- `leakage_exclusion`: `assessed` 987, `excluded` **2**, both on
+  gemini-baseline — `scotus/9526000434` and `scotus/9526000437`, each an
+  interim `evt-motion-disposition` cell flagged by codex-judge alone. Both are
+  outside the cohort and off the cert board; each prediction stays scored
+  through the two judges that did not flag it.
+
+Over the registered cohort — the 91 scored cert/distribution events, three
+predictors each graded by all three judges, 819 counted gradings — the leakage
+bit is false in all 819 and null in none. `influenced_prediction` is never
+`possible` or `likely`: claude-judge and codex-judge record `not_applicable`
+on all 91 events for each predictor, and gemini-judge records `not_applicable`
+on 63 and `none` on 28 for each predictor. `retrieved_outcome_material` is
+false in 814, null (not determined by the judge) in 5, and true in none. The ops report's
+uncollapsed `leakage` digest is a different population and is not differenced
+against these. Board-wide, over all 873 counted cert/distribution gradings
+in the fill export (the 97 board events × 3 predictors × 3 judges, the six
+post-conference first forecasts included), `leakage_suspected` is false in
+every one.
+
+Evaluator set: the fill export's 985 counted gradings carry exactly one
+digest per evaluator — claude-judge `sha256:fbc0e9c364d8…` (329 gradings),
+codex-judge `sha256:9670e1c147a7…` (327), gemini-judge
+`sha256:dbdc90647bc8…` (329) — the three `proc-v8` evaluator digests. One
+evaluator set graded the list; no grading protocol boundary falls inside the
+window.
 
 ## 3. Calibration against the registered base rates
 
@@ -403,8 +512,11 @@ grading names another Term, add it.
 >
 > The baseline is the registered per-band risk-set rate under the active
 > salience scorer, pooled over the Terms before each petition's own **docket**
-> Term. About 108 of the 110 registered cert/distribution events, and all 10
-> CVSG events, were docketed in OT2025. For those petitions the committed pack
+> Term. 108 of the 110 registered cert/distribution events, and all 10
+> CVSG events, were docketed in OT2025; of the 97 events the ranked board
+> scores, 90 were docketed in OT2025 and 7 in OT2026 — No. 26-173 from the
+> cohort and the six post-conference first forecasts section 5 names. For
+> the OT2025 petitions the committed pack
 > gives 5.12% baseline, 17.22% elevated, 34.97% high, 72.93% federal and 22.70%
 > state, pooled over OT2017–OT2024. The pack starts at OT2017, so the ten-Term
 > lookback reaches back eight Terms here. These count the whole grant family,
@@ -437,12 +549,17 @@ grading names another Term, add it.
 > transcription could account for.
 > The complements of these rates are grant-family denial shares, not
 > exact-match always-deny floors, and no lift in this write-up is measured
-> against them. Taking the OT2025-docket rates for all 110 events, the
-> cohort's band-mix-implied grant rate is about 10.2% over the 110
-> cert/distribution events — about 18.2% over the selected subset (n = 39) and
-> 5.9% over the declined remainder (n = 71) — and about 12.3% over all 120
-> cert-stage events once the CVSG arm is folded in. The two OT2026 dockets move
-> the 110-event figure by under a hundredth of a point. The freeze record's
+> against them. Taking the OT2025-docket rates for all 110 registered events,
+> the registered cohort's band-mix-implied grant rate is about 10.2% over its
+> 110 cert/distribution events — about 18.2% over the selected subset
+> (n = 39) and 5.9% over the declined remainder (n = 71) — and about 12.3%
+> over all 120 cert-stage events once the CVSG arm is folded in. The cohort's
+> two OT2026 dockets move the 110-event figure by under a hundredth of a
+> point. Those are figures about the registered cohort, not about the scored
+> board: the board's own expectation, summing one recorded band rate per
+> scored event (averaged over its panel), is 9.32 grants over its 97 events
+> (`grants_expected` on any entry's `forward` block), about 9.6%. The freeze
+> record's
 > correction entry carries these figures; the 2026-09-15 entry's ~10.1%,
 > ~12.2%, ~17.8% and ~5.8% were computed on the OT2026-docket rates. A
 > whole-docket cert rate of 1–3% is the wrong anchor for this cohort and is
@@ -494,88 +611,184 @@ grading names another Term, add it.
 > frozen band's version does not resolve against the pack carries no baseline
 > at all — its skill column is empty, not zero, and supports no claim.
 
-‹per predictor and per band, over the forward stratum — from the `by_band`
-block of each entry in `metrics/leaderboard.json` after the refresh above, and
-of each `cert@cvsg` stage entry for the CVSG arm: `events_scored` (petitions);
-the per-petition `event_accuracy` over `accuracy_events_scored`, with the
-**realized** always-deny floor `event_always_deny_accuracy` and the lift over
-it, `event_accuracy_lift`; beside them the grading-weighted `accuracy` with
-`accuracy_scored` (gradings), `always_deny_accuracy` and `accuracy_lift`, and
-the band's mean panel depth, `evaluations / events_scored` (the entry's
-`evaluators` is the panel size, not per-event depth); population Brier skill
-(a ratio of sums), `population_brier_skill_score`, with `skill_scored`; and
-`grants_realized_expected_scored` against `grants_expected` over the same
-`grants_expected_scored` events; and per band the complete-grid count,
-`complete_grid_by_band[band]` on the board (and on the `cert@cvsg` stage block
-for that arm). The grant comparison carries its censoring
-caveat in its own sentence: relisted and held petitions are still pending and
-grant more often than the ones already decided, so while they pend realized
-runs below expected, and a shortfall is not yet evidence of miscalibration.
-Each band's anchor stays the skill anchor and is shown beside its row, named
-by docket Term: 5.12% / 17.22% / 34.97% / 72.93% / 22.70% for OT2025 dockets
-and the OT2026-docket pool 5.02% / 16.89% / 35.51% / 70.79% / 23.63% for
-OT2026 dockets, each re-read off the refreshed pack, with the row's count of scored
-events per docket Term (the scored predictions' `context.term`) beside them.
-Post-freeze additions graded onto the board are mostly OT2026 dockets, so a
-row's docket-Term mix is counted at release time, never assumed.
-Their complements are grant-family
-denial shares, not exact-match floors, and are not the floor the lift is
-measured against. The `(none)` key holds cells that froze no band, froze a
-band with no version, or carry no band facts, and is reported as its own row,
-never folded into a band›
+**The per-band cut, filled.** Ranked board `cert@distribution`, forward
+stratum, `process_scope: "frozen"`, salience version `sal-v4` (the board's
+`salience_versions` lists only it), at the refresh commit. Each entry scores
+97 events, all forward (no retrospective or procedural block on any entry),
+with a panel of 3 evaluators and a mean depth of exactly 3.0 in every band
+(`evaluations / events_scored` = 201/67, 84/28, 3/1, 3/1). "Accuracy",
+"floor" and "lift" below are the per-petition `event_accuracy`,
+`event_always_deny_accuracy` and `event_accuracy_lift` over
+`accuracy_events_scored` petitions; at uniform depth the grading-weighted
+`accuracy`, `always_deny_accuracy` and `accuracy_lift` equal them exactly,
+over `accuracy_scored` = 3 × that many gradings. Skill is the population
+Brier skill score (a ratio of sums) over `skill_scored` gradings, against
+each grading's recorded prior-Term band rate.
 
-‹the per-band grant-family rates (the skill anchor) per docket Term, as the
-refreshed pack pools them — the `risk_set` figures from `fedcourts
-segment-anchors --term 2025 --term 2026`, each with its pooled Terms and
-weighted `n`, re-read rather than quoted from an earlier build. Reconcile them
-against the figures quoted in [metrics/README.md](../metrics/README.md) and
-the freeze record's correction entry for this cohort's anchor
-([freeze-record.md](freeze-record.md)), and state which docket Term each quoted
-rate is for›
+| Predictor | Band (sal-v4) | Petitions | Accuracy | Realized floor | Lift (pts) | Gradings | Skill (`skill_scored`) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| claude-baseline | baseline | 67 | 100.0% | 100.0% | +0.0 | 201 | +0.502 (201) |
+| claude-baseline | elevated | 28 | 96.4% | 92.9% | +3.6 | 84 | +0.396 (84) |
+| claude-baseline | high | 1 | 100.0% | 0.0% | +100.0 | 3 | +0.622 (3) |
+| claude-baseline | federal | 1 | 100.0% | 100.0% | +0.0 | 3 | +0.991 (3) |
+| codex-baseline | baseline | 67 | 100.0% | 100.0% | +0.0 | 201 | +0.118 (201) |
+| codex-baseline | elevated | 28 | 92.9% | 92.9% | +0.0 | 84 | +0.128 (84) |
+| codex-baseline | high | 1 | 100.0% | 0.0% | +100.0 | 3 | +0.939 (3) |
+| codex-baseline | federal | 1 | 100.0% | 100.0% | +0.0 | 3 | +0.939 (3) |
+| gemini-baseline | baseline | 67 | 100.0% | 100.0% | +0.0 | 201 | −0.334 (201) |
+| gemini-baseline | elevated | 28 | 85.7% | 92.9% | −7.1 | 84 | −0.596 (84) |
+| gemini-baseline | high | 1 | 0.0% | 0.0% | +0.0 | 3 | −0.708 (3) |
+| gemini-baseline | federal | 1 | 100.0% | 100.0% | +0.0 | 3 | +0.995 (3) |
 
-‹the transcription spread, per judge and per docket Term, over the same
-skill-scored cert cells the sensitivity line below recomputes, and separately
-over the registered cohort's graded cert cells: the cell count, how many
-recorded the exact pool, the largest and the mean relative deviation of the
-recorded `segment_base_rate` from the exact pool of the statpack build the
-grading read, and how many cells deviate by more than 1% — re-measured over
-the full graded set at fill time, from `release-sensitivity`'s
-`.blocks.exact_pool_anchor.transcription_spread` — its
-`skill_scored_cert_cells` and `registered_cohort_graded_cert_cells`, each
-`by_judge` with `by_docket_term` inside, reading `cells`, `exact` (equal to
-six decimals), `faithful_rounding` (equal to the exact pool rounded to the
-recorded rate's own decimals; judges record from four decimals up),
-`max_relative_deviation`, `mean_relative_deviation` and `over_one_percent`,
-with the builds read in `.blocks.exact_pool_anchor.statpack_builds`; the cohort's `unanchored` list and
-the block's `recorded_retained` list must both be empty (each entry carries
-its `reason`; "build not readable" usually means the clone lacks the grading's
-`pipeline_sha`, so fetch it and re-run)›
+The board carries no `state` row (the cohort's one state-band petition,
+No. 25-1115, is pending) and no `(none)` key: every scored cell froze a
+`sal-v4` band. The high and federal rows are one petition each and support no
+claim; they are printed for completeness of the cut.
+
+Grants per band, the same for every predictor because they count events:
+baseline **0** realized against **3.42** expected over 67 events; elevated
+**2** against **4.82** over 28; high **1** against **0.35** over 1; federal
+**0** against **0.73** over 1 (`grants_realized_expected_scored` against
+`grants_expected`, over `grants_expected_scored`). Relisted and held petitions
+are still pending and grant more often than the ones already decided, so
+while they pend realized runs below expected, and this shortfall is not yet
+evidence of miscalibration. It does move skill in a known direction: in the
+baseline band every scored petition was denied, so skill there rewards
+forecasting low rather than separating grants from denials, and the pending
+shortfall currently favours the lower forecaster — the baseline row's skill
+is not a reading of discrimination. Complete grid (`complete_grid_by_band`): baseline
+67, elevated 28, high 1, federal 1 — every engine's `accuracy_events_scored`
+equals its band's grid count in every band.
+
+Docket-Term mix of each row, from the scored predictions' `context.term`:
+baseline 61 OT2025 + 6 OT2026; elevated 27 OT2025 + 1 OT2026; high and
+federal 1 OT2025 each. Each row's skill anchor, by docket Term — not the
+floor, and never subtracted from: for OT2025 dockets 5.12% baseline, 17.22%
+elevated, 34.97% high, 72.93% federal (pool OT2017–OT2024, identical in the
+graded and the refreshed pack); for OT2026 dockets the pool the counted
+gradings read, statpack build `808f812e`, 5.02% baseline and 16.89% elevated
+(the refreshed pack now pools 4.99% and 16.83%; see below). Their complements
+are grant-family denial shares, not the exact-match floors the lift is
+measured against.
+
+**The CVSG arm has no block.** The refreshed board carries no `cert@cvsg`
+stage section: all 10 registered CVSG events are pending (section 5), so
+nothing on that arm is graded, and the omitted section is an empty state, not
+a result of zero.
+
+**Three grants, two kinds.** The board's three grant-family events are not
+alike. Two are **GVRs** entered 2026-10-05 — No. 25-901 (`scotus/73280412`,
+high band) and No. 25-918 (`scotus/73280426`, elevated), each "Judgment
+VACATED and case REMANDED for further consideration in light of *Louisiana*
+v. *Callais*" per its docket entry (both payloads dated 2026-10-05) — and one
+is a **plenary grant**, No. 25-1131 (`scotus/73281619`, elevated), granted
+2026-10-01 "limited to Question 1 presented by the petition" (payload dated
+2026-10-09). Per event, with each engine's grant call at P ≥ 0.5 (the
+export's `granted` column): claude-baseline called both GVRs (0.60, 0.55) and
+made no false grant call; codex-baseline called No. 25-901 (0.84) and missed
+No. 25-918 (0.30); gemini-baseline called none of the three (0.15, 0.25,
+0.05) and made two false grant calls among denied petitions, No. 25-1208
+(0.82) and No. 25-1105 (0.55). No engine put more than 0.30 on the plenary
+grant (claude-baseline 0.30, codex-baseline 0.30, gemini-baseline 0.05). So
+any grant-detection count on this board — and the accuracy column, whose
+grant-side hits are all GVR calls — largely measures **GVR detection** on two
+events that turned on one intervening decision, not the detection of plenary
+review, on which the board has one event and no engine called it.
+
+The skill anchors, re-read with `fedcourts segment-anchors --term 2025
+--term 2026` (`sal-v4`, lookback 10), `risk_set` rate with weighted `n`:
+
+| Docket Term | Pooled Terms | Statpack build | baseline | elevated | high | federal | state |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| OT2025 | OT2017–OT2024 (8) | refreshed `3f3ca14f` and graded `808f812e` alike | 5.12% (11,580) | 17.22% (2,810) | 34.97% (898) | 72.93% (181) | 22.70% (392) |
+| OT2026 | OT2017–OT2025 (9) | graded `808f812e` | 5.02% (12,720) | 16.89% (3,085) | 35.51% (966) | 70.79% (202) | 23.63% (419) |
+| OT2026 | OT2017–OT2025 (9) | refreshed `3f3ca14f` | 4.99% (12,871) | 16.83% (3,113) | 35.57% (967) | 70.44% (203) | 23.52% (421) |
+
+The OT2025-docket rates reconcile exactly with
+[metrics/README.md](../metrics/README.md) and the freeze record's correction
+entry ([freeze-record.md](freeze-record.md)): 5.12% / 17.22% / 34.97% /
+72.93% / 22.70%, the anchor for 90 of the board's 97 events. The OT2026-docket
+rates those two documents quote, 5.02% / 16.89% / 35.51% / 70.79% / 23.63%,
+are the pool of build `808f812e` (2026-09-28), the only build any counted
+cert grading read (`release-sensitivity`'s `statpack_builds`: one build, 873
+gradings); the refreshed pack's OT2025 row has resolved further since, so the
+same pool now reads 4.99% / 16.83% / 35.57% / 70.44% / 23.52%. The OT2026
+pool applies to the board's 7 OT2026 dockets only. The `808f812e` row was
+produced by running `segment-anchors` against that build's
+`metrics/statpack.json`.
+
+The transcription spread, re-measured at fill time from
+`release-sensitivity`'s `.blocks.exact_pool_anchor.transcription_spread`.
+Every graded cert cell read one statpack build, `808f812e` (873 gradings,
+lookback 10), the cohort's `unanchored` list and the block's
+`recorded_retained` list are both empty, and **no cell deviates from its exact
+pool by more than 1%** on either population. "Exact" is equal to six
+decimals; "faithful" is equal to the exact pool rounded to the recorded
+rate's own decimals.
+
+| Population | Judge | Docket Term | Cells | Exact | Faithful | Max rel. dev. | Mean rel. dev. | Over 1% |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| skill-scored cert cells | claude-judge | OT2025 | 270 | 75 | 171 | 0.092% | 0.025% | 0 |
+| skill-scored cert cells | claude-judge | OT2026 | 21 | 6 | 12 | 0.114% | 0.066% | 0 |
+| skill-scored cert cells | codex-judge | OT2025 | 270 | 6 | 6 | 0.080% | 0.033% | 0 |
+| skill-scored cert cells | codex-judge | OT2026 | 21 | 0 | 0 | 0.098% | 0.097% | 0 |
+| skill-scored cert cells | gemini-judge | OT2025 | 270 | 66 | 117 | 0.338% | 0.051% | 0 |
+| skill-scored cert cells | gemini-judge | OT2026 | 21 | 6 | 3 | 0.096% | 0.069% | 0 |
+| registered cohort, graded cert cells | claude-judge | OT2025 | 270 | 75 | 171 | 0.092% | 0.025% | 0 |
+| registered cohort, graded cert cells | claude-judge | OT2026 | 3 | 0 | 3 | 0.070% | 0.070% | 0 |
+| registered cohort, graded cert cells | codex-judge | OT2025 | 270 | 6 | 6 | 0.080% | 0.033% | 0 |
+| registered cohort, graded cert cells | codex-judge | OT2026 | 3 | 0 | 0 | 0.098% | 0.098% | 0 |
+| registered cohort, graded cert cells | gemini-judge | OT2025 | 270 | 66 | 117 | 0.338% | 0.051% | 0 |
+| registered cohort, graded cert cells | gemini-judge | OT2026 | 3 | 3 | 3 | 0.000% | 0.000% | 0 |
+
+Across all 873 skill-scored cells the largest relative deviation is 0.338%
+(a gemini-judge grading recording 0.051036 against the exact OT2025 baseline
+pool 0.051209) and the mean 0.039%; across the cohort's 819 graded cert cells,
+the same maximum and a mean of 0.037%. codex-judge records the rate at full
+precision as pooled from the rendered table's rounded rows (0.172379 against
+the exact elevated OT2025 pool 0.172242), so it is rarely exact or faithful
+while staying within 0.1% of the exact pool.
 
 **Sensitivity lines beside the headline.** Three sensitivity lines travel with
-the per-band figures above, each in the sentence that carries its registered
-figure and each with its own `n`. The first is this section's; the other two
+the per-band figures above, each given below beside the registered figure it
+varies (registered → sensitivity) and each with its own `n`. The first is this section's; the other two
 are disclosed with the cohort in section 5.
 
-‹per predictor and per band, population skill recomputed with each cert
-grading's baseline taken from the exact pool of the statpack build it read
-instead of its recorded `segment_base_rate`, beside the registered `population_brier_skill_score` and
-over the same `skill_scored` cells — from `release-sensitivity`'s
-`.blocks.exact_pool_anchor.figures`, beside `.registered_headline.figures`›
+*Sensitivity: exact-pool anchor.* Population skill with each cert grading's
+baseline taken from the exact pool of build `808f812e` instead of its
+recorded `segment_base_rate`, over the same `skill_scored` cells as the
+registered figure (registered → sensitivity, four decimals because the
+moves are in the fourth): claude-baseline baseline +0.5017 → +0.5020 (201),
+elevated +0.3960 → +0.3959 (84), high +0.6218 → +0.6217 (3), federal
++0.9908 → +0.9908 (3); codex-baseline baseline +0.1177 → +0.1183 (201),
+elevated +0.1281 → +0.1279 (84), high +0.9395 → +0.9395 (3), federal
++0.9391 → +0.9391 (3); gemini-baseline baseline −0.3337 → −0.3328 (201),
+elevated −0.5963 → −0.5967 (84), high −0.7080 → −0.7083 (3), federal
++0.9953 → +0.9953 (3). No band's skill moves by more than 0.0009, so the
+transcription accounts for none of any registered skill figure's sign or
+order.
 
-‹per predictor and per band, `event_accuracy`, `event_accuracy_lift` and
-population skill with the extraordinary-writ petitions section 5 names removed
-— every one on the board, in the cohort or not —
-each with its reduced `n`, beside the registered figures — from
-`release-sensitivity`'s `.blocks.rule_20_excluded.figures`, beside
-`.registered_headline.figures`›
+*Sensitivity: extraordinary writs removed.* With the two mandamus petitions
+section 5 names removed (both baseline band, both in the cohort, 18 board
+cells), only the baseline row moves: 65 petitions instead of 67, accuracy,
+floor and lift unchanged at 100.0% / 100.0% / +0.0 for every engine, and
+skill over 195 gradings instead of 201 — claude-baseline +0.502 → +0.487,
+codex-baseline +0.118 → +0.119, gemini-baseline −0.334 → −0.375. The
+elevated, high and federal rows are identical to the registered ones.
 
-‹per predictor and per band, every board-wide figure in this section —
-accuracy, floor, lift, skill, the grant comparison, `complete_grid_by_band`,
-and each engine's `events_scored` in *Comparing the engines* below —
-recomputed without the events section 5 names as first forecast after their
-conference, each with its reduced `n`, beside the registered figures — from
-`release-sensitivity`'s `.blocks.post_conference_first_forecasts_excluded.figures`,
-beside `.registered_headline.figures`›
+*Sensitivity: post-conference first forecasts removed.* Six of the subset
+section 5 names are graded — Nos. 26-66, 26-79, 26-80, 26-95, 26-121 and
+26-183, all baseline band, all denied — so this line differs from its
+headline (54 board cells removed). Without them each engine's
+`events_scored` is **91** instead of 97, and only the baseline row moves:
+complete grid 61 instead of 67; 61 petitions, accuracy, floor and lift
+unchanged at 100.0% / 100.0% / +0.0 for every engine; skill over 183
+gradings instead of 201 — claude-baseline +0.502 → +0.564, codex-baseline
++0.118 → +0.130, gemini-baseline −0.334 → −0.384; grants 0 realized against
+3.12 expected over 61 events instead of 3.42 over 67. The elevated, high and
+federal rows, their grids and their grant comparisons are identical to the
+registered ones. These 91 events are exactly the registered cohort's scored
+cert/distribution events (section 5).
 
 **A post-hoc benchmark, labelled as one.** One skill figure in this section is
 neither registered nor a sensitivity line: Brier skill against each block's own
@@ -613,19 +826,32 @@ jq '.entries[] | {predictor_id, forward: (.forward | {in_sample_events_scored, i
 > defined the few granted petitions set
 > its scale, so each figure is given with its count of grants.
 
-‹per predictor, over the forward stratum of the ranked board, the in-sample
-benchmark — `population_in_sample_skill_score` with `in_sample_skill_scored`,
-and in the same sentence its grant count as "k grants of n events"
-(`in_sample_grant_rate` × `in_sample_events_scored`), noting that GVRs,
-summary reversals and partial grants count as grants — and per band where it is defined, as the
-within-band reading; every row labelled post-hoc and placed after the
-registered prior-Term figure it sits beside, never before it; predictors set
-side by side only where their `in_sample_events_scored` agree; from the `jq`
-line above›
+*Post-hoc, not registered, ranks nothing.* Over the forward stratum of the
+ranked board, after each engine's registered prior-Term skill (+0.528,
++0.364 and −0.338 over 291 gradings each — a cross-band figure quoted only as
+the registered figure this benchmark sits beside; its sensitivity lines are
++0.5275 / +0.3642 / −0.3381 on the exact pool, +0.527 / +0.365 / −0.340 over
+285 gradings without the extraordinary writs, and +0.531 / +0.366 / −0.340
+over 273 without the post-conference first forecasts), the in-sample
+benchmark reads
+claude-baseline **+0.468**, codex-baseline **+0.285** and gemini-baseline
+**−0.505**, each over 291 gradings (`in_sample_skill_scored`), against
+**3 grants of 97 events** (`in_sample_grant_rate` 3/97); `in_sample_events_scored`
+is 97 for all three, so they sit side by side. Two of the three grants are
+GVRs (above), which count as grants here, as summary reversals and partial
+grants would. Within a band it is defined only in **elevated**, 2 grants of
+28 events (one GVR, one plenary grant), over 84 gradings each: claude-baseline
++0.304, codex-baseline −0.005, gemini-baseline −0.841, each after its
+registered elevated prior-Term skill (+0.396, +0.128, −0.596). It is undefined
+in baseline (0 grants of 67) and federal (0 of 1), and in high (1 grant of 1),
+where every scored petition went the same way.
 
-‹the whole-docket per-Term cert rate, quoted as context only and labelled as
-not this cohort's anchor — from `metrics/statpack.md`, *SCOTUS cert petitions
-by Term*›
+As context only — **not this cohort's anchor** — the statpack's whole-docket
+*SCOTUS cert petitions by Term* table at the refresh commit gives an estimated
+grant-family rate between 2.3% and 3.3% for each of OT2017–OT2024, 2.5% for
+OT2025 and 1.3% for the still-open OT2026 (denial-reweighted estimates over
+every petition docketed in the Term). That is the docket as a whole; the
+cohort was selected on band, and its anchor is the per-band table above.
 
 Guards that decide whether a number may be quoted at all, checked before any
 figure leaves this section:
@@ -686,8 +912,8 @@ prediction.
 > — listed its cells engine by engine in registry order — claude, then codex,
 > then gemini — and the runner started cells in list order, as the start
 > windows below show. So within a run gemini's forecasts started last —
-> in the largest runs ‹the longest gap between claude's and gemini's first cell
-> starts, from the start-window figures below› after claude's — behind the other
+> in the five large predict runs between 50 and 67 minutes after claude's —
+> behind the other
 > two engines' spend of the shared retrieval quota, and later against the docket.
 > How often that quota turned each engine's cells away cannot be measured
 > across engines from the harness's retrieval logs. Gemini's logs carry no call
@@ -711,32 +937,92 @@ prediction.
 > that no engine holds a fixed slot; this cohort's runs are the registry-order
 > ones confirmed below.
 >
-> The ranking is on N-unweighted point estimates over a cohort whose band mix
-> implies roughly a dozen grants. A one- or two-event difference reorders it.
+> The ranking is on N-unweighted point estimates over a board whose recorded
+> band rates expected about nine grants (9.32 over 97 events) and on which the
+> Court made three, two of them GVRs. A one- or two-event difference reorders
+> it.
 > The order is therefore reported as locating a difference between the engines,
 > not as measuring one.
 
-‹each engine's `events_scored`, complete-grid `n`, per-stratum evaluations and
-panel depth, and per band each engine's `accuracy_events_scored` beside
-`complete_grid_by_band` — from `metrics/leaderboard.json`›
+**The board's order and its denominators.** The board ranks on forward
+`accuracy`, then forward mean Brier (no skill column is a rank key). The
+figures in this paragraph are that cross-band rank key, quoted only to state
+the order; every reading of them is per band, in the table above. At the
+refresh commit: rank 1 claude-baseline, accuracy 99.0% over 291 gradings,
+mean Brier 0.0159; rank 2 codex-baseline, 97.9%, 0.0214; rank 3
+gemini-baseline, 94.8%, 0.0451 — against an always-deny floor of 96.9% on the
+same cells (a blend of the 100% baseline floor and the 92.9% elevated one),
+so lifts of +2.1, +1.0 and −2.1 points, which are two, one and minus two
+petitions of 97: claude-baseline's two GVR calls (Nos. 25-901, 25-918),
+codex-baseline's one (No. 25-901), and gemini-baseline's two false grant
+calls (Nos. 25-1208, 25-1105) against no hit. Sensitivity lines for this key:
+with the extraordinary writs removed, 98.9%, 97.9% and 94.7% against a 96.8%
+floor (95 petitions); with the post-conference first forecasts removed,
+98.9%, 97.8% and 94.5% against 96.7% (91 petitions, below); the order holds
+under both. Each engine's
+`events_scored` is 97, the population's `events_scored` union is 97, and the
+complete grid is 97 (67 + 28 + 1 + 1 over the bands); each entry's only
+stratum is forward, with 291 evaluations, a panel of 3 evaluators and a mean
+depth of 3.0; there is no retrospective or procedural block. Per band, every
+engine's `accuracy_events_scored` equals `complete_grid_by_band`: baseline 67,
+elevated 28, high 1, federal 1. Coverage is therefore equal, and the
+per-band orderings in the table above are read over the same petitions — but
+equal coverage certifies the event set only. With the six post-conference
+first forecasts removed (the sensitivity line above) each engine's
+`events_scored` and the complete grid are 91.
 
-‹confirmation that every predict and evaluate run carrying a counted cohort
-cell or grading ran under registry order, before the interleaved fan-out
-reached production — from `gh run list --workflow run-predict.yml` /
-`run-evaluate.yml` against the merge time of the promotion carrying it; if any
-cohort run postdates it, name those runs and restate the paragraph above
-separately for the runs on each side›
+Run order, confirmed. The interleaved, keyed engine order reached `main` in
+the promotion merged 2026-10-08T21:49:48Z (`9a2dc8168`). Every run carrying a
+counted cohort cell or grading predates it: the seven predict runs
+20260916T170237Z, 20260916T201911Z, 20260917T181231Z, 20260917T214606Z,
+20260918T174135Z, 20260918T195102Z and 20260919T192714Z (GitHub runs
+35125623085, 35145755402, 35257315115, 35278393003, 35375678697, 35388105504,
+35464338589), and the six evaluate runs 20261002T200745Z, 20261005T221055Z,
+20261006T154811Z, 20261006T192524Z, 20261007T150255Z and 20261007T185906Z
+(37058510052, 37380715565, 37490457898, 37518770477, 37641680170,
+37670928809). No cohort run postdates the change, so the paragraph above
+stands for all of them.
 
-‹in the cohort's largest predict and evaluate runs, the first and last cell
-start per engine, and how long after claude's first cell gemini's first cell
-started — from `gh run view <id> --json jobs` (`startedAt` per job)›
+Start windows, from each run's per-job `startedAt` (UTC):
 
-‹per engine, the share of its cohort predictions whose `run_id` is later than
-the earliest sibling engine's `run_id` on the same event — from the
-`predictions/<predictor>/<run_id>/` paths under each cohort event — beside the
-`attempt.json` counts in *Engine losses stay owed*, and each engine's
-distribution of snapshot as-of date against run date, from the stamped
-`context` on its predictions›
+| Run | claude: first → last start (jobs) | codex: first → last | gemini: first → last | gemini first after claude first |
+| --- | --- | --- | --- | --- |
+| predict 20260916T170237Z | 17:04:35 → 17:34:45 (25) | 17:37:05 → 18:09:16 (25) | 18:11:51 → 18:28:45 (25) | 1 h 07 min |
+| predict 20260916T201911Z | 20:44:15 → 21:08:05 (22) | 21:08:17 → 21:33:05 (24) | 21:34:01 → 21:47:26 (23) | 50 min |
+| predict 20260917T181231Z | 18:15:19 → 18:37:47 (24) | 18:38:04 → 19:07:26 (24) | 19:08:32 → 19:25:40 (25) | 53 min |
+| predict 20260917T214606Z | 21:48:00 → 22:16:45 (25) | 22:17:55 → 22:44:00 (25) | 22:44:28 → 23:01:32 (25) | 56 min |
+| predict 20260918T174135Z | 17:45:36 → 18:10:38 (21) | 18:10:43 → 18:38:48 (23) | 18:38:57 → 18:55:00 (23) | 53 min |
+| evaluate 20261005T221055Z | 22:12:31 → 22:36:42 (25) | 22:36:50 → 23:06:26 (25) | 23:06:45 → 23:23:42 (25) | 54 min |
+| evaluate 20261006T154811Z | 16:37:38 → 17:03:27 (25) | 17:03:48 → 17:30:42 (25) | 17:32:00 → 17:53:19 (25) | 54 min |
+
+In every predict run, each engine's first cell started after the previous
+engine's last, claude then codex then gemini; the two smallest predict runs
+(20260918T195102Z, 16 jobs; 20260919T192714Z, one gemini job) follow the same
+order. Two evaluate runs carry an exception, and neither touches a counted
+grading. In 20261006T192524Z one codex-judge job started at 19:26:01, two
+seconds before the first claude-judge job; it is the job cancelled to release
+that run, recorded as codex-judge's one cohort `died` fact, and graded nothing.
+In 20261007T150255Z thirteen gemini-judge jobs started first, at 16:05:09,
+and all failed (gemini-judge's 13 cohort `died` facts); that run's
+gemini-judge gradings come from jobs started from 16:42:52, after codex-judge's
+first job (16:23:01) and last (16:41:45). So every job that produced a counted
+grading started in registry order.
+
+Late cells and snapshot dates, over the registered cohort's 120 cert events
+(360 counted cells; the counted `run_id` per predictor from the cohort cut):
+the share of an engine's cohort predictions whose run is later than the
+earliest sibling engine's run on the same event is claude-baseline 0 of 120,
+codex-baseline 4 of 120 and gemini-baseline 5 of 120 — the re-minted cells
+behind the predict-seam `attempt.json` facts in *Engine losses stay owed*
+(codex 4 `no_output`; gemini 4 `no_output`, 2 `partial`, 1 `quota`, some
+re-minted more than once). One of gemini-baseline's five is on a grant
+event, the GVR No. 25-918 (`scotus/73280426`): its counted cell ran in
+20260917T181231Z, the other two engines' in 20260916T170237Z. Snapshot as-of date (`context.snapshot_date`)
+against run date: on the 110 cert/distribution events every engine's snapshot
+is dated the run day or the day before — claude-baseline 73 same-day and 37
+one day earlier, codex-baseline 75 and 35, gemini-baseline 71 and 39. The 10
+CVSG cells per engine are placed at their invitation, 79 to 338 days before
+the run, identically for all three engines.
 
 ## 4. The salience limitation
 
@@ -807,8 +1093,13 @@ uv run fedcourts caption-census --rule-version caption-v2  # the carve-in class
 > so a cross-version skill comparison reads through a substitution and has to
 > say so.
 
-‹the per-rule cut of any arrival figure quoted — draw subcohort vs carve-in
-subcohort, read per band off `metrics/leaderboard.json`'s `cert@arrival` block›
+No arrival figure is quoted in this write-up. The refreshed board carries no
+`cert@arrival` stage section — its stage blocks are `interim@arrival`,
+`interim@response-filed` and `interim@response-requested` only — because no
+cert/arrival cell has resolved: the cohort cut lists 17 counted cert/arrival
+events — 14 baseline band and 3 federal — all pending, none registered. With nothing graded
+on the arm there is no per-rule cut to make, and the omitted section is an
+empty state, not a result.
 
 ## 5. Cohort provenance
 
@@ -1031,9 +1322,9 @@ band-biased. In that case the band mix is re-measured at the conference and the
 >
 > The board is wider than the cohort, and part of what it holds was forecast
 > late. Some events whose first forward cell postdates the conference that
-> considered the petition are on the frozen board as registered: the counting
-> rule admits them, so they stay. The registered cut already excludes them
-> from the cohort. Their cells were made after that conference had sat and
+> considered the petition are on the frozen board, because the pre-registered
+> counting rule admits them, so they stay. None of them is in the registered
+> cohort; the registered cut already excludes them. Their cells were made after that conference had sat and
 > after the 2026-10-01 grant list had issued, and a petition still undisposed
 > after the grant list is very unlikely to have been granted from that
 > conference, so those forecasts were made with information a forecast at the
@@ -1042,37 +1333,127 @@ band-biased. In that case the band mix is re-measured at the conference and the
 > while none is graded, the lines would equal their headlines and are omitted,
 > and the reconciliation says so.
 
-‹the graded cohort's size and composition, reconciled against the registered
-table above, with any delta explained — from `conference-set --counted
---registered-at 2026-09-15`'s registered totals and per-event rows, with the
-vintage it was read at, and `metrics/leaderboard.json`'s `events_scored`›
+**The reconciliation, filled.** Read off `conference-set --counted
+--registered-at 2026-09-15` at the corpus vintage of this fill (newest pull
+2026-10-09, newest stored snapshot 2026-07-13), `conference_fallbacks` 0.
 
-‹the re-measured band mix, if any tick of the drain did not run — from the same
-cut's registered per-band totals›
+The cut's registered count matches the rule's census arm for arm: **110**
+cert/distribution, **10** cert/cvsg and **3** interim/arrival, 123 in all. By
+status:
 
-‹the cohort's extraordinary-writ petitions, each by docket number and case id
-with the band its cells froze, its outcome and each engine's forecast — from
-the cut's per-event rows, with the identification by opening entry from
-`release-sensitivity`'s `.blocks.rule_20_excluded.identified` (each case's
-`opening_entry`, its events and whether each is `registered`), with
-`not_certiorari_not_rule_20` and `unclassified` both empty; the two named
-above, and any further one it finds›
+| Arm | Band (as the counted cells froze it) | Registered | Scored | Resolved, unscored | Pending | Unforecast |
+| --- | --- | --- | --- | --- | --- | --- |
+| cert/distribution | baseline | 69 | 61 | 0 | 8 | 0 |
+| cert/distribution | elevated | 38 | 28 | 0 | 10 | 0 |
+| cert/distribution | high | 1 | 1 | 0 | 0 | 0 |
+| cert/distribution | federal | 1 | 1 | 0 | 0 | 0 |
+| cert/distribution | state | 1 | 0 | 0 | 1 | 0 |
+| cert/cvsg | high | 10 | 0 | 0 | 10 | 0 |
+| interim/arrival | (no band) | 3 | 0 | 0 | 2 | 1 |
 
-‹the post-conference first forecasts, re-counted at fill time: how many board
-events, on which conference, how many resolved and how many graded, each named
-by case id with its first forward cell's date and the conference that
-considered it; confirmation that none is registered; and confirmation that
-every one's first forward cell postdates the 2026-10-01 grant list, naming
-any that does not with its date and restating the paragraph above for it —
-from `release-sensitivity`'s `.blocks.post_conference_first_forecasts_excluded`
-(`events`, `by_conference`, `resolved`, `graded`, `registered`, each `subset`
-row's `first_forward_run_id` and `considering_conference`, and
-`not_after_grant_list`, which names any first cell not after the grant list;
-the grant list is read against `grant_list_conference` only), with the
-vintage it read (`.corpus`, and `.payloads_read` for the stored dockets the
-block actually read); if none is graded
-(`lines_equal_headline: true`), say that the section 3 lines without them are
-omitted because they would equal their headlines›
+On cert/distribution, 91 registered events are scored, 19 pending, none
+resolved-unscored and none unforecast. 109 of the 110 were cut against the
+2026-09-28 conference and one against 2026-10-09. The cut's band mix,
+69 baseline / 38 elevated / 1 high / 1 federal / 1 state, differs from the
+registered table's 70 / 37 by one event. The *moved* command names 14
+registered distribution events whose conference changed:
+
+- **Before the cut, one:** No. 25-1341 (`scotus/73500243`), registered for
+  2026-09-28 and forecast in run 20260917T214606Z against the 2026-10-09
+  conference, its cells frozen `elevated`; it is the
+  only event whose cut conference differs from its registered one, and it is
+  pending. The cut does not carry each event's registered band, so the one
+  band difference is read as this move rather than checked against the
+  census blob.
+- **After the cut, thirteen**, each forecast against 2026-09-28 and pending
+  since: Nos. 25-882, 25-1062, 25-1098, 25-1187 and 25-1240 (elevated);
+  25-1103, 25-1158, 25-1163, 25-1273 and 26-13 (baseline), now on the
+  2026-10-09 conference; 25-1269 and 25-1314 (baseline), now on 2026-10-16;
+  and 25-1115 (state), now on 2026-10-09.
+- **Between its cells, or never forecast:** none on cert/distribution; the
+  *split cells* command returns an empty list.
+
+Of the 19 pending registered distribution events, the 14 above moved, and
+five — Nos. 25-1070, 25-1250, 25-1350 and 25-1358 (elevated) and 25-1347
+(baseline) — still carry the 2026-09-28 conference in the corpus column with
+no outcome. Every pending event's payload is dated 2026-10-09 except
+No. 25-1314's, dated 2026-10-02, before the opening order list: its `pending`
+means "no outcome as of that payload". The 10 CVSG events are all pending,
+each cut at its invitation (conferences 2025-10-10 through 2026-06-29). Of
+the three interim/arrival events, the two the deriver minted at registration
+were forecast — No. 25A622 (`scotus/73279700`) and No. 26A163
+(`scotus/9526000163`), both pending — and the third, No. 26A273
+(`scotus/9526000273`), has no counted cell (`unforecast`; its application
+resolved `withdrawn` 2026-09-25).
+
+Beside the cohort and never inside it, the cut's counted distribution events
+outside the registered rule: 37 cut against the 2026-09-28 conference, 26
+against 2026-10-09, 10 against 2026-10-16 and 1 against 2026-11-06. Six of
+those 37 are scored — the post-conference first forecasts below — and they
+are the whole difference between the cohort and the board: the ranked board's
+`events_scored` is **97** for each entry and for the population, the 91
+scored registered events plus those 6.
+
+No re-measured band mix is owed. Every registered cert event carries all
+three counted predictors (section 1), so the surviving cohort is the whole
+registered table, not the head of a partly drained queue; the two scheduled
+predict ticks cancelled in the drain window (2026-09-16 18:10Z and
+2026-09-17 20:27Z) left no cert event unforecast.
+
+**Extraordinary writs, filled.** `release-sensitivity` read the stored
+opening entry of 208 cases (`cases_scanned`) and identified exactly the two
+named above,
+with `not_certiorari_not_rule_20` and `unclassified` both empty — no further
+such petition is on the board, in the cohort or not:
+
+| Petition | Opening entry | Band | Outcome | claude-baseline | codex-baseline | gemini-baseline |
+| --- | --- | --- | --- | --- | --- | --- |
+| No. 25-1252 (`scotus/73299074`) | "Petition for a writ of mandamus filed." (2026-04-24) | baseline | denied 2026-10-05 | 0.01 | 0.07 | 0.005 |
+| No. 25-1315 (`scotus/73500218`) | "Petition for a writ of mandamus filed." (2026-05-20) | baseline | denied 2026-10-05 | 0.003 | 0.005 | 0.001 |
+
+Each has one event, the registered `evt-petition-disposition` on
+cert/distribution, graded by all three judges (9 gradings each); both
+payloads are dated 2026-10-05. Against the OT2025 baseline pool of about
+5.12%, the per-grading skill on No. 25-1252 runs from +0.96 (claude-baseline)
+and +0.99 (gemini-baseline) down to −0.87 for codex-baseline's 0.07 — the
+swing the prose above describes, on a petition the Court denied. Their
+removal moves only the baseline row's skill (section 3's sensitivity line).
+
+**Post-conference first forecasts, re-counted at fill time.**
+`release-sensitivity`'s `.blocks.post_conference_first_forecasts_excluded`,
+read at corpus newest pull 2026-10-09 / newest stored snapshot 2026-07-13
+(208 stored payloads read, none missing, dated 2026-10-02 to 2026-10-09):
+**16** board events, all considered at the **2026-09-28** conference;
+**6 resolved and 6 graded**; **0 registered**. `unreadable` and
+`scored_after_conference_outside_subset` are both empty, and
+`not_after_grant_list` is empty — every first forward cell ran on or after
+2026-10-03, after the 2026-10-01 grant list, so the paragraph above holds for
+all 16. `lines_equal_headline` is false, so section 3 carries the lines
+without them (54 board cells removed).
+
+| Petition | Case | First forward cell (run) | Status |
+| --- | --- | --- | --- |
+| No. 26-66 | `scotus/9026000066` | 2026-10-04 (20261004T201824Z) | denied 2026-10-05, graded (9 cells) |
+| No. 26-79 | `scotus/9026000079` | 2026-10-04 (20261004T201824Z) | denied 2026-10-05, graded (9 cells) |
+| No. 26-80 | `scotus/9026000080` | 2026-10-04 (20261004T201824Z) | denied 2026-10-05, graded (9 cells) |
+| No. 26-95 | `scotus/9026000095` | 2026-10-04 (20261004T201824Z) | denied 2026-10-05, graded (9 cells) |
+| No. 26-121 | `scotus/9026000121` | 2026-10-04 (20261004T201824Z) | denied 2026-10-05, graded (9 cells) |
+| No. 26-183 | `scotus/9026000183` | 2026-10-04 (20261004T201824Z) | denied 2026-10-05, graded (9 cells) |
+| No. 25-1343 | `scotus/73500246` | 2026-10-03 (20261003T200236Z) | pending |
+| No. 25-1415 | `scotus/73529868` | 2026-10-03 (20261003T200236Z) | pending |
+| No. 26-130 | `scotus/9026000130` | 2026-10-05 (20261005T212916Z) | pending |
+| No. 25-1246 | `scotus/73292081` | 2026-10-05 (20261005T231540Z) | pending |
+| No. 25-1338 | `scotus/73500240` | 2026-10-05 (20261005T231540Z) | pending |
+| No. 26-43 | `scotus/9026000043` | 2026-10-05 (20261005T231540Z) | pending |
+| No. 25-1313 | `scotus/73500214` | 2026-10-06 (20261006T142731Z) | pending |
+| No. 25-1388 | `scotus/73500290` | 2026-10-06 (20261006T142731Z) | pending |
+| No. 26-461 | `scotus/9026000461` | 2026-10-08 (20261008T143010Z) | pending |
+| No. 26-462 | `scotus/9026000462` | 2026-10-08 (20261008T143010Z) | pending |
+
+The six graded events are all baseline band and all OT2026 dockets. Their
+first forward cells ran on 2026-10-04, after the conference had sat and the
+grant list had issued but the day before the 2026-10-05 order list that
+denied them.
 
 ## 6. Scope rules: every number names its population
 
@@ -1147,7 +1528,37 @@ table without `n` cannot be reviewed — and record its verdict and the
 disposition of each blocker. A blocker is fixed or rebutted in writing; an
 unanswered blocker is not a resolution.
 
-‹the reviewer's verdict and the disposition of each finding›
+**Pass run 2026-10-09** over both filled documents, with every figure checked
+against the saved outputs of the commands that produced it (the refresh
+commit's boards, the fill export, `release-sensitivity`, the cohort cut,
+`segment-anchors`, the `attempt.json` tally and the run-start reads). Verdict:
+**approve with fixes**. No quoted number was found wrong. Disposition:
+
+1. *Blocker, public page:* the headline counted the 97 board petitions while
+   "every forecast … before the Court met" and the last-merge line held only
+   for the 91 pre-registered ones. **Fixed:** the headline separates the 91 pre-registered from the 97 scored, those
+   lines are scoped to the pre-registered set, and the six late-forecast
+   petitions are named beside them.
+2. *Blocker, public page:* "each run the same way" overstated section 3's
+   run-order disclosure. **Fixed:** the models line now says they did not run
+   under identical conditions and points to the disclosure.
+3. *Recommended:* the cross-band rank key and the pooled prior-Term skill
+   beside the in-sample benchmark lacked their sensitivity lines and a
+   decomposition. **Fixed:** both are labelled as quoted only for the order or
+   as the benchmark's registered companion, the lifts are decomposed to the
+   petitions behind them, and the missing lines are added.
+4. *Recommended:* in the baseline band, where every petition was denied,
+   skill rewards forecasting low and the pending shortfall favours the lower
+   forecaster. **Fixed:** stated in section 3's grants paragraph and on the
+   public page.
+5. *Recommended:* "873 graded forecasts" on the public page. **Fixed:** 873
+   gradings of 291 scored forecasts.
+6. *Recommended:* the public page's GVR miss rule needed the fact that the GVR
+   hits were explicit GVR calls. **Fixed.**
+7. *Nits:* the uptake denominator (1,411 files, 743 carrying the mark), the
+   gemini-baseline late cell on No. 25-918, the sensitivity-line layout
+   sentence, "G" written out as "granted", and "relisted once" softened to
+   "relisted". **All fixed.**
 
 ## 8. The publishing tag
 
