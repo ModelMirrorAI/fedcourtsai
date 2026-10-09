@@ -512,7 +512,8 @@ def validate(
 
     Two corpus-free layers the PR gate can enforce offline: every known artifact
     matches its schema, and every judgment references an event that exists in the
-    git tree (with its declared ids matching the path) while every evaluation
+    git tree (with its declared ids matching the path), every event directory
+    holds only the entries the ledger layout defines, every evaluation
     targets a real prediction, every recorded ``risk_set`` base-rate basis
     carries the salience version it was banded under, every prose document a
     prediction names sits beside it, and every committed claims block is one

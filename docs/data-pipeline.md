@@ -1988,7 +1988,10 @@ give the data **invariants** worth asserting on their own, distinct from
   runs both ways: the corpus→ledger direction requires every **minted** moment
   in the corpus to carry the `event.yaml` that defines it, so a moment is
   declared in git on the day it became forecastable rather than whenever a
-  cell or a resolution next touches it.
+  cell or a resolution next touches it. Every event directory also holds only
+  its `event.yaml`, `outcome.json`, `predictions/` and `evaluations/`, so cell
+  output committed beside them, where no reader looks, fails rather than
+  sitting there unscored.
 - **Record completeness** — a row that should have resolved by now has. A cert
   grant that opens a merits proceeding and is more than two Terms old, carrying
   neither a parsed judgment nor a recorded termination, is a decided docket the
