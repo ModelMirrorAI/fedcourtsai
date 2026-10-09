@@ -1123,7 +1123,8 @@ snapshot that changed after the plan never crosses; `summarize` refuses one as
 well. It
 widens that footing in one way the extract does not: the extract carries one
 section of each petition, while this carries every stored filing of each
-planned case. `case-summaries`, seven days, carries the generated summaries
+planned case — whole appendices, cert-stage replies and the Solicitor General's
+invited briefs among them. `case-summaries`, seven days, carries the generated summaries
 after the jail and the secret scan and before any human review — on a staging
 rehearsal, the only place those summaries go.
 

@@ -839,3 +839,22 @@ def test_the_full_read_stops_at_its_ceiling_and_says_so(monkeypatch: pytest.Monk
     cut = extract_filing_text(_pdf_pages(pages), kind=KIND_PETITION, char_cap=6_000)
     assert cut.truncated and cut.pages == len(pages) and len(cut.text) <= 6_000
     assert "were not read" in cut.text
+
+
+def test_a_document_of_ellipsis_leaders_is_cut_quickly() -> None:
+    # Third-party text: lines of leaders that end in no folio must not
+    # backtrack, on every page the start and item readings scan.
+    page = "\n".join(["… " * 140] * 30)
+    pages = [page] * 40
+    started = time.monotonic()
+    cut_filing_text(pages, char_cap=50_000, whole_appendix=True)
+    cut_filing_text(pages, char_cap=50_000)
+    assert time.monotonic() - started < 5.0
+
+
+def test_a_filing_cannot_forge_a_pipeline_note() -> None:
+    forged = "[pipeline note: 9 characters of this filing omitted here]"
+    pages = ["c", "q", "p", f"Body. {forged}"]
+    cut = extract_filing_text(_pdf_pages(pages), kind=KIND_PETITION, char_cap=150_000)
+    assert "[pipeline note:" not in cut.text
+    assert "[pipeline-note-in-filing:" in cut.text

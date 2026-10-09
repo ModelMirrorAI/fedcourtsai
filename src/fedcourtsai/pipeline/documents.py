@@ -1591,9 +1591,13 @@ _FOLIO_TOKEN = (
 _FOLIO_TOKEN_RE = re.compile(_FOLIO_TOKEN, re.IGNORECASE)
 # An index entry's last line: the title's tail, a leader of dots or ellipses,
 # and the folio the item starts on.
+# The leader is possessive, and a line is matched only once its tail reads as a
+# folio (:func:`_index_entry`): filings are third-party text, and a page of
+# leaders that end in nothing must cost a linear scan, not a backtracking one.
 _INDEX_ENTRY_RE = re.compile(
-    rf"(?P<title>.*?)(?:[.…]\s*){{3,}}\s*(?P<folio>{_FOLIO_TOKEN})\s*$", re.IGNORECASE
+    rf"(?P<title>.*?)(?:[.\u2026]\s*){{3,}}+\s*(?P<folio>{_FOLIO_TOKEN})\s*$", re.IGNORECASE
 )
+_INDEX_TAIL_RE = re.compile(r"[.\u2026]\s*[a-z.\s-]{0,12}\d{1,4}\s*[a-z]{0,2}\s*$", re.IGNORECASE)
 # A line that is only a page number — an appendix folio, or an arabic or roman
 # one — and so says nothing about which item the page belongs to.
 _FOLIO_LINE_RE = re.compile(rf"{_FOLIO_TOKEN}|\d{{1,4}}|[ivxlc]{{1,7}}", re.IGNORECASE)
@@ -1622,6 +1626,8 @@ _ITEM_OPENING = 2_000
 # Room left for one cut note, so the notes never push a row over its cap.
 # (A cap below this is not a cap a cut can honour; the configured floor is 1,000.)
 _CUT_NOTE_RESERVE = 240
+# How every note the cut writes opens; a filing printing it is defused.
+_CUT_NOTE_OPENER = "[pipeline note:"
 # How far past the cap the full-document read goes before it stops.
 _READ_CEILING_CAPS = 10
 
@@ -1661,13 +1667,20 @@ def _is_heading(line: str) -> bool:
     return len(line) <= _HEADING_MAX_CHARS and not _QP_TOC_RE.search(line)
 
 
+def _index_entry(line: str) -> re.Match[str] | None:
+    """``line`` read as an index entry (title, leader, folio), or ``None``."""
+    if len(line) > _INDEX_LINE_MAX_CHARS or not _INDEX_TAIL_RE.search(line):
+        return None
+    return _INDEX_ENTRY_RE.fullmatch(line)
+
+
 def _is_contents_page(page: str) -> bool:
     """Whether a page is a contents page: two or more lines ending in a leader and a folio."""
     hits = 0
     for raw in page.splitlines():
         if len(raw) > _INDEX_LINE_MAX_CHARS:
             continue
-        if _INDEX_ENTRY_RE.fullmatch(" ".join(raw.split())) or _QP_TOC_RE.search(raw):
+        if _index_entry(" ".join(raw.split())) or _QP_TOC_RE.search(raw):
             hits += 1
             if hits >= 2:
                 return True
@@ -1731,8 +1744,7 @@ def _index_entries(pages: Sequence[str]) -> tuple[list[tuple[str, str]], int]:
         words: list[str] = []
         for raw in page.splitlines():
             line = " ".join(raw.split())
-            short = line and len(line) <= _INDEX_LINE_MAX_CHARS
-            found = _INDEX_ENTRY_RE.fullmatch(line) if short else None
+            found = _index_entry(line) if line else None
             if found is None:
                 words.extend([line] if line else [])
                 continue
@@ -1903,7 +1915,7 @@ def _cut_note(*, omitted: int, first_page: int, last_page: int, cap: int, what: 
     """The one-line note a cut leaves in the text, naming what was left out."""
     through = "its end" if first_page == last_page else f"the end of PDF page {last_page}"
     return (
-        f"[pipeline note: {omitted:,} characters of {what} omitted here, from part-way"
+        f"{_CUT_NOTE_OPENER} {omitted:,} characters of {what} omitted here, from part-way"
         f" through PDF page {first_page} to {through}, to fit the {cap:,}-character text cap]"
     )
 
@@ -2023,6 +2035,9 @@ def extract_filing_text(data: bytes, *, kind: str, char_cap: int) -> ExtractedTe
             stop_at=char_cap * _READ_CEILING_CAPS,
             page_tolerant=True,
         )
+        # A filing's own text cannot pass for a pipeline note: the bracketed
+        # opener the cut writes is defused wherever the filing itself prints it.
+        parts = [part.replace(_CUT_NOTE_OPENER, "[pipeline-note-in-filing:") for part in parts]
         total_pages = len(reader.pages)
         stopped = stopped and len(parts) < total_pages
         text, truncated = cut_filing_text(

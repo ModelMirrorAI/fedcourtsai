@@ -603,9 +603,10 @@ only, never a corpus row, snapshot or stored document; the application back-fill
 docket JSON carries counsel blocks, crosses under the one carve-out recorded in
 *PII stance* below. Prediction reasoning may quote or summarize
 public-record docket facts in the course of explaining a prediction, and may
-characterize what a provisioned filing argues — a petition, a brief in
-opposition, a questions-presented section, either side's brief on the merits or
-reply on the merits — on the same public-record footing as the questions-presented text above: those
+characterize what a provisioned filing argues — a petition, its separately
+linked appendix, a brief in opposition, the petitioner's cert-stage reply, the
+Solicitor General's invited brief, a questions-presented section, either side's
+brief on the merits or reply on the merits — on the same public-record footing as the questions-presented text above: those
 PDFs are fetched from supremecourt.gov, outside the CC BY-ND term, and the
 staged copies are gitignored and never committed. The prompt contract asks a
 cell to summarize rather than reproduce, which is what keeps that a
@@ -795,6 +796,10 @@ material**:
   default path rather than sealing the material: a cell holding retrieval rights
   can reach the same public PDF upstream, and what the scrub removes is the
   detail that would otherwise arrive unasked-for in the cell's own record.
+  The reading is of the filers *at the Court*: an appendix that reproduces
+  record material a then-unrepresented party filed below (a declaration, a
+  complaint) is staged as served where every party is represented here, the
+  same as a bound appendix inside a petition.
 - **Sealed, privileged, or otherwise sensitive material is never fed into the
   pipeline** — asserted in [SECURITY.md](../SECURITY.md) and restated here. The
   scope is public-record federal appellate and Supreme Court dockets only.
