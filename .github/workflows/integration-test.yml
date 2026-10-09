@@ -324,7 +324,7 @@ jobs:
     if: >-
       ${{ github.event_name == 'schedule'
       || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # 15, not 5: the resolve path checks out, builds the Python env, assumes
     # the read-only role, and walks a bounded candidate window over the blob.
     timeout-minutes: 15
@@ -535,7 +535,7 @@ jobs:
       ${{ github.event_name == 'schedule'
       || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke') }}
     needs: plan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       # A broken leg must not cancel the others: each leg is independent
       # freshness evidence for its scenario, and an `all` run's whole-suite
@@ -2336,7 +2336,7 @@ jobs:
     # context satisfies none of them, so the schedule runs the engine legs and
     # nothing else without needing a clause of its own.
     if: ${{ inputs.scenario == 'collect' || inputs.scenario == 'all' || inputs.scenario == 'all-offline' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read # checkout; the run-PR push goes to the scratch remote, never here
@@ -2759,7 +2759,7 @@ jobs:
   # never an artifact.
   qp-labeler-smoke:
     if: ${{ inputs.scenario == 'qp-labeler-smoke' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The capped steps come to 25 — 5 for the CLI install, 15 for the labeler,
     # 5 for the execution-file digest — so the job clock has to leave room
     # around them: the checkout, apt, `setup-python-env`, the seed, the

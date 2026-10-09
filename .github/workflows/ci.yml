@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The whole suite (lint, mypy, pytest, validation) runs in a few minutes; this
     # cap is generous headroom so a hung step is cancelled long before the 6h default.
     timeout-minutes: 20
@@ -139,7 +139,7 @@ jobs:
     # produced the branch. Logic lives in the tested `assert-paths` /
     # `assert-board-paths` commands; this step only runs git.
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -193,7 +193,7 @@ jobs:
     # it independently.
     # Logic lives in the tested `assert-cleanup-paths` command; this step only runs git.
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -254,7 +254,7 @@ jobs:
       github.base_ref == 'main' &&
       github.head_ref == 'staging' &&
       github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -350,7 +350,7 @@ jobs:
           github.head_ref == 'summaries/refresh'
         )
       )
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
     steps:

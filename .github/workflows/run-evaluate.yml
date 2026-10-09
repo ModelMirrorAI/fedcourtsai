@@ -74,7 +74,7 @@ concurrency:
 
 jobs:
   plan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The job pulls the whole corpus and scans every resolved event, unattended,
     # and holds the serializing group while it does — so a hung pull would
     # otherwise burn the six-hour job default *and* block the next round behind
@@ -220,7 +220,7 @@ jobs:
   approval:
     needs: plan
     if: needs.plan.outputs.has_jobs == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: review
     permissions: {}
@@ -245,7 +245,7 @@ jobs:
   rejected:
     needs: [plan, approval]
     if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Nothing here but the summary write; the cap is the runner's own setup
     # with room.
     timeout-minutes: 5
@@ -270,7 +270,7 @@ jobs:
   evaluate:
     needs: [plan, approval]
     if: needs.plan.outputs.has_jobs == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The engine deadline below plus the setup ahead of the engine step and the
     # capture tail behind it, with room: measured since 2026-08-01, the engine
     # step starts at most ~5.5 minutes into a cell and the tail runs under 1.5,
@@ -1389,7 +1389,7 @@ jobs:
     # PR per run (auto-merged when green) plus, if any cell left salvageable
     # partial output, one draft PR a maintainer finishes.
     if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The collect action downloads cell artifacts per artifact with bounded
     # parallelism (4 workers; each download is its own degradation boundary —
     # see the download step's comment), with up to 3 attempts and backoff per
