@@ -722,10 +722,14 @@ not replicated here, since building it is how that lane avoids running the
 agent's own workspace Python with the key in its environment. The key is the
 credential worth a check there: the job's own `github.token` is capped at
 `contents: read` and dies with the job.
-An `all` dispatch fans one engine-smoke and one engine-actions-smoke leg per
+A `gate` dispatch fans one engine-smoke and one engine-actions-smoke leg per
 engine, so a single run reads all three keys — each confined to its own job —
-and spends three cells plus three boot probes; `all-offline`, the same suite
-without either family, reads no engine key and spends nothing. The keys live on
+and spends three cells plus three boot probes; `offline-gate`, the same suite
+without either family, reads no engine key and spends nothing. An `all`
+dispatch reads no further key — the labeler smoke holds the Anthropic key and
+the repro leg the OpenAI key, each confined to its own job — and it spends the
+repro's evaluate cell and the labeler's cents on top; `all-offline` reads no
+engine key. The keys live on
 the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
