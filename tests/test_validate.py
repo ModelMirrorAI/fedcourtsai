@@ -46,6 +46,7 @@ from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.validate import (
     _OFF_DOCKET_TERMINAL_CASES,
     _STALE_GRANT_DAYS,
+    _STRAY_EVENT_ENTRIES_PENDING_CLEANUP,
     CHECK_BASE_RATE_VERSION,
     CHECK_CASE_DATES,
     CHECK_CORPUS_EVENTS_IN_LEDGER,
@@ -54,6 +55,7 @@ from fedcourtsai.validate import (
     CHECK_DOMAIN_VALUES,
     CHECK_EVALUATION_SEMANTIC,
     CHECK_EVALUATION_TARGETS,
+    CHECK_EVENT_DIR_ENTRIES,
     CHECK_JUDGMENT_ONLY_MERITS,
     CHECK_LEDGER_EVENTS_IN_GIT,
     CHECK_LEDGER_REFERENCES,
@@ -68,6 +70,7 @@ from fedcourtsai.validate import (
     CHECK_SCORED_VOTES,
     CHECK_SNAPSHOT_NOT_FUTURE,
     CHECK_STALE_UNPARSED_GRANTS,
+    check_event_dir_entries,
     check_ledger_events_in_git,
     check_no_duplicates,
     check_prediction_claims,
@@ -1014,6 +1017,158 @@ def test_git_declared_ids_must_match_path(tmp_path: Path) -> None:
     assert any("declares" in p for p in check.problems)
 
 
+# --- event_dirs_hold_only_ledger_entries ---------------------------------------
+
+
+def _full_event(data_root: Path, docket: int = 1, event: str = "evt-motion-stay") -> Path:
+    """An event directory carrying all four legitimate entries; returns its path."""
+    _write_event(data_root, "ca9", docket, event)
+    _write_outcome(data_root, "ca9", docket, event)
+    _write_prediction(data_root, "ca9", docket, event, "p1")
+    _write_evaluation(data_root, "ca9", docket, event, "p1", "e1")
+    return CasePaths(data_root, "ca9", docket).event(event).base
+
+
+def test_event_dir_with_only_ledger_entries_passes(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _full_event(data_root)
+    check = check_event_dir_entries(data_root)
+    assert check.passed, check.problems
+    assert check.checked == 4
+    assert check.detail == ""
+
+
+def test_event_dir_entries_check_passes_on_an_empty_ledger(tmp_path: Path) -> None:
+    check = check_event_dir_entries(tmp_path / "data")
+    assert check.passed
+    assert check.checked == 0
+
+
+def test_salvaged_cell_beside_predictions_is_refused(tmp_path: Path) -> None:
+    """The observed shape: a predictor's cell directory one level too high, whose
+    prediction.json still validates as a prediction and so passes every
+    per-file check."""
+    data_root = tmp_path / "data"
+    event_dir = _full_event(data_root)
+    stray = event_dir / "gemini-baseline"
+    stray.mkdir()
+    (stray / "prediction.json").write_text("{}")
+    (stray / "reasoning.md").write_text("why\n")
+    check = check_event_dir_entries(data_root)
+    assert not check.passed
+    assert check.failures == 1
+    assert "'gemini-baseline' is not an event-directory entry" in check.problems[0]
+
+
+def test_stray_file_in_event_dir_is_refused(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    event_dir = _full_event(data_root)
+    (event_dir / "notes.md").write_text("scratch\n")
+    check = check_event_dir_entries(data_root)
+    assert not check.passed
+    assert "'notes.md'" in check.problems[0]
+
+
+@pytest.mark.parametrize(
+    ("name", "make_dir"),
+    [
+        ("predictions", False),
+        ("evaluations", False),
+        ("outcome.json", True),
+        ("event.yaml", True),
+    ],
+)
+def test_legitimate_name_as_the_wrong_kind_is_refused(
+    tmp_path: Path, name: str, make_dir: bool
+) -> None:
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 2, "evt-motion-stay")
+    event_dir = CasePaths(data_root, "ca9", 2).event("evt-motion-stay").base
+    entry = event_dir / name
+    if entry.exists():
+        entry.unlink()
+    if make_dir:
+        entry.mkdir()
+    else:
+        entry.write_text("x\n")
+    check = check_event_dir_entries(data_root)
+    assert not check.passed
+    assert f"{name!r} must be" in check.problems[0]
+
+
+def test_non_directory_directly_under_events_is_refused(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    event_dir = _full_event(data_root)
+    (event_dir.parent / "prediction.json").write_text("{}")
+    check = check_event_dir_entries(data_root)
+    assert not check.passed
+    assert "not an event directory" in check.problems[0]
+
+
+def test_stray_pending_cleanup_list_is_exactly_the_known_salvage() -> None:
+    """Pinned: the exemption is a tracked debt, not an open door. A new member
+    is a deliberate decision recorded in code; the existing one leaves once its
+    cleanup PR has reached staging."""
+    assert (
+        frozenset({"scotus/73280426/evt-petition-disposition/gemini-baseline"})
+        == _STRAY_EVENT_ENTRIES_PENDING_CLEANUP
+    )
+
+
+def test_stray_pending_cleanup_is_excepted_and_named(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    ep = CasePaths(data_root, "scotus", 73280426).event("evt-petition-disposition")
+    write_yaml(
+        ep.event_file,
+        PredictableEvent(
+            event_id="evt-petition-disposition",
+            case_id="scotus/73280426",
+            kind=EventKind.petition,
+            title="Petition",
+        ),
+    )
+    (ep.base / "gemini-baseline").mkdir()
+    (ep.base / "gemini-baseline" / "reasoning.md").write_text("why\n")
+    check = check_event_dir_entries(data_root)
+    assert check.passed
+    assert check.checked == 2
+    assert check.failures == 0
+    assert "scotus/73280426/evt-petition-disposition/gemini-baseline" in check.detail
+
+
+def test_exemption_is_keyed_on_the_exact_path(tmp_path: Path) -> None:
+    """The same stray name on any other event, or another name on the excepted
+    event, still fails."""
+    data_root = tmp_path / "data"
+    ep = CasePaths(data_root, "scotus", 73280426).event("evt-petition-disposition")
+    other = CasePaths(data_root, "scotus", 73280427).event("evt-petition-disposition")
+    for paths in (ep, other):
+        write_yaml(
+            paths.event_file,
+            PredictableEvent(
+                event_id="evt-petition-disposition",
+                case_id=paths.base.parent.parent.relative_to(data_root / "cases").as_posix(),
+                kind=EventKind.petition,
+                title="Petition",
+            ),
+        )
+    (other.base / "gemini-baseline").mkdir()
+    (ep.base / "claude-baseline").mkdir()
+    check = check_event_dir_entries(data_root)
+    assert check.failures == 2
+    assert check.detail == ""
+
+
+def test_validate_cli_refuses_a_stray_event_entry(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    event_dir = _full_event(data_root)
+    (event_dir / "gemini-baseline").mkdir()
+    (event_dir / "gemini-baseline" / "reasoning.md").write_text("why\n")
+    result = runner.invoke(app, ["validate", str(data_root)])
+    assert result.exit_code == 1
+    assert "gemini-baseline" in result.output
+
+
 def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     _write_event(data_root, "ca9", 1, "evt-motion-stay")
@@ -1024,6 +1179,7 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
     names = {c.name for c in checks}
     assert names == {
         CHECK_LEDGER_EVENTS_IN_GIT,
+        CHECK_EVENT_DIR_ENTRIES,
         CHECK_EVALUATION_TARGETS,
         CHECK_BASE_RATE_VERSION,
         CHECK_PREDICTION_DOCS,
