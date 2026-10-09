@@ -6,9 +6,11 @@ cert prediction actually turns on. What is selected is keyed on the **filing**,
 not on the docket form: the case-opening filing of a cert-form docket (a
 petition for certiorari, certiorari before judgment, mandamus or habeas corpus,
 or a direct appeal's statement as to jurisdiction — one ``petition`` kind, one
-role), the ``application`` an interim docket is opened by, every non-amicus
-brief in opposition, and — once the petition is granted — each side's brief on
-the merits. Everything here is **pipeline-side** —
+role), the ``application`` an interim docket is opened by, the appendix either
+posts under its own link, every non-amicus brief in opposition, the
+petitioner's cert-stage reply, the Solicitor General's invited brief, and —
+once the petition is granted — each side's brief on the merits. Everything here
+is **pipeline-side** —
 documents are fetched and text-extracted at ingest time (the live poller, on
 the same distribution transition that queues prediction), stored in the
 access-gated corpus, and materialized into the cell's gitignored ``record/``
@@ -90,7 +92,12 @@ from .caption import _scored_segment
 # `cert_signals` is a leaf — it reaches only `schemas` — so neither import
 # closes a cycle; `ingest`, which holds the same grant reading for the corpus
 # row, would.
-from .cert_signals import cert_grant_date
+#
+# The invitation and disposition readings bound the two cert-stage arms that are
+# not opposition briefs — the Solicitor General's invited brief and the reply —
+# in docket order: the CVSG entry opens the first, and the first entry carrying
+# a machine-readable cert disposition closes both.
+from .cert_signals import CVSG_RE, cert_grant_date, match_disposition_signal
 from .cert_signals import entry_date as _parse_entry_date
 
 # The interim lane's own reading of what an application asks for. Imported
@@ -152,9 +159,30 @@ logger = logging.getLogger(__name__)
 # is a different document doing a different job: the opening brief states a
 # side's case, the reply answers what the other side actually argued. A cell
 # reading only the openings sees two theories that never meet.
+#
+# Three cert-stage kinds sit beside the opposition, each one row at one URL for
+# the reason the merits kinds are:
+#
+# - `appendix` is the **separately linked appendix** to the case-opening filing
+#   or the application — the PDF the entry posts under its own `Appendix` link,
+#   which carries the opinions and orders below. A petition whose appendix is
+#   bound into the same PDF keeps it inside the `petition` row; the two routes
+#   are cut by the same appendix-aware rule (:func:`cut_filing_text`).
+# - `cert-reply` is the **petitioner's reply at the cert stage** — the Rule 15.6
+#   reply to the opposition, the one filing that answers the opposition's
+#   vehicle and preservation objections. Spelled word for word like the merits
+#   reply, so the two are told apart by the grant date alone.
+# - `sg-invited-brief` is the **Solicitor General's invited brief**: the brief for
+#   the United States as amicus curiae filed after the Court called for the
+#   views of the Solicitor General. The one amicus filing any arm takes, because
+#   it is the Court's own request and the filing that most often decides an
+#   invited petition; every other amicus brief stays unselected.
 KIND_PETITION = "petition"
 KIND_APPLICATION = "application"
+KIND_APPENDIX = "appendix"
 KIND_BRIEF_IN_OPPOSITION = "brief-in-opposition"
+KIND_CERT_REPLY = "cert-reply"
+KIND_SG_INVITED_BRIEF = "sg-invited-brief"
 KIND_MERITS_BRIEF_PETITIONER = "merits-brief-petitioner"
 KIND_MERITS_BRIEF_RESPONDENT = "merits-brief-respondent"
 KIND_MERITS_REPLY_PETITIONER = "merits-reply-petitioner"
@@ -246,9 +274,42 @@ _APPLICATION_ENTRY_RE = re.compile(
 # both a just-submitted BIO and a respondent's response brief that omits the
 # "in opposition" words. Amicus / petitioner / reply / supplemental / in-support
 # briefs are not oppositions.
+#
+# The respondent's-brief reading takes the Court's other spellings of the same
+# filing, start-anchored the way the merits selector's opening is
+# (:data:`merits_signals._BRIEF_DOCUMENT_OPENING`): "Brief **for** the
+# respondent(s) …", and up to three words between the preposition and the party
+# word — "Brief of Federal Respondents filed.", "Brief for the Federal
+# Respondents filed.", "Brief of State respondents in opposition filed." The
+# anchor is what keeps an amicus out before the exclusion is consulted: "Brief
+# for the United States as amicus curiae" names no respondent, and "Brief amicus
+# curiae of … in support of respondents" opens on "amicus".
+#
+# A respondent's **response** is the third shape, entered without the word
+# "brief" at all: "Response of respondents … filed." and "Response to petition
+# from respondent … filed." Anchored at the entry's start and kept off the
+# collateral responses that share the opening — to a motion, to an application,
+# to a rehearing petition, to a letter, an order or a suggestion of mootness —
+# because those are papers about a side question, and the opposition row is one
+# combined document a cell reads as the respondent's whole answer to the
+# petition.
 _BIO_VERB_RE = re.compile(r"\b(?:filed|submitted)\b", re.IGNORECASE)
 _BIO_OPPOSITION_RE = re.compile(r"\bin opposition\b", re.IGNORECASE)
-_BIO_RESPONDENT_BRIEF_RE = re.compile(r"\bbrief\s+of\s+respondents?\b", re.IGNORECASE)
+_BIO_RESPONDENT_BRIEF_RE = re.compile(
+    r"\bbrief\s+of\s+respondents?\b"
+    r"|^\s*(?:redacted\s+)?brief\s+(?:of|for)\s+(?:the\s+)?(?:\S+\s+){0,3}?respondents?\b",
+    re.IGNORECASE,
+)
+_BIO_RESPONSE_RE = re.compile(
+    r"^\s*response\s+(?:of|from)\s+(?:the\s+)?(?:\S+\s+){0,3}?respondents?\b"
+    r"|^\s*response\s+to\s+(?:the\s+)?petition\b",
+    re.IGNORECASE,
+)
+_BIO_RESPONSE_EXCLUDE_RE = re.compile(
+    r"\bmotion\b|\bapplication\b|\brehearing\b|\bletter\b|\border\b"
+    r"|\bsuggestion\b|\bmootness\b",
+    re.IGNORECASE,
+)
 _BIO_EXCLUDE_RE = re.compile(
     r"\bamic|\breply\b|\bsupplement|\bpetitioner\b|\bin support\b", re.IGNORECASE
 )
@@ -259,7 +320,10 @@ def _is_bio_entry(text: str, *, filed: date | None, granted_on: date | None) -> 
 
     Requires a filed/submitted brief that is either explicitly "in opposition"
     or a respondent's brief (the response the Court called for), and is not an
-    amicus, petitioner, reply, supplemental, or in-support brief.
+    amicus, petitioner, reply, supplemental, or in-support brief — or a
+    respondent's **response** to the petition (:data:`_BIO_RESPONSE_RE`), which
+    the Clerk enters without the word "brief", and which is not a response to a
+    motion, an application, a rehearing petition, a letter or an order.
 
     Bounded to the cert stage, because the words alone cannot see the stage. Once
     the Court has called for a response the respondent's cert-stage filing reads
@@ -285,9 +349,11 @@ def _is_bio_entry(text: str, *, filed: date | None, granted_on: date | None) -> 
     """
     if _is_post_grant(filed, granted_on):
         return False
-    if "brief" not in text.lower() or not _BIO_VERB_RE.search(text):
+    if not _BIO_VERB_RE.search(text) or _BIO_EXCLUDE_RE.search(text):
         return False
-    if _BIO_EXCLUDE_RE.search(text):
+    if _BIO_RESPONSE_RE.search(text):
+        return not _BIO_RESPONSE_EXCLUDE_RE.search(text)
+    if "brief" not in text.lower():
         return False
     return bool(_BIO_OPPOSITION_RE.search(text) or _BIO_RESPONDENT_BRIEF_RE.search(text))
 
@@ -307,6 +373,89 @@ def _is_post_grant(filed: date | None, granted_on: date | None) -> bool:
     cert-stage cell its opposition brief, mis-filed under a merits kind.
     """
     return granted_on is not None and filed is not None and filed > granted_on
+
+
+# The petitioner's **cert-stage reply** — the Rule 15.6 reply to the brief in
+# opposition, as the Clerk enters it:
+#
+#   "Reply of petitioner The GEO Group, Inc. filed.  (Distributed)"
+#   "Reply of petitioners Jose Trevino, et al. filed."
+#   "Reply brief of petitioner Acme Corp. filed."
+#
+# The opening is the merits reply's (:data:`merits_signals._REPLY_OPENING`) on
+# purpose: the two filings are spelled word for word alike, and what separates
+# them is the stage, which this arm reads as the merits arms do — off the grant
+# date (:func:`_is_post_grant`) — plus the docket order of the disposition, so a
+# reply filed after a denial (a rehearing paper) is not read as the reply to the
+# opposition. Unlike the merits reply, "in opposition" is **not** an exclusion
+# here: "Reply of petitioner to brief in opposition filed." is exactly this
+# filing.
+#
+# Excluded: any reply naming a motion, an application, a letter or a suggestion
+# of mootness — collateral practice, which would otherwise take the side's one
+# slot whether it is "in support of" the paper or "to the response to" it — a
+# reply supporting
+# the other side, an amicus's reply, and the rehearing and supplemental papers.
+_CERT_REPLY_RE = re.compile(
+    r"^\s*(?:redacted\s+)?reply\s+(?:brief\s+)?(?:of|for)\s+(?:the\s+)?(?:\S+\s+){0,3}?petitioners?\b",
+    re.IGNORECASE,
+)
+_CERT_REPLY_EXCLUDE_RE = re.compile(
+    r"\bamic(?:us|i)\b|\brehearing\b|\bsupplement"
+    r"|\bmotion\b|\bapplication\b|\bletter\b|\bsuggestion\b|\bmootness\b"
+    r"|\bin\s+support\s+of\s+(?:the\s+)?respondents?\b"
+    r"|\bsupporting\s+(?:the\s+)?respondents?\b",
+    re.IGNORECASE,
+)
+
+# The Solicitor General's **invited brief**, filed in answer to the Court's call
+# for the views of the United States (:data:`cert_signals.CVSG_RE`):
+#
+#   "Brief amicus curiae of United States filed."
+#   "Brief for the United States as amicus curiae filed."
+#   "Brief of the United States as Amicus Curiae filed."
+#
+# Start-anchored on the filer, and the filer must be the United States **and
+# nothing after it** — the lookahead admits only "as …", the verb, a parenthesis
+# or punctuation — because "United States" also opens the names of amici that
+# are not the government ("Brief amicus curiae of United States Conference of
+# Catholic Bishops filed.", "Brief of United States Senators …"). The word
+# "amicus" is required as well, so the United States filing as a **party** — a
+# federal respondent's opposition — stays with the opposition arm.
+_SG_BRIEF_RE = re.compile(
+    r"^\s*brief\s+(?:amicus\s+curiae\s+)?(?:of|for)\s+(?:the\s+)?united\s+states"
+    r"(?=\s*(?:as\b|filed\b|submitted\b|\(|[.,;]|$))",
+    re.IGNORECASE,
+)
+_SG_AMICUS_RE = re.compile(r"\bamicus\b", re.IGNORECASE)
+
+
+def _is_cert_reply_entry(text: str, *, filed: date | None, granted_on: date | None) -> bool:
+    """Whether an entry is the petitioner's reply at the **cert** stage.
+
+    The text reading (:data:`_CERT_REPLY_RE`) bounded to the cert stage the way
+    :func:`_is_bio_entry` is: a reply filed after the grant is the merits reply,
+    which the merits arms take under their own kind. An entry the bound cannot
+    judge stays in, for the reason the opposition does — the merits arm refuses
+    the same entry, so the two never both take one. The caller adds the
+    docket-order half: nothing after the first disposition entry is read here.
+    """
+    if _is_post_grant(filed, granted_on) or not _BIO_VERB_RE.search(text):
+        return False
+    return bool(_CERT_REPLY_RE.search(text)) and not _CERT_REPLY_EXCLUDE_RE.search(text)
+
+
+def _is_sg_invited_brief_entry(text: str) -> bool:
+    """Whether an entry is the brief for the United States as amicus curiae.
+
+    Text alone; the caller supplies the stage — an entry counts only after the
+    Court's invitation and before the first disposition, in docket order — so an
+    uninvited filing by the United States as amicus (a merits-stage amicus brief
+    supporting a party, say) is never read as the invited one.
+    """
+    return bool(
+        _SG_BRIEF_RE.search(text) and _SG_AMICUS_RE.search(text) and _BIO_VERB_RE.search(text)
+    )
 
 
 # Where the questions-presented section of a petition ends: the next standard
@@ -524,14 +673,18 @@ def select_documents(
     for it. A merits kind the member's own docket does not yield is then taken
     from the lead's (:func:`_lead_merits_refs`); the member's own filings, and
     every cert-stage kind, stay the member's. Without ``lead`` this reads one
-    docket, as follows.
+    docket, as follows — and where that docket is itself a consolidation
+    **lead**, its merits kinds prefer the filings made for the lead over a
+    member's (:func:`_select_lead_own`).
 
-    Seven arms, all entry-keyed rather than form-keyed — the payload says which
-    filings it carries, and nothing here needs to be told the docket's form. Five
+    Ten arms, all entry-keyed rather than form-keyed — the payload says which
+    filings it carries, and nothing here needs to be told the docket's form. Seven
     of them are additionally **stage**-keyed, on the grant date read off the same
     payload (:func:`cert_signals.cert_grant_date`), because the cert stage and the
     merits stage spell a party's brief and a party's reply identically and only
-    the date separates them.
+    the date separates them; two read the stage in docket order as well, after
+    the Court's call for the Solicitor General's views and before the first
+    disposition entry.
 
     - The **case-opening filing** (:data:`_CASE_OPENING_ENTRY_RE`), stored as
       ``petition``: the ordinary cert petition, a petition for certiorari
@@ -548,13 +701,32 @@ def select_documents(
       too where an interim application was filed into one, which is the right
       reading: the filing is real and the cell should read it. An
       administrative application — more time, more pages — is not selected.
+    - The **separately linked appendix** (:func:`_appendix_ref`), stored as
+      ``appendix``: the ``Appendix`` link the case-opening or application entry
+      posts beside the filing itself, and no other link. One per docket, the
+      first in docket order. Its text is cut by the appendix-aware rule
+      (:func:`cut_filing_text`), so a long appendix keeps the opening of every
+      opinion and order it carries.
     - **Every** non-amicus brief in opposition filed at the **cert stage**
       (:func:`_is_bio_entry`) — a petition with multiple respondents draws a BIO
       from each, and taking only the last silently dropped the lead respondent's
       (the most predictive one) whenever a secondary respondent filed later. All
       distinct-URL BIOs are returned, in docket order;
       :func:`fetch_case_documents` combines them into the single
-      ``brief-in-opposition`` document.
+      ``brief-in-opposition`` document. A respondent's brief is read in the
+      Court's "Brief for the respondent(s)" and "Response of respondent(s)"
+      spellings as well (:func:`_is_bio_entry`).
+    - The **petitioner's cert-stage reply** (:func:`_is_cert_reply_entry`),
+      stored as ``cert-reply``: the first reply of the petitioner filed before
+      the grant and before any disposition entry, from its ``Main Document``
+      link alone. The merits reply arm below reads the same words after the
+      grant; the date is the only thing between them.
+    - The **Solicitor General's invited brief**
+      (:func:`_is_sg_invited_brief_entry`), stored as ``sg-invited-brief``: the
+      first brief for the United States as amicus curiae entered after the
+      Court's invitation (:data:`cert_signals.CVSG_RE`) and before any
+      disposition entry, from its ``Main Document`` link alone. No other amicus
+      brief is selected by any arm.
     - The **petitioner's brief on the merits**
       (:func:`merits_signals.is_petitioner_merits_brief`) and the
       **respondent's** (:func:`~merits_signals.is_respondent_merits_brief_document`),
@@ -592,9 +764,11 @@ def select_documents(
     leaks the outcome; the questions presented are derived from the petition
     text instead (:func:`extract_questions_presented`).
     """
-    own = _select_own(payload)
     if lead is None:
-        return own
+        return (
+            _select_lead_own(payload) if _is_consolidation_lead(payload) else _select_own(payload)
+        )
+    own = _select_own(payload)
     held = {ref.kind for ref in own}
     borrowed = [ref for ref in _lead_merits_refs(lead, member=payload) if ref.kind not in held]
     if not borrowed:
@@ -606,17 +780,26 @@ def select_documents(
     return sorted([*own, *borrowed], key=lambda ref: order[ref.kind])
 
 
-def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:
+def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR0912 - one arm per kind
     """:func:`select_documents` over one docket's own entries."""
     granted_on = cert_grant_date(payload)
     petition: DocumentRef | None = None
     application: DocumentRef | None = None
+    appendix: DocumentRef | None = None
+    cert_reply: DocumentRef | None = None
+    sg_brief: DocumentRef | None = None
     merits_petitioner: DocumentRef | None = None
     merits_respondent: DocumentRef | None = None
     reply_petitioner: DocumentRef | None = None
     reply_respondent: DocumentRef | None = None
     bios: list[DocumentRef] = []
     seen_bio_urls: set[str] = set()
+    # Docket-order stage markers for the reply and invited-brief arms: whether
+    # the Court has invited the Solicitor General yet, and whether the petition
+    # has been disposed of. Both are updated *after* an entry is read, so the
+    # entry that disposes of the petition is itself never a filing here.
+    invited = False
+    disposed = False
     for entry in payload.get("ProceedingsandOrder") or []:
         if not isinstance(entry, Mapping):
             continue
@@ -627,6 +810,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:
             found = _entry_link(entry, prefer=_CASE_OPENING_LINK_LABELS)
             if found is not None:
                 petition = DocumentRef(KIND_PETITION, found[0], entry_date, found[1])
+            appendix = appendix or _appendix_ref(entry, entry_date, filing=petition)
         elif application is None and _is_application_entry(text):
             # No any-link fallback here: an application entry's other links are
             # the covering `Written Request` and `Proof of Service`, which are
@@ -637,6 +821,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:
                 # names the ask and the Justice it went to, which is what a
                 # reader of the manifest needs to know the document is.
                 application = DocumentRef(KIND_APPLICATION, found[0], entry_date, text.strip())
+            appendix = appendix or _appendix_ref(entry, entry_date, filing=application)
         elif _is_bio_entry(text, filed=filed, granted_on=granted_on):
             found = _entry_link(entry, prefer=("main document",))
             if found is not None and found[0] not in seen_bio_urls:
@@ -647,6 +832,20 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:
                 bios.append(
                     DocumentRef(KIND_BRIEF_IN_OPPOSITION, found[0], entry_date, text.strip())
                 )
+        elif (
+            cert_reply is None
+            and not disposed
+            and _is_cert_reply_entry(text, filed=filed, granted_on=granted_on)
+        ):
+            cert_reply = _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date)
+        elif (
+            sg_brief is None
+            and invited
+            and not disposed
+            and _is_sg_invited_brief_entry(text)
+            and not _is_post_grant(filed, granted_on)
+        ):
+            sg_brief = _merits_filing_ref(entry, KIND_SG_INVITED_BRIEF, entry_date)
         elif (
             merits_petitioner is None
             and _is_post_grant(filed, granted_on)
@@ -671,12 +870,17 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:
             and is_respondent_merits_reply(text)
         ):
             reply_respondent = _merits_filing_ref(entry, KIND_MERITS_REPLY_RESPONDENT, entry_date)
+        invited = invited or CVSG_RE.search(text) is not None
+        disposed = disposed or match_disposition_signal(text) is not None
     return [
         ref
         for ref in (
             petition,
             application,
+            appendix,
             *bios,
+            cert_reply,
+            sg_brief,
             merits_petitioner,
             merits_respondent,
             reply_petitioner,
@@ -686,10 +890,34 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:
     ]
 
 
+def _appendix_ref(
+    entry: Mapping[str, Any], entry_date: str | None, *, filing: DocumentRef | None
+) -> DocumentRef | None:
+    """The separately linked appendix on a case-opening or application entry, or ``None``.
+
+    The entry's own ``Appendix`` link and no other — a filter, not a preference
+    (:func:`_entry_link`), because every other link on these entries is either
+    the filing itself, already taken under its own kind, or a compliance paper.
+    The description is the entry's text, which says what the appendix is
+    appended to.
+
+    ``None`` too where that link is the ``filing`` the entry was just read for:
+    an opening entry that posts only its ``Appendix`` link has had it taken as
+    the petition by the any-link fallback, and one PDF is one row.
+    """
+    found = _entry_link(entry, prefer=("appendix",), fallback=False)
+    if found is None or (filing is not None and filing.url == found[0]):
+        return None
+    return DocumentRef(KIND_APPENDIX, found[0], entry_date, str(entry.get("Text") or "").strip())
+
+
 def _merits_filing_ref(
     entry: Mapping[str, Any], kind: str, entry_date: str | None
 ) -> DocumentRef | None:
-    """One side's merits brief or reply, from its ``Main Document`` link, or ``None``.
+    """One party filing from its ``Main Document`` link, or ``None``.
+
+    Each side's merits brief and reply, and the cert-stage reply and the
+    Solicitor General's invited brief, which post the same companion papers.
 
     No any-link fallback, for the reason the application arm has none: a merits
     filing posts its certificate of word count and its proof of service on the
@@ -959,18 +1187,108 @@ def _lead_for_member(lead: Mapping[str, Any], member: Mapping[str, Any]) -> dict
     member_number = parse_scotus_docket_number(str(member.get("CaseNumber") or ""))
     if member_number is None:
         return None
+    return _merits_entries_kept(
+        lead,
+        lambda text, sides: any(
+            _filed_for_member(text, side=side, member=member, member_number=member_number)
+            for side in sides
+        ),
+    )
+
+
+def _merits_entries_kept(
+    docket: Mapping[str, Any], keep: Callable[[str, set[str]], bool]
+) -> dict[str, Any]:
+    """``docket`` with every merits-shaped entry ``keep`` refuses removed.
+
+    ``keep`` is handed the entry text and the sides the merits predicates read
+    it as (:data:`_MERITS_ENTRY_SIDES`); an entry no merits predicate reads is
+    kept untouched, so the grant entry and every cert-stage filing survive.
+    """
     kept: list[Any] = []
-    for entry in lead.get("ProceedingsandOrder") or []:
+    for entry in docket.get("ProceedingsandOrder") or []:
         if isinstance(entry, Mapping):
             text = str(entry.get("Text") or "")
             sides = {side for predicate, side in _MERITS_ENTRY_SIDES if predicate(text)}
-            if sides and not any(
-                _filed_for_member(text, side=side, member=member, member_number=member_number)
-                for side in sides
-            ):
+            if sides and not keep(text, sides):
                 continue
         kept.append(entry)
-    return {**lead, "ProceedingsandOrder": kept}
+    return {**docket, "ProceedingsandOrder": kept}
+
+
+def _is_consolidation_lead(payload: Mapping[str, Any]) -> bool:
+    """Whether this docket is the **lead** of a consolidated group.
+
+    The Court enters the same consolidation entry on every docket of the group
+    (:data:`_CONSOLIDATION_LEAD_RE`), the lead's own included, naming the lead's
+    number; a docket whose entry names itself is the lead. A docket that serves
+    no number of its own is not read as one.
+    """
+    own = parse_scotus_docket_number(str(payload.get("CaseNumber") or ""))
+    if own is None:
+        return False
+    for entry in payload.get("ProceedingsandOrder") or []:
+        if not isinstance(entry, Mapping):
+            continue
+        found = _CONSOLIDATION_LEAD_RE.search(str(entry.get("Text") or ""))
+        if found is not None:
+            return parse_scotus_docket_number(found.group(1)) == own
+    return False
+
+
+def _select_lead_own(payload: Mapping[str, Any]) -> list[DocumentRef]:
+    """:func:`_select_own` on a consolidation lead, preferring the lead's own merits filings.
+
+    A lead docket carries every member's merits filings, so a first-match
+    selection over it can store a member's brief as the lead's own — and, where
+    the group is cross-positioned, as the wrong side's. The member's attribution
+    (:func:`_filed_for_member`) is applied in reverse, with the lead as its own
+    member, in two tiers per merits kind:
+
+    - **Attributed to the lead** — an "(as to No.)" mark naming the lead, or a
+      filer clause naming a party on the lead's own side list — is taken first.
+    - Failing that, any entry **not marked for other dockets only**: an
+      unmarked filing that names no placeable filer ("Brief for the petitioner
+      filed.") is most often the lead's own, and the lead has nowhere else to
+      read its briefs from. An entry the Clerk marked for a member alone is
+      never the lead's.
+
+    Every non-merits kind is the plain selection's: the cert-stage filings on a
+    lead are its own, entered before the consolidation.
+    """
+    plain = _select_own(payload)
+    number = parse_scotus_docket_number(str(payload.get("CaseNumber") or ""))
+    if number is None:
+        return plain
+    attributed = _select_own(
+        _merits_entries_kept(
+            payload,
+            lambda text, sides: any(
+                _filed_for_member(text, side=side, member=payload, member_number=number)
+                for side in sides
+            ),
+        )
+    )
+    unmarked_or_own = _select_own(
+        _merits_entries_kept(payload, lambda text, _sides: not _marked_for_others(text, number))
+    )
+    merits: dict[str, DocumentRef] = {}
+    for ref in (*unmarked_or_own, *attributed):
+        if ref.kind in MERITS_KINDS:
+            merits[ref.kind] = ref  # the attributed tier, read second, wins
+    return [
+        *(ref for ref in plain if ref.kind not in MERITS_KINDS),
+        *(merits[kind] for kind in MERITS_KINDS if kind in merits),
+    ]
+
+
+def _marked_for_others(text: str, number: tuple[int, int]) -> bool:
+    """Whether an entry carries an "(as to No.)" mark that does not name ``number``."""
+    marked = _AS_TO_RE.search(text)
+    if marked is None:
+        return False
+    named = {parse_scotus_docket_number(n) for n in _DOCKET_NUMBER_RE.findall(marked.group(1))}
+    return number not in named
 
 
 def _lead_merits_refs(lead: Mapping[str, Any], *, member: Mapping[str, Any]) -> list[DocumentRef]:
@@ -998,7 +1316,8 @@ def _lead_merits_refs(lead: Mapping[str, Any], *, member: Mapping[str, Any]) -> 
       nobody but the filer (:func:`unrepresented_sides`) could carry that
       filer's own address and telephone in a brief the member's scrub would
       not key on. Such a lead lends nothing, and the run log says so. The
-      ``Other`` list does not trigger it: an amicus brief is not a staged kind.
+      ``Other`` list does not trigger it: no amicus brief is staged but the
+      Solicitor General's invited one, which counsel for the United States files.
     """
     if any(side in COUNSEL_SIDES for side in unrepresented_sides(lead)):
         logger.warning(
@@ -1100,6 +1419,53 @@ def merits_entry_matched(
     return False
 
 
+def _read_pages(
+    reader: PdfReader,
+    *,
+    ocr_page: OcrPage | None,
+    stop_at: int | None,
+    page_tolerant: bool = False,
+) -> tuple[list[str], bool, bool]:
+    """Each page's text in order, whether reading stopped early, and whether OCR contributed.
+
+    ``stop_at`` stops reading once the running total reaches it — the plain
+    extractor's economy, since nothing past its cap is kept. ``page_tolerant``
+    makes a page that fails to extract cost that page alone (read as blank)
+    rather than the whole document: the appendix-aware cut reads far past the
+    cap, and a defect on a late page the head cut never reached must not now
+    empty the row.
+    """
+    parts: list[str] = []
+    total = 0
+    ocr_derived = False
+    for index, page in enumerate(reader.pages):
+        try:
+            text = page.extract_text() or ""
+        except (PyPdfError, ValueError, TypeError, KeyError, AttributeError):
+            if not page_tolerant:
+                raise
+            text = ""
+        if ocr_page is not None and not text.strip():
+            try:
+                recovered = ocr_page(index)
+            except Exception:  # broad by design: see below
+                # A renderer or OCR failure costs its own page and nothing
+                # else. Outside this guard the same raise would exit through
+                # the caller's whole-document handler, discarding every digital
+                # page that did extract and storing `pages=0` — which the
+                # recovery population reads as "a PDF that would not open",
+                # ejecting the row from the class permanently.
+                recovered = ""
+            if recovered.strip():
+                text = recovered
+                ocr_derived = True
+        parts.append(text)
+        total += len(text)
+        if stop_at is not None and total >= stop_at:
+            return parts, True, ocr_derived
+    return parts, False, ocr_derived
+
+
 def extract_pdf_text(
     data: bytes, *, char_cap: int, ocr_page: OcrPage | None = None
 ) -> ExtractedText:
@@ -1118,37 +1484,17 @@ def extract_pdf_text(
     mostly-digital filing with a few scanned exhibit pages honest, since a page
     that *did* extract is never overwritten by a lossier reading of it. The cap
     and the truncation flag bound the result identically either way, so a
-    recovered document is bounded exactly like a fetched one, and
+    recovered document is bounded like a plain-cut fetched one, and
     ``ocr_derived`` is set only where OCR actually contributed text. A raising
     ``ocr_page`` costs its own page and no more.
+
+    A plain head cut: the text runs to the cap and stops. The filings that carry
+    an appendix are read through :func:`extract_filing_text` instead, which cuts
+    the appendix rather than the filing.
     """
     try:
         reader = PdfReader(io.BytesIO(data))
-        parts: list[str] = []
-        total = 0
-        truncated = False
-        ocr_derived = False
-        for index, page in enumerate(reader.pages):
-            text = page.extract_text() or ""
-            if ocr_page is not None and not text.strip():
-                try:
-                    recovered = ocr_page(index)
-                except Exception:  # broad by design: see below
-                    # A renderer or OCR failure costs its own page and nothing
-                    # else. Outside this guard the same raise would exit through
-                    # the whole-document handler below, discarding every digital
-                    # page that did extract and storing `pages=0` — which the
-                    # recovery population reads as "a PDF that would not open",
-                    # ejecting the row from the class permanently.
-                    recovered = ""
-                if recovered.strip():
-                    text = recovered
-                    ocr_derived = True
-            parts.append(text)
-            total += len(text)
-            if total >= char_cap:
-                truncated = True
-                break
+        parts, truncated, ocr_derived = _read_pages(reader, ocr_page=ocr_page, stop_at=char_cap)
         joined = "\n".join(parts)
         if len(joined) > char_cap:
             joined = joined[:char_cap]
@@ -1158,6 +1504,557 @@ def extract_pdf_text(
             pages=len(reader.pages),
             truncated=truncated,
             ocr_derived=ocr_derived,
+        )
+    except (PyPdfError, ValueError, TypeError):
+        return ExtractedText(text="", pages=0, truncated=False)
+
+
+# --- Appendix-aware cut -----------------------------------------------------
+#
+# The filings that carry the opinions and orders below — the case-opening filing
+# and the application, whose appendix is often bound into the same PDF, and the
+# separately linked appendix itself — are cut by a different rule from the plain
+# head cut, because what a head cut loses there is the wrong half. On a petition
+# with a bound appendix the cap almost always lands inside the appendix, and a
+# head cut keeps the appendix's front while dropping its back: every item after
+# the first long opinion, and with them the short lower-court orders an
+# application so often turns on. The rule, per document:
+#
+# 1. **Under the cap, nothing changes**: the text is every page joined, exactly
+#    the plain extractor's output.
+# 2. **The filing's own body is never cut for its appendix.** The body — every
+#    page before the appendix starts (:func:`_appendix_start`) — is kept whole,
+#    and only the appendix pays for the overflow. A body that alone fills the
+#    cap is head-cut, the appendix going with the rest.
+# 3. **The appendix is cut item by item** (:func:`_appendix_items`, read off the
+#    appendix's own index, its "Appendix A/B/…" headings, or its running
+#    headers), and the budget the body leaves is spent in passes
+#    (:func:`_item_budgets`): every item's opening first, so nothing the
+#    appendix carries is lost outright; then the **court decisions** — opinions,
+#    orders, judgments — before record material, in appendix order. On a
+#    petition that order is the one Rule 14.1(i) sets, the judgment under review
+#    first, so the opinion a cert cell most needs is completed first. On an
+#    **application** the decisions are completed shortest first instead, each
+#    whole while it fits: an application's appendix reproduces the orders
+#    below, the one under review is as often the last and shortest as the
+#    first, and a two-page stay order must not be lost behind the sixty-page
+#    opinion printed before it. An appendix with one item, or none read,
+#    degrades to the head cut.
+# 4. **Every cut is stated in the text**, on its own line, as a pipeline note
+#    naming how much was omitted and from which PDF pages — so a reader meets
+#    the gap where it is, not only as a `truncated` flag in the manifest.
+#
+# The cap stays one per row (`document_text_cap`): a separately linked appendix
+# is its own row under its own cap, exactly as each merits filing is, while a
+# bound appendix shares its petition's row and so only ever gets what the body
+# leaves.
+
+#: The kinds :func:`extract_filing_text` reads with the appendix-aware cut.
+APPENDIX_BEARING_KINDS: frozenset[str] = frozenset({KIND_PETITION, KIND_APPLICATION, KIND_APPENDIX})
+
+# The appendix of a petition or an application is never read as starting on its
+# first three pages: the cover, the questions presented and the front matter sit
+# there.
+_APPENDIX_MIN_BODY_PAGES = 3
+# How many non-blank lines at the top of a page are read for a heading.
+_TOP_LINES = 4
+# A heading is a short line; anything longer is prose that happens to open so.
+_HEADING_MAX_CHARS = 100
+# How many pages at the front of an appendix are read for its own index.
+_INDEX_PAGES = 5
+# A contents entry is one printed line; a longer one is never matched, which
+# also bounds the leader pattern's backtracking on a page of dots.
+_INDEX_LINE_MAX_CHARS = 300
+# The appendix's opening page, read off one of its top lines: the bare
+# "APPENDIX" divider, the appendix's own contents page, or the first folio
+# ("1a", "App. 1", "App-1", "A1").
+_APPENDIX_START_LINE_RE = re.compile(
+    r"appendix|appendices|table\s+of\s+appendices|index\s+to\s+(?:the\s+)?appendix"
+    r"|appendix\s+(?:table\s+of\s+)?contents|1\s*a|a\s*-?\s*1|app(?:endix)?\s*[.-]?\s*1",
+    re.IGNORECASE,
+)
+# An item's own heading inside the appendix: "Appendix A", "APPENDIX B — Order
+# of the …". A comma or a period after the letter is prose citing the appendix
+# ("Appendix B, at 30a, the statute …"), not a heading. The letter is
+# captured, because a printer that runs the heading on every page of an item
+# starts a new item only where the letter changes.
+_APPENDIX_ITEM_LINE_RE = re.compile(
+    r"appendix\s+([a-z]{1,2})(?:\s*[-\u2013\u2014:]\s*.*)?", re.IGNORECASE
+)
+# An appendix folio as printed, in the shapes the Court's printers use: "1a",
+# "App. 1", "App-1", "Pet. App. 12a", "A31". Always carries a letter — a bare
+# number is a body page number, or a pleading paper's line number, and would
+# match anything.
+_FOLIO_TOKEN = (
+    r"(?:pet\.?\s*)?(?:app(?:endix)?\.?\s*[-.]?\s*)?[a-z]{0,2}\s*-?\s*\d{1,4}\s*[a-z]{0,2}"
+)
+_FOLIO_TOKEN_RE = re.compile(_FOLIO_TOKEN, re.IGNORECASE)
+# An index entry's last line: the title's tail, a leader of dots or ellipses,
+# and the folio the item starts on.
+# The leader is possessive, and a line is matched only once its tail reads as a
+# folio (:func:`_index_entry`): filings are third-party text, and a page of
+# leaders that end in nothing must cost a linear scan, not a backtracking one.
+_INDEX_ENTRY_RE = re.compile(
+    rf"(?P<title>.*?)(?:[.\u2026]\s*){{3,}}+\s*(?P<folio>{_FOLIO_TOKEN})\s*$", re.IGNORECASE
+)
+_INDEX_TAIL_RE = re.compile(r"[.\u2026]\s*[a-z.\s-]{0,12}\d{1,4}\s*[a-z]{0,2}\s*$", re.IGNORECASE)
+# A line that is only a page number — an appendix folio, or an arabic or roman
+# one — and so says nothing about which item the page belongs to.
+_FOLIO_LINE_RE = re.compile(rf"{_FOLIO_TOKEN}|\d{{1,4}}|[ivxlc]{{1,7}}", re.IGNORECASE)
+# A court decision, read off an item's title: an opinion, an order, a judgment
+# and their kin, or a court's own caption — and not a party's paper that names
+# one ("Motion to vacate the order", "First Amended Complaint, United States
+# District Court …"). Whichever word comes first decides, so "Order on motion
+# for preliminary injunction" is the court's and "Motion for an order" is not.
+_DECISION_WORD_RE = re.compile(
+    r"\b(?:opinion|order|judgment|memorandum|decision|ruling|mandate|findings"
+    r"|per\s+curiam|court\s+of\s+appeals|district\s+court|supreme\s+court)\b",
+    re.IGNORECASE,
+)
+_PAPER_WORD_RE = re.compile(
+    r"\b(?:complaint|motion|brief|answer|petition|notice|transcript|declaration"
+    r"|affidavit|exhibit|excerpts?|letter|stipulation)\b",
+    re.IGNORECASE,
+)
+# Running-header items are read only where the appendix sets running headers at
+# all: at least this share of its consecutive pages must share a header, or the
+# "header" is just each page's first line of prose and every page would read as
+# a new item.
+_HEADER_CONSISTENCY = 0.5
+# What every item keeps before any is completed: about a printed page.
+_ITEM_OPENING = 2_000
+# Room left for one cut note, so the notes never push a row over its cap.
+# (A cap below this is not a cap a cut can honour; the configured floor is 1,000.)
+_CUT_NOTE_RESERVE = 240
+# How every note the cut writes opens; a filing printing it is defused.
+_CUT_NOTE_OPENER = "[pipeline note:"
+# How far past the cap the full-document read goes before it stops.
+_READ_CEILING_CAPS = 10
+
+
+@dataclass(frozen=True)
+class _AppendixItem:
+    """One item of an appendix: its ``[start, end)`` page range and how it is titled."""
+
+    start: int
+    end: int
+    title: str
+
+    @property
+    def is_decision(self) -> bool:
+        """Whether the title reads as a court's decision rather than a party's paper."""
+        decision = _DECISION_WORD_RE.search(self.title)
+        if decision is None:
+            return False
+        paper = _PAPER_WORD_RE.search(self.title)
+        return paper is None or decision.start() < paper.start()
+
+
+def _top_lines(page: str, count: int = _TOP_LINES) -> list[str]:
+    """The first ``count`` non-blank lines of a page, whitespace collapsed."""
+    lines: list[str] = []
+    for raw in page.splitlines():
+        line = " ".join(raw.split())
+        if line:
+            lines.append(line)
+            if len(lines) == count:
+                break
+    return lines
+
+
+def _is_heading(line: str) -> bool:
+    """Whether a top line is short and carries no contents-page leader."""
+    return len(line) <= _HEADING_MAX_CHARS and not _QP_TOC_RE.search(line)
+
+
+def _index_entry(line: str) -> re.Match[str] | None:
+    """``line`` read as an index entry (title, leader, folio), or ``None``."""
+    if len(line) > _INDEX_LINE_MAX_CHARS or not _INDEX_TAIL_RE.search(line):
+        return None
+    return _INDEX_ENTRY_RE.fullmatch(line)
+
+
+def _is_contents_page(page: str) -> bool:
+    """Whether a page is a contents page: two or more lines ending in a leader and a folio."""
+    hits = 0
+    for raw in page.splitlines():
+        if len(raw) > _INDEX_LINE_MAX_CHARS:
+            continue
+        if _index_entry(" ".join(raw.split())) or _QP_TOC_RE.search(raw):
+            hits += 1
+            if hits >= 2:
+                return True
+    return False
+
+
+def _appendix_start(pages: Sequence[str]) -> int | None:
+    """The index of the page a bound appendix starts on, or ``None`` where none is read.
+
+    The first page from the fourth on whose top lines carry an appendix opening
+    (:data:`_APPENDIX_START_LINE_RE`) or an item heading
+    (:data:`_APPENDIX_ITEM_LINE_RE`), set as a heading — and which is not itself
+    a contents page: the filing's own table of contents lists the appendix items
+    under the same headings, and a start read there would hand the whole brief
+    to the appendix's budget. A filing where none is read is cut as one body,
+    which is the plain head cut with its note.
+    """
+    for index in range(_APPENDIX_MIN_BODY_PAGES, len(pages)):
+        page = pages[index]
+        if _is_contents_page(page):
+            continue
+        for line in _top_lines(page):
+            if _is_heading(line) and (
+                _APPENDIX_START_LINE_RE.fullmatch(line) or _APPENDIX_ITEM_LINE_RE.fullmatch(line)
+            ):
+                return index
+    return None
+
+
+def _folio_key(token: str) -> str:
+    """A folio token reduced to its letters and digits, so "App. 12" and "App-12" agree."""
+    return re.sub(r"[^a-z0-9]", "", token.lower())
+
+
+def _page_folios(page: str) -> set[str]:
+    """The appendix folios a page prints on a line of their own, as :func:`_folio_key` keys."""
+    keys: set[str] = set()
+    for raw in page.splitlines():
+        line = " ".join(raw.split())
+        if line and len(line) <= 16 and _FOLIO_TOKEN_RE.fullmatch(line):
+            key = _folio_key(line)
+            if any(ch.isalpha() for ch in key) and any(ch.isdigit() for ch in key):
+                keys.add(key)
+    return keys
+
+
+def _index_entries(pages: Sequence[str]) -> tuple[list[tuple[str, str]], int]:
+    """The appendix index's ``(title, folio key)`` entries, and the page after the index.
+
+    Read off the appendix's first :data:`_INDEX_PAGES` pages that are contents
+    pages (:func:`_is_contents_page`): each entry is the lines up to one ending
+    in a leader and a folio, and an entry whose folio carries no letter is left
+    out, since no page can be matched to it (:func:`_page_folios`).
+    """
+    entries: list[tuple[str, str]] = []
+    index_end = 0
+    for number, page in enumerate(pages[:_INDEX_PAGES]):
+        if not _is_contents_page(page):
+            continue
+        index_end = number + 1
+        words: list[str] = []
+        for raw in page.splitlines():
+            line = " ".join(raw.split())
+            found = _index_entry(line) if line else None
+            if found is None:
+                words.extend([line] if line else [])
+                continue
+            key = _folio_key(found.group("folio"))
+            if any(ch.isalpha() for ch in key):
+                entries.append((" ".join([*words, found.group("title")]).strip(), key))
+            words = []
+    return entries, index_end
+
+
+def _index_items(pages: Sequence[str]) -> list[_AppendixItem] | None:
+    """The items the appendix's own index names, placed by the folio each page prints.
+
+    Each entry (:func:`_index_entries`) is placed on the first page after the
+    index printing that folio on a line of its own, in index order. ``None``
+    unless at least two entries are placed — an index the pages cannot be
+    matched to says nothing usable about where items start. Pages before the
+    first placed entry — the divider, the index itself, and any item whose
+    first page prints no folio — are an item of their own, titled by its top
+    lines and by the entries placed nowhere before it.
+    """
+    entries, cursor = _index_entries(pages)
+    folios = [_page_folios(page) for page in pages]
+    starts: list[tuple[int, str]] = []
+    # Entries placed nowhere before the first placed one: their item is printed
+    # before it, inside the leading item, which they title alongside the index.
+    unplaced_lead: list[str] = []
+    for title, key in entries:
+        placed = next((n for n in range(cursor, len(pages)) if key in folios[n]), None)
+        if placed is None:
+            if not starts:
+                unplaced_lead.append(title)
+            continue
+        if not starts or placed > starts[-1][0]:
+            starts.append((placed, title))
+        cursor = placed
+    if len(starts) < 2:
+        return None
+    items: list[_AppendixItem] = []
+    if starts[0][0] > 0:
+        lead_title = " ".join([*_top_lines(pages[0]), *unplaced_lead])
+        items.append(_AppendixItem(0, starts[0][0], lead_title))
+    ends = [number for number, _ in starts[1:]] + [len(pages)]
+    items.extend(
+        _AppendixItem(number, end, title) for (number, title), end in zip(starts, ends, strict=True)
+    )
+    return items
+
+
+def _header_family(page: str) -> str:
+    """A page's running header reduced to its letters, or ``""`` where it shows none."""
+    for line in _top_lines(page):
+        if _FOLIO_LINE_RE.fullmatch(line):
+            continue
+        return re.sub(r"[^a-z]", "", line.lower())
+    return ""
+
+
+def _item_letter(page: str) -> str | None:
+    """The letter of an "Appendix X" heading in a page's top lines, if any."""
+    if _is_contents_page(page):
+        return None
+    for line in _top_lines(page):
+        found = _APPENDIX_ITEM_LINE_RE.fullmatch(line)
+        if found is not None and _is_heading(line):
+            return found.group(1).upper()
+    return None
+
+
+def _appendix_items(pages: Sequence[str]) -> list[_AppendixItem]:
+    """The appendix's items, in page order, covering every page.
+
+    Three readings, the most explicit first:
+
+    - the appendix's **own index** (:func:`_index_items`), which names every
+      item and the folio it starts on;
+    - else its **item headings**, an item starting wherever the letter differs
+      from the last one seen ("Appendix A" … "Appendix B"), so a heading the
+      printer repeats on every page of one item starts it once;
+    - and only where it prints neither, a **running header** that changes and
+      holds on the next page — the shape of an appendix that reproduces each
+      order under its own court header — read only where the appendix keeps
+      running headers at all (:data:`_HEADER_CONSISTENCY`).
+
+    An item read the last two ways is titled by its first page's top lines.
+    """
+    if not pages:
+        return []
+    indexed = _index_items(pages)
+    if indexed is not None:
+        return indexed
+    letters = [_item_letter(page) for page in pages]
+    starts = [0]
+    if any(letters):
+        current = letters[0]
+        for index in range(1, len(pages)):
+            if letters[index] is not None and letters[index] != current:
+                current = letters[index]
+                starts.append(index)
+    else:
+        families = [_header_family(page) for page in pages]
+        pairs = len(pages) - 1
+        steady = sum(1 for i in range(pairs) if families[i] and families[i] == families[i + 1])
+        if pairs > 0 and steady / pairs >= _HEADER_CONSISTENCY:
+            starts.extend(
+                index
+                for index in range(1, len(pages) - 1)
+                if families[index]
+                and families[index] != families[index - 1]
+                and families[index + 1] == families[index]
+            )
+    ends = [*starts[1:], len(pages)]
+    return [
+        _AppendixItem(start, end, " ".join(_top_lines(pages[start])))
+        for start, end in zip(starts, ends, strict=True)
+    ]
+
+
+def _item_budgets(
+    items: Sequence[_AppendixItem],
+    lengths: Sequence[int],
+    budget: int,
+    *,
+    short_decisions_first: bool,
+) -> list[int]:
+    """How many characters each appendix item keeps, out of ``budget``.
+
+    Passes, each spending only what the last one left:
+
+    1. **Every item's opening**, up to :data:`_ITEM_OPENING`, in appendix
+       order — so no item is lost outright while the budget lasts.
+    2. With ``short_decisions_first`` (an application), **the court decisions
+       shortest first**, each completed whole while it fits.
+    3. **The rest in appendix order**, decisions before the other items, each
+       completed as far as the budget reaches.
+    """
+    kept = [0] * len(items)
+    remaining = budget
+
+    def grant(index: int, up_to: int) -> None:
+        nonlocal remaining
+        extra = min(up_to - kept[index], remaining)
+        if extra > 0:
+            kept[index] += extra
+            remaining -= extra
+
+    for index in range(len(items)):
+        grant(index, min(lengths[index], _ITEM_OPENING))
+    decisions = [index for index, item in enumerate(items) if item.is_decision]
+    if short_decisions_first:
+        for index in sorted(decisions, key=lambda i: lengths[i]):
+            if lengths[index] - kept[index] <= remaining:
+                grant(index, lengths[index])
+    decided = set(decisions)
+    others = [index for index in range(len(items)) if index not in decided]
+    for index in [*decisions, *others]:
+        grant(index, lengths[index])
+    return kept
+
+
+def _clean_cut(text: str, limit: int) -> int:
+    """Where to cut ``text`` at or under ``limit``: the last line break near it, else the limit."""
+    newline = text.rfind("\n", 0, limit)
+    return newline if newline >= limit * 0.9 else limit
+
+
+def _cut_note(*, omitted: int, first_page: int, last_page: int, cap: int, what: str) -> str:
+    """The one-line note a cut leaves in the text, naming what was left out."""
+    through = "its end" if first_page == last_page else f"the end of PDF page {last_page}"
+    return (
+        f"{_CUT_NOTE_OPENER} {omitted:,} characters of {what} omitted here, from part-way"
+        f" through PDF page {first_page} to {through}, to fit the {cap:,}-character text cap]"
+    )
+
+
+def _cut_span(
+    pages: Sequence[str], start: int, end: int, limit: int, *, cap: int, what: str
+) -> str:
+    """Pages ``[start, end)`` joined, head-cut to ``limit`` with a note where they overflow.
+
+    The note is not counted in ``limit``; the caller leaves
+    :data:`_CUT_NOTE_RESERVE` for it.
+    """
+    text = "\n".join(pages[start:end])
+    if len(text) <= limit:
+        return text
+    cut = _clean_cut(text, max(limit, 0))
+    # The page the cut falls on: the last page starting at or before it.
+    position = 0
+    cut_page = start
+    for index in range(start, end):
+        if position > cut:
+            break
+        cut_page = index
+        position += len(pages[index]) + 1
+    note = _cut_note(
+        omitted=len(text) - cut, first_page=cut_page + 1, last_page=end, cap=cap, what=what
+    )
+    return f"{text[:cut]}\n{note}"
+
+
+def cut_filing_text(
+    pages: Sequence[str],
+    *,
+    char_cap: int,
+    whole_appendix: bool = False,
+    short_decisions_first: bool = False,
+) -> tuple[str, bool]:
+    """A filing's page texts joined and cut to ``char_cap`` by the appendix-aware rule.
+
+    ``whole_appendix`` reads the whole document as appendix — the separately
+    linked ``appendix`` kind; otherwise the appendix is looked for inside it
+    (:func:`_appendix_start`). ``short_decisions_first`` is the application's
+    ordering of its decisions (:func:`_item_budgets`). Returns the text and
+    whether anything was cut. The rule, and why, is stated above
+    :data:`APPENDIX_BEARING_KINDS`.
+    """
+    joined = "\n".join(pages)
+    if len(joined) <= char_cap:
+        return joined, False
+    head_cut = char_cap - 1 - _CUT_NOTE_RESERVE
+    start = 0 if whole_appendix else _appendix_start(pages)
+    if start is None:
+        return _cut_span(pages, 0, len(pages), head_cut, cap=char_cap, what="this filing"), True
+    body = "\n".join(pages[:start])
+    # What the appendix may spend: the cap less the body and the line break
+    # joining the two (none where there is no body).
+    budget = char_cap - (len(body) + 1 if start else 0)
+    items = [
+        _AppendixItem(item.start + start, item.end + start, item.title)
+        for item in _appendix_items(pages[start:])
+    ]
+    # Each item may carry a note and is joined to the next by a line break.
+    usable = budget - len(items) * (1 + _CUT_NOTE_RESERVE)
+    if usable < min(len(items), 1) * _ITEM_OPENING:
+        # The body leaves the appendix nothing worth keeping: a head cut, the
+        # appendix going with everything past the cap.
+        what = "this filing, its appendix included,"
+        return _cut_span(pages, 0, len(pages), head_cut, cap=char_cap, what=what), True
+    lengths = [len("\n".join(pages[item.start : item.end])) for item in items]
+    kept = _item_budgets(items, lengths, usable, short_decisions_first=short_decisions_first)
+    pieces = [
+        _cut_span(pages, item.start, item.end, share, cap=char_cap, what="this appendix item")
+        for item, share in zip(items, kept, strict=True)
+        if share > 0
+    ]
+    omitted = [item for item, share in zip(items, kept, strict=True) if share == 0]
+    if omitted:
+        pieces.append(
+            _cut_note(
+                omitted=sum(lengths[items.index(item)] for item in omitted),
+                first_page=omitted[0].start + 1,
+                last_page=len(pages),
+                cap=char_cap,
+                what=f"{len(omitted)} more appendix item(s)",
+            )
+        )
+    return "\n".join([body, *pieces] if start else pieces), True
+
+
+def extract_filing_text(data: bytes, *, kind: str, char_cap: int) -> ExtractedText:
+    """Extract one fetched filing's text under the cut its ``kind`` takes.
+
+    The appendix-bearing kinds (:data:`APPENDIX_BEARING_KINDS`) read every page
+    and are cut by :func:`cut_filing_text`; every other kind takes the plain
+    head cut (:func:`extract_pdf_text`).
+
+    The fetching lanes read through here. The OCR recovery pass does not, and
+    deliberately: the appendix-aware cut reads every page, which on a scanned
+    filing means recognizing every page, and a long scan would then spend its
+    whole document budget and be discarded as a partial reading on every pass —
+    where the head cut stops recognizing at the cap and stores what it read. A
+    recovered row is therefore head-cut, and its text says nothing of an
+    appendix.
+
+    Reading stops at :data:`_READ_CEILING_CAPS` times the cap: past that the
+    pages read are already far more than any row keeps, and a filing hundreds
+    of pages longer costs no more. Where it stops, the cut is made over the
+    pages read and one more note names the pages never read.
+    """
+    if kind not in APPENDIX_BEARING_KINDS:
+        return extract_pdf_text(data, char_cap=char_cap)
+    try:
+        reader = PdfReader(io.BytesIO(data))
+        parts, stopped, ocr_derived = _read_pages(
+            reader,
+            ocr_page=None,
+            stop_at=char_cap * _READ_CEILING_CAPS,
+            page_tolerant=True,
+        )
+        # A filing's own text cannot pass for a pipeline note: the bracketed
+        # opener the cut writes is defused wherever the filing itself prints it.
+        parts = [part.replace(_CUT_NOTE_OPENER, "[pipeline-note-in-filing:") for part in parts]
+        total_pages = len(reader.pages)
+        stopped = stopped and len(parts) < total_pages
+        text, truncated = cut_filing_text(
+            parts,
+            char_cap=char_cap - (_CUT_NOTE_RESERVE + 1 if stopped else 0),
+            whole_appendix=kind == KIND_APPENDIX,
+            short_decisions_first=kind == KIND_APPLICATION,
+        )
+        if stopped:
+            unread = (
+                f"[pipeline note: PDF pages {len(parts) + 1} to {total_pages} were not read;"
+                f" the pages before them already exceed the {char_cap:,}-character text cap"
+                f" {_READ_CEILING_CAPS} times over]"
+            )
+            text, truncated = f"{text}\n{unread}", True
+        return ExtractedText(
+            text=text, pages=total_pages, truncated=truncated, ocr_derived=ocr_derived
         )
     except (PyPdfError, ValueError, TypeError):
         return ExtractedText(text="", pages=0, truncated=False)
@@ -1464,7 +2361,8 @@ def scrub_contact_details(
     runs only where a value clears its floor, and ``passes`` says whether it
     did. ``shape=False`` runs the value pass alone — the caller's choice on a
     docket read as self-represented on its ``Other`` list alone, whose amici's
-    own briefs are not a staged kind: there the staged filings are counsel's,
+    own briefs are not staged (the one amicus kind, ``sg-invited-brief``, is the
+    United States', filed by its counsel): there the staged filings are counsel's,
     and the shape pass would cost their text its misreads of legal prose (a case
     name led by a street number, a regulation number in telephone shape).
     ``passes`` is then ``("value",)``, or empty where no value cleared its floor
@@ -2380,7 +3278,8 @@ def fetch_case_documents(
             FETCH_LOSS_NOT_SELECTED,
             case_id,
             _NOT_SELECTED_KIND,
-            "no case-opening, application, opposition, or merits entry carried a document link",
+            "no case-opening, application, opposition, reply, invited-brief or merits entry"
+            " carried a document link",
         )
         return []
     bio_refs = [ref for ref in refs if ref.kind == KIND_BRIEF_IN_OPPOSITION]
@@ -2404,7 +3303,7 @@ def fetch_case_documents(
         if data is None:
             _record_fetch_loss(FETCH_LOSS_UNAVAILABLE, case_id, ref.kind, ref.url)
             continue
-        extracted = extract_pdf_text(data, char_cap=char_cap)
+        extracted = extract_filing_text(data, kind=ref.kind, char_cap=char_cap)
         document = corpus.CaseDocument(
             case_id=case_id,
             kind=ref.kind,
@@ -2705,7 +3604,10 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
 FETCHED_DOCUMENT_KINDS: tuple[str, ...] = (
     KIND_PETITION,
     KIND_APPLICATION,
+    KIND_APPENDIX,
     KIND_BRIEF_IN_OPPOSITION,
+    KIND_CERT_REPLY,
+    KIND_SG_INVITED_BRIEF,
     KIND_MERITS_BRIEF_PETITIONER,
     KIND_MERITS_BRIEF_RESPONDENT,
     KIND_MERITS_REPLY_PETITIONER,
@@ -2741,8 +3643,68 @@ FETCHED_DOCUMENT_KINDS: tuple[str, ...] = (
 # their `n` is a *third* thing: not every granted case is replied to, so a reply
 # row's count is bounded by the cases whose docket carries one at all, and the
 # respondent-side row is bounded again by the postures that give a respondent
-# the last word.
+# the last word. The three cert-stage additions are bounded the same way: an
+# `appendix` row exists only where the filing posts its appendix under its own
+# link, a `cert-reply` only where the petitioner replied, and an
+# `sg-invited-brief` only on the invited petitions the Solicitor General has
+# answered — each column's `n` is the dockets that carry one, not a share of
+# the live slice.
 TEXT_COVERAGE_KINDS: tuple[str, ...] = (*FETCHED_DOCUMENT_KINDS, KIND_QUESTIONS_PRESENTED)
+
+# One sentence per kind, written into every row of a cell's `documents.json`
+# (:func:`fedcourtsai.provision.document_manifest`), so the manifest names what
+# each file is and how it was cut without the cell having to know the kind
+# vocabulary. Stated as what the file *is*, never what it predicts.
+# The cut-note sentence the three appendix-bearing kinds share. Conditional on
+# purpose: a row stored under the plain head cut, an OCR-recovered row, and
+# a fetched filing too long for any appendix budget may carry no item note.
+_CUT_NOTE_DESCRIPTION = (
+    "Where a cut is made around an appendix it is marked in the text by a "
+    "'[pipeline note: ...]' line; a truncated row with no such line was cut at "
+    "the cap from the end."
+)
+KIND_DESCRIPTIONS: Mapping[str, str] = {
+    KIND_PETITION: (
+        "The filing that opened the case (a petition for certiorari, an extraordinary "
+        "writ, or a jurisdictional statement), with any appendix bound into the same PDF. "
+        "Over the text cap the appendix, where one is found, is cut before the filing's "
+        "own body. "
+        f"{_CUT_NOTE_DESCRIPTION}"
+    ),
+    KIND_APPLICATION: (
+        "The application for interim relief, with any appendix bound into the same PDF. "
+        "Over the text cap the appendix, where one is found, is cut before the "
+        "application's own body: every item keeps its opening, then the shorter court "
+        "decisions are completed first. "
+        f"{_CUT_NOTE_DESCRIPTION}"
+    ),
+    KIND_APPENDIX: (
+        "The appendix filed under its own link beside the petition or application: the "
+        "opinions and orders below and the record material the filer reproduced. Over "
+        "the text cap every item keeps its opening and the court decisions are completed "
+        "first. "
+        f"{_CUT_NOTE_DESCRIPTION}"
+    ),
+    KIND_BRIEF_IN_OPPOSITION: (
+        "Every non-amicus cert-stage brief in opposition or response to the petition, "
+        "combined in docket order, each under a '=== <docket entry> ===' header where "
+        "there is more than one."
+    ),
+    KIND_CERT_REPLY: (
+        "The petitioner's reply at the cert stage: its answer to the brief in opposition."
+    ),
+    KIND_SG_INVITED_BRIEF: (
+        "The brief of the United States as amicus curiae, filed by the Solicitor General "
+        "in response to the Court's invitation to express the views of the United States."
+    ),
+    KIND_MERITS_BRIEF_PETITIONER: "The petitioner's opening brief on the merits.",
+    KIND_MERITS_BRIEF_RESPONDENT: "The respondent's brief on the merits.",
+    KIND_MERITS_REPLY_PETITIONER: "The petitioner's reply brief on the merits.",
+    KIND_MERITS_REPLY_RESPONDENT: "The respondent's reply brief on the merits.",
+    KIND_QUESTIONS_PRESENTED: (
+        "The questions-presented section cut out of the petition's own text."
+    ),
+}
 
 # The two halves the coverage counts are cut into, in report order.
 SCORED_SEGMENT = "scored"

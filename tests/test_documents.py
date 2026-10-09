@@ -25,6 +25,7 @@ from fedcourtsai.pipeline.documents import (
     _QP_MIN_CHARS,
     BIO_URL_JOIN,
     CONTACT_PLACEHOLDER,
+    KIND_APPENDIX,
     KIND_APPLICATION,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_MERITS_BRIEF_PETITIONER,
@@ -163,6 +164,8 @@ def test_select_documents_petition_and_bio_never_qplink() -> None:
     refs = select_documents(_PAYLOAD)
     assert [(r.kind, r.url) for r in refs] == [
         (KIND_PETITION, "https://www.supremecourt.gov/petition.pdf"),
+        # The case-opening entry's own `Appendix` link, under its own kind.
+        (KIND_APPENDIX, "https://www.supremecourt.gov/appendix.pdf"),
         (KIND_BRIEF_IN_OPPOSITION, "https://www.supremecourt.gov/bio.pdf"),
     ]
     assert all("qp" not in r.url for r in refs)  # QPLink leaks the outcome
@@ -253,7 +256,8 @@ def test_select_documents_takes_a_jurisdictional_statement_by_its_own_label() ->
     )
     refs = select_documents(payload)
     assert [(r.kind, r.url) for r in refs] == [
-        (KIND_PETITION, "https://www.supremecourt.gov/jurisdictional.pdf")
+        (KIND_PETITION, "https://www.supremecourt.gov/jurisdictional.pdf"),
+        (KIND_APPENDIX, "https://www.supremecourt.gov/appendix.pdf"),
     ]
     assert refs[0].description == "Jurisdictional Statement"
 
@@ -639,6 +643,7 @@ def test_select_documents_takes_both_same_day_oppositions(
     refs = select_documents(_same_day_bio_payload(entries))
     assert [(r.kind, r.url) for r in refs] == [
         (KIND_PETITION, "https://www.supremecourt.gov/petition.pdf"),
+        (KIND_APPENDIX, "https://www.supremecourt.gov/appendix.pdf"),
         *((KIND_BRIEF_IN_OPPOSITION, url) for _date, _text, url in entries),
     ]
 
@@ -2141,6 +2146,7 @@ def test_a_lone_opposition_is_stored_without_a_header() -> None:
     entries = _SAME_DAY_BIO_ENTRIES[:1]
     served = {
         "https://www.supremecourt.gov/petition.pdf": _pdf("QUESTION PRESENTED Whether X."),
+        "https://www.supremecourt.gov/appendix.pdf": _pdf("APPENDIX Opinion below."),
         entries[0][2]: _pdf("Only respondent says deny."),
     }
     reset_document_fetch_losses()
@@ -2168,6 +2174,7 @@ def test_a_fully_fetched_opposition_pair_records_no_partial_loss() -> None:
     entries = _SAME_DAY_BIO_ENTRIES
     served = {
         "https://www.supremecourt.gov/petition.pdf": _pdf("QUESTION PRESENTED Whether X."),
+        "https://www.supremecourt.gov/appendix.pdf": _pdf("APPENDIX Opinion below."),
         **{url: _pdf(f"Brief {index} says deny.") for index, (_d, _t, url) in enumerate(entries)},
     }
     reset_document_fetch_losses()
@@ -2345,6 +2352,7 @@ def test_fetch_case_documents_records_every_dropped_document(
     client = _failing_doc_client(
         unserved={
             "https://www.supremecourt.gov/petition.pdf",
+            "https://www.supremecourt.gov/appendix.pdf",
             "https://www.supremecourt.gov/second.pdf",
         },
         raising={"https://www.supremecourt.gov/lead.pdf"},
@@ -2360,19 +2368,19 @@ def test_fetch_case_documents_records_every_dropped_document(
         )
     assert documents == []  # unchanged: recording is not a control-flow change
     losses = document_fetch_losses()
-    assert losses.unavailable == 2  # the petition and the second brief
+    assert losses.unavailable == 3  # the petition, its appendix and the second brief
     assert losses.http_error == 1  # the lead brief's transport failure
     # A case count, not a third per-brief one: every selected brief failed, so
     # the docket lists an opposition the corpus will not hold.
     assert losses.bio_empty == 1
-    assert losses.records == 4
+    assert losses.records == 5
     # And the run log carries it, which is the half that survives an ephemeral
     # runner — nothing there reads a counter.
     logged = "\n".join(record.getMessage() for record in caplog.records)
     assert "https://www.supremecourt.gov/petition.pdf" in logged
     assert "unavailable" in logged and "http-error" in logged
     assert "2 selected brief(s), none fetched" in logged
-    assert logged.count("scotus/9025000100") == 4
+    assert logged.count("scotus/9025000100") == 5
 
     # The counter is a record of one pass, not a running total across them.
     reset_document_fetch_losses()
@@ -2531,6 +2539,7 @@ def test_fetch_case_documents_records_nothing_on_a_clean_fetch() -> None:
             "QUESTION PRESENTED Whether X. PARTIES TO THE Acme."
         ),
         "https://www.supremecourt.gov/bio.pdf": _pdf("The petition should be denied."),
+        "https://www.supremecourt.gov/appendix.pdf": _pdf("APPENDIX Opinion below."),
     }
     with _doc_client(served) as client:
         fetch_case_documents(

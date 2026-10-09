@@ -112,9 +112,11 @@ live:
   # reaches it (docs/live-sources.md). 0 disables the grace probe.
   outgoing_term_grace_days: 60
   # Per-document cap on extracted text stored in the corpus: ~40 dense
-  # pages. Documents (petition, questions presented, BIO) are fetched on the
-  # same distribution transition that queues predict; the cap bounds corpus
-  # blob growth, and a truncated document is flagged in its provisioning manifest.
+  # pages, one cap per stored row. The selected filed documents
+  # (docs/live-sources.md) are fetched on the transitions that queue predict;
+  # the cap bounds corpus blob growth, a petition, application or appendix over
+  # it is cut appendix-first with inline notes, and a truncated document is
+  # flagged in its provisioning manifest.
   document_text_cap: 150000
   # Predict timing is not configured here: the live channel stamps the predict
   # queue on a DISTRIBUTION TRANSITION — a petition newly distributed for a

@@ -23,7 +23,9 @@ that does, on the terms recorded in *Contract for the recovery pass*
   injected ``ocr_page`` seam, which reads a page off its rendered image *only*
   where that page's own extraction yielded nothing. The extractor applies the
   same character cap and sets the same truncation flag it applies to a fetched
-  document, so a recovered row is bounded exactly like a fetched one.
+  document — the plain head cut: a recovered petition, application or appendix
+  is not cut the appendix-aware way (:func:`~fedcourtsai.pipeline.documents.extract_filing_text`
+  says why).
 - **Additive.** Text is written only where the stored row held none, so the
   pass cannot overwrite an extraction, and a write carries the ``ocr_derived``
   marker wherever OCR contributed any of its text: OCR output is derived text,
