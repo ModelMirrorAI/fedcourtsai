@@ -248,9 +248,10 @@ predictors. The per-digest census over the refresh commit's ledger
 pre-registration record uses, not a cohort count): claude-baseline 248,
 codex-baseline 248, gemini-baseline 247; claude-judge, codex-judge and
 gemini-judge 353 each; 2,284 files carry a stamped `process_version` object.
-Snapshot uptake: all 743 committed `prediction.json` files that carry the mark
-read `snapshot_uptake: read` and none reads `unread` — a self-report, as
-stated above.
+Snapshot uptake: of the ledger's 1,411 committed `prediction.json` files,
+743 carry the mark (the fill export likewise carries 743 predictions), and all
+743 read `snapshot_uptake: read`, none `unread`; a self-report, as stated
+above.
 
 ### Engine losses stay owed; they are not scored as failures
 
@@ -639,7 +640,11 @@ baseline **0** realized against **3.42** expected over 67 events; elevated
 `grants_expected`, over `grants_expected_scored`). Relisted and held petitions
 are still pending and grant more often than the ones already decided, so
 while they pend realized runs below expected, and this shortfall is not yet
-evidence of miscalibration. Complete grid (`complete_grid_by_band`): baseline
+evidence of miscalibration. It does move skill in a known direction: in the
+baseline band every scored petition was denied, so skill there rewards
+forecasting low rather than separating grants from denials, and the pending
+shortfall currently favours the lower forecaster — the baseline row's skill
+is not a reading of discrimination. Complete grid (`complete_grid_by_band`): baseline
 67, elevated 28, high 1, federal 1 — every engine's `accuracy_events_scored`
 equals its band's grid count in every band.
 
@@ -733,8 +738,8 @@ the exact elevated OT2025 pool 0.172242), so it is rarely exact or faithful
 while staying within 0.1% of the exact pool.
 
 **Sensitivity lines beside the headline.** Three sensitivity lines travel with
-the per-band figures above, each in the sentence that carries its registered
-figure and each with its own `n`. The first is this section's; the other two
+the per-band figures above, each given below beside the registered figure it
+varies (registered → sensitivity) and each with its own `n`. The first is this section's; the other two
 are disclosed with the cohort in section 5.
 
 *Sensitivity: exact-pool anchor.* Population skill with each cert grading's
@@ -811,7 +816,12 @@ jq '.entries[] | {predictor_id, forward: (.forward | {in_sample_events_scored, i
 
 *Post-hoc, not registered, ranks nothing.* Over the forward stratum of the
 ranked board, after each engine's registered prior-Term skill (+0.528,
-+0.364 and −0.338 over 291 gradings each), the in-sample benchmark reads
++0.364 and −0.338 over 291 gradings each — a cross-band figure quoted only as
+the registered figure this benchmark sits beside; its sensitivity lines are
++0.5275 / +0.3642 / −0.3381 on the exact pool, +0.527 / +0.365 / −0.340 over
+285 gradings without the extraordinary writs, and +0.531 / +0.366 / −0.340
+over 273 without the post-conference first forecasts), the in-sample
+benchmark reads
 claude-baseline **+0.468**, codex-baseline **+0.285** and gemini-baseline
 **−0.505**, each over 291 gradings (`in_sample_skill_scored`), against
 **3 grants of 97 events** (`in_sample_grant_rate` 3/97); `in_sample_events_scored`
@@ -923,11 +933,21 @@ prediction.
 > not as measuring one.
 
 **The board's order and its denominators.** The board ranks on forward
-`accuracy`, then forward mean Brier (no skill column is a rank key). At the
+`accuracy`, then forward mean Brier (no skill column is a rank key). The
+figures in this paragraph are that cross-band rank key, quoted only to state
+the order; every reading of them is per band, in the table above. At the
 refresh commit: rank 1 claude-baseline, accuracy 99.0% over 291 gradings,
 mean Brier 0.0159; rank 2 codex-baseline, 97.9%, 0.0214; rank 3
 gemini-baseline, 94.8%, 0.0451 — against an always-deny floor of 96.9% on the
-same cells, so lifts of +2.1, +1.0 and −2.1 points. Each engine's
+same cells (a blend of the 100% baseline floor and the 92.9% elevated one),
+so lifts of +2.1, +1.0 and −2.1 points, which are two, one and minus two
+petitions of 97: claude-baseline's two GVR calls (Nos. 25-901, 25-918),
+codex-baseline's one (No. 25-901), and gemini-baseline's two false grant
+calls (Nos. 25-1208, 25-1105) against no hit. Sensitivity lines for this key:
+with the extraordinary writs removed, 98.9%, 97.9% and 94.7% against a 96.8%
+floor (95 petitions); with the post-conference first forecasts removed,
+98.9%, 97.8% and 94.5% against 96.7% (91 petitions, below); the order holds
+under both. Each engine's
 `events_scored` is 97, the population's `events_scored` union is 97, and the
 complete grid is 97 (67 + 28 + 1 + 1 over the bands); each entry's only
 stratum is forward, with 291 evaluations, a panel of 3 evaluators and a mean
@@ -936,9 +956,8 @@ engine's `accuracy_events_scored` equals `complete_grid_by_band`: baseline 67,
 elevated 28, high 1, federal 1. Coverage is therefore equal, and the
 per-band orderings in the table above are read over the same petitions — but
 equal coverage certifies the event set only. With the six post-conference
-first forecasts removed (the sensitivity line above) the counts are 91 and the
-order is unchanged: forward accuracy 98.9%, 97.8% and 94.5% against a 96.7%
-floor.
+first forecasts removed (the sensitivity line above) each engine's
+`events_scored` and the complete grid are 91.
 
 Run order, confirmed. The interleaved, keyed engine order reached `main` in
 the promotion merged 2026-10-08T21:49:48Z (`9a2dc8168`). Every run carrying a
@@ -984,7 +1003,9 @@ earliest sibling engine's run on the same event is claude-baseline 0 of 120,
 codex-baseline 4 of 120 and gemini-baseline 5 of 120 — the re-minted cells
 behind the predict-seam `attempt.json` facts in *Engine losses stay owed*
 (codex 4 `no_output`; gemini 4 `no_output`, 2 `partial`, 1 `quota`, some
-re-minted more than once). Snapshot as-of date (`context.snapshot_date`)
+re-minted more than once). One of gemini-baseline's five is on a grant
+event, the GVR No. 25-918 (`scotus/73280426`): its counted cell ran in
+20260917T181231Z, the other two engines' in 20260916T170237Z. Snapshot as-of date (`context.snapshot_date`)
 against run date: on the 110 cert/distribution events every engine's snapshot
 is dated the run day or the day before — claude-baseline 73 same-day and 37
 one day earlier, codex-baseline 75 and 35, gemini-baseline 71 and 39. The 10
@@ -1495,7 +1516,37 @@ table without `n` cannot be reviewed — and record its verdict and the
 disposition of each blocker. A blocker is fixed or rebutted in writing; an
 unanswered blocker is not a resolution.
 
-‹the reviewer's verdict and the disposition of each finding›
+**Pass run 2026-10-09** over both filled documents, with every figure checked
+against the saved outputs of the commands that produced it (the refresh
+commit's boards, the fill export, `release-sensitivity`, the cohort cut,
+`segment-anchors`, the `attempt.json` tally and the run-start reads). Verdict:
+**approve with fixes**. No quoted number was found wrong. Disposition:
+
+1. *Blocker, public page:* the headline counted the 97 board petitions while
+   "every forecast … before the Court met" and the last-merge line held only
+   for the 91 pre-registered ones. **Fixed:** the headline names the 91, those
+   lines are scoped to the pre-registered set, and the six late-forecast
+   petitions are named beside them.
+2. *Blocker, public page:* "each run the same way" overstated section 3's
+   run-order disclosure. **Fixed:** the models line now says they did not run
+   under identical conditions and points to the disclosure.
+3. *Recommended:* the cross-band rank key and the pooled prior-Term skill
+   beside the in-sample benchmark lacked their sensitivity lines and a
+   decomposition. **Fixed:** both are labelled as quoted only for the order or
+   as the benchmark's registered companion, the lifts are decomposed to the
+   petitions behind them, and the missing lines are added.
+4. *Recommended:* in the baseline band, where every petition was denied,
+   skill rewards forecasting low and the pending shortfall favours the lower
+   forecaster. **Fixed:** stated in section 3's grants paragraph and on the
+   public page.
+5. *Recommended:* "873 graded forecasts" on the public page. **Fixed:** 873
+   gradings of 291 scored forecasts.
+6. *Recommended:* the public page's GVR miss rule needed the fact that the GVR
+   hits were explicit GVR calls. **Fixed.**
+7. *Nits:* the uptake denominator (1,411 files, 743 carrying the mark), the
+   gemini-baseline late cell on No. 25-918, the sensitivity-line layout
+   sentence, "G" written out as "granted", and "relisted once" softened to
+   "relisted". **All fixed.**
 
 ## 8. The publishing tag
 

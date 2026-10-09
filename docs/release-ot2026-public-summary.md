@@ -27,12 +27,15 @@ does not match itself.
 
 ## Draft
 
-### Three AI models forecast which petitions the Supreme Court would take up at its 2026-09-28 conference; on the 97 scored petitions it has decided, the Court granted 3, two of them sent back for reconsideration, too few to measure a difference between the models.
+### Three AI models forecast which petitions the Supreme Court would take up at its 2026-09-28 conference; on the 97 scored petitions it has decided (91 of them pre-registered), the Court granted 3, two of them sent back for reconsideration, too few to measure a difference between the models.
 
 **What this is.** Before the Supreme Court's first conference of the term, three
 frontier AI models each forecast whether the Court would take up a set of
-pending cases. Every forecast was merged into a public ledger before the Court
-met, so anyone can check that it came first. This is the first scored result.
+pending cases. Every forecast for that pre-registered set was merged into a
+public ledger before the Court met, so anyone can check that it came first.
+Six further petitions in the scores were first forecast only after the
+conference had met, though before the Court acted on them (see *What this
+does and doesn't show*). This is the first scored result.
 
 ### What was predicted, and when
 
@@ -43,13 +46,15 @@ met, so anyone can check that it came first. This is the first scored result.
   petitions and none of the 10 Solicitor General petitions had been decided
   and scored when this page was written.
 - **Models:** `claude-baseline` ran `claude-fable-5-1`, `codex-baseline` ran
-  `gpt-6-astra` and `gemini-baseline` ran `gemini-3.1-pro-preview`, each run
-  the same way, under the same instructions and with the same case materials.
-- **Last forecast in the ledger:** merged into `main` at
+  `gpt-6-astra` and `gemini-baseline` ran `gemini-3.1-pro-preview`, under the
+  same instructions and with the same case materials, though not under
+  identical conditions (see *The models did not run side by side* below).
+- **Last forecast for the pre-registered set:** merged into `main` at
   2026-09-19 19:45:51 UTC
   ([pull request #1921](https://github.com/ModelMirrorAI/fedcourtsai/pull/1921)).
   **The Court acted:** 2026-10-01 (one grant) and 2026-10-05 (the order list
-  carrying the other 90 decided petitions).
+  carrying the other 90 decided pre-registered petitions, and the six
+  late-forecast ones).
 - **Check it yourself:** every forecast is a file in the public repo. The proof
   of timing is the time GitHub recorded when the forecast's pull request merged
   into `main`, and the `prereg/proc-v8` tag that fixed the rules beforehand;
@@ -76,7 +81,7 @@ petitions, and the lift is the difference, because beating that is the actual
 test.
 
 The rows are the ranking's bands. **Baseline** petitions had not been relisted
-when they were ranked; **elevated** petitions had been relisted once. Each band
+when they were ranked; **elevated** petitions had been relisted. Each band
 has its own historical grant rate, and the skill column is measured against it.
 
 | Model | Band | Petitions scored | Right calls | "Always deny" on the same petitions | Lift | Skill vs. history |
@@ -96,19 +101,26 @@ the baseline petitions it granted none, where about 3.4 were expected.
 Petitions the Court relisted or held are not scored yet, and relisted petitions
 are granted more often than others, so the petitions scored so far lean toward
 denials. That raises what "always deny" scores and lowers each band's realized
-grant share below its historical rate, which moves the skill column too.
+grant share below its historical rate, which moves the skill column too, in
+favour of lower forecasts.
 
 A **right call** is a forecast whose named outcome matched the Court's action
 exactly. So a "grant" call on a petition the Court sent back for
 reconsideration (a GVR) counts as a miss here, even though sent-back petitions
-count as grants in the probability scores and the calls below. **Skill vs.
+count as grants in the probability scores and the calls below. In this set no
+model made a plain "grant" call on either GVR: the right calls on them
+(claude-baseline on both, codex-baseline on one) were forecasts that named a
+GVR. **Skill vs.
 history** compares each model's probabilities with the band's historical grant
 rate: above 0 means the forecasts beat that rate, and a model that just
 repeated the rate would score 0.
 
 On the 67 baseline petitions the Court denied every one, so every model's
-right calls equal "always deny" exactly, and only the skill column separates
-them there: +0.50, +0.12 and −0.33. On the 28 elevated petitions, one model's
+right calls equal "always deny" exactly, and only the skill column differs
+there: +0.50, +0.12 and −0.33. With every baseline petition denied, that
+column rewards forecasting low rather than telling grants from denials, and
+because the likelier-granted relisted and held petitions are still pending,
+the shortfall currently favours whichever model forecast lowest. On the 28 elevated petitions, one model's
 right calls beat "always deny" by 3.6 points, one matched it and one fell 7.1
 points below it — one or two petitions either way, out of 28.
 
@@ -143,7 +155,7 @@ Petitions are named by docket number, each linked to its ledger event.
 
 | Case | Arm | Court's action | claude-baseline | codex-baseline | gemini-baseline |
 | --- | --- | --- | --- | --- | --- |
-| [No. 25-1131](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73281619/events/evt-petition-disposition) | distribution | G (2026-10-01, limited to Question 1) | 0.30 | 0.30 | 0.05 |
+| [No. 25-1131](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73281619/events/evt-petition-disposition) | distribution | granted (2026-10-01, limited to Question 1) | 0.30 | 0.30 | 0.05 |
 | [No. 25-901](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73280412/events/evt-petition-disposition) | distribution | GVR (2026-10-05) | 0.60 | 0.84 | 0.15 |
 | [No. 25-918](https://github.com/ModelMirrorAI/fedcourtsai/tree/results/ot2026-longconf/data/cases/scotus/73280426/events/evt-petition-disposition) | distribution | GVR (2026-10-05) | 0.55 | 0.30 | 0.25 |
 
@@ -235,7 +247,7 @@ a forecast from all three models.
   −0.33; the elevated row does not change.
 - **The historical rates were worked out by the graders.** Each grader
   worked out and wrote down the band's historical rate it scored against;
-  across all 873 graded forecasts none differs from the exact rate by more
+  across all 873 gradings of the 291 scored forecasts none differs from the exact rate by more
   than 0.34% of that rate, and skill recomputed against the exact rates moves
   no row of the table by more than 0.001.
 - **Two of the three grants were sent back, not taken up.** Both GVRs turned
