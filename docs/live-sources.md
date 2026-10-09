@@ -301,7 +301,8 @@ the docket form, so one function serves both lanes:
   enters without the word "brief" ("Response of respondents … filed.",
   "Response to petition from respondent … filed."). The response form is kept
   off the collateral responses that share its opening — to a motion, an
-  application, a rehearing petition, a letter or an order.
+  application, a rehearing petition, a letter, an order or a suggestion of
+  mootness.
 - **`cert-reply`** — the petitioner's **cert-stage** reply, the Rule 15.6 answer
   to the opposition and often the only filing that meets its vehicle and
   preservation objections. The first "Reply [brief] of/for … petitioner(s) …"
@@ -310,9 +311,10 @@ the docket form, so one function serves both lanes:
   grant, so the grant date is what separates the two, and the docket order of
   the disposition keeps a reply filed after a denial (a rehearing paper) out.
   "In opposition" is no exclusion here — "Reply of petitioner to brief in
-  opposition" is exactly this filing — while replies on a motion or an
-  application, replies supporting the other side, amici's replies and rehearing
-  and supplemental papers are.
+  opposition" is exactly this filing — while any reply naming a motion, an
+  application, a letter or a suggestion of mootness (collateral practice,
+  "in support of" it or "to the response to" it), replies supporting the other
+  side, amici's replies and rehearing and supplemental papers are.
 - **`sg-invited-brief`** — the **Solicitor General's invited brief**: the first
   brief for the United States as amicus curiae ("Brief amicus curiae of United
   States filed.", "Brief for the United States as amicus curiae filed.") entered
@@ -494,6 +496,12 @@ that:
 - **every cut is stated in the text**, on its own line, as `[pipeline note: N
   characters of … omitted here, from part-way through PDF page X to …, to fit the
   150,000-character text cap]`, beside the row's `truncated: true`.
+
+Where a filing runs past ten times the cap, reading stops there and a last
+note names the pages never read. A page that fails to extract costs that page
+alone. The cut applies to rows stored from now on: fetching is idempotent per
+kind and URL, so a petition or application already stored keeps its head cut
+until its link changes, and the corpus holds both vintages side by side.
 
 The OCR recovery pass keeps the plain head cut for the rows it recovers: the
 appendix-aware cut reads every page, which on a scan means recognizing every

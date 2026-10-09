@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from collections.abc import Mapping
 from datetime import date
 from typing import Any
@@ -110,6 +111,9 @@ def test_the_cert_stage_reply_is_selected(words: str) -> None:
         # Collateral practice that shares the opening and would take the one slot.
         "Reply of petitioner Acme Corp. in support of motion to expedite filed.",
         "Reply of petitioner Acme Corp. in support of application for stay filed.",
+        "Reply of petitioner Acme Corp. to response to motion for leave filed.",
+        "Reply of petitioner Acme Corp. to response to application filed.",
+        "Reply of petitioner Acme Corp. to the response to suggestion of mootness filed.",
         # A party siding with its opponent, an amicus, rehearing, supplemental.
         "Reply of petitioner Acme Corp. in support of respondents filed.",
         "Reply of amicus curiae Pilots Union in support of petitioner filed.",
@@ -296,6 +300,7 @@ def test_the_opposition_arm_reads_the_courts_other_spellings(words: str) -> None
         "Response of respondent Coastal Freight Lines to petition for rehearing filed.",
         "Response of respondent Coastal Freight Lines to letter of petitioner filed.",
         "Response of respondent Coastal Freight Lines to the order of the Court filed.",
+        "Response of respondent Coastal Freight Lines to suggestion of mootness filed.",
         "Response to motion to extend the time to file a response from petitioner Acme "
         + "Corp. filed.",  # 25-901
         "Brief for the United States as amicus curiae filed.",
@@ -806,3 +811,31 @@ def test_an_opening_entry_with_only_an_appendix_link_is_stored_once() -> None:
         ]
     }
     assert _kinds(payload) == {KIND_PETITION: _APPENDIX_URL}
+
+
+def test_prose_citing_an_appendix_item_is_not_its_heading() -> None:
+    # "Appendix B, at 30a, …" opens a body line in argument; read as a heading
+    # it would hand the rest of the brief to the appendix's budget.
+    body = [_page(f"arg{n}", 2_000, top=str(n + 1)) for n in range(20)]
+    body[1] = "5\nAppendix B, at 30a, the statute plainly says\n" + body[1]
+    pages = ["cover", "QUESTION PRESENTED", "parties", *body, "APPENDIX"]
+    pages += [_page(f"op{n}", 2_000, top="Appendix A" if n == 0 else "") for n in range(40)]
+    assert documents_module._appendix_start(pages) == 23
+    text, _ = cut_filing_text(pages, char_cap=60_000)
+    assert "\n".join(pages[:23]) in text
+
+
+def test_a_page_of_leader_dots_is_read_quickly() -> None:
+    page = ". " * 5_000 + "\n" + ("x " * 2_000)
+    started = time.monotonic()
+    assert not documents_module._is_contents_page(page)
+    assert documents_module._appendix_items([page] * 5)
+    assert time.monotonic() - started < 2.0
+
+
+def test_the_full_read_stops_at_its_ceiling_and_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(documents_module, "_READ_CEILING_CAPS", 2)
+    pages = ["c", "q", "p", *(f"Body {n} " + "z" * 1_500 for n in range(40))]
+    cut = extract_filing_text(_pdf_pages(pages), kind=KIND_PETITION, char_cap=6_000)
+    assert cut.truncated and cut.pages == len(pages) and len(cut.text) <= 6_000
+    assert "were not read" in cut.text

@@ -289,9 +289,10 @@ _APPLICATION_ENTRY_RE = re.compile(
 # "brief" at all: "Response of respondents … filed." and "Response to petition
 # from respondent … filed." Anchored at the entry's start and kept off the
 # collateral responses that share the opening — to a motion, to an application,
-# to a rehearing petition, to a letter or an order — because those are papers
-# about a side question, and the opposition row is one combined document a cell
-# reads as the respondent's whole answer to the petition.
+# to a rehearing petition, to a letter, an order or a suggestion of mootness —
+# because those are papers about a side question, and the opposition row is one
+# combined document a cell reads as the respondent's whole answer to the
+# petition.
 _BIO_VERB_RE = re.compile(r"\b(?:filed|submitted)\b", re.IGNORECASE)
 _BIO_OPPOSITION_RE = re.compile(r"\bin opposition\b", re.IGNORECASE)
 _BIO_RESPONDENT_BRIEF_RE = re.compile(
@@ -305,7 +306,9 @@ _BIO_RESPONSE_RE = re.compile(
     re.IGNORECASE,
 )
 _BIO_RESPONSE_EXCLUDE_RE = re.compile(
-    r"\bmotion\b|\bapplication\b|\brehearing\b|\bletter\b|\border\b", re.IGNORECASE
+    r"\bmotion\b|\bapplication\b|\brehearing\b|\bletter\b|\border\b"
+    r"|\bsuggestion\b|\bmootness\b",
+    re.IGNORECASE,
 )
 _BIO_EXCLUDE_RE = re.compile(
     r"\bamic|\breply\b|\bsupplement|\bpetitioner\b|\bin support\b", re.IGNORECASE
@@ -388,8 +391,10 @@ def _is_post_grant(filed: date | None, granted_on: date | None) -> bool:
 # here: "Reply of petitioner to brief in opposition filed." is exactly this
 # filing.
 #
-# Excluded: a reply in support of a motion or an application (collateral
-# practice, which would otherwise take the side's one slot), a reply supporting
+# Excluded: any reply naming a motion, an application, a letter or a suggestion
+# of mootness — collateral practice, which would otherwise take the side's one
+# slot whether it is "in support of" the paper or "to the response to" it — a
+# reply supporting
 # the other side, an amicus's reply, and the rehearing and supplemental papers.
 _CERT_REPLY_RE = re.compile(
     r"^\s*(?:redacted\s+)?reply\s+(?:brief\s+)?(?:of|for)\s+(?:the\s+)?(?:\S+\s+){0,3}?petitioners?\b",
@@ -397,7 +402,8 @@ _CERT_REPLY_RE = re.compile(
 )
 _CERT_REPLY_EXCLUDE_RE = re.compile(
     r"\bamic(?:us|i)\b|\brehearing\b|\bsupplement"
-    r"|\bin\s+support\s+of\s+(?:the\s+)?(?:motion|application|respondents?)\b"
+    r"|\bmotion\b|\bapplication\b|\bletter\b|\bsuggestion\b|\bmootness\b"
+    r"|\bin\s+support\s+of\s+(?:the\s+)?respondents?\b"
     r"|\bsupporting\s+(?:the\s+)?respondents?\b",
     re.IGNORECASE,
 )
@@ -1414,19 +1420,31 @@ def merits_entry_matched(
 
 
 def _read_pages(
-    reader: PdfReader, *, ocr_page: OcrPage | None, stop_at: int | None
+    reader: PdfReader,
+    *,
+    ocr_page: OcrPage | None,
+    stop_at: int | None,
+    page_tolerant: bool = False,
 ) -> tuple[list[str], bool, bool]:
     """Each page's text in order, whether reading stopped early, and whether OCR contributed.
 
     ``stop_at`` stops reading once the running total reaches it — the plain
-    extractor's economy, since nothing past its cap is kept — and ``None`` reads
-    every page, which the appendix-aware cut needs to see where each item ends.
+    extractor's economy, since nothing past its cap is kept. ``page_tolerant``
+    makes a page that fails to extract cost that page alone (read as blank)
+    rather than the whole document: the appendix-aware cut reads far past the
+    cap, and a defect on a late page the head cut never reached must not now
+    empty the row.
     """
     parts: list[str] = []
     total = 0
     ocr_derived = False
     for index, page in enumerate(reader.pages):
-        text = page.extract_text() or ""
+        try:
+            text = page.extract_text() or ""
+        except (PyPdfError, ValueError, TypeError, KeyError, AttributeError):
+            if not page_tolerant:
+                raise
+            text = ""
         if ocr_page is not None and not text.strip():
             try:
                 recovered = ocr_page(index)
@@ -1544,6 +1562,9 @@ _TOP_LINES = 4
 _HEADING_MAX_CHARS = 100
 # How many pages at the front of an appendix are read for its own index.
 _INDEX_PAGES = 5
+# A contents entry is one printed line; a longer one is never matched, which
+# also bounds the leader pattern's backtracking on a page of dots.
+_INDEX_LINE_MAX_CHARS = 300
 # The appendix's opening page, read off one of its top lines: the bare
 # "APPENDIX" divider, the appendix's own contents page, or the first folio
 # ("1a", "App. 1", "App-1", "A1").
@@ -1553,10 +1574,12 @@ _APPENDIX_START_LINE_RE = re.compile(
     re.IGNORECASE,
 )
 # An item's own heading inside the appendix: "Appendix A", "APPENDIX B — Order
-# of the …". The letter is captured, because a printer that runs the heading on
-# every page of an item starts a new item only where the letter changes.
+# of the …". A comma or a period after the letter is prose citing the appendix
+# ("Appendix B, at 30a, the statute …"), not a heading. The letter is
+# captured, because a printer that runs the heading on every page of an item
+# starts a new item only where the letter changes.
 _APPENDIX_ITEM_LINE_RE = re.compile(
-    r"appendix\s+([a-z]{1,2})\b(?:\s*[-\u2013\u2014:.,].*)?", re.IGNORECASE
+    r"appendix\s+([a-z]{1,2})(?:\s*[-\u2013\u2014:]\s*.*)?", re.IGNORECASE
 )
 # An appendix folio as printed, in the shapes the Court's printers use: "1a",
 # "App. 1", "App-1", "Pet. App. 12a", "A31". Always carries a letter — a bare
@@ -1597,7 +1620,10 @@ _HEADER_CONSISTENCY = 0.5
 # What every item keeps before any is completed: about a printed page.
 _ITEM_OPENING = 2_000
 # Room left for one cut note, so the notes never push a row over its cap.
+# (A cap below this is not a cap a cut can honour; the configured floor is 1,000.)
 _CUT_NOTE_RESERVE = 240
+# How far past the cap the full-document read goes before it stops.
+_READ_CEILING_CAPS = 10
 
 
 @dataclass(frozen=True)
@@ -1639,6 +1665,8 @@ def _is_contents_page(page: str) -> bool:
     """Whether a page is a contents page: two or more lines ending in a leader and a folio."""
     hits = 0
     for raw in page.splitlines():
+        if len(raw) > _INDEX_LINE_MAX_CHARS:
+            continue
         if _INDEX_ENTRY_RE.fullmatch(" ".join(raw.split())) or _QP_TOC_RE.search(raw):
             hits += 1
             if hits >= 2:
@@ -1703,7 +1731,8 @@ def _index_entries(pages: Sequence[str]) -> tuple[list[tuple[str, str]], int]:
         words: list[str] = []
         for raw in page.splitlines():
             line = " ".join(raw.split())
-            found = _INDEX_ENTRY_RE.fullmatch(line) if line else None
+            short = line and len(line) <= _INDEX_LINE_MAX_CHARS
+            found = _INDEX_ENTRY_RE.fullmatch(line) if short else None
             if found is None:
                 words.extend([line] if line else [])
                 continue
@@ -1857,7 +1886,8 @@ def _item_budgets(
         for index in sorted(decisions, key=lambda i: lengths[i]):
             if lengths[index] - kept[index] <= remaining:
                 grant(index, lengths[index])
-    others = [index for index in range(len(items)) if index not in set(decisions)]
+    decided = set(decisions)
+    others = [index for index in range(len(items)) if index not in decided]
     for index in [*decisions, *others]:
         grant(index, lengths[index])
     return kept
@@ -1957,15 +1987,13 @@ def cut_filing_text(
                 first_page=omitted[0].start + 1,
                 last_page=len(pages),
                 cap=char_cap,
-                what=f"the appendix's last {len(omitted)} item(s)",
+                what=f"{len(omitted)} more appendix item(s)",
             )
         )
     return "\n".join([body, *pieces] if start else pieces), True
 
 
-def extract_filing_text(
-    data: bytes, *, kind: str, char_cap: int, ocr_page: OcrPage | None = None
-) -> ExtractedText:
+def extract_filing_text(data: bytes, *, kind: str, char_cap: int) -> ExtractedText:
     """Extract one fetched filing's text under the cut its ``kind`` takes.
 
     The appendix-bearing kinds (:data:`APPENDIX_BEARING_KINDS`) read every page
@@ -1978,21 +2006,40 @@ def extract_filing_text(
     whole document budget and be discarded as a partial reading on every pass —
     where the head cut stops recognizing at the cap and stores what it read. A
     recovered row is therefore head-cut, and its text says nothing of an
-    appendix. ``ocr_page`` is kept for symmetry with :func:`extract_pdf_text`.
+    appendix.
+
+    Reading stops at :data:`_READ_CEILING_CAPS` times the cap: past that the
+    pages read are already far more than any row keeps, and a filing hundreds
+    of pages longer costs no more. Where it stops, the cut is made over the
+    pages read and one more note names the pages never read.
     """
     if kind not in APPENDIX_BEARING_KINDS:
-        return extract_pdf_text(data, char_cap=char_cap, ocr_page=ocr_page)
+        return extract_pdf_text(data, char_cap=char_cap)
     try:
         reader = PdfReader(io.BytesIO(data))
-        parts, _, ocr_derived = _read_pages(reader, ocr_page=ocr_page, stop_at=None)
+        parts, stopped, ocr_derived = _read_pages(
+            reader,
+            ocr_page=None,
+            stop_at=char_cap * _READ_CEILING_CAPS,
+            page_tolerant=True,
+        )
+        total_pages = len(reader.pages)
+        stopped = stopped and len(parts) < total_pages
         text, truncated = cut_filing_text(
             parts,
-            char_cap=char_cap,
+            char_cap=char_cap - (_CUT_NOTE_RESERVE + 1 if stopped else 0),
             whole_appendix=kind == KIND_APPENDIX,
             short_decisions_first=kind == KIND_APPLICATION,
         )
+        if stopped:
+            unread = (
+                f"[pipeline note: PDF pages {len(parts) + 1} to {total_pages} were not read;"
+                f" the pages before them already exceed the {char_cap:,}-character text cap"
+                f" {_READ_CEILING_CAPS} times over]"
+            )
+            text, truncated = f"{text}\n{unread}", True
         return ExtractedText(
-            text=text, pages=len(reader.pages), truncated=truncated, ocr_derived=ocr_derived
+            text=text, pages=total_pages, truncated=truncated, ocr_derived=ocr_derived
         )
     except (PyPdfError, ValueError, TypeError):
         return ExtractedText(text="", pages=0, truncated=False)
