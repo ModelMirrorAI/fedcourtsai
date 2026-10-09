@@ -6,6 +6,15 @@ It is the definition of done for the publication, written before its data
 exists so the claims are bounded by the process rather than by what the numbers
 turn out to be.
 
+**Written by AI.** This document was written by AI agents: Claude (Anthropic),
+working in Claude Code under the maintainer's direction. They drafted the
+skeleton before the conference, then filled every figure from the commands
+each section names, run at the refresh commit, with a log of each command and
+its output. AI reviewer agents checked the statistics and the prose against the
+code and the data (section 7), and the maintainer reviewed it before it was
+published. The forecasts and gradings it reports are themselves the output of
+AI models (section 1).
+
 **Dates.** The conference sits 2026-09-28. The opening order list lands
 ~2026-10-05 and is the first realized outcome set. The write-up window is
 ~2026-10-05 → 10-20: evaluations drain as the order list is ingested, the

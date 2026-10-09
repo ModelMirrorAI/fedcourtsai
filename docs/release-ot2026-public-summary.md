@@ -37,6 +37,12 @@ Six further petitions in the scores were first forecast only after the
 conference had met, though before the Court acted on them (see *What this
 does and doesn't show*). This is the first scored result.
 
+**Written by AI.** This page, like the audit write-up behind it, was written by
+AI agents (Claude, from Anthropic) under the project maintainer's direction:
+they drafted it before the conference and copied in each figure from the audit
+write-up and the release's dataset. AI reviewer agents checked the figures, and
+the maintainer reviewed the page before it was published.
+
 ### What was predicted, and when
 
 - **Cases forecast:** 110 petitions distributed for the 2026-09-28 conference
