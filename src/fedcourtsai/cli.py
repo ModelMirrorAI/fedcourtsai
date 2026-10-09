@@ -153,10 +153,13 @@ from .disposition_convergence import converge_disposition_labels
 from .docket_marking_migration import normalize_docket_markings
 from .finalize import (
     FinalizeRole,
+    OutputSnapshot,
     agent_produced_output,
     blinded_candidates,
     cell_output_root,
     required_outputs,
+    reset_output_root,
+    snapshot_output_root,
 )
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
@@ -318,7 +321,12 @@ from .pipeline.pull import (
     pull_cases,
 )
 from .pipeline.response_backfill import backfill_response_fields
-from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
+from .pipeline.runner import (
+    EngineFailed,
+    EngineUnavailable,
+    available_backends,
+    classify_engine_attempt,
+)
 from .pipeline.salience import (
     SALIENCE_VERSION,
     SCORERS,
@@ -17211,6 +17219,136 @@ def finalize_produced_cmd(
         run_id=run_id,
     )
     typer.echo("true" if produced else "false")
+
+
+@app.command("engine-attempt-class")
+def engine_attempt_class_cmd(
+    exit_code: Annotated[int, typer.Option(help="The engine invocation's exit status.")],
+    stdout_file: Annotated[
+        Path, typer.Option(help="The invocation's captured stdout (its JSON result).")
+    ],
+    stderr_file: Annotated[Path, typer.Option(help="The invocation's captured stderr.")],
+) -> None:
+    """Print what one finished engine invocation amounted to: ok, transient, permanent,
+    or terminal_quota.
+
+    The cell workflows' gemini step (``scripts/gemini-cell.sh``) reads this after
+    every attempt and retries in place only on ``transient``. The classification
+    is the local runner's own (:func:`fedcourtsai.pipeline.runner.classify_engine_attempt`
+    over the runner's transient and terminal-quota signature sets), so the step
+    and the runner cannot disagree on what a serving hiccup looks like. A capture
+    file that cannot be read counts as empty, which leaves an unrecognized fault
+    on the permanent side.
+    """
+
+    def _read(path: Path) -> str:
+        try:
+            return path.read_text(errors="replace")
+        except OSError:
+            return ""
+
+    verdict = classify_engine_attempt(exit_code, _read(stdout_file), _read(stderr_file))
+    typer.echo(verdict.value)
+
+
+@app.command("cell-output-snapshot")
+def cell_output_snapshot_cmd(
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id the cell acts on.")],
+    actor: Annotated[str, typer.Option(help="The predictor_id / evaluator_id for this cell.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    out: Annotated[Path, typer.Option(help="Where to write the snapshot (outside the workspace).")],
+) -> None:
+    """Record what this cell's output root holds before its first engine attempt.
+
+    The other half of ``cell-output-reset``: the gemini step snapshots the root
+    (``cell-outputs``' first line) before it invokes the engine, so a retry can
+    start from exactly that state rather than from whatever a failed attempt
+    left half-written.
+    """
+    settings = get_settings()
+    root = cell_output_root(
+        role,
+        data_root=settings.data_root,
+        court=court,
+        docket=docket,
+        event=event,
+        actor=actor,
+        run_id=run_id,
+    )
+    try:
+        snapshot = snapshot_output_root(root)
+    except ValueError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    out.write_text(snapshot.to_json() + "\n")
+    typer.echo(f"{len(snapshot.entries)} entr(ies) under {root} before the first attempt")
+
+
+@app.command("cell-output-reset")
+def cell_output_reset_cmd(
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id the cell acts on.")],
+    actor: Annotated[str, typer.Option(help="The predictor_id / evaluator_id for this cell.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    snapshot_file: Annotated[
+        Path, typer.Option("--snapshot", help="The file `cell-output-snapshot` wrote.")
+    ],
+) -> None:
+    """Return a cell's output root to its snapshot by removing what an attempt added.
+
+    Run by the gemini step between a failed attempt and its retry. Removes every
+    file, directory and symlink under the root that the snapshot did not hold
+    (never following a link). The snapshot sits on a path the agent can write,
+    so the root it names is checked against the one this cell's coordinates
+    resolve to, and a snapshot naming any other is refused. Every refusal — a
+    foreign or unreadable snapshot, or a root reached through a symlink — exits
+    non-zero with nothing removed, which the step reads as a reason not to retry
+    rather than retrying over a dirty root.
+    """
+    settings = get_settings()
+    expected = cell_output_root(
+        role,
+        data_root=settings.data_root,
+        court=court,
+        docket=docket,
+        event=event,
+        actor=actor,
+        run_id=run_id,
+    )
+    events = CasePaths(settings.data_root, court, docket).event(event)
+    flags = (
+        events.prediction_flags(actor, run_id)
+        if role is FinalizeRole.predict
+        else events.evaluation_flags(actor, run_id)
+    )
+    try:
+        snapshot = OutputSnapshot.from_json(snapshot_file.read_text())
+        if snapshot.root != Path(os.path.abspath(expected)):
+            raise ValueError("the snapshot names a root other than this cell's")
+        relative = Path(os.path.abspath(flags)).relative_to(snapshot.root).as_posix()
+        if flags.is_file() and relative not in snapshot.entries:
+            # A flags.json is the cell's written disclosure — in a replay cell,
+            # of outcome-revealing material it ran into. A retry is a fresh
+            # session that knows nothing of it, so wiping the file would lose
+            # the disclosure; the attempt is kept instead, as it stands.
+            typer.echo(
+                "::warning::the failed attempt wrote the cell's flags.json; "
+                + "keeping the attempt rather than discarding its disclosure",
+                err=True,
+            )
+            raise typer.Exit(code=3)
+        removed = reset_output_root(snapshot)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"::error::cannot reset the cell's output root: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    # A count, never the names: those are the agent's to choose, and a name
+    # echoed raw into the job log could carry a workflow command.
+    typer.echo(f"removed {len(removed)} entr(ies) the failed attempt left under {snapshot.root}")
 
 
 @app.command("cell-outputs")

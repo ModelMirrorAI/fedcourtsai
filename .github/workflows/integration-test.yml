@@ -2040,6 +2040,19 @@ jobs:
           # 55 otherwise), exactly as the cell step declares it.
           GEMINI_CLI_TRUST_WORKSPACE: "true"
           MODEL_ID: ${{ steps.cell.outputs.model }}
+          # The cells' gemini step runs `scripts/gemini-cell.sh`, which takes a
+          # cell to snapshot and classify; the probe hands it the production
+          # predictor at placeholder coordinates matching no case, over a
+          # scratch data root under the runner temp dir — never `data/`, and
+          # apart from the capture assertion's own root below. At this leg's
+          # 13-minute deadline the script's 20-minute retry floor is never met,
+          # so the probe exercises the wrapper's single attempt and its
+          # classification, never a retry.
+          PREDICTOR_ID: ${{ steps.cell.outputs.predictor }}
+          COURT_ID: scotus
+          DOCKET_ID: "1"
+          EVENT_ID: evt-engine-actions-smoke
+          FEDCOURTS_DATA_ROOT: ${{ runner.temp }}/actions-smoke-engine/data
           # DEVIATION, as on the two legs above: a boot probe, not a cell.
           PROMPT: |
             Reply with the single word: ok
@@ -2048,12 +2061,15 @@ jobs:
             probe of the invocation path, not a task.
         run: |
           set -euo pipefail
+          # The cells' own wrapper, copied out of the workspace as they copy it.
           # The result goes to RUNNER_TEMP rather than the workspace: the CLI
           # has just run `--yolo` over the checkout, so a workspace path can
           # be pre-planted, and the assertion below must read this step's own
           # output. Never rendered into the step summary — it is model output.
-          gemini --yolo --model "$MODEL_ID" --prompt "$PROMPT" --output-format json \
-            > "$RUNNER_TEMP/gemini-actions-smoke.json"
+          cp scripts/gemini-cell.sh "$RUNNER_TEMP/gemini-cell.sh"
+          RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)" \
+            GEMINI_RESULT_FILE="$RUNNER_TEMP/gemini-actions-smoke.json" \
+            bash "$RUNNER_TEMP/gemini-cell.sh" predict "$PREDICTOR_ID"
 
       # Stand the probe's watchdog down the moment the invocation is over, and
       # report what it did, on the cells' terms: the pid is signalled only if

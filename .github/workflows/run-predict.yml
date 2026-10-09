@@ -1215,6 +1215,15 @@ jobs:
       # reproduces what the action ran: an exact-version npm install, env-var
       # auth, the same workspace settings file (telemetry preserved for the
       # usage-capture step), and the same headless `--yolo` prompt call.
+      #
+      # The call is made by `scripts/gemini-cell.sh`, which retries it in place
+      # when a turn ends on a transient fault (gemini's INVALID_STREAM arrives
+      # as a zero exit with the fault inside the JSON result) — classified by
+      # the local runner's own signature sets, started only from a clean
+      # output root and only while enough of this step's deadline remains,
+      # never past it: the step's timeout and the watchdog bracket are
+      # unchanged. The script states the rules; run-evaluate's gemini step
+      # runs the same file.
       - name: Predict with Gemini
         id: predict_gemini
         if: matrix.engine == 'gemini' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
@@ -1276,7 +1285,12 @@ jobs:
             for a reply.
         run: |
           set -euo pipefail
-          gemini --yolo --model "$MODEL_ID" --prompt "$PROMPT" --output-format json
+          # A copy taken before the turn starts, as the arm step takes of the
+          # watchdog: bash reads a script file as it executes it, and the agent
+          # has the run of the workspace for the whole of its turn. Against an
+          # edit to `scripts/` mid-turn, not a boundary against the agent.
+          cp scripts/gemini-cell.sh "$RUNNER_TEMP/gemini-cell.sh"
+          bash "$RUNNER_TEMP/gemini-cell.sh" predict "$PREDICTOR_ID"
 
       # Stand the watchdog down the moment the engine step is over, however it
       # ended, so it can never fire late and kill something in the tail.
@@ -1576,6 +1590,8 @@ jobs:
           # it names why a cell stopped, which the collect job renders into
           # the draft PR's reason column.
           ENGINE_DEADLINE: ${{ steps.disarm.outputs.deadline == 'true' }}
+          # Either gate refused the cell, so no engine ran.
+          CELL_REFUSED: ${{ steps.provision.outputs.refused == 'true' || steps.record.outputs.refused == 'true' }}
         run: |
           set -euo pipefail
           # The event.yaml is materialized before the agent runs, so a staged change
@@ -1585,6 +1601,14 @@ jobs:
           produced=$(uv run fedcourts finalize-produced --role predict \
             --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
             --actor "$PREDICTOR_ID" --run-id "$RUN_ID")
+          # A cell that lands nothing still concludes green — the collect job
+          # owns the miss, recording its failure fact against the cell's
+          # attempt cap — so it is named here, where the run's annotations
+          # carry it, rather than left to be found by its absence. A refused
+          # cell ran no engine and its gate has already said so.
+          if [ "$produced" != "true" ] && [ "$CELL_REFUSED" != "true" ]; then
+            echo "::warning::cell ${PREDICTOR_ID} ${COURT_ID}/${DOCKET_ID} ${EVENT_ID} produced no output (no_output; engine step ok: ${AGENT_OK})"
+          fi
           validated=false
           if [ "$produced" = "true" ] && uv run fedcourts validate data; then
             validated=true

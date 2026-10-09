@@ -42,6 +42,7 @@ scoring is exactly the consume path under test); only the prediction is replayed
 
 from __future__ import annotations
 
+import json
 import os
 import random
 import re
@@ -52,6 +53,7 @@ import time
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Protocol
 
@@ -867,7 +869,10 @@ def _agent_base_env(own_auth: Collection[str]) -> dict[str, str]:
 # provider's error text on stderr. Anything that matches none of these reads as
 # permanent — a content-filter trip or a context-length blowout is deterministic,
 # and retrying it only re-spends the cell's tokens, exactly as is_transient
-# refuses to retry a 404.
+# refuses to retry a 404. The same set reads the error an engine reports inside
+# its JSON result (:func:`classify_engine_attempt`), which is the only surface
+# gemini's INVALID_STREAM reaches — and the one the cell workflows' gemini step
+# classifies its attempts on, so the step and this runner share one set.
 _TRANSIENT_FAILURE = re.compile(
     r"""
     # A bare 429 is a distinctive status with low false-positive risk, so it
@@ -935,7 +940,19 @@ def _failure_is_terminal_quota(result: CommandResult) -> bool:
     the conservative reading (a retried throttle costs backoff, a
     misclassified one costs the cell).
     """
-    return bool(_TERMINAL_QUOTA.search(result.stderr))
+    return _text_is_terminal_quota(result.stderr)
+
+
+def _text_is_terminal_quota(text: str) -> bool:
+    """The terminal-quota test over a fault's text, whichever surface carried it."""
+    return bool(_TERMINAL_QUOTA.search(text))
+
+
+def _text_is_transient(text: str) -> bool:
+    """The transient test over a fault's text; a terminal quota overrides it."""
+    if _text_is_terminal_quota(text):
+        return False
+    return bool(_TRANSIENT_FAILURE.search(text))
 
 
 def _failure_is_transient(result: CommandResult) -> bool:
@@ -951,9 +968,77 @@ def _failure_is_transient(result: CommandResult) -> bool:
     too — a 429, the word quota — and matching those first would retry the one
     fault that cannot clear.
     """
-    if _failure_is_terminal_quota(result):
-        return False
-    return bool(_TRANSIENT_FAILURE.search(result.stderr))
+    return _text_is_transient(result.stderr)
+
+
+class AttemptClass(StrEnum):
+    """What one finished engine invocation amounted to, for an in-step retry.
+
+    ``ok`` — the engine reported no fault; ``transient`` — a fault the
+    signature set above reads as a serving hiccup, worth a fresh attempt;
+    ``terminal_quota`` — the allowance is spent, which no attempt can clear;
+    ``permanent`` — anything else, including a fault nothing recognizes.
+    """
+
+    ok = "ok"
+    transient = "transient"
+    terminal_quota = "terminal_quota"
+    permanent = "permanent"
+
+
+def engine_result_error(stdout: str) -> str | None:
+    """The fault an engine reported *inside* its JSON result, as text, if any.
+
+    gemini-cli's ``--output-format json`` ends a turn whose stream went bad
+    with an ordinary zero exit and a result object carrying
+    ``"error": {"type": "INVALID_STREAM", "message": ...}`` — so the exit code
+    says nothing, and the fault is visible only here. The type and message are
+    joined so the signature set reads both, as it reads a stderr line. Anything
+    that does not parse as one JSON object with a non-empty ``error`` is no
+    reported fault. (gemini-cli 0.49.0; re-check on a CLI bump.)
+    """
+    try:
+        result = json.loads(stdout)
+    except ValueError:
+        return None
+    if not isinstance(result, dict):
+        return None
+    error = result.get("error")
+    if isinstance(error, dict):
+        parts = [str(error.get(key) or "") for key in ("type", "message")]
+        return ": ".join(part for part in parts if part) or None
+    if isinstance(error, str) and error:
+        return error
+    return None
+
+
+def classify_engine_attempt(returncode: int, stdout: str, stderr: str) -> AttemptClass:
+    """Classify one finished engine invocation with the runner's own signatures.
+
+    The one classifier the cell workflows' gemini step reads (through
+    ``fedcourts engine-attempt-class``), built on the same signature set the
+    local runner's retry loop reads, so the two cannot drift apart on what
+    counts as transient.
+
+    A zero exit with no error in the JSON result is ``ok``. A zero exit *with*
+    one is classified on that error's text alone — the CLI's own verdict on the
+    turn — and not on stderr, where a clean exit leaves incidental warnings that
+    could carry a signature word. A non-zero exit reads stderr plus any result
+    error, as :func:`_failure_is_transient` reads stderr. A terminal quota
+    overrides the transient set, as it does in the runner's retry loop.
+    """
+    error = engine_result_error(stdout)
+    if returncode == 0:
+        if error is None:
+            return AttemptClass.ok
+        text = error
+    else:
+        text = "\n".join(part for part in (stderr, error) if part)
+    if _text_is_terminal_quota(text):
+        return AttemptClass.terminal_quota
+    if _text_is_transient(text):
+        return AttemptClass.transient
+    return AttemptClass.permanent
 
 
 def _retry_after_seconds(stderr: str) -> float | None:
