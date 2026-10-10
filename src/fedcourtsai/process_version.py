@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -80,6 +81,41 @@ from .schemas import (
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
 CURRENT_PROCESS_LABEL = "proc-v8"
+
+# The first label whose **cert** gradings carry a harness-stamped skill record
+# (`stamp-cell --role evaluator`; `cli._cert_skill_record_for`): the Brier, the
+# risk-set anchor pooled through the scorer's own pooler over the scored
+# prediction's frozen `(band, salience_version, term)`, and the skill over
+# them. Keyed on the label a grading is stamped with, never on the stamp's
+# date, so a grading stamped under an earlier label keeps the registered
+# reading — the evaluator's transcription off `metrics/statpack.md`, held only
+# by the board's self-consistency check — through any later re-grade, and a
+# scoring rule never changes inside one label's life.
+HARNESS_CERT_ANCHOR_FROM = "proc-v9"
+
+_LABEL_PATTERN = re.compile(r"proc-v(\d+)")
+
+
+def label_ordinal(label: str | None) -> int | None:
+    """The integer ``N`` of a ``proc-vN`` label, or ``None`` for any other string."""
+    if label is None:
+        return None
+    match = _LABEL_PATTERN.fullmatch(label)
+    return int(match.group(1)) if match else None
+
+
+def harness_stamps_cert_anchor(label: str | None) -> bool:
+    """Whether a cert grading stamped under ``label`` takes the harness's skill record.
+
+    True from :data:`HARNESS_CERT_ANCHOR_FROM` on. False for an earlier label,
+    for an unstamped record (``None``), and for a label that is not a
+    ``proc-vN`` at all, so an unrecognised label keeps the registered reading
+    rather than acquiring a new scoring rule by accident.
+    """
+    ordinal = label_ordinal(label)
+    threshold = label_ordinal(HARNESS_CERT_ANCHOR_FROM)
+    return ordinal is not None and threshold is not None and ordinal >= threshold
+
 
 # The blessed process digests, each mapped to its bless moment — the current
 # label's blessing and the retroactivity record, not the counting rule (that is

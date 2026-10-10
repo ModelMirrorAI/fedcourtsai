@@ -276,10 +276,19 @@ stays outside the gate:
   number left to catch. Reproducing from the record is not the same as being
   right, which is why the numerator is stamped too rather than checked: a skill
   derived from an unverified Brier would satisfy the coherence check and still
-  publish the wrong number. The cert numbers stay the evaluator's
-  because they alone require a judgment — which band population the rate is
-  taken over, recorded in `base_rate_basis` — while both pooled rates are a
-  ratio of published integer counts with nothing to decide.
+  publish the wrong number. The cert numbers are the evaluator's only where a
+  judgment remains. From `proc-v9` on, a cert grading whose scored prediction
+  froze a band takes all three from `stamp-cell` too: the frozen band, its
+  salience version and its docket Term leave no population to choose, so the
+  anchor is the scorer's own risk-set pool (the figure `fedcourts
+  segment-anchors` prints), read from the statpack build the grading names in
+  `base_rate_statpack_digest`. The board then re-pools that anchor wherever its
+  own statpack is the same build, and drops a cell whose recorded rate does not
+  reproduce, or that records a `risk_set` basis naming no build; where the
+  build differs (a refresh since the grading) the stamped rate stands. An
+  earlier label's cert grading, and a cert cell on the terminal fallback (no
+  frozen band, so the band is re-derived from the corpus row), keep the
+  evaluator's transcription, held by the coherence check alone.
 
   **One grading per cell per judge.** A re-graded cell commits a second
   `evaluation.json` beside the first, and both describe one observation, so

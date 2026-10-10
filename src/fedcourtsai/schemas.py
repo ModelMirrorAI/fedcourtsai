@@ -1838,7 +1838,9 @@ class Evaluation(_Strict):
         "`segment_base_rate` and `brier_skill_score` stamped beside it share "
         "one source and the skill ratio is verifiable rather than merely "
         "self-consistent. An unstamped cell keeps whatever it was written with. "
-        "On a **cert** cell it is the evaluator's, and the "
+        "On a **cert** grading stamped under proc-v9 or later whose scored prediction "
+        "froze a band it is harness-stamped the same way, beside the stamped cert "
+        "anchor; on any other cert cell it is the evaluator's, and the "
         "leaderboard's coherence check holds it to the skill recorded against it. "
         "Null where the cell scored no probability and on records written before the "
         "field existed.",
@@ -1905,9 +1907,15 @@ class Evaluation(_Strict):
         description="The leakage-safe segment base rate for this case, on the stage's "
         "own axis. On a cert cell that is its salience band's grant rate pooled over "
         "statpack Terms strictly before the case's Term, and which band — therefore "
-        "which of the two published rates — is recorded in base_rate_basis below; "
-        "that choice is a judgment about the scored prediction's frozen band, so the "
-        "cert rate is the evaluator's to record. On a merits cell it is instead the "
+        "which of the two published rates — is recorded in base_rate_basis below. On a "
+        "cert grading stamped under proc-v9 or later whose scored prediction froze a "
+        "band, the rate is harness-stamped by `stamp-cell --role evaluator`: the "
+        "risk-set rate pooled through the scorer's own pooler over the prediction's "
+        "frozen band, salience version, and Term, from the statpack build named in "
+        "base_rate_statpack_digest, and cleared where that pool is empty. On an "
+        "earlier label's cert grading, and on a cert cell whose prediction froze no "
+        "band (the terminal fallback, which re-derives a band from the corpus row), "
+        "the rate is the evaluator's to record. On a merits cell it is instead the "
         "statpack merits section's disturbed rate pooled over grant Terms strictly "
         "before the case's (`pipeline.base_rates.merits_base_rate`), keyed on the "
         "Term certiorari was granted in and harness-stamped by `stamp-cell --role "
@@ -1966,6 +1974,19 @@ class Evaluation(_Strict):
         "no scorer version to pin; null too on records written before the field "
         "existed.",
     )
+    base_rate_statpack_digest: str | None = Field(
+        default=None,
+        description="Harness-stamped digest (`pipeline.base_rates.statpack_digest`, "
+        "`sha256:` over the parsed statpack's canonical JSON) of the statpack build a "
+        "harness-stamped cert segment_base_rate was pooled from. Written by "
+        "`stamp-cell --role evaluator` beside every cert anchor it stamps (proc-v9 "
+        "and later, where the scored prediction froze a band); the leaderboard "
+        "re-pools the anchor wherever its own statpack carries the same digest and "
+        "drops a cell whose recorded rate does not reproduce. Null wherever the rate "
+        "is not a harness-stamped cert anchor — every merits and interim cell, an "
+        "earlier label's cert grading, a cert cell on the terminal fallback — and "
+        "on records written before the field existed.",
+    )
     brier_skill_score: float | None = Field(
         default=None,
         le=1.0,
@@ -1975,8 +1996,10 @@ class Evaluation(_Strict):
         "merits or interim cell it is harness-derived at stamp time from the "
         "*stamped* brier_score, the outcome, and the stamped `segment_base_rate` — "
         "all three off one set of committed artifacts, so the ratio is correct by "
-        "construction rather than merely reproducible from the record; on a cert "
-        "cell it is the evaluator's, computed against the band rate it recorded. Null "
+        "construction rather than merely reproducible from the record — and so is a "
+        "cert cell's wherever segment_base_rate is the harness-stamped anchor "
+        "(proc-v9 and later, frozen band); on any other cert cell it is the "
+        "evaluator's, computed against the band rate it recorded. Null "
         "when `segment_base_rate` is null, when the baseline is already exact (the "
         "base rate matched the outcome), and on records written before the field "
         "existed.",

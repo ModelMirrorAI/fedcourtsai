@@ -789,7 +789,13 @@ who writes the baseline on each:
   the scored prediction froze a band at all. A recorded `risk_set` basis must
   arrive with the `base_rate_salience_version` its band was read under: the
   stamp fails the cell where that does not resolve, and `validate`'s
-  `base_rate_basis_carries_version` holds both rules over the ledger.
+  `base_rate_basis_carries_version` holds both rules over the ledger. Who
+  writes it depends on the grading's process label. From `proc-v9` on, where
+  the scored prediction froze a band, `stamp-cell` writes the rate, the Brier,
+  the skill and both halves of the basis from the scorer's own pooler, and
+  records the statpack build in `base_rate_statpack_digest`. Before `proc-v9`,
+  and on the terminal fallback, the evaluator transcribes the rate from
+  `metrics/statpack.md`.
 - **An interim cell's baseline is registered and wired** — the statpack interim
   section's substantive grant rate pooled over application Terms strictly before
   the case's own — but it is no band product either, so `base_rate_basis` and
