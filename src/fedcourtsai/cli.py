@@ -5575,9 +5575,12 @@ def segment_anchors_command(
 ) -> None:
     """Print the exact pooled per-band segment base rates behind cert-cell skill.
 
-    A cert cell's skill is computed against the ``segment_base_rate`` its
-    evaluator recorded, pooled off the rendered statpack table, so a recorded
-    rate can sit up to about 0.0005 from the exact pool printed here.
+    A cert cell's skill is computed against the ``segment_base_rate`` it
+    records. From proc-v9 on, where the scored prediction froze a band, the
+    stamp writes that rate through this same pooler, so it is the pool printed
+    here. On an earlier label's grading and on the terminal fallback it is the
+    evaluator's pooling of the rendered statpack table, which can sit up to
+    about 0.0005 from the exact pool.
 
     Reads only the committed ``metrics/statpack.json`` (no corpus) and pools
     each band through the scorer's own pooler,
@@ -7236,7 +7239,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     and salience config committed *now* — same rule as the ordinary stamp, that
     a harness field is a function of the committed artifacts as of the
     invocation. Reconstructing a stamp-vintage pool would price a corrected
-    statpack. So the vintage
+    outcome against a pack that never saw the correction. So the vintage
     discipline is the operator's: re-grade a whole cohort against one committed
     statpack, never a cell at a time across a moving pack. One exception: a
     harness-stamped cert anchor keeps the rate, build and window it was first

@@ -1244,8 +1244,9 @@ def _anchor_reproduces(
 
     Applies to a **cert** grading stamped under a label
     :func:`fedcourtsai.process_version.harness_stamps_cert_anchor` admits that
-    records the ``risk_set`` basis — on that label only the stamp writes one —
-    and only where the board can re-pool against the build the stamp read: its
+    records the ``risk_set`` basis — a ``risk_set`` record naming no build or
+    window is dropped, since the stamp writes both beside every rate it pools
+    — and only where the board can re-pool against the build the stamp read: its
     ``base_rate_statpack_digest`` equals the board's statpack digest. There the
     board runs the stamp's own pooler
     (:func:`fedcourtsai.pipeline.base_rates.prediction_base_rate`) over the

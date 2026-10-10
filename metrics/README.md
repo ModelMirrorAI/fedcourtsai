@@ -266,9 +266,9 @@ stays outside the gate:
   the published figure is computed from those inputs, and `Evaluation`
   constrains no relation between its numbers, so a record that disagrees with
   itself is omitted rather than published on a baseline it was never graded
-  against. That coherence check is the only one, and what it guards in
-  practice is the **cert** cell, because it is the only stage whose numbers are
-  the evaluator's arithmetic at all: on a **merits** or **interim** cell
+  against. That coherence check is what guards every **cert** cell the stamp
+  does not own, because those are the only cells whose numbers are the
+  evaluator's arithmetic at all: on a **merits** or **interim** cell
   whose `event.yaml` names its stage, `stamp-cell` writes all three together —
   `brier_score` recomputed from the scored prediction's probability and the
   committed outcome, `segment_base_rate` pooled from the statpack, and the
@@ -283,9 +283,10 @@ stays outside the gate:
   anchor is the scorer's own risk-set pool (the figure `fedcourts
   segment-anchors` prints), read from the statpack build the grading names in
   `base_rate_statpack_digest`, under the window recorded in
-  `base_rate_lookback_terms`. The board re-pools that anchor only where its own
-  statpack is the same build, and drops a cell whose recorded rate does not
-  reproduce, or that records a `risk_set` basis naming no build or window;
+  `base_rate_lookback_terms`. The board drops, whatever its build, a `proc-v9`
+  cert cell recording a `risk_set` basis that names no build or window; it
+  re-pools the anchor only where its own statpack is the same build, and drops
+  a cell whose recorded rate does not reproduce;
   where the build differs (a refresh since the grading) the stamped rate
   stands. The committed board is built straight after a statpack refresh, so
   there the re-pool stands down for nearly every cell: it verifies an
@@ -509,8 +510,9 @@ stays outside the gate:
   badly negative cell moves much further than the figures above. And the two
   published **figures** run over different cell sets — the qualifying rules
   below are narrower in practice and never the same set, since
-  `base_rate_basis` is the evaluator's own field and inclusion is therefore a
-  convention rather than a construction — so the decomposition is a statement
+  `base_rate_basis` is the evaluator's own field (except on a cert cell the
+  stamp owns, from `proc-v9` on) and inclusion is therefore a convention
+  rather than a construction — so the decomposition is a statement
   about a cell, never a licence to subtract one column from the other.
 
   **Both columns aggregate as a ratio of sums, not a mean of per-cell
