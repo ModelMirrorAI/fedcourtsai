@@ -231,8 +231,8 @@ fails the cell.
     prediction's own Term from the committed statpack by the scorer's own
     pooler — so `stamp-cell` writes the rate, `base_rate_basis`,
     `brier_skill_score` and the statpack build it read, and nulls all of them
-    together where the pack cannot support the pool (a band frozen with no
-    `salience_version`, or no prior Term carrying it). Leave
+    together where the pack cannot support the pool (for example a band frozen
+    with no `salience_version`, or no prior Term carrying it). Leave
     `segment_base_rate`, `brier_skill_score` and `base_rate_basis` null on such a
     cell: anything you write there is overwritten. Do not pool or quote a rate
     of your own for it in `evaluation.md` either, since the stamped record is the
@@ -250,10 +250,10 @@ fails the cell.
     precedes the case's; its caption states how many of the pack's Terms are
     rendered, and where that is fewer than the pack holds, the shown window *is*
     your window. Record `base_rate_basis` `terminal` and say in `evaluation.md`
-    that you used the terminal fallback. Never record `risk_set` (that basis is
-    the harness's, and needs a frozen band), and never record `terminal`
-    against a prediction that froze a band: either **fails the cell** at the
-    harness stamp. Omit the rate (and with it `brier_skill_score`), leaving
+    that you used the terminal fallback. Never record `risk_set`: that basis is
+    the harness's and needs a frozen band, so a `risk_set` you record **fails
+    the cell** at the harness stamp. A `terminal` recorded against a prediction
+    that froze a band is overwritten by the stamp and warned on. Omit the rate (and with it `brier_skill_score`), leaving
     `base_rate_basis` null, when the case has no Term or no prior-Term band
     resolved.
   - `brier_skill_score` — `1 - brier_score / (segment_base_rate - actual_granted)**2`:
@@ -397,9 +397,10 @@ fails the cell.
     signals, and the committed statpack, per the do-not-score rule above. Leave
     the field absent.
   - Do **not** write `base_rate_salience_version` — the harness derives it at
-    the stamp from the `base_rate_basis` you record and the scored prediction's
-    frozen context, so anything you put there is overwritten. Record the basis;
-    the version half is not yours.
+    the stamp from the basis and the scored prediction's frozen context, so
+    anything you put there is overwritten. On the terminal fallback record the
+    basis; on a frozen-band cert cell the stamp writes both halves. The version
+    half is never yours.
   - Do **not** write `segment_base_rate` or `brier_skill_score` **on a merits
     or an interim cell** — the harness pools both from the committed statpack
     at the stamp and clears them where it declines the pool, so a number you

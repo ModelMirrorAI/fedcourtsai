@@ -6814,7 +6814,8 @@ freeze commit is recorded here.
   'claude-code-action@' .github/workflows/run-predict.yml` shows the v1.0.241
   pin.
 - **`proc-v9`: the claude pair moves to `claude-opus-5-5`, the judges are
-  told the predictors' stakes scores are in view, and the codex and gemini
+  told the predictors' stakes scores are in view and leave a frozen band's
+  cert anchor to the stamp, and the codex and gemini
   predictors carry forward unchanged; recorded 2026-10-09.** Freeze commit:
   `<FILL: freeze commit hash>`, to be tagged **`prereg/proc-v9`**. The first
   label under the window rule the 2026-09-26 entry declared. It is two
@@ -6851,23 +6852,29 @@ freeze commit is recorded here.
   | `claude-baseline` | `sha256:1a0b2bef…22e89a` | `sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734` (new) |
   | `codex-baseline` | `sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c` | same, carried forward |
   | `gemini-baseline` | `sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f` | same, carried forward |
-  | `claude-judge` | `sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13` | `sha256:11dd7d0017c16626139e480013e1033a0963246c49f223d66f0ed553cfd6ddf2` (new) |
-  | `codex-judge` | `sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1` | `sha256:b393b58b65799c79ee8991139c226607088182c3c0f9acde01e9d5cb49a074cb` (new) |
-  | `gemini-judge` | `sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe` | `sha256:e6ecaf1f36b818075cc4caa83976adf760275462522a468aa8e29b794a4546bd` (new) |
+  | `claude-judge` | `sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` (new) |
+  | `codex-judge` | `sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1` | `sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456` (new) |
+  | `gemini-judge` | `sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe` | `sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300` (new) |
 
   The replaced `proc-v8` `claude-baseline` digest is
   `sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a`.
   The three evaluator digests in the table were recomputed on `staging` when the
-  cert-anchor wording joined the evaluate prompt, before the carrying
-  promotion; the three predictor digests did not move with them.
+  cert-anchor wording joined the evaluate prompt, at `<FILL: the staging merge
+  that carried the cert-anchor wording>`, before the carrying promotion; the
+  three predictor digests did not move with them. The evaluator digests they
+  replace were registered on `staging` only, never reached `main` and stamp no
+  cell (`sha256:d4be08d2…`, `sha256:d7d16ff6…` and `sha256:4f5fa7a6…` for
+  `claude-judge`, `codex-judge` and `gemini-judge`).
 
   **Step 0.** At `origin/main` `d77b4e1b0` (`2026-10-09T20:42:51Z`), `git grep
   -l '<digest>' origin/main -- data/cases | wc -l` is **0** for each of the
-  four newly blessed digests. The wider census, `git grep -l
+  four digests then registered (`claude-baseline`'s and the three evaluator
+  digests since replaced on `staging`). The wider census, `git grep -l
   '"process_version": {' origin/main -- data/cases | wc -l`, is **2293**
-  stamped cells, all under `proc-v8`'s six digests or earlier labels'. For the
-  three recomputed evaluator digests, at `origin/main` `115575b99`
-  (`2026-10-10T14:49:00Z`) each count is **0**, and the census is **2296**.
+  stamped cells, all under `proc-v8`'s six digests or earlier labels'. Re-run
+  over the four newly blessed digests in the table, at `origin/main`
+  `115575b99` (`2026-10-10T14:49:00Z`), each count is **0** and the census is
+  **2296**.
   Promotion-time re-run: `<FILL: per-digest counts and census at the carrying
   promotion>`.
 
@@ -6977,7 +6984,7 @@ freeze commit is recorded here.
   `gemini-baseline`), `codex-judge` `9670e1c1…` **327** (110 / 110 / 107),
   `gemini-judge` `dbdc9064…` **329** (110 / 110 / 109). An evaluator digest
   records and never partitions, so every grading series pools across this
-  rubric boundary, and three things change at it:
+  rubric boundary, and four things change at it:
   - **The stakes read.** The prompt no longer asks a judge to form its
     `big_case` read before looking at the predictor's `big_case_score`; it says
     the scores are in the predictions it grades and asks it not to anchor on
@@ -7002,7 +7009,8 @@ freeze commit is recorded here.
     `stamp-cell --role evaluator` writes a cert grading's `brier_score`,
     `segment_base_rate`, `brier_skill_score`, `base_rate_basis` and
     `base_rate_salience_version` wherever the scored prediction froze a band,
-    and the evaluate prompt now tells a judge to leave those fields to it. The
+    and the evaluate prompt now tells a judge to leave the rate, basis and
+    skill to it. The
     anchor is the exact risk-set pool (`pipeline.base_rates.prediction_base_rate`,
     `alt_segments` included) from the statpack build and lookback window
     recorded beside it in `base_rate_statpack_digest` and
@@ -7012,17 +7020,25 @@ freeze commit is recorded here.
     every OT2026 long-conference cohort grading stamped before the carrying
     promotion; a cohort event first graded after it takes the harness anchor,
     and the count of such cells is `<FILL: cohort cert gradings stamped with
-    the harness anchor at the tagged commit>`. The `proc-v8` predictor windows
-    that stay open across the carrying promotion therefore carry both
-    authorships of their cert anchor. The rate difference is bounded by the
-    transcription spread measured on 2026-10-06 (mean ≤0.06 pp, max 0.34 pp),
-    and the scored population grows by the sal-v3 frozen-band cells the
-    transcription left null, so a `proc-v8` window's prior-Term skill is read
+    the harness anchor at the tagged commit, per proc-v8 window, and the events
+    whose gradings straddle the carrying promotion>`. Every `proc-v8` window
+    that collects cert gradings after the carrying promotion, the closed
+    `claude-baseline` window included, therefore carries both authorships of
+    its cert anchor. The transcription spread was measured at the release fill
+    over the cohort's 873 cert gradings (`release-sensitivity`'s
+    `exact_pool_anchor.transcription_spread`): none deviates from its exact
+    pool by more than 0.34% of the rate. That is a measurement of past
+    transcriptions against one statpack build, not a bound on an anchor pooled
+    from a later build. The scored population also grows by the sal-v3
+    frozen-band cells the transcription left null, a selected rather than
+    random addition (`<FILL: their count at the tagged commit, per band>`), so a `proc-v8` window's prior-Term skill is read
     across the boundary only through `by_band`, with its `skill_scored` n. The
     board drops a `proc-v9` cert cell whose anchor does not re-pool against the
     build it names. That check stands down whenever the board's statpack
     differs from the grading's build, which on the committed board is nearly
-    always, until builds are pinned per cohort.
+    always, until builds are pinned per cohort: `<FILL: proc-v9 cert gradings
+    the board re-pooled and verified, stood down on, and dropped, at the
+    tagged commit>`.
   - **`claude-judge`'s grader model** moves from `claude-fable-5-1` to
     `claude-opus-5-5`, so `claude-judge`'s grading series pools two graders.
     The `proc-v8` cells still collecting gradings after the carrying promotion,
@@ -7123,11 +7139,22 @@ freeze commit is recorded here.
     moment cut in replay mode as in forward mode. No predict prompt byte
     moves, so the predictor digests do not, and cells provisioned before and
     after the promotion read different document sets for the same case,
-    inside the carried-forward codex and gemini windows as well. Documents are
-    placed by their own docket date at every cut, so no cell receives a filing
-    docketed on or after its cutoff. Measured backlog: 131 of 193 open
-    predict-relevant cases owed at least one filing (corpus blob
-    `f8b52723…`, latest pull 2026-10-09).
+    inside the carried-forward codex and gemini windows as well. The freshness
+    pass drains its backlog a capped number of cases a cycle, so a cell
+    provisioned after the promotion can still read a pre-promotion document
+    set, and splitting a window at the promotion does not split it cleanly by
+    document set. Every `proc-v9` `claude-baseline` cell is provisioned under
+    the widened kinds, while codex and gemini cells on the same events may not
+    be, which the complete-grid reading above inherits alongside the
+    predict-cell hide. Documents are placed by their own docket date at every
+    moment cut (pinned by `tests/test_document_freshness.py`), so no cell
+    provisioned with a cut receives a filing docketed on or after its cutoff.
+    The replay-mode cut affects only retrospective cells, which no scheduled
+    workflow provisions and no claimable stratum reads; before it, a replay
+    cell was cut only at interim arrival. Measured backlog: 131 of 193 open
+    predict-relevant cases owed at least one filing, from a read-only run of
+    the freshness check over corpus blob `f8b52723…` (latest pull
+    2026-10-09).
   - **The live rotation stops leading with a read conference.** A pending
     petition whose conference has passed leaves the conference-first tier once
     a poll more than `live.order_list_lag_days` (7) after that conference has

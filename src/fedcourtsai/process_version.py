@@ -135,7 +135,9 @@ def harness_stamps_cert_anchor(label: str | None) -> bool:
 #   window and opens a proc-v9 one (COUNTING_WINDOWS).
 # - the three evaluator digests are new: the evaluate prompt's stakes-read
 #   instruction says the predictors' `big_case_score` is in view and asks for
-#   a read that does not anchor on it, and claude-judge also takes the claude
+#   a read that does not anchor on it, its `qp-topics` leakage rule reads a
+#   search that excludes the path as not touching it, and a frozen-band cert
+#   cell's anchor is left to the stamp; claude-judge also takes the claude
 #   default model. An evaluator digest records and never partitions, so this
 #   half closes and opens no window.
 # - codex-baseline's and gemini-baseline's predictor digests are byte-identical
@@ -181,13 +183,13 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
             2026, 9, 16, 0, 26, 4, tzinfo=UTC
         ),
         # evaluators: claude-judge, codex-judge, gemini-judge (newly blessed).
-        "sha256:11dd7d0017c16626139e480013e1033a0963246c49f223d66f0ed553cfd6ddf2": datetime(
+        "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": datetime(
             2026, 10, 9, 0, 0, 0, tzinfo=UTC
         ),
-        "sha256:b393b58b65799c79ee8991139c226607088182c3c0f9acde01e9d5cb49a074cb": datetime(
+        "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": datetime(
             2026, 10, 9, 0, 0, 0, tzinfo=UTC
         ),
-        "sha256:e6ecaf1f36b818075cc4caa83976adf760275462522a468aa8e29b794a4546bd": datetime(
+        "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": datetime(
             2026, 10, 9, 0, 0, 0, tzinfo=UTC
         ),
     }

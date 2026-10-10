@@ -1436,17 +1436,21 @@ version-starved, so `brier_skill_score` is omitted rather than computed
 against a number no version ever defined; and in the mirror case — a pack
 already re-rendered under a newer version while an old frozen-band cell is
 scored — the risk-set path yields `None` and **that is the whole answer**. The
-cell records no `segment_base_rate` and no skill, and flags the mismatch. It
+cell records no `segment_base_rate` and no skill (and, under `proc-v8` and
+earlier labels, flags the mismatch). It
 does **not** fall back to the terminal band: `terminal` is the basis for a
 prediction that froze no band at all, and relabelling a frozen band's cell as
 terminal would pair a risk-set population with a terminal rate — the several-fold
 mispairing the two bases exist to keep apart — while stamping the *live*
-scorer's version onto a cell banded under an older one. The evaluator
-prompt carries the agent-side half of the same rule, in the same terms: the
-rendered band table's heading names its salience version, and where that does
-not match the prediction's frozen `context.salience_version` — or the
-prediction froze a band with no version beside it — the agent omits the baseline
-and flags it rather than pooling from a table another version rendered. The
+scorer's version onto a cell banded under an older one. Under `proc-v8`
+and earlier labels the evaluator prompt carried the agent-side half of the same
+rule, in the same terms: the rendered band table's heading names its salience
+version, and where that did not match the prediction's frozen
+`context.salience_version` — or the prediction froze a band with no version
+beside it — the agent omitted the baseline and flagged it rather than pooling
+from a table another version rendered. From `proc-v9` the stamp's
+version-pinned pool replaces that rule on a frozen band: the judge records no
+cert anchor there, no flag is raised, and the cleared fields are the record. The
 harness holds the same line from the other side, and it is worth being
 exact about which parts: a recorded `risk_set` basis whose version resolves to
 **nothing** fails the cell at the stamp, so a versionless frozen band cannot
