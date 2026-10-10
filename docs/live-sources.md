@@ -132,6 +132,12 @@ then recent Terms first, then stalest. Staleness leads the Term inside a confere
 distributed set must be re-read once its order list issues: Term first, the
 newest Term's still-pending dockets (relisted, rescheduled) would take the head
 of every cycle while an older Term's petitions on the same conference waited.
+A past conference holds its petitions in the distributed tier only until that
+read: a still-pending petition polled more than `live.order_list_lag_days`
+after its conference date — by when the order list has issued — drops to the
+Term tiers. A held, CVSG or rescheduled petition is no longer days from a
+result, so keyed on its past date it would lead every cycle until its docket
+moved; a relist or new distribution writes a later date and re-admits it.
 
 Each of those tiers is unbounded in size while the cycle's cap
 (`live.max_cases_per_run`) is fixed, so a tier larger than the cap — the
