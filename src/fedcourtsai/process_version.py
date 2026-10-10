@@ -218,14 +218,15 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
 # instant moves and the ordinary rule governs — the literal must be at or after
 # the merge of the promotion that carries this label's freeze commit to `main`
 # and before the first run intended to count. That merge is not known at the
-# freeze commit, so the instant is step 2's **late** forecast,
-# `2026-10-16T00:00:00Z`: a week past the freeze commit, so a promotion that
-# waits on the staging rehearsal and the maintainer's review still lands
-# before it. A cell the new claude digest stamps between that merge and the
-# instant is honest shakedown, uncounted and re-owed; one stamped before the
+# freeze commit, so the instant is a **late** forecast,
+# `2026-10-11T12:00:00Z`: after the promotion the maintainer is landing on
+# 2026-10-10, and before `run-predict`'s first scheduled round on 2026-10-11
+# (14:12Z), so no scheduled round falls between the merge and the instant. A
+# cell the new claude digest stamps between that merge and the instant is
+# honest shakedown, uncounted and re-owed; one stamped before the
 # merge cannot exist, since nothing carries the new bytes until the merge does.
 # Should the promotion slip past the instant, step 4 bumps it before the tag.
-FROZEN_SINCE: datetime | None = datetime(2026, 10, 16, 0, 0, 0, tzinfo=UTC)
+FROZEN_SINCE: datetime | None = datetime(2026, 10, 11, 12, 0, 0, tzinfo=UTC)
 
 # The counting registry: one window per blessing of a predictor digest, and
 # the counting rule every frozen-scope reader applies (`is_frozen`,
@@ -266,7 +267,7 @@ COUNTING_WINDOWS: tuple[CountingWindow, ...] = (
         label="proc-v8",
         digest="sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
         opens=datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC),
-        closes=datetime(2026, 10, 16, 0, 0, 0, tzinfo=UTC),
+        closes=datetime(2026, 10, 11, 12, 0, 0, tzinfo=UTC),
     ),
     # codex-baseline: carried forward byte-identical into proc-v9, open.
     CountingWindow(
@@ -284,7 +285,7 @@ COUNTING_WINDOWS: tuple[CountingWindow, ...] = (
     CountingWindow(
         label="proc-v9",
         digest="sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
-        opens=datetime(2026, 10, 16, 0, 0, 0, tzinfo=UTC),
+        opens=datetime(2026, 10, 11, 12, 0, 0, tzinfo=UTC),
     ),
 )
 

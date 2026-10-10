@@ -6881,8 +6881,11 @@ freeze commit is recorded here.
   **Bless moments and instant.** The four new digests carry step 2's early
   forecast, `2026-10-09T00:00:00Z`; the two carried-forward predictor digests
   keep `2026-09-16T00:26:04Z`. The instant is guessed late, at
-  `2026-10-16T00:00:00Z`, a week after this commit, so a promotion that waits on
-  the staging rehearsal below still lands before it. The cost of guessing late
+  `2026-10-11T12:00:00Z`. It was first set at `2026-10-16T00:00:00Z`, a week
+  after this commit, and moved before the carrying promotion merged, once
+  that promotion's merge was due on 2026-10-10: the new instant follows that
+  merge and precedes `run-predict`'s first scheduled round on 2026-10-11
+  (14:12Z), so no scheduled round falls in the gap. The cost of guessing late
   falls on `claude-baseline` alone: a cell its new digest stamps between the
   carrying merge and the instant counts in no window. Its event is re-owed
   only while the event is still forward and its declared moment still open
@@ -6902,18 +6905,19 @@ freeze commit is recorded here.
 
   | Predictor | Label | Opens | Closes |
   | --- | --- | --- | --- |
-  | `claude-baseline` (`1a0b2bef…`, `claude-fable-5-1`) | `proc-v8` | `2026-09-16T00:26:04Z` | `2026-10-16T00:00:00Z` (was open) |
+  | `claude-baseline` (`1a0b2bef…`, `claude-fable-5-1`) | `proc-v8` | `2026-09-16T00:26:04Z` | `2026-10-11T12:00:00Z` (was open) |
   | `codex-baseline` | `proc-v8` | `2026-09-16T00:26:04Z` | open |
   | `gemini-baseline` | `proc-v8` | `2026-09-16T00:26:04Z` | open |
-  | `claude-baseline` (`605201bd…`, `claude-opus-5-5`) | `proc-v9` | `2026-10-16T00:00:00Z` | open (new) |
+  | `claude-baseline` (`605201bd…`, `claude-opus-5-5`) | `proc-v9` | `2026-10-11T12:00:00Z` | open (new) |
 
   **What the close owes, provisional.** `uv run fedcourts successor-disclosures
   --closed proc-v8 --successor proc-v9`, run at this commit's registry over
-  `main`'s ledger at `d77b4e1b0`:
+  the ledger as synced to `staging` at `c6fa6fdea`, re-run when the instant
+  moved:
 
   ```
-  successor proc-v9 closes proc-v8 at 2026-10-16T00:00:00+00:00
-    closed proc-v8 claude-baseline: 251 counted event(s) — 110 resolved, 141 pending at close
+  successor proc-v9 closes proc-v8 at 2026-10-11T12:00:00+00:00
+    closed proc-v8 claude-baseline: 252 counted event(s) — 110 resolved, 142 pending at close
     split events: 0 (0 resolved) — in no complete grid
     graded by claude-judge @ sha256:fbc0e9c3…: 110 grading(s), 0 at or after the instant
     graded by codex-judge @ sha256:9670e1c1…: 110 grading(s), 0 at or after the instant
@@ -6955,7 +6959,7 @@ freeze commit is recorded here.
   claude cell, and at which commit>`.
 
   **Evidence for the change other than the closed window's board.** The close
-  is decided while 110 of that window's 251 counted events have resolved, so
+  is decided while 110 of that window's 252 counted events have resolved, so
   it rests on nothing those outcomes say:
   - **Cost.** Opus 5.5 is priced at $4 / $20 per million input / output tokens,
     40% of Fable 5.1's $10 / $50, and $0.20 per million cache reads, 80% of
