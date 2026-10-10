@@ -1039,11 +1039,10 @@ def skill_components(
     inputs disagree. An omission from ``skill_scored``, never a substituted
     value. And, where ``lookback_terms`` is given, the drop
     :func:`_anchor_reproduces` adds: a harness-stamped cert anchor the board's
-    own re-pool does not reproduce. ``None`` skips that check — the
-    ``leaderboard`` command and the revoked-window board pass the configured
-    window; a caller pinned to a label before
-    :data:`fedcourtsai.process_version.HARNESS_CERT_ANCHOR_FROM` holds no
-    harness-stamped cert anchor to check.
+    own re-pool does not reproduce. ``None`` skips that check; every command
+    that builds a board (``leaderboard``, ``revoked-window-board``,
+    ``release-sensitivity``) passes the configured window, so their boards
+    drop the same cells.
 
     **The realized-Term column** re-reads the same band from the case's own Term
     (:func:`fedcourtsai.pipeline.base_rates.realized_band_rate`, leave-one-out)

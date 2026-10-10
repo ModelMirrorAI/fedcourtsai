@@ -128,8 +128,12 @@ def statpack_digest(statpack: StatPack) -> str:
     the same build and every reader — the evaluator stamp that records it
     beside a cert anchor, and the board that re-pools that anchor — derives it
     the same way from the :class:`~fedcourtsai.schemas.StatPack` it already
-    holds. The pack carries no build timestamp, so two builds share a digest
-    exactly when every figure they publish agrees.
+    holds. The pack carries no build timestamp, so under one ``StatPack``
+    model two builds share a digest exactly when every figure they publish
+    agrees. The model's shape is part of what is hashed: a schema change that
+    adds a defaulted field moves the digest of an unchanged file, which reads
+    to the board as a different build (its re-pool then stands down, as it
+    does after any refresh).
     """
     canonical = json.dumps(statpack.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()

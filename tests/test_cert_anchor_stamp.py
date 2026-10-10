@@ -280,6 +280,67 @@ def test_a_frozen_band_without_its_version_is_the_omission(
     assert stamped["brier_score"] == pytest.approx(0.04)
 
 
+def test_an_empty_pool_clears_the_anchor_and_names_no_build(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Band, version and Term all frozen, but no prior Term carries the band:
+    no baseline, and no build named beside a rate that was never pooled."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v9")
+    context = _frozen().model_copy(update={"term": 2024})
+    event_paths = _seed(_roots, 7, context=context)
+
+    result = _stamp(7)
+
+    assert result.exit_code == 0, result.output
+    stamped = _stamped(event_paths)
+    assert stamped["segment_base_rate"] is None
+    assert stamped["brier_skill_score"] is None
+    assert stamped["base_rate_basis"] is None
+    assert stamped["base_rate_statpack_digest"] is None
+    assert stamped["brier_score"] == pytest.approx(0.04)
+
+
+def test_an_unreadable_statpack_clears_the_anchor_out_loud(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v9")
+    event_paths = _seed(_roots, 8, context=_frozen())
+    (tmp_path / "metrics" / "statpack.json").unlink()
+
+    result = _stamp(8)
+
+    assert result.exit_code == 0, result.output
+    assert "no readable metrics/statpack.json" in result.output
+    stamped = _stamped(event_paths)
+    assert stamped["segment_base_rate"] is None
+    assert stamped["base_rate_basis"] is None
+    assert stamped["base_rate_statpack_digest"] is None
+    assert stamped["brier_score"] == pytest.approx(0.04)
+
+
+def test_a_terminal_relabel_of_a_frozen_band_is_overwritten_and_said(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Before proc-v9 this mispairing fails the cell; from proc-v9 the harness
+    owns the basis, so it is replaced by the risk-set pool — with a warning,
+    since a discarded basis is not a number the numeric echo would catch."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v9")
+    event_paths = _seed(_roots, 9, context=_frozen())
+    path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    write_json(
+        path,
+        read_model(path, Evaluation).model_copy(update={"base_rate_basis": "terminal"}),
+    )
+
+    result = _stamp(9)
+
+    assert result.exit_code == 0, result.output
+    assert "base_rate_basis 'terminal'" in result.output
+    stamped = _stamped(event_paths)
+    assert stamped["base_rate_basis"] == "risk_set"
+    assert stamped["segment_base_rate"] == pytest.approx(_EXACT_POOL)
+
+
 def test_a_prediction_with_no_frozen_band_keeps_the_evaluators_terminal_record(
     _roots: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

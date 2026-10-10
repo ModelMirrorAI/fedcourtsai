@@ -5780,6 +5780,7 @@ def release_sensitivity_command(
             registered=registered,
             grant_list=grant_list_day,
             committed_board=committed,
+            lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
         )
     output: dict[str, Any] = {
         "ledger": {
@@ -8330,8 +8331,8 @@ def _harness_owns_cert_record(
     the version that assigned it, keyed on the frozen docket Term, so nothing is
     left to judge. A cert prediction that froze **no** band takes the terminal
     fallback, which re-derives a band from the corpus row — a read the stamp
-    does not make — so that record stays the evaluator's, under the guards the
-    evaluator path has always had.
+    does not make — so that record stays the evaluator's, under the evaluator path's
+    guards.
     """
     return (
         stage == Stage.cert
@@ -8367,9 +8368,9 @@ def _cert_skill_record_for(
     no ``salience_version`` or no ``term`` beside it, or no prior Term carrying
     the band under its version — rate, basis, version, and skill are all null:
     the omission the evaluator path prescribes for the same cases, never a
-    relabel to ``terminal``. ``base_rate_statpack_digest`` names the build the
-    pool was read from wherever one was read, so the board can re-pool against
-    the same build. Returned with the stamped basis and version, the pair the
+    relabel to ``terminal``. ``base_rate_statpack_digest`` names the build a
+    stamped rate was pooled from, so the board can re-pool against the same
+    build; it is null beside a null rate. Returned with the stamped basis and version, the pair the
     mispairing guard judges.
     """
     brier = _harness_brier_for(event_paths, evaluation, outcome)
@@ -8393,7 +8394,19 @@ def _cert_skill_record_for(
     _warn_on_discarded_number(evaluation, "segment_base_rate", evaluation.segment_base_rate, rate)
     # `prediction_base_rate` yields a rate only off a context carrying band,
     # Term, and version, so a rate implies the version it was pooled under.
+    if rate is None:
+        digest = None
     basis = "risk_set" if rate is not None else None
+    if evaluation.base_rate_basis is not None and evaluation.base_rate_basis != basis:
+        # Not a number, so `_warn_on_discarded_number` cannot say it; a judge's
+        # wrong basis would otherwise be corrected silently whenever the two
+        # tables' rates happen to agree.
+        typer.echo(
+            f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} recorded "
+            + f"base_rate_basis {evaluation.base_rate_basis!r} for a harness-stamped field; "
+            + f"the stamp wrote {basis!r}.",
+            err=True,
+        )
     version = scored.context.salience_version if rate is not None and scored.context else None
     fields: dict[str, object] = {
         "brier_score": brier,

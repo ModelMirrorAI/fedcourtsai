@@ -998,7 +998,7 @@ def post_conference_excluded(
 # ---------------------------------------------------------------------------
 
 
-def release_sensitivity(
+def release_sensitivity(  # noqa: PLR0913 - one keyword per input the registered board is built from
     cells: Sequence[StratifiedCell],
     data_root: Path,
     statpack: StatPack | None,
@@ -1008,6 +1008,7 @@ def release_sensitivity(
     registered: set[tuple[str, str]] | None = None,
     grant_list: date | None = None,
     committed_board: Leaderboard | None = None,
+    lookback_terms: int | None = None,
 ) -> dict[str, Any]:
     """The registered headline and the three sensitivity blocks, as one JSON-ready dict.
 
@@ -1018,7 +1019,7 @@ def release_sensitivity(
     the committed ``metrics/leaderboard.json`` is not this ledger's board and
     nothing here may be quoted beside it.
     """
-    skills = skill_components(cells, data_root, statpack)
+    skills = skill_components(cells, data_root, statpack, lookback_terms=lookback_terms)
     registered_board = rebuild(cells, data_root, skills)
     headline = project(registered_board)
     cached: dict[str, tuple[date, Mapping[str, Any]] | None] = {}
