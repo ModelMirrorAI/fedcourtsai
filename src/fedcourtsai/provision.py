@@ -13,7 +13,7 @@ shapes** as the corpus read functions (``latest_snapshot`` / ``snapshot_at`` /
 whichever backend produced it — proven by ``tests/test_provision_casestore.py``.
 
 *Where the read is cut.* :func:`moment_cutoff` and :func:`documents_before` place
-a forward cell at the declared moment it forecasts instead of at the latest
+a cell, forward or replay, at the declared moment it forecasts instead of at the latest
 snapshot, so a later moment is conditioned on the information set it declares;
 :func:`place_at_moment` composes the anchor bound and the date rule into the
 payload and documents a cell actually receives.

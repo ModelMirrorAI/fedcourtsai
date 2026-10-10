@@ -473,7 +473,9 @@ merits event, never at the trigger that first filled its cert documents. A
 granted, briefed case whose merits documents were never fetched — whatever the
 state of its events — is also reached by `document-backfill`'s merits arm, the
 maintenance pass that applies the current selector to the cases already past
-their trigger ([data-pipeline.md](data-pipeline.md)). An
+their trigger ([data-pipeline.md](data-pipeline.md)), and a polled one by the
+*Document freshness* pass below, which brings any predict-relevant docket's
+stored set up to the filings it carries, merits ones included. An
 application docket is never distributed for conference, so its lane fetches on
 **any change while the application is still pending, in scope, and substantive**
 — the application rotation's own queue condition. Text is extracted with pypdf (born-digital filings under the
@@ -537,12 +539,15 @@ rotations just polled:
   keeps a document only where that date falls strictly before the cell's cutoff
   (`provision.documents_before`), in either mode — so a filing stored weeks
   after it was docketed reaches exactly the cells placed after its docketing,
-  forward or replay. The one residual is the combined opposition row's, stated
-  where the cut is made: dated by its earliest brief, it admits a later
-  respondent's brief to a cell cut between the two. Freshness completes that
-  row more often; the moment a cut can fall between two oppositions on is the
-  CVSG moment, where a respondent filing after the invitation is rare, and the
-  arrival moment's cut falls before any opposition.
+  forward or replay. Two residuals are stated where the cut is made, and
+  freshness makes both more reachable. **Combination**: the opposition row is
+  dated by its earliest brief, so it admits a later respondent's brief to a
+  cell cut between the two; the moment a cut can fall between two oppositions
+  on is the CVSG moment, where a respondent filing after the invitation is
+  rare, and the arrival moment's cut falls before any opposition.
+  **Supersession**: a kind is one row, so a filing re-posted at a new link
+  replaces the stored row under its own later date, and a cell placed between
+  the two loses that kind rather than reading the earlier version.
 - **Writer.** It runs inside `run-pull`'s live job, the corpus writer that
   already provisions on the triggers; nothing new holds a credential, and no
   cell or dev checkout fetches.
@@ -965,8 +970,9 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   runs past it.
 - **What it reads.** Stored rows of a **fetched** kind — every kind a cell
   reads that arrived as a PDF: the petition, the application, the separately
-  linked appendix, the brief in opposition, the cert-stage reply, the invited
-  brief and the four merits filings, which is the text-coverage set less
+  linked appendix, the response to an application and the applicant's reply,
+  the brief in opposition, the cert-stage reply, the invited brief and the four
+  merits filings, which is the text-coverage set less
   its one derived member — whose text is empty or whitespace-only, whose page
   count is above zero, and whose stored URL is one link. A zero-page row is
   either a PDF the extractor could not open or a derived section — `pages`
@@ -1074,12 +1080,13 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   of — it has `documents.json` listing what is present, pages and truncation —
   so until that re-bless a cell meeting the token has to account for it
   unaided, and the likeliest cost is a `data-quality` flag spent on it. **A
-  fourth rides with them**: the `appendix`, `cert-reply` and `sg-invited-brief`
-  kinds and the appendix-aware cut's `[pipeline note: …]` lines reach a cell
+  fourth rides with them**: the `appendix`, `cert-reply`, `sg-invited-brief`,
+  `application-response` and `application-reply` kinds and the appendix-aware
+  cut's `[pipeline note: …]` lines reach a cell
   before the prompt names them. Each manifest row's `kind_description` is what
   carries them meanwhile — the prompt already sends a cell to `documents.json`
   for what is present — and the prompt's list of provisioned files gains the
-  three kinds, and a reading rule for the cut notes, at that re-bless.
+  five kinds, and a reading rule for the cut notes, at that re-bless.
 - **What follows a recovery.** A recovered **petition** re-derives its
   questions-presented row through the existing deriver — the pass's one
   follow-on write, and petitions alone have it, since no other recoverable kind

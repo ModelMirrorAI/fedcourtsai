@@ -125,11 +125,11 @@ live:
   # brief or merits filing, a brief lost at an earlier fetch, an application's
   # response or reply). Moved dockets first. A slice, not a refusal: a case
   # past it is owed again at its next poll. Each case costs one paced download
-  # per owed filing (~20 s with extraction) and nothing for a link it already
+  # per owed filing (every brief of an owed opposition set) (~20 s with extraction) and nothing for a link it already
   # holds, and it runs last in the cycle, on whatever the polls, the
   # convergence and the selection sweep left of --max-run-seconds. At four
   # cycles a day 20 clears a backlog of a hundred-odd stale cases in two days
-  # while a cycle's share stays near ten minutes at most. 0 disables.
+  # while a cycle's share is about ten minutes, bounded by the deadline. 0 disables.
   document_freshness_per_run: 20
   # Predict timing is not configured here: the live channel stamps the predict
   # queue on a DISTRIBUTION TRANSITION — a petition newly distributed for a

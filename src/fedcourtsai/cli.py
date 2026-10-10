@@ -2184,8 +2184,9 @@ def ocr_recover_petitions_cmd(
     poller and the Term walker re-fetch a kind only when its link changes.
     This is the pass that repairs it, on the terms in *Contract for the recovery
     pass* (`docs/live-sources.md`): the population is every stored row a cell
-    reads that was fetched as a PDF — the petition, the application, the brief
-    in opposition, the four merits filings — whose text is empty or
+    reads that was fetched as a PDF — the petition, the application and the
+    filings answering it, the appendix, the brief in opposition, the cert-stage
+    reply, the invited brief, the four merits filings — whose text is empty or
     whitespace-only, whose page count is above zero (a zero-page row is a PDF
     the extractor could not open, which is not OCR's to repair, and a case with
     no row of a kind at all is a fetch gap), and whose stored URL is one link.
@@ -4298,10 +4299,11 @@ def backfill_documents_cmd(
     runs at the transition that queues it, and a granted case reaches its merits
     moments with both sides' merits advocacy because the selection sweep
     re-provisions it while a merits event is open. A case whose provisioning ran
-    before the selector had an arm for its filing type kept nothing, and no lane
-    repairs that: the poller re-fetches a kind only when its link changes, and a
-    kind never stored has no link to change. This applies the current selector to
-    the cases already past their trigger.
+    before the selector had an arm for its filing type kept nothing. The live
+    document-freshness pass repairs that for the predict-relevant cases its
+    rotations still poll; this applies the current selector to the cases already
+    past their trigger that the rotations no longer reach, or that the freshness
+    cap has not reached yet.
 
     The population is live-slice rows queued for prediction or selected by the
     salience gate — not the wide distributed stock, which is overwhelmingly

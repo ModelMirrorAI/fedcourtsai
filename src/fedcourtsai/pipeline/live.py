@@ -398,14 +398,14 @@ def refresh_stale_documents(
     """Bring each candidate's stored documents up to the docket its poll just read.
 
     The provisioning triggers fire on a *transition* — a distribution or relist,
-    an application change on its daily debounce, a selection-sweep pick — so a
-    filing docketed between triggers (an opposition, a cert reply, the
-    Solicitor General's brief, a response to an application) reached the corpus
-    only if a later trigger happened to fire, and a filing lost at its first
-    fetch was never retried. The stored set therefore lagged the stored
-    snapshot, and the cell staged both side by side. This pass closes that gap
-    for every predict-relevant case the cycle polled: the poll has just read the
-    docket, so the selection over it is current, and a case whose stored set
+    an application change on its daily debounce, a selection-sweep pick — so on
+    their own they leave a filing docketed between triggers (an opposition, a
+    cert reply, the Solicitor General's brief, a response to an application),
+    and one lost at its first fetch, out of the stored set until a later trigger
+    happens to fire, while the snapshot staged beside it moves on every poll.
+    This pass closes that gap for every predict-relevant case the cycle polled:
+    the poll has just read the docket, so the selection over it is current, and
+    a case whose stored set
     does not hold every selected link
     (:func:`~fedcourtsai.pipeline.documents.unheld_document_kinds`) is
     provisioned through the poller's own :func:`provision_documents` — the
@@ -441,8 +441,11 @@ def refresh_stale_documents(
         "stale": 0,
         "refreshed": 0,
         "documents": 0,
+        "unwritten": 0,
+        "failed": 0,
         "deferred": 0,
         "unchecked": 0,
+        "owed": {},
     }
     if cap <= 0 or not candidates:
         return ledger
