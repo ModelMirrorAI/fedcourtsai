@@ -521,6 +521,65 @@ def test_an_open_merits_proceeding_funds_every_event_of_the_case(tmp_path: Path)
     assert _by_case(_scan(db, data))["scotus/1"] == ("missed", "owed_and_unforecast")
 
 
+def test_the_merits_event_a_grant_mints_does_not_fund_the_granted_petition(
+    tmp_path: Path,
+) -> None:
+    """An unselected petition granted at conference: the cert grant resolves its
+    distribution event and mints the merits event the same day. That merits event
+    was never open while the petition was, so it funds nothing — the gap is the
+    salience gate's decline, not a pipeline miss."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _resolved_case(db, data, 1, selected=False)
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.merits,
+                    title="Judgment",
+                    opened_at=RESOLVED,
+                    resolved=False,
+                )
+            ],
+        )
+
+    report = _scan(db, data)
+
+    assert _by_case(report)["scotus/1"] == ("declined", "not_funded")
+    assert report.missed == ()
+
+
+def test_an_undated_merits_event_still_funds_the_case(tmp_path: Path) -> None:
+    """A merits event with no ``opened_at`` cannot be placed after the resolution,
+    so it keeps funding the case — the over-report direction."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _resolved_case(db, data, 1, selected=False)
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.merits,
+                    title="Judgment",
+                    opened_at=None,
+                    resolved=False,
+                )
+            ],
+        )
+
+    assert _by_case(_scan(db, data))["scotus/1"] == ("missed", "owed_and_unforecast")
+
+
 def test_a_monitor_that_raises_degrades_to_a_warning_and_the_matrix_still_emits(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
