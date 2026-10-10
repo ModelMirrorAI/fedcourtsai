@@ -3019,6 +3019,9 @@ class _DictReadSource:
     def has_documents(self, case_id: str) -> bool:
         return bool(self._documents.get(case_id))
 
+    def document_urls(self, case_id: str) -> dict[str, str]:
+        return {d.kind: d.url for d in self._documents.get(case_id, [])}
+
     def opinion_text(self, case_id: str) -> str | None:
         return None
 

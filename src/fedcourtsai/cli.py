@@ -2184,8 +2184,9 @@ def ocr_recover_petitions_cmd(
     poller and the Term walker re-fetch a kind only when its link changes.
     This is the pass that repairs it, on the terms in *Contract for the recovery
     pass* (`docs/live-sources.md`): the population is every stored row a cell
-    reads that was fetched as a PDF — the petition, the application, the brief
-    in opposition, the four merits filings — whose text is empty or
+    reads that was fetched as a PDF — the petition, the application and the
+    filings answering it, the appendix, the brief in opposition, the cert-stage
+    reply, the invited brief, the four merits filings — whose text is empty or
     whitespace-only, whose page count is above zero (a zero-page row is a PDF
     the extractor could not open, which is not OCR's to repair, and a case with
     no row of a kind at all is a fetch gap), and whose stored URL is one link.
@@ -4298,10 +4299,11 @@ def backfill_documents_cmd(
     runs at the transition that queues it, and a granted case reaches its merits
     moments with both sides' merits advocacy because the selection sweep
     re-provisions it while a merits event is open. A case whose provisioning ran
-    before the selector had an arm for its filing type kept nothing, and no lane
-    repairs that: the poller re-fetches a kind only when its link changes, and a
-    kind never stored has no link to change. This applies the current selector to
-    the cases already past their trigger.
+    before the selector had an arm for its filing type kept nothing. The live
+    document-freshness pass repairs that for the predict-relevant cases its
+    rotations still poll; this applies the current selector to the cases already
+    past their trigger that the rotations no longer reach, or that the freshness
+    cap has not reached yet.
 
     The population is live-slice rows queued for prediction or selected by the
     salience gate — not the wide distributed stock, which is overwhelmingly
@@ -11188,7 +11190,8 @@ def corpus_info(
         typer.Option(
             "--text-coverage",
             help="Also count the stored documents whose text is empty, per kind "
-            "(petition / application / appendix / brief-in-opposition / "
+            "(petition / application / appendix / application-response / "
+            "application-reply / brief-in-opposition / "
             "cert-reply / sg-invited-brief / "
             "merits-brief-petitioner / merits-brief-respondent / "
             "merits-reply-petitioner / merits-reply-respondent / "
@@ -12249,9 +12252,9 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "by default; it acts on a cell whose --event names a declared "
             "moment whose opened_at is that moment's trigger and whose corpus "
             "row records it, so a case-baseline cell and an evaluate cell (no "
-            "--event) are untouched either way. Forward-only except on the "
-            "interim arrival moment, whose bound is a property of the moment "
-            "rather than the lane and so applies in either mode.",
+            "--event) are untouched either way. Applies in either mode: a "
+            "moment's information set is a property of the moment rather than "
+            "the lane, so a replay cell is cut exactly as a forward one is.",
         ),
     ] = True,
     max_snapshot_age_days: Annotated[
@@ -12281,8 +12284,9 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     questions presented, the separately linked appendix, the cert-stage brief in
     opposition, the petitioner's cert-stage reply, the Solicitor General's invited
     brief, each side's brief on the merits once the petition is granted, and the
-    application itself wherever one was filed — fetched pipeline-side by the live
-    poller) is materialized alongside, under ``record/documents/`` with a
+    application itself wherever one was filed, with the first response to it and
+    the applicant's reply — fetched pipeline-side by the live poller) is
+    materialized alongside, under ``record/documents/`` with a
     ``documents.json`` manifest whose rows each carry a one-sentence
     ``kind_description``, so the cell reads identical content with no
     fetch rights. That staged text is passed through the **contact-detail
@@ -12335,22 +12339,21 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     case = ids.case_id(court, docket)
     backend = _provision_backend(corpus_backend)
     gate_active = refuse_terminal and mode == "forward"
-    # The cut applies to a forward cell that names an event; whether that event
-    # *declares* a moment with a usable date is `provision.moment_cutoff`'s call.
+    # The cut applies to a cell that names an event, in either mode; whether that
+    # event *declares* a moment with a usable date is `provision.moment_cutoff`'s call.
     read = _read_cell_inputs(
         backend,
         db_path,
         case,
         event,
         want_row=gate_active,
-        # The interim arrival moment takes its cut in EITHER mode. Every other
-        # moment's cut is forward-only because the replay provisioners take their
-        # own; the arrival bound is a property of the moment rather than of the
-        # lane, and a replay path that provisioned one uncut would reconstruct the
-        # exact conditioning the forward path refuses.
-        cut=moment_cutoff
-        and bool(event)
-        and (mode == "forward" or provision.is_interim_arrival(event)),
+        # The cut is taken in EITHER mode. A moment's information set is a
+        # property of the moment rather than of the lane: the stored documents
+        # are as fresh as the last poll that read the docket, so a replay cell
+        # read uncut would stage every filing docketed after its cutoff — the
+        # exact conditioning the forward path refuses — and the interim arrival
+        # bound would be skipped with it.
+        cut=moment_cutoff and bool(event),
     )
     found = read.latest
     documents = read.documents
@@ -14032,6 +14035,12 @@ def live_poll(
         typer.echo(
             "Ledger-outcome convergence: "
             + ", ".join(f"{key}={value}" for key, value in queues.convergence.items())
+            + "."
+        )
+    if queues.document_freshness:
+        typer.echo(
+            "Document freshness: "
+            + ", ".join(f"{key}={value}" for key, value in queues.document_freshness.items())
             + "."
         )
     # The window's document-fetch ledger. Last, after the queue counts, because

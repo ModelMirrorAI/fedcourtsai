@@ -25,6 +25,8 @@ from fedcourtsai.pipeline.documents import (
     FETCHED_DOCUMENT_KINDS,
     KIND_APPENDIX,
     KIND_APPLICATION,
+    KIND_APPLICATION_REPLY,
+    KIND_APPLICATION_RESPONSE,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_CERT_REPLY,
     KIND_DESCRIPTIONS,
@@ -373,10 +375,12 @@ def test_an_appendix_link_on_any_other_entry_is_not_selected() -> None:
 
 
 def test_the_new_kinds_are_fetched_kinds_in_provisioning_order() -> None:
-    assert FETCHED_DOCUMENT_KINDS[:6] == (
+    assert FETCHED_DOCUMENT_KINDS[:8] == (
         KIND_PETITION,
         KIND_APPLICATION,
         KIND_APPENDIX,
+        KIND_APPLICATION_RESPONSE,
+        KIND_APPLICATION_REPLY,
         KIND_BRIEF_IN_OPPOSITION,
         KIND_CERT_REPLY,
         KIND_SG_INVITED_BRIEF,

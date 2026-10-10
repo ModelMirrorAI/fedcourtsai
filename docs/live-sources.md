@@ -286,6 +286,23 @@ the docket form, so one function serves both lanes:
   a plain extension phrase misses), more pages, more words — is not selected,
   and neither is an ask the classifier cannot read, which costs no cell because
   the same reading keeps that docket out of the queue.
+- **`application-response`** — the respondent's **response to the application**:
+  the first "Response to application … filed." entry in docket order, from its
+  `Main Document` link alone (the entry also posts its proofs of service). It is
+  read by the same anchor that dates the interim **response-filed** moment, so
+  that moment's cell holds the filing that opened it, and a cell placed at the
+  arrival or response-requested moment — cut before the response was docketed —
+  never does. The Justice's *request* for a response shares the opening and is
+  not taken, since it carries no filing verb. The first only: a later
+  respondent's response is a known loss, as a later respondent group's merits
+  brief is.
+- **`application-reply`** — the **applicant's reply** to that response ("Reply of
+  applicant … filed."), from the `Reply` link the Clerk posts it under, or a
+  `Main Document` link, and from no other. The party word is what keeps it apart
+  from the cert-stage and merits replies, which name a petitioner or a
+  respondent; an amicus's reply and a reply on collateral motion practice are
+  excluded. A reply link that serves the application's own PDF — the docket has
+  posted one under the `Reply` label — is not taken: one PDF is one row.
 - **`appendix`** — the appendix the case-opening entry, or the application
   entry, posts under its own `Appendix` link beside the filing, and no other
   link. One per docket. It carries the opinions and orders below, which is what
@@ -456,7 +473,9 @@ merits event, never at the trigger that first filled its cert documents. A
 granted, briefed case whose merits documents were never fetched — whatever the
 state of its events — is also reached by `document-backfill`'s merits arm, the
 maintenance pass that applies the current selector to the cases already past
-their trigger ([data-pipeline.md](data-pipeline.md)). An
+their trigger ([data-pipeline.md](data-pipeline.md)), and a polled one by the
+*Document freshness* pass below, which brings any predict-relevant docket's
+stored set up to the filings it carries, merits ones included. An
 application docket is never distributed for conference, so its lane fetches on
 **any change while the application is still pending, in scope, and substantive**
 — the application rotation's own queue condition. Text is extracted with pypdf (born-digital filings under the
@@ -471,6 +490,67 @@ into the cell's gitignored `record/documents/` with a `documents.json`
 manifest, and the predict prompt points agents at it. Each manifest row carries
 a one-sentence `kind_description` saying what the file is and how it was cut, so
 a kind the prompt does not name yet still describes itself.
+
+**Document freshness.** The triggers above fire on a *transition*, so on their
+own they freeze a case's stored set at whatever its docket carried that day: an
+opposition, a cert reply, the Solicitor General's brief, a respondent's brief
+lost at the first fetch, or an application's response, docketed after it,
+reaches the corpus only if a later trigger happens to fire, and the cell then
+stages a current snapshot beside a stale document set. So every live cycle ends
+with a freshness pass (`live.refresh_stale_documents`) over the cases both
+rotations just polled:
+
+- **Population.** A polled case that is predict-relevant — queued for
+  prediction or salience-selected, the document back-fill's own predicate — and
+  was not provisioned on this poll's trigger. The poll has just read its docket,
+  so the selection over it is current and costs no request.
+- **Test.** The case is stale where its stored set does not hold every link the
+  selection names (`documents.unheld_document_kinds`): a kind absent, a kind at
+  another link, or an opposition row whose set of briefs differs from the
+  selected set. That is exactly the test the fetch skips a filing on, so a
+  stale case is one the fetch will download for, and a held case costs nothing
+  but the content-store read.
+- **Fetch.** Through the poller's own `provision_documents` — the same
+  selection, idempotent per kind and URL, the same consolidation-lead GET for a
+  member. An unchanged link is never re-downloaded, so a row stored under an
+  older cut keeps it (the appendix-aware cut below says what that leaves).
+  A consolidated member's own docket is what the test reads, so a merits filing
+  entered on its lead alone is not seen as owed here; the selection sweep, which
+  re-provisions a case while a merits event is open, and the back-fill's merits
+  arm remain its routes.
+- **Bound.** Moved dockets first, then the cases owing what an earlier fetch
+  missed, at most `live.document_freshness_per_run` cases a cycle, and last in
+  the cycle, on what the polls, the outcome convergence and the selection sweep
+  left of the soft deadline. A case past the cap or the deadline is owed again
+  at its next poll, because the test reads state rather than change; a link
+  upstream does not serve keeps its case stale and is retried at each poll,
+  behind every docket that moved, and the unchanged cases are taken in an order
+  that rotates daily, so a run of such cases cannot hold the cap ahead of the
+  same healthy ones every cycle — the ledger's `unwritten` count is those
+  cases, refreshed and still storing nothing. The `Document freshness:` line in
+  the run log carries the counts. The pass is failure-isolated as the outcome
+  convergence is: a case whose fetch raises is counted `failed`, and a pass that
+  raises as a whole records `error=<type>` and costs the window nothing it had
+  already polled.
+- **Cost of the check.** Links only: the content store's document manifest, one
+  read per candidate, never a document body.
+- **Cutoff.** Freshness changes when a filing is *stored*, never where a cell is
+  *placed*. Each row keeps its proceedings entry's own date, and provisioning
+  keeps a document only where that date falls strictly before the cell's cutoff
+  (`provision.documents_before`), in either mode — so a filing stored weeks
+  after it was docketed reaches exactly the cells placed after its docketing,
+  forward or replay. Two residuals are stated where the cut is made, and
+  freshness makes both more reachable. **Combination**: the opposition row is
+  dated by its earliest brief, so it admits a later respondent's brief to a
+  cell cut between the two; the moment a cut can fall between two oppositions
+  on is the CVSG moment, where a respondent filing after the invitation is
+  rare, and the arrival moment's cut falls before any opposition.
+  **Supersession**: a kind is one row, so a filing re-posted at a new link
+  replaces the stored row under its own later date, and a cell placed between
+  the two loses that kind rather than reading the earlier version.
+- **Writer.** It runs inside `run-pull`'s live job, the corpus writer that
+  already provisions on the triggers; nothing new holds a credential, and no
+  cell or dev checkout fetches.
 
 **The appendix-aware cut.** The `petition`, `application` and `appendix` rows
 are not head-cut at the cap, because on a filing that carries an appendix a head
@@ -502,8 +582,9 @@ that:
 Where a filing runs past ten times the cap, reading stops there and a last
 note names the pages never read. A page that fails to extract costs that page
 alone. The cut applies to rows stored under it: fetching is idempotent per
-kind and URL, so a petition or application already stored keeps its head cut
-until its link changes, and the corpus holds both vintages side by side —
+kind and URL — the freshness pass included, which downloads only a link the
+stored set lacks — so a petition or application already stored keeps its head
+cut until its link changes, and the corpus holds both vintages side by side —
 which is why each kind's `kind_description` says a truncated row with no
 `[pipeline note:` line was cut at the cap from the end.
 
@@ -889,8 +970,9 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   runs past it.
 - **What it reads.** Stored rows of a **fetched** kind — every kind a cell
   reads that arrived as a PDF: the petition, the application, the separately
-  linked appendix, the brief in opposition, the cert-stage reply, the invited
-  brief and the four merits filings, which is the text-coverage set less
+  linked appendix, the response to an application and the applicant's reply,
+  the brief in opposition, the cert-stage reply, the invited brief and the four
+  merits filings, which is the text-coverage set less
   its one derived member — whose text is empty or whitespace-only, whose page
   count is above zero, and whose stored URL is one link. A zero-page row is
   either a PDF the extractor could not open or a derived section — `pages`
@@ -998,12 +1080,13 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   of — it has `documents.json` listing what is present, pages and truncation —
   so until that re-bless a cell meeting the token has to account for it
   unaided, and the likeliest cost is a `data-quality` flag spent on it. **A
-  fourth rides with them**: the `appendix`, `cert-reply` and `sg-invited-brief`
-  kinds and the appendix-aware cut's `[pipeline note: …]` lines reach a cell
+  fourth rides with them**: the `appendix`, `cert-reply`, `sg-invited-brief`,
+  `application-response` and `application-reply` kinds and the appendix-aware
+  cut's `[pipeline note: …]` lines reach a cell
   before the prompt names them. Each manifest row's `kind_description` is what
   carries them meanwhile — the prompt already sends a cell to `documents.json`
   for what is present — and the prompt's list of provisioned files gains the
-  three kinds, and a reading rule for the cut notes, at that re-bless.
+  five kinds, and a reading rule for the cut notes, at that re-bless.
 - **What follows a recovery.** A recovered **petition** re-derives its
   questions-presented row through the existing deriver — the pass's one
   follow-on write, and petitions alone have it, since no other recoverable kind

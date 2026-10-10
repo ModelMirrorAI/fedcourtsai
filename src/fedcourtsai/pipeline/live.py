@@ -48,6 +48,8 @@ ambiguous resolution lands on ``unrecorded`` for the window's step summary.
 
 from __future__ import annotations
 
+import hashlib
+import logging
 import sqlite3
 import time
 from collections.abc import Callable, Mapping
@@ -73,7 +75,17 @@ from ..supremecourt import (
     parse_scotus_docket_number,
     term_roll_date,
 )
-from .documents import fetch_case_documents, fetch_consolidation_lead
+from .document_backfill import (
+    ESTIMATED_DOCKET_SECONDS,
+    ESTIMATED_DOCUMENT_SECONDS,
+    is_predict_relevant,
+)
+from .documents import (
+    fetch_case_documents,
+    fetch_consolidation_lead,
+    select_documents,
+    unheld_document_kinds,
+)
 from .events import extract_events
 from .ingest import (
     UNSAMPLED_WEIGHT,
@@ -93,8 +105,11 @@ from .outcome import (
     resolve_case,
     termination_signal,
 )
+from .prefetch import prefetch_by_case
 from .pull import PullQueues, _cell_capped, _in_predict_scope
 from .salience import apply_salience_selection
+
+logger = logging.getLogger(__name__)
 
 # The two per-Term numbering streams discovery probes, each from its base.
 # The numbering sequences the frontier walk probes, as (name, first serial,
@@ -348,6 +363,175 @@ def provision_documents(
         return corpus.upsert_documents(conn, documents)
 
 
+@dataclass(frozen=True)
+class FreshnessCandidate:
+    """One polled case the freshness pass checks, with the docket it was just read at.
+
+    ``changed`` is whether that poll observed the docket move. It orders the
+    pass and nothing else: a case whose docket moved is where a new filing is,
+    while an unchanged one owes only what an earlier provisioning missed.
+    """
+
+    case_id: str
+    payload: dict[str, object]
+    changed: bool
+
+
+def _freshness_order(candidate: FreshnessCandidate, today: date) -> tuple[bool, str]:
+    """A candidate's place in the freshness pass: moved dockets first, the rest by a per-day key."""
+    if candidate.changed:
+        return False, ""
+    return True, hashlib.sha256(f"{today.isoformat()}:{candidate.case_id}".encode()).hexdigest()
+
+
+def refresh_stale_documents(
+    client: SupremeCourtClient,
+    corpus_db_path: Path,
+    candidates: list[FreshnessCandidate],
+    *,
+    cap: int,
+    char_cap: int,
+    today: date,
+    deadline: float | None = None,
+    time_fn: Callable[[], float] = time.monotonic,
+) -> dict[str, object]:
+    """Bring each candidate's stored documents up to the docket its poll just read.
+
+    The provisioning triggers fire on a *transition* — a distribution or relist,
+    an application change on its daily debounce, a selection-sweep pick — so on
+    their own they leave a filing docketed between triggers (an opposition, a
+    cert reply, the Solicitor General's brief, a response to an application),
+    and one lost at its first fetch, out of the stored set until a later trigger
+    happens to fire, while the snapshot staged beside it moves on every poll.
+    This pass closes that gap for every predict-relevant case the cycle polled:
+    the poll has just read the docket, so the selection over it is current, and
+    a case whose stored set
+    does not hold every selected link
+    (:func:`~fedcourtsai.pipeline.documents.unheld_document_kinds`) is
+    provisioned through the poller's own :func:`provision_documents` — the
+    same call, the same idempotency per ``(kind, url)``, the same consolidation
+    lead GET for a member. An unchanged link is never re-downloaded, so a row
+    stored under an older cut keeps it.
+
+    Two phases. The **check** reads each candidate's stored rows (a content-store
+    read under the corpus split, prefetched) and keeps only the kinds owed; it
+    costs no upstream request, because the payload is in hand. The **fetch**
+    then provisions the stale candidates in order — the ones whose docket moved
+    on this poll first, then the ones owing what an earlier fetch missed — and
+    stops at ``cap`` cases or at the deadline, whichever comes first. The
+    unchanged half is taken in a per-day order rather than poll order, so a run
+    of cases owing a link upstream never serves cannot hold the cap ahead of the
+    same healthy cases cycle after cycle. A stale
+    case the cap or the deadline declines is ``deferred``: untouched, and owed
+    again at its next poll, since the check is a reading of state rather than of
+    change. That is also what makes the pass converge without a ledger of its
+    own: a case leaves the class by holding what the docket selects. A link
+    upstream does not serve keeps its case stale, and the case is re-attempted
+    at each poll; the ordering puts those behind every docket that moved.
+
+    ``cap`` of ``0`` disables the pass: nothing is read or fetched. The returned
+    counts are the run log's ledger line. A case whose fetch raises is counted
+    ``failed`` and the pass moves on; the caller isolates the pass as a whole,
+    since a store read failing in the check phase must not cost the window its
+    corpus push.
+    """
+    ledger: dict[str, object] = {
+        "candidates": 0,
+        "checked": 0,
+        "stale": 0,
+        "refreshed": 0,
+        "documents": 0,
+        "unwritten": 0,
+        "failed": 0,
+        "deferred": 0,
+        "unchecked": 0,
+        "owed": {},
+    }
+    if cap <= 0 or not candidates:
+        return ledger
+    seen: set[str] = set()
+    ordered: list[FreshnessCandidate] = []
+
+    # Moved dockets first, in poll order. The unchanged half is shuffled by a
+    # per-day key instead: it is where a link upstream never serves sits, stale
+    # at every poll, and a fixed order would let a run of those hold the cap
+    # ahead of the same healthy cases every cycle. The day's key rotates which
+    # unchanged cases lead, so none is starved for longer than a day or two.
+    for candidate in sorted(candidates, key=lambda c: _freshness_order(c, today)):
+        if candidate.case_id not in seen:
+            seen.add(candidate.case_id)
+            ordered.append(candidate)
+    ledger["candidates"] = len(ordered)
+    by_case = {candidate.case_id: candidate for candidate in ordered}
+    stale: list[tuple[FreshnessCandidate, int]] = []
+    owed: dict[str, int] = {}
+    checked = 0
+    # The check reads links alone (`document_urls_for_case`: the content
+    # store's manifest, no document body), and keeps only the owed kinds.
+    with (
+        corpus.connect(corpus_db_path) as conn,
+        prefetch_by_case(
+            list(by_case),
+            lambda case_id: corpus.document_urls_for_case(conn, case_id),
+            thread_name_prefix="document-freshness",
+        ) as fetched,
+    ):
+        for case_id, stored in fetched:
+            if deadline is not None and time_fn() >= deadline:
+                break
+            checked += 1
+            candidate = by_case[case_id]
+            refs = select_documents(candidate.payload)
+            unheld = unheld_document_kinds(refs, stored)
+            if unheld:
+                # Charged per download the fetch will make: an owed opposition
+                # re-fetches every brief in its set, not one.
+                downloads = sum(1 for ref in refs if ref.kind in unheld)
+                stale.append((candidate, downloads))
+                for kind in unheld:
+                    owed[kind] = owed.get(kind, 0) + 1
+    ledger["checked"] = checked
+    ledger["unchecked"] = len(ordered) - checked
+    ledger["stale"] = len(stale)
+    refreshed = documents = deferred = unwritten = failed = 0
+    for candidate, downloads in stale:
+        # A consolidated member's lead GET rides on top, charged as one docket.
+        estimate = downloads * ESTIMATED_DOCUMENT_SECONDS + ESTIMATED_DOCKET_SECONDS
+        if refreshed >= cap or (deadline is not None and deadline - time_fn() < estimate):
+            deferred += 1
+            continue
+        refreshed += 1
+        try:
+            written = provision_documents(
+                client,
+                corpus_db_path,
+                candidate.case_id,
+                candidate.payload,
+                char_cap=char_cap,
+                today=today,
+            )
+        except Exception as exc:  # one case's failure must not cost the window its push
+            failed += 1
+            logger.warning(
+                "document-freshness: %s failed: %s", candidate.case_id, type(exc).__name__
+            )
+            continue
+        documents += written
+        if not written:
+            unwritten += 1
+    ledger["refreshed"] = refreshed
+    ledger["documents"] = documents
+    # Refreshed and stored nothing: every owed link failed upstream (the fetch
+    # losses say which). Counted apart because such a case stays stale and takes
+    # a slot again at its next poll — a rising count is links upstream no longer
+    # serves crowding the cap.
+    ledger["unwritten"] = unwritten
+    ledger["failed"] = failed
+    ledger["deferred"] = deferred
+    ledger["owed"] = dict(sorted(owed.items()))
+    return ledger
+
+
 def _within_term_roll_grace(today: date, grace_days: int) -> bool:
     """Whether ``today`` sits inside the outgoing-Term grace window after a roll.
 
@@ -487,6 +671,7 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
     scope: PredictScope = PredictScope.all,
     salience_config: SalienceConfig | None = None,
     document_text_cap: int = 150_000,
+    freshness: list[FreshnessCandidate] | None = None,
     today: date,
     deadline: float | None = None,
     time_fn: Callable[[], float] = time.monotonic,
@@ -523,6 +708,13 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
     would leave the cooldown unarmed on the stamp alone, and the next relist
     would read as a first queue days after the tokens were spent. The ledger walk
     is one glob, taken once per cycle and only where the cooldown can apply.
+
+    ``freshness`` collects the polled cases whose stored documents the cycle's
+    freshness pass should check (:func:`refresh_stale_documents`): every
+    predict-relevant case this poll did **not** provision on its trigger, with
+    the payload it just read. Collected rather than fetched here, so the pass's
+    filing downloads never spend the poll's own budget ahead of a docket still
+    waiting to be read. ``None`` collects nothing.
     """
     queues = PullQueues()
     gated = scope == PredictScope.scotus_docket
@@ -634,6 +826,11 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
                 char_cap=document_text_cap,
                 today=today,
             )
+        # The pre-poll row is the one in hand, and the predicate's columns
+        # (`predict_queued_at`, `salience_selected`) are written by the queue
+        # routing and the selection pass, never by the poll's ingest.
+        elif freshness is not None and is_predict_relevant(row):
+            freshness.append(FreshnessCandidate(result.case_id, payload, changed=result.changed))
         _route_result(
             queues,
             corpus_db_path,
@@ -647,13 +844,14 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
     return queues
 
 
-def poll_applications(
+def poll_applications(  # noqa: PLR0913 - soft-budget deadline + injected clock over the cycle args
     client: SupremeCourtClient,
     corpus_db_path: Path,
     data_root: Path,
     due: list[corpus.CorpusRow],
     *,
     document_text_cap: int = 150_000,
+    freshness: list[FreshnessCandidate] | None = None,
     today: date,
     deadline: float | None = None,
     time_fn: Callable[[], float] = time.monotonic,
@@ -694,6 +892,14 @@ def poll_applications(
     defensive arm here rather than a live one, since this rotation re-verifies
     the addressable form with the same expression the poll parses on, where the
     cert rotation's membership test is the more tolerant of the two.
+
+    ``freshness`` collects the polled applications the cycle's freshness pass
+    should check, on the terms :func:`poll_live_cases` states: predict-relevant,
+    read on the post-poll row this rotation already holds, and not provisioned on
+    this poll's trigger. It is how
+    an application's response and reply reach its stored set when the poll that
+    sees them does not queue predict — the debounce already spent that day, or a
+    response filed after the queue.
     """
     queues = PullQueues()
     for row in due:
@@ -775,6 +981,8 @@ def poll_applications(
                 char_cap=document_text_cap,
                 today=today,
             )
+        elif freshness is not None and is_predict_relevant(fresh if fresh is not None else row):
+            freshness.append(FreshnessCandidate(result.case_id, payload, changed=result.changed))
         _route_result(
             queues,
             corpus_db_path,
@@ -1265,6 +1473,12 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     case where some engines landed and one quota-failed — instead of treating any
     single landed prediction as done, honoring the predict-side per-cell attempt
     cap. ``None`` leaves the sweep on its case-level fallback gate.
+
+    The cycle ends with the **document-freshness** pass
+    (:func:`refresh_stale_documents`) over the predict-relevant cases both
+    rotations polled and did not provision on a trigger, capped at
+    ``config.document_freshness_per_run`` cases (``0`` disables it, and the
+    polls then collect nothing for it).
     """
     gated = scope == PredictScope.scotus_docket
     discovery = discover_live(
@@ -1352,6 +1566,9 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
             )
             if row.case_id not in fresh
         ][:max_cases]
+    freshness: list[FreshnessCandidate] | None = (
+        [] if config.document_freshness_per_run > 0 else None
+    )
     refreshed = poll_live_cases(
         client,
         corpus_db_path,
@@ -1360,6 +1577,7 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
         scope=scope,
         salience_config=salience_config,
         document_text_cap=config.document_text_cap,
+        freshness=freshness,
         today=today,
         deadline=deadline,
         time_fn=time_fn,
@@ -1395,6 +1613,7 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
         data_root,
         applications_due,
         document_text_cap=config.document_text_cap,
+        freshness=freshness,
         today=today,
         deadline=deadline,
         time_fn=time_fn,
@@ -1448,4 +1667,29 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
                 deadline=deadline,
                 time_fn=time_fn,
             )
+    # Document freshness, last: every predict-relevant case the two rotations
+    # polled and did not provision on a trigger has its stored set brought up to
+    # the docket just read, under its own per-cycle cap. Last because it is the
+    # one step whose work can wait a cycle — a case it does not reach is owed
+    # again at its next poll — so it spends only what the polls, the convergence
+    # and the selection sweep left of the cycle's budget, and a filing download
+    # never displaces a docket read or a queue decision.
+    # Failure-isolated as a whole, as the convergence is: the polls, cursors and
+    # outcomes above are already written locally, and a raise here — a content-
+    # store read throttled in the check phase, say — would fail the step before
+    # the corpus push that banks them.
+    if freshness is not None:
+        try:
+            queues.document_freshness = refresh_stale_documents(
+                client,
+                corpus_db_path,
+                freshness,
+                cap=config.document_freshness_per_run,
+                char_cap=config.document_text_cap,
+                today=today,
+                deadline=deadline,
+                time_fn=time_fn,
+            )
+        except Exception as exc:  # the pass is owed again next cycle; the window's work comes first
+            queues.document_freshness = {"error": type(exc).__name__}
     return queues, discovery

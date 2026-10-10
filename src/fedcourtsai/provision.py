@@ -13,7 +13,7 @@ shapes** as the corpus read functions (``latest_snapshot`` / ``snapshot_at`` /
 whichever backend produced it — proven by ``tests/test_provision_casestore.py``.
 
 *Where the read is cut.* :func:`moment_cutoff` and :func:`documents_before` place
-a forward cell at the declared moment it forecasts instead of at the latest
+a cell, forward or replay, at the declared moment it forecasts instead of at the latest
 snapshot, so a later moment is conditioned on the information set it declares;
 :func:`place_at_moment` composes the anchor bound and the date rule into the
 payload and documents a cell actually receives.
@@ -141,7 +141,7 @@ def casestore_source_from_settings() -> CasestoreSource:
 
 
 def moment_cutoff(event_id: str, events: Sequence[CorpusEvent]) -> date | None:
-    """Where a forward cell for ``event_id`` is placed, or ``None`` for no cut.
+    """Where a cell for ``event_id`` is placed, or ``None`` for no cut.
 
     A stage's later moments exist *because* their information sets differ: a
     merits cell forecast at the grant is a different forecast from the same case

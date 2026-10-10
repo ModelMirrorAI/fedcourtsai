@@ -7,12 +7,12 @@ that queues it, and a granted case reaches its merits moments with both sides'
 merits advocacy because the selection sweep re-provisions it while a merits
 event is open. A case whose provisioning ran *before* the selector had an arm
 for its filing type kept nothing: the fetch was attempted, selection came back
-empty, and the row was queued with no primary document. Nothing in the fetching
-lanes repairs that. The live poller re-fetches a kind only when its link
-changes, and a kind that was never stored has no link to change; the case is
-also decided or settled by now on most of the class, so the rotation has left
-it. This is the pass that applies the current selector to the cases already past
-their trigger.
+empty, and the row was queued with no primary document. The live channel's
+document-freshness pass (:func:`~fedcourtsai.pipeline.live.refresh_stale_documents`)
+repairs that for every predict-relevant case its rotations still poll, but the
+case is decided or settled by now on most of this class, so the rotation has
+left it and nothing on the live side reaches it again. This is the pass that
+applies the current selector to the cases already past their trigger.
 
 - **Population.** Live-slice SCOTUS rows that are *predict-relevant* — queued
   for prediction or salience-selected. Predict-relevant rather than the whole

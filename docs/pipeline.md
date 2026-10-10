@@ -809,9 +809,11 @@ leave behind.
 A case reaches prediction with the filing that opens it — the petition on a
 cert-form docket, the application on an interim one — because provisioning runs
 at the transition that queues it; a case whose provisioning ran before the
-selector had an arm for its filing type kept nothing, and no lane repairs that,
-since the poller re-fetches a kind only when its link changes and a kind never
-stored has no link to change. It re-keys each candidate off its stored docket
+selector had an arm for its filing type kept nothing. The live channel's
+document-freshness pass repairs that for every predict-relevant case its
+rotations still poll; this pass reaches the ones they no longer do — decided or
+settled cases the rotation has left — and the ones the freshness cap has not yet
+reached, and it floor-probes what neither can fetch. It re-keys each candidate off its stored docket
 number and fetches that docket's JSON **fresh** rather than reading the stored
 snapshot, because the question is whether the link is served now, then runs the
 same selection and fetch the live poller runs — so a recovered case is

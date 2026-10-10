@@ -113,11 +113,24 @@ live:
   outgoing_term_grace_days: 60
   # Per-document cap on extracted text stored in the corpus: ~40 dense
   # pages, one cap per stored row. The selected filed documents
-  # (docs/live-sources.md) are fetched on the transitions that queue predict;
-  # the cap bounds corpus blob growth, a petition, application or appendix over
-  # it is cut appendix-first with inline notes, and a truncated document is
-  # flagged in its provisioning manifest.
+  # (docs/live-sources.md) are fetched on the transitions that queue predict,
+  # and brought up to each polled docket by the freshness pass below; the cap
+  # bounds corpus blob growth, a petition, application or appendix over it is
+  # cut appendix-first with inline notes, and a truncated document is flagged
+  # in its provisioning manifest.
   document_text_cap: 150000
+  # Cases per cycle the document-freshness pass may fetch for: a polled,
+  # predict-relevant case not provisioned on a trigger whose stored documents
+  # lack a link its docket now selects (a later opposition, reply, invited
+  # brief or merits filing, a brief lost at an earlier fetch, an application's
+  # response or reply). Moved dockets first. A slice, not a refusal: a case
+  # past it is owed again at its next poll. Each case costs one paced download
+  # per owed filing (every brief of an owed opposition set) (~20 s with extraction) and nothing for a link it already
+  # holds, and it runs last in the cycle, on whatever the polls, the
+  # convergence and the selection sweep left of --max-run-seconds. At four
+  # cycles a day 20 clears a backlog of a hundred-odd stale cases in two days
+  # while a cycle's share is about ten minutes, bounded by the deadline. 0 disables.
+  document_freshness_per_run: 20
   # Predict timing is not configured here: the live channel stamps the predict
   # queue on a DISTRIBUTION TRANSITION — a petition newly distributed for a
   # conference, or relisted to a new one — the cert-calendar analogue of

@@ -610,3 +610,18 @@ def test_an_empty_manifest_is_not_provisioned() -> None:
 
 def test_an_unmirrored_case_is_not_provisioned() -> None:
     assert casestore.read_has_documents(casestore.InMemoryObjectTransport(), "ca9/1") is False
+
+
+def test_the_document_link_read_reads_the_manifest_alone() -> None:
+    """The live freshness check asks every polled case which links it holds,
+    every cycle, so it is answered off the manifest — one read, no text leaf."""
+    t = _CountingTransport()
+    casestore.write_documents(
+        t, "ca9/64512345", [_doc("petition", "p"), _doc("brief-in-opposition", "b")]
+    )
+    stored = {d.kind: d.url for d in casestore.read_documents(t, "ca9/64512345")}
+
+    t.gets.clear()
+    assert casestore.read_document_urls(t, "ca9/64512345") == stored
+    assert t.gets == [casestore.documents_manifest_key("ca9/64512345")]
+    assert casestore.read_document_urls(t, "ca9/1") == {}

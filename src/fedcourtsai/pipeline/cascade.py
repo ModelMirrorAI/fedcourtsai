@@ -266,15 +266,12 @@ def _cell_read(
 ) -> provision.CellRead:
     """One predict target's provisioning inputs, with the dated snapshot its cut wants.
 
-    Placed at the declared moment in **either mode**, which is the cascade's own
-    rule rather than ``provision-snapshot``'s. That command cuts a replay cell
-    only at the interim arrival moment, because every other replay in the
-    pipeline is provisioned by the back-test's own point-in-time path
-    (:mod:`fedcourtsai.cert_backtest`) and would be cut twice. The cascade has no
-    such second path: a replay cell it left uncut would read the latest payload
-    and every stored document — the disposing order and the merits briefs
-    included — under a ``context.json`` saying ``replay``, which is the shape of a
-    correctly provisioned replay cell and none of its conditioning.
+    Placed at the declared moment in **either mode**, the rule
+    ``provision-snapshot`` follows too: a replay cell left uncut would read the
+    latest payload and every stored document — the disposing order and the
+    merits briefs included — under a ``context.json`` saying ``replay``, which is
+    the shape of a correctly provisioned replay cell and none of its
+    conditioning.
 
     A target whose moment has no dated trigger (``provision.moment_cutoff`` is
     ``None``) asks the corpus for no dated snapshot and takes no cut in either

@@ -1440,6 +1440,61 @@ def test_a_document_with_no_readable_entry_date_falls_back_to_its_fetch(
     assert not paths.document("questions-presented").exists()
 
 
+@pytest.mark.parametrize("mode", ["forward", "replay"])
+def test_a_document_filed_after_the_cutoff_never_reaches_the_cell(
+    fixture_corpus: FixtureCorpus, mode: str
+) -> None:
+    # The freshness pass stores a filing long after it was docketed, so the
+    # stored set routinely holds documents past an older moment's cutoff. Each is
+    # placed by its own docket date, in either mode: a replay cell placed at the
+    # grant must not read the merits brief filed after it any more than a
+    # forward one may, and the filing docketed on the grant day itself — the
+    # trigger — is the last one in.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="petition",
+                    url="https://example/petition.pdf",
+                    entry_date="Jan 15 2025",
+                    fetched_at=date(2026, 10, 9),
+                    text="The petition.",
+                ),
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="cert-reply",
+                    url="https://example/reply.pdf",
+                    entry_date="Jan 15 2026",  # the grant day: inside the cut
+                    fetched_at=date(2026, 10, 9),
+                    text="The reply.",
+                ),
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="merits-brief-petitioner",
+                    url="https://example/merits.pdf",
+                    entry_date="Jan 16 2026",  # the cutoff day: outside it
+                    fetched_at=date(2026, 10, 9),
+                    text="The merits brief.",
+                ),
+            ],
+        )
+
+    result = _provision_cell("--event", "evt-order-judgment", "--mode", mode)
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert paths.document("petition").exists()
+    assert paths.document("cert-reply").exists()
+    assert not paths.document("merits-brief-petitioner").exists()
+    context = _context(fixture_corpus)
+    assert context["mode"] == mode
+    assert context["cutoff"] == _GRANT_CUTOFF.isoformat()
+
+
 def test_the_terminal_gate_reads_a_disposition_the_cut_would_have_hidden(
     fixture_corpus: FixtureCorpus,
 ) -> None:

@@ -705,6 +705,9 @@ class CaseDocument(BaseModel):
         "whichever writ it seeks) | application (the interim relief an "
         "application-form docket is opened by) | appendix (the appendix the "
         "case-opening or application entry posts under its own link) | "
+        "application-response (the first response to the application, the filing "
+        "that opens the interim response-filed moment) | application-reply (the "
+        "applicant's reply to it) | "
         "brief-in-opposition (the cert-stage opposition, every respondent's in one "
         "row) | cert-reply (the petitioner's cert-stage reply, before the grant) | "
         "sg-invited-brief (the brief for the United States as amicus curiae "
@@ -2101,6 +2104,15 @@ class PayloadReadSource(Protocol):
         is provisioned — the predict backlog's admission — would otherwise pull
         every document body over the wire per candidate, unbounded by anything
         the caller's cap controls.
+        """
+        ...
+
+    def document_urls(self, case_id: str) -> dict[str, str]:
+        """The case's stored kind -> url mapping, without reading any text.
+
+        What :func:`document_urls_for_case` serves: the document-freshness
+        check compares links only, so it pays the manifest alone rather than a
+        read per document body.
         """
         ...
 
@@ -5315,6 +5327,27 @@ def documents_for_case(conn: ReadConnection, case_id: str) -> list[CaseDocument]
         )
         for record in cur
     ]
+
+
+def document_urls_for_case(conn: ReadConnection, case_id: str) -> dict[str, str]:
+    """The case's stored documents as kind -> url, without their text.
+
+    The question the live document-freshness check asks of every polled
+    predict-relevant case each cycle — is each link the docket now selects
+    already stored? — answered without the bodies: under the corpus-split mode
+    one manifest read rather than one read per document, on SQLite two columns
+    rather than the rows. A store failure is not swallowed here; the caller
+    isolates it.
+    """
+    if (source := _payload_read_source()) is not None:
+        return source.document_urls(case_id)
+    try:
+        cur = conn.execute("SELECT kind, url FROM documents WHERE case_id = ?", (case_id,))
+    except Exception as exc:
+        if "no such table" in str(exc).lower():
+            return {}
+        raise
+    return {str(kind): str(url) for kind, url in cur.fetchall()}
 
 
 def has_documents_for_case(conn: ReadConnection, case_id: str) -> bool:

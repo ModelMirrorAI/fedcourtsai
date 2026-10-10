@@ -961,6 +961,19 @@ def read_has_documents(transport: ObjectTransport, case_id: str) -> bool:
     return bool(json.loads(body).get("documents"))
 
 
+def read_document_urls(transport: ObjectTransport, case_id: str) -> dict[str, str]:
+    """The case's stored kind -> url mapping off its manifest — one read, no leaf bodies.
+
+    Behind :func:`fedcourtsai.corpus.document_urls_for_case`: the manifest
+    records each document's link beside its text key, so a caller comparing
+    links pays the manifest alone, as :func:`read_has_documents` does.
+    """
+    body = transport.get(documents_manifest_key(case_id))
+    if body is None:
+        return {}
+    return {entry["kind"]: entry["url"] for entry in json.loads(body).get("documents", [])}
+
+
 def read_events(transport: ObjectTransport, case_id: str) -> list[CorpusEvent]:
     """The case's predictable events, event_id-ordered (empty if none stored)."""
     body = transport.get(events_key(case_id))
@@ -1018,6 +1031,10 @@ class _CasestoreReadSource:
     def has_documents(self, case_id: str) -> bool:
         transport = active_transport()
         return False if transport is None else read_has_documents(transport, case_id)
+
+    def document_urls(self, case_id: str) -> dict[str, str]:
+        transport = active_transport()
+        return {} if transport is None else read_document_urls(transport, case_id)
 
     def opinion_text(self, case_id: str) -> str | None:
         # Broad by design, mirroring `_best_effort` on the write side. This read
