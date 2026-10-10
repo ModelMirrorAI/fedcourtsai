@@ -353,8 +353,7 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
     result = _stamp("evaluator", "claude-judge", 3, event, "RID")
     assert result.exit_code == 0, result.output
     unparsed = {
-        row["claim_id"]: row
-        for row in json.loads(eval_path.read_text())["claim_scores"]["claims"]
+        row["claim_id"]: row for row in json.loads(eval_path.read_text())["claim_scores"]["claims"]
     }
     assert unparsed["cvsg-increment"]["outcome"] == 0
 
