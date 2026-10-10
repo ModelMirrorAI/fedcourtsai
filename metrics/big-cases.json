@@ -1,10 +1,10 @@
 {
-  "cases": 282,
+  "cases": 283,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
     {
-      "cases": 253,
+      "cases": 254,
       "n": 3
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 844,
+  "current_reads": 847,
   "declared_no_view": 14,
   "frozen_process": {
     "digests": [
@@ -3659,172 +3659,6 @@
       "score_min": 0.75,
       "score_range": 0.15,
       "short_caption": "Republican National Committee v. Eakin",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Trump",
-      "caption": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al.",
-      "caption_event_id": "evt-order-response-requested-disposition",
-      "case_id": "scotus/9526000416",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Nationwide class of federal inmates with gender dysphoria; a stay would let BOP taper hormone therapy and withdraw accommodations class-wide while the appeal proceeds. High salience as executive-order implementation and Skrmetti aftermath, but it is an interim order, not a merits ruling.",
-          "big_case_score": 0.7,
-          "event_id": "evt-order-response-requested-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260929T212928Z"
-        },
-        {
-          "big_case_rationale": "Nationwide federal-prison treatment policy, interruption of existing care, and the permissible scope of classwide prison-conditions relief create substantial human and institutional stakes independent of the stay's likelihood.",
-          "big_case_score": 0.86,
-          "event_id": "evt-order-response-requested-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260929T212928Z"
-        },
-        {
-          "big_case_rationale": "High-profile case challenging a nationwide executive branch policy affecting federal prisons, likely to draw significant public and media attention.",
-          "big_case_score": 0.9,
-          "event_id": "evt-order-response-requested-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260929T212928Z"
-        }
-      ],
-      "docket_id": 9526000416,
-      "docket_number": "26A416",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a416.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-motion-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A nationwide, classwide block on a signature Executive Order policy governing medical care for roughly 2,000 transgender federal inmates; the next step after Skrmetti, Orr, and B.P.J. in the Court's gender-identity line, on the shadow docket, with APA-deference and PLRA questions that would plainly draw certiorari.",
-              "big_case_score": 0.7,
-              "cell_path": "data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/claude-baseline/20260929T212928Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/claude-baseline/20260929T212928Z",
-              "confidence": 0.55,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.68,
-              "run_id": "20260929T212928Z"
-            },
-            {
-              "big_case_rationale": "Nationwide federal-prison policy affecting access to gender-affirming treatment, with substantial bodily and mental-health stakes for affected inmates and broader consequences for administrative review and limits on prison injunctions.",
-              "big_case_score": 0.77,
-              "cell_path": "data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/codex-baseline/20260929T212928Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/codex-baseline/20260929T212928Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.68,
-              "run_id": "20260929T212928Z"
-            },
-            {
-              "big_case_rationale": "Involves a nationwide injunction of a major executive policy concerning gender dysphoria treatment in federal prisons, raising significant separation of powers and PLRA issues.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/gemini-baseline/20260929T212928Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/gemini-baseline/20260929T212928Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.75,
-              "run_id": "20260929T212928Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-response-requested-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Nationwide class of federal inmates with gender dysphoria; a stay would let BOP taper hormone therapy and withdraw accommodations class-wide while the appeal proceeds. High salience as executive-order implementation and Skrmetti aftermath, but it is an interim order, not a merits ruling.",
-              "big_case_score": 0.7,
-              "cell_path": "data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/claude-baseline/20260929T212928Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/claude-baseline/20260929T212928Z",
-              "confidence": 0.6,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.72,
-              "run_id": "20260929T212928Z"
-            },
-            {
-              "big_case_rationale": "Nationwide federal-prison treatment policy, interruption of existing care, and the permissible scope of classwide prison-conditions relief create substantial human and institutional stakes independent of the stay's likelihood.",
-              "big_case_score": 0.86,
-              "cell_path": "data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/codex-baseline/20260929T212928Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/codex-baseline/20260929T212928Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.68,
-              "run_id": "20260929T212928Z"
-            },
-            {
-              "big_case_rationale": "High-profile case challenging a nationwide executive branch policy affecting federal prisons, likely to draw significant public and media attention.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20260929T212928Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20260929T212928Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.75,
-              "run_id": "20260929T212928Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.82,
-      "moment": "evt-order-response-requested-disposition",
-      "moment_opened_at": "2026-09-28",
-      "n": 3,
-      "other_party": "Alishea Sophia Kingdom",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "Trump gets the relief requested, for now; the case continues in the lower courts.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Trump does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.9,
-      "score_min": 0.7,
-      "score_range": 0.2,
-      "short_caption": "Trump v. Alishea Sophia Kingdom",
       "status": "pending"
     },
     {
@@ -7561,6 +7395,222 @@
       "score_min": 0.65,
       "score_range": 0.2,
       "short_caption": "Herridge v. Chen",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Trump",
+      "caption": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al.",
+      "caption_event_id": "evt-brief-response-disposition",
+      "case_id": "scotus/9526000416",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Nationwide class of roughly 1,000 federal inmates, Executive Order 14168, and the Court's third transgender-policy emergency application in two Terms; high public salience, though the legal question (APA review of a prison medical policy) is narrower than the headline.",
+          "big_case_score": 0.6,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261009T143059Z"
+        },
+        {
+          "big_case_rationale": "The application concerns nationwide federal-prison treatment of gender dysphoria, the consequences of interrupting ongoing care, executive control of prison policy, and statutory limits on classwide interim relief. These are substantial stakes independent of the stay's likelihood.",
+          "big_case_score": 0.78,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261009T143059Z"
+        },
+        {
+          "big_case_rationale": "High-profile case challenging a new BOP policy on gender dysphoria and implicating the scope of the PLRA and APA deference.",
+          "big_case_score": 0.85,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261009T143059Z"
+        }
+      ],
+      "docket_id": 9526000416,
+      "docket_number": "26A416",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a416.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Nationwide class of roughly 1,000 federal inmates, Executive Order 14168, and the Court's third transgender-policy emergency application in two Terms; high public salience, though the legal question (APA review of a prison medical policy) is narrower than the headline.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-brief-response-disposition/predictions/claude-baseline/20261009T143059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-brief-response-disposition/predictions/claude-baseline/20261009T143059Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.63,
+              "run_id": "20261009T143059Z"
+            },
+            {
+              "big_case_rationale": "The application concerns nationwide federal-prison treatment of gender dysphoria, the consequences of interrupting ongoing care, executive control of prison policy, and statutory limits on classwide interim relief. These are substantial stakes independent of the stay's likelihood.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-brief-response-disposition/predictions/codex-baseline/20261009T143059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-brief-response-disposition/predictions/codex-baseline/20261009T143059Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.61,
+              "run_id": "20261009T143059Z"
+            },
+            {
+              "big_case_rationale": "High-profile case challenging a new BOP policy on gender dysphoria and implicating the scope of the PLRA and APA deference.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-brief-response-disposition/predictions/gemini-baseline/20261009T143059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-brief-response-disposition/predictions/gemini-baseline/20261009T143059Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.9,
+              "run_id": "20261009T143059Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A nationwide, classwide block on a signature Executive Order policy governing medical care for roughly 2,000 transgender federal inmates; the next step after Skrmetti, Orr, and B.P.J. in the Court's gender-identity line, on the shadow docket, with APA-deference and PLRA questions that would plainly draw certiorari.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/claude-baseline/20260929T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/claude-baseline/20260929T212928Z",
+              "confidence": 0.55,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.68,
+              "run_id": "20260929T212928Z"
+            },
+            {
+              "big_case_rationale": "Nationwide federal-prison policy affecting access to gender-affirming treatment, with substantial bodily and mental-health stakes for affected inmates and broader consequences for administrative review and limits on prison injunctions.",
+              "big_case_score": 0.77,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/codex-baseline/20260929T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/codex-baseline/20260929T212928Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.68,
+              "run_id": "20260929T212928Z"
+            },
+            {
+              "big_case_rationale": "Involves a nationwide injunction of a major executive policy concerning gender dysphoria treatment in federal prisons, raising significant separation of powers and PLRA issues.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/gemini-baseline/20260929T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-motion-disposition/predictions/gemini-baseline/20260929T212928Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.75,
+              "run_id": "20260929T212928Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-response-requested-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Nationwide class of federal inmates with gender dysphoria; a stay would let BOP taper hormone therapy and withdraw accommodations class-wide while the appeal proceeds. High salience as executive-order implementation and Skrmetti aftermath, but it is an interim order, not a merits ruling.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/claude-baseline/20260929T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/claude-baseline/20260929T212928Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.72,
+              "run_id": "20260929T212928Z"
+            },
+            {
+              "big_case_rationale": "Nationwide federal-prison treatment policy, interruption of existing care, and the permissible scope of classwide prison-conditions relief create substantial human and institutional stakes independent of the stay's likelihood.",
+              "big_case_score": 0.86,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/codex-baseline/20260929T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/codex-baseline/20260929T212928Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.68,
+              "run_id": "20260929T212928Z"
+            },
+            {
+              "big_case_rationale": "High-profile case challenging a nationwide executive branch policy affecting federal prisons, likely to draw significant public and media attention.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20260929T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000416/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20260929T212928Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.75,
+              "run_id": "20260929T212928Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7433,
+      "moment": "evt-brief-response-disposition",
+      "moment_opened_at": "2026-10-08",
+      "n": 3,
+      "other_party": "Alishea Sophia Kingdom",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Trump gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Trump does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.85,
+      "score_min": 0.6,
+      "score_range": 0.25,
+      "short_caption": "Trump v. Alishea Sophia Kingdom",
       "status": "pending"
     },
     {
@@ -17163,172 +17213,6 @@
       "status": "resolved"
     },
     {
-      "asking_declined": null,
-      "asking_party": "Wagner",
-      "caption": "Kyle Wagner v. United States",
-      "caption_event_id": "evt-order-response-requested-disposition",
-      "case_id": "scotus/9526000446",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "The underlying question is a forty-year, acknowledged 5-4-3 circuit split on the standard of appellate review for Bail Reform Act detention orders, recurring across tens of thousands of hearings a year, with a politically salient speech-and-ICE backdrop; the application itself resolves in a one-line emergency order, which caps the stakes of this event.",
-          "big_case_score": 0.45,
-          "event_id": "evt-order-response-requested-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261003T175711Z"
-        },
-        {
-          "big_case_rationale": "The application concerns individual pretrial liberty, but the appellate-review question could affect federal detention decisions nationwide. The speech-related dangerousness allegations add public significance; the immediate stay remains case-specific.",
-          "big_case_score": 0.52,
-          "event_id": "evt-order-response-requested-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261003T175711Z"
-        },
-        {
-          "big_case_rationale": null,
-          "big_case_score": 0.65,
-          "event_id": "evt-order-response-requested-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261003T175711Z"
-        }
-      ],
-      "docket_id": 9526000446,
-      "docket_number": "26A446",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a446.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-motion-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "The underlying question is a forty-year, acknowledged 5-4-3 circuit split on the standard of appellate review for Bail Reform Act detention orders, bearing on tens of thousands of bail determinations a year, and the applicant is a politically charged defendant detained largely on the basis of anti-ICE speech; the application itself resolves only a procedural stay, which tempers the score.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/claude-baseline/20261002T212439Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/claude-baseline/20261002T212439Z",
-              "confidence": 0.6,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.12,
-              "run_id": "20261002T212439Z"
-            },
-            {
-              "big_case_rationale": "An individual detention dispute presents a potentially nationwide appellate-review rule under the Bail Reform Act, with substantial liberty and political-speech stakes; the immediate stay remains case-specific.",
-              "big_case_score": 0.58,
-              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/codex-baseline/20261002T212439Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/codex-baseline/20261002T212439Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.2,
-              "run_id": "20261002T212439Z"
-            },
-            {
-              "big_case_rationale": "A routine criminal stay application without obvious nationwide implications.",
-              "big_case_score": 0.1,
-              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/gemini-baseline/20261002T212439Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/gemini-baseline/20261002T212439Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.05,
-              "run_id": "20261002T212439Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Kyle Wagner v. United States"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-response-requested-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "The underlying question is a forty-year, acknowledged 5-4-3 circuit split on the standard of appellate review for Bail Reform Act detention orders, recurring across tens of thousands of hearings a year, with a politically salient speech-and-ICE backdrop; the application itself resolves in a one-line emergency order, which caps the stakes of this event.",
-              "big_case_score": 0.45,
-              "cell_path": "data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261003T175711Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261003T175711Z",
-              "confidence": 0.7,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.06,
-              "run_id": "20261003T175711Z"
-            },
-            {
-              "big_case_rationale": "The application concerns individual pretrial liberty, but the appellate-review question could affect federal detention decisions nationwide. The speech-related dangerousness allegations add public significance; the immediate stay remains case-specific.",
-              "big_case_score": 0.52,
-              "cell_path": "data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261003T175711Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261003T175711Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.27,
-              "run_id": "20261003T175711Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": 0.65,
-              "cell_path": "data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261003T175711Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261003T175711Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.12,
-              "run_id": "20261003T175711Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Kyle Wagner v. United States"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.54,
-      "moment": "evt-order-response-requested-disposition",
-      "moment_opened_at": "2026-10-02",
-      "n": 3,
-      "other_party": "United States",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "Wagner gets the relief requested, for now; the case continues in the lower courts.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Wagner does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.65,
-      "score_min": 0.45,
-      "score_range": 0.2,
-      "short_caption": "Wagner v. United States",
-      "status": "pending"
-    },
-    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "Kevin Isaac Montoya Palacios v. Vernon Liggins, Acting Field Office Director, Baltimore Field Office, United States Immigration and Customs Enforcement, et al.",
@@ -18419,6 +18303,222 @@
       "score_min": 0.35,
       "score_range": 0.25,
       "short_caption": "Broadcast Music v. North American Concert Promoters Association",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Wagner",
+      "caption": "Kyle Wagner v. United States",
+      "caption_event_id": "evt-brief-response-disposition",
+      "case_id": "scotus/9526000446",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Politically charged facts (anti-ICE speech, a self-described Antifa member detained pretrial) draw attention, but the legal question is a technical appellate standard-of-review issue under the Bail Reform Act, and a stay ruling is interim and non-precedential.",
+          "big_case_score": 0.3,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261009T143059Z"
+        },
+        {
+          "big_case_rationale": "Pretrial liberty and appellate review of federal bail decisions have national procedural significance; the disputed treatment of political speech adds public importance, although this application directly concerns one defendant's release.",
+          "big_case_score": 0.62,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261009T143059Z"
+        },
+        {
+          "big_case_rationale": "High-profile First Amendment/cyberstalking context, but standard of review for bail is an important recurring procedural issue.",
+          "big_case_score": 0.6,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261009T143059Z"
+        }
+      ],
+      "docket_id": 9526000446,
+      "docket_number": "26A446",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a446.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Politically charged facts (anti-ICE speech, a self-described Antifa member detained pretrial) draw attention, but the legal question is a technical appellate standard-of-review issue under the Bail Reform Act, and a stay ruling is interim and non-precedential.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-brief-response-disposition/predictions/claude-baseline/20261009T143059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-brief-response-disposition/predictions/claude-baseline/20261009T143059Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.04,
+              "run_id": "20261009T143059Z"
+            },
+            {
+              "big_case_rationale": "Pretrial liberty and appellate review of federal bail decisions have national procedural significance; the disputed treatment of political speech adds public importance, although this application directly concerns one defendant's release.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-brief-response-disposition/predictions/codex-baseline/20261009T143059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-brief-response-disposition/predictions/codex-baseline/20261009T143059Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.18,
+              "run_id": "20261009T143059Z"
+            },
+            {
+              "big_case_rationale": "High-profile First Amendment/cyberstalking context, but standard of review for bail is an important recurring procedural issue.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-brief-response-disposition/predictions/gemini-baseline/20261009T143059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-brief-response-disposition/predictions/gemini-baseline/20261009T143059Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.25,
+              "run_id": "20261009T143059Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kyle Wagner v. United States"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The underlying question is a forty-year, acknowledged 5-4-3 circuit split on the standard of appellate review for Bail Reform Act detention orders, bearing on tens of thousands of bail determinations a year, and the applicant is a politically charged defendant detained largely on the basis of anti-ICE speech; the application itself resolves only a procedural stay, which tempers the score.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/claude-baseline/20261002T212439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/claude-baseline/20261002T212439Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.12,
+              "run_id": "20261002T212439Z"
+            },
+            {
+              "big_case_rationale": "An individual detention dispute presents a potentially nationwide appellate-review rule under the Bail Reform Act, with substantial liberty and political-speech stakes; the immediate stay remains case-specific.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/codex-baseline/20261002T212439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/codex-baseline/20261002T212439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.2,
+              "run_id": "20261002T212439Z"
+            },
+            {
+              "big_case_rationale": "A routine criminal stay application without obvious nationwide implications.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/gemini-baseline/20261002T212439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-motion-disposition/predictions/gemini-baseline/20261002T212439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.05,
+              "run_id": "20261002T212439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kyle Wagner v. United States"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-response-requested-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The underlying question is a forty-year, acknowledged 5-4-3 circuit split on the standard of appellate review for Bail Reform Act detention orders, recurring across tens of thousands of hearings a year, with a politically salient speech-and-ICE backdrop; the application itself resolves in a one-line emergency order, which caps the stakes of this event.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261003T175711Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261003T175711Z",
+              "confidence": 0.7,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.06,
+              "run_id": "20261003T175711Z"
+            },
+            {
+              "big_case_rationale": "The application concerns individual pretrial liberty, but the appellate-review question could affect federal detention decisions nationwide. The speech-related dangerousness allegations add public significance; the immediate stay remains case-specific.",
+              "big_case_score": 0.52,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261003T175711Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261003T175711Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.27,
+              "run_id": "20261003T175711Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261003T175711Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000446/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261003T175711Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.12,
+              "run_id": "20261003T175711Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kyle Wagner v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.5067,
+      "moment": "evt-brief-response-disposition",
+      "moment_opened_at": "2026-10-08",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Wagner gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Wagner does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.62,
+      "score_min": 0.3,
+      "score_range": 0.32,
+      "short_caption": "Wagner v. United States",
       "status": "pending"
     },
     {
@@ -19840,6 +19940,122 @@
       "score_range": 0.31,
       "short_caption": "Marion Alexander Lindsey v. South Carolina",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Radiall USA",
+      "caption": "Radiall USA, Inc. v. Gary T. Ramadei",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000436",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A genuine, acknowledged circuit split over the causation standard for FMLA retaliation claims (motivating factor under a DOL regulation versus the Nassar but-for default), sharpened by Loper Bright; a decision would govern a high-volume federal employment claim nationwide and would be the Court's first word on which Chevron-era statutory holdings survive, but the issue is technical and the parties are a mid-sized employer and one former facility manager.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261009T143059Z"
+        },
+        {
+          "big_case_rationale": "A ruling could standardize FMLA retaliation causation nationwide and clarify preservation of challenges to agency-deference precedents after Loper Bright. Those recurring employment and appellate-procedure stakes exceed this individual damages dispute, but the case is not a broad constitutional controversy.",
+          "big_case_score": 0.56,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261009T143059Z"
+        },
+        {
+          "big_case_rationale": "High-profile FMLA split post-Loper Bright, but vehicle problems below (waiver/forfeiture) make it unlikely to be decided on the merits.",
+          "big_case_score": 0.5,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261009T143059Z"
+        }
+      ],
+      "docket_id": 9026000436,
+      "docket_number": "26-436",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-436.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A genuine, acknowledged circuit split over the causation standard for FMLA retaliation claims (motivating factor under a DOL regulation versus the Nassar but-for default), sharpened by Loper Bright; a decision would govern a high-volume federal employment claim nationwide and would be the Court's first word on which Chevron-era statutory holdings survive, but the issue is technical and the parties are a mid-sized employer and one former facility manager.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9026000436/events/evt-petition-disposition/predictions/claude-baseline/20261009T143059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000436/events/evt-petition-disposition/predictions/claude-baseline/20261009T143059Z",
+              "confidence": 0.85,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.06,
+              "run_id": "20261009T143059Z"
+            },
+            {
+              "big_case_rationale": "A ruling could standardize FMLA retaliation causation nationwide and clarify preservation of challenges to agency-deference precedents after Loper Bright. Those recurring employment and appellate-procedure stakes exceed this individual damages dispute, but the case is not a broad constitutional controversy.",
+              "big_case_score": 0.56,
+              "cell_path": "data/cases/scotus/9026000436/events/evt-petition-disposition/predictions/codex-baseline/20261009T143059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000436/events/evt-petition-disposition/predictions/codex-baseline/20261009T143059Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.07,
+              "run_id": "20261009T143059Z"
+            },
+            {
+              "big_case_rationale": "High-profile FMLA split post-Loper Bright, but vehicle problems below (waiver/forfeiture) make it unlikely to be decided on the merits.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/9026000436/events/evt-petition-disposition/predictions/gemini-baseline/20261009T143059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000436/events/evt-petition-disposition/predictions/gemini-baseline/20261009T143059Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.02,
+              "run_id": "20261009T143059Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Radiall USA, Inc. v. Gary T. Ramadei"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.47,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-01",
+      "n": 3,
+      "other_party": "Ramadei",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Radiall USA's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Radiall USA's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.56,
+      "score_min": 0.35,
+      "score_range": 0.21,
+      "short_caption": "Radiall USA v. Ramadei",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -35605,5 +35821,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.2",
-  "scored_reads": 815
+  "scored_reads": 818
 }
