@@ -197,8 +197,8 @@ runs:
         sudo chmod -R o+rX "$GITHUB_WORKSPACE"
         # The traverse grant on `/home/runner/work` incidentally makes its
         # sibling `$RUNNER_TEMP` reachable, and that tree holds runner-only state
-        # codexcell has no business reading — the watchdog bundle, the evaluate
-        # cell's hidden-record blinding stash, and the runner's own
+        # codexcell has no business reading — the watchdog bundle, the predict
+        # and evaluate cells' hidden-record stash, and the runner's own
         # step-output/file-command files (through which the App-token mint and
         # the sidecar hand credentials to the runner in the clear). codexcell
         # needs nothing there (its home and CODEX_HOME are its own), so close it:

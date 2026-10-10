@@ -13069,7 +13069,9 @@ def hide_cell_record_cmd(
 
     This narrows the accidental surface, not the deliberate one — the checkout
     carries full history, so the hidden bytes stay one ``git show`` away, under
-    the prompt's prohibition and the logged-tool-call audit.
+    the evaluate prompt's prohibition and the logged-tool-call audit in an
+    evaluate cell, and under the audit alone in a predict cell, whose prompt
+    states no read rule for those trees.
 
     Exits 1 before moving anything when the stash already holds a manifest — any
     earlier hide, restored or not, since a second sweep over an emptied tree

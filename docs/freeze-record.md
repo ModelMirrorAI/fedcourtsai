@@ -7036,7 +7036,12 @@ freeze commit is recorded here.
     each of another case's prediction used as a format template and none on
     the same case; the count rests on what the log parsers capture, so it is a
     floor. A reading that splits those windows at the promotion splits them
-    here.
+    here. The hide narrows the accidental route only: the trees stay one `git
+    show` away, and the predict prompt states no read rule for them (that rule
+    is among the amendments deferred above), so a deliberate read is recorded
+    by the logged-tool-call audit and forbidden by nothing a predictor reads.
+    The integration suite's engine-smoke predict legs do not yet run the hide,
+    so they certify a cell environment with the committed trees present.
   - **The CVSG increment is masked where a federal party is named.** The claim
     scorer resolves `cvsg-increment` as `None` where the event's committed
     `title` (the case caption) names a federal party on either side, under
