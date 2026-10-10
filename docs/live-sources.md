@@ -522,7 +522,9 @@ rotations just polled:
   left of the soft deadline. A case past the cap or the deadline is owed again
   at its next poll, because the test reads state rather than change; a link
   upstream does not serve keeps its case stale and is retried at each poll,
-  behind every docket that moved — the ledger's `unwritten` count is those
+  behind every docket that moved, and the unchanged cases are taken in an order
+  that rotates daily, so a run of such cases cannot hold the cap ahead of the
+  same healthy ones every cycle — the ledger's `unwritten` count is those
   cases, refreshed and still storing nothing. The `Document freshness:` line in
   the run log carries the counts. The pass is failure-isolated as the outcome
   convergence is: a case whose fetch raises is counted `failed`, and a pass that

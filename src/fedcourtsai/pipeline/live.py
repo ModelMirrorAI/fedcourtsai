@@ -48,6 +48,7 @@ ambiguous resolution lands on ``unrecorded`` for the window's step summary.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import sqlite3
 import time
@@ -376,6 +377,13 @@ class FreshnessCandidate:
     changed: bool
 
 
+def _freshness_order(candidate: FreshnessCandidate, today: date) -> tuple[bool, str]:
+    """A candidate's place in the freshness pass: moved dockets first, the rest by a per-day key."""
+    if candidate.changed:
+        return False, ""
+    return True, hashlib.sha256(f"{today.isoformat()}:{candidate.case_id}".encode()).hexdigest()
+
+
 def refresh_stale_documents(
     client: SupremeCourtClient,
     corpus_db_path: Path,
@@ -410,7 +418,10 @@ def refresh_stale_documents(
     costs no upstream request, because the payload is in hand. The **fetch**
     then provisions the stale candidates in order — the ones whose docket moved
     on this poll first, then the ones owing what an earlier fetch missed — and
-    stops at ``cap`` cases or at the deadline, whichever comes first. A stale
+    stops at ``cap`` cases or at the deadline, whichever comes first. The
+    unchanged half is taken in a per-day order rather than poll order, so a run
+    of cases owing a link upstream never serves cannot hold the cap ahead of the
+    same healthy cases cycle after cycle. A stale
     case the cap or the deadline declines is ``deferred``: untouched, and owed
     again at its next poll, since the check is a reading of state rather than of
     change. That is also what makes the pass converge without a ledger of its
@@ -437,8 +448,13 @@ def refresh_stale_documents(
         return ledger
     seen: set[str] = set()
     ordered: list[FreshnessCandidate] = []
-    # Moved dockets first, poll order kept within each half (`sorted` is stable).
-    for candidate in sorted(candidates, key=lambda c: not c.changed):
+
+    # Moved dockets first, in poll order. The unchanged half is shuffled by a
+    # per-day key instead: it is where a link upstream never serves sits, stale
+    # at every poll, and a fixed order would let a run of those hold the cap
+    # ahead of the same healthy cases every cycle. The day's key rotates which
+    # unchanged cases lead, so none is starved for longer than a day or two.
+    for candidate in sorted(candidates, key=lambda c: _freshness_order(c, today)):
         if candidate.case_id not in seen:
             seen.add(candidate.case_id)
             ordered.append(candidate)

@@ -29,6 +29,7 @@ from fedcourtsai.pipeline.documents import (
 from fedcourtsai.pipeline.ingest import from_live_docket, to_corpus_row
 from fedcourtsai.pipeline.live import (
     FreshnessCandidate,
+    _freshness_order,
     poll_applications,
     poll_live_cases,
     refresh_stale_documents,
@@ -641,3 +642,20 @@ def test_a_pass_that_raises_never_costs_the_window(
         )
     assert queues.document_freshness == {"error": "RuntimeError"}
     assert len(discovery.onboarded) == 1
+
+
+def test_the_unchanged_half_rotates_by_day_behind_the_moved_dockets() -> None:
+    """A run of cases owing a dead link sits in the unchanged half; its order
+    rotates daily so it cannot hold the cap ahead of the same cases forever."""
+    payload = _cert_payload(_PETITION)
+    unchanged = [FreshnessCandidate(f"scotus/{n}", payload, changed=False) for n in range(10)]
+    moved = FreshnessCandidate("scotus/99", payload, changed=True)
+
+    def order(day: date) -> list[str]:
+        ranked = sorted([*unchanged, moved], key=lambda c: _freshness_order(c, day))
+        return [c.case_id for c in ranked]
+
+    first, second = order(date(2026, 10, 9)), order(date(2026, 10, 10))
+    assert first[0] == second[0] == "scotus/99"
+    assert first[1:] != second[1:]
+    assert order(date(2026, 10, 9)) == first  # deterministic within a day
