@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000443",
+  "run_id": "20261010T142428Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts open-events", "fedcourts query", "metrics/statpack.md", "courtlistener search", "courtlistener call_endpoint", "WebSearch", "WebFetch"],
+  "helpful": [
+    "Provisioned petition text and questions-presented file (the hold request is the whole case)",
+    "sal-v4 segment-by-band table with bracketed reached rates",
+    "open-events confirming the lead dockets are in the corpus",
+    "WebFetch of supremecourt.gov docket pages for the lead petitions"
+  ],
+  "gaps": [
+    "A corpus lookup by SCOTUS docket number or party name (query has no text filter), so finding companion petitions required guessing the docket id convention",
+    "CourtListener holds no SCOTUS dockets for current-Term numbers, so lead-docket status had to come from the web",
+    "A statpack cut for petitions that request a hold for a pending petition, since their grant mass is mostly GVR"
+  ],
+  "notes": "Corpus service answered from a warm cache (0 GETs on both queries)."
+}
