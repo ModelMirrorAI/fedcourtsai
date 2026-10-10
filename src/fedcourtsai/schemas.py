@@ -1576,7 +1576,8 @@ class BigCaseAssessment(_Strict):
         ge=0.0,
         le=1.0,
         description="The evaluator's own 0-1 stakes / significance read, formed "
-        "before seeing the predictor's big_case_score",
+        "from the case itself without anchoring on the predictors' big_case_score, "
+        "which is in view",
     )
     notes: str | None = Field(
         default=None, max_length=2000, description="The basis for the read, briefly"

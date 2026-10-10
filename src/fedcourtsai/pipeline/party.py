@@ -492,9 +492,9 @@ def caption_names_federal_party(caption: str) -> bool:
     ``party-v2``'s federal class on either side: the same predicate
     :func:`party_annotations_v2` runs, over the caption's split halves. Not
     identical to that annotation, which reads the petitioner half from the
-    structured ``petitioner_title`` column where a corpus row carries one. Its one caller is the claim scorer, which reads the
-    committed event's ``title`` (a caption in this shape) at stamp time and has
-    no corpus row to hand. A caption with no separator is read as a single
+    structured ``petitioner_title`` column where a corpus row carries one. Its
+    one caller is the claim scorer, which reads the committed event's ``title``
+    (a caption in this shape) at stamp time and has no corpus row to hand. A caption with no separator is read as a single
     petitioner half, and an empty one names no federal party.
     """
     petitioner, separator, respondent = caption.partition(_CAPTION_SEPARATOR)

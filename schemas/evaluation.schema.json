@@ -5,7 +5,7 @@
       "description": "The evaluator's own read of a case's stakes (the big-case dimension).\n\nThe evaluator forms its **own** opinion of how big / significant the case is.\nIt is not blind: the predictions it grades carry the predictors'\n``big_case_score`` and ``big_case_rationale``, so the read is formed with\nthem in view and the prompt asks only that it not anchor on them \u2014 which is\nwhy the agreement it grades is read as an upper bound (``metrics/README.md``,\nthe ``big_case`` reading rule). Unlike the blind grant forecast, this is a *judge's* read: the\nevaluator may use post-decision context available at evaluation time (the\noutcome, the immediate reaction). The predictor's pre-registered score is\ngraded by its agreement with this read \u2014 **rank-agreement across the evaluated\ncohort** at leaderboard time, since bigness is comparative (a per-case\nabsolute delta is a secondary diagnostic); this record stores only the\nevaluator's read, never the grade. Optional on the evaluation so records\nwritten before the dimension existed still validate. See ``docs/salience.md``.",
       "properties": {
         "evaluator_score": {
-          "description": "The evaluator's own 0-1 stakes / significance read, formed before seeing the predictor's big_case_score",
+          "description": "The evaluator's own 0-1 stakes / significance read, formed from the case itself without anchoring on the predictors' big_case_score, which is in view",
           "maximum": 1.0,
           "minimum": 0.0,
           "title": "Evaluator Score",

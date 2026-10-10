@@ -6838,8 +6838,9 @@ freeze commit is recorded here.
   the carrying promotion on carry the label string `proc-v9` inside that window.
   The predictor-prompt amendments owed to the next re-bless (the predict
   prompt's "independent evaluator" sentence on the stakes read, a read rule for
-  the committed predictions tree, and a line saying `data/qp-topics/` is removed
-  on purpose) are deferred to the next label, so that this one breaks no codex
+  the committed predictions tree, a line saying `data/qp-topics/` is removed on
+  purpose, and the `MODEL_ID` example, which still names `claude-fable-5-1`) are
+  deferred to the next label, so that this one breaks no codex
   or gemini window.
 
   **Digests** (`uv run fedcourts process-digest --all`, before this commit on
@@ -6850,9 +6851,9 @@ freeze commit is recorded here.
   | `claude-baseline` | `sha256:1a0b2bef…22e89a` | `sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734` (new) |
   | `codex-baseline` | `sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c` | same, carried forward |
   | `gemini-baseline` | `sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f` | same, carried forward |
-  | `claude-judge` | `sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13` | `sha256:083b45d2ecfd4ef0c6fe3475e1f1e23ef1c2c1fe0f60a758c5d348d6b0390adf` (new) |
-  | `codex-judge` | `sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1` | `sha256:274930779d6d986638eb71ff9a5e4352daa21f2394ecabcd770d72f22f5aa579` (new) |
-  | `gemini-judge` | `sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe` | `sha256:3f8a033b7c8171b6e214912a5476ebe6f151c4b73d1ba1d7a4c45af63ce06835` (new) |
+  | `claude-judge` | `sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13` | `sha256:d4be08d229590fca78be3edf3d048e55b94f5a5e4c989738014a8a6e1ef25ec7` (new) |
+  | `codex-judge` | `sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1` | `sha256:d7d16ff616a2e27d18a45a439d93e5b9342249382901ae438fb07340b9f6f845` (new) |
+  | `gemini-judge` | `sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe` | `sha256:4f5fa7a654667db2c0b50e6201b01206988550b5f6b742063a46f15d9e31daaf` (new) |
 
   The replaced `proc-v8` `claude-baseline` digest is
   `sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a`.

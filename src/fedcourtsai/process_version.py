@@ -145,13 +145,13 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
             2026, 9, 16, 0, 26, 4, tzinfo=UTC
         ),
         # evaluators: claude-judge, codex-judge, gemini-judge (newly blessed).
-        "sha256:083b45d2ecfd4ef0c6fe3475e1f1e23ef1c2c1fe0f60a758c5d348d6b0390adf": datetime(
+        "sha256:d4be08d229590fca78be3edf3d048e55b94f5a5e4c989738014a8a6e1ef25ec7": datetime(
             2026, 10, 9, 0, 0, 0, tzinfo=UTC
         ),
-        "sha256:274930779d6d986638eb71ff9a5e4352daa21f2394ecabcd770d72f22f5aa579": datetime(
+        "sha256:d7d16ff616a2e27d18a45a439d93e5b9342249382901ae438fb07340b9f6f845": datetime(
             2026, 10, 9, 0, 0, 0, tzinfo=UTC
         ),
-        "sha256:3f8a033b7c8171b6e214912a5476ebe6f151c4b73d1ba1d7a4c45af63ce06835": datetime(
+        "sha256:4f5fa7a654667db2c0b50e6201b01206988550b5f6b742063a46f15d9e31daaf": datetime(
             2026, 10, 9, 0, 0, 0, tzinfo=UTC
         ),
     }

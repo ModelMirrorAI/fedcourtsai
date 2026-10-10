@@ -712,11 +712,11 @@ candidate:
    case's own docket/caption reaching past the event date, the disposing order
    or opinion, a `file-read` or `file-search` call that reads or searches
    inside `data/qp-topics/` (membership there encodes cert outcomes; the prompts
-   forbid the read — a search that keeps the path out of what it opens, such
-   as `find … -not -path 'data/qp-topics/*'`, `-prune`, `grep --exclude-dir`
-   or `rg -g '!data/qp-topics'`, reaches nothing there and is not a read; a
-   filter applied to output after the files were opened, such as
-   `… | grep -v qp-topics`, is a read), or the candidate's own disclosure in its prose or `retrieval.md`
+   forbid the read — a search that opens no file there, such as `find …
+   -prune`, `find … -not -path 'data/qp-topics/*'`, `grep --exclude-dir` or
+   `rg -g '!data/qp-topics'`, is not a read; a filter applied to output after
+   the files were opened, such as `… | grep -v qp-topics`, is a read), or the
+   candidate's own disclosure in its prose or `retrieval.md`
    (an honest disclosure is a point *for* the cell's integrity, not against it —
    and note the candidate's `flags.json`, the other place such a disclosure
    lives, is not staged into the blinded set, so its absence proves nothing)? A hosted

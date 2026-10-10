@@ -1224,7 +1224,7 @@ value, and raising it **deepens the
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
 sized to the **bootstrapping** budget — the flagship three-engine release, with the
 active scorer's arrival cohort included, fits inside that scenario's $24K/yr
-model-spend envelope at the $15–17 per fully predicted event
+model-spend envelope at about $10 per fully predicted event
 ([budget.md](budget.md)) — **12 per regular conference and 24
 for the long conference** (double, because that one cohort clears the summer
 backlog at once). The caps are sized to **bind**, and the gate replay at this

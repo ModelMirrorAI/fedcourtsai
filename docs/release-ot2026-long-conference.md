@@ -96,6 +96,18 @@ read the same vintage with `conference_fallbacks` 0.
 
 ## 1. The counted population
 
+**Pinned to `proc-v8`.** Every figure here, and every check below that reads
+`FROZEN_SINCE`, the six digests or the `windows` block, is of the `proc-v8`
+freeze. From the promotion that lands `proc-v9`, a board built from `main`
+carries the `proc-v9` instant, four windows with `claude-baseline`'s `proc-v8`
+window closed, and the `proc-v9` digests, so it fails those checks by
+construction rather than by drift. A refresh of these figures is built from a
+tree before that promotion, and the `release-sensitivity` figures before the
+first graded `proc-v9` `claude-baseline` cell, after which that build refuses
+at frozen scope (the `proc-v9` entry in [freeze-record.md](freeze-record.md)).
+The release's population is unchanged by the successor: its cells are
+`proc-v8` inside `proc-v8`'s windows, and closing a window de-counts nothing.
+
 **State.** Which cells the write-up counts, and why every other cell in `data/`
 is outside it. The population is the `proc-v8` **full** freeze: the six blessed
 digests in `FROZEN_PROCESS_DIGESTS` — three predictors and three evaluators —

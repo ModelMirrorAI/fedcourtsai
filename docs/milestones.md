@@ -49,6 +49,10 @@ at that milestone, not the increment over the row above. The first two rows
 sit inside the bootstrapping envelope, so their funding figure is that
 envelope rather than the sum of the row. Other spend is assumed to step from the
 bootstrapping to the scaling level at milestone 2, when volume starts to grow.
+The model-spend column is priced at about $15 per fully evaluated SCOTUS
+event; at the about $10 [budget.md](budget.md) now gives, today's row is
+≈$8.5–11K and milestone 2's ≈$21–25K. The table keeps the higher rate as the
+planning ceiling until a round of measured cells re-anchors it.
 
 The order is deliberate. New moments are cheap and raise the value of every
 case already covered, so they come first. Coverage comes before more models
