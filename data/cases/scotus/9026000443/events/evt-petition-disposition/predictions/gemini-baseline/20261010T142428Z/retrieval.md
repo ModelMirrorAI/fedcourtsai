@@ -1,0 +1,3 @@
+- Read `metrics/statpack.md` for baseline salience band and relist count base rates.
+- CourtListener MCP search for companion dockets 26-360 and 26-387 (returned 0 results).
+- CourtListener MCP search for case names 'FedEx Corp.' and 'Reichert' (returned 0 results).
