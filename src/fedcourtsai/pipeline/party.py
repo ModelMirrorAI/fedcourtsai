@@ -494,8 +494,9 @@ def caption_names_federal_party(caption: str) -> bool:
     identical to that annotation, which reads the petitioner half from the
     structured ``petitioner_title`` column where a corpus row carries one. Its
     one caller is the claim scorer, which reads the committed event's ``title``
-    (a caption in this shape) at stamp time and has no corpus row to hand. A caption with no separator is read as a single
-    petitioner half, and an empty one names no federal party.
+    (a caption in this shape) at stamp time and has no corpus row to hand. A
+    caption with no separator is read as a single petitioner half, and an empty
+    one names no federal party.
     """
     petitioner, separator, respondent = caption.partition(_CAPTION_SEPARATOR)
     halves = (petitioner, respondent) if separator else (petitioner,)
