@@ -28,6 +28,9 @@ resolves one level out, at the caller.
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 from ..schemas import (
     CERT_ORDER_DISPOSITIONS,
     GRANTED_DISPOSITIONS,
@@ -115,6 +118,25 @@ def _pooled_band_rate(
     if weighted_resolved == 0:
         return None
     return weighted_grants / weighted_resolved
+
+
+def statpack_digest(statpack: StatPack) -> str:
+    """A content digest naming one statpack build, as ``sha256:<hex>``.
+
+    Taken over the parsed model's canonical JSON (sorted keys, no whitespace),
+    not the file's bytes, so a re-serialisation that changes no figure names
+    the same build and every reader — the evaluator stamp that records it
+    beside a cert anchor, and the board that re-pools that anchor — derives it
+    the same way from the :class:`~fedcourtsai.schemas.StatPack` it already
+    holds. The pack carries no build timestamp, so under one ``StatPack``
+    model two builds share a digest exactly when every figure they publish
+    agrees. The model's shape is part of what is hashed: a schema change that
+    adds a defaulted field moves the digest of an unchanged file, which reads
+    to the board as a different build (its re-pool then stands down, as it
+    does after any refresh).
+    """
+    canonical = json.dumps(statpack.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def prediction_base_rate(

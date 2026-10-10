@@ -97,7 +97,7 @@ from .integrity import (
     StratifiedCell,
     latest_evaluations,
 )
-from .pipeline.base_rates import realized_band_rate
+from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statpack_digest
 from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
 from .pipeline.moments import first_moment, scores_votes
 from .process_version import (
@@ -105,6 +105,7 @@ from .process_version import (
     co_current,
     frozen_process_record,
     graded_in_window,
+    harness_stamps_cert_anchor,
     pooled_windows,
     refuse_shared_labels,
     series_sort_key,
@@ -1034,7 +1035,9 @@ def skill_components(
     and Brier. Only where its aggregation happens changes — plus the one drop
     :func:`_prior_baseline` adds: a cell whose recorded skill and recorded
     inputs disagree. An omission from ``skill_scored``, never a substituted
-    value.
+    value. And the drop :func:`_anchor_reproduces` adds: a harness-stamped cert
+    anchor the board's own re-pool, over the build and window the grading
+    records, does not reproduce.
 
     **The realized-Term column** re-reads the same band from the case's own Term
     (:func:`fedcourtsai.pipeline.base_rates.realized_band_rate`, leave-one-out)
@@ -1076,11 +1079,16 @@ def skill_components(
     cases_dir = data_root / "cases"
     outcomes: dict[tuple[str, str], Outcome] = {}
     components: dict[EvaluationKey, CellSkill] = {}
+    pack_digest = statpack_digest(statpack) if statpack is not None else None
     for evaluation, _stratum, stage, _moment in cells:
         if evaluation.brier_score is None:
             continue
         outcome = _read_outcome(cases_dir, evaluation, outcomes)
-        prior = _prior_baseline(evaluation, outcome.actual_granted)
+        prior = (
+            _prior_baseline(evaluation, outcome.actual_granted)
+            if _anchor_reproduces(cases_dir, evaluation, stage, statpack, pack_digest)
+            else None
+        )
         realized = _baseline_brier(
             _realized_rate(cases_dir, evaluation, stage, outcome, statpack), outcome.actual_granted
         )
@@ -1211,10 +1219,71 @@ def _baseline_brier(base_rate: float | None, actual_granted: int) -> float | Non
 #:
 #: On the stages where ``stamp-cell`` writes the whole skill record (merits and
 #: interim: the Brier, the base rate, and the ratio over them) the check passes
-#: by construction — all three come from one set of inputs — so what it guards
-#: in practice is the **cert** cell, whose three are the evaluator's own
-#: arithmetic.
+#: by construction — all three come from one set of inputs — and likewise on a
+#: cert cell whose record the stamp owns (proc-v9 on, frozen band), so what it
+#: guards in practice is every other **cert** cell, whose three are the
+#: evaluator's own arithmetic.
 SKILL_COHERENCE_TOLERANCE = 1e-2
+
+
+#: How far a harness-stamped cert anchor may sit from the board's re-pool of it
+#: over the same statpack build before :func:`_anchor_reproduces` drops the cell.
+#: Float noise only: both sides run one pooler over one build and one window, so
+#: any real difference is a record that was not the stamp's.
+ANCHOR_REPRODUCTION_TOLERANCE = 1e-9
+
+
+def _anchor_reproduces(
+    cases_dir: Path,
+    evaluation: Evaluation,
+    stage: Stage | None,
+    statpack: StatPack | None,
+    pack_digest: str | None,
+) -> bool:
+    """Whether a harness-stamped cert anchor re-pools to the rate it records.
+
+    Applies to a **cert** grading stamped under a label
+    :func:`fedcourtsai.process_version.harness_stamps_cert_anchor` admits that
+    records the ``risk_set`` basis — a ``risk_set`` record naming no build or
+    window is dropped, since the stamp writes both beside every rate it pools
+    — and only where the board can re-pool against the build the stamp read: its
+    ``base_rate_statpack_digest`` equals the board's statpack digest. There the
+    board runs the stamp's own pooler
+    (:func:`fedcourtsai.pipeline.base_rates.prediction_base_rate`) over the
+    scored prediction's frozen context and the lookback window the grading
+    records (``base_rate_lookback_terms``), and refuses a recorded rate that
+    differs beyond :data:`ANCHOR_REPRODUCTION_TOLERANCE`, or a ``risk_set``
+    record that names no build or no window, which the stamp never writes.
+    Where the builds differ — a statpack refresh since the grading — the
+    stamped rate stands: it was the exact pool of the build it names, and
+    re-pooling against another would move the anchor after the fact. The
+    committed board is built straight after a statpack refresh, so there the
+    check stands down for nearly every cell; it verifies an off-cycle build,
+    and becomes total only once a cohort's build is pinned.
+
+    Every other cell passes: an earlier label's cert grading keeps the
+    registered reading (the coherence check alone), and a cert cell on the
+    terminal fallback stays the evaluator's.
+    """
+    if statpack is None or stage != Stage.cert:
+        return True
+    label = evaluation.process_version.label if evaluation.process_version is not None else None
+    if not harness_stamps_cert_anchor(label) or evaluation.base_rate_basis != "risk_set":
+        return True
+    recorded_build = evaluation.base_rate_statpack_digest
+    lookback_terms = evaluation.base_rate_lookback_terms
+    if recorded_build is None or lookback_terms is None:
+        return False
+    if recorded_build != pack_digest:
+        return True
+    scored = _scored_prediction(cases_dir, evaluation)
+    expected = prediction_base_rate(
+        scored.context if scored is not None else None, statpack, lookback_terms=lookback_terms
+    )
+    recorded = evaluation.segment_base_rate
+    if expected is None or recorded is None:
+        return expected is None and recorded is None
+    return math.isclose(expected, recorded, rel_tol=0.0, abs_tol=ANCHOR_REPRODUCTION_TOLERANCE)
 
 
 def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None:
@@ -1243,9 +1312,13 @@ def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None
     cells ``stamp-cell`` writes all three together — the Brier from the scored
     prediction and the outcome, the rate from the statpack
     (:func:`fedcourtsai.cli._skill_record_for`) — so no hand-computed number can
-    reach the board to be caught, and the check passes trivially. On a **cert**
-    cell all three are the evaluator's arithmetic against its own frozen band,
-    and this is what stands between that arithmetic and the published column.
+    reach the board to be caught, and the check passes trivially. The same
+    holds on a **cert** grading stamped under
+    :data:`fedcourtsai.process_version.HARNESS_CERT_ANCHOR_FROM` or later whose
+    prediction froze a band, where :func:`_anchor_reproduces` re-pools the
+    anchor besides. On every other cert cell all three are the evaluator's
+    arithmetic against its own frozen band, and this is what stands between
+    that arithmetic and the published column.
     """
     recorded_rate = evaluation.segment_base_rate
     if (

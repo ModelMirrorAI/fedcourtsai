@@ -1457,7 +1457,10 @@ rather than merely forbidden, whether or not the band's version resolves.
 merged ledger, so neither shape rides a green cell into `main`. A version that
 resolves but does not *match* the pack's rendered one passes both — there the
 omission is prompt discipline rather than an enforced rule, and the
-discipline is what this paragraph registers. The
+discipline is what this paragraph registers. From `proc-v9` on it is enforced
+for a cert grading whose prediction froze a band: the stamp pools that band
+through the version-pinned risk-set pooler itself, and a version no prior Term
+carries pools nothing, so rate, basis, version and skill are cleared together. The
 operational consequence is deliberate: after a salience version ships, forward
 cells scored under it have no skill baseline until the statpack re-renders
 under the same version, and that gap is visible instead of silently papered

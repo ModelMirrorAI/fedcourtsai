@@ -752,8 +752,9 @@ in prose.
   re-prediction cannot re-point a standing grading), and `process_version` are
   the harness's, never the evaluator's word — as is the whole skill record of `brier_score`,
   `segment_base_rate`, and `brier_skill_score` on the two stages whose pool the
-  harness computes (below), which leaves `brier_score` the evaluator's on a cert
-  cell only. `correct` takes no such exemption: a label comparison needs no
+  harness computes (below), and on a cert cell from `proc-v9` on whose
+  prediction froze a band, which leaves `brier_score` the evaluator's only on
+  an earlier label's cert cell or one on the terminal fallback. `correct` takes no such exemption: a label comparison needs no
   pooled baseline and so no band judgment, so it is stamped on every stage, and
   null wherever the prediction or the outcome it compares was unreadable.
   `semantic_grades` is the counterpart of the prediction's `semantic_claims`
@@ -786,10 +787,18 @@ who writes the baseline on each:
   matching salience version exists — the last of those is an omission and never
   a relabel to `terminal`, which would pair a risk-set population with a
   terminal rate, and which the stamp and `validate` refuse outright wherever
-  the scored prediction froze a band at all. A recorded `risk_set` basis must
+  the scored prediction froze a band at all (from `proc-v9` the stamp owns such
+  a record and overwrites the relabel instead). A recorded `risk_set` basis must
   arrive with the `base_rate_salience_version` its band was read under: the
   stamp fails the cell where that does not resolve, and `validate`'s
-  `base_rate_basis_carries_version` holds both rules over the ledger.
+  `base_rate_basis_carries_version` holds both rules over the ledger. Who
+  writes it depends on the grading's process label. From `proc-v9` on, where
+  the scored prediction froze a band, `stamp-cell` writes the rate, the Brier,
+  the skill and both halves of the basis from the scorer's own pooler, and
+  records the statpack build in `base_rate_statpack_digest` and the window in
+  `base_rate_lookback_terms`. Before `proc-v9`,
+  and on the terminal fallback, the evaluator transcribes the rate from
+  `metrics/statpack.md`.
 - **An interim cell's baseline is registered and wired** — the statpack interim
   section's substantive grant rate pooled over application Terms strictly before
   the case's own — but it is no band product either, so `base_rate_basis` and
@@ -813,9 +822,10 @@ who writes the baseline on each:
   denominator over an agent-written numerator would reproduce from the record
   and still be wrong. It clears `base_rate_basis` and
   `base_rate_salience_version` there too, which is what makes their null
-  structural rather than a rule an evaluator has to honour. Only the cert
-  numbers are the evaluator's, because only there is a judgment involved: which
-  band population the rate is taken over. The evaluate prompt says the same
+  structural rather than a rule an evaluator has to honour. The cert numbers
+  are the evaluator's only before `proc-v9` and on the terminal fallback,
+  because only there is a judgment involved: which band population the rate is
+  taken over. The evaluate prompt says the same
   thing from the agent's side for the pooled **pair**: on those two stages it
   writes neither field and reads the stamped values, so `evaluation.md`'s prose
   about the rate and the skill describes the harness's numbers. The prompt still
