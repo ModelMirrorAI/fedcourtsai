@@ -6827,8 +6827,8 @@ freeze commit is recorded here.
     re-owed: every `claude-baseline` cell counted in its `proc-v8` window keeps
     counting under `proc-v8`.
   - **the second shape, for all three evaluators.** Their digests move because
-    the evaluate prompt's bytes move (the stakes-read and `qp-topics` wording
-    below), and `claude-judge`'s model with them. The instant is **not** held,
+    the evaluate prompt's bytes move (the stakes-read, `qp-topics` and
+    cert-anchor wording below), and `claude-judge`'s model with them. The instant is **not** held,
     because the predictor half moves too.
 
   `codex-baseline` and `gemini-baseline` are **byte-identical** to `proc-v8`:
@@ -6851,18 +6851,23 @@ freeze commit is recorded here.
   | `claude-baseline` | `sha256:1a0b2bef…22e89a` | `sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734` (new) |
   | `codex-baseline` | `sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c` | same, carried forward |
   | `gemini-baseline` | `sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f` | same, carried forward |
-  | `claude-judge` | `sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13` | `sha256:d4be08d229590fca78be3edf3d048e55b94f5a5e4c989738014a8a6e1ef25ec7` (new) |
-  | `codex-judge` | `sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1` | `sha256:d7d16ff616a2e27d18a45a439d93e5b9342249382901ae438fb07340b9f6f845` (new) |
-  | `gemini-judge` | `sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe` | `sha256:4f5fa7a654667db2c0b50e6201b01206988550b5f6b742063a46f15d9e31daaf` (new) |
+  | `claude-judge` | `sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13` | `sha256:11dd7d0017c16626139e480013e1033a0963246c49f223d66f0ed553cfd6ddf2` (new) |
+  | `codex-judge` | `sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1` | `sha256:b393b58b65799c79ee8991139c226607088182c3c0f9acde01e9d5cb49a074cb` (new) |
+  | `gemini-judge` | `sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe` | `sha256:e6ecaf1f36b818075cc4caa83976adf760275462522a468aa8e29b794a4546bd` (new) |
 
   The replaced `proc-v8` `claude-baseline` digest is
   `sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a`.
+  The three evaluator digests in the table were recomputed on `staging` when the
+  cert-anchor wording joined the evaluate prompt, before the carrying
+  promotion; the three predictor digests did not move with them.
 
   **Step 0.** At `origin/main` `d77b4e1b0` (`2026-10-09T20:42:51Z`), `git grep
   -l '<digest>' origin/main -- data/cases | wc -l` is **0** for each of the
   four newly blessed digests. The wider census, `git grep -l
   '"process_version": {' origin/main -- data/cases | wc -l`, is **2293**
-  stamped cells, all under `proc-v8`'s six digests or earlier labels'.
+  stamped cells, all under `proc-v8`'s six digests or earlier labels'. For the
+  three recomputed evaluator digests, at `origin/main` `115575b99`
+  (`2026-10-10T14:49:00Z`) each count is **0**, and the census is **2296**.
   Promotion-time re-run: `<FILL: per-digest counts and census at the carrying
   promotion>`.
 
@@ -6993,6 +6998,31 @@ freeze commit is recorded here.
     `gemini-baseline`). It costs nothing today: of the counted `proc-v8`
     gradings on that ledger, 2 are leakage-excluded, both `codex-judge` on
     `gemini-baseline`, and neither cites `qp-topics`.
+  - **The cert skill anchor becomes the harness's.** From this label,
+    `stamp-cell --role evaluator` writes a cert grading's `brier_score`,
+    `segment_base_rate`, `brier_skill_score`, `base_rate_basis` and
+    `base_rate_salience_version` wherever the scored prediction froze a band,
+    and the evaluate prompt now tells a judge to leave those fields to it. The
+    anchor is the exact risk-set pool (`pipeline.base_rates.prediction_base_rate`,
+    `alt_segments` included) from the statpack build and lookback window
+    recorded beside it in `base_rate_statpack_digest` and
+    `base_rate_lookback_terms`, and a re-grade keeps that anchor. Gradings
+    stamped under `proc-v8` or earlier, re-grades of them, and cert cells on
+    the terminal fallback keep the evaluator's transcription. That includes
+    every OT2026 long-conference cohort grading stamped before the carrying
+    promotion; a cohort event first graded after it takes the harness anchor,
+    and the count of such cells is `<FILL: cohort cert gradings stamped with
+    the harness anchor at the tagged commit>`. The `proc-v8` predictor windows
+    that stay open across the carrying promotion therefore carry both
+    authorships of their cert anchor. The rate difference is bounded by the
+    transcription spread measured on 2026-10-06 (mean ≤0.06 pp, max 0.34 pp),
+    and the scored population grows by the sal-v3 frozen-band cells the
+    transcription left null, so a `proc-v8` window's prior-Term skill is read
+    across the boundary only through `by_band`, with its `skill_scored` n. The
+    board drops a `proc-v9` cert cell whose anchor does not re-pool against the
+    build it names. That check stands down whenever the board's statpack
+    differs from the grading's build, which on the committed board is nearly
+    always, until builds are pinned per cohort.
   - **`claude-judge`'s grader model** moves from `claude-fable-5-1` to
     `claude-opus-5-5`, so `claude-judge`'s grading series pools two graders.
     The `proc-v8` cells still collecting gradings after the carrying promotion,
@@ -7073,10 +7103,36 @@ freeze commit is recorded here.
   - **No cell effect:** corpus reads outside Actions no longer rewrite the local
     blob, and the integration suite's promotion evidence runs as its own `gate`
     scenario. Neither reaches a cell's inputs, prompt or scoring.
-  - `<FILL: the document-selector change (cert-reply, SG invited brief and
-    appendix kinds, and the appendix-aware cut) and any other provisioning
-    change merged to staging before the carrying promotion, each stated as
-    what a cell is newly handed, or "none">`.
+  - **Cells are handed more filings.** From the carrying promotion, cells are
+    provisioned with three more cert-stage document kinds: the petitioner's
+    cert-stage reply (`cert-reply`), the Solicitor General's invited brief
+    (`sg-invited-brief`, after a CVSG and before disposition), and the
+    separately linked appendix (`appendix`). Two interim kinds are added too:
+    `application-response`, the first response to an application, and
+    `application-reply`, the applicant's reply. The opposition arm also reads
+    "Brief for the respondent(s)" and "Response of/to … respondent(s)"
+    entries, and a consolidation lead prefers its own merits filings.
+    `petition`, `application` and `appendix` text over the 150,000-character
+    cap keeps the filing body whole and cuts the appendix item by item, with
+    inline `[pipeline note: …]` markers, and every manifest row now carries a
+    `kind_description`. The live cycle ends with a document-freshness pass
+    that brings each polled, predict-relevant case's stored filings up to the
+    docket it just read, capped at `live.document_freshness_per_run` cases a
+    cycle; unchanged links are never re-fetched, so rows stored before the
+    promotion keep their plain head cut. `provision-snapshot` now applies the
+    moment cut in replay mode as in forward mode. No predict prompt byte
+    moves, so the predictor digests do not, and cells provisioned before and
+    after the promotion read different document sets for the same case,
+    inside the carried-forward codex and gemini windows as well. Documents are
+    placed by their own docket date at every cut, so no cell receives a filing
+    docketed on or after its cutoff. Measured backlog: 131 of 193 open
+    predict-relevant cases owed at least one filing (corpus blob
+    `f8b52723…`, latest pull 2026-10-09).
+  - **The live rotation stops leading with a read conference.** A pending
+    petition whose conference has passed leaves the conference-first tier once
+    a poll more than `live.order_list_lag_days` (7) after that conference has
+    read its order list. This changes how recently a held petition's docket was
+    re-read, not what a cell is handed from it.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
   hash>`, merged `<FILL: merged-at>`).
