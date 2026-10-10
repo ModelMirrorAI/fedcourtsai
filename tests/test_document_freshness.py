@@ -11,6 +11,7 @@ import httpx
 import pytest
 
 from fedcourtsai import corpus, supremecourt
+from fedcourtsai.config import LiveConfig
 from fedcourtsai.pipeline import live as live_module
 from fedcourtsai.pipeline.documents import (
     KIND_APPLICATION,
@@ -212,7 +213,7 @@ def test_unheld_agrees_with_what_the_fetch_would_fetch() -> None:
     assert again == [] and recorder.asked == []
 
 
-# --- the interim kinds (#2042's shape) ----------------------------------------------
+# --- the interim kinds ---------------------------------------------------------------
 
 
 def test_the_response_and_the_reply_are_selected_off_their_main_documents() -> None:
@@ -561,3 +562,82 @@ def test_a_poll_without_a_freshness_list_collects_nothing(db: Path, tmp_path: Pa
     with recorder.client() as client:
         poll_live_cases(client, db, tmp_path / "data", [due], today=_TODAY)
     assert KIND_BRIEF_IN_OPPOSITION not in _stored(db, due.case_id)
+
+
+def test_a_petitioners_reply_is_never_the_applicants() -> None:
+    joint = _entry(
+        "Jul 10 2026", "Reply of petitioner and applicant Jane Doe filed.", _link("r.pdf")
+    )
+    refs = select_documents(_cert_payload(_PETITION, _BIO_LEAD, joint))
+    assert KIND_APPLICATION_REPLY not in {r.kind for r in refs}
+
+
+def test_the_link_read_matches_the_stored_rows(db: Path) -> None:
+    case_id = "scotus/9025000100"
+    _store(db, _cert_payload(_PETITION, _BIO_LEAD), case_id, on=date(2026, 7, 16))
+    with corpus.connect(db) as conn:
+        assert corpus.document_urls_for_case(conn, case_id) == {
+            d.kind: d.url for d in corpus.documents_for_case(conn, case_id)
+        }
+        assert corpus.document_urls_for_case(conn, "scotus/1") == {}
+
+
+def test_a_link_upstream_does_not_serve_is_counted_unwritten(db: Path) -> None:
+    case_id = "scotus/9025000100"
+    _store(db, _cert_payload(_PETITION), case_id, on=date(2026, 7, 16))
+    gone = _entry(
+        "Jul 01 2026", "Brief of respondent State in opposition filed.", _link("gone.pdf")
+    )
+    candidate = FreshnessCandidate(case_id, _cert_payload(_PETITION, gone), changed=False)
+    with _Recorder(_SERVED).client() as client:
+        ledger = refresh_stale_documents(
+            client, db, [candidate], cap=5, char_cap=10_000, today=_TODAY
+        )
+    assert ledger["refreshed"] == 1 and ledger["documents"] == 0 and ledger["unwritten"] == 1
+
+
+def test_one_case_that_raises_costs_only_that_case(
+    db: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ids = ["scotus/9025000100", "scotus/9025000101"]
+    for case_id in ids:
+        _store(db, _cert_payload(_PETITION), case_id, on=date(2026, 7, 16))
+    real = live_module.provision_documents
+
+    def flaky(client: SupremeCourtClient, path: Path, case_id: str, *a: Any, **kw: Any) -> int:
+        if case_id == ids[0]:
+            raise RuntimeError("store throttled")
+        return int(real(client, path, case_id, *a, **kw))
+
+    monkeypatch.setattr(live_module, "provision_documents", flaky)
+    payload = _cert_payload(_PETITION, _BIO_LEAD)
+    with _Recorder(_SERVED).client() as client:
+        ledger = refresh_stale_documents(
+            client,
+            db,
+            [FreshnessCandidate(case_id, payload, changed=True) for case_id in ids],
+            cap=5,
+            char_cap=10_000,
+            today=_TODAY,
+        )
+    assert ledger["failed"] == 1 and ledger["refreshed"] == 2
+    assert KIND_BRIEF_IN_OPPOSITION in _stored(db, ids[1])
+
+
+def test_a_pass_that_raises_never_costs_the_window(
+    db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The polls, cursors and outcomes are written before the pass runs, and the
+    corpus push comes after the command: a raise here would lose them all."""
+
+    def broken(*_a: Any, **_kw: Any) -> dict[str, object]:
+        raise RuntimeError("content store throttled")
+
+    monkeypatch.setattr(live_module, "refresh_stale_documents", broken)
+    served = {"25-1": _cert_payload(_PETITION, number="25-1")}
+    with _Recorder(_SERVED, dockets=served).client() as client:
+        queues, discovery = live_module.live_poll_all(
+            client, db, tmp_path / "data", term=25, config=LiveConfig(), today=_TODAY
+        )
+    assert queues.document_freshness == {"error": "RuntimeError"}
+    assert len(discovery.onboarded) == 1

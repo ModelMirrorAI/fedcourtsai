@@ -12337,8 +12337,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     case = ids.case_id(court, docket)
     backend = _provision_backend(corpus_backend)
     gate_active = refuse_terminal and mode == "forward"
-    # The cut applies to a forward cell that names an event; whether that event
-    # *declares* a moment with a usable date is `provision.moment_cutoff`'s call.
+    # The cut applies to a cell that names an event, in either mode; whether that
+    # event *declares* a moment with a usable date is `provision.moment_cutoff`'s call.
     read = _read_cell_inputs(
         backend,
         db_path,

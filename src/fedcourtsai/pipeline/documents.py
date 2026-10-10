@@ -455,13 +455,16 @@ _SG_AMICUS_RE = re.compile(r"\bamicus\b", re.IGNORECASE)
 # reply is on "petitioner", and requiring the filing verb. The party word is what
 # keeps it apart from every other reply arm: those name a petitioner or a
 # respondent, and an applicant files on an application alone. Excluded: an
-# amicus's reply, and replies on the collateral motion practice that rides an
-# application docket.
+# amicus's reply, replies on the collateral motion practice that rides an
+# application docket, and any reply naming a petitioner ("Reply of petitioner
+# and applicant …"), which on a cert docket is the cert-stage reply's to take.
 _APPLICATION_REPLY_RE = re.compile(
     r"^\s*(?:redacted\s+)?reply\s+(?:brief\s+)?(?:of|for|from)\s+(?:the\s+)?(?:\S+\s+){0,3}?applicants?\b",
     re.IGNORECASE,
 )
-_APPLICATION_REPLY_EXCLUDE_RE = re.compile(r"\bamic(?:us|i)\b|\bmotion\b", re.IGNORECASE)
+_APPLICATION_REPLY_EXCLUDE_RE = re.compile(
+    r"\bamic(?:us|i)\b|\bmotion\b|\bpetitioners?\b", re.IGNORECASE
+)
 
 
 def _is_application_reply_entry(text: str) -> bool:

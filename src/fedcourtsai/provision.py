@@ -141,7 +141,7 @@ def casestore_source_from_settings() -> CasestoreSource:
 
 
 def moment_cutoff(event_id: str, events: Sequence[CorpusEvent]) -> date | None:
-    """Where a forward cell for ``event_id`` is placed, or ``None`` for no cut.
+    """Where a cell for ``event_id`` is placed, or ``None`` for no cut.
 
     A stage's later moments exist *because* their information sets differ: a
     merits cell forecast at the grant is a different forecast from the same case

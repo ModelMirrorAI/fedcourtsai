@@ -2107,6 +2107,15 @@ class PayloadReadSource(Protocol):
         """
         ...
 
+    def document_urls(self, case_id: str) -> dict[str, str]:
+        """The case's stored kind -> url mapping, without reading any text.
+
+        What :func:`document_urls_for_case` serves: the document-freshness
+        check compares links only, so it pays the manifest alone rather than a
+        read per document body.
+        """
+        ...
+
     def opinion_text(self, case_id: str) -> str | None: ...
 
 
@@ -5318,6 +5327,27 @@ def documents_for_case(conn: ReadConnection, case_id: str) -> list[CaseDocument]
         )
         for record in cur
     ]
+
+
+def document_urls_for_case(conn: ReadConnection, case_id: str) -> dict[str, str]:
+    """The case's stored documents as kind -> url, without their text.
+
+    The question the live document-freshness check asks of every polled
+    predict-relevant case each cycle — is each link the docket now selects
+    already stored? — answered without the bodies: under the corpus-split mode
+    one manifest read rather than one read per document, on SQLite two columns
+    rather than the rows. A store failure is not swallowed here; the caller
+    isolates it.
+    """
+    if (source := _payload_read_source()) is not None:
+        return source.document_urls(case_id)
+    try:
+        cur = conn.execute("SELECT kind, url FROM documents WHERE case_id = ?", (case_id,))
+    except Exception as exc:
+        if "no such table" in str(exc).lower():
+            return {}
+        raise
+    return {str(kind): str(url) for kind, url in cur.fetchall()}
 
 
 def has_documents_for_case(conn: ReadConnection, case_id: str) -> bool:

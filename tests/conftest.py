@@ -146,6 +146,9 @@ class DictSnapshotSource:
     def has_documents(self, case_id: str) -> bool:
         return False
 
+    def document_urls(self, case_id: str) -> dict[str, str]:
+        return {}
+
     def opinion_text(self, case_id: str) -> str | None:
         return None
 

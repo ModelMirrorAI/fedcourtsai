@@ -522,8 +522,14 @@ rotations just polled:
   left of the soft deadline. A case past the cap or the deadline is owed again
   at its next poll, because the test reads state rather than change; a link
   upstream does not serve keeps its case stale and is retried at each poll,
-  behind every docket that moved. The `Document freshness:` line in the run log
-  carries the counts.
+  behind every docket that moved — the ledger's `unwritten` count is those
+  cases, refreshed and still storing nothing. The `Document freshness:` line in
+  the run log carries the counts. The pass is failure-isolated as the outcome
+  convergence is: a case whose fetch raises is counted `failed`, and a pass that
+  raises as a whole records `error=<type>` and costs the window nothing it had
+  already polled.
+- **Cost of the check.** Links only: the content store's document manifest, one
+  read per candidate, never a document body.
 - **Cutoff.** Freshness changes when a filing is *stored*, never where a cell is
   *placed*. Each row keeps its proceedings entry's own date, and provisioning
   keeps a document only where that date falls strictly before the cell's cutoff
