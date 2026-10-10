@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000443",
+  "run_id": "20261010T142428Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive forward signal from outside the provisioned baseline: this petition asks to be held for Nos. 26-360 (FedEx v. Watt) and 26-387 (Kellogg v. Reichert), both from the Sixth Circuit's Reichert decision; supremecourt.gov shows respondent waivers in both (Sept 24 and 25, 2026) and no distribution yet. The corpus carries both as open evt-petition-disposition events (dockets 9026000360 and 9026000387), so the three cells' outcomes are coupled and should be read together when scored."
+    }
+  ]
+}
