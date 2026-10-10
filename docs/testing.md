@@ -731,7 +731,8 @@ job waits on the `review` hold), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants
-(`test_workflow_cell_invariants`: the qp-topics oracle fence, the back-test's
+(`test_workflow_cell_invariants`: the qp-topics oracle fence, the predict and
+evaluate cells' committed-record hide and its `skip-worktree` mark, the back-test's
 ledger and big-case-board fences, the corpus base
 URL, the forward leakage guard, the arm/disarm bracket, sentinel and deadline of the
 engine hang watchdog — whose bracket must wrap *every* engine step with no other

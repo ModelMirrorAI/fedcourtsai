@@ -1157,7 +1157,8 @@ class Prediction(_Strict):
         description="Pre-registered opinion of the case's stakes / significance / "
         "newsworthiness — *significance if decided*, decoupled from grant likelihood "
         "(a case can be denied yet high-stakes, or granted yet narrow). 0-1; judged "
-        "later by an independent evaluator's agreement, never against a ground truth. "
+        "later by its rank-agreement with the evaluator panel's own reads, never "
+        "against a ground truth. "
         "The prompt contracts a number or an explicit null carrying a one-line "
         "`big_case_rationale`; the rationale is what separates a considered no-view "
         "from silence, since `stamp-cell` rewrites the record through this model and an "
@@ -1554,18 +1555,20 @@ class LeakageAssessment(_Strict):
 
 
 class BigCaseAssessment(_Strict):
-    """The evaluator's independent read of a case's stakes (the big-case dimension).
+    """The evaluator's own read of a case's stakes (the big-case dimension).
 
-    The evaluator forms its **own** opinion of how big / significant the case is,
-    **before** it is shown the predictor's ``big_case_score`` — so, under
-    cross-evaluation, the panel's reads stay independent and the agreement is not
-    circular. Unlike the blind grant forecast, this is a *judge's* read: the
+    The evaluator forms its **own** opinion of how big / significant the case is.
+    It is not blind: the predictions it grades carry the predictors'
+    ``big_case_score`` and ``big_case_rationale``, so the read is formed with
+    them in view and the prompt asks only that it not anchor on them — which is
+    why the agreement it grades is read as an upper bound (``metrics/README.md``,
+    the ``big_case`` reading rule). Unlike the blind grant forecast, this is a *judge's* read: the
     evaluator may use post-decision context available at evaluation time (the
     outcome, the immediate reaction). The predictor's pre-registered score is
     graded by its agreement with this read — **rank-agreement across the evaluated
     cohort** at leaderboard time, since bigness is comparative (a per-case
     absolute delta is a secondary diagnostic); this record stores only the
-    independent read, never the grade. Optional on the evaluation so records
+    evaluator's read, never the grade. Optional on the evaluation so records
     written before the dimension existed still validate. See ``docs/salience.md``.
     """
 
@@ -1573,7 +1576,8 @@ class BigCaseAssessment(_Strict):
         ge=0.0,
         le=1.0,
         description="The evaluator's own 0-1 stakes / significance read, formed "
-        "before seeing the predictor's big_case_score",
+        "from the case itself without anchoring on the predictors' big_case_score, "
+        "which is in view",
     )
     notes: str | None = Field(
         default=None, max_length=2000, description="The basis for the read, briefly"
@@ -1616,7 +1620,8 @@ class ClaimScore(_Strict):
         "record and never of the predictor: an outcome without a signals block "
         "discloses no increment, a context whose signals were unobservable "
         "fixes no prediction-time value, and a CVSG already on the docket at "
-        "prediction time makes the cvsg-increment claim vacuous",
+        "prediction time, or a federal party named in the case's caption, makes "
+        "the cvsg-increment claim vacuous",
     )
     score: float | None = Field(
         default=None,
@@ -1893,7 +1898,7 @@ class Evaluation(_Strict):
     )
     big_case: BigCaseAssessment | None = Field(
         default=None,
-        description="The evaluator's independent big-case read (see "
+        description="The evaluator's own big-case read (see "
         "BigCaseAssessment); null when not assessed and on records written before "
         "the dimension existed. The predictor's big_case_score is graded against "
         "these reads by rank-agreement at leaderboard time.",
@@ -3319,13 +3324,13 @@ class EvaluatorAgreement(_Strict):
 
 
 class BigCaseLeaderboard(_Strict):
-    """A predictor's big-case-score agreement with the independent evaluator panel.
+    """A predictor's big-case-score agreement with the evaluator panel's stakes reads.
 
     A *second* skill dimension, orthogonal to the grant/deny ranking (a model can
     read a case's significance well while calling grant/deny only modestly, or the
     reverse). Bigness is comparative, so the agreement is a **rank** correlation —
     Kendall's tau-b between the predictor's ``big_case_score`` ordering and the
-    panel's (the mean of the evaluators' independent reads), across the scored
+    panel's (the mean of the evaluators' own reads), across the scored
     **cases** both sides rated. A case carrying several forecast moments
     contributes one point, both sides averaged over its moments: bigness is a
     property of the case, so a case's moments are not independent observations

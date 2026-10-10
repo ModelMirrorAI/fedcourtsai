@@ -306,6 +306,7 @@ from .pipeline.party import (
     PARTY_AS_OF_FIELDS,
     PARTY_RULE_VERSION,
     PARTY_RULES,
+    caption_names_federal_party,
     party_census,
 )
 from .pipeline.party_rates import DEFAULT_RATES_RULE, party_rates
@@ -8117,7 +8118,29 @@ def _claim_scores_for(
         statpack,
         lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
         grant_term=_grant_term_for(event_paths),
+        federal_party=_names_federal_party(event_paths),
     )
+
+
+def _names_federal_party(event_paths: EventPaths) -> bool:
+    """Whether the committed event's caption names a federal party on either side.
+
+    Read off the ``event.yaml`` ``title`` — the case caption — through
+    ``party-v2``'s class predicate
+    (:func:`~fedcourtsai.pipeline.party.caption_names_federal_party`), for the
+    claim scorer's federal-party mask. Best-effort like the grant Term beside
+    it: a missing or unreadable definition, or one with no title, answers
+    ``False`` and leaves the claim to its own resolver rather than guessing a
+    party.
+    """
+    event_file = event_paths.event_file
+    if not event_file.is_file():
+        return False
+    try:
+        event = read_model(event_file, PredictableEvent)
+    except (OSError, ValueError, ValidationError, yaml.YAMLError):
+        return False
+    return caption_names_federal_party(event.title)
 
 
 def _scored_prediction_for(event_paths: EventPaths, evaluation: Evaluation) -> Prediction | None:
@@ -8499,7 +8522,7 @@ def _event_stage_and_opened(event_paths: EventPaths) -> tuple[Stage | None, date
         return (None, None)
     try:
         event = read_model(event_file, PredictableEvent)
-    except (OSError, ValueError, ValidationError):
+    except (OSError, ValueError, ValidationError, yaml.YAMLError):
         return (None, None)
     return (event.stage, event.opened_at)
 
@@ -13037,7 +13060,9 @@ def hide_cell_record_cmd(
     ``ls`` of the ledger names every predictor one directory above the staging
     area — before the agent has read the contract that forbids that tree. This
     moves both trees to ``--stash-dir`` for the duration of the run;
-    ``restore-cell-record`` puts them back.
+    ``restore-cell-record`` puts them back. The predict cell runs the same pair
+    after provisioning, so a predictor does not read the other engines'
+    committed forecasts.
 
     Repo-wide, so it needs no cell coordinates and cannot be mis-keyed onto the
     wrong event, and because a predictor's prose on another case identifies it
@@ -13047,7 +13072,9 @@ def hide_cell_record_cmd(
 
     This narrows the accidental surface, not the deliberate one — the checkout
     carries full history, so the hidden bytes stay one ``git show`` away, under
-    the prompt's prohibition and the logged-tool-call audit.
+    the evaluate prompt's prohibition and the logged-tool-call audit in an
+    evaluate cell, and under the audit alone in a predict cell, whose prompt
+    states no read rule for those trees.
 
     Exits 1 before moving anything when the stash already holds a manifest — any
     earlier hide, restored or not, since a second sweep over an emptied tree

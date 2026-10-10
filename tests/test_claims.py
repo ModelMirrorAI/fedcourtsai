@@ -42,6 +42,7 @@ from fedcourtsai.pipeline.claims import (
     score_claims,
 )
 from fedcourtsai.pipeline.judgment import judgment_disturbed
+from fedcourtsai.pipeline.party import caption_names_federal_party
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.schemas import (
     GRANTED_DISPOSITIONS,
@@ -309,6 +310,46 @@ def test_cvsg_increment_is_masked_where_absence_is_ambiguous() -> None:
     blind = _context(distribution_count=None, signals_observable=False, band=None)
     assert resolve_claim(CLAIM_CVSG_INCREMENT, blind, _outcome()) is None
     assert resolve_claim(CLAIM_CVSG_INCREMENT, _context(), _outcome(signals=None)) is None
+
+
+def test_cvsg_increment_is_vacuous_where_a_federal_party_is_named() -> None:
+    # The Court does not invite the Solicitor General's views where the United
+    # States is already a party, so the increment is masked there — and only
+    # it: every other claim resolves exactly as it would without the flag.
+    ctx = _context(cvsg_date=None)
+    rose = _outcome(
+        granted=1,
+        signals=ResolutionSignals(distribution_count=1, cvsg_date=date(2025, 4, 1)),
+    )
+    assert resolve_claim(CLAIM_CVSG_INCREMENT, ctx, rose) == 1
+    assert resolve_claim(CLAIM_CVSG_INCREMENT, ctx, rose, federal_party=True) is None
+    for claim_id in (CLAIM_DISPOSITION, CLAIM_RELIST_INCREMENT):
+        assert resolve_claim(claim_id, ctx, rose, federal_party=True) == resolve_claim(
+            claim_id, ctx, rose
+        )
+    pack = _statpack(_term(2024, rate=0.06))
+    prediction = _prediction(claims=_claims(disposition=0.2, relist=0.7, cvsg=0.05), context=ctx)
+    block = score_claims(prediction, rose, pack, lookback_terms=0, federal_party=True)
+    assert block is not None
+    by_id = {row.claim_id: row for row in block.claims}
+    assert by_id[CLAIM_CVSG_INCREMENT].outcome is None
+    assert by_id[CLAIM_DISPOSITION].outcome == 1
+
+
+@pytest.mark.parametrize(
+    ("caption", "named"),
+    [
+        ("Aaron J. Schock, Petitioner v. United States", True),
+        ("United States, Petitioner v. Jane Roe", True),
+        ("Jane Roe, Petitioner v. Kristi Noem, Secretary of Homeland Security, et al.", True),
+        ("Jane Roe, Petitioner v. Texas", False),
+        ("Jane Roe v. Acme Corp.", False),
+        ("In re Jane Roe", False),
+        ("", False),
+    ],
+)
+def test_a_caption_names_a_federal_party_on_either_side(caption: str, named: bool) -> None:
+    assert caption_names_federal_party(caption) is named
 
 
 # --- baselines: strictly prior, or honestly absent --------------------------------

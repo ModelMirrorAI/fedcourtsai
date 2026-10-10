@@ -811,10 +811,10 @@ stays outside the gate:
   carry the coefficient.
 
   The panel's reads are **not blind to the scores they are compared against**.
-  The prompt asks a judge to form its read before looking at the predictor's
-  `big_case_score`, but the score is a field of the `prediction.json` the judge
-  must read to grade, and the blinded view does not mask it
-  (`fedcourtsai.blinding.mask_prediction`), so nothing enforces the request. A
+  The score is a field of the `prediction.json` the judge must read to grade,
+  and the blinded view does not mask it (`fedcourtsai.blinding.mask_prediction`).
+  The prompt tells a judge the scores are in front of it and asks it to form its
+  read from the case itself without anchoring on them; nothing enforces that. A
   judge records one stakes read per candidate, beside that candidate's own score
   and rationale, and a predictor's panel is built only from the reads recorded
   beside its predictions. Anchoring therefore pulls each predictor's panel toward
@@ -822,7 +822,12 @@ stays outside the gate:
   same amount — most for whichever predictor's score and rationale judges defer
   to — so the comparison *between* predictors is affected as well as the level.
   Read a `big_case` tau as an **upper bound** on how far a predictor's stakes read
-  tracks an independent panel, never as evidence that it does.
+  tracks an independent panel, never as evidence that it does. The bound
+  assumes residual anchoring pulls a read *toward* the score. The prompt tells a
+  judge that a read echoing a predictor's score carries no information, and a
+  judge that over-corrects away from the score pushes agreement down instead;
+  nothing in the record separates the two, so the bound is a reading rule, not
+  a measured property.
 
   How strongly judges anchor depends on the evaluate prompt, so a tau is
   comparable only within one evaluator digest. The board does not split on it:
