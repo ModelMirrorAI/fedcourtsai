@@ -5425,12 +5425,7 @@ def leaderboard(
         big_case=big_case_agreement(settings.data_root, frozen_only=frozen_only),
         evaluators=evaluator_agreement(settings.data_root, frozen_only=frozen_only),
         process_scope=scope,
-        skills=skill_components(
-            cells,
-            settings.data_root,
-            statpack,
-            lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
-        ),
+        skills=skill_components(cells, settings.data_root, statpack),
         forward_claim=_forward_claim_from(run),
         leakage_exclusion=_leakage_exclusion_from(run),
         superseded_gradings=run.superseded,
@@ -5780,7 +5775,6 @@ def release_sensitivity_command(
             registered=registered,
             grant_list=grant_list_day,
             committed_board=committed,
-            lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
         )
     output: dict[str, Any] = {
         "ledger": {
@@ -5896,10 +5890,7 @@ def revoked_window_board_command(
     statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
     try:
         record = window_records.revoked_window_board(
-            settings.data_root,
-            label=label,
-            statpack=statpack,
-            lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
+            settings.data_root, label=label, statpack=statpack
         )
     except window_records.WindowRecordError as exc:
         typer.echo(f"revoked-window-board: {exc}", err=True)
@@ -7245,9 +7236,12 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     and salience config committed *now* — same rule as the ordinary stamp, that
     a harness field is a function of the committed artifacts as of the
     invocation. Reconstructing a stamp-vintage pool would price a corrected
-    outcome against a pack that never saw the correction. So the vintage
+    statpack. So the vintage
     discipline is the operator's: re-grade a whole cohort against one committed
-    statpack, never a cell at a time across a moving pack.
+    statpack, never a cell at a time across a moving pack. One exception: a
+    harness-stamped cert anchor keeps the rate, build and window it was first
+    stamped with (:func:`_cert_skill_record_for`), since a strictly-prior pool
+    is not what an outcome correction changes.
 
     Re-grade **every evaluator on the event**, not one: ``validate``'s
     :func:`fedcourtsai.validate.check_evaluation_correct_agrees` collapses to
@@ -7361,7 +7355,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
                 else process_version.CURRENT_PROCESS_LABEL
             )
             skill_fields, basis_records[path] = _skill_record_for(
-                event_paths, record, settings, label
+                event_paths, record, settings, label, regrade=regrade
             )
             cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
@@ -8216,7 +8210,12 @@ _HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim)
 
 
 def _skill_record_for(
-    event_paths: EventPaths, evaluation: Evaluation, settings: Settings, label: str | None
+    event_paths: EventPaths,
+    evaluation: Evaluation,
+    settings: Settings,
+    label: str | None,
+    *,
+    regrade: bool = False,
 ) -> tuple[dict[str, object], tuple[str | None, str | None, Prediction | None]]:
     """This cell's ``correct`` and skill record as a stamp update, plus its basis trio.
 
@@ -8288,7 +8287,7 @@ def _skill_record_for(
             # Narrowing only: the predicate requires a scored prediction.
             assert latest is not None
             fields, basis, version = _cert_skill_record_for(
-                event_paths, evaluation, settings, outcome, latest
+                event_paths, evaluation, settings, outcome, latest, regrade=regrade
             )
             return {"correct": correct} | fields, (basis, version, latest)
         context = latest.context if latest is not None else None
@@ -8298,6 +8297,7 @@ def _skill_record_for(
                 "correct": correct,
                 "base_rate_salience_version": version,
                 "base_rate_statpack_digest": None,
+                "base_rate_lookback_terms": None,
             },
             (evaluation.base_rate_basis, version, latest if stage == Stage.cert else None),
         )
@@ -8314,6 +8314,7 @@ def _skill_record_for(
             "base_rate_basis": None,
             "base_rate_salience_version": None,
             "base_rate_statpack_digest": None,
+            "base_rate_lookback_terms": None,
         },
         (None, None, None),
     )
@@ -8349,6 +8350,8 @@ def _cert_skill_record_for(
     settings: Settings,
     outcome: Outcome | None,
     scored: Prediction,
+    *,
+    regrade: bool,
 ) -> tuple[dict[str, object], str | None, str | None]:
     """The harness's whole cert skill record, for a cell :func:`_harness_owns_cert_record` admits.
 
@@ -8368,46 +8371,51 @@ def _cert_skill_record_for(
     no ``salience_version`` or no ``term`` beside it, or no prior Term carrying
     the band under its version — rate, basis, version, and skill are all null:
     the omission the evaluator path prescribes for the same cases, never a
-    relabel to ``terminal``. ``base_rate_statpack_digest`` names the build a
-    stamped rate was pooled from, so the board can re-pool against the same
-    build; it is null beside a null rate. Returned with the stamped basis and version, the pair the
+    relabel to ``terminal``. ``base_rate_statpack_digest`` and
+    ``base_rate_lookback_terms`` name the build and the window a stamped rate
+    was pooled under, so the board can re-pool the same pool; both are null
+    beside a null rate.
+
+    **A re-grade keeps the anchor as stamped.** It recomputes the Brier and the
+    skill against the corrected outcome, but the rate, its build, its window
+    and its basis pair are the ones the grading was first stamped with: the
+    anchor is a strictly-prior pool, which an outcome correction does not move,
+    and re-pooling it from whatever build is current would move the baseline
+    after the fact. Returned with the stamped basis and version, the pair the
     mispairing guard judges.
     """
     brier = _harness_brier_for(event_paths, evaluation, outcome)
-    statpack = _statpack_for(settings)
-    rate: float | None = None
-    digest: str | None = None
-    if statpack is None:
-        typer.echo(
-            "::warning::stamp: no readable metrics/statpack.json — this cert cell's "
-            "segment base rate and skill are cleared rather than pooled.",
-            err=True,
-        )
+    rate: float | None
+    digest: str | None
+    lookback: int | None
+    basis: str | None
+    version: str | None
+    if regrade:
+        rate = evaluation.segment_base_rate
+        digest = evaluation.base_rate_statpack_digest
+        lookback = evaluation.base_rate_lookback_terms
+        basis = evaluation.base_rate_basis
+        version = evaluation.base_rate_salience_version
     else:
-        digest = statpack_digest(statpack)
-        rate = prediction_base_rate(
-            scored.context,
-            statpack,
-            lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
+        rate, digest, lookback = _pool_cert_anchor(scored, settings)
+        _warn_on_discarded_number(
+            evaluation, "segment_base_rate", evaluation.segment_base_rate, rate
         )
+        basis = "risk_set" if rate is not None else None
+        # `prediction_base_rate` yields a rate only off a context carrying band,
+        # Term, and version, so a rate implies the version it was pooled under.
+        version = scored.context.salience_version if rate is not None and scored.context else None
+        if evaluation.base_rate_basis is not None and evaluation.base_rate_basis != basis:
+            # Not a number, so `_warn_on_discarded_number` cannot say it; a
+            # judge's wrong basis would otherwise be corrected silently whenever
+            # the two tables' rates happen to agree.
+            typer.echo(
+                f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} "
+                + f"recorded base_rate_basis {evaluation.base_rate_basis!r} for a "
+                + f"harness-stamped field; the stamp wrote {basis!r}.",
+                err=True,
+            )
     _warn_on_discarded_number(evaluation, "brier_score", evaluation.brier_score, brier)
-    _warn_on_discarded_number(evaluation, "segment_base_rate", evaluation.segment_base_rate, rate)
-    # `prediction_base_rate` yields a rate only off a context carrying band,
-    # Term, and version, so a rate implies the version it was pooled under.
-    if rate is None:
-        digest = None
-    basis = "risk_set" if rate is not None else None
-    if evaluation.base_rate_basis is not None and evaluation.base_rate_basis != basis:
-        # Not a number, so `_warn_on_discarded_number` cannot say it; a judge's
-        # wrong basis would otherwise be corrected silently whenever the two
-        # tables' rates happen to agree.
-        typer.echo(
-            f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} recorded "
-            + f"base_rate_basis {evaluation.base_rate_basis!r} for a harness-stamped field; "
-            + f"the stamp wrote {basis!r}.",
-            err=True,
-        )
-    version = scored.context.salience_version if rate is not None and scored.context else None
     fields: dict[str, object] = {
         "brier_score": brier,
         "segment_base_rate": rate,
@@ -8415,8 +8423,32 @@ def _cert_skill_record_for(
         "base_rate_basis": basis,
         "base_rate_salience_version": version,
         "base_rate_statpack_digest": digest,
+        "base_rate_lookback_terms": lookback,
     }
     return fields, basis, version
+
+
+def _pool_cert_anchor(
+    scored: Prediction, settings: Settings
+) -> tuple[float | None, str | None, int | None]:
+    """The cert anchor pooled now: ``(rate, statpack build, lookback window)``.
+
+    All three ``None`` where no rate pools, so a build and a window are only
+    ever named beside the rate they produced.
+    """
+    statpack = _statpack_for(settings)
+    if statpack is None:
+        typer.echo(
+            "::warning::stamp: no readable metrics/statpack.json — this cert cell's "
+            "segment base rate and skill are cleared rather than pooled.",
+            err=True,
+        )
+        return None, None, None
+    lookback = load_salience_config(settings.config_root).base_rate_lookback_terms
+    rate = prediction_base_rate(scored.context, statpack, lookback_terms=lookback)
+    if rate is None:
+        return None, None, None
+    return rate, statpack_digest(statpack), lookback
 
 
 #: How far a recorded number may sit from the stamped one before

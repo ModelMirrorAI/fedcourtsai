@@ -1020,8 +1020,6 @@ def skill_components(
     cells: Iterable[StratifiedCell],
     data_root: Path,
     statpack: StatPack | None,
-    *,
-    lookback_terms: int | None = None,
 ) -> dict[EvaluationKey, CellSkill]:
     """Each scored cell's Brier and the baseline Brier of each skill column.
 
@@ -1037,12 +1035,9 @@ def skill_components(
     and Brier. Only where its aggregation happens changes — plus the one drop
     :func:`_prior_baseline` adds: a cell whose recorded skill and recorded
     inputs disagree. An omission from ``skill_scored``, never a substituted
-    value. And, where ``lookback_terms`` is given, the drop
-    :func:`_anchor_reproduces` adds: a harness-stamped cert anchor the board's
-    own re-pool does not reproduce. ``None`` skips that check; every command
-    that builds a board (``leaderboard``, ``revoked-window-board``,
-    ``release-sensitivity``) passes the configured window, so their boards
-    drop the same cells.
+    value. And the drop :func:`_anchor_reproduces` adds: a harness-stamped cert
+    anchor the board's own re-pool, over the build and window the grading
+    records, does not reproduce.
 
     **The realized-Term column** re-reads the same band from the case's own Term
     (:func:`fedcourtsai.pipeline.base_rates.realized_band_rate`, leave-one-out)
@@ -1091,9 +1086,7 @@ def skill_components(
         outcome = _read_outcome(cases_dir, evaluation, outcomes)
         prior = (
             _prior_baseline(evaluation, outcome.actual_granted)
-            if _anchor_reproduces(
-                cases_dir, evaluation, stage, statpack, pack_digest, lookback_terms
-            )
+            if _anchor_reproduces(cases_dir, evaluation, stage, statpack, pack_digest)
             else None
         )
         realized = _baseline_brier(
@@ -1246,7 +1239,6 @@ def _anchor_reproduces(
     stage: Stage | None,
     statpack: StatPack | None,
     pack_digest: str | None,
-    lookback_terms: int | None,
 ) -> bool:
     """Whether a harness-stamped cert anchor re-pools to the rate it records.
 
@@ -1257,24 +1249,29 @@ def _anchor_reproduces(
     ``base_rate_statpack_digest`` equals the board's statpack digest. There the
     board runs the stamp's own pooler
     (:func:`fedcourtsai.pipeline.base_rates.prediction_base_rate`) over the
-    scored prediction's frozen context and refuses a recorded rate that differs
-    beyond :data:`ANCHOR_REPRODUCTION_TOLERANCE`, or a ``risk_set`` record that
-    names no build at all, which the stamp never writes. Where the builds differ
-    — a statpack refresh since the grading — the stamped rate stands: it was
-    the exact pool of the build it names, and re-pooling against another would
-    move the anchor after the fact.
+    scored prediction's frozen context and the lookback window the grading
+    records (``base_rate_lookback_terms``), and refuses a recorded rate that
+    differs beyond :data:`ANCHOR_REPRODUCTION_TOLERANCE`, or a ``risk_set``
+    record that names no build or no window, which the stamp never writes.
+    Where the builds differ — a statpack refresh since the grading — the
+    stamped rate stands: it was the exact pool of the build it names, and
+    re-pooling against another would move the anchor after the fact. The
+    committed board is built straight after a statpack refresh, so there the
+    check stands down for nearly every cell; it verifies an off-cycle build,
+    and becomes total only once a cohort's build is pinned.
 
     Every other cell passes: an earlier label's cert grading keeps the
     registered reading (the coherence check alone), and a cert cell on the
     terminal fallback stays the evaluator's.
     """
-    if lookback_terms is None or statpack is None or stage != Stage.cert:
+    if statpack is None or stage != Stage.cert:
         return True
     label = evaluation.process_version.label if evaluation.process_version is not None else None
     if not harness_stamps_cert_anchor(label) or evaluation.base_rate_basis != "risk_set":
         return True
     recorded_build = evaluation.base_rate_statpack_digest
-    if recorded_build is None:
+    lookback_terms = evaluation.base_rate_lookback_terms
+    if recorded_build is None or lookback_terms is None:
         return False
     if recorded_build != pack_digest:
         return True

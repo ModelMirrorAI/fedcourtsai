@@ -793,7 +793,8 @@ who writes the baseline on each:
   writes it depends on the grading's process label. From `proc-v9` on, where
   the scored prediction froze a band, `stamp-cell` writes the rate, the Brier,
   the skill and both halves of the basis from the scorer's own pooler, and
-  records the statpack build in `base_rate_statpack_digest`. Before `proc-v9`,
+  records the statpack build in `base_rate_statpack_digest` and the window in
+  `base_rate_lookback_terms`. Before `proc-v9`,
   and on the terminal fallback, the evaluator transcribes the rate from
   `metrics/statpack.md`.
 - **An interim cell's baseline is registered and wired** — the statpack interim

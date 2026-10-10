@@ -282,10 +282,16 @@ stays outside the gate:
   salience version and its docket Term leave no population to choose, so the
   anchor is the scorer's own risk-set pool (the figure `fedcourts
   segment-anchors` prints), read from the statpack build the grading names in
-  `base_rate_statpack_digest`. The board then re-pools that anchor wherever its
-  own statpack is the same build, and drops a cell whose recorded rate does not
-  reproduce, or that records a `risk_set` basis naming no build; where the
-  build differs (a refresh since the grading) the stamped rate stands. An
+  `base_rate_statpack_digest`, under the window recorded in
+  `base_rate_lookback_terms`. The board re-pools that anchor only where its own
+  statpack is the same build, and drops a cell whose recorded rate does not
+  reproduce, or that records a `risk_set` basis naming no build or window;
+  where the build differs (a refresh since the grading) the stamped rate
+  stands. The committed board is built straight after a statpack refresh, so
+  there the re-pool stands down for nearly every cell: it verifies an
+  off-cycle build, and what holds the committed figure is the stamp itself
+  until a cohort's statpack build is pinned. A re-grade keeps the anchor it
+  was first stamped with. An
   earlier label's cert grading, and a cert cell on the terminal fallback (no
   frozen band, so the band is re-derived from the corpus row), keep the
   evaluator's transcription, held by the coherence check alone.

@@ -433,7 +433,7 @@ class RevokedWindowRecord(_Report):
 
 
 def revoked_window_board(
-    data_root: Path, *, label: str, statpack: StatPack | None, lookback_terms: int | None = None
+    data_root: Path, *, label: str, statpack: StatPack | None
 ) -> RevokedWindowRecord:
     """The revoked window's figures over its resolved slice.
 
@@ -484,7 +484,7 @@ def revoked_window_board(
         board = build_leaderboard(
             cells,
             process_scope="frozen",
-            skills=skill_components(cells, data_root, statpack, lookback_terms=lookback_terms),
+            skills=skill_components(cells, data_root, statpack),
             facts=cell_facts(cells, data_root),
             vote_scores=vote_scores(cells, data_root),
             cell_windows=run.cell_windows,

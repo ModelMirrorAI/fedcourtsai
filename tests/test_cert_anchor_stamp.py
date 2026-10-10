@@ -240,6 +240,7 @@ def test_from_proc_v9_the_stamp_writes_the_exact_pool_and_names_its_build(
     assert stamped["base_rate_salience_version"] == _OLD_VERSION
     pack = read_model(tmp_path / "metrics" / "statpack.json", StatPack)
     assert stamped["base_rate_statpack_digest"] == statpack_digest(pack)
+    assert stamped["base_rate_lookback_terms"] == 10  # config/tracking.yaml
     # The overwrite of a different number is said, never silent.
     assert "segment_base_rate" in result.output
 
@@ -297,6 +298,7 @@ def test_an_empty_pool_clears_the_anchor_and_names_no_build(
     assert stamped["brier_skill_score"] is None
     assert stamped["base_rate_basis"] is None
     assert stamped["base_rate_statpack_digest"] is None
+    assert stamped["base_rate_lookback_terms"] is None
     assert stamped["brier_score"] == pytest.approx(0.04)
 
 
@@ -379,13 +381,17 @@ def test_the_board_re_pools_a_stamped_anchor_against_the_build_it_names(
     cases = _roots / "cases"
 
     def reproduces(evaluation: Evaluation, pack_digest: str | None = digest) -> bool:
-        return _anchor_reproduces(cases, evaluation, Stage.cert, pack, pack_digest, 10)
+        return _anchor_reproduces(cases, evaluation, Stage.cert, pack, pack_digest)
 
     assert reproduces(record)
     tampered = record.model_copy(update={"segment_base_rate": 0.071})
     assert not reproduces(tampered)
     assert reproduces(tampered, pack_digest="sha256:a-later-build")
     assert not reproduces(record.model_copy(update={"base_rate_statpack_digest": None}))
+    assert not reproduces(record.model_copy(update={"base_rate_lookback_terms": None}))
+    # The recorded window is the one re-pooled under: a one-Term window pools
+    # 2025 alone (0.12), which the recorded 0.1 does not reproduce.
+    assert not reproduces(record.model_copy(update={"base_rate_lookback_terms": 1}))
     assert record.process_version is not None
     earlier = ProcessVersion(
         label="proc-v8",
@@ -393,19 +399,25 @@ def test_the_board_re_pools_a_stamped_anchor_against_the_build_it_names(
         stamped_at=record.process_version.stamped_at,
     )
     assert reproduces(tampered.model_copy(update={"process_version": earlier}))
-    # No configured window: the check is not run.
-    assert _anchor_reproduces(cases, tampered, Stage.cert, pack, digest, None)
 
 
 def test_a_regrade_recomputes_a_harness_owned_cert_record_rather_than_refusing(
-    _roots: Path, monkeypatch: pytest.MonkeyPatch
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A correction that moves the binary refuses a re-grade of an
-    evaluator-owned cert trio; a harness-owned one is recomputed whole, keyed
-    on the label the record carries — not on the label in force at re-grade."""
+    evaluator-owned cert trio; a harness-owned one recomputes its Brier and
+    skill, keyed on the label the record carries — not on the label in force
+    at re-grade — over the anchor it was first stamped with, even after a
+    statpack refresh would pool a different one."""
     monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v9")
     event_paths = _seed(_roots, 6, context=_frozen())
     assert _stamp(6).exit_code == 0
+    first = _stamped(event_paths)
+    # A refresh lands: the prior Term's rate moves.
+    refreshed = _statpack().model_copy(
+        update={"terms": [_term(2026, 0.5, 1000), _term(2025, 0.3, 200), _term(2024, 0.06, 100)]}
+    )
+    write_json(tmp_path / "metrics" / "statpack.json", refreshed)
     write_json(
         event_paths.outcome,
         read_model(event_paths.outcome, Outcome).model_copy(
@@ -440,4 +452,6 @@ def test_a_regrade_recomputes_a_harness_owned_cert_record_rather_than_refusing(
     assert stamped["brier_score"] == pytest.approx(0.64)
     assert stamped["segment_base_rate"] == pytest.approx(_EXACT_POOL)
     assert stamped["brier_skill_score"] == pytest.approx(1 - 0.64 / (1 - _EXACT_POOL) ** 2)
+    assert stamped["base_rate_statpack_digest"] == first["base_rate_statpack_digest"]
+    assert stamped["base_rate_lookback_terms"] == first["base_rate_lookback_terms"]
     assert stamped["process_version"]["label"] == "proc-v9"  # type: ignore[index]

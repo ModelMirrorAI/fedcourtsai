@@ -1987,6 +1987,16 @@ class Evaluation(_Strict):
         "earlier label's cert grading, a cert cell on the terminal fallback — and "
         "on records written before the field existed.",
     )
+    base_rate_lookback_terms: int | None = Field(
+        default=None,
+        ge=0,
+        description="Harness-stamped `salience.base_rate_lookback_terms` a "
+        "harness-stamped cert segment_base_rate was pooled under (0 = no window), "
+        "written beside base_rate_statpack_digest so the build and the window "
+        "together name the pool; the leaderboard re-pools under this recorded "
+        "window rather than the one in config at build time. Null wherever "
+        "base_rate_statpack_digest is.",
+    )
     brier_skill_score: float | None = Field(
         default=None,
         le=1.0,
