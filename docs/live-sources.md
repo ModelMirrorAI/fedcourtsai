@@ -301,7 +301,8 @@ the docket form, so one function serves both lanes:
   `Main Document` link, and from no other. The party word is what keeps it apart
   from the cert-stage and merits replies, which name a petitioner or a
   respondent; an amicus's reply and a reply on collateral motion practice are
-  excluded.
+  excluded. A reply link that serves the application's own PDF — the docket has
+  posted one under the `Reply` label — is not taken: one PDF is one row.
 - **`appendix`** — the appendix the case-opening entry, or the application
   entry, posts under its own `Appendix` link beside the filing, and no other
   link. One per docket. It carries the opinions and orders below, which is what

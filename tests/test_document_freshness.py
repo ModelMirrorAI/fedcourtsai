@@ -265,6 +265,18 @@ def test_the_reply_arm_takes_no_proof_of_service() -> None:
     assert KIND_APPLICATION_REPLY not in {r.kind for r in refs}
 
 
+def test_a_reply_link_to_the_application_itself_is_not_the_reply() -> None:
+    """26A428's shape: the reply entry's `Reply` link serves the application's PDF."""
+    misposted = _entry(
+        "Sep 30 2026",
+        "Reply of applicant Kenneth Nelsen, Warden filed.",
+        _link("app.pdf", "Reply"),
+    )
+    refs = select_documents(_application_payload(_APPLICATION, _RESPONSE, misposted))
+    kinds = [r.kind for r in refs]
+    assert KIND_APPLICATION in kinds and KIND_APPLICATION_REPLY not in kinds
+
+
 def test_an_applicants_reply_is_not_a_cert_reply() -> None:
     refs = select_documents(_cert_payload(_PETITION, _BIO_LEAD, _APPLICATION_REPLY))
     kinds = {r.kind for r in refs}

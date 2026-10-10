@@ -882,9 +882,12 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
         elif application_reply is None and _is_application_reply_entry(text):
             # The Clerk posts an applicant's reply under a `Reply` link rather
             # than `Main Document`; both are named and nothing else is taken,
-            # since the entry's other link is its proof of service.
+            # since the entry's other link is its proof of service. A link that
+            # is the application's own PDF is not the reply — the docket has
+            # been seen to post one under the reply's label — and one PDF is
+            # one row.
             found = _entry_link(entry, prefer=("reply", "main document"), fallback=False)
-            if found is not None:
+            if found is not None and (application is None or found[0] != application.url):
                 application_reply = DocumentRef(
                     KIND_APPLICATION_REPLY, found[0], entry_date, text.strip()
                 )
