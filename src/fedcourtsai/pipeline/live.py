@@ -14,7 +14,8 @@ Deterministic, no agent. Each cycle:
   late filing onto the old prefix is caught before it is lost.
 - **Refresh** re-polls the live modern-cert watchlist
   (:func:`fedcourtsai.corpus.live_rotation` — overdue dockets first, then
-  distributed petitions by conference, then recent Terms, then stalest;
+  distributed petitions by conference (a past one only until a poll
+  ``live.order_list_lag_days`` after it), then recent Terms, then stalest;
   pending petitions plus the granted dockets whose merits proceeding is still
   open) and detects resolution: the disposition orders ride in the proceedings
   text,
@@ -1349,6 +1350,7 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
                 term_floor_year=config.term_floor_year,
                 overdue_before=overdue_before,
                 overdue_limit=config.max_overdue_per_run,
+                order_list_lag_days=config.order_list_lag_days,
             )
             if row.case_id not in fresh
         ][:max_cases]

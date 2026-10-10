@@ -85,6 +85,17 @@ live:
   # petitions keep the rest of each one (their order-list results are days
   # away). At four cycles a day that drains at most ~400 overdue dockets a day.
   max_overdue_per_run: 100
+  # Days after a conference by which its order list has issued: the Monday
+  # after a Friday conference (Tuesday after a Monday holiday), the first
+  # Monday of October after the long conference. A still-pending petition polled later than this past its
+  # conference date (held, CVSG, rescheduled) has had that order list read, so
+  # it drops from the distributed tier to the Term tiers until a relist or new
+  # distribution gives it a later conference, rather than leading every cycle
+  # on its past date. Sized for the long conference's week-long gap, so a
+  # Friday conference's held rows keep leading for up to five days past their
+  # Monday order list; a value of 3 would demote long-conference rows before
+  # their order list is read.
+  order_list_lag_days: 7
   # New petitions onboarded from the Term's numbering frontier per cycle
   # (sequential probing: paid from <term>-1, IFP from <term>-5001). Sized to
   # absorb the long-conference onboarding burst within a day (~180 over ~2

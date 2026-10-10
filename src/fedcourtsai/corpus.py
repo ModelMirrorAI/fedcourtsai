@@ -4222,6 +4222,34 @@ _GRANTED_SQL = ", ".join(f"'{d.value}'" for d in sorted(GRANTED_DISPOSITIONS))
 # staleness rotation.
 _PENDING_CONFERENCE_SQL = "(CASE WHEN disposition IS NULL THEN distributed_for_conference END)"
 
+
+def _pending_conference_sql(order_list_lag_days: int | None) -> str:
+    """The conference-tier sort key, with a read past conference demoted.
+
+    :data:`_PENDING_CONFERENCE_SQL`, plus — when ``order_list_lag_days`` is set
+    — NULL for a row live-polled *after* its conference date plus that many
+    days. By then the conference's order list has issued and this poll has
+    read it, so a petition still pending (held, CVSG, rescheduled without a new
+    distribution entry) is not days from a result any more: re-polling it each
+    cycle buys nothing until its docket moves, and keyed on its past date it
+    would lead every cycle indefinitely. Demoted, it rotates on Term and
+    staleness like any undistributed pending row, under the overdue bound. A
+    never-polled row (NULL stamp) and one polled only inside the lag keep the
+    tier; a relist or new distribution writes a later conference date, which
+    re-admits the row. The lag is an int, inlined as a date modifier.
+    """
+    if order_list_lag_days is None:
+        return _PENDING_CONFERENCE_SQL
+    if order_list_lag_days < 0:
+        raise ValueError(f"order_list_lag_days must be >= 0, got {order_list_lag_days}")
+    modifier = f"'+{int(order_list_lag_days)} days'"
+    return (
+        "(CASE WHEN disposition IS NOT NULL THEN NULL "
+        f"WHEN last_live_polled > date(distributed_for_conference, {modifier}) THEN NULL "
+        "ELSE distributed_for_conference END)"
+    )
+
+
 # The overdue tier's sort key: the stored poll date when it falls before the
 # bound parameter, else NULL. A NULL bound (the tier disabled) or a never-polled
 # row compares to NULL, so neither is overdue. ISO date text orders as dates.
@@ -4235,6 +4263,7 @@ def live_rotation(
     term_floor_year: int = 2017,
     overdue_before: date | None = None,
     overdue_limit: int | None = None,
+    order_list_lag_days: int | None = None,
 ) -> list[CorpusRow]:
     """The next ``limit`` live petitions the live poller should refresh.
 
@@ -4264,7 +4293,10 @@ def live_rotation(
     stalest first, so a conference's whole distributed set is re-read after its
     order list rather than its newest Term's dockets over and over), then
     recent Terms first, then
-    never-polled before stale, then ``case_id`` for determinism. Rotates on
+    never-polled before stale, then ``case_id`` for determinism. A past
+    conference leads only until a poll more than ``order_list_lag_days`` after
+    it has read that conference's order list; that poll demotes the row to the
+    Term tiers (:func:`_pending_conference_sql`; ``None`` never demotes). Rotates on
     ``last_live_polled``, never ``last_pulled``, so the CourtListener
     enrichment rotation is undisturbed.
     """
@@ -4288,9 +4320,10 @@ def live_rotation(
     # a Term-first order lets the newest Term's still-pending dockets (relisted,
     # rescheduled) hold the head of every cycle while an older Term's petitions
     # on the same conference are never reached.
+    conference = _pending_conference_sql(order_list_lag_days)
     priority_order = (
-        f"{_PENDING_CONFERENCE_SQL} IS NULL, {_PENDING_CONFERENCE_SQL} ASC, "
-        f"CASE WHEN {_PENDING_CONFERENCE_SQL} IS NOT NULL THEN last_live_polled END ASC, "
+        f"{conference} IS NULL, {conference} ASC, "
+        f"CASE WHEN {conference} IS NOT NULL THEN last_live_polled END ASC, "
         f"{_TERM_YEAR_SQL} DESC, last_live_polled IS NOT NULL, "
         "last_live_polled ASC, case_id ASC"
     )
