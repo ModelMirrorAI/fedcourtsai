@@ -46,7 +46,6 @@ from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.validate import (
     _OFF_DOCKET_TERMINAL_CASES,
     _STALE_GRANT_DAYS,
-    _STRAY_EVENT_ENTRIES_PENDING_CLEANUP,
     CHECK_BASE_RATE_VERSION,
     CHECK_CASE_DATES,
     CHECK_CORPUS_EVENTS_IN_LEDGER,
@@ -1105,17 +1104,7 @@ def test_non_directory_directly_under_events_is_refused(tmp_path: Path) -> None:
     assert "not an event directory" in check.problems[0]
 
 
-def test_stray_pending_cleanup_list_is_exactly_the_known_salvage() -> None:
-    """Pinned: the exemption is a tracked debt, not an open door. A new member
-    is a deliberate decision recorded in code; the existing one leaves once its
-    cleanup PR has reached staging."""
-    assert (
-        frozenset({"scotus/73280426/evt-petition-disposition/gemini-baseline"})
-        == _STRAY_EVENT_ENTRIES_PENDING_CLEANUP
-    )
-
-
-def test_stray_pending_cleanup_is_excepted_and_named(tmp_path: Path) -> None:
+def test_a_cell_left_beside_predictions_is_refused(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     ep = CasePaths(data_root, "scotus", 73280426).event("evt-petition-disposition")
     write_yaml(
@@ -1130,33 +1119,9 @@ def test_stray_pending_cleanup_is_excepted_and_named(tmp_path: Path) -> None:
     (ep.base / "gemini-baseline").mkdir()
     (ep.base / "gemini-baseline" / "reasoning.md").write_text("why\n")
     check = check_event_dir_entries(data_root)
-    assert check.passed
-    assert check.checked == 2
-    assert check.failures == 0
-    assert "scotus/73280426/evt-petition-disposition/gemini-baseline" in check.detail
-
-
-def test_exemption_is_keyed_on_the_exact_path(tmp_path: Path) -> None:
-    """The same stray name on any other event, or another name on the excepted
-    event, still fails."""
-    data_root = tmp_path / "data"
-    ep = CasePaths(data_root, "scotus", 73280426).event("evt-petition-disposition")
-    other = CasePaths(data_root, "scotus", 73280427).event("evt-petition-disposition")
-    for paths in (ep, other):
-        write_yaml(
-            paths.event_file,
-            PredictableEvent(
-                event_id="evt-petition-disposition",
-                case_id=paths.base.parent.parent.relative_to(data_root / "cases").as_posix(),
-                kind=EventKind.petition,
-                title="Petition",
-            ),
-        )
-    (other.base / "gemini-baseline").mkdir()
-    (ep.base / "claude-baseline").mkdir()
-    check = check_event_dir_entries(data_root)
-    assert check.failures == 2
-    assert check.detail == ""
+    assert not check.passed
+    assert check.failures == 1
+    assert "'gemini-baseline' is not an event-directory entry" in check.problems[0]
 
 
 def test_validate_cli_refuses_a_stray_event_entry(tmp_path: Path) -> None:
