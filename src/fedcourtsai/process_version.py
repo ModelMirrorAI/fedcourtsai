@@ -857,6 +857,7 @@ _PROMOTION_0929 = "adccd9c427be6e1dd4b43d92b2472d7d21fd8d24"
 _PROMOTION_1001 = "b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b"
 _PROMOTION_1003 = "41d003e28da4232d772031bf142a773afea52ff5"
 _PROMOTION_1010 = "6460e93061a0f4d6a06c14b5b1526346aba7a353"
+_PROMOTION_1011_2 = "c432a95a9073bcae6651eb6b75fddd30aefbd8d8"
 
 #: Every :class:`HarnessBoundary` dated since the earliest counting window
 #: opened, in the order their carrying commits reached ``main``: the freeze
@@ -944,6 +945,14 @@ HARNESS_BOUNDARIES: Final[tuple[HarnessBoundary, ...]] = (
         datetime(2026, 10, 11, 0, 12, 2, tzinfo=UTC),
         _CODEX_AND_GEMINI,
         "replay cells",
+    ),
+    HarnessBoundary(
+        "merits-brief-partial-support",
+        _PROMOTION_1011_2,
+        datetime(2026, 10, 11, 23, 41, 22, tzinfo=UTC),
+        None,
+        "granted dockets",
+        gradual=True,
     ),
 )
 
