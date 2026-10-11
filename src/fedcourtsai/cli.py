@@ -340,6 +340,7 @@ from .pipeline.salience import (
 )
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
+from .promotion_body import Batch, batch_prs, render, same_body, splice
 from .registry import (
     enabled_evaluators,
     enabled_predictors,
@@ -17214,6 +17215,71 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
         approval_report=approval_report,
         run_url=approval_report_run_url,
     )
+
+
+@app.command("promotion-body")
+def promotion_body_cmd(
+    batch_file: Annotated[
+        Path,
+        typer.Option(
+            "--batch-file",
+            help=(
+                "JSON: staging_sha, main_sha, prs (number, title, body), gate (name, ok, "
+                "detail) and owed_fills."
+            ),
+        ),
+    ],
+    drafted_at: Annotated[
+        str, typer.Option("--drafted-at", help="The timestamp the block states it was drafted.")
+    ],
+    existing_body_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--existing-body-file",
+            help="The PR's current body: the generated block is replaced in it, the rest kept.",
+        ),
+    ] = None,
+    exit_unchanged: Annotated[
+        bool,
+        typer.Option(
+            "--exit-unchanged",
+            help=(
+                "With --existing-body-file: exit 3, printing nothing, when the new body "
+                "differs from it only in the drafted-at stamp or trailing whitespace."
+            ),
+        ),
+    ] = False,
+) -> None:
+    """Render the generated block of a draft promotion PR's body.
+
+    Lists the batch's feature PRs (the main→staging sync PRs on their own line),
+    gathers each one's effect-check handover note, states the gate's state and
+    the next step, and lists the freeze-record placeholders the merge will owe.
+    With `--existing-body-file` the block replaces the one between the markers
+    and keeps everything else as written; with `--exit-unchanged` too, a body
+    that would change nothing but the stamp exits 3 instead, so the caller skips
+    an edit that would only re-run CI. Prints the whole body; reads no corpus
+    and calls no API.
+    """
+    if exit_unchanged and existing_body_file is None:
+        typer.echo("promotion-body: --exit-unchanged needs --existing-body-file", err=True)
+        raise typer.Exit(code=1)
+    try:
+        raw = json.loads(batch_file.read_text(encoding="utf-8"))
+        prs, sync = batch_prs(Batch.model_validate(raw).prs)
+        batch = Batch.model_validate(
+            {**raw, "prs": [pr.model_dump() for pr in prs], "sync_prs": sync}
+        )
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        typer.echo(f"promotion-body: cannot read the batch at {batch_file}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    block = render(batch, drafted_at=drafted_at)
+    if existing_body_file is not None:
+        existing = existing_body_file.read_text(encoding="utf-8")
+        block = splice(existing, block)
+        if exit_unchanged and same_body(existing, block):
+            raise typer.Exit(code=3)
+    typer.echo(block)
 
 
 @app.command("evaluate-plan")

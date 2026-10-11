@@ -14,7 +14,9 @@ name: promote
 #     the ruleset's sole bypass actor;
 #   * the promotion PR: a PR created with a workflow's own GITHUB_TOKEN
 #     triggers no `pull_request` workflows, so its required checks would never
-#     report — the maintainer creating it is what makes the gate real.
+#     report. `promotion-prep` opens it as a draft with the dev App's token
+#     instead (an App-opened PR does run the checks); with no draft open, the
+#     maintainer creates it from the command this workflow prints.
 #
 # Its own workflow file rather than a mode on an existing dispatch surface:
 # promotion is a release-shaped operational surface whose run history is the

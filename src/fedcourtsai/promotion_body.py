@@ -1,0 +1,285 @@
+"""The generated part of a draft promotion PR's body.
+
+A promotion batch is assembled from the feature PRs merged into `staging` since
+the last promotion. Each of them is asked (AGENTS.md) to carry its effect check
+as a handover note, and the promotion body is where those notes meet, beside
+the gate's state and what is still owed after the merge. Writing that by hand
+is the mechanical part of a promotion; this module writes it, and the
+`promotion-prep` workflow keeps it current on a draft PR.
+
+The block sits between two HTML-comment markers, so everything a maintainer
+writes outside them survives a refresh: the narrative stays theirs, the lists
+stay in step with `staging`.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Sequence
+
+from pydantic import BaseModel
+
+BEGIN = "<!-- promotion-prep:begin -->"
+END = "<!-- promotion-prep:end -->"
+
+# A handover note is any heading that names an effect check, at any level and in
+# any of the phrasings feature PRs use ("Effect check, after the next
+# promotion", "Handover: effect check for the promotion", "Post-promotion effect
+# check", "Promotion and effect check").
+_HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
+_EFFECT_HEADING = re.compile(r"effect[\s-]+checks?\b", re.IGNORECASE)
+# What ends a section besides the next heading: the tool footer every agent PR
+# carries, and an edit note appended after it.
+_FOOTER = re.compile(r"^(?:🤖 Generated with|https://claude\.ai/code/|_Body edited)")
+# A fence opener or closer. Inside a fence a `#` line is a shell comment, not a
+# heading, so neither headings nor the footer are read there.
+_FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+
+
+class BatchPR(BaseModel):
+    """One feature PR merged into `staging` since the last promotion."""
+
+    number: int
+    title: str
+    body: str = ""
+
+
+class GateCheck(BaseModel):
+    """One promotion-gate stage as the prep job read it."""
+
+    name: str
+    ok: bool
+    detail: str = ""
+
+
+class Batch(BaseModel):
+    """Everything the generated block is rendered from."""
+
+    staging_sha: str
+    main_sha: str
+    prs: list[BatchPR]
+    sync_prs: list[int] = []
+    gate: list[GateCheck] = []
+    owed_fills: list[str] = []
+
+
+class _Fence:
+    """Open-fence state: a fence closes only on a run of its own character at
+    least as long as the one that opened it, so the two kinds cannot close each
+    other."""
+
+    def __init__(self) -> None:
+        self.opener: str | None = None
+
+    def step(self, line: str) -> bool:
+        """Update the state for ``line``; return whether it is a fence line."""
+        match = _FENCE.match(line)
+        if match is None:
+            return False
+        run = match.group(1)
+        if self.opener is None:
+            self.opener = run
+            return True
+        if run[0] == self.opener[0] and len(run) >= len(self.opener):
+            self.opener = None
+            return True
+        return False
+
+    @property
+    def open(self) -> bool:
+        return self.opener is not None
+
+
+def extract_effect_check(body: str) -> str | None:
+    """The PR's effect-check section, without its heading, or ``None``.
+
+    The section runs from the first heading that names an effect check to the
+    next heading at the same or a higher level, or to the tool footer. Inside a
+    fenced block no line is read as a heading or the footer. An empty section
+    is ``None``: a heading with nothing under it is not a check.
+    """
+    lines = body.replace("\r\n", "\n").split("\n")
+    outer = _Fence()
+    for index, line in enumerate(lines):
+        if outer.step(line) or outer.open:
+            continue
+        heading = _HEADING.match(line)
+        if heading is None or not _EFFECT_HEADING.search(heading.group(2)):
+            continue
+        level = len(heading.group(1))
+        section: list[str] = []
+        inner = _Fence()
+        for following in lines[index + 1 :]:
+            if not inner.step(following) and not inner.open:
+                nested = _HEADING.match(following)
+                ends = nested is not None and len(nested.group(1)) <= level
+                if ends or _FOOTER.match(following):
+                    break
+            section.append(following)
+        if inner.opener is not None:
+            # A section cut off inside a fence would leave the rest of the
+            # generated block rendered as code, so close it with its own kind.
+            section.append(inner.opener)
+        text = "\n".join(section).strip()
+        return _unmark(text) or None
+    return None
+
+
+def _unmark(text: str) -> str:
+    """PR text with the block's own markers defused, so it can neither forge
+    nor cut the generated block. Nothing else is touched: a command's `@` or
+    `<!--` must survive verbatim to be copied."""
+    return text.replace(BEGIN, BEGIN.replace("<!--", "&lt;!--")).replace(
+        END, END.replace("<!--", "&lt;!--")
+    )
+
+
+def _title(title: str) -> str:
+    """A PR title for the block: markers defused and `@` escaped, since a
+    mention in a heading or list item would notify on every refresh."""
+    return _unmark(title).replace("@", "&#64;")
+
+
+def _gate_lines(batch: Batch) -> list[str]:
+    if not batch.gate:
+        return ["- not read this run"]
+    lines = []
+    for check in batch.gate:
+        verdict = "**clean**" if check.ok else "**not yet**"
+        detail = f" — {check.detail}" if check.detail else ""
+        lines.append(f"- {check.name}: {verdict}{detail}")
+    return lines
+
+
+def _next_step(batch: Batch) -> list[str]:
+    """What the maintainer does next, in the order that keeps evidence valid.
+
+    Marking the PR ready comes first: it stops `sync-staging` moving the head,
+    and the integration evidence is per-SHA, so a gate run dispatched while the
+    PR is still a draft can be invalidated by the next sync.
+    """
+    if not batch.gate:
+        return []
+    failing = {check.name for check in batch.gate if not check.ok}
+    if not failing:
+        return [
+            "**Next:** the gate reads clean at this head. If this PR is still a draft, mark",
+            "it ready (which stops syncs moving the head), edit the body once to re-run",
+            "`promotion-gate`, and merge with a **merge commit**.",
+        ]
+    lines = [
+        "**Next:** mark this PR ready for review first (that stops `sync-staging`",
+        "moving the head under the evidence), then:",
+    ]
+    if "quiescence" in failing:
+        lines.append("- let the running predict/evaluate/back-test rounds finish (or reject")
+        lines.append("  their holds); the gate needs those lanes idle.")
+    if "freshness" in failing:
+        lines.append(
+            f"- run the integration gate at this head: `gh workflow run integration-test.yml"
+            f" --ref staging -f scenario=gate` (staging `{batch.staging_sha[:9]}`), or"
+            " `offline-gate` plus the `promote:skip-engine-smoke` label for a batch that"
+            " cannot affect a cell."
+        )
+    lines.append("- then edit the body once to re-run `promotion-gate`, and merge with a")
+    lines.append("  **merge commit**.")
+    return lines
+
+
+def render(batch: Batch, *, drafted_at: str) -> str:
+    """The generated block, markers included."""
+    out = [
+        BEGIN,
+        f"_Drafted by `promotion-prep` at {drafted_at} for staging "
+        f"`{batch.staging_sha[:9]}` over main `{batch.main_sha[:9]}`. The block between "
+        "the markers is regenerated while this PR is a draft; write anything else outside "
+        "it._",
+        "",
+        f"**Gate status** (staging `{batch.staging_sha[:9]}`):",
+        *_gate_lines(batch),
+        "",
+        *_next_step(batch),
+        "",
+        "## The batch",
+        "",
+    ]
+    if batch.prs:
+        out.extend(f"- #{pr.number}: {_title(pr.title)}" for pr in batch.prs)
+    else:
+        out.append("- no feature PR found between main and staging")
+    if batch.sync_prs:
+        out.append("- Sync: " + ", ".join(f"#{n}" for n in batch.sync_prs))
+    out += ["", "## Effect checks", ""]
+    missing = []
+    for pr in batch.prs:
+        check = extract_effect_check(pr.body)
+        if check is None:
+            missing.append(pr)
+            continue
+        out += [f"### #{pr.number}: {_title(pr.title)}", "", check, ""]
+    if missing:
+        out.append("**No effect-check note found** (write one here, or say why none applies):")
+        out.extend(f"- #{pr.number}: {_title(pr.title)}" for pr in missing)
+        out.append("")
+    out += [
+        "## After the merge",
+        "",
+        "1. Tag `promotion/<YYYY-MM-DD>` on the merge commit (`-2` for a same-day second batch).",
+    ]
+    if batch.owed_fills:
+        out.append("2. Fill the freeze-record placeholders this batch owes:")
+        out.extend(f"   - `{fill.strip()}`" for fill in batch.owed_fills)
+        out.append("3. Run the effect checks above and record what they printed.")
+    else:
+        out.append("2. Run the effect checks above and record what they printed.")
+    out.append(END)
+    return "\n".join(out)
+
+
+def splice(existing: str, block: str) -> str:
+    """Replace the generated block in ``existing``, or put it first if absent.
+
+    Text outside the markers is kept as written, less trailing whitespace, so a
+    body that round-trips through the API and back is stable rather than
+    growing a blank line per refresh. A body with a begin marker and no end
+    marker is treated as having no block, so a damaged body never loses what
+    follows the stray marker.
+    """
+    existing = existing.replace("\r\n", "\n").rstrip()
+    start = existing.find(BEGIN)
+    end = existing.find(END, start + len(BEGIN)) if start != -1 else -1
+    if start == -1 or end == -1:
+        return block if not existing else f"{block}\n\n{existing}"
+    return (existing[:start] + block + existing[end + len(END) :]).rstrip()
+
+
+def same_body(left: str, right: str) -> bool:
+    """Whether two bodies differ only in the drafted-at stamp or trailing space.
+
+    Every body edit re-runs CI on the PR, so a refresh that would change nothing
+    else is not written.
+    """
+
+    def norm(body: str) -> list[str]:
+        return [
+            line.rstrip()
+            for line in body.replace("\r\n", "\n").rstrip().split("\n")
+            if not line.startswith("_Drafted by `promotion-prep`")
+        ]
+
+    return norm(left) == norm(right)
+
+
+def batch_prs(prs: Sequence[BatchPR]) -> tuple[list[BatchPR], list[int]]:
+    """Split a batch into feature PRs and the main→staging sync PRs, by title.
+
+    The sync workflow opens its PR under one fixed title, so a title match is
+    the whole test; ordered by number, each PR once.
+    """
+    seen: dict[int, BatchPR] = {}
+    for pr in prs:
+        seen.setdefault(pr.number, pr)
+    ordered = sorted(seen.values(), key=lambda pr: pr.number)
+    sync = [pr.number for pr in ordered if pr.title == "chore: sync main into staging"]
+    features = [pr for pr in ordered if pr.number not in sync]
+    return features, sync

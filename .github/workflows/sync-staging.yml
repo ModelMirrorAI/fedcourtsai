@@ -102,9 +102,13 @@ jobs:
           # Never sync into a promotion in flight. Freshness is per-SHA, so
           # moving staging's head under an open promotion PR would invalidate
           # the very scenario runs that batch is waiting on — the exact failure
-          # this workflow exists to prevent, but unattended.
+          # this workflow exists to prevent, but unattended. A *draft*
+          # promotion PR is not in flight: `promotion-prep` keeps one open as
+          # the batch's running record, and the maintainer marks it ready when
+          # the batch is to promote — which is when syncs stop.
           if [ -n "$(gh pr list --repo "$REPO" --base main --head staging \
-                       --state open --json number --jq '.[0].number // empty')" ]; then
+                       --state open --json number,isDraft,isCrossRepository \
+                       --jq '[.[] | select((.isDraft | not) and (.isCrossRepository | not))][0].number // empty')" ]; then
             echo "promotion PR in flight; deferring the sync so its freshness evidence stands."
             echo "Promotion PR in flight — sync deferred so its per-SHA freshness evidence stands." >> "$GITHUB_STEP_SUMMARY"
             exit 0
