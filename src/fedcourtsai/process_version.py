@@ -925,6 +925,19 @@ def boundary_side(
     return "after" if _is_ancestor(str(repo), boundary.merge, pipeline_sha) else "before"
 
 
+def boundary_admits(boundary: HarnessBoundary, predictor_id: str, mode: str | None) -> bool:
+    """Whether ``boundary`` counts a ``predictor_id`` cell run in ``mode``.
+
+    The boundary's predictors and its mode decide; the docket-scoped reaches
+    (self-represented, granted) are the boundary's printed scope, never a
+    filter, since whether a docket was either at a cell's moment lives only in
+    the corpus. ``replay cells`` admits replay-mode cells alone.
+    """
+    if boundary.predictors is not None and predictor_id not in boundary.predictors:
+        return False
+    return boundary.reach != "replay cells" or mode == "replay"
+
+
 def _git(repo: str, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", "-C", repo, *args],
@@ -935,7 +948,7 @@ def _git(repo: str, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 @cache
-def _is_ancestor(repo: str, ancestor: str, descendant: str) -> bool:
+def _require_full_history(repo: str) -> None:
     shallow = _git(repo, "rev-parse", "--is-shallow-repository")
     if shallow.returncode != 0:
         raise BoundaryHistoryError(f"{repo} is not a git checkout: {shallow.stderr.strip()}")
@@ -943,11 +956,21 @@ def _is_ancestor(repo: str, ancestor: str, descendant: str) -> bool:
         raise BoundaryHistoryError(
             f"{repo} is a shallow clone: a harness-boundary side needs the full history"
         )
-    for sha in (ancestor, descendant):
-        if _git(repo, "cat-file", "-e", f"{sha}^{{commit}}").returncode != 0:
-            raise BoundaryHistoryError(
-                f"{repo} holds no commit {sha}: a harness-boundary side cannot be read"
-            )
+
+
+@cache
+def _require_commit(repo: str, sha: str) -> None:
+    if _git(repo, "cat-file", "-e", f"{sha}^{{commit}}").returncode != 0:
+        raise BoundaryHistoryError(
+            f"{repo} holds no commit {sha}: a harness-boundary side cannot be read"
+        )
+
+
+@cache
+def _is_ancestor(repo: str, ancestor: str, descendant: str) -> bool:
+    _require_full_history(repo)
+    _require_commit(repo, ancestor)
+    _require_commit(repo, descendant)
     result = _git(repo, "merge-base", "--is-ancestor", ancestor, descendant)
     if result.returncode not in (0, 1):
         raise BoundaryHistoryError(

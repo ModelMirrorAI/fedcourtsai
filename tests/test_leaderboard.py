@@ -40,6 +40,11 @@ from fedcourtsai.leaderboard import (
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.evaluate import is_correct
 from fedcourtsai.pipeline.moments import first_moment, moments_for
+from fedcourtsai.process_version import (
+    HARNESS_BOUNDARIES,
+    BoundarySide,
+    boundary_admits,
+)
 from fedcourtsai.schemas import (
     GRANTED_DISPOSITIONS,
     NO_BAND_KEY,
@@ -3327,3 +3332,44 @@ def test_cli_writes_the_banded_cut(tmp_path: Path) -> None:
         "sal-v1/low": 4,
         NO_BAND_KEY: 1,
     }
+
+
+def test_a_pooled_entry_and_a_paired_engine_list_the_boundaries_inside_their_cells() -> None:
+    """Cells on both sides of a boundary list it with each side's count; a
+    boundary every cell sits after is outside the span and is not listed; a
+    cell with no `pipeline_sha` sits on neither side and is counted beside."""
+    names = [boundary.name for boundary in HARNESS_BOUNDARIES]
+    early, late = names[0], names[-1]
+    cells = [
+        _evaluation("alpha", event_id=f"evt-{n}", evaluator_id=judge)
+        for n in ("a", "b", "c")
+        for judge in ("e1", "e2")
+    ] + [_evaluation("beta", event_id="evt-a")]
+    side_of: dict[str, BoundarySide | None] = {"evt-a": "before", "evt-b": "after", "evt-c": None}
+    sides: dict[Any, dict[str, BoundarySide | None]] = {
+        _evaluation_key(ev): {early: side_of[ev.event_id], late: "after"} for ev in cells
+    }
+    board = build_leaderboard([_forward(ev) for ev in cells], boundaries=sides)
+    alpha = next(e for e in board.entries if e.predictor_id == "alpha")
+    # Cells, not gradings: two judges on each event count it once.
+    assert [(b.boundary, b.before, b.after, b.unstamped) for b in alpha.boundaries] == [
+        (early, 1, 1, 1)
+    ]
+    assert alpha.boundaries[0].scope == HARNESS_BOUNDARIES[0].reach
+    beta = next(e for e in board.entries if e.predictor_id == "beta")
+    assert beta.boundaries == []
+    assert "boundaries" not in beta.model_dump(mode="json")
+    # The paired figure lists over each engine's paired cells: only evt-a pairs.
+    assert board.paired is not None
+    assert all(engine.boundaries == [] for engine in board.paired.entries)
+
+
+def test_a_replay_boundary_admits_replay_cells_of_its_predictors_alone() -> None:
+    (replay,) = [b for b in HARNESS_BOUNDARIES if b.reach == "replay cells"]
+    assert boundary_admits(replay, "codex-baseline", "replay")
+    assert not boundary_admits(replay, "codex-baseline", "forward")
+    assert not boundary_admits(replay, "claude-baseline", "replay")
+    scrub = HARNESS_BOUNDARIES[0]
+    # A docket-scoped reach is printed as scope, never applied as a filter.
+    assert scrub.reach == "self-represented dockets"
+    assert boundary_admits(scrub, "claude-baseline", "forward")

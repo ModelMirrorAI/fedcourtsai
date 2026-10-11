@@ -30,6 +30,56 @@
       "title": "BigCaseLeaderboard",
       "type": "object"
     },
+    "BoundaryCount": {
+      "additionalProperties": false,
+      "description": "A harness boundary inside a pooled figure's span: its cells on each side.\n\nA dated change to what a predict cell reads under an unchanged digest cuts\nnothing out of a pooled figure; it is listed as composition instead. A\ncell's side is read by ancestry \u2014 after where the carrying commit is an\nancestor of, or equal to, its ``process_version.pipeline_sha`` \u2014 and a cell\nwithout one sits on neither side.",
+      "properties": {
+        "after": {
+          "description": "Cells of this figure built at or after the change; an upper bound on exposure wherever the change is docket-scoped or reached the corpus by back-fill",
+          "minimum": 0,
+          "title": "After",
+          "type": "integer"
+        },
+        "at": {
+          "description": "The carrying commit's committer time \u2014 for display only; the side test is ancestry",
+          "format": "date-time",
+          "title": "At",
+          "type": "string"
+        },
+        "before": {
+          "description": "Cells of this figure built before the change",
+          "minimum": 0,
+          "title": "Before",
+          "type": "integer"
+        },
+        "boundary": {
+          "description": "The boundary's registered name",
+          "title": "Boundary",
+          "type": "string"
+        },
+        "scope": {
+          "description": "The cells the change can reach (`all`, `replay cells`, `self-represented dockets`, `granted dockets`), printed as scope and never used as a filter: whether a docket was self-represented or granted at a cell's moment lives only in the corpus. So for a docket-scoped boundary `after` is the cells that could have read the change, an upper bound on exposure",
+          "title": "Scope",
+          "type": "string"
+        },
+        "unstamped": {
+          "default": 0,
+          "description": "Cells the boundary admits that carry no `pipeline_sha`, so sit on neither side",
+          "minimum": 0,
+          "title": "Unstamped",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "boundary",
+        "at",
+        "scope",
+        "before",
+        "after"
+      ],
+      "title": "BoundaryCount",
+      "type": "object"
+    },
     "CountingWindow": {
       "additionalProperties": false,
       "description": "One blessing of one predictor digest: the span its cells count in.\n\nThe counting rule's unit (:data:`fedcourtsai.process_version.COUNTING_WINDOWS`).\nA window opens at the counting instant of the label that blessed the digest\nand closes at the counting instant of the successor that stops blessing it,\neach as its ``prereg/`` tag records it. A **closed** window's cells keep\ncounting; a **revoked** one's are de-counted, which only a dated\nfreeze-record entry stating a defect licenses. A digest carried forward\nbyte-identical keeps one unbroken window; a digest blessed again after its\nwindow closed opens a new one.",
@@ -237,6 +287,14 @@
           "default": null,
           "description": "The predictor's big-case-score rank-agreement with the evaluator panel (see BigCaseLeaderboard); a second, orthogonal skill dimension that never affects the ranking. Null when no case carries both a predictor big_case_score and an evaluator read."
         },
+        "boundaries": {
+          "description": "Every registered harness boundary that falls inside this figure's cells \u2014 cells on both sides of it \u2014 with the counts on each side, over every cell the boundary's predictors and mode admit (a replay-only boundary counts replay cells alone). Cells, not gradings: one per (case, event). A boundary outside the span cuts nothing and is not listed; omitted while none is. On a pooled entry; never on a cut entry",
+          "items": {
+            "$ref": "#/$defs/BoundaryCount"
+          },
+          "title": "Boundaries",
+          "type": "array"
+        },
         "by_band": {
           "anyOf": [
             {
@@ -440,6 +498,14 @@
       "additionalProperties": false,
       "description": "One predictor's aggregates within a single non-cert stage.\n\nThe same per-stratum aggregate shape as a ranked :class:`LeaderboardEntry`,\nminus the rank and the big-case dimension: a non-cert stage's cells resolve\non a different decision standard than the cert board's, so they report\nseparately and never rank \u2014 and never pool into any cert figure.",
       "properties": {
+        "boundaries": {
+          "description": "Every registered harness boundary that falls inside this figure's cells \u2014 cells on both sides of it \u2014 with the counts on each side, over every cell the boundary's predictors and mode admit (a replay-only boundary counts replay cells alone). Cells, not gradings: one per (case, event). A boundary outside the span cuts nothing and is not listed; omitted while none is. On a pooled entry; never on a cut entry",
+          "items": {
+            "$ref": "#/$defs/BoundaryCount"
+          },
+          "title": "Boundaries",
+          "type": "array"
+        },
         "by_band": {
           "anyOf": [
             {
@@ -895,6 +961,14 @@
       "additionalProperties": false,
       "description": "One engine's standing over a population's paired events.\n\nThe aggregate over the engine's qualifying gradings on the events every\nengine in the paired set holds a qualifying cell on \u2014 the same events for\nevery engine, whichever windows its cells come from \u2014 which is the only\nfigure a cross-engine comparison or a rank is read off.",
       "properties": {
+        "boundaries": {
+          "description": "Every registered harness boundary that falls inside this figure's cells \u2014 cells on both sides of it \u2014 with the counts on each side, over every cell the boundary's predictors and mode admit (a replay-only boundary counts replay cells alone). Cells, not gradings: one per (case, event). A boundary outside the span cuts nothing and is not listed; omitted while none is. Over this engine's cells on the paired events",
+          "items": {
+            "$ref": "#/$defs/BoundaryCount"
+          },
+          "title": "Boundaries",
+          "type": "array"
+        },
         "forward": {
           "anyOf": [
             {

@@ -3386,6 +3386,51 @@ class WindowShare(_Strict):
     )
 
 
+class BoundaryCount(_Strict):
+    """A harness boundary inside a pooled figure's span: its cells on each side.
+
+    A dated change to what a predict cell reads under an unchanged digest cuts
+    nothing out of a pooled figure; it is listed as composition instead. A
+    cell's side is read by ancestry — after where the carrying commit is an
+    ancestor of, or equal to, its ``process_version.pipeline_sha`` — and a cell
+    without one sits on neither side.
+    """
+
+    boundary: str = Field(description="The boundary's registered name")
+    at: datetime = Field(
+        description="The carrying commit's committer time — for display only; the side test "
+        "is ancestry"
+    )
+    scope: str = Field(
+        description="The cells the change can reach (`all`, `replay cells`, `self-represented "
+        "dockets`, `granted dockets`), printed as scope and never used as a filter: whether a "
+        "docket was self-represented or granted at a cell's moment lives only in the corpus. "
+        "So for a docket-scoped boundary `after` is the cells that could have read the "
+        "change, an upper bound on exposure"
+    )
+    before: int = Field(ge=0, description="Cells of this figure built before the change")
+    after: int = Field(
+        ge=0,
+        description="Cells of this figure built at or after the change; an upper bound on "
+        "exposure wherever the change is docket-scoped or reached the corpus by back-fill",
+    )
+    unstamped: int = Field(
+        default=0,
+        ge=0,
+        description="Cells the boundary admits that carry no `pipeline_sha`, so sit on neither "
+        "side",
+    )
+
+
+_BOUNDARIES_DESCRIPTION = (
+    "Every registered harness boundary that falls inside this figure's cells — cells on "
+    "both sides of it — with the counts on each side, over every cell the boundary's "
+    "predictors and mode admit (a replay-only boundary counts replay cells alone). Cells, "
+    "not gradings: one per (case, event). A boundary outside the span cuts nothing and is "
+    "not listed; omitted while none is"
+)
+
+
 _COMPOSITION_DESCRIPTION = (
     "The windows this figure pools, each with its `n` in gradings, ordered by "
     "opening. Listed whenever the figure is a frozen-scope pool, a single window "
@@ -3419,11 +3464,20 @@ class PairedEngine(_Strict):
         default_factory=list,
         description="The windows this engine's paired gradings come from, each with its `n`",
     )
+    boundaries: list[BoundaryCount] = Field(
+        default_factory=list,
+        description=_BOUNDARIES_DESCRIPTION + ". Over this engine's cells on the paired events",
+    )
     unpaired_events: int = Field(
         ge=0,
         description="This engine's qualifying events that are not paired, because some "
         "other engine in the set holds no qualifying cell on them: its pairing loss",
     )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_boundaries(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``boundaries`` while no boundary falls inside the paired cells."""
+        return _omit_empty(handler(self), boundaries=self.boundaries)
 
 
 class PairedEvents(_Strict):
@@ -3530,6 +3584,10 @@ class LeaderboardEntry(_Strict):
         "the windows `windows` lists, and on every all-versions entry",
     )
     windows: list[WindowShare] = Field(default_factory=list, description=_COMPOSITION_DESCRIPTION)
+    boundaries: list[BoundaryCount] = Field(
+        default_factory=list,
+        description=_BOUNDARIES_DESCRIPTION + ". On a pooled entry; never on a cut entry",
+    )
     rank: int | None = Field(
         default=None,
         ge=1,
@@ -3598,7 +3656,11 @@ class LeaderboardEntry(_Strict):
     @model_serializer(mode="wrap")
     def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
         """Drop ``by_band`` and an empty ``windows`` — see :func:`_drop_empty_by_band`."""
-        return _omit_empty(_drop_empty_by_band(handler(self), self.by_band), windows=self.windows)
+        return _omit_empty(
+            _drop_empty_by_band(handler(self), self.by_band),
+            windows=self.windows,
+            boundaries=self.boundaries,
+        )
 
 
 class LeaderboardStageEntry(_Strict):
@@ -3618,6 +3680,10 @@ class LeaderboardStageEntry(_Strict):
         "the windows `windows` lists, and on every all-versions entry",
     )
     windows: list[WindowShare] = Field(default_factory=list, description=_COMPOSITION_DESCRIPTION)
+    boundaries: list[BoundaryCount] = Field(
+        default_factory=list,
+        description=_BOUNDARIES_DESCRIPTION + ". On a pooled entry; never on a cut entry",
+    )
     evaluators: int = Field(
         ge=0, description="Distinct evaluators that scored this predictor in this stage"
     )
@@ -3650,7 +3716,11 @@ class LeaderboardStageEntry(_Strict):
     @model_serializer(mode="wrap")
     def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
         """Drop ``by_band`` and an empty ``windows`` — see :func:`_drop_empty_by_band`."""
-        return _omit_empty(_drop_empty_by_band(handler(self), self.by_band), windows=self.windows)
+        return _omit_empty(
+            _drop_empty_by_band(handler(self), self.by_band),
+            windows=self.windows,
+            boundaries=self.boundaries,
+        )
 
 
 def _check_coverage_denominator(

@@ -430,8 +430,12 @@ at least one such cell. The harness boundaries are registered
 cells it can reach) with the ancestry side test (`process_version.boundary_side`:
 after where the carrying commit is an ancestor of, or equal to, the cell's
 `pipeline_sha`, refusing a shallow clone or an unknown commit rather than
-guess), but no board lists their counts yet; nor is the per-rubric breakdown
-built. Two of one predictor's windows sharing a label are refused, since no
+guess). Each pooled entry and each paired engine lists, as `boundaries`, every
+boundary inside its cells with the cells before and after and those with no
+`pipeline_sha`, over every cell the boundary's predictors and mode admit, its
+reach printed as `scope` rather than applied; `fedcourts leaderboard` reads
+the sides in the checkout it runs from, so it needs full history. The
+per-rubric breakdown is not built yet. Two of one predictor's windows sharing a label are refused, since no
 figure could name them apart.
 
 The claim scores, the ops report and the tool-usage segments still publish the

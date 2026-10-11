@@ -475,6 +475,72 @@
         "cases": 105,
         "rank_agreement": 0.8454662597385398
       },
+      "boundaries": [
+        {
+          "after": 6,
+          "at": "2026-09-21T18:01:19Z",
+          "before": 91,
+          "boundary": "pro-se-document-scrub",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-09-29T23:30:38Z",
+          "before": 91,
+          "boundary": "scrub-ocr-and-served-values",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-09-29T23:30:38Z",
+          "before": 91,
+          "boundary": "pro-se-snapshot-scrub",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-01T16:15:45Z",
+          "before": 91,
+          "boundary": "scrub-pro-se-respondent",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-01T16:15:45Z",
+          "before": 91,
+          "boundary": "scrub-pro-se-amicus",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-03T19:08:49Z",
+          "before": 91,
+          "boundary": "scrub-in-re-self-filer",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-03T19:08:49Z",
+          "before": 91,
+          "boundary": "scrub-titled-joinder-self-filer",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-03T19:08:49Z",
+          "before": 91,
+          "boundary": "merits-brief-spellings-consolidated-lead",
+          "scope": "granted dockets",
+          "unstamped": 0
+        }
+      ],
       "by_band": {
         "sal-v4/baseline": {
           "accuracy": 1.0,
@@ -638,6 +704,72 @@
         "cases": 100,
         "rank_agreement": 0.7638466435418407
       },
+      "boundaries": [
+        {
+          "after": 6,
+          "at": "2026-09-21T18:01:19Z",
+          "before": 91,
+          "boundary": "pro-se-document-scrub",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-09-29T23:30:38Z",
+          "before": 91,
+          "boundary": "scrub-ocr-and-served-values",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-09-29T23:30:38Z",
+          "before": 91,
+          "boundary": "pro-se-snapshot-scrub",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-01T16:15:45Z",
+          "before": 91,
+          "boundary": "scrub-pro-se-respondent",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-01T16:15:45Z",
+          "before": 91,
+          "boundary": "scrub-pro-se-amicus",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-03T19:08:49Z",
+          "before": 91,
+          "boundary": "scrub-in-re-self-filer",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-03T19:08:49Z",
+          "before": 91,
+          "boundary": "scrub-titled-joinder-self-filer",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-03T19:08:49Z",
+          "before": 91,
+          "boundary": "merits-brief-spellings-consolidated-lead",
+          "scope": "granted dockets",
+          "unstamped": 0
+        }
+      ],
       "by_band": {
         "sal-v4/baseline": {
           "accuracy": 1.0,
@@ -801,6 +933,72 @@
         "cases": 102,
         "rank_agreement": 0.773893115492283
       },
+      "boundaries": [
+        {
+          "after": 6,
+          "at": "2026-09-21T18:01:19Z",
+          "before": 91,
+          "boundary": "pro-se-document-scrub",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-09-29T23:30:38Z",
+          "before": 91,
+          "boundary": "scrub-ocr-and-served-values",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-09-29T23:30:38Z",
+          "before": 91,
+          "boundary": "pro-se-snapshot-scrub",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-01T16:15:45Z",
+          "before": 91,
+          "boundary": "scrub-pro-se-respondent",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-01T16:15:45Z",
+          "before": 91,
+          "boundary": "scrub-pro-se-amicus",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-03T19:08:49Z",
+          "before": 91,
+          "boundary": "scrub-in-re-self-filer",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-03T19:08:49Z",
+          "before": 91,
+          "boundary": "scrub-titled-joinder-self-filer",
+          "scope": "self-represented dockets",
+          "unstamped": 0
+        },
+        {
+          "after": 6,
+          "at": "2026-10-03T19:08:49Z",
+          "before": 91,
+          "boundary": "merits-brief-spellings-consolidated-lead",
+          "scope": "granted dockets",
+          "unstamped": 0
+        }
+      ],
       "by_band": {
         "sal-v4/baseline": {
           "accuracy": 1.0,
@@ -1045,6 +1243,72 @@
     },
     "entries": [
       {
+        "boundaries": [
+          {
+            "after": 6,
+            "at": "2026-09-21T18:01:19Z",
+            "before": 91,
+            "boundary": "pro-se-document-scrub",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-09-29T23:30:38Z",
+            "before": 91,
+            "boundary": "scrub-ocr-and-served-values",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-09-29T23:30:38Z",
+            "before": 91,
+            "boundary": "pro-se-snapshot-scrub",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-01T16:15:45Z",
+            "before": 91,
+            "boundary": "scrub-pro-se-respondent",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-01T16:15:45Z",
+            "before": 91,
+            "boundary": "scrub-pro-se-amicus",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-03T19:08:49Z",
+            "before": 91,
+            "boundary": "scrub-in-re-self-filer",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-03T19:08:49Z",
+            "before": 91,
+            "boundary": "scrub-titled-joinder-self-filer",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-03T19:08:49Z",
+            "before": 91,
+            "boundary": "merits-brief-spellings-consolidated-lead",
+            "scope": "granted dockets",
+            "unstamped": 0
+          }
+        ],
         "forward": {
           "accuracy": 0.9896907216494846,
           "accuracy_events_scored": 97,
@@ -1085,6 +1349,72 @@
         ]
       },
       {
+        "boundaries": [
+          {
+            "after": 6,
+            "at": "2026-09-21T18:01:19Z",
+            "before": 91,
+            "boundary": "pro-se-document-scrub",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-09-29T23:30:38Z",
+            "before": 91,
+            "boundary": "scrub-ocr-and-served-values",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-09-29T23:30:38Z",
+            "before": 91,
+            "boundary": "pro-se-snapshot-scrub",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-01T16:15:45Z",
+            "before": 91,
+            "boundary": "scrub-pro-se-respondent",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-01T16:15:45Z",
+            "before": 91,
+            "boundary": "scrub-pro-se-amicus",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-03T19:08:49Z",
+            "before": 91,
+            "boundary": "scrub-in-re-self-filer",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-03T19:08:49Z",
+            "before": 91,
+            "boundary": "scrub-titled-joinder-self-filer",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-03T19:08:49Z",
+            "before": 91,
+            "boundary": "merits-brief-spellings-consolidated-lead",
+            "scope": "granted dockets",
+            "unstamped": 0
+          }
+        ],
         "forward": {
           "accuracy": 0.979381443298969,
           "accuracy_events_scored": 97,
@@ -1125,6 +1455,72 @@
         ]
       },
       {
+        "boundaries": [
+          {
+            "after": 6,
+            "at": "2026-09-21T18:01:19Z",
+            "before": 91,
+            "boundary": "pro-se-document-scrub",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-09-29T23:30:38Z",
+            "before": 91,
+            "boundary": "scrub-ocr-and-served-values",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-09-29T23:30:38Z",
+            "before": 91,
+            "boundary": "pro-se-snapshot-scrub",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-01T16:15:45Z",
+            "before": 91,
+            "boundary": "scrub-pro-se-respondent",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-01T16:15:45Z",
+            "before": 91,
+            "boundary": "scrub-pro-se-amicus",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-03T19:08:49Z",
+            "before": 91,
+            "boundary": "scrub-in-re-self-filer",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-03T19:08:49Z",
+            "before": 91,
+            "boundary": "scrub-titled-joinder-self-filer",
+            "scope": "self-represented dockets",
+            "unstamped": 0
+          },
+          {
+            "after": 6,
+            "at": "2026-10-03T19:08:49Z",
+            "before": 91,
+            "boundary": "merits-brief-spellings-consolidated-lead",
+            "scope": "granted dockets",
+            "unstamped": 0
+          }
+        ],
         "forward": {
           "accuracy": 0.9484536082474226,
           "accuracy_events_scored": 97,
@@ -1375,6 +1771,40 @@
       ],
       "entries": [
         {
+          "boundaries": [
+            {
+              "after": 5,
+              "at": "2026-09-29T23:30:38Z",
+              "before": 3,
+              "boundary": "scrub-ocr-and-served-values",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 5,
+              "at": "2026-09-29T23:30:38Z",
+              "before": 3,
+              "boundary": "pro-se-snapshot-scrub",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 4,
+              "at": "2026-10-01T16:15:45Z",
+              "before": 4,
+              "boundary": "scrub-pro-se-respondent",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 4,
+              "at": "2026-10-01T16:15:45Z",
+              "before": 4,
+              "boundary": "scrub-pro-se-amicus",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            }
+          ],
           "evaluators": 3,
           "events_scored": 8,
           "forward": {
@@ -1445,6 +1875,40 @@
           ]
         },
         {
+          "boundaries": [
+            {
+              "after": 5,
+              "at": "2026-09-29T23:30:38Z",
+              "before": 3,
+              "boundary": "scrub-ocr-and-served-values",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 5,
+              "at": "2026-09-29T23:30:38Z",
+              "before": 3,
+              "boundary": "pro-se-snapshot-scrub",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 4,
+              "at": "2026-10-01T16:15:45Z",
+              "before": 4,
+              "boundary": "scrub-pro-se-respondent",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 4,
+              "at": "2026-10-01T16:15:45Z",
+              "before": 4,
+              "boundary": "scrub-pro-se-amicus",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            }
+          ],
           "evaluators": 3,
           "events_scored": 8,
           "forward": {
@@ -1515,6 +1979,40 @@
           ]
         },
         {
+          "boundaries": [
+            {
+              "after": 4,
+              "at": "2026-09-29T23:30:38Z",
+              "before": 3,
+              "boundary": "scrub-ocr-and-served-values",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 4,
+              "at": "2026-09-29T23:30:38Z",
+              "before": 3,
+              "boundary": "pro-se-snapshot-scrub",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-01T16:15:45Z",
+              "before": 4,
+              "boundary": "scrub-pro-se-respondent",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 3,
+              "at": "2026-10-01T16:15:45Z",
+              "before": 4,
+              "boundary": "scrub-pro-se-amicus",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            }
+          ],
           "evaluators": 3,
           "events_scored": 7,
           "forward": {
@@ -1592,6 +2090,40 @@
         "band_mismatches": 0,
         "entries": [
           {
+            "boundaries": [
+              {
+                "after": 1,
+                "at": "2026-09-29T23:30:38Z",
+                "before": 3,
+                "boundary": "scrub-ocr-and-served-values",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              },
+              {
+                "after": 1,
+                "at": "2026-09-29T23:30:38Z",
+                "before": 3,
+                "boundary": "pro-se-snapshot-scrub",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              },
+              {
+                "after": 1,
+                "at": "2026-10-01T16:15:45Z",
+                "before": 3,
+                "boundary": "scrub-pro-se-respondent",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              },
+              {
+                "after": 1,
+                "at": "2026-10-01T16:15:45Z",
+                "before": 3,
+                "boundary": "scrub-pro-se-amicus",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              }
+            ],
             "forward": {
               "accuracy": 1.0,
               "accuracy_events_scored": 4,
@@ -1632,6 +2164,40 @@
             ]
           },
           {
+            "boundaries": [
+              {
+                "after": 1,
+                "at": "2026-09-29T23:30:38Z",
+                "before": 3,
+                "boundary": "scrub-ocr-and-served-values",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              },
+              {
+                "after": 1,
+                "at": "2026-09-29T23:30:38Z",
+                "before": 3,
+                "boundary": "pro-se-snapshot-scrub",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              },
+              {
+                "after": 1,
+                "at": "2026-10-01T16:15:45Z",
+                "before": 3,
+                "boundary": "scrub-pro-se-respondent",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              },
+              {
+                "after": 1,
+                "at": "2026-10-01T16:15:45Z",
+                "before": 3,
+                "boundary": "scrub-pro-se-amicus",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              }
+            ],
             "forward": {
               "accuracy": 0.75,
               "accuracy_events_scored": 4,
@@ -1672,6 +2238,40 @@
             ]
           },
           {
+            "boundaries": [
+              {
+                "after": 1,
+                "at": "2026-09-29T23:30:38Z",
+                "before": 3,
+                "boundary": "scrub-ocr-and-served-values",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              },
+              {
+                "after": 1,
+                "at": "2026-09-29T23:30:38Z",
+                "before": 3,
+                "boundary": "pro-se-snapshot-scrub",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              },
+              {
+                "after": 1,
+                "at": "2026-10-01T16:15:45Z",
+                "before": 3,
+                "boundary": "scrub-pro-se-respondent",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              },
+              {
+                "after": 1,
+                "at": "2026-10-01T16:15:45Z",
+                "before": 3,
+                "boundary": "scrub-pro-se-amicus",
+                "scope": "self-represented dockets",
+                "unstamped": 0
+              }
+            ],
             "forward": {
               "accuracy": 0.5,
               "accuracy_events_scored": 4,
@@ -1916,6 +2516,24 @@
       ],
       "entries": [
         {
+          "boundaries": [
+            {
+              "after": 1,
+              "at": "2026-09-29T23:30:38Z",
+              "before": 1,
+              "boundary": "scrub-ocr-and-served-values",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 1,
+              "at": "2026-09-29T23:30:38Z",
+              "before": 1,
+              "boundary": "pro-se-snapshot-scrub",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            }
+          ],
           "evaluators": 3,
           "events_scored": 2,
           "forward": {
@@ -1986,6 +2604,24 @@
           ]
         },
         {
+          "boundaries": [
+            {
+              "after": 1,
+              "at": "2026-09-29T23:30:38Z",
+              "before": 1,
+              "boundary": "scrub-ocr-and-served-values",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 1,
+              "at": "2026-09-29T23:30:38Z",
+              "before": 1,
+              "boundary": "pro-se-snapshot-scrub",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            }
+          ],
           "evaluators": 3,
           "events_scored": 2,
           "forward": {
@@ -2056,6 +2692,24 @@
           ]
         },
         {
+          "boundaries": [
+            {
+              "after": 1,
+              "at": "2026-09-29T23:30:38Z",
+              "before": 1,
+              "boundary": "scrub-ocr-and-served-values",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            },
+            {
+              "after": 1,
+              "at": "2026-09-29T23:30:38Z",
+              "before": 1,
+              "boundary": "pro-se-snapshot-scrub",
+              "scope": "self-represented dockets",
+              "unstamped": 0
+            }
+          ],
           "evaluators": 3,
           "events_scored": 2,
           "forward": {

@@ -114,7 +114,11 @@ from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statp
 from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
 from .pipeline.moments import first_moment, scores_votes
 from .process_version import (
+    HARNESS_BOUNDARIES,
+    BoundarySide,
     Series,
+    boundary_admits,
+    boundary_side,
     composition,
     frozen_process_record,
     graded_in_window,
@@ -130,6 +134,7 @@ from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     NO_BAND_KEY,
     BigCaseLeaderboard,
+    BoundaryCount,
     CountingWindow,
     Disposition,
     Evaluation,
@@ -592,6 +597,7 @@ def _paired(
     frozen: bool,
     ranked: bool,
     vote_scores: Mapping[EvaluationKey, float] | None = None,
+    sides: Mapping[EvaluationKey, CellSides] | None = None,
 ) -> PairedEvents | None:
     """A population's paired-event figure, or ``None`` while no engine qualifies.
 
@@ -640,6 +646,7 @@ def _paired(
                 predictor_id=pid,
                 forward=_aggregate(gradings, skills, facts, vote_scores=vote_scores),
                 windows=composition(windows),
+                boundaries=_boundary_counts(gradings, sides),
                 unpaired_events=len(set(qualifying[pid]) - paired),
             )
         )
@@ -1174,6 +1181,76 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
     return facts
 
 
+#: Each admitted harness boundary's side for one graded cell, keyed by boundary
+#: name; ``None`` where the cell's scored prediction carries no ``pipeline_sha``.
+type CellSides = Mapping[str, BoundarySide | None]
+
+
+def boundary_sides(
+    cells: Iterable[StratifiedCell], data_root: Path, *, repo: Path
+) -> dict[EvaluationKey, CellSides]:
+    """Each cell's side of every registered harness boundary that admits it.
+
+    Read off the **scored** prediction — its ``context.mode`` for the
+    boundary's mode and its ``process_version.pipeline_sha`` for the ancestry
+    side test (:func:`fedcourtsai.process_version.boundary_side`, answered in
+    ``repo``, which must hold full history). A boundary whose predictors or mode
+    do not admit the cell is absent from its map; its docket-scoped reach is
+    printed as scope, never applied. Raises
+    :class:`fedcourtsai.process_version.BoundaryHistoryError` rather than file a
+    cell on a side ``repo`` cannot prove.
+    """
+    cases_dir = data_root / "cases"
+    sides: dict[EvaluationKey, CellSides] = {}
+    for evaluation, _stratum, _stage, _moment in cells:
+        scored = _scored_prediction(cases_dir, evaluation)
+        if scored is None:
+            continue
+        mode = scored.context.mode if scored.context is not None else None
+        sha = scored.process_version.pipeline_sha if scored.process_version is not None else None
+        sides[_evaluation_key(evaluation)] = {
+            boundary.name: boundary_side(boundary, sha, repo=repo)
+            for boundary in HARNESS_BOUNDARIES
+            if boundary_admits(boundary, evaluation.predictor_id, mode)
+        }
+    return sides
+
+
+def _boundary_counts(
+    evals: Iterable[Evaluation], sides: Mapping[EvaluationKey, CellSides] | None
+) -> list[BoundaryCount]:
+    """The harness boundaries inside ``evals``' cells, with the cells on each side.
+
+    Counted in cells — one per (case, event, predictor), whatever its panel
+    depth — over every cell each boundary admits. A boundary is listed only
+    where cells sit on both sides of it: one outside the span cuts nothing.
+    Cells with no ``pipeline_sha`` sit on neither side and are counted beside.
+    """
+    if not sides:
+        return []
+    per_cell: dict[tuple[str, str, str], CellSides] = {}
+    for ev in evals:
+        if (cell := sides.get(_evaluation_key(ev))) is not None:
+            per_cell.setdefault((ev.case_id, ev.event_id, ev.predictor_id), cell)
+    counts: list[BoundaryCount] = []
+    for boundary in HARNESS_BOUNDARIES:
+        admitted = [cell[boundary.name] for cell in per_cell.values() if boundary.name in cell]
+        before = sum(1 for side in admitted if side == "before")
+        after = sum(1 for side in admitted if side == "after")
+        if before and after:
+            counts.append(
+                BoundaryCount(
+                    boundary=boundary.name,
+                    at=boundary.at,
+                    scope=boundary.reach,
+                    before=before,
+                    after=after,
+                    unstamped=sum(1 for side in admitted if side is None),
+                )
+            )
+    return counts
+
+
 def vote_scores(cells: Iterable[StratifiedCell], data_root: Path) -> dict[EvaluationKey, float]:
     """Each vote-scored cell's participating-bench accuracy.
 
@@ -1457,6 +1534,7 @@ def _stage_entry(
     facts: Mapping[EvaluationKey, CellFacts] | None,
     cell_windows: Mapping[EvaluationKey, CountingWindow],
     vote_scores: Mapping[EvaluationKey, float] | None,
+    sides: Mapping[EvaluationKey, CellSides] | None,
 ) -> LeaderboardStageEntry:
     """One unranked entry: pooled where ``window`` is ``None``, else that window's cut."""
     evals = strata[FORWARD] + strata[RETROSPECTIVE] + strata[PROCEDURAL]
@@ -1464,6 +1542,7 @@ def _stage_entry(
         predictor_id=predictor_id,
         process_window=window_label(window),
         windows=_composition_of(evals, cell_windows) if window is None else [],
+        boundaries=_boundary_counts(evals, sides) if window is None else [],
         evaluators=len({ev.evaluator_id for ev in evals}),
         events_scored=_events_scored(evals),
         forward=_aggregate(strata[FORWARD], skills, facts, vote_scores=vote_scores),
@@ -1492,6 +1571,7 @@ def _stage_board(
     *,
     frozen: bool,
     vote_scores: Mapping[EvaluationKey, float] | None = None,
+    sides: Mapping[EvaluationKey, CellSides] | None = None,
 ) -> LeaderboardStage:
     """One non-cert stage's unranked block: pooled entries, the cut, and the paired figure.
 
@@ -1514,11 +1594,11 @@ def _stage_board(
     """
     by_series = _group_by_series(cells, cell_windows)
     entries = [
-        _stage_entry(pid, None, strata, skills, facts, cell_windows, vote_scores)
+        _stage_entry(pid, None, strata, skills, facts, cell_windows, vote_scores, sides)
         for pid, strata in _group_by_predictor(cells).items()
     ]
     cut = [
-        _stage_entry(pid, window, strata, skills, facts, cell_windows, vote_scores)
+        _stage_entry(pid, window, strata, skills, facts, cell_windows, vote_scores, sides)
         for pid, window, strata in _cut_series(by_series)
     ]
     return LeaderboardStage(
@@ -1539,6 +1619,7 @@ def _stage_board(
             frozen=frozen,
             ranked=False,
             vote_scores=vote_scores,
+            sides=sides,
         ),
     )
 
@@ -1556,6 +1637,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
     facts: Mapping[EvaluationKey, CellFacts] | None = None,
     vote_scores: Mapping[EvaluationKey, float] | None = None,
     cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
+    boundaries: Mapping[EvaluationKey, CellSides] | None = None,
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
 
@@ -1630,6 +1712,12 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         comparison over different events whenever one predictor's windows are
         read against each other. Unsupplied or empty — an all-versions build —
         no entry lists a composition and there is no cut.
+
+    ``boundaries`` (from :func:`boundary_sides` over the same cells) is each
+        cell's side of every registered harness boundary that admits it: what
+        each pooled entry and each paired engine lists as ``boundaries`` — the
+        cells before and after every boundary inside its span. Unsupplied, no
+        figure lists one.
     """
     cell_skills = skills or {}
     cert_cells: list[tuple[Evaluation, Stratum]] = []
@@ -1645,7 +1733,14 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
     frozen = process_scope == "frozen"
     by_series = _group_by_series(cert_cells, windows)
     paired = _paired(
-        cert_cells, cell_skills, facts, windows, frozen=frozen, ranked=True, vote_scores=vote_scores
+        cert_cells,
+        cell_skills,
+        facts,
+        windows,
+        frozen=frozen,
+        ranked=True,
+        vote_scores=vote_scores,
+        sides=boundaries,
     )
     standing = {
         engine.predictor_id: engine.rank
@@ -1662,6 +1757,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
             predictor_id=predictor_id,
             process_window=window_label(window),
             windows=_composition_of(evals, windows) if window is None else [],
+            boundaries=_boundary_counts(evals, boundaries) if window is None else [],
             rank=rank,
             paired_events=paired.events if rank is not None and paired is not None else None,
             evaluators=len({ev.evaluator_id for ev in evals}),
@@ -1723,6 +1819,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
                 windows,
                 frozen=frozen,
                 vote_scores=vote_scores,
+                sides=boundaries,
             )
             for key in sorted(stage_cells)
         },

@@ -99,14 +99,21 @@ the leaderboard and each of its stage blocks:
   Brier, then `predictor_id` — and printed on each entry beside its
   `paired_events`. A predictor outside the paired set, a retired one or one
   with no qualifying cell, is listed unranked, and an empty paired set ranks
-  nobody. The stage blocks carry the same paired figure, unranked.
+  nobody. The stage blocks carry the same paired figure, unranked;
+- each pooled entry, and each engine in `paired`, lists as `boundaries` every
+  registered harness boundary (`process_version.HARNESS_BOUNDARIES`) that falls
+  inside its cells — cells on both sides of it — with `before` and `after`
+  counted in cells over every cell the boundary's predictors and mode admit,
+  and `unstamped`, the cells with no `pipeline_sha`, on neither side. A cell's
+  side is the conditioning entries' ancestry test: after where the carrying
+  commit is an ancestor of, or equal to, its `pipeline_sha`. `scope` prints
+  the cells the change can reach (`self-represented dockets`, `granted
+  dockets`, `all`, `replay cells`) and is never a filter, since a docket's
+  representation or grant state at a cell's moment lives only in the corpus:
+  for a docket-scoped or back-filled change, `after` is an upper bound on the
+  cells that read it.
 
-Two parts of the rule are not on the board yet. The harness boundaries are
-registered in code (`process_version.HARNESS_BOUNDARIES`), with the ancestry
-side test the conditioning entries define, but their before/after counts are
-not listed, because the cells several of them reach — self-represented
-dockets, granted dockets — are not decidable from the committed record alone.
-The per-rubric breakdown of the judge-dependent figures is not built either.
+The per-rubric breakdown of the judge-dependent figures is not built yet.
 
 Everywhere else the **by-protocol cut** is still the published shape. The
 claim scores, each ops score row and each tool-usage segment are keyed on

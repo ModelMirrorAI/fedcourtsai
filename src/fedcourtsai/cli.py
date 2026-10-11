@@ -172,6 +172,7 @@ from .integrity import (
 )
 from .leaderboard import (
     big_case_agreement,
+    boundary_sides,
     build_leaderboard,
     cell_facts,
     coverage_shortfalls,
@@ -5450,6 +5451,12 @@ def leaderboard(
         # counted as `vote_cells_scored`.
         vote_scores=vote_scores(cells, settings.data_root),
         cell_windows=run.cell_windows,
+        # Each cell's side of every harness boundary that admits it, by ancestry
+        # of its `pipeline_sha` in this checkout (full history required); frozen
+        # builds only, since only a pooled frozen figure lists the boundaries.
+        boundaries=(
+            boundary_sides(cells, settings.data_root, repo=Path.cwd()) if frozen_only else None
+        ),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)

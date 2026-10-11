@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from fedcourtsai import process_version
+from fedcourtsai import leaderboard, process_version
+from fedcourtsai.leaderboard import boundary_sides
 from fedcourtsai.process_version import (
     HARNESS_BOUNDARIES,
     BoundaryHistoryError,
@@ -17,8 +18,10 @@ from fedcourtsai.process_version import (
     composition,
     is_retired,
 )
-from fedcourtsai.schemas import CountingWindow
+from fedcourtsai.schemas import CountingWindow, ProcessVersion
+from fedcourtsai.store import stratify
 from tests.conftest import set_windows
+from tests.test_dataset_export import _event, _grade, _outcome, _prediction
 
 T1 = datetime(2026, 1, 1, tzinfo=UTC)
 T2 = datetime(2026, 4, 1, tzinfo=UTC)
@@ -138,4 +141,45 @@ def test_composition_lists_every_window_in_opening_order() -> None:
     # One window is still listed: the composition is part of every pooled figure.
     assert [(w.process_window, w.opens, w.n) for w in composition({first: 2})] == [
         ("proc-a", T1, 2)
+    ]
+
+
+def test_the_board_reads_each_cells_side_off_its_pipeline_sha(
+    history: tuple[Path, dict[str, str]], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """End to end over a real history: a cell built before the carrying commit,
+    one built on it, and one with no `pipeline_sha`, through `boundary_sides`."""
+    repo, shas = history
+    digest = "sha256:" + "a" * 64
+    set_windows(monkeypatch, CountingWindow(label="proc-a", digest=digest, opens=T1))
+    boundary = HarnessBoundary("test-boundary", shas["merge"], T1, None, "all")
+    monkeypatch.setattr(leaderboard, "HARNESS_BOUNDARIES", (boundary,))
+    data = tmp_path / "data"
+    for n, sha in ((1, shas["before"]), (2, shas["merge"]), (3, None)):
+        case = f"scotus/{n}"
+        _event(data, case)
+        _outcome(data, case, resolved_at=datetime(2026, 3, 1, tzinfo=UTC).date())
+        stamp = ProcessVersion(
+            label="proc-a", digest=digest, stamped_at=datetime(2026, 2, 1, tzinfo=UTC)
+        )
+        _prediction(
+            data, case, stamp=stamp.model_copy(update={"pipeline_sha": sha}), mode="forward"
+        )
+        _grade(data, case, "e1", prediction_run_id="p1", stamped=datetime(2026, 3, 2, tzinfo=UTC))
+    run = stratify(data)
+    sides = boundary_sides(run.cells, data, repo=repo)
+    assert sorted(
+        (ev.case_id, sides[(ev.case_id, ev.event_id, ev.predictor_id, ev.evaluator_id, ev.run_id)])
+        for ev, *_ in run.cells
+    ) == [
+        ("scotus/1", {"test-boundary": "before"}),
+        ("scotus/2", {"test-boundary": "after"}),
+        ("scotus/3", {"test-boundary": None}),
+    ]
+    board = leaderboard.build_leaderboard(
+        run.cells, cell_windows=run.cell_windows, boundaries=sides
+    )
+    (entry,) = board.entries
+    assert [(b.boundary, b.before, b.after, b.unstamped, b.scope) for b in entry.boundaries] == [
+        ("test-boundary", 1, 1, 1, "all")
     ]
