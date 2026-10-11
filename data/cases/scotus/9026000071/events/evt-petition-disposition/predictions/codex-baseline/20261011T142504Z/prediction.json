@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "The boundary between state health-and-safety regulation and federal immigration operations carried out by contractors has substantial national federalism and detention-policy consequences, although this petition concerns one facility and an interlocutory ruling.",
+  "big_case_score": 0.75,
+  "case_id": "scotus/9026000071",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.46
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.65
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.1
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.7
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.16
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-11",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-11T14:32:39.174246Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-11.json",
+  "judgment": null,
+  "model": "gpt-6-astra",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.46,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v9",
+    "pipeline_sha": "2e668793b1bf6d8bd86fb5aa3d84472a43f53415",
+    "stamped_at": "2026-10-11T14:33:18.832872Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261011T142504Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
