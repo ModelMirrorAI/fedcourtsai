@@ -7378,3 +7378,221 @@ freeze commit is recorded here.
   process-digest --all` prints the same digests as before the promotion, and
   the promotion changes nothing under `metrics/` on this entry's account,
   since it is prose only.
+- **The pooled default's implementation choices, settled ahead of the first
+  `proc-v9` `claude-baseline` grading, 2026-10-11.** A **reading-rule**
+  entry that completes the 2026-10-11 pooled-rule declaration above. That
+  entry fixed the rule and left a few mechanical choices to its
+  implementation, on the condition that any choice settled after a `proc-v9`
+  `claude-baseline` grading lands is disclosed together with the outcomes
+  visible when it was made. This entry settles them before then. It moves
+  no digest, no constant, no window and no membership: `uv run fedcourts
+  process-digest --all` prints the same `proc-v9` digests, and
+  `COUNTING_WINDOWS` is unchanged. Nothing it names exists in code yet. "The
+  implementation" below means the change that builds the declaration.
+
+  **Composition and the by-protocol cut.**
+
+  - **Composition is always listed.** Every pooled figure lists the windows it
+    pools, each with its `n`. A window is named by its own label and opening
+    instant, the window the cell's digest and stamp fall in, never by the
+    stamp's label. A `codex-baseline` cell stamped `proc-v9` inside codex's
+    `proc-v8` window is listed under `proc-v8`. The listing appears even when
+    a figure pools a single window. Today's per-window listings, the board's
+    per-combination `complete_grids` and the `windows` lists, appear only
+    under more than one label. The default figure does not keep that
+    omission, because the declaration asks for composition beside every
+    pooled value.
+  - **The by-protocol cut** is the per-(predictor, window) figure the boards
+    publish today. It is listed beside the pooled default and never ranked.
+
+  **The paired events and the rank.**
+
+  - **The ranked set.** It holds every predictor that has a counting window
+    neither closed nor revoked, and at least one **counted**, forward cert cell
+    at the board's ranked moment carrying both an accuracy and a Brier score.
+    - **Listed unranked.** A predictor whose every window is closed or revoked
+      is retired: it keeps its pooled entry and its cut, but is not ranked.
+      Taking a predictor off the roster therefore goes through a re-bless that
+      closes its window.
+    - **No floor.** There is no minimum cell count to join, so one engine with
+      one cell can shrink the paired set to one event. The paired `n` is
+      printed beside every rank so that this is visible.
+  - **The paired events.** An event is paired where every engine in the ranked
+    set holds such a counted cell on it, from any window. Pairing does not
+    look at the salience band: the rank's keys use no band anchor, so a band
+    condition would only shrink and select the set.
+    - **Per-band readings.** For these, each paired event is assigned the band
+      key of its earliest counted cell by harness clock. The count of paired
+      events whose engines' cells carry different band keys is published
+      beside the per-band split. Such mismatches are expected to cluster on
+      events whose band rose between engines' runs: relists and CVSGs, the
+      higher-grant events.
+  - **The rank key.** Ranks are read off each ranked engine's aggregate over
+    the paired events: forward accuracy, highest first; then forward mean
+    Brier, lowest first; then `predictor_id`. There is no retrospective
+    tie-break, because retrospective cells are not paired.
+    - **Edge cases.** With one ranked engine, its paired events are its own
+      qualifying events, and it ranks 1. With an empty paired set, no entry is
+      ranked and the rank is null.
+  - **The non-cert stage blocks** carry the same construction over their own
+    events, unranked. Each block's engine set is the engines that hold a
+    counted forward cell carrying accuracy and Brier in that block, with the
+    same open-window condition.
+  - **The selection disclosures stay in the record.** These are the
+    split-event count and the per-engine count of counted events holding a
+    failed or missing earlier-window attempt. They stay with
+    `successor-disclosures`, which the declaration keeps. The paired figure
+    states its own pairing losses, meaning each engine's qualifying events
+    that are not paired, but does not repeat those disclosures.
+    - **The uniform engine deadline.** That disclosure is also where the
+      2026-10-08 change is read. The change moves which codex cells finish,
+      and so which events reach the paired set.
+  - **Applied to the visible `proc-v8` slice,** these choices reproduce the
+    published board. At `metrics/leaderboard.json` on `main` (refreshed at
+    `3f3ca14f4`):
+    - each of the three predictors holds one window and 97 scored events;
+    - the per-band complete grid sums to 97, with no band mismatch;
+    - the forward accuracies are distinct, so the order claude, codex,
+      gemini is unchanged without the retrospective tie-break.
+
+  **Harness boundaries.**
+
+  - **What they are.** These are the dated changes that the declaration's
+    *harness boundaries* bullet names. Each moves what a predict cell reads,
+    or the cohort cutoff or `cut_kind`, under an unchanged predictor digest.
+    The declaration made them composition rather than cuts. Accordingly, the
+    "may not be pooled" clauses of the conditioning entries listed below now
+    read as composition for the pooled default and the paired figure. They
+    still cut any figure that reads a boundary's own effect.
+  - **The side test.** A cell's side of a boundary is the one those entries
+    registered. A stamped cell is after the change if the carrying merge
+    commit is an ancestor of, or equal to, its `process_version.pipeline_sha`.
+    The instant below is for display only. A cell with no `pipeline_sha` is
+    counted on neither side, and its number is listed.
+  - **The registry.** The implementation registers each boundary in code with
+    its carrying commit, that commit's committer time, the predictors it
+    applies to and the cells it can reach. It opens with these eleven:
+
+    | Boundary | Freeze-record entry | Carrying commit, committer time (UTC) | Predictors | Cells reached |
+    | --- | --- | --- | --- | --- |
+    | `pro-se-document-scrub` | 2026-09-21, staged document text scrubbed of contact details | `a2f84f2ee`, 2026-09-21T18:01:19Z | all | self-represented dockets |
+    | `scrub-ocr-and-served-values` | 2026-09-29, OCR-fragmented emails and served contact values | `adccd9c42`, 2026-09-29T23:30:38Z | all | self-represented dockets |
+    | `pro-se-snapshot-scrub` | 2026-09-29, petitioner contact keys withheld from the snapshot | `adccd9c42`, 2026-09-29T23:30:38Z | all | self-represented dockets |
+    | `scrub-pro-se-respondent` | 2026-09-30, respondent contact details | `b09c2d0bb`, 2026-10-01T16:15:45Z | all | self-represented dockets |
+    | `scrub-pro-se-amicus` | 2026-09-30, amicus contact details | `b09c2d0bb`, 2026-10-01T16:15:45Z | all | self-represented dockets |
+    | `scrub-in-re-self-filer` | 2026-10-02, "In re" self-filer | `41d003e28`, 2026-10-03T19:08:49Z | all | self-represented dockets |
+    | `scrub-titled-joinder-self-filer` | 2026-10-02, titled or joined self-filer | `41d003e28`, 2026-10-03T19:08:49Z | all | self-represented dockets |
+    | `merits-brief-spellings-consolidated-lead` | 2026-10-03, merits-brief spellings and the consolidated lead | `41d003e28`, 2026-10-03T19:08:49Z | all | granted dockets |
+    | `predict-cell-record-hide` | `proc-v9`, predict cells no longer see the committed record | `6460e9306`, 2026-10-11T00:12:02Z | codex-baseline, gemini-baseline | all |
+    | `widened-document-kinds-freshness` | `proc-v9`, cells are handed more filings | `6460e9306`, 2026-10-11T00:12:02Z | codex-baseline, gemini-baseline | all |
+    | `replay-moment-cut` | `proc-v9`, the moment cut applies in replay mode | `6460e9306`, 2026-10-11T00:12:02Z | codex-baseline, gemini-baseline | replay cells |
+
+  - **How the counts read.** Each pooled entry and each engine in the paired
+    figure lists, for every boundary that falls inside its cells' span, the
+    `n` before and after, over the engine's cells in the boundary's *cells
+    reached* column. A boundary outside the span cuts nothing and is not
+    listed.
+    - **Exposure is an upper bound.** The scrubs change only those dockets'
+      staged text where a contact detail was present. For a self-represented
+      docket, the after-side `n` is the cells that could read the change, not
+      the cells that did.
+    - **Two boundaries are gradual.** `merits-brief-spellings-consolidated-lead`
+      and `widened-document-kinds-freshness` reach the corpus through back-fill
+      passes, so a cell after either may still read the earlier document set.
+      Their after-side `n` is likewise an upper bound on exposure. The listing
+      says this beside the count.
+  - **The last three, for `claude-baseline`.** Merge `6460e9306` registers
+    `claude-baseline`'s `proc-v9` window, which opens at `2026-10-11T12:00:00Z`.
+    It also moves claude's digest at once, so no claude cell after the merge
+    carries the `proc-v8` digest. At `2e668793b` the latest `claude-baseline`
+    prediction on `main` is stamped `2026-10-10T14:34:15Z`, before the merge.
+    So the boundaries split no claude window and are not listed for it. Its
+    `proc-v9` window sits wholly after them. Because
+    `widened-document-kinds-freshness` is gradual, some of claude's `proc-v9`
+    cells may still read pre-promotion document sets. The `proc-v9` entry
+    discloses that.
+  - **Excluded, because they move no cell input.** This covers:
+    - everything the 2026-10-08 disclosure lists: the claude CLI pin,
+      case-major start order, the uniform engine deadline and the spend
+      ceiling;
+    - `proc-v9`'s gemini in-place retry and its live rotation;
+    - every back-test-only, scoring-baseline, membership and reading-rule
+      entry.
+
+    Their own cautions still stand:
+    - a reading that compares claude cells across the CLI-pin promotion is
+      a comparison across two harnesses, and says so;
+    - a start-order analysis does not pool the two start regimes;
+    - a gemini tool-usage or cost reading notes that a cell after `proc-v9`
+      counts its in-place retries in `usage.json` and `retrieval_log.json`.
+  - **No other cutoff change.** Apart from `replay-moment-cut` above, which
+    reaches replay cells only, no cohort-cutoff or `cut_kind` change has been
+    dated since `proc-v8`'s window opened.
+  - **Later boundaries.** A later change of this class is added to the
+    registry by the PR that carries it. The 2026-09-30 OT2024 application
+    back-fill is a scoring-baseline entry, but also a conditioning one,
+    because it moves the statpack interim cells are provisioned with. It joins
+    through that conditioning half, for interim cells, once its apply and the
+    statpack refresh that follows it reach `main`.
+
+  **Judge-dependent figures.**
+
+  - **The rubric.** A grading's rubric is its `evaluator_id` together with the
+    `process_version.digest` on the evaluation's harness stamp.
+  - **Per-judge figures** are `mean_reasoning_quality` and the ops
+    reasoning-quality quantiles. Each is read per (evaluator, digest).
+  - **Panel figures** are the `big_case` tau-b against the panel mean, the
+    judge-validation tau-b, `evaluator_agreement` and the semantic per-grader
+    agreement. The last two are leave-one-out: each judge is read against its
+    peers, so both are properties of the panel.
+    - **Rubric signature.** A panel figure is read per rubric signature: the
+      sorted set of (evaluator, digest) pairs its reads come from. It is named
+      by the evaluate labels that blessed those digests, and the label never
+      partitions anything.
+    - **Panel points.** A panel point belongs to a signature's reading only if
+      every read in it carries one of that signature's pairs. The point must
+      also meet the pooled figure's own minimum within that signature: a
+      predictor-against-panel point needs at least one panel read, and a
+      leave-one-out point needs the judge and at least one peer. A point whose
+      reads span two signatures belongs to no per-rubric reading. It still
+      counts in the pooled coverage value.
+  - **What each figure lists.** Every judge-dependent figure lists the
+    (evaluator, digest) pairs it spans, each with its `n`.
+
+  **The other surfaces.**
+
+  - **Pooled default plus cut.** The claim scores, the ops score rows and the
+    tool-usage segments get the same pooled default with composition, with
+    the per-window form as the cut. The tool-usage segments are keyed on
+    engine, mode, stage and moment.
+  - **`release-sensitivity`** projects the pooled entries and the paired
+    figure.
+  - **`semantic-summary`** pools, listing composition and rubric signatures.
+  - **Refusals.** The frozen-scope pass stops refusing a predictor whose cells
+    span two windows. It still refuses two windows of one predictor that share
+    a label.
+
+  **What the date proves.** At `origin/main` `2e668793b`
+  (`2026-10-11T13:55:48Z`), no committed prediction or evaluation carries
+  `claude-baseline`'s `proc-v9` digest (`605201bd…`), and no evaluation is
+  stamped with the label `proc-v9`: `git grep` over `data/` prints nothing for
+  either. So no `proc-v9` `claude-baseline` cell existed on `main`, graded or
+  not, and no outcome of one was visible. The `proc-v8` resolved slice was visible, as
+  the declaration discloses. The choices above reproduce the board published
+  over it, as stated under *The paired events and the rank*.
+
+  At the carrying merge, the census of `proc-v9` `claude-baseline` cells on
+  `main` reads `<FILL: proc-v9 claude-baseline predictions on main at the
+  carrying merge, how many sit on an event with a committed outcome, and how
+  many are graded; where any is graded, each listed with its event and
+  outcome>`. Where any is graded, this entry governs those gradings as choices
+  made with their outcomes visible, under the same disclosure as the `proc-v8`
+  slice.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live: on `main`, `uv run fedcourts
+  process-digest --all` prints the same digests as before the promotion, and
+  the promotion changes nothing under `metrics/` on this entry's account,
+  since it is prose only.
