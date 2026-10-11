@@ -11,7 +11,11 @@ be decided.
 **Why that milestone and not another.** Measured over 139 granted OT2021-OT2023
 petitions, the respondent's merits brief appears on **96.4%** of them, lands a
 median **84 days** after the grant, and precedes the judgment by a median
-**159 days** — never fewer than 44, and never on or after it. So a forecast
+**159 days** — never fewer than 44, and never on or after it. Those figures
+were measured before a respondent's brief "in partial support of" the
+petitioner was excluded from the respondent arm, which can only lower the
+coverage, move the brief later after the grant and bring it closer to the
+judgment. So a forecast
 taken here is both well-covered and genuinely prospective, which is more than
 can be said for most later docket signals: argument and circulation cluster
 much closer to the decision.

@@ -325,7 +325,7 @@
     },
     "ProcessVersion": {
       "additionalProperties": false,
-      "description": "Harness-written stamp of the process that produced a prediction/evaluation.\n\nHybrid identity. ``digest`` is a content hash of the *actual* process inputs\n\u2014 the prompt-template bytes plus the resolved configuration for this actor\n(engine, resolved model, pinned MCP manifest, and the engine's retrieval\nsurface) \u2014 so a silent prompt or config change is automatically a distinct\nversion. ``label`` is human-readable sugar\nfor a digest. The frozen/shakedown partition keys on ``digest``, never the\nlabel, so two different processes cannot hide behind one label.\n\n``pipeline_sha`` is provenance only and is deliberately **not** folded into\n``digest``: the checkout commit changes on every unrelated pipeline edit, and\nfolding it in would break the frozen set every time predict/evaluate resume at\na newer HEAD. The digest captures what defines the process; the sha records\nwhich commit ran it.\n\nOptional on the ledger models (defaults to absent), so shakedown cells written\nbefore the stamp existed still validate. The agent never writes this \u2014 a\npost-agent harness step (``fedcourts stamp-cell``) does, so a cell's version\nis the harness's word, not the agent's, exactly like ``usage.json``.",
+      "description": "Harness-written stamp of the process that produced a prediction/evaluation.\n\nHybrid identity. ``digest`` is a content hash of the *actual* process inputs\n\u2014 the prompt-template bytes plus the resolved configuration for this actor\n(engine, resolved model, pinned MCP manifest, and the engine's retrieval\nsurface) \u2014 so a silent prompt or config change is automatically a distinct\nversion. ``label`` is human-readable sugar\nfor a digest. The frozen/shakedown partition keys on ``digest``, never the\nlabel, so two different processes cannot hide behind one label.\n\n``pipeline_sha`` is deliberately **not** folded into ``digest``: the\ncheckout commit changes on every unrelated pipeline edit, and folding it in\nwould break the frozen set every time predict/evaluate resume at a newer\nHEAD. The digest captures what defines the process; the sha records which\ncommit ran it \u2014 provenance, and the side test of every harness boundary\n(``process_version.boundary_side``), which asks whether a change's carrying\ncommit is an ancestor of it.\n\nOptional on the ledger models (defaults to absent), so shakedown cells written\nbefore the stamp existed still validate. The agent never writes this \u2014 a\npost-agent harness step (``fedcourts stamp-cell``) does, so a cell's version\nis the harness's word, not the agent's, exactly like ``usage.json``.",
       "properties": {
         "algo": {
           "const": "sha256",
@@ -353,7 +353,7 @@
             }
           ],
           "default": null,
-          "description": "Git commit of the pipeline checkout that stamped this cell; provenance only, NOT part of `digest`.",
+          "description": "Git commit of the pipeline checkout that stamped this cell; NOT part of `digest`. Provenance, and the side test of every harness boundary: a cell is after a boundary whose carrying commit is an ancestor of, or equal to, this sha",
           "title": "Pipeline Sha"
         },
         "stamped_at": {

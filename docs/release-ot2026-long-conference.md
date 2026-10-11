@@ -499,13 +499,13 @@ artifacts:
 
 ```bash
 jq '.process_scope, .frozen_process, .salience_versions' metrics/leaderboard.json
-jq '.entries[] | {predictor_id, events_scored, evaluators}' metrics/leaderboard.json
+jq '.by_protocol[] | select(.process_window == "proc-v8") | {predictor_id, events_scored, evaluators}' metrics/leaderboard.json
 jq '.stages' metrics/leaderboard.json                      # unranked moment blocks
 # the per-band forward cut, ranked board then the CVSG arm
 BAND='{events_scored, evaluations, mean_depth: (if .events_scored > 0 then .evaluations / .events_scored else null end), accuracy_events_scored, event_accuracy, event_always_deny_accuracy, event_accuracy_lift, accuracy, accuracy_scored, always_deny_accuracy, accuracy_lift, population_brier_skill_score, skill_scored, grants_expected, grants_expected_scored, grants_realized_expected_scored, grants_realized}'
-jq ".entries[] | {predictor_id, evaluators, by_band: ((.by_band // {}) | map_values($BAND))}" metrics/leaderboard.json
-jq ".stages[\"cert@cvsg\"].entries[]? | {predictor_id, evaluators, by_band: ((.by_band // {}) | map_values($BAND))}" metrics/leaderboard.json
-jq '.complete_grid_by_band, .stages["cert@cvsg"].complete_grid_by_band' metrics/leaderboard.json
+jq ".by_protocol[] | select(.process_window == \"proc-v8\") | {predictor_id, evaluators, by_band: ((.by_band // {}) | map_values($BAND))}" metrics/leaderboard.json
+jq ".stages[\"cert@cvsg\"].by_protocol[]? | select(.process_window == \"proc-v8\") | {predictor_id, evaluators, by_band: ((.by_band // {}) | map_values($BAND))}" metrics/leaderboard.json
+jq '.paired.by_band, .stages["cert@cvsg"].paired.by_band' metrics/leaderboard.json  # pooled: the release grid only while proc-v8's cells are all that is graded
 # the pooled per-band anchors, per docket Term (risk_set is the frozen-band anchor)
 uv run fedcourts segment-anchors --term 2025 --term 2026
 sed -n '/Segment base rate by salience band/,/^## /p' metrics/statpack.md   # per-Term rows behind them
@@ -668,7 +668,7 @@ evidence of miscalibration. It does move skill in a known direction: in the
 baseline band every scored petition was denied, so skill there rewards
 forecasting low rather than separating grants from denials, and the pending
 shortfall currently favours the lower forecaster — the baseline row's skill
-is not a reading of discrimination. Complete grid (`complete_grid_by_band`): baseline
+is not a reading of discrimination. Complete grid (`paired.by_band`): baseline
 67, elevated 28, high 1, federal 1 — every engine's `accuracy_events_scored`
 equals its band's grid count in every band.
 
@@ -817,7 +817,7 @@ reading is the `by_band` cell, where it is defined. It is read off the same
 refreshed board:
 
 ```bash
-jq '.entries[] | {predictor_id, forward: (.forward | {in_sample_events_scored, in_sample_grant_rate, population_in_sample_skill_score, in_sample_skill_scored}), by_band: ((.by_band // {}) | map_values({in_sample_events_scored, in_sample_grant_rate, population_in_sample_skill_score, in_sample_skill_scored}))}' metrics/leaderboard.json
+jq '.by_protocol[] | select(.process_window == "proc-v8") | {predictor_id, forward: (.forward | {in_sample_events_scored, in_sample_grant_rate, population_in_sample_skill_score, in_sample_skill_scored}), by_band: ((.by_band // {}) | map_values({in_sample_events_scored, in_sample_grant_rate, population_in_sample_skill_score, in_sample_skill_scored}))}' metrics/leaderboard.json
 ```
 
 (`release-sensitivity` carries the same figures under
@@ -910,14 +910,13 @@ prediction.
 > events.
 >
 > Per band, engines are compared only over that band's **complete grid** —
-> the board's `complete_grid_by_band`, the forward petitions in the band on
-> which every engine carries an accuracy-scored grading. The grid is a count,
-> not a population any figure is computed over, so a per-band ordering is read
-> only where every engine's `by_band[band].accuracy_events_scored` equals the
-> band's grid count: equal counts over a set contained in each engine's own is
-> the same petitions. Anywhere else no per-band ordering is read. An engine with
-> no forward accuracy-scored cell in a band leaves that band with no grid, and
-> the missing key reads as that.
+> the board's `paired.by_band`, the forward petitions filed in the band on
+> which every engine carries a forward grading with an accuracy and a Brier
+> score. A per-band ordering is read off each engine's
+> `paired.entries[].by_band[band]`, which is computed over exactly those
+> petitions for every engine; it is never read off an entry's own `by_band`,
+> which spans that engine's petitions alone. On this cohort the two agree:
+> no petition's engines froze different bands and none is unpaired.
 >
 > The engines did not run under identical conditions. Every predict and
 > evaluate run that forecast or graded this cohort — confirmed run by run below
@@ -976,7 +975,7 @@ under both. Each engine's
 complete grid is 97 (67 + 28 + 1 + 1 over the bands); each entry's only
 stratum is forward, with 291 evaluations, a panel of 3 evaluators and a mean
 depth of 3.0; there is no retrospective or procedural block. Per band, every
-engine's `accuracy_events_scored` equals `complete_grid_by_band`: baseline 67,
+engine's `accuracy_events_scored` equals `paired.by_band`: baseline 67,
 elevated 28, high 1, federal 1. Coverage is therefore equal, and the
 per-band orderings in the table above are read over the same petitions — but
 equal coverage certifies the event set only. With the six post-conference
@@ -1154,7 +1153,7 @@ jq '[.events[] | select(.registered and .conference == "mixed") | {case_id, cell
 jq '[.events[] | select(.registered | not) | select(.moment == "distribution")]
   | group_by(.conference) | map({conference: .[0].conference, events: length})' \
   cut.json                                         # outside the registered rule
-jq '.events_scored, .entries[].events_scored' metrics/leaderboard.json
+jq '.events_scored, (.by_protocol[] | select(.process_window == "proc-v8") | .events_scored)' metrics/leaderboard.json
 ```
 
 `conference-set --counted --registered-at` gives both sides of the
@@ -1637,6 +1636,13 @@ the documents quote. Every step is the maintainer's, in this order:
 
    Both metrics diffs must be empty: the first shows no newer refresh landed,
    the second that the code the tag archives reproduces the boards it quotes.
+   A refresh made before the pooled board landed carries the per-window shape;
+   regenerated under code that carries it, the board gains `windows`,
+   `by_protocol`, `paired` and `boundaries` and loses the grid keys while every
+   figure these documents quote is unchanged, so the refresh this step compares
+   against is one made under the candidate's code. The commands above read the
+   release population off `by_protocol`'s `proc-v8` entries, which stay that
+   population after later windows open.
    Every line the table diffs show must be a row outside the cohort section 5
    registers — for instance, a forecast or grading for a later conference. A
    grading that lands on a cohort prediction changes that prediction's own row

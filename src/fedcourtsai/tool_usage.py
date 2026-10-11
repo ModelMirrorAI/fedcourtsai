@@ -680,11 +680,11 @@ def _usefulness(
     coefficient absorbs it.
 
     Under the frozen scope a segment is also keyed on the cell's **counting
-    window**: a new model under an unchanged engine is a different forecaster,
-    so its cells and its predecessor's are two segments, never one mean. A
-    coefficient row pools engines by design, so where its cells span more than
-    one window label it lists each (predictor, window) series and its cell
-    count rather than splitting.
+    window** — the by-protocol form, one segment per engine and window, so a
+    model change shows as two rows rather than one mean. A coefficient row
+    pools engines by design, so where its cells span more than one window label
+    it lists each (predictor, window) series and its cell count rather than
+    splitting.
     """
     joined: list[_JoinedCell] = []
     for cell in sorted(predicted.values(), key=lambda c: (c.engine, c.predictor_id, c.run_id)):

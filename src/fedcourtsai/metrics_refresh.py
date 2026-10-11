@@ -197,8 +197,9 @@ def _leaderboard_headline(path: Path, roster: Sequence[str] | None = None) -> st
             f"; {stage_evaluations} evaluation(s) over {stage_events} scored "
             f"event(s) in {len(board.stages)} unranked stage block(s)" + notes
         )
+    paired = f" over {board.paired.events} paired event(s)" if board.paired is not None else ""
     return (
-        f"[{board.process_scope}] {board.predictors_ranked} predictor(s) ranked from "
+        f"[{board.process_scope}] {board.predictors_ranked} predictor(s) ranked{paired} from "
         f"{board.evaluations_total} cert-stage evaluation(s) "
         f"({board.forward_evaluations} forward / "
         f"{board.retrospective_evaluations} retrospective / "

@@ -94,8 +94,10 @@ def test_a_petitioner_in_partial_support_of_the_respondent_is_not_its_own_brief(
         "Reply of petitioner Acme Corp. in partial support of respondents filed.",
     ],
 )
-def test_partial_support_is_excluded_from_every_merits_arm(text: str) -> None:
+def test_partial_support_is_excluded_from_the_arms_of_its_filers_side(text: str) -> None:
     # The reply arms and the "the petitioners" spelling read the same exclusion.
+    # Each text is pinned by its own side's arms; the other side's arms already
+    # refuse it at the party anchor, so those asserts guard no exclusion.
     assert not is_petitioner_merits_brief(text)
     assert not is_respondent_merits_brief(text)
     assert not is_respondent_merits_brief_document(text)

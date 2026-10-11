@@ -172,6 +172,7 @@ from .integrity import (
 )
 from .leaderboard import (
     big_case_agreement,
+    boundary_sides,
     build_leaderboard,
     cell_facts,
     coverage_shortfalls,
@@ -375,6 +376,7 @@ from .schemas import (
     ConferenceBucket,
     CorpusValidation,
     CountedConferenceTotal,
+    CountingWindow,
     DataHealth,
     Disposition,
     Engine,
@@ -5414,9 +5416,9 @@ def leaderboard(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     frozen_only = not all_versions
-    # Keyed on (predictor, window) throughout, so a predictor whose counted
-    # cells span two windows gets an entry per window rather than a refusal.
-    run = stratify(settings.data_root, frozen_only=frozen_only, refuse_pooled_windows=False)
+    # Each predictor's entry pools its counted cells across every window; the
+    # per-window entries ride beside it as the by-protocol cut.
+    run = stratify(settings.data_root, frozen_only=frozen_only)
     _report_exclusions(run)
     cells = run.cells
     # The realized-Term skill column is scored at render against the committed
@@ -5425,7 +5427,15 @@ def leaderboard(
     statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
     board = build_leaderboard(
         cells,
-        big_case=big_case_agreement(settings.data_root, frozen_only=frozen_only),
+        # The pooled entries read `(predictor, None)`, the cut `(predictor, label)`.
+        big_case={
+            **big_case_agreement(settings.data_root, frozen_only=frozen_only, by_window=False),
+            **(
+                big_case_agreement(settings.data_root, frozen_only=True, by_window=True)
+                if frozen_only
+                else {}
+            ),
+        },
         evaluators=evaluator_agreement(settings.data_root, frozen_only=frozen_only),
         process_scope=scope,
         skills=skill_components(cells, settings.data_root, statpack),
@@ -5441,6 +5451,12 @@ def leaderboard(
         # counted as `vote_cells_scored`.
         vote_scores=vote_scores(cells, settings.data_root),
         cell_windows=run.cell_windows,
+        # Each cell's side of every harness boundary that admits it, by ancestry
+        # of its `pipeline_sha` in this checkout (full history required); frozen
+        # builds only, since only a pooled frozen figure lists the boundaries.
+        boundaries=(
+            boundary_sides(cells, settings.data_root, repo=Path.cwd()) if frozen_only else None
+        ),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -5532,7 +5548,7 @@ def claim_scores_command(
     """
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
-    run = stratify(settings.data_root, frozen_only=not all_versions, refuse_pooled_windows=False)
+    run = stratify(settings.data_root, frozen_only=not all_versions)
     _report_exclusions(run)
     board = build_claim_scores(
         run.cells,
@@ -5747,6 +5763,7 @@ def release_sensitivity_command(
         typer.echo(f"release-sensitivity: {exc}", err=True)
         raise typer.Exit(code=2) from exc
     run = stratify(settings.data_root, frozen_only=True)
+    _refuse_unbroken_pool(run, "release-sensitivity")
     # The same exclusion notes `leaderboard` prints, since the headline is that board.
     _report_exclusions(run)
     if source.dirty:
@@ -6110,6 +6127,7 @@ def semantic_summary_command(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     run = stratify(settings.data_root, frozen_only=not all_versions)
+    _refuse_unbroken_pool(run, "semantic-summary")
     _report_exclusions(run)
     latest: dict[tuple[str, str, str, str], tuple[tuple[datetime, str, str], Evaluation]] = {}
     for evaluation, cell_stratum, stage, moment in run.cells:
@@ -9324,9 +9342,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     # like the prediction counts beside it), so its counts pool stages by
     # design; per-stage segmentation — and every claim that must not pool —
     # is the leaderboard's job.
-    stratified_run = stratify(
-        settings.data_root, frozen_only=not all_versions, refuse_pooled_windows=False
-    )
+    stratified_run = stratify(settings.data_root, frozen_only=not all_versions)
     _report_exclusions(stratified_run)
     stratified = [(ev, stratum) for ev, stratum, _stage, _moment in stratified_run.cells]
     substance = summarize_substance(
@@ -15391,15 +15407,42 @@ def _leakage_exclusion_from(run: StratifiedRun) -> LeakageExclusionRecord:
     )
 
 
+def _refuse_unbroken_pool(run: StratifiedRun, command: str) -> None:
+    """Exit 2 where a predictor's frozen-scope cells span two counting windows.
+
+    A pooled figure states its composition beside the value, and these two
+    surfaces do not list one yet, so they refuse a pool rather than publish one
+    without its makeup. Read off the pass's ``cell_windows``, so an
+    all-versions pass, which carries none, is never refused.
+    """
+    windows: dict[str, set[CountingWindow]] = {}
+    for (_case, _event, predictor_id, _evaluator, _run), window in run.cell_windows.items():
+        windows.setdefault(predictor_id, set()).add(window)
+    spanning = sorted(pid for pid, spans in windows.items() if len(spans) > 1)
+    if spanning:
+        typer.echo(
+            f"{command}: frozen-scope cells span more than one counting window for "
+            + ", ".join(
+                f"{pid} ({process_version.describe_windows(windows[pid])})" for pid in spanning
+            )
+            + " — this surface does not list a pooled figure's composition yet, so it "
+            "refuses the pool rather than publish it without one",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+
 def _report_uneven_coverage(board: Leaderboard) -> None:
     """Warn where a population's predictors were not scored on the same events.
 
     Grading is gated at ``(evaluator, event)`` grain, so the scored set is
     *selected*: a prediction committed after a judge graded its event is never
     scored by that judge, and an engine whose cells backfill late is compared
-    over a subset of the population's events. The ranks and means make no
+    over a subset of the population's events. The pooled entries' means make no
     adjustment for that, so two entries at unequal coverage are not a
-    cross-engine comparison at all. The board carries the counts; this makes the
+    cross-engine comparison at all — the ranks are read over the paired events
+    instead, which equalizes the event set by construction and states what it
+    loses as each engine's ``unpaired_events``. The board carries the counts; this makes the
     inequality itself loud at build time, so a comparability hazard does not
     wait for a reader to do the subtraction. It stays silent on equal coverage,
     which is not the same as endorsing the comparison: equality certifies the
@@ -15428,8 +15471,8 @@ def _report_uneven_coverage(board: Leaderboard) -> None:
         typer.echo(
             f"::warning::leaderboard [{population}]: unequal scored-set coverage — "
             + ", ".join(short)
-            + ". Ranks and means make no adjustment for this; a cross-engine "
-            "comparison over unequal coverage is over different populations.",
+            + ". Pooled means make no adjustment for this, so entries side by side are "
+            "over different populations; the paired figure is the comparison.",
             err=True,
         )
 
