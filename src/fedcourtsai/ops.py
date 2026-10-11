@@ -563,9 +563,9 @@ def render_substance(digest: SubstanceDigest) -> str:
         lines += [
             "",
             "**Evaluation scores by predictor** (reasoning quality, all strata pooled; "
-            "each row pools its predictor's counted cells across the windows listed, and "
-            "its quantiles pool every judge rubric that graded them — coverage, not a "
-            "claimable reading, wherever a judge's digest moved)",
+            + "each row pools its predictor's counted cells across the windows listed, and "
+            + "its quantiles pool every judge rubric that graded them — coverage, not a "
+            + "claimable reading, wherever a judge's digest moved)",
             "| Predictor | Windows | Cells | Accuracy | Scored | Median | p25-p75 |",
             "|-----------|---------|------:|---------:|-------:|-------:|---------|",
         ]
@@ -576,7 +576,7 @@ def render_substance(digest: SubstanceDigest) -> str:
             lines += [
                 "",
                 "**By protocol** (one row per predictor and counting window — two windows "
-                "share no event, so a move between them compares different events)",
+                + "share no event, so a move between them compares different events)",
                 "| Predictor | Window | Cells | Accuracy | Scored | Median | p25-p75 |",
                 "|-----------|--------|------:|---------:|-------:|-------:|---------|",
             ]
