@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000071",
+  "run_id": "20261011T142504Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "courtlistener-mcp search"],
+  "helpful": ["Provisioned cert reply, which surfaced the SG's Nwauzor brief"],
+  "gaps": ["No way to look up a related SCOTUS docket (e.g. 25-828) by docket number in the corpus or via MCP search; it would show companion-case conference status"],
+  "notes": "The relist-count cut over-counts here because of a pre-conference reschedule."
+}
