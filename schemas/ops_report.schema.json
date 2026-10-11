@@ -826,7 +826,7 @@
     },
     "PredictorScoreRow": {
       "additionalProperties": false,
-      "description": "One predictor's evaluation-score distribution (the at-a-glance view).\n\n``median`` / ``p25`` / ``p75`` summarize the cross-evaluator\n``reasoning_quality`` grades; ``accuracy`` is the share of correct calls\nover the cells reporting a ``correct`` at all \u2014 ``accuracy_scored``, which\nsits below ``evaluations`` wherever the stamp could not compute one \u2014 and\nnull where none does.\nAll strata pooled \u2014 the leaderboard remains the stratified reference.\nOne row per predictor and counting window on a frozen build.",
+      "description": "One predictor's evaluation-score distribution (the at-a-glance view).\n\n``median`` / ``p25`` / ``p75`` summarize the cross-evaluator\n``reasoning_quality`` grades; ``accuracy`` is the share of correct calls\nover the cells reporting a ``correct`` at all \u2014 ``accuracy_scored``, which\nsits below ``evaluations`` wherever the stamp could not compute one \u2014 and\nnull where none does.\nAll strata pooled \u2014 the leaderboard remains the stratified reference.\n``predictor_scores`` carries one pooled row per predictor, over every\ncounted cell in every non-revoked window with ``windows`` stating the\nmakeup; ``predictor_scores_by_protocol`` carries one row per predictor and\ncounting window.",
       "properties": {
         "accuracy": {
           "anyOf": [
@@ -910,8 +910,24 @@
             }
           ],
           "default": null,
-          "description": "The label of the counting window this row's cells come from; null on an all-versions build. A predictor whose counted cells span two windows has a row per window",
+          "description": "On a by-protocol row, the label of the counting window its cells come from. Null on a pooled row, which spans the windows `windows` lists, and on every all-versions row",
           "title": "Process Window"
+        },
+        "rubrics": {
+          "description": "The (evaluator, evaluate digest) pairs whose `reasoning_quality` grades the quantiles are taken over, each with its `n` in grades. A figure spanning more than one digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable figure, until the per-rubric reading is built",
+          "items": {
+            "$ref": "#/$defs/RubricCount"
+          },
+          "title": "Rubrics",
+          "type": "array"
+        },
+        "windows": {
+          "description": "The windows this figure pools, each with its `n` in gradings, ordered by opening. Listed whenever the figure is a frozen-scope pool, a single window included; empty on an all-versions build, whose cells carry no window",
+          "items": {
+            "$ref": "#/$defs/WindowShare"
+          },
+          "title": "Windows",
+          "type": "array"
         }
       },
       "required": [
@@ -919,6 +935,41 @@
         "evaluations"
       ],
       "title": "PredictorScoreRow",
+      "type": "object"
+    },
+    "RubricCount": {
+      "additionalProperties": false,
+      "description": "One judge rubric a judge-dependent figure draws on: an evaluator and its digest.\n\nA figure computed from an evaluator's judgment depends on the evaluate\nprompt, so it lists the (evaluator, digest) pairs its reads come from. A\ngrading's rubric is its ``evaluator_id`` with the ``process_version.digest``\non its harness stamp.",
+      "properties": {
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The evaluate process digest on the grading's harness stamp; null for an unstamped grading",
+          "title": "Digest"
+        },
+        "evaluator_id": {
+          "title": "Evaluator Id",
+          "type": "string"
+        },
+        "n": {
+          "description": "Reads or gradings drawn from this rubric",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "evaluator_id",
+        "digest",
+        "n"
+      ],
+      "title": "RubricCount",
       "type": "object"
     },
     "SpendSummary": {
@@ -1104,7 +1155,7 @@
           "title": "Segment Grant Rate"
         },
         "windows": {
-          "description": "The (predictor, window) series behind `sample`, each with its cell count: the calibration pools every engine's replay cells. Listed only where the series carry more than one window label \u2014 the figure is then the record across those labels, never one series and never a rank key. Omitted while every series shares one label (the artifact's `frozen_process.windows` names it) and on an all-versions build",
+          "description": "The (predictor, window) series behind `sample`, each with its cell count: the calibration pools every engine's replay cells. Listed whenever the figure is a frozen-scope pool, a single label included \u2014 the figure is the record across those series, never one series and never a rank key. Empty on an all-versions build, whose cells carry no window",
           "items": {
             "$ref": "#/$defs/WindowCount"
           },
@@ -1259,10 +1310,19 @@
           "description": "Published watchlist readiness, when available"
         },
         "predictor_scores": {
+          "description": "The pooled default: one row per predictor over every counted cell in every non-revoked window, ordered by predictor_id",
           "items": {
             "$ref": "#/$defs/PredictorScoreRow"
           },
           "title": "Predictor Scores",
+          "type": "array"
+        },
+        "predictor_scores_by_protocol": {
+          "description": "The by-protocol cut: one row per (predictor, counting window), ordered by predictor_id then the window's opening. Two windows of one predictor share no event, so a move between them is a comparison over different events. Empty on an all-versions build",
+          "items": {
+            "$ref": "#/$defs/PredictorScoreRow"
+          },
+          "title": "Predictor Scores By Protocol",
           "type": "array"
         },
         "process_scope": {
@@ -1380,7 +1440,7 @@
     },
     "WindowCount": {
       "additionalProperties": false,
-      "description": "One (predictor, counting window) series inside a figure that pools several labels.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. Where\nthose span more than one window label, the figure is the **record across\nthose labels**: it lists each series and its ``n`` beside the pooled value,\nand is never a rank key (``docs/process-version.md``, *Pooled by\ndefault*).",
+      "description": "One (predictor, counting window) series inside a figure that pools across predictors.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. It is\nthe **record across those series**: it lists each series and its ``n``\nbeside the pooled value, a single series included, and is never a rank key\n(``docs/process-version.md``, *Pooled by default*). It names its predictor\nbecause such a figure pools several; :class:`WindowShare` is the\none-predictor form a predictor's own pooled figure lists.",
       "properties": {
         "n": {
           "description": "This series' share of the pooled figure's population, in the unit the containing `windows` field names (cells or reads) \u2014 not necessarily the unit of the figure's own count, so the n need not sum to it",
@@ -1404,6 +1464,36 @@
         "n"
       ],
       "title": "WindowCount",
+      "type": "object"
+    },
+    "WindowShare": {
+      "additionalProperties": false,
+      "description": "One counting window's share of a pooled figure: its label, opening, and ``n``.\n\nA pooled figure is computed over every counted cell its predictor holds in\nevery non-revoked window, and states its composition beside the value. The\nwindow is the one the cell's digest and harness stamp fall in, named by its\nown label and opening instant, never by the label on the cell's stamp: a\ncell of a carried-forward window stamped under a later label lists under\nthe window it counts in.",
+      "properties": {
+        "n": {
+          "description": "Gradings of this figure's population drawn from cells in this window",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        },
+        "opens": {
+          "description": "The instant the window opened",
+          "format": "date-time",
+          "title": "Opens",
+          "type": "string"
+        },
+        "process_window": {
+          "description": "The counting window's label (e.g. `proc-v8`)",
+          "title": "Process Window",
+          "type": "string"
+        }
+      },
+      "required": [
+        "process_window",
+        "opens",
+        "n"
+      ],
+      "title": "WindowShare",
       "type": "object"
     },
     "WorkflowHealth": {

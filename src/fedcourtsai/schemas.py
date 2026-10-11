@@ -3250,15 +3250,16 @@ class LeaderboardStratum(_Strict):
 
 
 class WindowCount(_Strict):
-    """One (predictor, counting window) series inside a figure that pools several labels.
+    """One (predictor, counting window) series inside a figure that pools across predictors.
 
     A frozen-scope figure keyed on something other than the forecaster — a
     judge-validation coefficient, a grader-agreement read, a calibration over
-    every engine's cells — pools whatever series its cells come from. Where
-    those span more than one window label, the figure is the **record across
-    those labels**: it lists each series and its ``n`` beside the pooled value,
-    and is never a rank key (``docs/process-version.md``, *Pooled by
-    default*).
+    every engine's cells — pools whatever series its cells come from. It is
+    the **record across those series**: it lists each series and its ``n``
+    beside the pooled value, a single series included, and is never a rank key
+    (``docs/process-version.md``, *Pooled by default*). It names its predictor
+    because such a figure pools several; :class:`WindowShare` is the
+    one-predictor form a predictor's own pooled figure lists.
     """
 
     predictor_id: str
@@ -3272,10 +3273,15 @@ class WindowCount(_Strict):
 
 
 _POOLED_WINDOWS_DESCRIPTION = (
-    "Listed only where the series carry more than one window label — the figure "
-    "is then the record across those labels, never one series and never a rank "
-    "key. Omitted while every series shares one label (the artifact's "
-    "`frozen_process.windows` names it) and on an all-versions build"
+    "Listed whenever the figure is a frozen-scope pool, a single label included — "
+    "the figure is the record across those series, never one series and never a "
+    "rank key. Empty on an all-versions build, whose cells carry no window"
+)
+
+
+_RUBRIC_COVERAGE = (
+    "A figure spanning more than one digest of one evaluator mixes judge rubrics, so it "
+    "is coverage, never a claimable figure, until the per-rubric reading is built"
 )
 
 
@@ -3326,15 +3332,21 @@ class EvaluatorAgreement(_Strict):
     windows: list[WindowCount] = Field(
         default_factory=list,
         description="The predictor windows whose graded cells this evaluator's reads came "
-        "from, each with its read count. The view compares graders, so it pools the "
-        "predictors' windows by design and states them here instead. "
-        + _POOLED_WINDOWS_DESCRIPTION,
+        "from, each with its count of the reads that entered a point — a case some peer "
+        "also read. The view compares graders, so it pools the predictors' windows by "
+        "design and states them here instead. " + _POOLED_WINDOWS_DESCRIPTION,
+    )
+    rubrics: list[RubricCount] = Field(
+        default_factory=list,
+        description="The (evaluator, evaluate digest) pairs of every read behind this "
+        "evaluator's points — its own and its peers', since a leave-one-out point compares "
+        "the two — each with its `n` in reads. " + _RUBRIC_COVERAGE,
     )
 
     @model_serializer(mode="wrap")
     def _omit_single_label(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``windows`` while it lists nothing."""
-        return _omit_empty(handler(self), windows=self.windows)
+        """Drop ``windows`` and ``rubrics`` while they list nothing."""
+        return _omit_empty(handler(self), windows=self.windows, rubrics=self.rubrics)
 
 
 class BigCaseLeaderboard(_Strict):
@@ -4432,32 +4444,40 @@ class ClaimJudgeAgreement(_Strict):
     )
     windows: list[WindowCount] = Field(
         default_factory=list,
-        description="The (predictor, window) series behind this stratum's cells, each with "
-        "its cell count: the validation pools predictors by design. " + _POOLED_WINDOWS_DESCRIPTION,
+        description="The (predictor, window) series behind this stratum's pairs, each with "
+        "its count of the cells that formed a pair: the validation pools predictors by "
+        "design. " + _POOLED_WINDOWS_DESCRIPTION,
+    )
+    rubrics: list[RubricCount] = Field(
+        default_factory=list,
+        description="The (evaluator, evaluate digest) pairs whose `reasoning_quality` "
+        "grades formed this stratum's pairs, each with its `n` in pairs. " + _RUBRIC_COVERAGE,
     )
 
     @model_serializer(mode="wrap")
     def _omit_single_label(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``windows`` while it lists nothing."""
-        return _omit_empty(handler(self), windows=self.windows)
+        """Drop ``windows`` and ``rubrics`` while they list nothing."""
+        return _omit_empty(handler(self), windows=self.windows, rubrics=self.rubrics)
 
 
 class ClaimScoreEntry(_Strict):
     """One predictor's claim-score aggregates, per stratum, in id order.
 
     Entries carry no rank on purpose: a claim total is never a rank key, so
-    the artifact orders predictors alphabetically and assigns no standings.
+    the artifact orders predictors alphabetically and assigns no standings. A
+    board's ``entries`` are the pooled default — one per predictor, over every
+    counted cell in every non-revoked window, with ``windows`` stating the
+    makeup — and its ``by_protocol`` list carries the per-window cut.
     """
 
     predictor_id: str
     process_window: str | None = Field(
         default=None,
-        description="The label of the counting window every cell behind this entry comes "
-        "from (e.g. `proc-v8`); null on an all-versions build, which pools every process "
-        "by definition. A frozen build keys its entries on (predictor_id, process_window): "
-        "a predictor whose counted cells span two windows has one entry per window, and "
-        "no entry pools them",
+        description="On a `by_protocol` cut entry, the label of the counting window every "
+        "cell behind it comes from (e.g. `proc-v8`). Null on a pooled entry, which spans "
+        "the windows `windows` lists, and on every all-versions entry",
     )
+    windows: list[WindowShare] = Field(default_factory=list, description=_COMPOSITION_DESCRIPTION)
     forward: ClaimScoreStratum | None = Field(
         default=None,
         description="Aggregates over true forward forecasts; null until this "
@@ -4476,6 +4496,11 @@ class ClaimScoreEntry(_Strict):
         "when none carry a block",
     )
 
+    @model_serializer(mode="wrap")
+    def _omit_empty_windows(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``windows`` while it lists nothing (a cut entry, or an all-versions build)."""
+        return _omit_empty(handler(self), windows=self.windows)
+
 
 class ClaimScoreBoard(_Strict):
     """``metrics/claim-scores.json`` — the mechanical claim-score surface.
@@ -4483,7 +4508,7 @@ class ClaimScoreBoard(_Strict):
     A deterministic, offline roll-up of every ``claim_scores`` block in the
     evaluations ledger, advisory beside the leaderboard rather than inside it:
     nothing here alters or reorders the board. Aggregates live per predictor
-    per pre-registration stratum, never pooled; the headline is the per-stratum
+    per pre-registration stratum, never pooled across strata; the headline is the per-stratum
     judge validation (:class:`ClaimJudgeAgreement`). Computed by ``fedcourts
     claim-scores``; carries no timestamp so the same ledger always serializes
     identically. Interpretation contract: ``metrics/README.md`` and
@@ -4554,10 +4579,23 @@ class ClaimScoreBoard(_Strict):
     )
     entries: list[ClaimScoreEntry] = Field(
         default_factory=list,
-        description="One entry per predictor — per (predictor, counting window) on a frozen "
-        "build — with at least one block-carrying cell, ordered by predictor_id then the "
-        "window's opening — never ranked",
+        description="The pooled default: one entry per predictor with at least one "
+        "block-carrying cell, over every counted cell in every non-revoked window, ordered "
+        "by predictor_id — never ranked",
     )
+    by_protocol: list[ClaimScoreEntry] = Field(
+        default_factory=list,
+        description="The by-protocol cut: one entry per (predictor, counting window) with at "
+        "least one block-carrying cell, ordered by predictor_id then the window's opening. "
+        "Two windows of one predictor share no event, so a move between them is a "
+        "comparison over different events, never a measurement of improvement. Empty on "
+        "an all-versions build",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_cut(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``by_protocol`` while it lists nothing (an all-versions build)."""
+        return _omit_empty(handler(self), by_protocol=self.by_protocol)
 
 
 class SemanticClaimSummary(_Strict):
@@ -4789,6 +4827,19 @@ class SemanticGradeSummary(_Strict):
         "the caller and never inferred, and closed for the same reason as "
         "`stratum`. Null means undeclared, and carries the same bar: a grade is "
         "never comparable across the scope boundary",
+    )
+    windows: list[WindowCount] = Field(
+        default_factory=list,
+        description="The (predictor, window) series whose gradings these counts pool, each "
+        "with its count of block-carrying gradings — the composition of the pool, stated by "
+        "the caller, a single series included. Empty on an all-versions census",
+    )
+    rubrics: list[RubricCount] = Field(
+        default_factory=list,
+        description="The (evaluator, digest) rubrics whose gradings these counts pool, each "
+        "with its count of block-carrying gradings, stated by the caller. A census spanning "
+        "more than one digest of an evaluator is coverage, not a claimable figure, until the "
+        "per-rubric reading is built",
     )
     declared_set_versions: list[str] = Field(
         default_factory=list,
@@ -5137,9 +5188,16 @@ class ToolUsefulnessSegment(_Strict):
     engine: str
     process_window: str | None = Field(
         default=None,
-        description="The label of the counting window the segment's cells come from; null "
-        "on an all-versions build. Part of the key on a frozen build, so one engine's cells "
-        "from two windows are two segments, never one mean",
+        description="On a `segments_by_protocol` cut segment, the label of the counting "
+        "window its cells come from — part of that cut's key, so one engine's cells from two "
+        "windows are two cut segments. Null on a pooled segment, which spans the series "
+        "`windows` lists, and on every all-versions segment",
+    )
+    windows: list[WindowCount] = Field(
+        default_factory=list,
+        description="On a pooled segment, the (predictor, window) series behind its cells, "
+        "each with its cell count, a single series included. Empty on a cut segment and on an "
+        "all-versions build",
     )
     mode: str = Field(
         description="The cell's provisioned mode as its own `retrieval_log.json` recorded "
@@ -5203,6 +5261,11 @@ class ToolUsefulnessSegment(_Strict):
         description="Mean over cells of each cell's mean Brier across its judges, or null "
         "where no cell in the segment was scored",
     )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_windows(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``windows`` while it lists nothing (a cut segment, or an all-versions build)."""
+        return _omit_empty(handler(self), windows=self.windows)
 
 
 class ToolUsefulnessCorrelation(_Strict):
@@ -5318,7 +5381,16 @@ class ToolUsefulness(_Strict):
     )
     segments: list[ToolUsefulnessSegment] = Field(
         default_factory=list,
-        description="The denominator table, engine then mode then event kind",
+        description="The denominator table, engine then mode then event kind — the pooled "
+        "default: each segment pools its engine's counted cells across every non-revoked "
+        "window and lists the series it pools",
+    )
+    segments_by_protocol: list[ToolUsefulnessSegment] = Field(
+        default_factory=list,
+        description="The by-protocol cut: one segment per engine, counting window, mode, "
+        "stage and moment, ordered engine then the window's opening. Two windows share no "
+        "event, so a move between them compares different events. Empty on an all-versions "
+        "build",
     )
     correlations: list[ToolUsefulnessCorrelation] = Field(
         default_factory=list,
@@ -9953,16 +10025,20 @@ class PredictorScoreRow(_Strict):
     sits below ``evaluations`` wherever the stamp could not compute one — and
     null where none does.
     All strata pooled — the leaderboard remains the stratified reference.
-    One row per predictor and counting window on a frozen build.
+    ``predictor_scores`` carries one pooled row per predictor, over every
+    counted cell in every non-revoked window with ``windows`` stating the
+    makeup; ``predictor_scores_by_protocol`` carries one row per predictor and
+    counting window.
     """
 
     predictor_id: str
     process_window: str | None = Field(
         default=None,
-        description="The label of the counting window this row's cells come from; null on an "
-        "all-versions build. A predictor whose counted cells span two windows has a row per "
-        "window",
+        description="On a by-protocol row, the label of the counting window its cells come "
+        "from. Null on a pooled row, which spans the windows `windows` lists, and on every "
+        "all-versions row",
     )
+    windows: list[WindowShare] = Field(default_factory=list, description=_COMPOSITION_DESCRIPTION)
     evaluations: int = Field(ge=0)
     accuracy: float | None = Field(default=None, ge=0.0, le=1.0)
     accuracy_scored: int = Field(
@@ -9975,6 +10051,16 @@ class PredictorScoreRow(_Strict):
     median: float | None = Field(default=None, ge=0.0, le=1.0)
     p25: float | None = Field(default=None, ge=0.0, le=1.0)
     p75: float | None = Field(default=None, ge=0.0, le=1.0)
+    rubrics: list[RubricCount] = Field(
+        default_factory=list,
+        description="The (evaluator, evaluate digest) pairs whose `reasoning_quality` grades "
+        "the quantiles are taken over, each with its `n` in grades. " + _RUBRIC_COVERAGE,
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_windows(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``windows`` and ``rubrics`` while they list nothing."""
+        return _omit_empty(handler(self), windows=self.windows, rubrics=self.rubrics)
 
 
 class ConferenceBucket(_Strict):
@@ -10023,7 +10109,18 @@ class SubstanceDigest(_Strict):
 
     cells: SubstanceCells
     calibration: SubstanceCalibration
-    predictor_scores: list[PredictorScoreRow] = Field(default_factory=list)
+    predictor_scores: list[PredictorScoreRow] = Field(
+        default_factory=list,
+        description="The pooled default: one row per predictor over every counted cell in "
+        "every non-revoked window, ordered by predictor_id",
+    )
+    predictor_scores_by_protocol: list[PredictorScoreRow] = Field(
+        default_factory=list,
+        description="The by-protocol cut: one row per (predictor, counting window), ordered "
+        "by predictor_id then the window's opening. Two windows of one predictor share no "
+        "event, so a move between them is a comparison over different events. Empty on an "
+        "all-versions build",
+    )
     live_frontier: LiveFrontier | None = Field(
         default=None, description="Published watchlist readiness, when available"
     )

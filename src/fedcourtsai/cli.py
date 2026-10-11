@@ -18,6 +18,7 @@ import sys
 import tempfile
 import textwrap
 import time
+from collections import Counter
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
@@ -376,7 +377,6 @@ from .schemas import (
     ConferenceBucket,
     CorpusValidation,
     CountedConferenceTotal,
-    CountingWindow,
     DataHealth,
     Disposition,
     Engine,
@@ -418,6 +418,7 @@ from .store import (
     StratifiedRun,
     cases_due_for_pull,
     cell_census,
+    evaluation_key,
     event_has_claimable_prediction,
     forecastable_events,
     forward_refusal_reason,
@@ -5763,7 +5764,6 @@ def release_sensitivity_command(
         typer.echo(f"release-sensitivity: {exc}", err=True)
         raise typer.Exit(code=2) from exc
     run = stratify(settings.data_root, frozen_only=True)
-    _refuse_unbroken_pool(run, "release-sensitivity")
     # The same exclusion notes `leaderboard` prints, since the headline is that board.
     _report_exclusions(run)
     if source.dirty:
@@ -5798,6 +5798,7 @@ def release_sensitivity_command(
             registered=registered,
             grant_list=grant_list_day,
             committed_board=committed,
+            cell_windows=run.cell_windows,
         )
     output: dict[str, Any] = {
         "ledger": {
@@ -6127,7 +6128,6 @@ def semantic_summary_command(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     run = stratify(settings.data_root, frozen_only=not all_versions)
-    _refuse_unbroken_pool(run, "semantic-summary")
     _report_exclusions(run)
     latest: dict[tuple[str, str, str, str], tuple[tuple[datetime, str, str], Evaluation]] = {}
     for evaluation, cell_stratum, stage, moment in run.cells:
@@ -6148,11 +6148,15 @@ def semantic_summary_command(
     units: list[semantic.GradedUnit] = []
     blocks = 0
     refused = 0
+    series: Counter[process_version.Series] = Counter()
+    rubrics: Counter[process_version.Rubric] = Counter()
     for key in sorted(latest):
         evaluation = latest[key][1]
         if evaluation.semantic_grades is None:
             continue
         blocks += 1
+        series[(evaluation.predictor_id, run.cell_windows.get(evaluation_key(evaluation)))] += 1
+        rubrics[process_version.rubric_of(evaluation)] += 1
         produced = semantic.graded_units(evaluation)
         if not produced:
             # `graded_units` refuses silently, five ways. A systematic refusal —
@@ -6160,7 +6164,17 @@ def semantic_summary_command(
             # otherwise render as "few grades" rather than "many grades refused".
             refused += 1
         units.extend(produced)
-    summary = semantic.summarize_semantic_grades(units, stratum=segment, process_scope=scope)
+    # The census pools every predictor's gradings across every window they hold
+    # cells in, so it states that composition and the rubrics it spans beside
+    # the counts — the roll-up sees units, which carry neither.
+    summary = semantic.summarize_semantic_grades(
+        units, stratum=segment, process_scope=scope
+    ).model_copy(
+        update={
+            "windows": process_version.pooled_windows(series),
+            "rubrics": process_version.rubric_listing(rubrics),
+        }
+    )
     graded = summary.overall.graded if summary.overall is not None else 0
     masked = summary.overall.not_addressed if summary.overall is not None else 0
     disputed = summary.overall.mask_disputed if summary.overall is not None else 0
@@ -6179,10 +6193,28 @@ def semantic_summary_command(
         if grounds
         else ""
     )
+    makeup = (
+        "; pooled over "
+        + ", ".join(f"{w.predictor_id} {w.process_window} (n={w.n})" for w in summary.windows)
+        if summary.windows
+        else ""
+    )
+    # A grade depends on the evaluate prompt, so the census names the rubrics it
+    # pools, and says so out loud where one evaluator graded under two digests.
+    mixed = len({r.evaluator_id for r in summary.rubrics}) < len(summary.rubrics)
+    judged = (
+        "; graded under "
+        + ", ".join(
+            f"{r.evaluator_id}@{(r.digest or 'unstamped')[:15]} (n={r.n})" for r in summary.rubrics
+        )
+        + (" — mixed judge rubrics, so coverage only" if mixed else "")
+        if summary.rubrics
+        else ""
+    )
     census = (
         f"{blocks} block(s), {refused} refused; {graded} graded / {masked} masked / "
         f"{disputed} mask-disputed unit(s) over {summary.cells} cell(s) "
-        f"on {summary.cases} case(s){ground_split}"
+        f"on {summary.cases} case(s){ground_split}{makeup}{judged}"
     )
     if graded < semantic.SEMANTIC_MIN_GRADED or not agreed:
         reason = (
@@ -15405,31 +15437,6 @@ def _leakage_exclusion_from(run: StratifiedRun) -> LeakageExclusionRecord:
         [(cell.evaluation.predictor_id, cell.reason) for cell in run.leaked],
         run.leakage_assessed,
     )
-
-
-def _refuse_unbroken_pool(run: StratifiedRun, command: str) -> None:
-    """Exit 2 where a predictor's frozen-scope cells span two counting windows.
-
-    A pooled figure states its composition beside the value, and these two
-    surfaces do not list one yet, so they refuse a pool rather than publish one
-    without its makeup. Read off the pass's ``cell_windows``, so an
-    all-versions pass, which carries none, is never refused.
-    """
-    windows: dict[str, set[CountingWindow]] = {}
-    for (_case, _event, predictor_id, _evaluator, _run), window in run.cell_windows.items():
-        windows.setdefault(predictor_id, set()).add(window)
-    spanning = sorted(pid for pid, spans in windows.items() if len(spans) > 1)
-    if spanning:
-        typer.echo(
-            f"{command}: frozen-scope cells span more than one counting window for "
-            + ", ".join(
-                f"{pid} ({process_version.describe_windows(windows[pid])})" for pid in spanning
-            )
-            + " — this surface does not list a pooled figure's composition yet, so it "
-            "refuses the pool rather than publish it without one",
-            err=True,
-        )
-        raise typer.Exit(code=2)
 
 
 def _report_uneven_coverage(board: Leaderboard) -> None:

@@ -58,6 +58,7 @@ import hashlib
 import json
 import re
 import subprocess
+from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -76,10 +77,12 @@ from .registry import (
 )
 from .schemas import (
     CountingWindow,
+    Evaluation,
     EvaluatorConfig,
     FrozenProcessRecord,
     PredictorConfig,
     ProcessVersion,
+    RubricCount,
     WindowCount,
     WindowShare,
 )
@@ -717,19 +720,17 @@ def co_current(windows: Iterable[CountingWindow]) -> bool:
 
 
 def pooled_windows(counts: Mapping[Series, int]) -> list[WindowCount]:
-    """The series a pooled figure spans, with each one's ``n`` — or ``[]`` under one label.
+    """The (predictor, window) series a cross-predictor figure pools, each with its ``n``.
 
-    The record-across-labels listing (``docs/process-version.md``, *Pooled by
-    default*): a figure keyed on something other than the forecaster
-    lists its series where they carry more than one label, and is never a rank
-    key. Under a single label — every window opening at one instant, as
-    ``proc-v8``'s do — the artifact's ``frozen_process.windows`` already names
-    it and nothing is listed; an all-versions build (series without a window)
-    lists nothing either.
+    The composition of a figure keyed on something other than the forecaster —
+    a judge validation, a grader-agreement read, a calibration or a tool-usage
+    correlation over every engine's cells (``docs/process-version.md``,
+    *Pooled by default*). Listed whenever the figure is a frozen-scope pool, a
+    single label included: the composition is part of the figure, not a
+    warning shown only when there is something to warn about. Such a figure is
+    never a rank key. An all-versions build (series without a window) lists
+    nothing.
     """
-    labels = {window.label for _, window in counts if window is not None}
-    if len(labels) <= 1:
-        return []
     return [
         WindowCount(predictor_id=predictor_id, process_window=window.label, n=n)
         for (predictor_id, window), n in sorted(
@@ -752,6 +753,48 @@ def composition(counts: Mapping[CountingWindow, int]) -> list[WindowShare]:
     return [
         WindowShare(process_window=window.label, opens=window.opens, n=n)
         for window, n in sorted(counts.items(), key=lambda item: (item[0].opens, item[0].digest))
+    ]
+
+
+def composition_of[K](
+    keys: Iterable[K], cell_windows: Mapping[K, CountingWindow]
+) -> list[WindowShare]:
+    """:func:`composition` over the cells ``keys`` name, each counted once per key.
+
+    The makeup of a pooled figure whose population is a set of keyed cells (a
+    grading, a cell): each key that ``cell_windows`` places in a window counts
+    once toward that window's ``n``. A key with no window — an all-versions
+    build — counts nowhere, so such a build lists nothing.
+    """
+    counts: dict[CountingWindow, int] = defaultdict(int)
+    for key in keys:
+        if (window := cell_windows.get(key)) is not None:
+            counts[window] += 1
+    return composition(counts)
+
+
+#: A judge rubric: the evaluator and the evaluate digest on its harness stamp
+#: (``None`` for an unstamped grading).
+Rubric = tuple[str, str | None]
+
+
+def rubric_of(evaluation: Evaluation) -> Rubric:
+    """A grading's rubric: its ``evaluator_id`` with its harness stamp's digest."""
+    stamp = evaluation.process_version
+    return (evaluation.evaluator_id, stamp.digest if stamp is not None else None)
+
+
+def rubric_listing(counts: Mapping[Rubric, int]) -> list[RubricCount]:
+    """The rubrics a judge-dependent figure spans, each with its ``n``, in a stable order.
+
+    Ordered by evaluator, then digest, an unstamped grading's ``None`` digest
+    first. Listed whatever the count, so a figure over one rubric says which.
+    """
+    return [
+        RubricCount(evaluator_id=evaluator, digest=digest, n=n)
+        for (evaluator, digest), n in sorted(
+            counts.items(), key=lambda item: (item[0][0], item[0][1] is not None, item[0][1] or "")
+        )
     ]
 
 
