@@ -10,7 +10,7 @@
     },
     {
       "checked": 2153445,
-      "detail": "2153445 rows vs baseline 2153444",
+      "detail": "2153445 rows vs baseline 2153445",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
