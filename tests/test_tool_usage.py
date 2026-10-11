@@ -20,6 +20,7 @@ from fedcourtsai.mcp import manifest_tools
 from fedcourtsai.registry import load_mcp_servers
 from fedcourtsai.retrieval import RETRIEVAL_CALL_CAP
 from fedcourtsai.schemas import (
+    CountingWindow,
     Disposition,
     Engine,
     Evaluation,
@@ -40,7 +41,7 @@ from fedcourtsai.tool_usage import (
     is_web_tool,
     render_tool_usage_markdown,
 )
-from tests.conftest import bless_process
+from tests.conftest import bless_process, set_windows
 
 
 def _log(  # noqa: PLR0913 - a keyword-only fixture builder, one arg per log field a test varies
@@ -113,13 +114,15 @@ def _cell(  # noqa: PLR0913 - one keyword per coordinate of the cell the join ke
     run_id: str = "20260101T000000Z",
     event_id: str = "evt-petition-disposition",
     stamp: ProcessVersion | None = None,
+    graded: ProcessVersion | None = None,
 ) -> Path:
     """A predicted cell in the real ledger layout, with the panel that scored it.
 
     The usefulness join keys on the event directory the path names and on the
     evaluations nested beside the predictions, so the fixture has to be the
     committed shape rather than a flat directory of logs. ``stamp`` is what the
-    frozen scope partitions on; ``None`` leaves it a shakedown cell.
+    frozen scope partitions on; ``None`` leaves it a shakedown cell. ``graded``
+    stamps the panel's gradings, which a counting window's timing gate reads.
     """
     event = root / "cases" / "scotus" / docket / "events" / event_id
     cell_dir = event / "predictions" / predictor / run_id
@@ -169,6 +172,7 @@ def _cell(  # noqa: PLR0913 - one keyword per coordinate of the cell the join ke
                     if mode is None
                     else LeakageAssessment(mode=mode, influenced_prediction="not_applicable")
                 ),
+                process_version=graded,
             ),
         )
     return cell_dir
@@ -1190,3 +1194,81 @@ def test_the_cli_reports_against_the_committed_manifest() -> None:
     assert result.exit_code == 0, result.output
     assert "The current manifest advertises" in result.output
     assert "never called" in result.output
+
+
+# --- pooled segments and the by-protocol cut ------------------------------------
+
+_A = "sha256:" + "a" * 64
+_B = "sha256:" + "b" * 64
+_OPENS_A = datetime(2026, 1, 1, tzinfo=UTC)
+_OPENS_B = datetime(2026, 2, 1, tzinfo=UTC)
+_WINDOW_A = CountingWindow(
+    label="proc-a", digest=_A, opens=_OPENS_A, closes=_OPENS_B, predictor_id="claude-baseline"
+)
+_WINDOW_B = CountingWindow(
+    label="proc-b", digest=_B, opens=_OPENS_B, predictor_id="claude-baseline"
+)
+
+
+def _windowed(root: Path, *, docket: str, digest: str, opens: datetime, brier: float) -> None:
+    """A claude-baseline cell counted in the window ``digest`` opens, graded inside it."""
+    stamp = ProcessVersion(label="x", digest=digest, stamped_at=opens.replace(day=2))
+    graded = ProcessVersion(label="x", digest="sha256:" + "e" * 64, stamped_at=opens.replace(day=3))
+    _cell(
+        root,
+        docket=docket,
+        predictor="claude-baseline",
+        engine=Engine.claude_code,
+        calls=2,
+        brier=brier,
+        stamp=stamp,
+        graded=graded,
+    )
+
+
+def test_a_frozen_segment_pools_an_engines_windows_and_the_cut_splits_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Three proc-a cells at Brier 0.1 and one proc-b cell at 0.5 pool to one segment
+    over four cells with mean 0.2 — the cell-weighted figure, not the windows' 0.3 —
+    listing both series; the cut keeps each window's own mean, and the report draws
+    the by-protocol table because the segment spans two labels."""
+    set_windows(monkeypatch, _WINDOW_A, _WINDOW_B)
+    for docket in ("1", "2", "3"):
+        _windowed(tmp_path, docket=docket, digest=_A, opens=_OPENS_A, brier=0.1)
+    _windowed(tmp_path, docket="4", digest=_B, opens=_OPENS_B, brier=0.5)
+    usage = build_tool_usage(tmp_path)
+    useful = usage.usefulness
+    assert useful is not None and useful.process_scope == "frozen"
+    (pooled,) = useful.segments
+    assert pooled.process_window is None and pooled.cells == 4
+    assert pooled.mean_brier_score == pytest.approx(0.2)
+    assert [(w.predictor_id, w.process_window, w.n) for w in pooled.windows] == [
+        ("claude-baseline", "proc-a", 3),
+        ("claude-baseline", "proc-b", 1),
+    ]
+    cut = {segment.process_window: segment for segment in useful.segments_by_protocol}
+    assert set(cut) == {"proc-a", "proc-b"}
+    assert cut["proc-a"].mean_brier_score == pytest.approx(0.1)
+    assert cut["proc-b"].mean_brier_score == pytest.approx(0.5)
+    rendered = render_tool_usage_markdown(usage)
+    assert "_By protocol" in rendered
+    assert "claude-baseline proc-a (n=3), claude-baseline proc-b (n=1)" in rendered
+
+
+def test_a_single_window_draws_no_cut_table_and_an_unscoped_build_has_no_cut(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Under one window the cut repeats the pooled rows, so the report draws none;
+    the all-versions block carries no windows to cut by."""
+    set_windows(monkeypatch, _WINDOW_A, _WINDOW_B)
+    for docket in ("1", "2"):
+        _windowed(tmp_path, docket=docket, digest=_A, opens=_OPENS_A, brier=0.1)
+    usage = build_tool_usage(tmp_path)
+    assert usage.usefulness is not None
+    (pooled,) = usage.usefulness.segments
+    assert [(w.process_window, w.n) for w in pooled.windows] == [("proc-a", 2)]
+    assert "_By protocol" not in render_tool_usage_markdown(usage)
+    unscoped = _pooled(tmp_path)
+    assert unscoped.segments_by_protocol == []
+    assert all(segment.windows == [] for segment in unscoped.segments)

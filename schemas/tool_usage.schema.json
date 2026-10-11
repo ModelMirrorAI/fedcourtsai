@@ -601,7 +601,7 @@
     },
     "WindowCount": {
       "additionalProperties": false,
-      "description": "One (predictor, counting window) series inside a figure that pools across predictors.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. It is\nthe **record across those series**: it lists each series and its ``n``\nbeside the pooled value, a single series included, and is never a rank key\n(``docs/process-version.md``, *Pooled by default*).",
+      "description": "One (predictor, counting window) series inside a figure that pools across predictors.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. It is\nthe **record across those series**: it lists each series and its ``n``\nbeside the pooled value, a single series included, and is never a rank key\n(``docs/process-version.md``, *Pooled by default*). It names its predictor\nbecause such a figure pools several; :class:`WindowShare` is the\none-predictor form a predictor's own pooled figure lists.",
       "properties": {
         "n": {
           "description": "This series' share of the pooled figure's population, in the unit the containing `windows` field names (cells or reads) \u2014 not necessarily the unit of the figure's own count, so the n need not sum to it",

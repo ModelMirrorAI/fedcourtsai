@@ -418,14 +418,19 @@ def rebuild(
     entry over every window its predictor's cells come from, with that
     composition and the by-protocol cut beside it, and the ranked set read
     under the open-window condition. Its harness-boundary counts are not
-    rebuilt, since no sensitivity line moves them.
+    rebuilt, since no sensitivity line moves them, and :func:`project` does
+    not carry them: a boundary count is read off the committed board itself.
     """
     keys = {_key(ev) for ev, _s, _st, _m in cells}
+    # Restricted to the cells kept, so a block that drops cells does not list
+    # their windows; empty — an all-versions pass, or a block that kept nothing —
+    # falls back to the window-less board rather than an empty-windows one.
+    windows = {key: w for key, w in (cell_windows or {}).items() if key in keys}
     return build_leaderboard(
         cells,
         skills={key: skill for key, skill in skills.items() if key in keys},
         facts=cell_facts(cells, data_root),
-        cell_windows={key: w for key, w in (cell_windows or {}).items() if key in keys} or None,
+        cell_windows=windows or None,
     )
 
 
@@ -448,6 +453,7 @@ def _paired(paired: PairedEvents | None, fields: Sequence[str]) -> dict[str, Any
             engine.predictor_id: {
                 "rank": engine.rank,
                 "unpaired_events": engine.unpaired_events,
+                "windows": {w.process_window: w.n for w in engine.windows},
                 "forward": _stratum(engine.forward, fields),
                 "by_band": {band: _stratum(s, fields) for band, s in engine.by_band.items()},
             }
@@ -1162,6 +1168,9 @@ def render_table(result: Mapping[str, Any]) -> list[str]:
     for arm, figures in headline.items():
         lines.append(f"{arm} (events scored {figures['events_scored']})")
         for predictor, entry in figures["entries"].items():
+            if entry.get("windows"):
+                makeup = ", ".join(f"{label} (n={n})" for label, n in entry["windows"].items())
+                lines.append(f"  {predictor:<16} pools {makeup}")
             rows = [("forward", entry["forward"]), *entry["by_band"].items()]
             for band, stratum in rows:
                 if stratum is None:
@@ -1189,4 +1198,12 @@ def render_table(result: Mapping[str, Any]) -> list[str]:
                         f"{label} {_fmt(cut.get(name), signed=True)} (n={cut.get(n_name)})"
                     )
                 lines.append(f"  {predictor:<16} {band:<18} " + "; ".join(parts))
+        if figures.get("by_protocol") and any(
+            len(entry.get("windows", {})) > 1 for entry in figures["entries"].values()
+        ):
+            lines.append(
+                "  a predictor above pools several windows: each window's own figures are "
+                "the JSON's `by_protocol` (`<predictor>@<window>`), and a release pinned to "
+                "one window reads them there"
+            )
     return lines

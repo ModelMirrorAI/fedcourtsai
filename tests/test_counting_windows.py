@@ -43,7 +43,13 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.semantic import SEMANTIC_SET_V1
 from fedcourtsai.process_version import PooledWindowsError
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
-from fedcourtsai.release_sensitivity import RANKED_ARM, _cert_events, project, rebuild
+from fedcourtsai.release_sensitivity import (
+    RANKED_ARM,
+    _cert_events,
+    project,
+    rebuild,
+    render_table,
+)
 from fedcourtsai.schemas import (
     BigCaseAssessment,
     BigCaseLeaderboard,
@@ -542,10 +548,7 @@ def test_a_two_window_registry_builds_the_cli_boards(
     assert result.exit_code == 0, result.output
     claims = read_model(out, ClaimScoreBoard)
     assert claims.forward_agreement is not None
-    assert (
-        sorted((w.predictor_id, w.process_window) for w in claims.forward_agreement.windows)
-        == ALL_SERIES
-    )
+    assert claims.forward_agreement.windows == []  # no cell here forms a pair
 
 
 def test_a_two_window_registry_pools_claim_scores_and_ops_with_the_cut(
@@ -558,13 +561,11 @@ def test_a_two_window_registry_pools_claim_scores_and_ops_with_the_cut(
     _two_label_ledger(data)
     run = stratify(data)
     claims = build_claim_scores(run.cells, cell_windows=run.cell_windows)
-    # No cell carries a claim block here, so no entry survives; the judge
-    # validation still names the series its population spans.
+    # No cell carries a claim block here, so no entry survives, and no cell forms
+    # a validation pair: the validation lists only the series its pairs come from.
     assert claims.forward_agreement is not None
-    assert (
-        sorted((w.predictor_id, w.process_window) for w in claims.forward_agreement.windows)
-        == ALL_SERIES
-    )
+    assert claims.forward_agreement.pairs == 0
+    assert claims.forward_agreement.windows == []
     substance = summarize_substance(
         cell_counts=(0, 0, 0),
         stratified_evaluations=[(ev, stratum) for ev, stratum, _, _ in run.cells],
@@ -609,7 +610,13 @@ def test_a_pooled_score_row_is_the_cell_weighted_figure_over_both_windows(
         window = run.cell_windows[evaluation_key(ev)]
         copies = 3 if window.label == "proc-a" else 1
         for i in range(copies):
-            graded = ev.model_copy(update={"run_id": f"r{i}", "correct": window.label == "proc-a"})
+            graded = ev.model_copy(
+                update={
+                    "run_id": f"r{i}",
+                    "correct": window.label == "proc-a",
+                    "reasoning_quality": 0.5,
+                }
+            )
             stratified.append((graded, stratum))
     windows = {
         evaluation_key(graded): _window_of_case(run, graded.case_id) for graded, _ in stratified
@@ -619,6 +626,8 @@ def test_a_pooled_score_row_is_the_cell_weighted_figure_over_both_windows(
     )
     (row,) = substance.predictor_scores
     assert row.evaluations == 4 and row.accuracy == 0.75
+    # The quantiles' grades name their rubric: one judge, one digest.
+    assert [(r.evaluator_id, r.n) for r in row.rubrics] == [("e1", 4)]
     assert [(w.process_window, w.n) for w in row.windows] == [("proc-a", 3), ("proc-b", 1)]
     assert {r.process_window: r.accuracy for r in substance.predictor_scores_by_protocol} == {
         "proc-a": 1.0,
@@ -630,6 +639,32 @@ def _window_of_case(run: StratifiedRun, case_id: str) -> CountingWindow:
     """The one window ``run``'s cells on ``case_id`` count in."""
     (window,) = {w for key, w in run.cell_windows.items() if key[0] == case_id}
     return window
+
+
+def test_evaluator_agreement_counts_only_the_reads_that_form_a_point(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A case only one judge read forms no leave-one-out point, so its reads list in
+    neither that judge's composition nor any rubric count."""
+    set_windows(monkeypatch, *TWO_LABELS)
+    data = tmp_path / "data"
+    _two_label_ledger(data)
+    event = CasePaths(data, "scotus", 2).event(EVENT)
+    for predictor in ("alpha", "beta", "gamma"):
+        evaluation = event.evaluation("e2", predictor, "r1")
+        evaluation.unlink()
+    agreement = evaluator_agreement(data)
+    # e1 still read case 2, but alone: cases 1 and 3 are its points.
+    assert agreement["e1"].events == 2
+    assert sorted((w.predictor_id, w.process_window, w.n) for w in agreement["e1"].windows) == [
+        ("alpha", "proc-a", 2),
+        ("beta", "proc-a", 2),
+        ("gamma", "proc-a", 1),
+        ("gamma", "proc-b", 1),
+    ]
+    # Each point compares e1's three reads with e2's three, so six per case.
+    assert {r.evaluator_id for r in agreement["e1"].rubrics} == {"e1", "e2"}
+    assert sum(r.n for r in agreement["e1"].rubrics) == 12
 
 
 def test_a_single_label_board_lists_its_one_window(
@@ -947,7 +982,21 @@ def test_release_sensitivity_and_semantic_summary_pool_two_windows(
     board = rebuild(run.cells, data, {}, run.cell_windows)
     arm = project(board)[RANKED_ARM]
     assert arm["entries"]["alpha"]["windows"] == {"proc-a": 1, "proc-b": 1}
+    assert arm["paired"]["engines"]["alpha"]["windows"] == {"proc-a": 1, "proc-b": 1}
     assert sorted(arm["by_protocol"]) == ["alpha@proc-a", "alpha@proc-b"]
+    blocks = (
+        "exact_pool_anchor",
+        "rule_20_excluded",
+        "post_conference_first_forecasts_excluded",
+    )
+    table = render_table(
+        {
+            "registered_headline": {"figures": project(board)},
+            "blocks": {name: {"figures": {}} for name in blocks},
+        }
+    )
+    assert "  alpha            pools proc-a (n=1), proc-b (n=1)" in table
+    assert any("`by_protocol`" in line for line in table)
     for case in ("scotus/1", "scotus/2"):
         path = (
             CasePaths(data, "scotus", int(case.split("/")[1]))

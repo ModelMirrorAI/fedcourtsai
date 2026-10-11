@@ -38,6 +38,8 @@ from .process_version import (
     composition_of,
     pooled_windows,
     refuse_shared_labels,
+    rubric_listing,
+    rubric_of,
     series_sort_key,
     window_label,
 )
@@ -282,7 +284,8 @@ def _score_row(
     cell_windows: Mapping[EvaluationKey, CountingWindow],
 ) -> PredictorScoreRow:
     """One score row: the pooled default where ``window`` is ``None``, else that window's cut."""
-    quality = [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]
+    graded = [ev for ev in evals if ev.reasoning_quality is not None]
+    quality = [ev.reasoning_quality for ev in graded if ev.reasoning_quality is not None]
     # Same rule as the calibration block: a null `correct` is a missing
     # figure, not a zero, so it leaves the row's fraction entirely and a
     # predictor with no computable cell reports no accuracy at all.
@@ -301,6 +304,7 @@ def _score_row(
         median=_quantile(quality, 0.5),
         p25=_quantile(quality, 0.25),
         p75=_quantile(quality, 0.75),
+        rubrics=rubric_listing(Counter(rubric_of(ev) for ev in graded)),
     )
 
 
@@ -559,7 +563,9 @@ def render_substance(digest: SubstanceDigest) -> str:
         lines += [
             "",
             "**Evaluation scores by predictor** (reasoning quality, all strata pooled; "
-            "each row pools its predictor's counted cells across the windows listed)",
+            "each row pools its predictor's counted cells across the windows listed, and "
+            "its quantiles pool every judge rubric that graded them — coverage, not a "
+            "claimable reading, wherever a judge's digest moved)",
             "| Predictor | Windows | Cells | Accuracy | Scored | Median | p25-p75 |",
             "|-----------|---------|------:|---------:|-------:|-------:|---------|",
         ]

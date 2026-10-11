@@ -198,8 +198,16 @@
           "description": "Kendall's tau-b between this evaluator's big-case ordering and the mean of the other evaluators' reads, over the events they share (+1 = same order, -1 = reversed); null with fewer than 2 shared events, or when every pair ties on one side",
           "title": "Rank Agreement"
         },
+        "rubrics": {
+          "description": "The (evaluator, evaluate digest) pairs of every read behind this evaluator's points \u2014 its own and its peers', since a leave-one-out point compares the two \u2014 each with its `n` in reads. A figure spanning more than one digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable figure, until the per-rubric reading is built",
+          "items": {
+            "$ref": "#/$defs/RubricCount"
+          },
+          "title": "Rubrics",
+          "type": "array"
+        },
         "windows": {
-          "description": "The predictor windows whose graded cells this evaluator's reads came from, each with its read count. The view compares graders, so it pools the predictors' windows by design and states them here instead. Listed whenever the figure is a frozen-scope pool, a single label included \u2014 the figure is the record across those series, never one series and never a rank key. Empty on an all-versions build, whose cells carry no window",
+          "description": "The predictor windows whose graded cells this evaluator's reads came from, each with its count of the reads that entered a point \u2014 a case some peer also read. The view compares graders, so it pools the predictors' windows by design and states them here instead. Listed whenever the figure is a frozen-scope pool, a single label included \u2014 the figure is the record across those series, never one series and never a rank key. Empty on an all-versions build, whose cells carry no window",
           "items": {
             "$ref": "#/$defs/WindowCount"
           },
@@ -1134,7 +1142,7 @@
     },
     "WindowCount": {
       "additionalProperties": false,
-      "description": "One (predictor, counting window) series inside a figure that pools across predictors.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. It is\nthe **record across those series**: it lists each series and its ``n``\nbeside the pooled value, a single series included, and is never a rank key\n(``docs/process-version.md``, *Pooled by default*).",
+      "description": "One (predictor, counting window) series inside a figure that pools across predictors.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. It is\nthe **record across those series**: it lists each series and its ``n``\nbeside the pooled value, a single series included, and is never a rank key\n(``docs/process-version.md``, *Pooled by default*). It names its predictor\nbecause such a figure pools several; :class:`WindowShare` is the\none-predictor form a predictor's own pooled figure lists.",
       "properties": {
         "n": {
           "description": "This series' share of the pooled figure's population, in the unit the containing `windows` field names (cells or reads) \u2014 not necessarily the unit of the figure's own count, so the n need not sum to it",

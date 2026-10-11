@@ -77,10 +77,12 @@ from .registry import (
 )
 from .schemas import (
     CountingWindow,
+    Evaluation,
     EvaluatorConfig,
     FrozenProcessRecord,
     PredictorConfig,
     ProcessVersion,
+    RubricCount,
     WindowCount,
     WindowShare,
 )
@@ -769,6 +771,31 @@ def composition_of[K](
         if (window := cell_windows.get(key)) is not None:
             counts[window] += 1
     return composition(counts)
+
+
+#: A judge rubric: the evaluator and the evaluate digest on its harness stamp
+#: (``None`` for an unstamped grading).
+Rubric = tuple[str, str | None]
+
+
+def rubric_of(evaluation: Evaluation) -> Rubric:
+    """A grading's rubric: its ``evaluator_id`` with its harness stamp's digest."""
+    stamp = evaluation.process_version
+    return (evaluation.evaluator_id, stamp.digest if stamp is not None else None)
+
+
+def rubric_listing(counts: Mapping[Rubric, int]) -> list[RubricCount]:
+    """The rubrics a judge-dependent figure spans, each with its ``n``, in a stable order.
+
+    Ordered by evaluator, then digest, an unstamped grading's ``None`` digest
+    first. Listed whatever the count, so a figure over one rubric says which.
+    """
+    return [
+        RubricCount(evaluator_id=evaluator, digest=digest, n=n)
+        for (evaluator, digest), n in sorted(
+            counts.items(), key=lambda item: (item[0][0], item[0][1] is not None, item[0][1] or "")
+        )
+    ]
 
 
 def is_retired(predictor_id: str) -> bool:

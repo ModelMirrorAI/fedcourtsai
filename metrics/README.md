@@ -125,21 +125,38 @@ On the leaderboard and each of its stage blocks:
   when the cells were made (the six are the post-conference first forecasts),
   so it separates no change's effect from prediction timing.
 
-**Units.** A composition's `windows[].n` — on an entry, on a paired engine, on
-a pooled `big_case` — counts gradings (or reads), so a three-judge panel puts
-three into it per cell; a boundary's `before`, `after` and `unstamped` count
-cells, one per (case, event) per engine.
+**Units.**
+
+- **Composition.** A composition's `windows[].n` counts gradings, or reads, so
+  a three-judge panel puts three into it per cell. That holds on an entry, on
+  a paired engine and on a pooled `big_case`. An entry's `windows` sums across
+  its strata, forward, retrospective and procedural together, so it can exceed
+  any one stratum's `evaluations`. A claim-score entry counts its
+  block-carrying gradings.
+- **Cross-predictor figures.** A judge validation's or `evaluator_agreement`'s
+  `windows` counts only the cells or reads that entered a pair or point.
+- **Boundaries.** A boundary's `before`, `after` and `unstamped` count cells,
+  one per (case, event) per engine.
 
 **Judge-dependent figures are coverage until the per-rubric reading is
-built.** A pooled `big_case` lists the windows it spans and the
-(evaluator, digest) pairs its panel means draw on (`rubrics`, each with its `n`
-in reads), and a semantic census lists the same pairs over its block-carrying
-gradings; `mean_reasoning_quality` lists neither yet. Every judge's evaluate
-digest moved at `proc-v9` — `claude-judge`'s with its model — so a pooled
-`big_case`, `mean_reasoning_quality`, `evaluator_agreement`, judge-validation
-figure, ops reasoning-quality quantile or semantic census that spans more than
-one digest of any evaluator mixes judge rubrics: it is coverage, never a
-claimable figure or a comparison, until the per-rubric-signature readings land.
+built.** These figures list `rubrics`, the (evaluator, evaluate digest) pairs
+they draw on, each with its `n`:
+
+- a pooled `big_case`, over the reads its panel means use;
+- `evaluator_agreement`, over every read behind an evaluator's leave-one-out
+  points, its own and its peers';
+- the claim scores' judge validation, over the grades that formed a pair;
+- each ops score row's reasoning-quality quantiles, over the grades they are
+  taken over;
+- a semantic census, over its block-carrying gradings.
+
+`mean_reasoning_quality` on the board lists none yet.
+
+Every judge's evaluate digest moved at `proc-v9`, `claude-judge`'s with its
+model. So any of these figures, `mean_reasoning_quality` included, that pools
+more than one digest of one evaluator mixes judge rubrics. It is coverage,
+never a claimable figure or a comparison, until the per-rubric-signature
+readings land. A `rubrics` list naming one evaluator twice is the sign.
 
 **The other surfaces take the same shape.**
 
@@ -180,10 +197,14 @@ window naming its predictor.
 - **`release-sensitivity`** rebuilds the board with the stratify pass's
   windows. Each arm projects the pooled entries with their `windows`, the
   paired figure, and the cut as `by_protocol`, keyed `<predictor>@<window>`.
-  Its release is `proc-v8` inside `proc-v8`'s window, so a release figure is
-  read off the cut's `proc-v8` entries, or off the board pinned to the refresh
-  commit. A pooled entry stops being the release figure once a `proc-v9` cell
-  is graded.
+  Its release is `proc-v8` inside `proc-v8`'s window. Once a later window's
+  cell is graded, a pooled entry is no longer the release figure. A per-entry
+  release figure is then read off the cut's `proc-v8` entries. The paired
+  figure (events, band filing, ranks) and each block's counters
+  (`board_cells_removed`, `graded_members`, `lines_equal_headline`, the
+  statpack builds, the transcription spread, each arm's `events_scored`) have
+  no per-window cut, so they are read only from a run at the refresh commit
+  the release pins.
 - **`semantic-summary`** states the census's `windows` and `rubrics`, and
   prints the composition on its census line in the withheld state too.
 

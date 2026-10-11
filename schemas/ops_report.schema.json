@@ -913,6 +913,14 @@
           "description": "On a by-protocol row, the label of the counting window its cells come from. Null on a pooled row, which spans the windows `windows` lists, and on every all-versions row",
           "title": "Process Window"
         },
+        "rubrics": {
+          "description": "The (evaluator, evaluate digest) pairs whose `reasoning_quality` grades the quantiles are taken over, each with its `n` in grades. A figure spanning more than one digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable figure, until the per-rubric reading is built",
+          "items": {
+            "$ref": "#/$defs/RubricCount"
+          },
+          "title": "Rubrics",
+          "type": "array"
+        },
         "windows": {
           "description": "The windows this figure pools, each with its `n` in gradings, ordered by opening. Listed whenever the figure is a frozen-scope pool, a single window included; empty on an all-versions build, whose cells carry no window",
           "items": {
@@ -927,6 +935,41 @@
         "evaluations"
       ],
       "title": "PredictorScoreRow",
+      "type": "object"
+    },
+    "RubricCount": {
+      "additionalProperties": false,
+      "description": "One judge rubric a judge-dependent figure draws on: an evaluator and its digest.\n\nA figure computed from an evaluator's judgment depends on the evaluate\nprompt, so it lists the (evaluator, digest) pairs its reads come from. A\ngrading's rubric is its ``evaluator_id`` with the ``process_version.digest``\non its harness stamp.",
+      "properties": {
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The evaluate process digest on the grading's harness stamp; null for an unstamped grading",
+          "title": "Digest"
+        },
+        "evaluator_id": {
+          "title": "Evaluator Id",
+          "type": "string"
+        },
+        "n": {
+          "description": "Reads or gradings drawn from this rubric",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "evaluator_id",
+        "digest",
+        "n"
+      ],
+      "title": "RubricCount",
       "type": "object"
     },
     "SpendSummary": {
@@ -1397,7 +1440,7 @@
     },
     "WindowCount": {
       "additionalProperties": false,
-      "description": "One (predictor, counting window) series inside a figure that pools across predictors.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. It is\nthe **record across those series**: it lists each series and its ``n``\nbeside the pooled value, a single series included, and is never a rank key\n(``docs/process-version.md``, *Pooled by default*).",
+      "description": "One (predictor, counting window) series inside a figure that pools across predictors.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. It is\nthe **record across those series**: it lists each series and its ``n``\nbeside the pooled value, a single series included, and is never a rank key\n(``docs/process-version.md``, *Pooled by default*). It names its predictor\nbecause such a figure pools several; :class:`WindowShare` is the\none-predictor form a predictor's own pooled figure lists.",
       "properties": {
         "n": {
           "description": "This series' share of the pooled figure's population, in the unit the containing `windows` field names (cells or reads) \u2014 not necessarily the unit of the figure's own count, so the n need not sum to it",

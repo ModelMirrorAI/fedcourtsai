@@ -41,7 +41,7 @@ be duplicated.
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Literal
@@ -55,6 +55,8 @@ from .process_version import (
     frozen_process_record,
     pooled_windows,
     refuse_shared_labels,
+    rubric_listing,
+    rubric_of,
     series_sort_key,
     window_label,
 )
@@ -183,18 +185,21 @@ def _agreement(
 
     The validation pools every predictor's cells by design — it validates the
     judge, not a forecaster — so it lists each (predictor, window) series and
-    its cell count as ``windows``
+    the count of its cells that formed a pair as ``windows``
     (:func:`fedcourtsai.process_version.pooled_windows`), a single series
-    included.
+    included, and the (evaluator, digest) rubrics those pairs' grades came from
+    as ``rubrics``.
     """
     if not evals:
         return None
     points: list[tuple[float, float]] = []
+    paired: list[Evaluation] = []
     pair_events: set[tuple[str, str]] = set()
     for ev in evals:
         if ev.claim_scores is None or ev.claim_scores.total is None or ev.reasoning_quality is None:
             continue
         points.append((ev.claim_scores.total, ev.reasoning_quality))
+        paired.append(ev)
         pair_events.add((ev.case_id, ev.event_id))
     suppressed = len(points) < AGREEMENT_MIN_PAIRS
     return ClaimJudgeAgreement(
@@ -207,7 +212,8 @@ def _agreement(
             1 for ev in evals if ev.claim_scores is not None and ev.claim_scores.total is None
         ),
         missing_reasoning_quality=sum(1 for ev in evals if ev.reasoning_quality is None),
-        windows=pooled_windows(_series_counts(evals, cell_windows or {})),
+        windows=pooled_windows(_series_counts(paired, cell_windows or {})),
+        rubrics=rubric_listing(Counter(rubric_of(ev) for ev in paired)),
     )
 
 

@@ -229,6 +229,8 @@ def test_a_frozen_board_pools_each_predictor_and_cuts_by_window() -> None:
         (_evaluation("alpha", claim_scores=_block(0.4), event_id=f"evt-{i}"), proc_a)
         for i in range(3)
     ] + [(_evaluation("alpha", claim_scores=_block(-0.4), event_id="evt-x"), proc_b)]
+    # A cell with no block forms no validation pair, so it lists in no composition.
+    evals.append((_evaluation("alpha", event_id="evt-y"), proc_a))
     cells = _cells(*((ev, FORWARD) for ev, _ in evals))
     windows = {evaluation_key(ev): window for ev, window in evals}
     board = build_claim_scores(cells, cell_windows=windows)
@@ -248,6 +250,10 @@ def test_a_frozen_board_pools_each_predictor_and_cuts_by_window() -> None:
     assert [(w.predictor_id, w.process_window, w.n) for w in board.forward_agreement.windows] == [
         ("alpha", "proc-a", 3),
         ("alpha", "proc-b", 1),
+    ]
+    # And the rubrics the pairs' grades came from: one unstamped judge here.
+    assert [(r.evaluator_id, r.digest, r.n) for r in board.forward_agreement.rubrics] == [
+        ("eval-a", None, 4)
     ]
     # An all-versions board has no windows to cut by.
     unscoped = build_claim_scores(cells, process_scope="all")

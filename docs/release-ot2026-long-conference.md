@@ -71,10 +71,20 @@ It rebuilds the frozen board exactly as `fedcourts leaderboard` does, so
 `<stage>@<moment>` (`cert@distribution` is the ranked board, `cert@cvsg` the
 CVSG arm), and `matches_committed_board` says whether the committed
 `metrics/leaderboard.json` is that board. Each arm's `entries` are the pooled
-records, each listing the windows it pools with their `n`; beside them,
+records, each listing the windows it pools with their `n`. Beside them,
 `by_protocol` (keyed `<predictor>@<window>`) is the per-window cut. While
-`proc-v8` cells are the only graded cells the two agree, and once a later
-window's cell is graded the release's figures are the cut's `@proc-v8` entries.
+`proc-v8` cells are the only graded cells, the two agree.
+
+Once a later window's cell is graded, only the per-entry figures have a
+`proc-v8` cut, and they are read off `by_protocol["<predictor>@proc-v8"]`.
+Everything else has no `proc-v8` cut:
+- the paired figure (its events, band filing and ranks);
+- each block's counters: `board_cells_removed`, `graded_members` and
+  `lines_equal_headline`, the statpack builds read, the transcription spread,
+  and each arm's `events_scored`.
+
+Those are read only from a run at the refresh commit `0918fb18e74fb89adc9a0882411996400986925e`.
+
 Each block under `.blocks` carries its figures in the same shape, each with its
 own `n`. It is run from the same
 checkout and corpus as the fill export (section 8, step 2), with full git
@@ -107,9 +117,11 @@ freeze. From the promotion that lands `proc-v9`, a board built from `main`
 carries the `proc-v9` instant, four windows with `claude-baseline`'s `proc-v8`
 window closed, and the `proc-v9` digests, so it fails those checks by
 construction rather than by drift. A refresh of these figures is built from a
-tree before that promotion, and the `release-sensitivity` figures before the
-first graded `proc-v9` `claude-baseline` cell, after which that build refuses
-at frozen scope (the `proc-v9` entry in [freeze-record.md](freeze-record.md)).
+tree before that promotion. The `release-sensitivity` figures come from a run
+at the refresh commit `0918fb18e74fb89adc9a0882411996400986925e`. After the first graded `proc-v9` `claude-baseline` cell, a later
+run pools that cell into the `claude-baseline` entries and the paired figure.
+It keeps the `proc-v8` per-entry figures only as its `by_protocol` cut, so
+nothing else it prints is the release's figure.
 The release's population is unchanged by the successor: its cells are
 `proc-v8` inside `proc-v8`'s windows, and closing a window de-counts nothing.
 

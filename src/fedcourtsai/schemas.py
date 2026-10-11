@@ -3257,7 +3257,9 @@ class WindowCount(_Strict):
     every engine's cells — pools whatever series its cells come from. It is
     the **record across those series**: it lists each series and its ``n``
     beside the pooled value, a single series included, and is never a rank key
-    (``docs/process-version.md``, *Pooled by default*).
+    (``docs/process-version.md``, *Pooled by default*). It names its predictor
+    because such a figure pools several; :class:`WindowShare` is the
+    one-predictor form a predictor's own pooled figure lists.
     """
 
     predictor_id: str
@@ -3274,6 +3276,12 @@ _POOLED_WINDOWS_DESCRIPTION = (
     "Listed whenever the figure is a frozen-scope pool, a single label included — "
     "the figure is the record across those series, never one series and never a "
     "rank key. Empty on an all-versions build, whose cells carry no window"
+)
+
+
+_RUBRIC_COVERAGE = (
+    "A figure spanning more than one digest of one evaluator mixes judge rubrics, so it "
+    "is coverage, never a claimable figure, until the per-rubric reading is built"
 )
 
 
@@ -3324,15 +3332,21 @@ class EvaluatorAgreement(_Strict):
     windows: list[WindowCount] = Field(
         default_factory=list,
         description="The predictor windows whose graded cells this evaluator's reads came "
-        "from, each with its read count. The view compares graders, so it pools the "
-        "predictors' windows by design and states them here instead. "
-        + _POOLED_WINDOWS_DESCRIPTION,
+        "from, each with its count of the reads that entered a point — a case some peer "
+        "also read. The view compares graders, so it pools the predictors' windows by "
+        "design and states them here instead. " + _POOLED_WINDOWS_DESCRIPTION,
+    )
+    rubrics: list[RubricCount] = Field(
+        default_factory=list,
+        description="The (evaluator, evaluate digest) pairs of every read behind this "
+        "evaluator's points — its own and its peers', since a leave-one-out point compares "
+        "the two — each with its `n` in reads. " + _RUBRIC_COVERAGE,
     )
 
     @model_serializer(mode="wrap")
     def _omit_single_label(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``windows`` while it lists nothing."""
-        return _omit_empty(handler(self), windows=self.windows)
+        """Drop ``windows`` and ``rubrics`` while they list nothing."""
+        return _omit_empty(handler(self), windows=self.windows, rubrics=self.rubrics)
 
 
 class BigCaseLeaderboard(_Strict):
@@ -4430,14 +4444,20 @@ class ClaimJudgeAgreement(_Strict):
     )
     windows: list[WindowCount] = Field(
         default_factory=list,
-        description="The (predictor, window) series behind this stratum's cells, each with "
-        "its cell count: the validation pools predictors by design. " + _POOLED_WINDOWS_DESCRIPTION,
+        description="The (predictor, window) series behind this stratum's pairs, each with "
+        "its count of the cells that formed a pair: the validation pools predictors by "
+        "design. " + _POOLED_WINDOWS_DESCRIPTION,
+    )
+    rubrics: list[RubricCount] = Field(
+        default_factory=list,
+        description="The (evaluator, evaluate digest) pairs whose `reasoning_quality` "
+        "grades formed this stratum's pairs, each with its `n` in pairs. " + _RUBRIC_COVERAGE,
     )
 
     @model_serializer(mode="wrap")
     def _omit_single_label(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``windows`` while it lists nothing."""
-        return _omit_empty(handler(self), windows=self.windows)
+        """Drop ``windows`` and ``rubrics`` while they list nothing."""
+        return _omit_empty(handler(self), windows=self.windows, rubrics=self.rubrics)
 
 
 class ClaimScoreEntry(_Strict):
@@ -10031,11 +10051,16 @@ class PredictorScoreRow(_Strict):
     median: float | None = Field(default=None, ge=0.0, le=1.0)
     p25: float | None = Field(default=None, ge=0.0, le=1.0)
     p75: float | None = Field(default=None, ge=0.0, le=1.0)
+    rubrics: list[RubricCount] = Field(
+        default_factory=list,
+        description="The (evaluator, evaluate digest) pairs whose `reasoning_quality` grades "
+        "the quantiles are taken over, each with its `n` in grades. " + _RUBRIC_COVERAGE,
+    )
 
     @model_serializer(mode="wrap")
     def _omit_empty_windows(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``windows`` while it lists nothing (a by-protocol row, or an all-versions row)."""
-        return _omit_empty(handler(self), windows=self.windows)
+        """Drop ``windows`` and ``rubrics`` while they list nothing."""
+        return _omit_empty(handler(self), windows=self.windows, rubrics=self.rubrics)
 
 
 class ConferenceBucket(_Strict):

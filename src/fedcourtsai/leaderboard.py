@@ -117,16 +117,20 @@ from .process_version import (
     HARNESS_BOUNDARIES,
     BoundaryHistoryError,
     BoundarySide,
+    Rubric,
     Series,
     boundary_admits,
     boundary_side,
     composition,
+    composition_of,
     frozen_process_record,
     graded_in_window,
     harness_stamps_cert_anchor,
     is_retired,
     pooled_windows,
     refuse_shared_labels,
+    rubric_listing,
+    rubric_of,
     series_sort_key,
     window_label,
     window_of,
@@ -153,11 +157,9 @@ from .schemas import (
     PairedEvents,
     Prediction,
     PredictionContext,
-    RubricCount,
     Stage,
     StatPack,
     Stratum,
-    WindowShare,
 )
 from .serialize import read_model
 from .store import EvaluationKey, evaluation_key, prediction_counts, scored_prediction
@@ -918,8 +920,7 @@ def big_case_agreement(
             read_window = window_of(scored.process_version)
             if read_window is not None:
                 pooled_from[series][read_window] += 1
-        rubric = evaluation.process_version.digest if evaluation.process_version else None
-        rubrics[series][(evaluation.evaluator_id, rubric)] += 1
+        rubrics[series][rubric_of(evaluation)] += 1
 
     # Under `by_window` one predictor's reads from two counting windows are two
     # cuts, keyed on the series; two windows sharing a label could not be
@@ -949,13 +950,7 @@ def big_case_agreement(
             rank_agreement=kendall_tau_b(pairs),
             cases=len(pairs),
             windows=composition(pooled_from[(predictor_id, window)]),
-            rubrics=[
-                RubricCount(evaluator_id=evaluator, digest=digest, n=n)
-                for (evaluator, digest), n in sorted(
-                    rubrics[(predictor_id, window)].items(),
-                    key=lambda item: (item[0][0], item[0][1] or ""),
-                )
-            ],
+            rubrics=rubric_listing(rubrics[(predictor_id, window)]),
         )
         for (predictor_id, window), pairs in points.items()
     }
@@ -1046,10 +1041,14 @@ def evaluator_agreement(
     # `big_case_agreement` collapses: stakes are a property of the case, so two
     # moments would put two non-independent points into one correlation.
     reads: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
-    # Each evaluator's reads per (predictor, window) of the graded cell: the view
-    # pools the predictors' windows by design — it compares graders — so it
-    # states the series it pools rather than splitting on them.
-    spans: dict[str, dict[Series, int]] = defaultdict(lambda: defaultdict(int))
+    # Each read's (predictor, window) series and judge rubric, per case and
+    # evaluator, so the composition and the rubric listing count only the reads
+    # that enter a point. The view pools the predictors' windows by design — it
+    # compares graders — so it states the series it pools rather than splitting
+    # on them.
+    origins: dict[str, dict[str, list[tuple[Series, Rubric]]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
     for evaluation in _scoped_evaluations(
         cases_dir,
         in_scope=lambda evaluation: (
@@ -1065,13 +1064,18 @@ def evaluator_agreement(
         reads[evaluation.case_id][evaluation.evaluator_id].append(
             evaluation.big_case.evaluator_score
         )
+        window: CountingWindow | None = None
         if frozen_only:
             scored = _scored_prediction(cases_dir, evaluation)
             window = window_of(scored.process_version) if scored is not None else None
-            spans[evaluation.evaluator_id][(evaluation.predictor_id, window)] += 1
+        origins[evaluation.case_id][evaluation.evaluator_id].append(
+            ((evaluation.predictor_id, window), rubric_of(evaluation))
+        )
 
     points: dict[str, list[tuple[float, float]]] = defaultdict(list)
-    for _case_id, panel in sorted(reads.items()):
+    spans: dict[str, dict[Series, int]] = defaultdict(lambda: defaultdict(int))
+    rubrics: dict[str, dict[Rubric, int]] = defaultdict(lambda: defaultdict(int))
+    for case_id, panel in sorted(reads.items()):
         per_evaluator = {
             evaluator: sum(scores) / len(scores) for evaluator, scores in panel.items()
         }
@@ -1080,12 +1084,21 @@ def evaluator_agreement(
         for evaluator, own in per_evaluator.items():
             peers = [v for other, v in per_evaluator.items() if other != evaluator]
             points[evaluator].append((own, sum(peers) / len(peers)))
+            for series, _rubric in origins[case_id][evaluator]:
+                if series[1] is not None:
+                    spans[evaluator][series] += 1
+            # A leave-one-out point compares the evaluator's read with its
+            # peers', so every read behind the point names its rubric.
+            for reader in per_evaluator:
+                for _series, rubric in origins[case_id][reader]:
+                    rubrics[evaluator][rubric] += 1
 
     return {
         evaluator: EvaluatorAgreement(
             rank_agreement=kendall_tau_b(pairs),
             events=len(pairs),
             windows=pooled_windows(spans[evaluator]),
+            rubrics=rubric_listing(rubrics[evaluator]),
         )
         for evaluator, pairs in points.items()
     }
@@ -1597,17 +1610,6 @@ def _group_by_predictor(
     return {pid: by_predictor[pid] for pid in sorted(by_predictor)}
 
 
-def _composition_of(
-    evals: Iterable[Evaluation], cell_windows: Mapping[EvaluationKey, CountingWindow]
-) -> list[WindowShare]:
-    """The windows ``evals`` come from, each with its grading count — the pooled entry's makeup."""
-    counts: dict[CountingWindow, int] = defaultdict(int)
-    for ev in evals:
-        if (window := cell_windows.get(_evaluation_key(ev))) is not None:
-            counts[window] += 1
-    return composition(counts)
-
-
 def _stage_entry(
     predictor_id: str,
     window: CountingWindow | None,
@@ -1623,7 +1625,11 @@ def _stage_entry(
     return LeaderboardStageEntry(
         predictor_id=predictor_id,
         process_window=window_label(window),
-        windows=_composition_of(evals, cell_windows) if window is None else [],
+        windows=(
+            composition_of((_evaluation_key(ev) for ev in evals), cell_windows)
+            if window is None
+            else []
+        ),
         boundaries=_boundary_counts(evals, sides) if window is None else [],
         evaluators=len({ev.evaluator_id for ev in evals}),
         events_scored=_events_scored(evals),
@@ -1838,7 +1844,11 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         return LeaderboardEntry(
             predictor_id=predictor_id,
             process_window=window_label(window),
-            windows=_composition_of(evals, windows) if window is None else [],
+            windows=(
+                composition_of((_evaluation_key(ev) for ev in evals), windows)
+                if window is None
+                else []
+            ),
             boundaries=_boundary_counts(evals, boundaries) if window is None else [],
             rank=rank,
             paired_events=paired.events if rank is not None and paired is not None else None,

@@ -401,7 +401,6 @@ from .schemas import (
     QpTopicReference,
     RetrievalCall,
     RetrievalLog,
-    RubricCount,
     SalienceReplay,
     Stage,
     StagedOpinion,
@@ -6150,15 +6149,14 @@ def semantic_summary_command(
     blocks = 0
     refused = 0
     series: Counter[process_version.Series] = Counter()
-    rubrics: Counter[tuple[str, str | None]] = Counter()
+    rubrics: Counter[process_version.Rubric] = Counter()
     for key in sorted(latest):
         evaluation = latest[key][1]
         if evaluation.semantic_grades is None:
             continue
         blocks += 1
         series[(evaluation.predictor_id, run.cell_windows.get(evaluation_key(evaluation)))] += 1
-        stamp = evaluation.process_version
-        rubrics[(evaluation.evaluator_id, stamp.digest if stamp is not None else None)] += 1
+        rubrics[process_version.rubric_of(evaluation)] += 1
         produced = semantic.graded_units(evaluation)
         if not produced:
             # `graded_units` refuses silently, five ways. A systematic refusal —
@@ -6174,12 +6172,7 @@ def semantic_summary_command(
     ).model_copy(
         update={
             "windows": process_version.pooled_windows(series),
-            "rubrics": [
-                RubricCount(evaluator_id=evaluator_id, digest=digest, n=n)
-                for (evaluator_id, digest), n in sorted(
-                    rubrics.items(), key=lambda item: (item[0][0], item[0][1] or "")
-                )
-            ],
+            "rubrics": process_version.rubric_listing(rubrics),
         }
     )
     graded = summary.overall.graded if summary.overall is not None else 0
@@ -6206,10 +6199,22 @@ def semantic_summary_command(
         if summary.windows
         else ""
     )
+    # A grade depends on the evaluate prompt, so the census names the rubrics it
+    # pools, and says so out loud where one evaluator graded under two digests.
+    mixed = len({r.evaluator_id for r in summary.rubrics}) < len(summary.rubrics)
+    judged = (
+        "; graded under "
+        + ", ".join(
+            f"{r.evaluator_id}@{(r.digest or 'unstamped')[:15]} (n={r.n})" for r in summary.rubrics
+        )
+        + (" — mixed judge rubrics, so coverage only" if mixed else "")
+        if summary.rubrics
+        else ""
+    )
     census = (
         f"{blocks} block(s), {refused} refused; {graded} graded / {masked} masked / "
         f"{disputed} mask-disputed unit(s) over {summary.cells} cell(s) "
-        f"on {summary.cases} case(s){ground_split}{makeup}"
+        f"on {summary.cases} case(s){ground_split}{makeup}{judged}"
     )
     if graded < semantic.SEMANTIC_MIN_GRADED or not agreed:
         reason = (

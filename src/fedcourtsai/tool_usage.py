@@ -1219,6 +1219,12 @@ def _render_usefulness(usage: ToolUsage) -> list[str]:
         )
         return lines
     lines += _segment_table(useful.segments, column="windows")
+    lines += [
+        "",
+        "_Each pooled segment is one engine's record over the windows it lists. Two "
+        + "engines' segments cover different cells, so side by side they are not a "
+        + "cross-engine comparison._",
+    ]
     # The cut is a different table only where some engine's pooled segment
     # spans two windows; otherwise every cut row repeats its pooled row.
     if any(len({w.process_window for w in segment.windows}) > 1 for segment in useful.segments):

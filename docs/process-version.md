@@ -462,8 +462,10 @@ ledger: the dataset export, the big-case census (one read per predictor per
 case, each naming its window), the conference cut and the predict backlog.
 `release-sensitivity` rebuilds the board with the windows and projects the
 pooled entries with their composition, the paired figure and the cut. Its
-release is `proc-v8` inside its own window, so a release figure is read off
-the cut's `proc-v8` entries. `semantic-summary` pools and states the census's
+release is `proc-v8` inside its own window. Once a later window's cell is
+graded, a per-entry release figure is read off the cut's `proc-v8` entries.
+The paired figure and each block's counters have no per-window cut, so they
+are read from a run at the refresh commit the release pins. `semantic-summary` pools and states the census's
 `windows` and its (evaluator, digest) `rubrics`.
 
 ### Two boundaries, two jobs
