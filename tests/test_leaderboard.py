@@ -54,6 +54,7 @@ from fedcourtsai.schemas import (
     ClaimScore,
     ClaimScoreBlock,
     ClaimScoreBoard,
+    CountingWindow,
     Disposition,
     Engine,
     Evaluation,
@@ -3373,3 +3374,89 @@ def test_a_replay_boundary_admits_replay_cells_of_its_predictors_alone() -> None
     # A docket-scoped reach is printed as scope, never applied as a filter.
     assert scrub.reach == "self-represented dockets"
     assert boundary_admits(scrub, "claude-baseline", "forward")
+
+
+def test_each_paired_engine_carries_its_figure_per_assigned_band() -> None:
+    """The per-band reading: every engine's paired gradings filed under one band
+    per event, so each band's figures are over the same events for every engine;
+    an event with no facts files under `(none)`, so the filing sums to `events`."""
+    one = [_evaluation(p, event_id="evt-1", correct=c) for p, c in (("alpha", 1), ("beta", 0))]
+    two = [_evaluation(p, event_id="evt-2", correct=1) for p in ("alpha", "beta")]
+    bare = [_evaluation(p, event_id="evt-3", correct=1) for p in ("alpha", "beta")]
+    (beta_two,) = _cert_facts(two[1])
+    facts = {
+        **_cert_facts(*one),
+        **_cert_facts(two[0], band="sal-v1/low"),
+        # beta's cell on evt-2 froze another band but ran later: alpha's files it.
+        beta_two: replace(_cert_facts(two[1])[beta_two], clock=_CLOCK + timedelta(days=1)),
+    }
+    board = build_leaderboard([_forward(ev) for ev in (*one, *two, *bare)], facts=facts)
+    assert board.paired is not None
+    assert board.paired.by_band == {NO_BAND_KEY: 1, "sal-v1/high": 1, "sal-v1/low": 1}
+    assert sum(board.paired.by_band.values()) == board.paired.events
+    assert board.paired.band_mismatches == 1
+    for engine in board.paired.entries:
+        assert set(engine.by_band) == {NO_BAND_KEY, "sal-v1/high", "sal-v1/low"}
+        assert all(block.events_scored == 1 for block in engine.by_band.values())
+    beta = next(e for e in board.paired.entries if e.predictor_id == "beta")
+    assert beta.by_band["sal-v1/high"].accuracy == 0.0
+    # beta's own entry files its evt-2 cell under its own frozen band.
+    beta_entry = next(e for e in board.entries if e.predictor_id == "beta")
+    assert beta_entry.by_band is not None and "sal-v1/low" not in beta_entry.by_band
+    # Without facts — a non-cert block — there is no filing at all.
+    plain = build_leaderboard([_forward(ev) for ev in one])
+    assert plain.paired is not None
+    assert plain.paired.by_band == {} and plain.paired.entries[0].by_band == {}
+
+
+def test_a_boundary_with_only_unstamped_cells_is_still_listed() -> None:
+    name = HARNESS_BOUNDARIES[0].name
+    cells = [_evaluation("alpha", event_id=f"evt-{n}") for n in ("a", "b")]
+    sides: dict[Any, dict[str, BoundarySide | None]] = {
+        _evaluation_key(cells[0]): {name: "after"},
+        _evaluation_key(cells[1]): {name: None},
+    }
+    board = build_leaderboard([_forward(ev) for ev in cells], boundaries=sides)
+    (entry,) = board.entries
+    assert [(b.boundary, b.before, b.after, b.unstamped) for b in entry.boundaries] == [
+        (name, 0, 1, 1)
+    ]
+
+
+def test_a_pooled_entry_is_the_cell_weighted_figure_over_both_windows() -> None:
+    """Pooling computes over the pooled cells, never an average of window figures:
+    accuracy and Brier weight every cell once, skill is a ratio of pooled sums."""
+    early = CountingWindow(
+        label="proc-a", digest="sha256:" + "a" * 64, opens=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+    late = CountingWindow(
+        label="proc-b", digest="sha256:" + "b" * 64, opens=datetime(2026, 4, 1, tzinfo=UTC)
+    )
+    graded = [
+        (early, 1, 0.1, 0.25),
+        (early, 1, 0.2, 0.25),
+        (early, 0, 0.6, 0.30),
+        (late, 0, 0.9, 0.20),
+    ]
+    evals = [
+        _evaluation("alpha", event_id=f"evt-{n}", correct=correct, brier_score=brier)
+        for n, (_w, correct, brier, _b) in enumerate(graded)
+    ]
+    windows = {_evaluation_key(ev): w for ev, (w, *_rest) in zip(evals, graded, strict=True)}
+    skills = {
+        _evaluation_key(ev): CellSkill(brier=brier, prior_term_baseline=baseline)
+        for ev, (_w, _c, brier, baseline) in zip(evals, graded, strict=True)
+    }
+    board = build_leaderboard([_forward(ev) for ev in evals], skills=skills, cell_windows=windows)
+    (entry,) = board.entries
+    assert entry.forward is not None
+    assert entry.forward.accuracy == pytest.approx(2 / 4)
+    assert entry.forward.mean_brier_score == pytest.approx(1.8 / 4)
+    assert entry.forward.population_brier_skill_score == pytest.approx(1 - 1.8 / 1.0)
+    assert [(w.process_window, w.n) for w in entry.windows] == [("proc-a", 3), ("proc-b", 1)]
+    cut = {e.process_window: e.forward for e in board.by_protocol}
+    assert cut["proc-a"] is not None and cut["proc-a"].accuracy == pytest.approx(2 / 3)
+    assert cut["proc-b"] is not None and cut["proc-b"].accuracy == 0.0
+    # Not the mean of the two windows' figures (1/3), which would weight a
+    # one-cell window like a three-cell one.
+    assert entry.forward.accuracy != pytest.approx((2 / 3 + 0.0) / 2)

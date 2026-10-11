@@ -115,6 +115,7 @@ from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
 from .pipeline.moments import first_moment, scores_votes
 from .process_version import (
     HARNESS_BOUNDARIES,
+    BoundaryHistoryError,
     BoundarySide,
     Series,
     boundary_admits,
@@ -152,6 +153,7 @@ from .schemas import (
     PairedEvents,
     Prediction,
     PredictionContext,
+    RubricCount,
     Stage,
     StatPack,
     Stratum,
@@ -614,10 +616,15 @@ def _paired(
     gradings on those events, and its ``unpaired_events`` are its qualifying
     events outside them.
 
-    **Bands.** Where ``facts`` covers the cells (cert populations), each paired
-    event is filed under the band key of its earliest qualifying cell by
-    harness clock, across the engines, and an event whose engines' cells carry
-    different band keys counts in ``band_mismatches``.
+    **Bands.** Where ``facts`` covers any paired cell (cert populations), each
+    paired event is filed under the band key of its earliest qualifying cell by
+    harness clock, across the engines — under
+    :data:`fedcourtsai.schemas.NO_BAND_KEY` where none of its cells carries
+    facts, so the filing sums to the paired events — and an event whose
+    engines' cells carry different band keys counts in ``band_mismatches``.
+    Each engine's ``by_band`` aggregates its paired gradings under that one
+    filing, so every engine's per-band figure is over the same events: the
+    per-band reading.
 
     **Ranks** (``ranked`` only, and only while the paired set is non-empty):
     :func:`_paired_rank_key` over each engine's paired aggregate. One engine
@@ -634,18 +641,31 @@ def _paired(
     if not engines:
         return None
     paired = set.intersection(*(set(qualifying[pid]) for pid in engines))
+    filing, mismatches = _band_filing(
+        {event: [ev for pid in engines for ev in qualifying[pid][event]] for event in paired},
+        facts,
+    )
     entries: list[PairedEngine] = []
     for pid in engines:
         gradings = [ev for event in sorted(paired) for ev in qualifying[pid][event]]
         windows: dict[CountingWindow, int] = defaultdict(int)
+        banded: dict[str, list[Evaluation]] = defaultdict(list)
         for ev in gradings:
             if (window := cell_windows.get(_evaluation_key(ev))) is not None:
                 windows[window] += 1
+            if filing:
+                banded[filing[(ev.case_id, ev.event_id)]].append(ev)
         entries.append(
             PairedEngine(
                 predictor_id=pid,
                 forward=_aggregate(gradings, skills, facts, vote_scores=vote_scores),
                 windows=composition(windows),
+                by_band={
+                    band: figure
+                    for band in sorted(banded)
+                    if (figure := _aggregate(banded[band], skills, facts, vote_scores=vote_scores))
+                    is not None
+                },
                 boundaries=_boundary_counts(gradings, sides),
                 unpaired_events=len(set(qualifying[pid]) - paired),
             )
@@ -655,21 +675,8 @@ def _paired(
         for position, entry in enumerate(entries, start=1):
             entry.rank = position
     by_band: dict[str, int] = defaultdict(int)
-    mismatches = 0
-    if facts is not None:
-        for event in paired:
-            filed = [
-                fact
-                for pid in engines
-                for ev in qualifying[pid][event]
-                if (fact := facts.get(_evaluation_key(ev))) is not None
-            ]
-            if not filed:
-                continue
-            earliest = min(filed, key=lambda fact: (fact.clock, fact.band_key))
-            by_band[earliest.band_key] += 1
-            if len({fact.band_key for fact in filed}) > 1:
-                mismatches += 1
+    for band in filing.values():
+        by_band[band] += 1
     return PairedEvents(
         predictors=engines,
         events=len(paired),
@@ -677,6 +684,34 @@ def _paired(
         band_mismatches=mismatches,
         entries=entries,
     )
+
+
+def _band_filing(
+    paired: Mapping[tuple[str, str], Sequence[Evaluation]],
+    facts: Mapping[EvaluationKey, CellFacts] | None,
+) -> tuple[dict[tuple[str, str], str], int]:
+    """Each paired event's band key, and how many events' cells disagree on it.
+
+    The band of the event's earliest qualifying cell by harness clock;
+    :data:`fedcourtsai.schemas.NO_BAND_KEY` where none of its cells carries
+    facts. Empty — no filing at all — where no paired cell carries facts: a
+    non-cert population has no band.
+    """
+    if facts is None or not any(
+        _evaluation_key(ev) in facts for gradings in paired.values() for ev in gradings
+    ):
+        return {}, 0
+    filing: dict[tuple[str, str], str] = {}
+    mismatches = 0
+    for event, gradings in paired.items():
+        filed = [fact for ev in gradings if (fact := facts.get(_evaluation_key(ev))) is not None]
+        if not filed:
+            filing[event] = NO_BAND_KEY
+            continue
+        filing[event] = min(filed, key=lambda fact: (fact.clock, fact.band_key)).band_key
+        if len({fact.band_key for fact in filed}) > 1:
+            mismatches += 1
+    return filing, mismatches
 
 
 def _by_band(
@@ -725,13 +760,15 @@ def entry_name(
     entry: LeaderboardEntry | LeaderboardStageEntry,
     entries: Sequence[LeaderboardEntry | LeaderboardStageEntry],
 ) -> str:
-    """How a log line names an entry: its ``predictor_id``, plus its window where needed.
+    """How a log line names an entry: its ``predictor_id``, plus its window on a cut entry.
 
-    The window rides the name only where another entry in the same population
-    shares the predictor id, so a single-window board's lines read exactly as
-    the id while two windows of one predictor are never named alike.
+    A pooled entry is one per predictor and reads as the id; a ``by_protocol``
+    cut entry carries its window, so two windows of one predictor are never
+    named alike. ``entries`` is kept for the callers that name an entry
+    against its population.
     """
-    if sum(1 for other in entries if other.predictor_id == entry.predictor_id) > 1:
+    del entries
+    if entry.process_window is not None:
         return f"{entry.predictor_id}@{entry.process_window}"
     return entry.predictor_id
 
@@ -857,6 +894,10 @@ def big_case_agreement(
     # questions into one mean. On an un-straddled ledger the grouping is
     # identical to a per-event one.
     reads: dict[tuple[Series, str, str, str], tuple[float, list[float]]] = {}
+    # Each correlation's composition: the windows a pooled one spans, and the
+    # judge rubrics every one draws its panel means from — read counts both.
+    pooled_from: dict[Series, dict[CountingWindow, int]] = defaultdict(lambda: defaultdict(int))
+    rubrics: dict[Series, dict[tuple[str, str | None], int]] = defaultdict(lambda: defaultdict(int))
     for evaluation in _scoped_evaluations(
         cases_dir,
         in_scope=lambda evaluation: not frozen_only or _graded_in_window(cases_dir, evaluation),
@@ -873,6 +914,12 @@ def big_case_agreement(
         key = (series, evaluation.case_id, evaluation.event_id, scored.run_id)
         _, scores = reads.setdefault(key, (scored.big_case_score, []))
         scores.append(evaluation.big_case.evaluator_score)
+        if frozen_only and not by_window:
+            read_window = window_of(scored.process_version)
+            if read_window is not None:
+                pooled_from[series][read_window] += 1
+        rubric = evaluation.process_version.digest if evaluation.process_version else None
+        rubrics[series][(evaluation.evaluator_id, rubric)] += 1
 
     # Under `by_window` one predictor's reads from two counting windows are two
     # cuts, keyed on the series; two windows sharing a label could not be
@@ -899,7 +946,16 @@ def big_case_agreement(
 
     return {
         (predictor_id, window_label(window)): BigCaseLeaderboard(
-            rank_agreement=kendall_tau_b(pairs), cases=len(pairs)
+            rank_agreement=kendall_tau_b(pairs),
+            cases=len(pairs),
+            windows=composition(pooled_from[(predictor_id, window)]),
+            rubrics=[
+                RubricCount(evaluator_id=evaluator, digest=digest, n=n)
+                for (evaluator, digest), n in sorted(
+                    rubrics[(predictor_id, window)].items(),
+                    key=lambda item: (item[0][0], item[0][1] or ""),
+                )
+            ],
         )
         for (predictor_id, window), pairs in points.items()
     }
@@ -1208,11 +1264,17 @@ def boundary_sides(
             continue
         mode = scored.context.mode if scored.context is not None else None
         sha = scored.process_version.pipeline_sha if scored.process_version is not None else None
-        sides[_evaluation_key(evaluation)] = {
-            boundary.name: boundary_side(boundary, sha, repo=repo)
-            for boundary in HARNESS_BOUNDARIES
-            if boundary_admits(boundary, evaluation.predictor_id, mode)
-        }
+        try:
+            sides[_evaluation_key(evaluation)] = {
+                boundary.name: boundary_side(boundary, sha, repo=repo)
+                for boundary in HARNESS_BOUNDARIES
+                if boundary_admits(boundary, evaluation.predictor_id, mode)
+            }
+        except BoundaryHistoryError as error:
+            raise BoundaryHistoryError(
+                f"{evaluation.case_id} {evaluation.event_id} {evaluation.predictor_id} "
+                f"(prediction run {scored.run_id}, pipeline_sha {sha}): {error}"
+            ) from error
     return sides
 
 
@@ -1222,9 +1284,10 @@ def _boundary_counts(
     """The harness boundaries inside ``evals``' cells, with the cells on each side.
 
     Counted in cells — one per (case, event, predictor), whatever its panel
-    depth — over every cell each boundary admits. A boundary is listed only
-    where cells sit on both sides of it: one outside the span cuts nothing.
-    Cells with no ``pipeline_sha`` sit on neither side and are counted beside.
+    depth — over every cell each boundary admits. A boundary is listed
+    where cells sit on both sides of it — one outside the span cuts nothing —
+    or where any admitted cell carries no ``pipeline_sha``, which sits on
+    neither side and so could be on either.
     """
     if not sides:
         return []
@@ -1237,15 +1300,17 @@ def _boundary_counts(
         admitted = [cell[boundary.name] for cell in per_cell.values() if boundary.name in cell]
         before = sum(1 for side in admitted if side == "before")
         after = sum(1 for side in admitted if side == "after")
-        if before and after:
+        unstamped = sum(1 for side in admitted if side is None)
+        if (before and after) or unstamped:
             counts.append(
                 BoundaryCount(
                     boundary=boundary.name,
                     at=boundary.at,
                     scope=boundary.reach,
+                    gradual=boundary.gradual,
                     before=before,
                     after=after,
-                    unstamped=sum(1 for side in admitted if side is None),
+                    unstamped=unstamped,
                 )
             )
     return counts

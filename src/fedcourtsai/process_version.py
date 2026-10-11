@@ -10,8 +10,9 @@ replays against the process that produced it.
 
 Hybrid identity. The partition key is a content ``digest`` of the actual process
 inputs, so a silent prompt or config change is automatically a distinct version;
-``label`` is human-readable sugar. ``pipeline_sha`` is provenance only and is
-deliberately excluded from the digest — see :class:`fedcourtsai.schemas.ProcessVersion`.
+``label`` is human-readable sugar. ``pipeline_sha`` is deliberately excluded
+from the digest; it is provenance, and the side test of every harness boundary
+(:func:`boundary_side`) — see :class:`fedcourtsai.schemas.ProcessVersion`.
 
 The freeze is a deliberate, explicit event: one "freeze commit" fills
 :data:`FROZEN_PROCESS_DIGESTS` and :data:`FROZEN_SINCE` together — the
@@ -764,6 +765,11 @@ def is_retired(predictor_id: str) -> bool:
     alone. A predictor no window names is not retired: the registry records
     every production window's predictor (a test holds it to that), so only a
     hand-built registry leaves one unnamed, and an unknown is not a retirement.
+
+    A window with a ``closes`` is closed for this test whether or not that
+    instant has passed: only a successor's freeze sets it, so the predictor's
+    open window — if any — is the successor's, and a board carries no clock to
+    read the instant against.
     """
     owned = [window for window in COUNTING_WINDOWS if window.predictor_id == predictor_id]
     return bool(owned) and all(
@@ -797,6 +803,9 @@ class HarnessBoundary:
     predictors: frozenset[str] | None
     #: The cells the change can reach.
     reach: BoundaryReach
+    #: The change reached the corpus through a back-fill pass, so a cell after
+    #: it may still read the earlier document set.
+    gradual: bool = False
 
 
 _CODEX_AND_GEMINI = frozenset({"codex-baseline", "gemini-baseline"})
@@ -869,6 +878,7 @@ HARNESS_BOUNDARIES: Final[tuple[HarnessBoundary, ...]] = (
         datetime(2026, 10, 3, 19, 8, 49, tzinfo=UTC),
         None,
         "granted dockets",
+        gradual=True,
     ),
     HarnessBoundary(
         "predict-cell-record-hide",
@@ -883,6 +893,7 @@ HARNESS_BOUNDARIES: Final[tuple[HarnessBoundary, ...]] = (
         datetime(2026, 10, 11, 0, 12, 2, tzinfo=UTC),
         _CODEX_AND_GEMINI,
         "all",
+        gradual=True,
     ),
     HarnessBoundary(
         "replay-moment-cut",
@@ -905,6 +916,10 @@ class BoundaryHistoryError(RuntimeError):
 
 type BoundarySide = Literal["before", "after"]
 
+#: An abbreviated or full lowercase hex commit id — all ``boundary_side`` will
+#: hand to git, so no stamped value reaches a subprocess argv unchecked.
+_SHA = re.compile(r"[0-9a-f]{7,40}")
+
 
 def boundary_side(
     boundary: HarnessBoundary, pipeline_sha: str | None, *, repo: Path
@@ -922,6 +937,11 @@ def boundary_side(
     """
     if not pipeline_sha:
         return None
+    for sha in (boundary.merge, pipeline_sha):
+        if not _SHA.fullmatch(sha):
+            raise BoundaryHistoryError(
+                f"{sha!r} is not a commit sha: a harness-boundary side is read only off one"
+            )
     return "after" if _is_ancestor(str(repo), boundary.merge, pipeline_sha) else "before"
 
 
@@ -954,7 +974,8 @@ def _require_full_history(repo: str) -> None:
         raise BoundaryHistoryError(f"{repo} is not a git checkout: {shallow.stderr.strip()}")
     if shallow.stdout.strip() == "true":
         raise BoundaryHistoryError(
-            f"{repo} is a shallow clone: a harness-boundary side needs the full history"
+            f"{repo} is a shallow clone: a harness-boundary side needs the full history — "
+            "re-run from a full clone (`git fetch --unshallow`, or check out with fetch-depth 0)"
         )
 
 
@@ -962,7 +983,8 @@ def _require_full_history(repo: str) -> None:
 def _require_commit(repo: str, sha: str) -> None:
     if _git(repo, "cat-file", "-e", f"{sha}^{{commit}}").returncode != 0:
         raise BoundaryHistoryError(
-            f"{repo} holds no commit {sha}: a harness-boundary side cannot be read"
+            f"{repo} holds no commit {sha}: a harness-boundary side cannot be read — fetch "
+            "the ref that carries it (`git fetch origin`), or run from a checkout that holds it"
         )
 
 

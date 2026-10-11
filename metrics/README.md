@@ -97,23 +97,47 @@ the leaderboard and each of its stage blocks:
   carry different band keys;
 - the board's `rank` is read off `paired` — forward accuracy, then forward mean
   Brier, then `predictor_id` — and printed on each entry beside its
-  `paired_events`. A predictor outside the paired set, a retired one or one
-  with no qualifying cell, is listed unranked, and an empty paired set ranks
-  nobody. The stage blocks carry the same paired figure, unranked;
+  `paired_events`. The figures a rank rests on are that engine's
+  `paired.entries[].forward`, never its entry's own `forward`, which spans
+  events no other engine shares; a rank is quoted with `paired.events`, and with
+  each engine's `paired.entries[].forward.evaluations` beside it, since the
+  paired events fix the event set and not the panel depth. A predictor outside
+  the paired set, a retired one or one with no qualifying cell, is listed
+  unranked, and an empty paired set ranks nobody. The stage blocks carry the
+  same paired figure, unranked;
 - each pooled entry, and each engine in `paired`, lists as `boundaries` every
   registered harness boundary (`process_version.HARNESS_BOUNDARIES`) that falls
-  inside its cells — cells on both sides of it — with `before` and `after`
-  counted in cells over every cell the boundary's predictors and mode admit,
-  and `unstamped`, the cells with no `pipeline_sha`, on neither side. A cell's
+  inside its cells — cells on both sides of it, or any cell with no
+  `pipeline_sha` — with `before` and `after` counted over every cell the
+  boundary's predictors and mode admit, and `unstamped`, the cells with no
+  `pipeline_sha`, on neither side. A cell's
   side is the conditioning entries' ancestry test: after where the carrying
   commit is an ancestor of, or equal to, its `pipeline_sha`. `scope` prints
   the cells the change can reach (`self-represented dockets`, `granted
   dockets`, `all`, `replay cells`) and is never a filter, since a docket's
   representation or grant state at a cell's moment lives only in the corpus:
-  for a docket-scoped or back-filled change, `after` is an upper bound on the
-  cells that read it.
+  for a docket-scoped change, and for one marked `gradual` (it reached the
+  corpus by back-fill), `after` is an upper bound on the cells that read it.
+  Boundaries with no cell built between them print identical counts: on the
+  `proc-v8` board the eight dated inside its cells all read 91 before and 6
+  after for every engine, which is one split, not eight, and it coincides with
+  when the cells were made (the six are the post-conference first forecasts),
+  so it separates no change's effect from prediction timing.
 
-The per-rubric breakdown of the judge-dependent figures is not built yet.
+**Units.** A composition's `windows[].n` — on an entry, on a paired engine, on
+a pooled `big_case` — counts gradings (or reads), so a three-judge panel puts
+three into it per cell; a boundary's `before`, `after` and `unstamped` count
+cells, one per (case, event) per engine.
+
+**Judge-dependent figures are coverage until the per-rubric reading is
+built.** A pooled `big_case` lists the windows it spans and the
+(evaluator, digest) pairs its panel means draw on (`rubrics`, each with its `n`
+in reads); `mean_reasoning_quality` lists neither yet. Every judge's evaluate
+digest moved at `proc-v9` — `claude-judge`'s with its model — so a pooled
+`big_case`, `mean_reasoning_quality`, `evaluator_agreement` or judge-validation
+figure that spans more than one digest of any evaluator mixes judge rubrics:
+it is coverage, never a claimable figure or a comparison, until the
+per-rubric-signature readings land.
 
 Everywhere else the **by-protocol cut** is still the published shape. The
 claim scores, each ops score row and each tool-usage segment are keyed on
@@ -819,16 +843,22 @@ stays outside the gate:
   earliest qualifying cell by harness clock (`paired.by_band`), and
   `band_mismatches` counts the paired events whose engines' cells froze
   different band keys; those cluster where a band rose between the engines'
-  runs, so they lean to the higher-grant events. A per-band ordering is read
-  only where every engine's `by_band[band].accuracy_events_scored` equals the
-  band's paired count, which puts each engine's per-petition figures over
-  exactly the paired events; anywhere else no per-band ordering is read. None
-  of the band filing ranks anything: this is where the per-band reading the
-  frozen cohort requires is copied from.
+  runs, so they lean to the higher-grant events. A paired event none of whose
+  cells carries band facts files under `(none)`, so the filing sums to
+  `paired.events`. Each engine in `paired` carries `by_band`: its paired
+  gradings aggregated under that one filing, so every engine's figure in a band
+  is over the same events by construction. **A per-band ordering is read off
+  `paired.entries[].by_band` only** — never off an entry's own `by_band`, which
+  files each cell under the band it froze and spans that engine's events
+  alone. None of the band filing ranks anything: this is where the per-band
+  reading the frozen cohort requires is copied from. On the `proc-v8` board
+  the reading the long-conference release made still holds: no band mismatch
+  and no unpaired event, so each engine's own per-band figures and its paired
+  ones are the same numbers.
 
   Each engine in `paired` carries its aggregate over its qualifying gradings on
-  the paired events, the windows those gradings come from with their `n`, and
-  its `unpaired_events`. An event whose cells come from a closed window and the
+  the paired events, the windows those gradings come from with their `n` in
+  gradings, and its `unpaired_events`. An event whose cells come from a closed window and the
   successor that closed it pairs like any other. The selection disclosures a
   successor's freeze-record entry makes — the split-event count and each
   engine's counted events holding a failed or missing earlier-window attempt —

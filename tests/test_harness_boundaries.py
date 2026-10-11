@@ -7,9 +7,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 
 from fedcourtsai import leaderboard, process_version
-from fedcourtsai.leaderboard import boundary_sides
+from fedcourtsai.cli import app
+from fedcourtsai.leaderboard import boundary_sides, skill_components
 from fedcourtsai.process_version import (
     HARNESS_BOUNDARIES,
     BoundaryHistoryError,
@@ -18,7 +20,9 @@ from fedcourtsai.process_version import (
     composition,
     is_retired,
 )
-from fedcourtsai.schemas import CountingWindow, ProcessVersion
+from fedcourtsai.release_sensitivity import project, rebuild
+from fedcourtsai.schemas import CountingWindow, Leaderboard, ProcessVersion
+from fedcourtsai.serialize import read_model
 from fedcourtsai.store import stratify
 from tests.conftest import set_windows
 from tests.test_dataset_export import _event, _grade, _outcome, _prediction
@@ -107,6 +111,20 @@ def test_the_registry_is_well_formed() -> None:
     # moved claude-baseline's digest.
     for boundary in HARNESS_BOUNDARIES[-3:]:
         assert boundary.predictors == frozenset({"codex-baseline", "gemini-baseline"})
+    # The two that reached the corpus by back-fill are marked gradual.
+    assert {b.name for b in HARNESS_BOUNDARIES if b.gradual} == {
+        "merits-brief-spellings-consolidated-lead",
+        "widened-document-kinds-freshness",
+    }
+
+
+def test_a_stamped_value_that_is_not_a_sha_never_reaches_git(
+    history: tuple[Path, dict[str, str]],
+) -> None:
+    repo, shas = history
+    for bad in ("fill", "--upload-pack=x", "HEAD", shas["after"].upper()):
+        with pytest.raises(BoundaryHistoryError, match="not a commit sha"):
+            boundary_side(_boundary(shas["merge"]), bad, repo=repo)
 
 
 def test_every_production_window_names_its_predictor() -> None:
@@ -183,3 +201,63 @@ def test_the_board_reads_each_cells_side_off_its_pipeline_sha(
     assert [(b.boundary, b.before, b.after, b.unstamped, b.scope) for b in entry.boundaries] == [
         ("test-boundary", 1, 1, 1, "all")
     ]
+
+
+def _stamped_ledger(data: Path, digest: str, shas: list[str | None]) -> None:
+    """One forward cell per case, its scored prediction stamped at each sha."""
+    for n, sha in enumerate(shas, start=1):
+        case = f"scotus/{n}"
+        _event(data, case)
+        _outcome(data, case, resolved_at=datetime(2026, 3, 1, tzinfo=UTC).date())
+        stamp = ProcessVersion(
+            label="proc-a",
+            digest=digest,
+            stamped_at=datetime(2026, 2, 1, tzinfo=UTC),
+            pipeline_sha=sha,
+        )
+        _prediction(data, case, stamp=stamp, mode="forward")
+        _grade(data, case, "e1", prediction_run_id="p1", stamped=datetime(2026, 3, 2, tzinfo=UTC))
+
+
+def test_the_leaderboard_command_lists_a_boundary_read_in_its_checkout(
+    history: tuple[Path, dict[str, str]], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The command reads each cell's side in the checkout it runs from, and the
+    listing leaves the release-sensitivity projection of the board unchanged."""
+    repo, shas = history
+    digest = "sha256:" + "a" * 64
+    set_windows(monkeypatch, CountingWindow(label="proc-a", digest=digest, opens=T1))
+    boundary = HarnessBoundary("test-boundary", shas["merge"], T1, None, "all", gradual=True)
+    monkeypatch.setattr(leaderboard, "HARNESS_BOUNDARIES", (boundary,))
+    data = tmp_path / "data"
+    _stamped_ledger(data, digest, [shas["before"], shas["after"]])
+    monkeypatch.chdir(repo)
+    out = tmp_path / "leaderboard.json"
+    env = {"FEDCOURTS_DATA_ROOT": str(data), "FEDCOURTS_METRICS_ROOT": str(tmp_path / "m")}
+    result = CliRunner().invoke(app, ["leaderboard", "--out", str(out)], env=env)
+    assert result.exit_code == 0, result.output
+    board = read_model(out, Leaderboard)
+    (entry,) = board.entries
+    assert [(b.boundary, b.before, b.after, b.gradual) for b in entry.boundaries] == [
+        ("test-boundary", 1, 1, True)
+    ]
+    # release-sensitivity rebuilds without boundaries and still matches.
+    run = stratify(data)
+    assert project(board) == project(
+        rebuild(run.cells, data, skill_components(run.cells, data, None))
+    )
+
+
+def test_a_cell_the_checkout_cannot_place_is_named_in_the_refusal(
+    history: tuple[Path, dict[str, str]], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, shas = history
+    digest = "sha256:" + "a" * 64
+    set_windows(monkeypatch, CountingWindow(label="proc-a", digest=digest, opens=T1))
+    monkeypatch.setattr(leaderboard, "HARNESS_BOUNDARIES", (_boundary(shas["merge"]),))
+    data = tmp_path / "data"
+    _stamped_ledger(data, digest, ["f" * 40])
+    with pytest.raises(
+        BoundaryHistoryError, match=r"scotus/1 .* alpha .*pipeline_sha f{40}.*fetch"
+    ):
+        boundary_sides(stratify(data).cells, data, repo=repo)

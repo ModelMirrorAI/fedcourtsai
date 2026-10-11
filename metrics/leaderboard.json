@@ -3,7 +3,24 @@
     {
       "big_case": {
         "cases": 105,
-        "rank_agreement": 0.8454662597385398
+        "rank_agreement": 0.8454662597385398,
+        "rubrics": [
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 110
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 91
+          }
+        ]
       },
       "by_band": {
         "sal-v4/baseline": {
@@ -159,7 +176,24 @@
     {
       "big_case": {
         "cases": 100,
-        "rank_agreement": 0.7638466435418407
+        "rank_agreement": 0.7638466435418407,
+        "rubrics": [
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 105
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 86
+          }
+        ]
       },
       "by_band": {
         "sal-v4/baseline": {
@@ -315,7 +349,24 @@
     {
       "big_case": {
         "cases": 102,
-        "rank_agreement": 0.773893115492283
+        "rank_agreement": 0.773893115492283,
+        "rubrics": [
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 106
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 87
+          }
+        ]
       },
       "by_band": {
         "sal-v4/baseline": {
@@ -473,7 +524,31 @@
     {
       "big_case": {
         "cases": 105,
-        "rank_agreement": 0.8454662597385398
+        "rank_agreement": 0.8454662597385398,
+        "rubrics": [
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 110
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 91
+          }
+        ],
+        "windows": [
+          {
+            "n": 205,
+            "opens": "2026-09-16T00:26:04Z",
+            "process_window": "proc-v8"
+          }
+        ]
       },
       "boundaries": [
         {
@@ -537,6 +612,7 @@
           "at": "2026-10-03T19:08:49Z",
           "before": 91,
           "boundary": "merits-brief-spellings-consolidated-lead",
+          "gradual": true,
           "scope": "granted dockets",
           "unstamped": 0
         }
@@ -702,7 +778,31 @@
     {
       "big_case": {
         "cases": 100,
-        "rank_agreement": 0.7638466435418407
+        "rank_agreement": 0.7638466435418407,
+        "rubrics": [
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 105
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 86
+          }
+        ],
+        "windows": [
+          {
+            "n": 194,
+            "opens": "2026-09-16T00:26:04Z",
+            "process_window": "proc-v8"
+          }
+        ]
       },
       "boundaries": [
         {
@@ -766,6 +866,7 @@
           "at": "2026-10-03T19:08:49Z",
           "before": 91,
           "boundary": "merits-brief-spellings-consolidated-lead",
+          "gradual": true,
           "scope": "granted dockets",
           "unstamped": 0
         }
@@ -931,7 +1032,31 @@
     {
       "big_case": {
         "cases": 102,
-        "rank_agreement": 0.773893115492283
+        "rank_agreement": 0.773893115492283,
+        "rubrics": [
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 106
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 87
+          }
+        ],
+        "windows": [
+          {
+            "n": 197,
+            "opens": "2026-09-16T00:26:04Z",
+            "process_window": "proc-v8"
+          }
+        ]
       },
       "boundaries": [
         {
@@ -995,6 +1120,7 @@
           "at": "2026-10-03T19:08:49Z",
           "before": 91,
           "boundary": "merits-brief-spellings-consolidated-lead",
+          "gradual": true,
           "scope": "granted dockets",
           "unstamped": 0
         }
@@ -1305,10 +1431,125 @@
             "at": "2026-10-03T19:08:49Z",
             "before": 91,
             "boundary": "merits-brief-spellings-consolidated-lead",
+            "gradual": true,
             "scope": "granted dockets",
             "unstamped": 0
           }
         ],
+        "by_band": {
+          "sal-v4/baseline": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 67,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 201,
+            "always_deny_accuracy": 1.0,
+            "evaluations": 201,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 1.0,
+            "events_scored": 67,
+            "grants_expected": 3.4235727247029506,
+            "grants_expected_scored": 67,
+            "grants_realized": 0,
+            "grants_realized_expected_scored": 0,
+            "in_sample_events_scored": 67,
+            "in_sample_grant_rate": 0.0,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.0013011641791044776,
+            "mean_reasoning_quality": 0.8599999999999999,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.5016817695275344,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": 0.015801903848240206,
+            "realized_term_skill_scored": 201,
+            "skill_scored": 201,
+            "vote_cells_scored": 0
+          },
+          "sal-v4/elevated": {
+            "accuracy": 0.9642857142857143,
+            "accuracy_events_scored": 28,
+            "accuracy_lift": 0.0357142857142857,
+            "accuracy_scored": 84,
+            "always_deny_accuracy": 0.9285714285714286,
+            "evaluations": 84,
+            "event_accuracy": 0.9642857142857143,
+            "event_accuracy_lift": 0.0357142857142857,
+            "event_always_deny_accuracy": 0.9285714285714286,
+            "events_scored": 28,
+            "grants_expected": 4.821917348833934,
+            "grants_expected_scored": 28,
+            "grants_realized": 2,
+            "grants_realized_expected_scored": 2,
+            "in_sample_events_scored": 28,
+            "in_sample_grant_rate": 0.07142857142857142,
+            "in_sample_skill_scored": 84,
+            "mean_brier_score": 0.04618660714285714,
+            "mean_reasoning_quality": 0.8588095238095238,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.39601984291259973,
+            "population_in_sample_skill_score": 0.30364807692307694,
+            "population_realized_term_skill_score": 0.33864340297637074,
+            "realized_term_skill_scored": 81,
+            "skill_scored": 84,
+            "vote_cells_scored": 0
+          },
+          "sal-v4/federal": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 1,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 3,
+            "always_deny_accuracy": 1.0,
+            "evaluations": 3,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 1.0,
+            "events_scored": 1,
+            "grants_expected": 0.7294324125230203,
+            "grants_expected_scored": 1,
+            "grants_realized": 0,
+            "grants_realized_expected_scored": 0,
+            "in_sample_events_scored": 1,
+            "in_sample_grant_rate": 0.0,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.0049,
+            "mean_reasoning_quality": 0.9199999999999999,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.9907907140505116,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": null,
+            "realized_term_skill_scored": 0,
+            "skill_scored": 3,
+            "vote_cells_scored": 0
+          },
+          "sal-v4/high": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 1,
+            "accuracy_lift": 1.0,
+            "accuracy_scored": 3,
+            "always_deny_accuracy": 0.0,
+            "evaluations": 3,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": 1.0,
+            "event_always_deny_accuracy": 0.0,
+            "events_scored": 1,
+            "grants_expected": 0.3496106161841128,
+            "grants_expected_scored": 1,
+            "grants_realized": 1,
+            "grants_realized_expected_scored": 1,
+            "in_sample_events_scored": 1,
+            "in_sample_grant_rate": 1.0,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.16,
+            "mean_reasoning_quality": 0.8633333333333333,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.6217550931176989,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": 0.5135831689677843,
+            "realized_term_skill_scored": 3,
+            "skill_scored": 3,
+            "vote_cells_scored": 0
+          }
+        },
         "forward": {
           "accuracy": 0.9896907216494846,
           "accuracy_events_scored": 97,
@@ -1411,10 +1652,125 @@
             "at": "2026-10-03T19:08:49Z",
             "before": 91,
             "boundary": "merits-brief-spellings-consolidated-lead",
+            "gradual": true,
             "scope": "granted dockets",
             "unstamped": 0
           }
         ],
+        "by_band": {
+          "sal-v4/baseline": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 67,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 201,
+            "always_deny_accuracy": 1.0,
+            "evaluations": 201,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 1.0,
+            "events_scored": 67,
+            "grants_expected": 3.4235727247029506,
+            "grants_expected_scored": 67,
+            "grants_realized": 0,
+            "grants_realized_expected_scored": 0,
+            "in_sample_events_scored": 67,
+            "in_sample_grant_rate": 0.0,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.0023037462686567164,
+            "mean_reasoning_quality": 0.8772636815920398,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.11771413439565559,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": -0.7425492709068835,
+            "realized_term_skill_scored": 201,
+            "skill_scored": 201,
+            "vote_cells_scored": 0
+          },
+          "sal-v4/elevated": {
+            "accuracy": 0.9285714285714286,
+            "accuracy_events_scored": 28,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 84,
+            "always_deny_accuracy": 0.9285714285714286,
+            "evaluations": 84,
+            "event_accuracy": 0.9285714285714286,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 0.9285714285714286,
+            "events_scored": 28,
+            "grants_expected": 4.821917348833934,
+            "grants_expected_scored": 28,
+            "grants_realized": 2,
+            "grants_realized_expected_scored": 2,
+            "in_sample_events_scored": 28,
+            "in_sample_grant_rate": 0.07142857142857142,
+            "in_sample_skill_scored": 84,
+            "mean_brier_score": 0.06667232142857143,
+            "mean_reasoning_quality": 0.8576190476190477,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.12812909064185563,
+            "population_in_sample_skill_score": -0.0052134615384615834,
+            "population_realized_term_skill_score": 0.04540038354136522,
+            "realized_term_skill_scored": 81,
+            "skill_scored": 84,
+            "vote_cells_scored": 0
+          },
+          "sal-v4/federal": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 1,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 3,
+            "always_deny_accuracy": 1.0,
+            "evaluations": 3,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 1.0,
+            "events_scored": 1,
+            "grants_expected": 0.7294324125230203,
+            "grants_expected_scored": 1,
+            "grants_realized": 0,
+            "grants_realized_expected_scored": 0,
+            "in_sample_events_scored": 1,
+            "in_sample_grant_rate": 0.0,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.0324,
+            "mean_reasoning_quality": 0.8566666666666666,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.9391059459666475,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": null,
+            "realized_term_skill_scored": 0,
+            "skill_scored": 3,
+            "vote_cells_scored": 0
+          },
+          "sal-v4/high": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 1,
+            "accuracy_lift": 1.0,
+            "accuracy_scored": 3,
+            "always_deny_accuracy": 0.0,
+            "evaluations": 3,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": 1.0,
+            "event_always_deny_accuracy": 0.0,
+            "events_scored": 1,
+            "grants_expected": 0.3496106161841128,
+            "grants_expected_scored": 1,
+            "grants_realized": 1,
+            "grants_realized_expected_scored": 1,
+            "in_sample_events_scored": 1,
+            "in_sample_grant_rate": 1.0,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.0256,
+            "mean_reasoning_quality": 0.88,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.9394808148988318,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": 0.9221733070348455,
+            "realized_term_skill_scored": 3,
+            "skill_scored": 3,
+            "vote_cells_scored": 0
+          }
+        },
         "forward": {
           "accuracy": 0.979381443298969,
           "accuracy_events_scored": 97,
@@ -1517,10 +1873,125 @@
             "at": "2026-10-03T19:08:49Z",
             "before": 91,
             "boundary": "merits-brief-spellings-consolidated-lead",
+            "gradual": true,
             "scope": "granted dockets",
             "unstamped": 0
           }
         ],
+        "by_band": {
+          "sal-v4/baseline": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 67,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 201,
+            "always_deny_accuracy": 1.0,
+            "evaluations": 201,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 1.0,
+            "events_scored": 67,
+            "grants_expected": 3.4235727247029506,
+            "grants_expected_scored": 67,
+            "grants_realized": 0,
+            "grants_realized_expected_scored": 0,
+            "in_sample_events_scored": 67,
+            "in_sample_grant_rate": 0.0,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.0034824179104477613,
+            "mean_reasoning_quality": 0.6182587064676617,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": -0.3336920572884974,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": -1.6340942461437624,
+            "realized_term_skill_scored": 201,
+            "skill_scored": 201,
+            "vote_cells_scored": 0
+          },
+          "sal-v4/elevated": {
+            "accuracy": 0.8571428571428571,
+            "accuracy_events_scored": 28,
+            "accuracy_lift": -0.07142857142857151,
+            "accuracy_scored": 84,
+            "always_deny_accuracy": 0.9285714285714286,
+            "evaluations": 84,
+            "event_accuracy": 0.8571428571428571,
+            "event_accuracy_lift": -0.07142857142857151,
+            "event_always_deny_accuracy": 0.9285714285714286,
+            "events_scored": 28,
+            "grants_expected": 4.821917348833934,
+            "grants_expected_scored": 28,
+            "grants_realized": 2,
+            "grants_realized_expected_scored": 2,
+            "in_sample_events_scored": 28,
+            "in_sample_grant_rate": 0.07142857142857142,
+            "in_sample_skill_scored": 84,
+            "mean_brier_score": 0.12206874999999999,
+            "mean_reasoning_quality": 0.5878571428571429,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": -0.5962874816160781,
+            "population_in_sample_skill_score": -0.8404211538461537,
+            "population_realized_term_skill_score": -0.747951370992161,
+            "realized_term_skill_scored": 81,
+            "skill_scored": 84,
+            "vote_cells_scored": 0
+          },
+          "sal-v4/federal": {
+            "accuracy": 1.0,
+            "accuracy_events_scored": 1,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 3,
+            "always_deny_accuracy": 1.0,
+            "evaluations": 3,
+            "event_accuracy": 1.0,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 1.0,
+            "events_scored": 1,
+            "grants_expected": 0.7294324125230203,
+            "grants_expected_scored": 1,
+            "grants_realized": 0,
+            "grants_realized_expected_scored": 0,
+            "in_sample_events_scored": 1,
+            "in_sample_grant_rate": 0.0,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.0025,
+            "mean_reasoning_quality": 0.7233333333333333,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.9953013847196487,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": null,
+            "realized_term_skill_scored": 0,
+            "skill_scored": 3,
+            "vote_cells_scored": 0
+          },
+          "sal-v4/high": {
+            "accuracy": 0.0,
+            "accuracy_events_scored": 1,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 3,
+            "always_deny_accuracy": 0.0,
+            "evaluations": 3,
+            "event_accuracy": 0.0,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 0.0,
+            "events_scored": 1,
+            "grants_expected": 0.3496106161841128,
+            "grants_expected_scored": 1,
+            "grants_realized": 1,
+            "grants_realized_expected_scored": 1,
+            "in_sample_events_scored": 1,
+            "in_sample_grant_rate": 1.0,
+            "in_sample_skill_scored": 0,
+            "mean_brier_score": 0.7225,
+            "mean_reasoning_quality": 0.39999999999999997,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": -0.708012157640391,
+            "population_in_sample_skill_score": null,
+            "population_realized_term_skill_score": -1.1964760026298489,
+            "realized_term_skill_scored": 3,
+            "skill_scored": 3,
+            "vote_cells_scored": 0
+          }
+        },
         "forward": {
           "accuracy": 0.9484536082474226,
           "accuracy_events_scored": 97,

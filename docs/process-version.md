@@ -435,7 +435,13 @@ boundary inside its cells with the cells before and after and those with no
 `pipeline_sha`, over every cell the boundary's predictors and mode admit, its
 reach printed as `scope` rather than applied; `fedcourts leaderboard` reads
 the sides in the checkout it runs from, so it needs full history. The
-per-rubric breakdown is not built yet. Two of one predictor's windows sharing a label are refused, since no
+per-rubric breakdown is not built yet: a pooled `big_case` lists the windows
+and the (evaluator, digest) pairs it spans, and until that reading lands a
+judge-dependent figure spanning more than one digest of an evaluator is
+coverage, not a claim. Each paired engine also carries `by_band`, its paired
+gradings under the one band filing every engine shares, which is where a
+per-band ordering is read; a boundary that reached the corpus by back-fill is
+marked `gradual`. Two of one predictor's windows sharing a label are refused, since no
 figure could name them apart.
 
 The claim scores, the ops report and the tool-usage segments still publish the

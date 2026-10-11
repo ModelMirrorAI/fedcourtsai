@@ -694,11 +694,13 @@ class ProcessVersion(_Strict):
     for a digest. The frozen/shakedown partition keys on ``digest``, never the
     label, so two different processes cannot hide behind one label.
 
-    ``pipeline_sha`` is provenance only and is deliberately **not** folded into
-    ``digest``: the checkout commit changes on every unrelated pipeline edit, and
-    folding it in would break the frozen set every time predict/evaluate resume at
-    a newer HEAD. The digest captures what defines the process; the sha records
-    which commit ran it.
+    ``pipeline_sha`` is deliberately **not** folded into ``digest``: the
+    checkout commit changes on every unrelated pipeline edit, and folding it in
+    would break the frozen set every time predict/evaluate resume at a newer
+    HEAD. The digest captures what defines the process; the sha records which
+    commit ran it — provenance, and the side test of every harness boundary
+    (``process_version.boundary_side``), which asks whether a change's carrying
+    commit is an ancestor of it.
 
     Optional on the ledger models (defaults to absent), so shakedown cells written
     before the stamp existed still validate. The agent never writes this — a
@@ -711,8 +713,9 @@ class ProcessVersion(_Strict):
     algo: Literal["sha256"] = "sha256"
     pipeline_sha: str | None = Field(
         default=None,
-        description="Git commit of the pipeline checkout that stamped this cell; "
-        "provenance only, NOT part of `digest`.",
+        description="Git commit of the pipeline checkout that stamped this cell; NOT part "
+        "of `digest`. Provenance, and the side test of every harness boundary: a cell is "
+        "after a boundary whose carrying commit is an ancestor of, or equal to, this sha",
     )
     stamped_at: datetime = Field(
         description="When the harness stamped the cell (UTC, timezone-aware). "
@@ -3365,6 +3368,41 @@ class BigCaseLeaderboard(_Strict):
         "evaluator big-case read — cases, not events: a case's forecast moments "
         "are averaged into one point",
     )
+    windows: list[WindowShare] = Field(
+        default_factory=list,
+        description="On a pooled reading, the counting windows the predictor's read cells "
+        "come from, each with its `n` in panel reads; empty on a by-protocol cut, which is "
+        "one window, and on an all-versions build",
+    )
+    rubrics: list[RubricCount] = Field(
+        default_factory=list,
+        description="The (evaluator, evaluate digest) pairs whose reads the panel mean draws "
+        "on, each with its `n` in reads. A correlation whose panel spans more than one "
+        "digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable "
+        "figure, until the per-rubric reading is built",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_composition(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``windows`` and ``rubrics`` while empty."""
+        return _omit_empty(handler(self), windows=self.windows, rubrics=self.rubrics)
+
+
+class RubricCount(_Strict):
+    """One judge rubric a judge-dependent figure draws on: an evaluator and its digest.
+
+    A figure computed from an evaluator's judgment depends on the evaluate
+    prompt, so it lists the (evaluator, digest) pairs its reads come from. A
+    grading's rubric is its ``evaluator_id`` with the ``process_version.digest``
+    on its harness stamp.
+    """
+
+    evaluator_id: str
+    digest: str | None = Field(
+        description="The evaluate process digest on the grading's harness stamp; null for an "
+        "unstamped grading"
+    )
+    n: int = Field(ge=0, description="Reads or gradings drawn from this rubric")
 
 
 class WindowShare(_Strict):
@@ -3408,6 +3446,12 @@ class BoundaryCount(_Strict):
         "So for a docket-scoped boundary `after` is the cells that could have read the "
         "change, an upper bound on exposure"
     )
+    gradual: bool = Field(
+        default=False,
+        description="The change reached the corpus through a back-fill pass, so a cell after "
+        "it may still read the earlier document set: `after` is an upper bound on exposure "
+        "whatever the scope. Omitted while false",
+    )
     before: int = Field(ge=0, description="Cells of this figure built before the change")
     after: int = Field(
         ge=0,
@@ -3421,13 +3465,18 @@ class BoundaryCount(_Strict):
         "side",
     )
 
+    @model_serializer(mode="wrap")
+    def _omit_not_gradual(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``gradual`` while false."""
+        return _omit_empty(handler(self), gradual=self.gradual)
+
 
 _BOUNDARIES_DESCRIPTION = (
     "Every registered harness boundary that falls inside this figure's cells — cells on "
-    "both sides of it — with the counts on each side, over every cell the boundary's "
-    "predictors and mode admit (a replay-only boundary counts replay cells alone). Cells, "
-    "not gradings: one per (case, event). A boundary outside the span cuts nothing and is "
-    "not listed; omitted while none is"
+    "both sides of it, or any cell with no `pipeline_sha` — with the counts on each side, "
+    "over every cell the boundary's predictors and mode admit (a replay-only boundary counts "
+    "replay cells alone). Cells, not gradings: one per (case, event). A boundary outside the "
+    "span cuts nothing and is not listed; omitted while none is"
 )
 
 
@@ -3462,7 +3511,16 @@ class PairedEngine(_Strict):
     )
     windows: list[WindowShare] = Field(
         default_factory=list,
-        description="The windows this engine's paired gradings come from, each with its `n`",
+        description="The windows this engine's paired gradings come from, each with its `n` "
+        "in gradings",
+    )
+    by_band: dict[str, LeaderboardStratum] = Field(
+        default_factory=dict,
+        description="This engine's aggregate over its paired gradings, per band key — each "
+        "paired event filed under the band `PairedEvents.by_band` assigns it (its earliest "
+        "qualifying cell's), the same filing for every engine. The per-band reading: a "
+        "per-band ordering is read off these, which share their events across engines by "
+        "construction. Cert populations only; omitted while empty",
     )
     boundaries: list[BoundaryCount] = Field(
         default_factory=list,
@@ -3476,8 +3534,8 @@ class PairedEngine(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_empty_boundaries(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``boundaries`` while no boundary falls inside the paired cells."""
-        return _omit_empty(handler(self), boundaries=self.boundaries)
+        """Drop ``boundaries`` and ``by_band`` while empty."""
+        return _omit_empty(handler(self), boundaries=self.boundaries, by_band=self.by_band)
 
 
 class PairedEvents(_Strict):

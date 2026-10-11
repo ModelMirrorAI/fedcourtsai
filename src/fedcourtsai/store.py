@@ -1227,6 +1227,18 @@ def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, bot
         for cell in survivors:
             window = window_of(cell.scored_prediction.process_version)
             if window is not None:
+                # A window records whose digest it counts; a cell of another
+                # predictor stamped with that digest is a mis-attributed cell,
+                # and retirement read off the registry would follow it.
+                if (
+                    window.predictor_id is not None
+                    and window.predictor_id != cell.evaluation.predictor_id
+                ):
+                    raise ValueError(
+                        f"{cell.event_dir}: {cell.evaluation.predictor_id}'s scored prediction "
+                        f"carries {window.predictor_id}'s digest ({window.label}, "
+                        f"{window.digest}) — the counting window names another predictor"
+                    )
                 cell_windows[evaluation_key(cell.evaluation)] = window
     windows: dict[str, set[CountingWindow]] = {}
     for (_case, _event, predictor_id, _evaluator, _run), window in cell_windows.items():

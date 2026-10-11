@@ -484,6 +484,13 @@ def test_a_two_window_registry_pools_each_predictor_and_cuts_by_protocol(
     # The pooled entry's big-case agreement spans every window; the cut's is its own.
     pooled = {e.predictor_id: e.big_case for e in board.entries}
     assert pooled["alpha"] is not None and pooled["alpha"].cases == 3
+    # The pooled correlation states the windows it spans and the judge rubrics
+    # its panel means draw on, each in reads.
+    assert [(w.process_window, w.n) for w in pooled["alpha"].windows] == [
+        ("proc-a", 4),
+        ("proc-b", 2),
+    ]
+    assert [(r.evaluator_id, r.n) for r in pooled["alpha"].rubrics] == [("e1", 3), ("e2", 3)]
     cut = {(e.predictor_id, e.process_window): e.big_case for e in board.by_protocol}
     assert cut[("alpha", "proc-a")] is not None and cut[("alpha", "proc-a")].cases == 2
     assert cut[("alpha", "proc-b")] is not None and cut[("alpha", "proc-b")].cases == 1
@@ -861,3 +868,15 @@ def test_the_surfaces_without_a_composition_refuse_a_pool(
     cli._refuse_unbroken_pool(stratify(data, frozen_only=False), "semantic-summary")
     set_windows(monkeypatch, CLOSED)
     cli._refuse_unbroken_pool(stratify(data), "semantic-summary")
+
+
+def test_a_cell_stamped_with_another_predictors_window_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A window records whose digest it counts, so a cell of another predictor
+    carrying that digest is mis-attributed and the pass refuses it."""
+    set_windows(monkeypatch, CLOSED.model_copy(update={"predictor_id": "beta"}))
+    data = tmp_path / "data"
+    _graded_ledger(data)
+    with pytest.raises(ValueError, match="names another predictor"):
+        stratify(data)
