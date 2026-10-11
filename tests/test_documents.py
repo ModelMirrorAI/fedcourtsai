@@ -4987,3 +4987,48 @@ def test_a_member_with_no_datable_grant_spends_no_lead_get() -> None:
     )
     with SupremeCourtClient(throttle_seconds=1.0, client=inner, sleep=lambda _s: None) as client:
         assert fetch_consolidation_lead(client, "scotus/9025000501", member) == LeadFetch()
+
+
+def test_select_documents_reads_the_adverse_brief_past_a_partial_support_filer() -> None:
+    # 25-1017's shape: aligned respondents file on the petitioner's schedule,
+    # one of them "in partial support", and the adverse respondent files later.
+    aligned = [
+        _entry(
+            "Aug 28 2026",
+            "Brief of respondent United States in support of petitioner filed.",
+            url="https://www.supremecourt.gov/us.pdf",
+        ),
+        _entry(
+            "Aug 28 2026",
+            "Brief of respondents Arizona, et al. in partial support of petitioner filed.",
+            url="https://www.supremecourt.gov/arizona.pdf",
+        ),
+    ]
+    before = {r.kind: r.url for r in select_documents(_granted_payload(*aligned))}
+    assert KIND_MERITS_BRIEF_RESPONDENT not in before
+    adverse = _entry(
+        "Oct 13 2026",
+        "Brief of respondents Coalition for Fair Maps, et al. filed.",
+        url="https://www.supremecourt.gov/adverse.pdf",
+    )
+    after = {r.kind: r.url for r in select_documents(_granted_payload(*aligned, adverse))}
+    assert after[KIND_MERITS_BRIEF_RESPONDENT] == "https://www.supremecourt.gov/adverse.pdf"
+
+
+def test_a_consolidated_member_borrows_no_partial_support_brief_as_the_respondents() -> None:
+    lead = _lead_payload(
+        _entry(
+            "Jun 01 2026",
+            "Brief of petitioners Harbor Pilots Association, et al. filed.",
+            url="https://www.supremecourt.gov/DocketPDF/25/25-500/lead-pet.pdf",
+        ),
+        _entry(
+            "Jun 01 2026",
+            # The member's own respondent, so only the exclusion keeps it out.
+            "Brief of respondent Coastal Freight Lines in partial support of petitioners filed.",
+            url="https://www.supremecourt.gov/DocketPDF/25/25-500/lead-partial.pdf",
+        ),
+    )
+    refs = {r.kind: r.url for r in select_documents(_member_payload(), lead=lead)}
+    assert refs[KIND_MERITS_BRIEF_PETITIONER].endswith("/25-500/lead-pet.pdf")
+    assert KIND_MERITS_BRIEF_RESPONDENT not in refs

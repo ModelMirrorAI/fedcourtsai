@@ -11,7 +11,11 @@ be decided.
 **Why that milestone and not another.** Measured over 139 granted OT2021-OT2023
 petitions, the respondent's merits brief appears on **96.4%** of them, lands a
 median **84 days** after the grant, and precedes the judgment by a median
-**159 days** — never fewer than 44, and never on or after it. So a forecast
+**159 days** — never fewer than 44, and never on or after it. Those figures
+were measured before a respondent's brief "in partial support of" the
+petitioner was excluded from the respondent arm, which can only lower the
+coverage, move the brief later after the grant and bring it closer to the
+judgment. So a forecast
 taken here is both well-covered and genuinely prospective, which is more than
 can be said for most later docket signals: argument and circulation cluster
 much closer to the decision.
@@ -152,16 +156,19 @@ _NOT_A_MERITS_REPLY_RE = re.compile(
 #   reply form is on the docket too ("Reply of respondent United States in
 #   support of petitioner filed."), and it is excluded on the same reading and
 #   at the same cost: that filing is real advocacy no arm here fetches.
+#   "In partial support of" is the same posture (a respondent backing part of
+#   the other side's case, alone or beside adverse co-respondents), and leaves
+#   the adversarial argument just as unfiled, so it is excluded with the rest.
 _NOT_THE_RESPONDENT_MERITS_FILING_RE = re.compile(
     r"\bin\s+opposition\b"
     r"|\bamicus\b|\bamici\b"
-    r"|\b(?:in\s+support\s+of|supporting)\s+(?:the\s+)?petitioners?\b",
+    r"|\b(?:in\s+(?:partial\s+)?support\s+of|supporting)\s+(?:the\s+)?petitioners?\b",
     re.I,
 )
 _NOT_THE_PETITIONER_MERITS_FILING_RE = re.compile(
     r"\bin\s+opposition\b"
     r"|\bamicus\b|\bamici\b"
-    r"|\b(?:in\s+support\s+of|supporting)\s+(?:the\s+)?respondents?\b",
+    r"|\b(?:in\s+(?:partial\s+)?support\s+of|supporting)\s+(?:the\s+)?respondents?\b",
     re.I,
 )
 
