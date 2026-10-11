@@ -7740,12 +7740,33 @@ freeze commit is recorded here.
      now-excluded entry (a stale stored row), whose stored date will move, and
      which briefed events are minted, with their committed cells per window.
 
-  The figures:
-  `<MEASURE BEFORE MERGE: blob sha256, newest pull stamp, newest stored snapshot, content-store mode>`;
-  `<MEASURE BEFORE MERGE: per docket, entries newly matching / no longer matching, per predicate>`;
-  `<MEASURE BEFORE MERGE: dockets whose stored merits-brief/reply row carries a now-excluded entry>`;
-  `<MEASURE BEFORE MERGE: rows whose briefed date moves (old -> new, or old -> stays where no adverse brief yet)>`;
-  `<MEASURE BEFORE MERGE: briefed events minted on those dockets, and committed cells per predictor and window>`.
+  The figures, measured 2026-10-11:
+  - **The blob.** The index blob at `origin/main`'s pointer, sha256
+    `ebc6bd50c4ab213b3809a398953f3cb1c019dd9e7621d0296052444e43e686ae`. Its
+    newest pull stamp is 2026-10-11 and its newest stored snapshot row is
+    2026-07-13. The content store is in split mode, so each docket's live
+    snapshot was read from the per-case store: 1,237 of the 1,243 granted
+    rows had one.
+  - **Entries that change.** Exactly one docket changes, `scotus/73281056`
+    (25-1017, snapshot 2026-10-04). One entry, "Brief of respondents Arizona,
+    et al. in partial support of petitioner filed." (Aug 28 2026), stops
+    matching `merits-brief-respondent` and `respondent_brief_date`. No entry
+    newly matches any predicate, and no other docket's matches move under
+    any predicate.
+  - **A stale stored row.** That docket's stored `merits-brief-respondent` row
+    is that entry's brief. It stays provisioned until the adverse respondent
+    brief, due 2026-10-13, is fetched and supersedes it. No other docket
+    carries a stale row.
+  - **A stored date that moves.** On that docket, `respondent_brief_date`
+    moves from 2026-08-28 to none. The stored `merits_brief_filed` stays
+    2026-08-28 until an adverse brief is polled, and then moves to that
+    brief's date. No other row's date moves.
+  - **Briefed events and committed cells.** On that docket the briefed
+    event is `evt-brief-judgment`, minted, with the three counted cells named
+    above: one each for `claude-baseline`, `codex-baseline` and
+    `gemini-baseline`, all in their `proc-v8` windows. Its
+    `evt-order-judgment` cells (run `20260816T111104Z`) are cut at the grant
+    and unaffected.
 
   **What does not move.** No base rate re-prices and no membership rule moves.
   The briefed-moment population changes as stated above. No scored figure
