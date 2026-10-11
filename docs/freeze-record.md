@@ -6817,7 +6817,7 @@ freeze commit is recorded here.
   told the predictors' stakes scores are in view and leave a frozen band's
   cert anchor to the stamp, and the codex and gemini
   predictors carry forward unchanged; recorded 2026-10-09.** Freeze commit:
-  `<FILL: freeze commit hash>`, to be tagged **`prereg/proc-v9`**. The first
+  `d249b2ee4`, to be tagged **`prereg/proc-v9`**. The first
   label under the window rule the 2026-09-26 entry declared. It is two
   supersession shapes at one carrying promotion
   ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
@@ -6859,8 +6859,7 @@ freeze commit is recorded here.
   The replaced `proc-v8` `claude-baseline` digest is
   `sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a`.
   The three evaluator digests in the table were recomputed on `staging` when the
-  cert-anchor wording joined the evaluate prompt, at `<FILL: the staging merge
-  that carried the cert-anchor wording>`, before the carrying promotion; the
+  cert-anchor wording joined the evaluate prompt, at `f2a927c4a`, before the carrying promotion; the
   three predictor digests did not move with them. The evaluator digests they
   replace were registered on `staging` only, never reached `main` and stamp no
   cell (`sha256:d4be08d2…`, `sha256:d7d16ff6…` and `sha256:4f5fa7a6…` for
@@ -6875,8 +6874,8 @@ freeze commit is recorded here.
   over the four newly blessed digests in the table, at `origin/main`
   `115575b99` (`2026-10-10T14:49:00Z`), each count is **0** and the census is
   **2296**.
-  Promotion-time re-run: `<FILL: per-digest counts and census at the carrying
-  promotion>`.
+  Promotion-time re-run: at the carrying merge `6460e9306`, each of the four newly blessed digests
+  counts **0** and the census is **2296**.
 
   **Bless moments and instant.** The four new digests carry step 2's early
   forecast, `2026-10-09T00:00:00Z`; the two carried-forward predictor digests
@@ -6893,13 +6892,15 @@ freeze commit is recorded here.
   `claude-baseline` with no counted forecast on that event in either window,
   and the event then sits in no complete grid. No `successor-disclosures`
   bucket reports such an event, so the tagged-commit completion states their
-  count: `<FILL: claude-baseline cells stamped under the proc-v9 digest before
-  the instant, and how many of their events' moments closed before it>`. The
+  count: **0** at the tag (`prereg/proc-v9`, minted 2026-10-11 at about 00:30Z); no
+  scheduled `run-predict` round falls between the carrying merge and the
+  instant, so only a manual dispatch before 12:00Z could add one. The
   codex and gemini windows are unaffected. Step 4
   corrects the bless moments to the carrying merge's committed instant and
-  checks the instant is at or after it: `<FILL: carrying merge's
-  committed instant, the command that yields it, and the instant as verified or
-  bumped>`.
+  checks the instant is at or after it: the carrying merge `6460e9306` committed at
+  **`2026-10-11T00:12:02Z`** (`git log -1 --format=%cI promotion/2026-10-10`);
+  the four newly blessed digests take that bless moment, and the instant,
+  `2026-10-11T12:00:00Z`, is at or after it, verified and not bumped.
 
   **Windows** (`COUNTING_WINDOWS`):
 
@@ -6926,8 +6927,8 @@ freeze commit is recorded here.
 
   Outcomes and gradings keep landing until the instant, so these lines are
   re-run at any instant correction and at the tagged commit, and the last
-  run's lines replace them here: `<FILL: successor-disclosures at the tagged
-  commit>`. **Split events are 0 by construction for this label's whole
+  run's lines replace them here: re-run at the carrying merge `6460e9306`, whose
+  registry is the tagged commit's: the lines above, unchanged. **Split events are 0 by construction for this label's whole
   life**, not only now: only `claude-baseline` changes window, and a
   carried-forward open window is co-current with both sides of the close, so
   the claude `proc-v8` and claude `proc-v9` combinations with the codex and
@@ -6954,9 +6955,9 @@ freeze commit is recorded here.
   `release-sensitivity` and `semantic-summary` refuse once a predictor holds
   graded cells in two windows, which the first graded `proc-v9`
   `claude-baseline` cell makes true. Any long-conference release figure they
-  source is generated before that grading lands: `<FILL: whether the release
-  figures from release-sensitivity were built before the first graded proc-v9
-  claude cell, and at which commit>`.
+  source is generated before that grading lands: yes: every Release 1
+  figure was built at the refresh commit `0918fb18e` and checked at the
+  candidate `07bf288c1` on 2026-10-09, before any `proc-v9` cell existed.
 
   **Evidence for the change other than the closed window's board.** The close
   is decided while 110 of that window's 252 counted events have resolved, so
@@ -7023,9 +7024,10 @@ freeze commit is recorded here.
     the terminal fallback keep the evaluator's transcription. That includes
     every OT2026 long-conference cohort grading stamped before the carrying
     promotion; a cohort event first graded after it takes the harness anchor,
-    and the count of such cells is `<FILL: cohort cert gradings stamped with
-    the harness anchor at the tagged commit, per proc-v8 window, and the events
-    whose gradings straddle the carrying promotion>`. Every `proc-v8` window
+    and the count of such cells is **0** at the tag in every
+    `proc-v8` window, with 0 straddling events, since no grading had been
+    stamped under `proc-v9`; later counts are owed to the dated follow-up
+    entry above. Every `proc-v8` window
     that collects cert gradings after the carrying promotion, the closed
     `claude-baseline` window included, therefore carries both authorships of
     its cert anchor. The transcription spread was measured at the release fill
@@ -7035,22 +7037,20 @@ freeze commit is recorded here.
     transcriptions against one statpack build, not a bound on an anchor pooled
     from a later build. The scored population also grows by the sal-v3
     frozen-band cells the transcription left null, a selected rather than
-    random addition (`<FILL: their count at the tagged commit, per band>`), so a `proc-v8` window's prior-Term skill is read
+    random addition (**0** at the tag, in every band), so a `proc-v8` window's prior-Term skill is read
     across the boundary only through `by_band`, with its `skill_scored` n. The
     board drops a `proc-v9` cert cell whose anchor does not re-pool against the
     build it names. That check stands down whenever the board's statpack
     differs from the grading's build, which on the committed board is nearly
-    always, until builds are pinned per cohort: `<FILL: proc-v9 cert gradings
-    the board re-pooled and verified, stood down on, and dropped, at the
-    tagged commit>`.
+    always, until builds are pinned per cohort: **0** verified, 0 stood
+    down and 0 dropped at the tag, since no `proc-v9` cert grading existed.
   - **`claude-judge`'s grader model** moves from `claude-fable-5-1` to
     `claude-opus-5-5`, so `claude-judge`'s grading series pools two graders.
     The `proc-v8` cells still collecting gradings after the carrying promotion,
     in all three `proc-v8` windows, are graded under the new rubric, the
     closed `claude-baseline` window included; the successor-disclosures lines
     above count those "at or after the instant", and the count from the
-    carrying merge onwards is `<FILL: closed- and carried-window gradings
-    stamped under the proc-v9 evaluator digests at the tagged commit>`.
+    carrying merge onwards is **0** at the tag.
 
   **Disclosed with the label, moving no digest:**
   - **Effort is not pinned.** Claude cells set no effort level and take the
@@ -7165,8 +7165,8 @@ freeze commit is recorded here.
     read its order list. This changes how recently a held petition's docket was
     re-read, not what a cell is handed from it.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
-  hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-10` (merge commit
+  `6460e9306`, merged `2026-10-11T00:12:02Z`).
 
   The runnable effect check once it is live: on `main`, `uv run fedcourts
   process-digest --all` prints `proc-v9` and the digests in the table above;
