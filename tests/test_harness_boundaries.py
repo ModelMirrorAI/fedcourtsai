@@ -247,10 +247,11 @@ def test_the_leaderboard_command_lists_a_boundary_read_in_its_checkout(
     assert [(b.boundary, b.before, b.after, b.gradual) for b in entry.boundaries] == [
         ("test-boundary", 1, 1, True)
     ]
-    # release-sensitivity rebuilds without boundaries and still matches.
+    # release-sensitivity rebuilds with the pass's windows, without boundaries,
+    # and still matches: its projection carries the composition and the cut.
     run = stratify(data)
     assert project(board) == project(
-        rebuild(run.cells, data, skill_components(run.cells, data, None))
+        rebuild(run.cells, data, skill_components(run.cells, data, None), run.cell_windows)
     )
 
 
