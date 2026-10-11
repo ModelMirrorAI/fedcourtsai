@@ -238,7 +238,7 @@ def test_a_frozen_board_pools_each_predictor_and_cuts_by_window() -> None:
     assert entry.forward is not None and entry.forward.events == 4
     assert entry.forward.mean_total == pytest.approx(0.2)
     cut = {e.process_window: e for e in board.by_protocol}
-    assert sorted(cut) == ["proc-a", "proc-b"]
+    assert set(cut) == {"proc-a", "proc-b"}
     assert all(e.windows == [] for e in board.by_protocol)
     assert cut["proc-a"].forward is not None and cut["proc-b"].forward is not None
     assert cut["proc-a"].forward.mean_total == pytest.approx(0.4)
