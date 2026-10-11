@@ -415,7 +415,8 @@ reading rules.
 
 **What is built is the by-protocol cut alone.** Until the implementation
 lands, every frozen-scope figure is per predictor *and* window, published
-under the window's `label` (`process_window` on each board entry, ops score row, tool-usage segment, big-case read and export row, and the
+under the window's `label` (`process_window` on each board entry, ops score
+row, tool-usage segment, big-case read and export row, and the
 whole registry in each artifact's `frozen_process.windows`). The shared
 stratify pass names each in-scope cell's window (`StratifiedRun.cell_windows`),
 and every aggregate built on it — the leaderboard and its stage blocks,
@@ -757,12 +758,12 @@ predictor opens a window rather than ranking a later span beside the earlier
 ones, and a predictor-half re-bless closes windows rather than de-counting.
 The frozen scope, the counting rule, the run collapse,
 evaluation staging, the dataset export and the re-predict rule read the
-windows; every aggregate keys on (predictor, window) and every pooled figure
-lists its series (*Pooled by default, built per window*). In the built shape, a window
-opening after the earliest is an ordinary entry beside the earlier ones over
-its own span of events, ranked within its own label's cohort, and a
-cross-engine reading of it goes through the complete grid of its window
-combination. Tests build every board over a synthetic
+windows. In the built shape, every aggregate keys on (predictor, window) and
+every pooled figure lists its series (*Pooled by default, built per window*),
+and a window opening after the earliest is an ordinary entry beside the
+earlier ones over its own span of events, ranked within its own label's
+cohort, and a cross-engine reading of it goes through the complete grid of its
+window combination. Tests build every board over a synthetic
 two-window registry and check that each is per window and that nothing pools
 unlisted (`tests/test_counting_windows.py`); `release-sensitivity` and
 `semantic-summary` still refuse a predictor that spans two windows. The
