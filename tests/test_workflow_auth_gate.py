@@ -233,6 +233,15 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
             )
 
 
+# The hold's one routed form: a round whose own plan auto-released it binds the
+# reviewer-less `review-auto`, every other round binds `review`.
+AUTO_RELEASED_HOLD = {
+    "run-predict.yml": (
+        "${{ needs.plan.outputs.auto_release == 'true' && 'review-auto' || 'review' }}"
+    ),
+}
+
+
 def test_the_agent_cells_sit_behind_the_review_hold() -> None:
     """The spend gate, which sits behind the trigger rather than in it.
 
@@ -240,10 +249,16 @@ def test_the_agent_cells_sit_behind_the_review_hold() -> None:
     required reviewers do. Every job that hands control to a coding agent must
     therefore wait on the `approval` hold job, or a round would spend the moment
     its cron fired.
+
+    The one exception is spelled exactly: a predict round its own plan job
+    auto-released (`hold-decision`, within `review_hold`'s caps) binds the
+    reviewer-less `review-auto` instead. Any other expression — one keyed on a
+    trigger, an input, or anything but the plan's decision — fails here.
     """
     for name in AGENT_FAN_OUTS:
         wf = _load(name)
-        assert wf["jobs"]["approval"]["environment"] == "review", (
+        allowed = {"review", AUTO_RELEASED_HOLD.get(name, "review")}
+        assert wf["jobs"]["approval"]["environment"] in allowed, (
             f"{name}'s hold must bind the `review` environment"
         )
         agent_jobs = [

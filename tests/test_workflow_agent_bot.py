@@ -34,6 +34,13 @@ AGENT_BOT_INPUT = {
 # The fan-out workflows whose agent steps run as that bot.
 AGENT_WORKFLOWS = ("run-predict.yml", "run-evaluate.yml")
 
+# The dispatch App starts chained predict rounds (`chain`, `chain-predict`), so
+# a chained round's actor is its login. It is allowed on every agent step, not
+# only run-predict's: the cell invocation surface is held in lockstep across
+# the fan-outs and the action-path smoke (test_workflow_cell_invariants.py), and
+# what bounds the App is what it can start (test_workflow_dispatch_chain.py).
+DISPATCH_BOT = "fedcourtsai-dispatch[bot]"
+
 
 def _load(name: str) -> dict[Any, Any]:
     data = yaml.safe_load((WORKFLOWS / name).read_text())
@@ -73,3 +80,14 @@ def test_agent_steps_do_not_allow_all_bots() -> None:
         for action, step in _agent_steps(_load(name)):
             value = str(step.get("with", {}).get(AGENT_BOT_INPUT[action], ""))
             assert "*" not in value, f"{name}: {action} must not allow all bots ('*')"
+
+
+def test_each_allowance_names_exactly_the_two_app_logins() -> None:
+    """A chained round runs as the dispatch App, so it must reach the agents;
+    and each allowance names exactly the two known logins, nothing wider."""
+    for name in AGENT_WORKFLOWS:
+        for action, step in _agent_steps(_load(name)):
+            value = str(step.get("with", {}).get(AGENT_BOT_INPUT[action], ""))
+            logins = {login.strip() for login in value.split(",") if login.strip()}
+            expected = {PIPELINE_BOT, DISPATCH_BOT}
+            assert logins == expected, f"{name}: {action} allows {logins}, expected {expected}"

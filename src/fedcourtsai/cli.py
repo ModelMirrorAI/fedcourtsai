@@ -132,6 +132,7 @@ from .config import (
     load_live_config,
     load_predict_config,
     load_pull_config,
+    load_review_hold_config,
     load_salience_config,
     load_spend_config,
     load_statpack_config,
@@ -355,6 +356,7 @@ from .release_sensitivity import (
     render_table,
 )
 from .required_checks import produced_contexts
+from .review_hold import decide as decide_hold
 from .salience_replay import replay_gate
 from .schemas import (
     EXPORTABLE_MODELS,
@@ -17214,6 +17216,53 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
         approval_report=approval_report,
         run_url=approval_report_run_url,
     )
+
+
+@app.command("hold-decision")
+def hold_decision_cmd(
+    plan_file: Annotated[
+        Path,
+        typer.Option("--plan-file", help="The round's `predict-plan` JSON document."),
+    ],
+    released_last_day: Annotated[
+        int | None,
+        typer.Option(
+            "--released-last-day",
+            help=(
+                "Rounds auto-released in the trailing 24 hours. Omit when it could "
+                "not be read: an unknown count keeps the review hold."
+            ),
+        ),
+    ] = None,
+) -> None:
+    """Decide whether a predict round skips the review hold, and whether to chain another.
+
+    Reads the round's plan and `tracking.yaml`'s `review_hold` caps and prints a
+    `HoldDecision`: `auto_release` (the round's estimated spend is within the
+    per-round cap and the daily count of auto-released rounds is under its cap)
+    and `drain_more` (a cap stopped the round short of the backlog, so another
+    round is owed as soon as this one's output lands). Fails closed: a disabled
+    cap, an unreadable count or a plan with no estimate keeps the hold. Spends
+    nothing and reads no corpus.
+    """
+    settings = get_settings()
+    try:
+        plan = json.loads(plan_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        typer.echo(f"hold-decision: cannot read the plan at {plan_file}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    if not isinstance(plan, dict):
+        typer.echo(f"hold-decision: the plan at {plan_file} is not a JSON object", err=True)
+        raise typer.Exit(code=1)
+    if released_last_day is not None and released_last_day < 0:
+        typer.echo("hold-decision: --released-last-day cannot be negative", err=True)
+        raise typer.Exit(code=1)
+    decision = decide_hold(
+        plan,
+        load_review_hold_config(settings.config_root),
+        released_last_day=released_last_day,
+    )
+    typer.echo(decision.model_dump_json())
 
 
 @app.command("evaluate-plan")

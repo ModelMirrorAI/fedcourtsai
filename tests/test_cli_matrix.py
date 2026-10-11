@@ -13,11 +13,13 @@ from typer.testing import CliRunner
 from fedcourtsai import cli, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.collect import ExpectedCell, cell_artifact_name, run_branch
+from fedcourtsai.config import ReviewHoldConfig
 from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.finalize import FinalizeRole
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.registry import enabled_evaluators
+from fedcourtsai.review_hold import decide as decide_hold
 from fedcourtsai.schemas import Disposition, Engine, EventKind, ModelUsage, Stage, UsageRole
 from fedcourtsai.serialize import write_json
 from tests.conftest import seed_evaluation, seed_prediction
@@ -3181,3 +3183,39 @@ def test_evaluate_plan_dry_runs_exactly_the_backlog_matrix_would_mint(tmp_path: 
     ] == [
         (c["evaluator_id"], c["court"], c["docket"], c["event_id"]) for c in _cells(minted.stdout)
     ]
+
+
+def test_hold_decision_reads_a_real_predict_plan(tmp_path: Path) -> None:
+    """`hold-decision` against the document `predict-plan` actually emits, so
+    the decision's key paths cannot drift from the plan's shape unnoticed."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    capped = tmp_path / "capped"
+    capped.mkdir()
+    env = _env(
+        capped,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        seed_predictions=False,
+        max_cells=3,
+    )
+    plan = json.loads(
+        runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env).stdout
+    )
+    assert plan["counts"]["cell_ledger"]["deferred_by_cap_cells"] > 0
+    decision = decide_hold(plan, ReviewHoldConfig(), released_last_day=0)
+    assert decision.drain_more
+    assert decision.estimated_spend_usd == plan["estimated_spend_usd"]
+
+    uncapped = tmp_path / "uncapped"
+    uncapped.mkdir()
+    env = _env(
+        uncapped,
+        scope="scotus_docket",
+        cases=("scotus/24001", "scotus/24002"),
+        seed_predictions=False,
+    )
+    plan = json.loads(
+        runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env).stdout
+    )
+    assert not decide_hold(plan, ReviewHoldConfig(), released_last_day=0).drain_more

@@ -496,6 +496,22 @@ spend:
   # on spend within the window, never a live figure.
   window_days: 30
 
+# review_hold = when a predict round may skip the `review` hold (see
+# src/fedcourtsai/review_hold.py and `fedcourts hold-decision`). Every round
+# renders its plan and waits for a maintainer to release it; a round whose plan
+# estimates at most `auto_release_usd_per_round` of spend is released without
+# that wait, for at most `auto_release_rounds_per_day` rounds in any trailing
+# 24 hours. The next round past either cap waits on the `review` hold, and the
+# `spend` backstop above stands behind both. The estimate is the plan's own
+# per-cell planning rate (`predict-plan`'s `estimated_spend_usd`), which prices
+# some engines low, so set the per-round cap with that margin in mind. `0`
+# DISABLES auto-release, which is where both start: adopting it is a
+# maintainer's decision, and the unattended daily bound on *estimated* spend is
+# at most their product.
+review_hold:
+  auto_release_usd_per_round: 0
+  auto_release_rounds_per_day: 0
+
 # runner = the agentic predict/evaluate cell runner's retry governor (see
 # src/fedcourtsai/pipeline/runner.py). A cell that fails on a TRANSIENT fault —
 # an HTTP 429 / quota-exceeded throttle, a 5xx upstream, a timeout, or a

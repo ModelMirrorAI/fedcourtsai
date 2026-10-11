@@ -793,6 +793,43 @@ class SpendConfig(BaseModel):
     window_days: int = Field(default=30, ge=1)
 
 
+class ReviewHoldConfig(BaseModel):
+    """When a predict round may skip the `review` hold (`tracking.yaml`'s `review_hold`).
+
+    The hold is the per-round spend gate: a maintainer releases each round's plan
+    before a cell spends. Auto-release lets a round whose *estimated* spend is
+    small skip that wait, so a backlog drains without a human releasing every
+    cycle. It is bounded twice — per round by estimated spend, per day by the
+    number of rounds released this way — and anything above either bound still
+    waits on the hold. The ex-post backstop (`spend`) stands behind both.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # A round whose plan estimates at most this much spend, USD, is released
+    # without the hold. `0` DISABLES auto-release (the convention the other caps
+    # use), which is the default: every round waits on the hold until a
+    # maintainer adopts a value.
+    auto_release_usd_per_round: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
+    # At most this many rounds are auto-released in any trailing 24 hours; the
+    # next one waits on the hold. `0` disables auto-release too. The daily bound
+    # on unattended *estimated* spend is therefore at most this times the
+    # per-round cap; the `spend` backstop bounds what is actually spent.
+    # At most 100: the plan job reads one page of the deployments it counts.
+    auto_release_rounds_per_day: int = Field(default=0, ge=0, le=100)
+
+
+def load_review_hold_config(config_root: Path) -> ReviewHoldConfig:
+    """Read the auto-release knobs from ``config_root/tracking.yaml``.
+
+    Falls back to the defaults — **disabled**, every round held — if the file or
+    its ``review_hold`` section is absent.
+    """
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return ReviewHoldConfig.model_validate((data or {}).get("review_hold", {}))
+
+
 def load_spend_config(config_root: Path) -> SpendConfig:
     """Read the spend backstop's knobs from ``config_root/tracking.yaml``.
 

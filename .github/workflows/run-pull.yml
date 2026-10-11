@@ -112,6 +112,9 @@ jobs:
     # a network step hangs.
     timeout-minutes: 45
     environment: prod
+    # Whether this window moved committed state, for the `chain-predict` job.
+    outputs:
+      committed: ${{ steps.commit.outputs.committed }}
     # This environment's whole corpus estate, as one base URL
     # (s3://<bucket>[/<prefix>]) resolved from the `prod` environment, falling
     # back to a repo/org variable of the same name. fedcourtsai.paths fixes
@@ -125,10 +128,11 @@ jobs:
     # GetObject/HeadObject (the write-once existence check) on the store's
     # prefix.
     #
-    # Neither fan-out is triggered from here: run-predict and run-evaluate each
-    # derive their own backlog on their own schedule, so this window writes
-    # queues and counts them and nothing else, and pausing a tournament stage is
-    # that stage's workflow to hold.
+    # This job triggers no fan-out itself: run-predict and run-evaluate each
+    # derive their own backlog, so this window writes queues and counts them
+    # and nothing else, and pausing a tournament stage is that stage's workflow
+    # to hold. When the window commits, the separate `chain-predict` job below
+    # dispatches a predict round on the new state.
     env:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
     permissions:
@@ -437,6 +441,9 @@ jobs:
     # setup (checkout + corpus-pull) before the poll and the push after it.
     timeout-minutes: 35
     environment: prod
+    # Whether this window moved committed state, for the `chain-predict` job.
+    outputs:
+      committed: ${{ steps.commit.outputs.committed }}
     # This environment's corpus estate as one base URL (see the pull job): both
     # halves derive from it, and the store's address is the corpus-split mode.
     env:
@@ -791,3 +798,42 @@ jobs:
           message: "enrich: opinion clusters (citations + bodies)"
           label: corpus pointer
           append-date: 'true'
+
+  # The pull -> predict hand-off. A window that committed new corpus state
+  # dispatches a predict round, so a docket entry the Court may act on quickly
+  # is forecast within the hour rather than at the next fixed predict slot. The
+  # round is an ordinary input-less dispatch on `main`: it derives its own
+  # backlog from committed state (a window that changed nothing it would forecast
+  # yields an empty matrix and ends at no cost), and it waits on the review hold
+  # unless its own plan auto-releases. `run-predict`'s schedule stays as the
+  # backstop for a dispatch that never arrives.
+  #
+  # This job runs no corpus code and holds no corpus role. Its one token is the
+  # dispatch App's, scoped to `actions: write`, so the writer jobs above never
+  # hold a credential that can start a workflow. Off unless the
+  # repository-level `DISPATCH_CHAIN_ENABLED` variable is `true` (see
+  # run-predict's `chain` job for why the switch is not on `prod`).
+  chain-predict:
+    needs: [pull, live]
+    if: ${{ !cancelled() && (needs.pull.outputs.committed == 'true' || needs.live.outputs.committed == 'true') && vars.DISPATCH_CHAIN_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: prod
+    permissions: {}
+    steps:
+      - name: Mint the dispatch token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DISPATCH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DISPATCH_APP_PRIVATE_KEY }}
+          permission-actions: write
+
+      - name: Dispatch a predict round
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh workflow run run-predict.yml --repo "$REPO" --ref main
+          echo "## Dispatched a predict round on the state this window committed." >> "$GITHUB_STEP_SUMMARY"

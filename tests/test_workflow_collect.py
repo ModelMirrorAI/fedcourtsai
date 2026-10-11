@@ -9,6 +9,7 @@ caller where it is reviewable next to the trigger, and that the two call sites
 differ by nothing but their role.
 """
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +68,13 @@ def test_no_workflow_reimplements_collect_inline() -> None:
             )
 
 
+def _held_environment(environment: str) -> str:
+    """The environment a held round binds: a literal, or a routed expression's
+    fallback arm (`... || '<held>' }}`)."""
+    routed = re.search(r"\|\|\s*'([^']+)'\s*}}$", environment)
+    return routed.group(1) if routed else environment
+
+
 def test_the_hold_environment_name_agrees_with_the_report_it_gates() -> None:
     """The renderer's closing line names the environment a reviewer must find
     in the Actions UI, and the promotion gate greps for the same binding — a
@@ -74,9 +82,14 @@ def test_the_hold_environment_name_agrees_with_the_report_it_gates() -> None:
     not exist, exactly the drift a reader would have to catch otherwise. The
     same pass pins that every fan-out binds the one environment: a hold that
     minted its own would fork the approver's surface and escape the gate's
-    reviewer check."""
+    reviewer check.
+
+    A hold routed by the plan's auto-release decision is read by its held arm —
+    the environment a round binds when it does wait — since that is the one an
+    approver is pointed at."""
     environments = {
-        name: _load(WORKFLOWS / name)["jobs"]["approval"]["environment"] for name in FAN_OUTS
+        name: _held_environment(_load(WORKFLOWS / name)["jobs"]["approval"]["environment"])
+        for name in FAN_OUTS
     }
     assert len(set(environments.values())) == 1, (
         f"one `review` environment serves every spend hold, got {environments}"

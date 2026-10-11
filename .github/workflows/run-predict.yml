@@ -13,10 +13,13 @@ name: run-predict
 # was declined, or never ran is simply re-derived next cycle, and no trigger has
 # to be re-filed for it.
 #
-# The trigger decides only *when* a round derives; it never names its cases. What
-# decides whether it spends is the `review` hold: every run renders its plan
-# report and waits on that environment's required reviewers before a cell spends
-# a token.
+# The trigger decides only *when* a round derives; it never names its cases. Two
+# dispatches arrive without a human: `run-pull`'s `chain-predict` job, when a
+# pull window commits new state, and this workflow's own `chain` job, when a cap
+# stopped a round short of the backlog. Both are the same input-less dispatch.
+# What decides whether a round spends is the `review` hold: every run renders its
+# plan report and waits on that environment's required reviewers before a cell
+# spends a token, unless its plan is within `review_hold`'s auto-release caps.
 on:
   schedule:
     # Twice a day, each slot margined after one of run-pull's ingestion windows
@@ -110,9 +113,18 @@ jobs:
       # narrowest scope that answers the question, since the merge state of a
       # branch this job may not fetch is not visible through `contents: read`.
       pull-requests: read
+      # Count the rounds auto-released in the trailing 24 hours: each one left a
+      # deployment to the `review-auto` environment, and that record is the
+      # daily cap's only input. Read only; the job creates no deployment.
+      deployments: read
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
+      # The plan-time run id names this round's collect branch, which the
+      # `chain` job waits on before it dispatches the next round.
+      run_id: ${{ steps.plan.outputs.run_id }}
+      auto_release: ${{ steps.hold.outputs.auto_release }}
+      drain_more: ${{ steps.hold.outputs.drain_more }}
     steps:
       # No authorization gate here, and none is missing: this workflow carries no
       # trigger an outside actor can reach. A `schedule` fires only from the
@@ -410,6 +422,9 @@ jobs:
             --approval-report plan-report.md \
             --approval-report-run-url "$RUN_URL" 2>plan-stderr.txt) \
             || { cat plan-stderr.txt; exit 1; }
+          # Kept for the hold decision below, which reads the same document the
+          # report renders, so what auto-releases is what a maintainer would read.
+          printf '%s\n' "$plan_json" > plan.json
           cat plan-report.md >> "$GITHUB_STEP_SUMMARY"
           {
             echo ''
@@ -421,6 +436,51 @@ jobs:
             echo '</details>'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Whether this round waits on the hold, and whether it owes another round.
+      # Both are `fedcourts hold-decision` over the plan document above and
+      # `tracking.yaml`'s `review_hold` caps. It fails closed: with the caps at
+      # 0 (the default), or a 24-hour count this step cannot read, the round
+      # waits on the `review` hold. The count is the `review-auto`
+      # environment's deployments in the trailing day, one per auto-released
+      # round; a failed read leaves `--released-last-day` off, which holds.
+      - name: Decide the hold and the drain
+        id: hold
+        if: ${{ steps.plan.outputs.has_jobs == 'true' }}
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          since=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          count_flag=()
+          if released=$(gh api "repos/${REPO}/deployments?environment=review-auto&per_page=100" \
+                --jq "[.[] | select(.created_at >= \"${since}\")] | length" 2>/dev/null) \
+             && [[ "$released" =~ ^[0-9]+$ ]]; then
+            count_flag=(--released-last-day "$released")
+          else
+            echo "::warning::could not count the rounds auto-released in the last 24h; this round waits on the hold"
+          fi
+          decision=$(uv run fedcourts hold-decision --plan-file plan.json "${count_flag[@]}")
+          auto=$(jq -r '.auto_release' <<<"$decision")
+          drain=$(jq -r '.drain_more' <<<"$decision")
+          echo "auto_release=${auto}" >> "$GITHUB_OUTPUT"
+          echo "drain_more=${drain}" >> "$GITHUB_OUTPUT"
+          {
+            echo ""
+            echo "### Hold and drain"
+            if [ "$auto" = "true" ]; then
+              echo "- **Auto-released:** $(jq -r '.auto_release_reason' <<<"$decision")."
+            else
+              echo "- **Waits on the review hold:** $(jq -r '.auto_release_reason' <<<"$decision")."
+            fi
+            if [ "$drain" = "true" ]; then
+              echo "- **Another round is owed:** $(jq -r '.drain_reason' <<<"$decision"); it is dispatched once this round's collect PR merges."
+            else
+              echo "- **No further round from this one:** $(jq -r '.drain_reason' <<<"$decision")."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # The hold. This job carries no code, no token, and no permissions — its one
   # purpose is the deployment environment: the `review` environment's required
   # reviewers gate it, so every downstream job that spends (the matrix and the
@@ -429,12 +489,25 @@ jobs:
   # the no-op itself. The environment must exist WITH required reviewers
   # configured before this reaches main: GitHub auto-creates a referenced
   # environment unprotected, and an unprotected environment is no gate at all.
+  #
+  # A round the plan job auto-released (`hold-decision`: estimated spend within
+  # `review_hold`'s per-round cap, under its daily count) binds `review-auto`
+  # instead. That environment has no reviewers on purpose — GitHub creates it on
+  # first reference — so the job runs at once; what it adds is the deployment
+  # record the next round's plan counts against the daily cap. Every job
+  # downstream reads `approval.result` whichever environment it bound, so the
+  # two paths differ only in whether a human released this job.
+  #
+  # `review-auto` must exist with its deployment branches restricted to `main`
+  # and no required reviewers (docs/security.md), so only a `main` run can add
+  # to the count; GitHub would otherwise create it on first reference with no
+  # branch policy at all.
   approval:
     needs: plan
     if: needs.plan.outputs.has_jobs == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    environment: review
+    environment: ${{ needs.plan.outputs.auto_release == 'true' && 'review-auto' || 'review' }}
     permissions: {}
     steps:
       - name: Release the held fan-out
@@ -1042,10 +1115,12 @@ jobs:
           # default. This workflow's rounds are unattended, so their actor is not
           # a requester at all — it is whatever GitHub attributes the cron to,
           # which on a repo whose deterministic writers push to the default
-          # branch can be the pipeline App's own login. Allow exactly that one
-          # login (never `*`) so a round cannot die on an attribution it does not
-          # control; what gates the spend is the `review` hold, not this setting.
-          allowed_bots: "fedcourtsai-data[bot]"
+          # branch can be the pipeline App's own login. A chained round's actor
+          # is the dispatch App (`chain` and run-pull's `chain-predict`). Allow
+          # exactly those two logins (never `*`) so a round cannot die on an
+          # attribution it does not control; what gates the spend is the hold
+          # (`review`, or the auto-release caps), not this setting.
+          allowed_bots: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           # Auth is the Anthropic API key (pay-per-token): automated pipeline
           # inference is API-metered by design (see docs/budget.md), and per
           # Anthropic policy the Max subscription OAuth token is for interactive
@@ -1139,9 +1214,10 @@ jobs:
           # step surfaces the rollout for it.
         with:
           # As with the Claude step: let a round GitHub attributes to the
-          # pipeline App's login (`fedcourtsai-data[bot]`) past codex-action's
+          # pipeline App's login (`fedcourtsai-data[bot]`) or the dispatch App's
+          # (`fedcourtsai-dispatch[bot]`, a chained round) past codex-action's
           # write-access check, which a bot installation fails.
-          allow-bot-users: "fedcourtsai-data[bot]"
+          allow-bot-users: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           # The same kickoff prompt as the Claude and Gemini steps (identifiers
           # inline — the engines' methodology stays comparable, and the contract
@@ -1908,3 +1984,79 @@ jobs:
           set -euo pipefail
           [ -s feedback-comment.md ] || exit 0
           uv run fedcourts post-agent-feedback --repo "$REPO" --body-file feedback-comment.md
+
+  # The drain chain. A round that a cap stopped short of the backlog
+  # (`hold-decision`'s `drain_more`) dispatches the next round itself rather than
+  # leaving the rest for the next scheduled slot. It waits for this round's own
+  # collect PR to merge first: the next round's already-predicted gate reads
+  # committed state, so dispatching earlier would hand the stranded-run guard
+  # this round's cells to withhold and plan a narrower round. A PR that has not
+  # merged inside the wait, or closed unmerged, dispatches nothing — the schedule
+  # picks the backlog up, since the lane is level-triggered.
+  #
+  # The dispatched round is an ordinary input-less dispatch on `main`: it
+  # derives its own backlog and renders its own plan, and waits on the hold
+  # unless its own plan auto-releases. So the chain moves *when* a round
+  # derives, never what it spends without the caps' say-so.
+  #
+  # Off until the maintainer turns it on: the job is skipped unless the
+  # repository-level `DISPATCH_CHAIN_ENABLED` variable is `true`. The switch is
+  # repository-level because a job's `if:` is evaluated before the job binds its
+  # environment, so a `prod`-only variable reads empty there; the App's own
+  # client id and key stay on `prod`. That App holds Actions write (plus the
+  # PR read the wait below needs) and nothing else, so no job that runs agent
+  # code or writes the corpus holds a token that can dispatch.
+  chain:
+    needs: [plan, collect]
+    if: ${{ !cancelled() && needs.plan.outputs.drain_more == 'true' && needs.collect.result == 'success' && vars.DISPATCH_CHAIN_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    # The wait below is 40 minutes; the cap leaves the dispatch inside the App
+    # token's one-hour life.
+    timeout-minutes: 50
+    environment: prod
+    permissions: {}
+    steps:
+      - name: Mint the dispatch token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DISPATCH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DISPATCH_APP_PRIVATE_KEY }}
+          permission-actions: write
+          permission-pull-requests: read
+
+      - name: Wait for this round's collect PR, then dispatch the next round
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          BRANCH: predict/run-${{ needs.plan.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 40); do
+            state=$(gh api "repos/${REPO}/pulls?head=${OWNER}:${BRANCH}&state=all&per_page=1" \
+              --jq 'if length == 0 then "none" elif .[0].merged_at != null then "merged" elif .[0].draft then "draft" else .[0].state end') \
+              || state="unreadable"
+            # A ready PR is pushed before `collect` finishes, so a missing one
+            # after the first minutes means this round opened none (all its
+            # output went to a draft or a facts-only branch), and a draft never
+            # auto-merges: either way, waiting would only hold the group.
+            if [ "$state" = "draft" ] || { [ "$state" = "none" ] && [ "$attempt" -ge 3 ]; }; then
+              echo "## Drain chain: this round has no auto-merging collect PR (${state}); nothing dispatched — the schedule picks the backlog up." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            case "$state" in
+              merged)
+                gh workflow run run-predict.yml --repo "$REPO" --ref main
+                echo "## Drain chain: dispatched the next predict round (this round's collect PR merged)." >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+                ;;
+              closed)
+                echo "## Drain chain: this round's collect PR closed unmerged; nothing dispatched — the schedule picks the backlog up." >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+                ;;
+            esac
+            sleep 60
+          done
+          echo "::warning::this round's collect PR (${BRANCH}) did not merge within 40 minutes; nothing dispatched"
+          echo "## Drain chain: this round's collect PR did not merge in time; nothing dispatched — the schedule picks the backlog up." >> "$GITHUB_STEP_SUMMARY"

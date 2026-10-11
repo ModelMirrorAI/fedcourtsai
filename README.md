@@ -31,7 +31,9 @@ of each justice, and the court's reasoning.
 The project runs as a **backlog-driven pipeline of GitHub Actions**: every
 stage wakes on its own schedule, derives its own work from committed state and
 the corpus, and hands nothing to the stage after it — a maintainer's
-`workflow_dispatch` opens the same run early, and names no cases either. The
+`workflow_dispatch` opens the same run early, and names no cases either, as do
+the two chain jobs that start a predict round when a pull window commits or a
+capped round's output lands. The
 judgment-heavy stages delegate to **multiple competing coding agents** (Claude
 Code, Codex, and Gemini), whose artifacts land as auto-merge-gated pull
 requests.
@@ -72,7 +74,9 @@ workflow mechanics and the cascade diagram:
 job bound to the `review` deployment environment, whose required reviewers gate
 it. No cell runs and no tokens are spent until a reviewer releases the
 deployment: an explicit, audit-logged step on every run that has cells to
-spend on ([`docs/pipeline.md`](docs/pipeline.md)).
+spend on — unless a predict round's own plan is within the auto-release caps
+in `config/tracking.yaml`, which are off until a maintainer sets them
+([`docs/pipeline.md`](docs/pipeline.md)).
 
 ### Why this shape
 

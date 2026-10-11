@@ -346,7 +346,8 @@ same PR.
   labeled`, so a label starts nothing and an issue is a description of work
   rather than a request for a run. The lanes wake on their own schedules and
   derive what they owe from committed state; starting one early is a
-  `workflow_dispatch`, which is the maintainer's (see the next bullet).
+  `workflow_dispatch`, which is the maintainer's or a chain job's, never yours
+  (see the next bullet).
 - **You cannot dispatch a workflow.** The repo-scoped token an interactive
   session holds is refused (403) on `workflow_dispatch`, even where it can read
   the run history and push branches. So `gh workflow run …` is never your step:
