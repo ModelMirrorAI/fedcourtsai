@@ -7177,3 +7177,145 @@ freeze commit is recorded here.
   metrics/leaderboard.json` after the next metrics refresh lists the four
   windows above; and a predict cell's job log shows `hid … committed cell
   tree(s)` and `restored … file(s)`.
+- **A predictor's default figure pools its counted forecasts across every
+  non-revoked window, and the window becomes the by-protocol cut; declared
+  2026-10-11.** A **reading-rule declaration** made ahead of its
+  implementation, because its evidentiary value is its date. It moves no
+  digest, no constant, no window and no membership: `uv run fedcourts
+  process-digest --all` at this commit prints `proc-v9` and the six digests the
+  `proc-v9` entry above tabulates, and `COUNTING_WINDOWS` is unchanged. It
+  changes which figure over the already-counted cells is the headline and
+  which is the breakdown. It replaces one bullet of the 2026-09-26 entry, "No
+  ranked or headline figure pools across windows", and the cross-engine
+  reading the `proc-v9` entry above draws from that bullet for after its label
+  (ranks restarting within each window label, the two refusing builds). Every
+  other bullet of the 2026-09-26 entry stands.
+
+  **Why now.** Protocol changes are to be promoted as they arrive, so a Term
+  may run through many windows per predictor. Under a rule that keys every
+  headline on (predictor, window), each figure would then be a small sample,
+  and the record a reader wants — how well this predictor has forecast — would
+  exist only as a sum nobody publishes. The maintainer set this direction on
+  2026-10-10.
+
+  **The declaration.**
+
+  - **The default figure is the predictor's forward track record.** For each
+    predictor, the default frozen-scope figure — its board entry and stage
+    blocks, its claim scores, its ops score rows and tool-usage segments — is
+    computed over every counted cell in every window no revocation has
+    de-counted. Membership is unchanged: one counted forecast per (predictor,
+    event), the earliest window's, graded under the gate of the window that
+    opened it. Pooling adds no cell the window rule does not already count
+    and drops none.
+  - **Every pooled figure states its composition.** Beside the value it lists
+    each window it pools, by label, with its `n`. The per-(predictor, window)
+    figure is kept and published as the **by-protocol cut**, beside the
+    default rather than as the headline.
+  - **The by-protocol cut is a comparison over different events.** Two
+    windows of one predictor share no event, and a successor's events are
+    those the closed window did not reach, a selected population. So a move
+    from one window's cut to the next answers "did the change help?" only as
+    a comparison over different event sets, flagged as such, never as a
+    measurement of improvement.
+  - **Engines are compared over paired events, with no window restriction.**
+    A cross-engine comparison is read over the events on which every compared
+    engine holds a counted cell, whichever windows those cells come from.
+    Pooling lets each engine's event set drift with its own history, so the
+    pooled entries side by side are not a comparison; the paired reading
+    carries it. The complete grid becomes that paired-event figure: the
+    condition that the windows ran together and the split-event exclusion
+    drop, and the figure lists, per engine, the windows its paired cells come
+    from with their `n`. A rank is a cross-engine comparison, so it is read
+    off the paired-event figure, never off pooled entries over differing
+    event sets.
+  - **Rubric-sensitive families carry a per-rubric breakdown.** The `big_case`
+    tau-b, `evaluator_agreement`, the judge-validation tau-b and the semantic
+    grades depend on the evaluate prompt, so a pool across evaluator digests
+    mixes judge rubrics. Their pooled figure lists each evaluator digest it
+    spans, with its `n`, and each keeps a per-rubric reading. The
+    per-rubric reading is the comparable one: a coefficient or grade mean
+    spanning two rubrics compares to neither, as the reading rules already
+    say for these families.
+  - **Pooling windows licenses no other pooling.** Stratum, stage and moment,
+    salience band and version, scoring baseline, claim-set version and every
+    other boundary registered elsewhere still cut the pooled figure exactly
+    as they cut a window's.
+  - **Revocation remains the only de-count**, for a stated defect, under the
+    2026-09-26 entry's rule. A revoked window leaves the pooled figure.
+    Nothing else removes a window from it: not a successor that improves on
+    it, and not its own figure.
+  - **`release-sensitivity` and `semantic-summary` pool with the breakdown
+    instead of refusing** once a predictor holds graded cells in two windows.
+  - **The pool spans model changes too.** A window opened because a
+    predictor's model changed pools into that predictor's default like a
+    window opened by a prompt or harness change, with the by-protocol cut
+    naming each window's model: `claude-baseline`'s `proc-v8` window
+    (`claude-fable-5-1`) and its `proc-v9` window (`claude-opus-5-5`) are one
+    pooled record and two cuts. The alternative, a model change as a hard
+    series break, was the open question when this direction was set; the
+    maintainer decided it on 2026-10-11, in favour of pooling with the
+    breakdown.
+
+  **The objection, and why the pool is still honest.** The 2026-09-26 entry
+  held that a new model under an unchanged `predictor_id` is a different
+  forecaster, so an engine's cells on either side of a closed window are two
+  series. The pooled default instead treats a `predictor_id` as one forecaster
+  whose process evolves and whose record accrues, model changes included. The
+  pooled figure stays an honest out-of-sample record for four reasons:
+  - every counted forecast was committed and stamped inside a window
+    registered before its outcome existed, so each is out-of-sample however
+    the process changed between forecasts;
+  - one forecast per event, the earliest window's, means no later protocol or
+    model can replace a forecast once made, or be swapped in on an event after
+    its outcome is visible;
+  - windows open at registered instants and close only at a successor's,
+    and a revocation needs a defect shown without reference to any outcome,
+    so no window can be selected into or out of the record by its results;
+  - what pooling gives up, that the figure describes one fixed process, the
+    by-protocol cut restores, and the composition beside every pooled value
+    says how much of the record each process contributed.
+
+  What the pool does not license: reading the pooled figure as a property of
+  the current process or model; reading a change between cuts as
+  improvement; reading two engines' pooled entries as a comparison.
+
+  **When it takes effect.** It is declared at this commit, ahead of the first
+  graded `proc-v9` `claude-baseline` cell. `proc-v9`'s counting instant is
+  `2026-10-11T12:00:00Z`, and the first events that window's cells are scored
+  on are expected to resolve around 2026-10-19/20. It governs every figure
+  built once its implementation lands. Until then the committed boards keep
+  rendering the per-window shape, which is this rule's by-protocol cut, and
+  `release-sensitivity` and `semantic-summary` keep refusing a ledger in which
+  a predictor holds graded cells in two windows. The implementation is fixed
+  by this text and is **not tuned on `proc-v9` results**: where it settles a
+  choice this text leaves open after a `proc-v9` `claude-baseline` grading
+  has landed, a dated entry states the choice and which `proc-v9` outcomes
+  were visible when it was made.
+
+  **What it leaves unaffected.** Every frozen-scope figure published before
+  this entry is over `proc-v8`'s three windows, one per predictor, all opening
+  at `2026-09-16T00:26:04Z`. On that registry the pooled default and the
+  by-protocol cut are the same figure and the paired-event figure is the
+  complete grid, so no published figure changes under this rule. That
+  includes the long-conference release, whose population is `proc-v8` inside
+  `proc-v8`'s window. The labels before `proc-v8` stay de-counted; they are
+  not windows, and nothing pools them.
+
+  **What the date proves, stated exactly.** At `origin/main` `4c1b3752e`
+  (`2026-10-10T23:09:02Z`) the counting label is `proc-v8`, and no committed
+  prediction or evaluation carries the label `proc-v9` or `claude-baseline`'s
+  `proc-v9` digest (`git grep` over `data/` for either prints nothing). So the
+  rule is registered before any cell exists in the window whose first
+  gradings it governs. For that to hold on `main`, the carrying promotion must
+  precede the first committed evaluation of a `proc-v9` `claude-baseline`
+  cell. At that promotion, the count of such evaluations on `main` reads
+  `<FILL: proc-v9 claude-baseline evaluations on main at the carrying merge>`.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
+  hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live: on `main`, `uv run fedcourts
+  process-digest --all` prints the same digests as before the promotion, and
+  the promotion changes nothing under `metrics/` on this entry's account,
+  since it is prose only.

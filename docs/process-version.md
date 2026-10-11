@@ -84,8 +84,8 @@ evaluator's information set** — a different scrub-term set and a different num
 of candidates — while moving no evaluator digest, since an evaluator's canonical
 config carries no predictor list. For the evaluators that is a routine
 operation with no boundary behind it; for counting, a new predictor id opens a
-counting window of its own, with its own entries on every board (*No figure
-pools windows*). Until the masking surface is folded into the evaluator's canonical
+counting window of its own, with its own entries on every board (*Pooled by
+default, built per window*). Until the masking surface is folded into the evaluator's canonical
 config (which would make it a partition key rather than an honour system), a
 registry change that alters the candidate set belongs in the freeze record
 ([freeze-record.md](freeze-record.md)) beside the masking changes.
@@ -395,10 +395,25 @@ prediction's window (`graded_in_window`) — not a successor's later instant, so
 the gradings a closed window's cells collect after the successor froze count
 wherever that instant falls.
 
-**No figure pools windows.** A new model under an unchanged `predictor_id` is
-a different forecaster, so every frozen-scope figure is per predictor *and*
-window, published under the window's `label` (`process_window` on each board
-entry, ops score row, tool-usage segment, big-case read and export row, and the
+**Pooled by default, built per window.** The registered reading rule, declared
+in the freeze record ahead of its implementation, makes a predictor's default
+frozen-scope figure its forward track record: every counted cell in every
+window no revocation de-counted, one counted forecast per (predictor, event) as
+above, with model changes pooling like prompt or harness changes. Each pooled
+figure lists the windows it pools with their `n`; the per-(predictor, window)
+figure is the by-protocol cut beside it; engines are compared over the events
+every compared engine holds a counted cell on, from whichever windows; and the
+rubric-sensitive families (the stakes and judge-validation tau-b, evaluator
+agreement, the semantic grades) keep a per-evaluator-digest breakdown. The
+pool is honest out-of-sample because every counted forecast was registered
+before its outcome existed and no later window can replace it; it is not a
+property of the current process, and a move between two cuts is a comparison
+over different events. [metrics/README.md](../metrics/README.md) carries the
+reading rules.
+
+**What is built is the by-protocol cut alone.** Until the implementation
+lands, every frozen-scope figure is per predictor *and* window, published
+under the window's `label` (`process_window` on each board entry, ops score row, tool-usage segment, big-case read and export row, and the
 whole registry in each artifact's `frozen_process.windows`). The shared
 stratify pass names each in-scope cell's window (`StratifiedRun.cell_windows`),
 and every aggregate built on it — the leaderboard and its stage blocks,
@@ -417,13 +432,15 @@ never a rank key. The per-event readers — the dataset export, the big-case
 census (one read per predictor per case, each naming its window), the
 conference cut and the predict backlog — take any ledger. The pass still
 refuses a two-window predictor for a caller that keys on `predictor_id` alone
-and has not been split: `release-sensitivity` and `semantic-summary`. That
+and has not been split: `release-sensitivity` and `semantic-summary`, which
+under the registered rule pool with the breakdown instead once it is built. That
 refusal reads the whole ledger, so neither builds at frozen scope once any predictor holds
 graded cells in two windows — `release-sensitivity` included, although its
 release is `proc-v8` inside its own window.
 
-A cross-engine comparison is read only over events on which every compared
-engine holds a counted cell, each from one named window. The complete grid is
+In the built shape, a cross-engine comparison is read only over events on
+which every compared engine holds a counted cell, each from one named window
+(the registered rule drops the window restriction). The complete grid is
 therefore taken per window combination — one window per predictor, windows
 that ran together (`process_version.co_current`) — and an event split across a
 closed window and its successor belongs to no grid: the boards count it per
@@ -739,7 +756,7 @@ ones, and a predictor-half re-bless closes windows rather than de-counting.
 The frozen scope, the counting rule, the run collapse,
 evaluation staging, the dataset export and the re-predict rule read the
 windows; every aggregate keys on (predictor, window) and every pooled figure
-lists its series (*No figure pools windows*). A window opening after the
+lists its series (*Pooled by default, built per window*). A window opening after the
 earliest is an ordinary entry beside the earlier ones over its own span of
 events, ranked within its own label's cohort, and a cross-engine reading of it
 goes through the complete grid of its window combination. Tests build every board over a synthetic
