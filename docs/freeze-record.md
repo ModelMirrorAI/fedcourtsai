@@ -7365,14 +7365,14 @@ freeze commit is recorded here.
 
   For the first half to hold on `main`, the carrying promotion must precede
   the first committed evaluation of a `proc-v9` `claude-baseline` cell. At
-  that promotion, the count of such evaluations on `main` reads `<FILL:
-  proc-v9 claude-baseline evaluations on main at the carrying merge; where
-  nonzero, each listed with its event and outcome>`. Where that count is
+  that promotion, the count of such evaluations on `main` reads **0** at the carrying merge `820188cd5`, where no
+  committed cell carries the `proc-v9` `claude-baseline` digest
+  (`605201bd…`), so none has been graded. Where that count is
   nonzero, the entry governs those gradings as a declaration made with their
   outcomes visible, under the same disclosure as the `proc-v8` slice above.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
-  hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-11` (merge commit
+  `820188cd5`, merged `2026-10-11T02:01:45Z`).
 
   The runnable effect check once it is live: on `main`, `uv run fedcourts
   process-digest --all` prints the same digests as before the promotion, and
