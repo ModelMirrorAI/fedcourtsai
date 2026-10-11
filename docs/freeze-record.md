@@ -7434,6 +7434,12 @@ freeze commit is recorded here.
     - **Edge cases.** With one ranked engine, its paired events are its own
       qualifying events, and it ranks 1. With an empty paired set, no entry is
       ranked and the rank is null.
+  - **Window ownership.** Each counting window records the predictor whose
+    digest it counts, so retirement is read per predictor. A window naming no
+    predictor retires nobody.
+  - **The all-versions build** has no windows, so it has no open-window
+    condition. It ranks every predictor that holds a qualifying cell, over the
+    same paired construction. It is never the headline.
   - **The non-cert stage blocks** carry the same construction over their own
     events, unranked. Each block's engine set is the engines that hold a
     counted forward cell carrying accuracy and Brier in that block, with the
@@ -7489,13 +7495,16 @@ freeze commit is recorded here.
 
   - **How the counts read.** Each pooled entry and each engine in the paired
     figure lists, for every boundary that falls inside its cells' span, the
-    `n` before and after, over the engine's cells in the boundary's *cells
-    reached* column. A boundary outside the span cuts nothing and is not
-    listed.
-    - **Exposure is an upper bound.** The scrubs change only those dockets'
-      staged text where a contact detail was present. For a self-represented
-      docket, the after-side `n` is the cells that could read the change, not
-      the cells that did.
+    `n` before and after, over **all** of the engine's cells the boundary's
+    predictors and mode admit. The *cells reached* column is printed beside
+    the counts as the boundary's scope, not used as a filter. Whether a
+    docket was self-represented or granted at a cell's moment lives only in
+    the corpus, not in the committed record a board is built from. A
+    boundary outside the span cuts nothing and is not listed.
+    - **Exposure is an upper bound.** The scrubs change only self-represented
+      dockets' staged text, and only where a contact detail was present. The
+      merits-brief change reaches only granted dockets. So the after-side `n`
+      is the cells that could have read the change, not the cells that did.
     - **Two boundaries are gradual.** `merits-brief-spellings-consolidated-lead`
       and `widened-document-kinds-freshness` reach the corpus through back-fill
       passes, so a cell after either may still read the earlier document set.
