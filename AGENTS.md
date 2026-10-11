@@ -103,8 +103,14 @@ non-interactive** container. Two consequences shape everything you do:
   registration in `tests/conftest.py`), and `config/predictors.yaml` /
   `config/evaluators.yaml` (what agents are and what they may reach). Open
   those, get them green, and report them ready.
-  The branch rulesets do not encode this: both require zero approvals, so the
-  discipline is yours to keep, not the platform's to enforce.
+  The `staging` ruleset encodes this through `.github/CODEOWNERS` for every
+  identity that does not hold the admin role — the dev App above all: a PR
+  touching an owned path needs the maintainer's code-owner review before it can
+  merge. It does **not** bind an interactive session: such a session acts as
+  the maintainer's own account, which owns those paths and holds the admin
+  bypass, so for you this rule is still discipline. The discipline also covers
+  what a path cannot name — a change that alters the security posture from
+  outside the owned files. Open either kind and report it ready rather than merging it.
 - **When you merge it yourself, the reviewer subagents are the only review a
   `staging` merge gets.** With the maintainer out of the loop, "run the
   relevant reviewer(s)" below stops

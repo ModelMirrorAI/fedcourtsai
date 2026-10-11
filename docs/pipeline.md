@@ -1491,7 +1491,9 @@ The mechanics:
   ruleset itself requires a pull request plus the status checks that can report
   on a staging-targeted PR — `gate` and `paths`; `main`'s other two,
   `promotion-gate` and `main-base`, key on a base of `main` and are always
-  `skipped` here — with the **repository admin
+  `skipped` here — and a code owner's review, with approval of the most
+  recent push, on a PR touching a path `.github/CODEOWNERS` names, with the
+  **repository admin
   role as its sole bypass actor** — a
   required-checks rule blocks direct pushes of commits that carry no passing
   check runs, so the admin role is the only identity that can land the sync
@@ -1646,6 +1648,7 @@ The full path of a change, operator's view:
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
 checks that can report on a staging-targeted PR (`gate` and `paths`),
+require review from code owners and approval of the most recent push,
 **repository admin role as the only bypass actor** (docs/security.md
 inventories it); and add `promotion-gate` — and, once the *Adding a required
 status check* procedure below clears it, `main-base` — to `main`'s required
