@@ -6817,7 +6817,7 @@ freeze commit is recorded here.
   told the predictors' stakes scores are in view and leave a frozen band's
   cert anchor to the stamp, and the codex and gemini
   predictors carry forward unchanged; recorded 2026-10-09.** Freeze commit:
-  `<FILL: freeze commit hash>`, to be tagged **`prereg/proc-v9`**. The first
+  `d249b2ee4`, to be tagged **`prereg/proc-v9`**. The first
   label under the window rule the 2026-09-26 entry declared. It is two
   supersession shapes at one carrying promotion
   ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
@@ -6859,8 +6859,7 @@ freeze commit is recorded here.
   The replaced `proc-v8` `claude-baseline` digest is
   `sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a`.
   The three evaluator digests in the table were recomputed on `staging` when the
-  cert-anchor wording joined the evaluate prompt, at `<FILL: the staging merge
-  that carried the cert-anchor wording>`, before the carrying promotion; the
+  cert-anchor wording joined the evaluate prompt, at `f2a927c4a`, before the carrying promotion; the
   three predictor digests did not move with them. The evaluator digests they
   replace were registered on `staging` only, never reached `main` and stamp no
   cell (`sha256:d4be08d2…`, `sha256:d7d16ff6…` and `sha256:4f5fa7a6…` for
@@ -6875,8 +6874,8 @@ freeze commit is recorded here.
   over the four newly blessed digests in the table, at `origin/main`
   `115575b99` (`2026-10-10T14:49:00Z`), each count is **0** and the census is
   **2296**.
-  Promotion-time re-run: `<FILL: per-digest counts and census at the carrying
-  promotion>`.
+  Promotion-time re-run: at the carrying merge `6460e9306`, each of the four newly blessed digests
+  counts **0** and the census is **2296**.
 
   **Bless moments and instant.** The four new digests carry step 2's early
   forecast, `2026-10-09T00:00:00Z`; the two carried-forward predictor digests
@@ -6893,13 +6892,15 @@ freeze commit is recorded here.
   `claude-baseline` with no counted forecast on that event in either window,
   and the event then sits in no complete grid. No `successor-disclosures`
   bucket reports such an event, so the tagged-commit completion states their
-  count: `<FILL: claude-baseline cells stamped under the proc-v9 digest before
-  the instant, and how many of their events' moments closed before it>`. The
+  count: **0** at the tag (`prereg/proc-v9`, minted 2026-10-11 at 00:14:18Z); no
+  scheduled `run-predict` round falls between the carrying merge and the
+  instant, so only a manual dispatch before 12:00Z could add one. The
   codex and gemini windows are unaffected. Step 4
   corrects the bless moments to the carrying merge's committed instant and
-  checks the instant is at or after it: `<FILL: carrying merge's
-  committed instant, the command that yields it, and the instant as verified or
-  bumped>`.
+  checks the instant is at or after it: the carrying merge `6460e9306` committed at
+  **`2026-10-11T00:12:02Z`** (`git log -1 --format=%cI promotion/2026-10-10`);
+  the four newly blessed digests take that bless moment, and the instant,
+  `2026-10-11T12:00:00Z`, is at or after it, verified and not bumped.
 
   **Windows** (`COUNTING_WINDOWS`):
 
@@ -6926,8 +6927,8 @@ freeze commit is recorded here.
 
   Outcomes and gradings keep landing until the instant, so these lines are
   re-run at any instant correction and at the tagged commit, and the last
-  run's lines replace them here: `<FILL: successor-disclosures at the tagged
-  commit>`. **Split events are 0 by construction for this label's whole
+  run's lines replace them here: re-run at the carrying merge `6460e9306`, whose
+  registry is the tagged commit's: the lines above, unchanged. **Split events are 0 by construction for this label's whole
   life**, not only now: only `claude-baseline` changes window, and a
   carried-forward open window is co-current with both sides of the close, so
   the claude `proc-v8` and claude `proc-v9` combinations with the codex and
@@ -6954,9 +6955,9 @@ freeze commit is recorded here.
   `release-sensitivity` and `semantic-summary` refuse once a predictor holds
   graded cells in two windows, which the first graded `proc-v9`
   `claude-baseline` cell makes true. Any long-conference release figure they
-  source is generated before that grading lands: `<FILL: whether the release
-  figures from release-sensitivity were built before the first graded proc-v9
-  claude cell, and at which commit>`.
+  source is generated before that grading lands: yes: every Release 1
+  figure was built at the refresh commit `0918fb18e` and checked at the
+  candidate `07bf288c1` on 2026-10-09, before any `proc-v9` cell existed.
 
   **Evidence for the change other than the closed window's board.** The close
   is decided while 110 of that window's 252 counted events have resolved, so
@@ -7023,9 +7024,10 @@ freeze commit is recorded here.
     the terminal fallback keep the evaluator's transcription. That includes
     every OT2026 long-conference cohort grading stamped before the carrying
     promotion; a cohort event first graded after it takes the harness anchor,
-    and the count of such cells is `<FILL: cohort cert gradings stamped with
-    the harness anchor at the tagged commit, per proc-v8 window, and the events
-    whose gradings straddle the carrying promotion>`. Every `proc-v8` window
+    and the count of such cells is **0** at the tag in every
+    `proc-v8` window, with 0 straddling events, since no grading had been
+    stamped under `proc-v9`; later counts are owed to the dated follow-up
+    entry above. Every `proc-v8` window
     that collects cert gradings after the carrying promotion, the closed
     `claude-baseline` window included, therefore carries both authorships of
     its cert anchor. The transcription spread was measured at the release fill
@@ -7035,22 +7037,20 @@ freeze commit is recorded here.
     transcriptions against one statpack build, not a bound on an anchor pooled
     from a later build. The scored population also grows by the sal-v3
     frozen-band cells the transcription left null, a selected rather than
-    random addition (`<FILL: their count at the tagged commit, per band>`), so a `proc-v8` window's prior-Term skill is read
+    random addition (**0** at the tag, in every band), so a `proc-v8` window's prior-Term skill is read
     across the boundary only through `by_band`, with its `skill_scored` n. The
     board drops a `proc-v9` cert cell whose anchor does not re-pool against the
     build it names. That check stands down whenever the board's statpack
     differs from the grading's build, which on the committed board is nearly
-    always, until builds are pinned per cohort: `<FILL: proc-v9 cert gradings
-    the board re-pooled and verified, stood down on, and dropped, at the
-    tagged commit>`.
+    always, until builds are pinned per cohort: **0** verified, 0 stood
+    down and 0 dropped at the tag, since no `proc-v9` cert grading existed.
   - **`claude-judge`'s grader model** moves from `claude-fable-5-1` to
     `claude-opus-5-5`, so `claude-judge`'s grading series pools two graders.
     The `proc-v8` cells still collecting gradings after the carrying promotion,
     in all three `proc-v8` windows, are graded under the new rubric, the
     closed `claude-baseline` window included; the successor-disclosures lines
     above count those "at or after the instant", and the count from the
-    carrying merge onwards is `<FILL: closed- and carried-window gradings
-    stamped under the proc-v9 evaluator digests at the tagged commit>`.
+    carrying merge onwards is **0** at the tag.
 
   **Disclosed with the label, moving no digest:**
   - **Effort is not pinned.** Claude cells set no effort level and take the
@@ -7165,8 +7165,8 @@ freeze commit is recorded here.
     read its order list. This changes how recently a held petition's docket was
     re-read, not what a cell is handed from it.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
-  hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-10` (merge commit
+  `6460e9306`, merged `2026-10-11T00:12:02Z`).
 
   The runnable effect check once it is live: on `main`, `uv run fedcourts
   process-digest --all` prints `proc-v9` and the digests in the table above;
@@ -7177,3 +7177,204 @@ freeze commit is recorded here.
   metrics/leaderboard.json` after the next metrics refresh lists the four
   windows above; and a predict cell's job log shows `hid … committed cell
   tree(s)` and `restored … file(s)`.
+- **A predictor's default figure pools its counted forecasts across every
+  non-revoked window, and the window becomes the by-protocol cut; declared
+  2026-10-11.** A **reading-rule declaration** made ahead of its
+  implementation, because its evidentiary value is its date. It moves no
+  digest, no constant, no window and no membership: `uv run fedcourts
+  process-digest --all` at this commit prints `proc-v9` and the six digests the
+  `proc-v9` entry above tabulates, and `COUNTING_WINDOWS` is unchanged. It
+  changes which figure over the already-counted cells is the headline and
+  which is the breakdown. It amends two bullets of the 2026-09-26 entry:
+  - "No ranked or headline figure pools across windows" is replaced by the
+    pooled default below;
+  - "Engines are compared only over events, not spans" keeps its event
+    grain, but loses its "each from one named window" condition and its
+    split-event exclusion. Its selection disclosures still stand: a
+    successor's entry states the split-event count and, per engine, how many
+    of its counted events hold a failed or missing earlier-window attempt.
+    Their reason, that the events an engine finishes late are the hard cases,
+    survives pooling, which brings those events into the paired figure.
+
+  It also replaces, once implemented, the cross-engine reading the `proc-v9`
+  entry above draws for after its label: ranks restarting within each window
+  label, and the two refusing builds. Every other bullet of the 2026-09-26
+  entry stands.
+
+  **Why now.** Protocol changes are to be promoted as they arrive, so a Term
+  may run through many windows per predictor. Under a rule that keys every
+  headline on (predictor, window), each figure would then be a small sample,
+  and the record a reader wants, how well this predictor has forecast, would
+  exist only as a sum nobody publishes. The maintainer set this direction on
+  2026-10-10. That cadence, not any window's board, is the ground for the
+  rule.
+
+  **The declaration.**
+
+  - **The default figure is the predictor's forward track record.** For each
+    predictor, the default frozen-scope figure (its board entry and stage
+    blocks, its claim scores, its ops score rows and tool-usage segments) is
+    computed over every counted cell in every window no revocation has
+    de-counted. Membership is unchanged: one counted forecast per (predictor,
+    event), the earliest window's, graded under the gate of the window that
+    opened it. Pooling adds no cell the window rule does not already count
+    and drops none.
+  - **A pooled figure is computed over the pooled cells**, exactly as a single
+    window's figure is computed over its cells: the same per-cell terms, the
+    same per-cell base-rate anchors for skill, the same weighting. It is not
+    an average of window figures.
+  - **No Term or trailing bound.** The default spans every non-revoked
+    window. A figure bounded by Term, date or a trailing run of windows is a
+    cut, named with its bound, over the same membership.
+  - **Every pooled figure states its composition.** Beside the value it lists
+    each window it pools, by label, with its `n`. The per-(predictor, window)
+    figure is kept and published as the **by-protocol cut**, beside the
+    default rather than as the headline.
+  - **The by-protocol cut is a comparison over different events.** Two
+    windows of one predictor share no event, and a successor's events are
+    those the closed window did not reach, a selected population. So a move
+    from one window's cut to the next answers "did the change help?" only as
+    a comparison over different event sets, flagged as such, never as a
+    measurement of improvement.
+  - **Engines are compared over paired events, with no window restriction.**
+    A cross-engine comparison is read over the events on which every compared
+    engine holds a counted cell, whichever windows those cells come from.
+    Pooling lets each engine's event set drift with its own history, so the
+    pooled entries side by side are not a comparison; the paired reading
+    carries it. The complete grid becomes that paired-event figure, and it
+    lists, per engine, the windows its paired cells come from with their
+    `n`. The board's paired set is the intersection over every engine it
+    ranks, and the rank is read off it, never off pooled entries over
+    differing event sets. Adding or retiring an engine moves that
+    intersection and so the ranks; the figure names the engines it pairs.
+    A pairwise comparison is its own figure over the two engines' paired
+    events and is never read as the board's rank.
+  - **Harness boundaries under an unchanged digest are composition, not
+    silence.** A change the freeze record dates that moves what a cell reads
+    without moving a digest, such as the predict-cell hide that `proc-v9`'s
+    promotion carries into the codex and gemini windows, cuts nothing out of
+    the pooled default or the paired figure. Both carry, per engine, the `n`
+    on each side of every such dated boundary, so a paired event that joins
+    a cell from before the hide to one from after it is visible as such.
+    A dated change to the cohort cutoff or to `cut_kind` is listed the same
+    way.
+  - **Judge-dependent figures carry a per-rubric breakdown.** Every figure
+    computed from an evaluator's judgment depends on the evaluate prompt, so
+    a pool across evaluator digests mixes judge rubrics. That family
+    includes `mean_reasoning_quality`, the `big_case` tau-b, the
+    judge-validation tau-b, `evaluator_agreement` and the semantic grades.
+    Each lists the evaluator digests it spans with their `n`, and its
+    **per-rubric reading is the claimable figure**. The value pooled across
+    more than one evaluator digest is published beside it as coverage, never
+    as a claim or a rank key, as the reading rules already say for a
+    `reasoning_quality` mean that spans a rubric boundary.
+  - **Pooling windows licenses no other pooling.** Stratum, stage and moment,
+    salience band and version, scoring baseline, claim-set version and every
+    other boundary registered elsewhere still cut the pooled figure exactly
+    as they cut a window's.
+  - **Revocation remains the only de-count**, for a stated defect, under the
+    2026-09-26 entry's rule. A revoked window leaves the pooled figure.
+    Nothing else removes a window from it: not a successor that improves on
+    it, and not its own figure.
+  - **`release-sensitivity` and `semantic-summary` pool with the breakdown
+    instead of refusing** once a predictor holds graded cells in two windows.
+  - **The pool spans model changes too.** A window opened because a
+    predictor's model changed pools into that predictor's default like a
+    window opened by a prompt or harness change, with the by-protocol cut
+    naming each window's model: `claude-baseline`'s `proc-v8` window
+    (`claude-fable-5-1`) and its `proc-v9` window (`claude-opus-5-5`) are one
+    pooled record and two cuts. The alternative, a model change as a hard
+    series break, was the open question when this direction was set; the
+    maintainer decided it on 2026-10-11, in favour of pooling with the
+    breakdown.
+
+  **The objection, and why the pool is still honest.** The 2026-09-26 entry
+  held that a new model under an unchanged `predictor_id` is a different
+  forecaster, so an engine's cells on either side of a closed window are two
+  series. The pooled default instead treats a `predictor_id` as one forecaster
+  whose process evolves and whose record accrues, model changes included. The
+  pooled figure stays an honest out-of-sample record for four reasons:
+  - every counted forecast was committed and stamped inside a window
+    registered before its outcome existed, so each is out-of-sample however
+    the process changed between forecasts;
+  - one forecast per event, the earliest window's, means no later protocol or
+    model can replace a forecast once made, or be swapped in on an event after
+    its outcome is visible;
+  - windows open at registered instants and close only at a successor's, and
+    a revocation needs a defect shown from committed artifacts without
+    reference to any outcome. A revocation may come after outcomes are
+    visible, but only on that standard and disclosing the resolved slice, so
+    no window can be removed from the record because of its results;
+  - what pooling gives up, that the figure describes one fixed process, the
+    by-protocol cut restores, and the composition beside every pooled value
+    says how much of the record each process contributed.
+
+  What the pool does not license: reading the pooled figure as a property of
+  the current process or model; reading a change between cuts as
+  improvement; reading two engines' pooled entries as a comparison.
+
+  **When it takes effect.** It is declared at this commit, ahead of the first
+  graded `proc-v9` `claude-baseline` cell. `proc-v9`'s counting instant is
+  `2026-10-11T12:00:00Z`. The first cert events that window's cells are scored
+  on are expected to resolve around 2026-10-19/20, but an interim event can be
+  disposed of within days of its cell, so that date schedules nothing: the
+  binding condition is the one stated after the date proof below. The rule
+  governs every figure built once its implementation lands. Until then the
+  committed boards keep rendering the per-window shape, which is this rule's
+  by-protocol cut, and `release-sensitivity` and `semantic-summary` keep
+  refusing a ledger in which a predictor holds graded cells in two windows.
+  The implementation is fixed by this text and is **not tuned on `proc-v9`
+  results**: the choices above are settled here so that none of substance is
+  left to it. Where it still settles one this text leaves open after a
+  `proc-v9` `claude-baseline` grading has landed, a dated entry states the
+  choice and which `proc-v9` outcomes were visible when it was made.
+
+  **What it leaves unaffected.** Every frozen-scope figure published before
+  this entry is over `proc-v8`'s three windows, one per predictor, all opening
+  at `2026-09-16T00:26:04Z`: the committed `metrics/leaderboard.json` on
+  `main` (refreshed at `3f3ca14f4`, `2026-10-08T21:56:24Z`) carries exactly
+  those three windows in `frozen_process.windows` and only `proc-v8` as a
+  `process_window`. On that registry the pooled default and the by-protocol
+  cut are the same figure and the paired-event figure is the complete grid,
+  so no published figure changes under this rule. That includes the
+  long-conference release, whose population is `proc-v8` inside `proc-v8`'s
+  window. The labels before `proc-v8` stay de-counted; they are not windows,
+  and nothing pools them.
+
+  **What the date proves, stated exactly.** It proves the rule precedes every
+  `proc-v9` cell. It does not precede every outcome the rule governs.
+  - **Before any `proc-v9` cell.** At `origin/main` `4c1b3752e`
+    (`2026-10-10T23:09:02Z`) the counting label was `proc-v8`. At `origin/main`
+    `6460e9306` (`2026-10-11T00:12:02Z`), which carries the `proc-v9`
+    registry with `FROZEN_SINCE` at `2026-10-11T12:00:00Z`, the window had not
+    yet opened. At both, no committed prediction or evaluation carries the
+    label `proc-v9` or `claude-baseline`'s `proc-v9` digest (`git grep` over
+    `data/` for either prints nothing). So the rule is registered before any
+    cell exists in the window whose first gradings it governs.
+  - **Not before the `proc-v8` outcomes.** The pooled default makes
+    `claude-baseline`'s `proc-v8` (Fable) record part of its headline, and
+    puts every `proc-v8` cell into the paired figure that carries ranks.
+    That choice, and the 2026-10-11 decision to pool across the model change,
+    were made with `proc-v8`'s resolved slice visible. The board published at
+    `3f3ca14f4` scores 97 events for each of the three `proc-v8` windows, and
+    the `proc-v9` entry above records 110 of `claude-baseline`'s 252 counted
+    `proc-v8` events resolved at its close. The ground for the rule is the
+    promotion cadence under *Why now*, not those boards. The by-protocol cut
+    keeps publishing each `proc-v8` window on its own, so pooling hides
+    nothing they show.
+
+  For the first half to hold on `main`, the carrying promotion must precede
+  the first committed evaluation of a `proc-v9` `claude-baseline` cell. At
+  that promotion, the count of such evaluations on `main` reads `<FILL:
+  proc-v9 claude-baseline evaluations on main at the carrying merge; where
+  nonzero, each listed with its event and outcome>`. Where that count is
+  nonzero, the entry governs those gradings as a declaration made with their
+  outcomes visible, under the same disclosure as the `proc-v8` slice above.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
+  hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live: on `main`, `uv run fedcourts
+  process-digest --all` prints the same digests as before the promotion, and
+  the promotion changes nothing under `metrics/` on this entry's account,
+  since it is prose only.
