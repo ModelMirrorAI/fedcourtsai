@@ -43,12 +43,15 @@ window.** The registered rule, declared in the freeze record ahead of its
 implementation, makes a predictor's **default figure its forward track
 record**: every counted cell in every window no revocation de-counted, still
 one counted forecast per (predictor, event), the earliest window's, so pooling
-adds and drops no cell. It treats a `predictor_id` as one forecaster whose
-process evolves, model changes included: `claude-baseline`'s `proc-v8`
-(`claude-fable-5-1`) and `proc-v9` (`claude-opus-5-5`) windows are one pooled
-record. Each counted forecast was registered before its outcome existed and no
-later window can replace it, so the pooled record is out-of-sample however the
-process changed; it is not a property of the current process. Under that rule:
+adds and drops no cell, and computes the figure over the pooled cells exactly
+as over one window's, never as an average of window figures. It treats a
+`predictor_id` as one forecaster whose process evolves, model changes included,
+and its figure as that forecaster's record, not a property of its current
+process or model: `claude-baseline`'s `proc-v8` (`claude-fable-5-1`) and
+`proc-v9` (`claude-opus-5-5`) windows are one pooled record. Each counted
+forecast was registered before its outcome existed and no later window can
+replace it, so the pooled record is out-of-sample however the process changed.
+No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
 
 - each pooled figure states its **composition**, each window it pools by label
   with its `n`, and the per-(predictor, window) figure is the **by-protocol
@@ -58,13 +61,20 @@ process changed; it is not a property of the current process. Under that rule:
 - **engines are compared over paired events** — the events on which every
   compared engine holds a counted cell, from whichever windows — because each
   engine's pooled event set drifts with its own history; the complete grid
-  becomes that paired-event figure with no window restriction, and a rank is
+  becomes that paired-event figure with no window restriction, the board's
+  paired set is the intersection over every engine it ranks, and a rank is
   read off it, never off pooled entries over differing event sets;
-- the **rubric-sensitive families** — the `big_case` and judge-validation
-  tau-b, `evaluator_agreement` and the semantic grades — list each evaluator
-  digest they span with its `n` and keep a per-rubric reading;
-- pooling windows licenses **no other pooling**: stratum, stage, band,
-  salience, baseline and claim-set boundaries still cut the pooled figure;
+- a harness boundary the freeze record dates under an unchanged digest (the
+  predict-cell hide is one) cuts nothing out, but the pooled and paired
+  figures carry each engine's `n` on either side of it;
+- every figure computed from an evaluator's judgment — `mean_reasoning_quality`,
+  the `big_case` and judge-validation tau-b, `evaluator_agreement`, the
+  semantic grades — lists each evaluator digest it spans with its `n`; its
+  per-rubric reading is the claimable figure, and a value pooled across
+  rubrics is coverage;
+- pooling windows licenses **no other pooling**: stratum, stage and moment,
+  salience band and version, scoring baseline, claim-set version and every
+  other registered boundary still cut the pooled figure;
 - **revocation** stays the only de-count;
 - `release-sensitivity` and `semantic-summary` pool with the breakdown rather
   than refuse.

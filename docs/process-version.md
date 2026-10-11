@@ -404,7 +404,9 @@ figure lists the windows it pools with their `n`; the per-(predictor, window)
 figure is the by-protocol cut beside it; engines are compared over the events
 every compared engine holds a counted cell on, from whichever windows; and the
 rubric-sensitive families (the stakes and judge-validation tau-b, evaluator
-agreement, the semantic grades) keep a per-evaluator-digest breakdown. The
+agreement, `mean_reasoning_quality`, the semantic grades: every figure
+computed from an evaluator's judgment) keep a per-evaluator-digest breakdown,
+whose per-rubric reading is the claimable one. The
 pool is honest out-of-sample because every counted forecast was registered
 before its outcome existed and no later window can replace it; it is not a
 property of the current process, and a move between two cuts is a comparison
@@ -756,10 +758,11 @@ ones, and a predictor-half re-bless closes windows rather than de-counting.
 The frozen scope, the counting rule, the run collapse,
 evaluation staging, the dataset export and the re-predict rule read the
 windows; every aggregate keys on (predictor, window) and every pooled figure
-lists its series (*Pooled by default, built per window*). A window opening after the
-earliest is an ordinary entry beside the earlier ones over its own span of
-events, ranked within its own label's cohort, and a cross-engine reading of it
-goes through the complete grid of its window combination. Tests build every board over a synthetic
+lists its series (*Pooled by default, built per window*). In the built shape, a window
+opening after the earliest is an ordinary entry beside the earlier ones over
+its own span of events, ranked within its own label's cohort, and a
+cross-engine reading of it goes through the complete grid of its window
+combination. Tests build every board over a synthetic
 two-window registry and check that each is per window and that nothing pools
 unlisted (`tests/test_counting_windows.py`); `release-sensitivity` and
 `semantic-summary` still refuse a predictor that spans two windows. The
