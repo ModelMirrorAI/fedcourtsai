@@ -38,18 +38,62 @@ publish which scope they were built under as `process_scope` (`"frozen"` or
 `"all"`); an `"all"` build — the `--all-versions` CLI toggle — is a
 diagnostic view, never a results surface.
 
-**No figure pools windows.** A new model under an unchanged `predictor_id` is
-a different forecaster, so an engine's cells on either side of a closed window
-are two series, not one. Every frozen-scope figure is keyed on **(predictor,
-window)**: each entry on the leaderboard, its stage blocks and the claim scores,
-each ops score row and each tool-usage segment names its window as
-`process_window`, so a predictor whose counted cells span two windows has an
-entry per window, and every artifact carries the whole registry in
-`frozen_process.windows`. Two reading rules follow. **Two windows of one
+**The registered reading pools windows; the boards still render one entry per
+window.** The registered rule, declared in the freeze record ahead of its
+implementation, makes a predictor's **default figure its forward track
+record**: every counted cell in every window no revocation de-counted, still
+one counted forecast per (predictor, event), the earliest window's, so pooling
+adds and drops no cell, and computes the figure over the pooled cells exactly
+as over one window's, never as an average of window figures. It treats a
+`predictor_id` as one forecaster whose process evolves, model changes included,
+and its figure as that forecaster's record, not a property of its current
+process or model: `claude-baseline`'s `proc-v8` (`claude-fable-5-1`) and
+`proc-v9` (`claude-opus-5-5`) windows are one pooled record. Each counted
+forecast was registered before its outcome existed and no later window can
+replace it, so the pooled record is out-of-sample however the process changed.
+No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
+
+- each pooled figure states its **composition**, each window it pools by label
+  with its `n`, and the per-(predictor, window) figure is the **by-protocol
+  cut** published beside it — a comparison over different events (a
+  successor's are those the closed window did not reach), never a measurement
+  that a change helped;
+- **engines are compared over paired events** — the events on which every
+  compared engine holds a counted cell, from whichever windows — because each
+  engine's pooled event set drifts with its own history; the complete grid
+  becomes that paired-event figure with no window restriction, the board's
+  paired set is the intersection over every engine it ranks, and a rank is
+  read off it, never off pooled entries over differing event sets;
+- a harness boundary the freeze record dates under an unchanged digest (the
+  predict-cell hide is one) cuts nothing out, but the pooled and paired
+  figures carry each engine's `n` on either side of it;
+- every figure computed from an evaluator's judgment — `mean_reasoning_quality`,
+  the `big_case` and judge-validation tau-b, `evaluator_agreement`, the
+  semantic grades — lists each evaluator digest it spans with its `n`; its
+  per-rubric reading is the claimable figure, and a value pooled across
+  rubrics is coverage;
+- pooling windows licenses **no other pooling**: stratum, stage and moment,
+  salience band and version, scoring baseline, claim-set version and every
+  other registered boundary still cut the pooled figure;
+- **revocation** stays the only de-count;
+- `release-sensitivity` and `semantic-summary` pool with the breakdown rather
+  than refuse.
+
+**What is built today is the by-protocol cut alone**, and the rest of this
+README describes that shape until the implementation lands. Every frozen-scope
+figure is keyed on **(predictor, window)**: each entry on the leaderboard, its
+stage blocks and the claim scores, each ops score row and each tool-usage
+segment names its window as `process_window`, so a predictor whose counted
+cells span two windows has an entry per window, and every artifact carries the
+whole registry in `frozen_process.windows`. On a registry with one window per
+predictor, all opening at one instant — `proc-v8`'s, which every figure
+published so far is over — the per-window entry *is* the pooled default and
+the complete grid *is* the paired-event figure, so the two rules agree. Where
+they diverge, two reading rules govern the built shape. **Two windows of one
 predictor share no event** — a predictor holds one counted forecast per event,
-the earliest window's — so their entries are two forecasters over disjoint
-events, and a rise across a window boundary is not a measurement of
-improvement. **A rank is read within one window label.** Where a frozen
+the earliest window's — so their entries are two cuts over disjoint events,
+and a rise across a window boundary is not a measurement of improvement. **A
+rank is read within one window label.** Where a frozen
 board's entries carry more than one label, `rank` restarts in each label's
 cohort (the cohorts listed in the order their windows opened; a
 carried-forward window ranks with the label that opened it), so a successor's
@@ -72,14 +116,16 @@ read over events on which every compared engine holds a counted cell, each
 from one named window, and an event split across a closed window and its
 successor belongs to no complete grid (see `complete_grids` below).
 
-Two readers keep the predictor-keyed shape and so still **refuse** a ledger in
-which one predictor's counted cells span two windows rather than pool them:
-`release-sensitivity` and `semantic-summary`. The refusal reads the whole
-ledger, so once any predictor holds graded cells in two windows neither command
-builds at frozen scope — `release-sensitivity` included, although the release it
-serves is `proc-v8` inside `proc-v8`'s window — and its figures are re-derived
-before that, or the command is split, never quoted off a refusal. The refusal
-is the floor, not a figure.
+Two readers keep the predictor-keyed shape and so, until the implementation
+lands, still **refuse** a ledger in which one predictor's counted cells span
+two windows rather than pool them: `release-sensitivity` and
+`semantic-summary`. The refusal reads the whole ledger, so once any predictor
+holds graded cells in two windows — which the first graded `proc-v9`
+`claude-baseline` cell makes true — neither command builds at frozen scope.
+`release-sensitivity` is included, although the release it serves is
+`proc-v8` inside `proc-v8`'s window, so its figures are re-derived before that,
+or the command is split, never quoted off a refusal. The refusal is the floor,
+not a figure.
 
 **One prediction per predictor per event, and re-predicting a live event is a
 registered rule.** A predictor may hold several committed runs on one event —
@@ -788,6 +834,11 @@ stays outside the gate:
   events among these complete graded events only. The split-event count a
   successor's freeze-record entry discloses is a different figure, over every
   counted cell, graded or not, and comes from `fedcourts successor-disclosures`.
+  That per-combination grid is the built shape. The registered reading (at the top of
+  this README) replaces it with one paired-event figure over every event each
+  compared engine holds a counted cell on, from whichever windows, listing per
+  engine the windows its paired cells come from; a split event is a paired
+  event there, not an exclusion.
 
   The ranked board is the **cert stage's first declared moment** (see the stage
   axis note below); every other population — a later cert moment included —
