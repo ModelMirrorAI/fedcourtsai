@@ -471,7 +471,7 @@ def revoked_window_board(
 
     registry = tuple(lifted.get(w, w) for w in process_version.COUNTING_WINDOWS)
     with process_version.counting_windows(registry):
-        run = stratify(data_root, refuse_pooled_windows=False)
+        run = stratify(data_root)
         cells = [cell for cell in run.cells if in_slice(cell[0], run.cell_windows)]
         rows = iter_predictions(data_root)
         slice_events: dict[str, set[tuple[str, str]]] = {w.digest: set() for w in revoked}

@@ -35,8 +35,11 @@ from .integrity import FORWARD, RETROSPECTIVE
 from .metrics_refresh import arm_mix_text, arm_score_text, outcome_mix
 from .process_version import (
     Series,
+    composition_of,
     pooled_windows,
     refuse_shared_labels,
+    rubric_listing,
+    rubric_of,
     series_sort_key,
     window_label,
 )
@@ -274,6 +277,37 @@ def _delta(current: int, previous: int | None) -> int | None:
     return None if previous is None else current - previous
 
 
+def _score_row(
+    predictor_id: str,
+    window: CountingWindow | None,
+    evals: Sequence[Evaluation],
+    cell_windows: Mapping[EvaluationKey, CountingWindow],
+) -> PredictorScoreRow:
+    """One score row: the pooled default where ``window`` is ``None``, else that window's cut."""
+    graded = [ev for ev in evals if ev.reasoning_quality is not None]
+    quality = [ev.reasoning_quality for ev in graded if ev.reasoning_quality is not None]
+    # Same rule as the calibration block: a null `correct` is a missing
+    # figure, not a zero, so it leaves the row's fraction entirely and a
+    # predictor with no computable cell reports no accuracy at all.
+    row_correct = [ev.correct for ev in evals if ev.correct is not None]
+    return PredictorScoreRow(
+        predictor_id=predictor_id,
+        process_window=window_label(window),
+        windows=(
+            composition_of((evaluation_key(ev) for ev in evals), cell_windows)
+            if window is None
+            else []
+        ),
+        evaluations=len(evals),
+        accuracy=(round(sum(row_correct) / len(row_correct), 4) if row_correct else None),
+        accuracy_scored=len(row_correct),
+        median=_quantile(quality, 0.5),
+        p25=_quantile(quality, 0.25),
+        p75=_quantile(quality, 0.75),
+        rubrics=rubric_listing(Counter(rubric_of(ev) for ev in graded)),
+    )
+
+
 def summarize_substance(  # noqa: PLR0913 - one keyword per stratify-pass input it publishes
     *,
     cell_counts: tuple[int, int, int],
@@ -299,11 +333,13 @@ def summarize_substance(  # noqa: PLR0913 - one keyword per stratify-pass input 
     never the section.
 
     ``cell_windows`` (``store.StratifiedRun.cell_windows``, from the same pass)
-    names each cell's counting window. The per-predictor score rows are per
-    (predictor, window), so a predictor whose counted cells span two windows
-    gets a row per window; the calibration block pools every engine's replay
-    cells, so it lists the series it pools where they span labels. Unsupplied
-    — an all-versions build — rows key on the predictor alone.
+    names each cell's counting window. ``predictor_scores`` is the pooled
+    default — one row per predictor over every counted cell in every
+    non-revoked window, with ``windows`` stating the makeup — and
+    ``predictor_scores_by_protocol`` the per-(predictor, window) cut, each
+    computed over its own cells. The calibration block pools every engine's
+    replay cells and lists the series it pools. Unsupplied — an all-versions
+    build — rows key on the predictor alone and there is no cut.
     """
     windows = cell_windows or {}
     predictions, events_predicted, predicted_resolved = cell_counts
@@ -361,36 +397,27 @@ def summarize_substance(  # noqa: PLR0913 - one keyword per stratify-pass input 
         ),
     )
 
+    by_predictor: dict[str, list[Evaluation]] = {}
     by_series: dict[Series, list[Evaluation]] = {}
     for ev, _stratum in stratified_evaluations:
+        by_predictor.setdefault(ev.predictor_id, []).append(ev)
         by_series.setdefault((ev.predictor_id, windows.get(evaluation_key(ev))), []).append(ev)
     refuse_shared_labels(by_series, surface="ops report")
-    scores = []
-    for series in sorted(by_series, key=series_sort_key):
-        predictor_id, window = series
-        evals = by_series[series]
-        quality = [ev.reasoning_quality for ev in evals if ev.reasoning_quality is not None]
-        # Same rule as the calibration block above: a null `correct` is a
-        # missing figure, not a zero, so it leaves the row's fraction entirely
-        # and a predictor with no computable cell reports no accuracy at all.
-        row_correct = [ev.correct for ev in evals if ev.correct is not None]
-        scores.append(
-            PredictorScoreRow(
-                predictor_id=predictor_id,
-                process_window=window_label(window),
-                evaluations=len(evals),
-                accuracy=(round(sum(row_correct) / len(row_correct), 4) if row_correct else None),
-                accuracy_scored=len(row_correct),
-                median=_quantile(quality, 0.5),
-                p25=_quantile(quality, 0.25),
-                p75=_quantile(quality, 0.75),
-            )
-        )
+    scores = [
+        _score_row(predictor_id, None, by_predictor[predictor_id], windows)
+        for predictor_id in sorted(by_predictor)
+    ]
+    cut = [
+        _score_row(predictor_id, window, by_series[(predictor_id, window)], windows)
+        for predictor_id, window in sorted(by_series, key=series_sort_key)
+        if window is not None
+    ]
 
     return SubstanceDigest(
         cells=cells,
         calibration=calibration,
         predictor_scores=scores,
+        predictor_scores_by_protocol=cut,
         forward_claim=forward_claim,
         leakage_exclusion=leakage_exclusion,
         live_frontier=live_frontier,
@@ -401,6 +428,25 @@ def summarize_substance(  # noqa: PLR0913 - one keyword per stratify-pass input 
 def _fmt_delta(delta: int | None) -> str:
     """A signed week-over-week suffix, empty without a comparable prior."""
     return "" if delta is None else f" ({delta:+d})"
+
+
+def _score_line(name: str, row: PredictorScoreRow, *, window: str | None = None) -> str:
+    """One score-table row; the second column is the row's window, else its composition."""
+    makeup = (
+        window
+        if window is not None
+        else (", ".join(f"{w.process_window} (n={w.n})" for w in row.windows) or "—")
+    )
+    accuracy = "—" if row.accuracy is None else f"{row.accuracy:.0%}"
+    median = "—" if row.median is None else f"{row.median:.2f}"
+    spread = "—" if row.p25 is None or row.p75 is None else f"{row.p25:.2f}-{row.p75:.2f}"
+    # `Scored` is accuracy's own denominator, beside the cell count rather than
+    # replacing it: the gap is the cells the stamp could not score, and a
+    # column that hid it would read as a full sample.
+    return (
+        f"| {name} | {makeup} | {row.evaluations} | {accuracy} | "
+        f"{row.accuracy_scored} | {median} | {spread} |"
+    )
 
 
 def render_substance(digest: SubstanceDigest) -> str:
@@ -485,12 +531,12 @@ def render_substance(digest: SubstanceDigest) -> str:
         )
         cal_lines.append(f"Mean Brier **{brier}** · accuracy **{accuracy}** ({scored})")
     if cal.windows:
-        # The pooled figure spans more than one window label, so it is the
-        # record across them: name each series and its n beside it.
+        # The calibration pools every engine's replay cells: name each series
+        # and its n beside the pooled value.
         cal_lines.append(
-            "Pooled across process windows — "
+            "Pooled over "
             + ", ".join(f"`{w.predictor_id}` {w.process_window} (n={w.n})" for w in cal.windows)
-            + "; a record across labels, not one series"
+            + " — a record across these series, not one of them"
         )
     if cal.deny_base_rate is not None:
         lift = "—" if cal.lift_over_always_deny is None else f"{cal.lift_over_always_deny:+.1%}"
@@ -516,29 +562,28 @@ def render_substance(digest: SubstanceDigest) -> str:
     if digest.predictor_scores:
         lines += [
             "",
-            "**Evaluation scores by predictor** (reasoning quality, all strata pooled)",
-            "| Predictor | Cells | Accuracy | Scored | Median | p25-p75 |",
-            "|-----------|------:|---------:|-------:|-------:|---------|",
+            "**Evaluation scores by predictor** (reasoning quality, all strata pooled; "
+            + "each row pools its predictor's counted cells across the windows listed, and "
+            + "its quantiles pool every judge rubric that graded them — coverage, not a "
+            + "claimable reading, wherever a judge's digest moved)",
+            "| Predictor | Windows | Cells | Accuracy | Scored | Median | p25-p75 |",
+            "|-----------|---------|------:|---------:|-------:|-------:|---------|",
         ]
-        # The window rides the name only once the rows carry two labels;
-        # under one label the report's scope line already names it.
-        labelled = len({row.process_window for row in digest.predictor_scores}) > 1
-        for row in digest.predictor_scores:
-            name = (
-                f"{row.predictor_id} ({row.process_window or 'no window'})"
-                if labelled
-                else row.predictor_id
-            )
-            accuracy = "—" if row.accuracy is None else f"{row.accuracy:.0%}"
-            median = "—" if row.median is None else f"{row.median:.2f}"
-            spread = "—" if row.p25 is None or row.p75 is None else f"{row.p25:.2f}-{row.p75:.2f}"
-            # `Scored` is accuracy's own denominator, beside the cell count
-            # rather than replacing it: the gap is the cells the stamp could
-            # not score, and a column that hid it would read as a full sample.
-            lines.append(
-                f"| {name} | {row.evaluations} | {accuracy} | "
-                f"{row.accuracy_scored} | {median} | {spread} |"
-            )
+        lines += [_score_line(row.predictor_id, row) for row in digest.predictor_scores]
+        # The cut is a different table only where some predictor's record spans
+        # two windows; otherwise every cut row repeats its pooled row.
+        if any(len(row.windows) > 1 for row in digest.predictor_scores):
+            lines += [
+                "",
+                "**By protocol** (one row per predictor and counting window — two windows "
+                + "share no event, so a move between them compares different events)",
+                "| Predictor | Window | Cells | Accuracy | Scored | Median | p25-p75 |",
+                "|-----------|--------|------:|---------:|-------:|-------:|---------|",
+            ]
+            lines += [
+                _score_line(row.predictor_id, row, window=row.process_window or "—")
+                for row in digest.predictor_scores_by_protocol
+            ]
 
     frontier = digest.live_frontier
     if frontier is not None and not frontier.skipped:

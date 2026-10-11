@@ -65,6 +65,7 @@ from fedcourtsai.schemas import (
     Outcome,
     PredictableEvent,
     Prediction,
+    ProcessVersion,
     SemanticClaim,
     SemanticClaimSummary,
     SemanticGrade,
@@ -1234,6 +1235,37 @@ def test_the_summary_command_publishes_once_both_preconditions_clear(tmp_path: P
     first = out.read_text()
     _invoke(data_root, "--out", str(out), "--all-versions")
     assert out.read_text() == first
+
+
+def test_the_published_census_lists_its_rubrics_and_flags_a_mixed_one(tmp_path: Path) -> None:
+    """A written census names every (evaluator, digest) rubric its gradings came from,
+    an unstamped grading's null digest first, and its census line calls a judge
+    graded under two digests coverage."""
+    data_root = tmp_path / "data"
+    _panel_ledger(data_root, cases=6)
+    stamped = ProcessVersion(
+        label="proc-x", digest="sha256:" + "d" * 64, stamped_at=datetime(2026, 6, 25, tzinfo=UTC)
+    )
+    for case in ("scotus/1", "scotus/2"):
+        path = (
+            CasePaths(data_root, "scotus", int(case.split("/")[1]))
+            .event(MERITS_EVENT_ID)
+            .evaluation("e2", "p", "r")
+        )
+        evaluation = read_model(path, Evaluation)
+        write_json(path, evaluation.model_copy(update={"process_version": stamped}))
+    out = tmp_path / "semantic-grades.json"
+    result = _invoke(data_root, "--out", str(out), "--all-versions")
+    assert result.exit_code == 0, result.output
+    summary = read_model(out, SemanticGradeSummary)
+    assert [(r.evaluator_id, r.digest, r.n) for r in summary.rubrics] == [
+        ("e1", None, 6),
+        ("e2", None, 4),
+        ("e2", stamped.digest, 2),
+    ]
+    # The all-versions census carries no windows to list.
+    assert summary.windows == []
+    assert "mixed judge rubrics, so coverage only" in result.output
 
 
 def test_the_summary_command_takes_one_grade_per_grader_per_cell(tmp_path: Path) -> None:

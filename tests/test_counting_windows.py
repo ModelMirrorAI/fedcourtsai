@@ -40,26 +40,39 @@ from fedcourtsai.leaderboard import (
 )
 from fedcourtsai.ops import render_substance, summarize_substance
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.semantic import SEMANTIC_SET_V1
 from fedcourtsai.process_version import PooledWindowsError
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
-from fedcourtsai.release_sensitivity import _cert_events
+from fedcourtsai.release_sensitivity import (
+    RANKED_ARM,
+    _cert_events,
+    project,
+    rebuild,
+    render_table,
+)
 from fedcourtsai.schemas import (
     BigCaseAssessment,
+    BigCaseLeaderboard,
     ClaimScoreBoard,
     CountingWindow,
     Evaluation,
     Leaderboard,
     Prediction,
     ProcessVersion,
+    SemanticGrade,
+    SemanticGradeBlock,
+    SemanticSupport,
 )
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import (
+    StratifiedRun,
+    evaluation_key,
     event_has_claimable_prediction,
     predictor_holds_no_counted_prediction,
     scored_prediction,
     stratify,
 )
-from fedcourtsai.tool_usage import _correlate, _JoinedCell, _segments
+from fedcourtsai.tool_usage import _correlate, _grouped, _JoinedCell, _segment, _segments
 from tests.conftest import set_windows
 from tests.test_dataset_export import _event, _grade, _outcome, _prediction
 
@@ -292,25 +305,23 @@ def test_a_supersession_re_owes_nothing(tmp_path: Path, monkeypatch: pytest.Monk
 
 
 def _graded_ledger(data: Path) -> None:
-    """One predictor graded on one event per window: the pooling the boards refuse."""
+    """One predictor graded on one event per window: a record the boards pool."""
     for case, digest, when in (("scotus/1", A, T1), ("scotus/2", B, T2)):
         _seed(data, run_id="p1", stamp=_pv(digest, when + timedelta(days=1)), case=case)
         _outcome(data, case, resolved_at=(when + timedelta(days=30)).date())
         _grade(data, case, "e1", prediction_run_id="p1", stamped=when + timedelta(days=31))
 
 
-def test_a_predictor_keyed_pass_still_refuses_two_windows(
+def test_the_frozen_pass_pools_a_predictors_windows(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The default pass refuses: a caller keyed on ``predictor_id`` alone gets no
-    ledger it would pool. A series-keyed caller opts out and reads each cell's
-    window instead."""
+    """A predictor whose counted cells span two windows is one record: the pass
+    yields both cells and names each one's window for the composition and cut."""
     set_windows(monkeypatch, CLOSED, SUCCESSOR)
     data = tmp_path / "data"
     _graded_ledger(data)
-    with pytest.raises(PooledWindowsError, match="alpha"):
-        stratify(data)
-    run = stratify(data, refuse_pooled_windows=False)
+    run = stratify(data)
+    assert len(run.cells) == 2
     assert sorted(window.label for window in run.cell_windows.values()) == ["proc-a", "proc-b"]
     # The all-versions pass is the named pooled view and says so in its scope.
     assert len(stratify(data, frozen_only=False).cells) == 2
@@ -337,7 +348,7 @@ def test_two_windows_sharing_a_label_are_refused(
     data = tmp_path / "data"
     _graded_ledger(data)
     with pytest.raises(PooledWindowsError, match="share a label"):
-        stratify(data, refuse_pooled_windows=False)
+        stratify(data)
 
 
 def test_the_export_carries_each_rows_window(
@@ -432,24 +443,47 @@ ALL_SERIES = [
 ]
 
 
-def test_a_two_window_registry_builds_the_leaderboard_per_window(
+def _pooled_and_cut_big_case(data: Path) -> dict[tuple[str, str | None], BigCaseLeaderboard]:
+    """The big-case map the leaderboard command hands the board: pooled and per window."""
+    return {
+        **big_case_agreement(data, by_window=False),
+        **big_case_agreement(data, by_window=True),
+    }
+
+
+def test_a_two_window_registry_pools_each_predictor_and_cuts_by_protocol(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """One entry per (predictor, window), each over its own window's cells only;
-    the complete grid read per window combination, the split event in none."""
+    """One pooled entry per predictor with its composition; the per-window
+    entries as the unranked cut; the rank read over every paired event, the
+    event whose cells come from a closed window and its successor included."""
     set_windows(monkeypatch, *TWO_LABELS)
     data = tmp_path / "data"
     _two_label_ledger(data)
-    run = stratify(data, refuse_pooled_windows=False)
+    run = stratify(data)
     board = build_leaderboard(
         run.cells,
-        big_case=big_case_agreement(data),
+        big_case=_pooled_and_cut_big_case(data),
         evaluators=evaluator_agreement(data),
         facts=cell_facts(run.cells, data),
         cell_windows=run.cell_windows,
     )
-    assert sorted(_series(board.entries)) == ALL_SERIES
-    scored = {(e.predictor_id, e.process_window): e.events_scored for e in board.entries}
+    assert [(e.predictor_id, e.process_window, e.events_scored) for e in board.entries] == [
+        ("alpha", None, 3),
+        ("beta", None, 3),
+        ("gamma", None, 3),
+    ]
+    # Two judges per cell: the composition counts gradings, in opening order.
+    composition = {
+        e.predictor_id: [(w.process_window, w.n) for w in e.windows] for e in board.entries
+    }
+    assert composition == {
+        "alpha": [("proc-a", 4), ("proc-b", 2)],
+        "beta": [("proc-a", 6)],
+        "gamma": [("proc-a", 2), ("proc-b", 4)],
+    }
+    assert sorted(_series(board.by_protocol)) == ALL_SERIES
+    scored = {(e.predictor_id, e.process_window): e.events_scored for e in board.by_protocol}
     assert scored == {
         ("alpha", "proc-a"): 2,
         ("alpha", "proc-b"): 1,
@@ -457,30 +491,41 @@ def test_a_two_window_registry_builds_the_leaderboard_per_window(
         ("gamma", "proc-a"): 1,
         ("gamma", "proc-b"): 2,
     }
-    # Every entry's big-case agreement is its own window's, never both.
-    cases = {(e.predictor_id, e.process_window): e.big_case for e in board.entries}
-    assert cases[("alpha", "proc-a")] is not None and cases[("alpha", "proc-a")].cases == 2
-    assert cases[("alpha", "proc-b")] is not None and cases[("alpha", "proc-b")].cases == 1
-    # Cases 1 and 2 are complete under two different combinations; case 3 is split.
-    assert board.complete_grid_by_band == {"(none)": 2}
-    assert board.split_events_by_band == {"(none)": 1}
-    assert [grid.windows for grid in board.complete_grids] == [
-        {"alpha": "proc-a", "beta": "proc-a", "gamma": "proc-a"},
-        {"alpha": "proc-b", "beta": "proc-a", "gamma": "proc-b"},
+    assert all(e.rank is None for e in board.by_protocol)
+    # The pooled entry's big-case agreement spans every window; the cut's is its own.
+    pooled = {e.predictor_id: e.big_case for e in board.entries}
+    assert pooled["alpha"] is not None and pooled["alpha"].cases == 3
+    # The pooled correlation states the windows it spans and the judge rubrics
+    # its panel means draw on, each in reads.
+    assert [(w.process_window, w.n) for w in pooled["alpha"].windows] == [
+        ("proc-a", 4),
+        ("proc-b", 2),
     ]
-    assert [grid.by_band for grid in board.complete_grids] == [{"(none)": 1}, {"(none)": 1}]
+    assert [(r.evaluator_id, r.n) for r in pooled["alpha"].rubrics] == [("e1", 3), ("e2", 3)]
+    cut = {(e.predictor_id, e.process_window): e.big_case for e in board.by_protocol}
+    assert cut[("alpha", "proc-a")] is not None and cut[("alpha", "proc-a")].cases == 2
+    assert cut[("alpha", "proc-b")] is not None and cut[("alpha", "proc-b")].cases == 1
+    # No window restriction on pairing: case 3 pairs a closed window's cell with
+    # its successor's, so every case is paired.
+    assert board.paired is not None
+    assert board.paired.events == 3
+    assert board.paired.by_band == {"(none)": 3}
+    paired_alpha = next(e for e in board.paired.entries if e.predictor_id == "alpha")
+    assert [(w.process_window, w.n) for w in paired_alpha.windows] == [
+        ("proc-a", 4),
+        ("proc-b", 2),
+    ]
+    assert sorted(e.rank for e in board.entries if e.rank is not None) == [1, 2, 3]
+    assert {e.paired_events for e in board.entries} == {3}
     # The grader view pools the predictors' windows by design and says which.
     for agreement in board.evaluator_agreement.values():
         assert sorted((w.predictor_id, w.process_window) for w in agreement.windows) == ALL_SERIES
-    # Cohorts list in the order their windows opened.
-    alpha = [e.process_window for e in board.entries if e.predictor_id == "alpha"]
-    assert alpha == ["proc-a", "proc-b"]
 
 
 def test_a_two_window_registry_builds_the_cli_boards(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The commands build rather than refuse: the wiring passes the series key."""
+    """The commands build rather than refuse: pooled entries, the cut beside them."""
     set_windows(monkeypatch, *TWO_LABELS)
     data = tmp_path / "data"
     _two_label_ledger(data)
@@ -489,53 +534,148 @@ def test_a_two_window_registry_builds_the_cli_boards(
     result = CliRunner().invoke(app, ["leaderboard", "--out", str(out)], env=env)
     assert result.exit_code == 0, result.output
     board = read_model(out, Leaderboard)
-    assert sorted(_series(board.entries)) == ALL_SERIES
-    assert board.split_events_by_band == {"(none)": 1}
+    assert [e.predictor_id for e in board.entries] == ["alpha", "beta", "gamma"]
+    assert sorted(_series(board.by_protocol)) == ALL_SERIES
+    assert board.paired is not None and board.paired.events == 3
+    # The command hands the pooled entries the pooled big-case agreement.
+    assert {e.predictor_id: e.big_case.cases for e in board.entries if e.big_case} == {
+        "alpha": 3,
+        "beta": 3,
+        "gamma": 3,
+    }
     out = tmp_path / "claim-scores.json"
     result = CliRunner().invoke(app, ["claim-scores", "--out", str(out)], env=env)
     assert result.exit_code == 0, result.output
     claims = read_model(out, ClaimScoreBoard)
     assert claims.forward_agreement is not None
-    assert (
-        sorted((w.predictor_id, w.process_window) for w in claims.forward_agreement.windows)
-        == ALL_SERIES
-    )
+    assert claims.forward_agreement.windows == []  # no cell here forms a pair
 
 
-def test_a_two_window_registry_builds_claim_scores_and_ops_per_window(
+def test_a_two_window_registry_pools_claim_scores_and_ops_with_the_cut(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Each predictor's score row pools its windows and lists them; the per-window
+    rows are the cut beside it, and the rendered report shows both tables."""
     set_windows(monkeypatch, *TWO_LABELS)
     data = tmp_path / "data"
     _two_label_ledger(data)
-    run = stratify(data, refuse_pooled_windows=False)
+    run = stratify(data)
     claims = build_claim_scores(run.cells, cell_windows=run.cell_windows)
-    # No cell carries a claim block here, so no entry survives; the judge
-    # validation still names the series its population spans.
+    # No cell carries a claim block here, so no entry survives, and no cell forms
+    # a validation pair: the validation lists only the series its pairs come from.
     assert claims.forward_agreement is not None
-    assert (
-        sorted((w.predictor_id, w.process_window) for w in claims.forward_agreement.windows)
-        == ALL_SERIES
-    )
+    assert claims.forward_agreement.pairs == 0
+    assert claims.forward_agreement.windows == []
     substance = summarize_substance(
         cell_counts=(0, 0, 0),
         stratified_evaluations=[(ev, stratum) for ev, stratum, _, _ in run.cells],
         cell_windows=run.cell_windows,
     )
-    assert sorted(_series(substance.predictor_scores)) == ALL_SERIES
+    assert _series(substance.predictor_scores) == [
+        ("alpha", None),
+        ("beta", None),
+        ("gamma", None),
+    ]
+    pooled = {row.predictor_id: row for row in substance.predictor_scores}
+    # Two judges grade every cell: alpha's proc-a cells are cases 1 and 3.
+    assert [(w.process_window, w.n) for w in pooled["alpha"].windows] == [
+        ("proc-a", 4),
+        ("proc-b", 2),
+    ]
+    assert [(w.process_window, w.n) for w in pooled["beta"].windows] == [("proc-a", 6)]
+    assert sorted(_series(substance.predictor_scores_by_protocol)) == ALL_SERIES
+    cut = {(r.predictor_id, r.process_window): r for r in substance.predictor_scores_by_protocol}
+    # The pooled row is computed over the pooled cells, so its counts are the
+    # cut rows' sums — never an average of them.
+    assert pooled["alpha"].evaluations == (
+        cut[("alpha", "proc-a")].evaluations + cut[("alpha", "proc-b")].evaluations
+    )
     rendered = render_substance(substance)
-    assert "| alpha (proc-a) |" in rendered and "| alpha (proc-b) |" in rendered
+    assert "| alpha | proc-a (n=4), proc-b (n=2) |" in rendered
+    assert "**By protocol**" in rendered
+    assert "| alpha | proc-a |" in rendered and "| alpha | proc-b |" in rendered
 
 
-def test_a_single_label_board_reads_as_it_did(
+def test_a_pooled_score_row_is_the_cell_weighted_figure_over_both_windows(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Under one label nothing is listed: no grid breakdown, no pooled-window
-    list, no window in a rendered name — the registry before any successor."""
+    """Three correct proc-a gradings and one wrong proc-b grading pool to 3/4, not
+    to the mean of the windows' 1 and 0."""
+    set_windows(monkeypatch, CLOSED, SUCCESSOR)
+    data = tmp_path / "data"
+    _graded_ledger(data)
+    run = stratify(data)
+    stratified = []
+    for ev, stratum, _, _ in run.cells:
+        window = run.cell_windows[evaluation_key(ev)]
+        copies = 3 if window.label == "proc-a" else 1
+        for i in range(copies):
+            graded = ev.model_copy(
+                update={
+                    "run_id": f"r{i}",
+                    "correct": window.label == "proc-a",
+                    "reasoning_quality": 0.5,
+                }
+            )
+            stratified.append((graded, stratum))
+    windows = {
+        evaluation_key(graded): _window_of_case(run, graded.case_id) for graded, _ in stratified
+    }
+    substance = summarize_substance(
+        cell_counts=(0, 0, 0), stratified_evaluations=stratified, cell_windows=windows
+    )
+    (row,) = substance.predictor_scores
+    assert row.evaluations == 4 and row.accuracy == 0.75
+    # The quantiles' grades name their rubric: one judge, one digest.
+    assert [(r.evaluator_id, r.n) for r in row.rubrics] == [("e1", 4)]
+    assert [(w.process_window, w.n) for w in row.windows] == [("proc-a", 3), ("proc-b", 1)]
+    assert {r.process_window: r.accuracy for r in substance.predictor_scores_by_protocol} == {
+        "proc-a": 1.0,
+        "proc-b": 0.0,
+    }
+
+
+def _window_of_case(run: StratifiedRun, case_id: str) -> CountingWindow:
+    """The one window ``run``'s cells on ``case_id`` count in."""
+    (window,) = {w for key, w in run.cell_windows.items() if key[0] == case_id}
+    return window
+
+
+def test_evaluator_agreement_counts_only_the_reads_that_form_a_point(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A case only one judge read forms no leave-one-out point, so its reads list in
+    neither that judge's composition nor any rubric count."""
+    set_windows(monkeypatch, *TWO_LABELS)
+    data = tmp_path / "data"
+    _two_label_ledger(data)
+    event = CasePaths(data, "scotus", 2).event(EVENT)
+    for predictor in ("alpha", "beta", "gamma"):
+        evaluation = event.evaluation("e2", predictor, "r1")
+        evaluation.unlink()
+    agreement = evaluator_agreement(data)
+    # e1 still read case 2, but alone: cases 1 and 3 are its points.
+    assert agreement["e1"].events == 2
+    assert sorted((w.predictor_id, w.process_window, w.n) for w in agreement["e1"].windows) == [
+        ("alpha", "proc-a", 2),
+        ("beta", "proc-a", 2),
+        ("gamma", "proc-a", 1),
+        ("gamma", "proc-b", 1),
+    ]
+    # Each point compares e1's three reads with e2's three, so six per case.
+    assert {r.evaluator_id for r in agreement["e1"].rubrics} == {"e1", "e2"}
+    assert sum(r.n for r in agreement["e1"].rubrics) == 12
+
+
+def test_a_single_label_board_lists_its_one_window(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Under one label the composition is still listed — it is part of the figure —
+    but the report draws no by-protocol table, which would repeat every row."""
     set_windows(monkeypatch, CLOSED, BETA)
     data = tmp_path / "data"
     _two_label_ledger(data)
-    run = stratify(data, refuse_pooled_windows=False)
+    run = stratify(data)
     board = build_leaderboard(
         run.cells,
         evaluators=evaluator_agreement(data),
@@ -544,13 +684,18 @@ def test_a_single_label_board_reads_as_it_did(
     )
     payload = board.model_dump(mode="json")
     assert "complete_grids" not in payload and "split_events_by_band" not in payload
-    assert all("windows" not in agreement for agreement in payload["evaluator_agreement"].values())
+    assert all(
+        {w["process_window"] for w in agreement["windows"]} == {"proc-a"}
+        for agreement in payload["evaluator_agreement"].values()
+    )
     substance = summarize_substance(
         cell_counts=(0, 0, 0),
         stratified_evaluations=[(ev, stratum) for ev, stratum, _, _ in run.cells],
         cell_windows=run.cell_windows,
     )
-    assert "| alpha |" in render_substance(substance)
+    rendered = render_substance(substance)
+    assert "| alpha | proc-a (n=" in rendered
+    assert "**By protocol**" not in rendered
 
 
 def test_the_big_case_board_names_each_reads_window(
@@ -573,15 +718,8 @@ def test_the_big_case_board_names_each_reads_window(
     assert all(read.process_window is None for row in census.rows for read in row.current_reads)
 
 
-def test_a_successor_entry_shares_no_grid_it_does_not_cover(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """One combination holds every complete event, yet a successor entry sits
-    beside it with an equal count over events it shares with nobody: the grids
-    are listed whenever the entries carry two labels, so the successor's entry
-    is visibly in no grid rather than certified against the total."""
-    set_windows(monkeypatch, CLOSED, SUCCESSOR, BETA)
-    data = tmp_path / "data"
+def _successor_ledger(data: Path) -> None:
+    """alpha on two cases across its two windows, beta on the first case only."""
     cells = {"scotus/1": {"alpha": (A, T1), "beta": (D, T1)}, "scotus/2": {"alpha": (B, T2)}}
     for case, held in cells.items():
         _event(data, case)
@@ -592,22 +730,70 @@ def test_a_successor_entry_shares_no_grid_it_does_not_cover(
                 data, case, predictor_id=predictor, stamp=_pv(digest, when + timedelta(days=1))
             )
             _grade(data, case, "e1", predictor_id=predictor, stamped=latest + timedelta(days=31))
-    run = stratify(data, refuse_pooled_windows=False)
+
+
+def test_a_successor_window_pools_into_its_predictor_and_ranks_over_paired_events(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """alpha's successor window pools into alpha's record; the rank is read over
+    the one event both engines hold, and alpha's other event is its pairing loss."""
+    set_windows(monkeypatch, CLOSED, SUCCESSOR, BETA)
+    data = tmp_path / "data"
+    _successor_ledger(data)
+    run = stratify(data)
     board = build_leaderboard(
         run.cells, facts=cell_facts(run.cells, data), cell_windows=run.cell_windows
     )
-    assert board.complete_grid_by_band == {"(none)": 1}
-    assert [grid.windows for grid in board.complete_grids] == [
-        {"alpha": "proc-a", "beta": "proc-a"}
+    assert [(e.predictor_id, e.events_scored, e.paired_events) for e in board.entries] == [
+        ("alpha", 2, 1),
+        ("beta", 1, 1),
     ]
-    # Coverage is read within a label's cohort: alpha@proc-b is short of nothing.
-    assert coverage_shortfalls(board.events_scored, board.entries) == []
-    # Ranks restart per label: the successor's entry is ranked in its own cohort.
-    assert [(e.predictor_id, e.process_window, e.rank) for e in board.entries] == [
-        ("alpha", "proc-a", 1),
-        ("beta", "proc-a", 2),
-        ("alpha", "proc-b", 1),
+    assert board.paired is not None and board.paired.events == 1
+    assert {e.predictor_id: e.unpaired_events for e in board.paired.entries} == {
+        "alpha": 1,
+        "beta": 0,
+    }
+    # One union denominates every pooled entry: beta covers one of two events.
+    assert [
+        (entry.predictor_id, against)
+        for entry, against in coverage_shortfalls(board.events_scored, board.entries)
+    ] == [("beta", 2)]
+    assert [(e.predictor_id, e.process_window) for e in board.by_protocol] == [
+        ("alpha", "proc-a"),
+        ("alpha", "proc-b"),
+        ("beta", "proc-a"),
     ]
+
+
+def test_a_retired_predictor_keeps_its_record_but_leaves_the_paired_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """beta's only window closed with no successor: it keeps its pooled entry and
+    its cut, unranked, and alpha pairs with itself over its own events."""
+    owned = [
+        CLOSED.model_copy(update={"predictor_id": "alpha"}),
+        SUCCESSOR.model_copy(update={"predictor_id": "alpha"}),
+        BETA.model_copy(update={"predictor_id": "beta", "closes": T2}),
+    ]
+    set_windows(monkeypatch, *owned)
+    data = tmp_path / "data"
+    _successor_ledger(data)
+    run = stratify(data)
+    board = build_leaderboard(
+        run.cells, facts=cell_facts(run.cells, data), cell_windows=run.cell_windows
+    )
+    assert board.paired is not None and board.paired.predictors == ["alpha"]
+    assert [(e.predictor_id, e.rank, e.paired_events) for e in board.entries] == [
+        ("alpha", 1, 2),
+        ("beta", None, None),
+    ]
+    assert board.predictors_ranked == 1
+    # The all-versions board reads no registry, so beta is ranked there.
+    everything = build_leaderboard(
+        stratify(data, frozen_only=False).cells, process_scope="all", facts=None
+    )
+    assert everything.paired is not None
+    assert everything.paired.predictors == ["alpha", "beta"]
 
 
 def test_every_close_is_a_successors_opening_instant() -> None:
@@ -757,16 +943,84 @@ def _joined(window: CountingWindow, predictor_id: str = "alpha") -> _JoinedCell:
     )
 
 
-def test_tool_usage_splits_one_engine_across_two_windows() -> None:
-    """One engine's cells from two windows are two segments, never one mean; the
-    coefficient row pools engines by design and names the series it pools."""
+def test_tool_usage_pools_one_engine_across_two_windows_with_the_cut() -> None:
+    """One engine's cells from two windows pool into one segment listing its series,
+    and the cut keeps them as two; the coefficient row lists its series too, a
+    single one included."""
     joined = [_joined(CLOSED), _joined(CLOSED), _joined(SUCCESSOR)]
-    segments = [(key[1], len(group)) for key, group in _segments(joined)]
-    assert segments == [("proc-a", 2), ("proc-b", 1)]
-    # Two predictors sharing an engine under one label pool as before.
+    assert [(key[1], len(group)) for key, group in _segments(joined)] == [
+        ("proc-a", 2),
+        ("proc-b", 1),
+    ]
+    (pooled,) = [
+        _segment(engine, None, mode, stage, moment, group)
+        for (engine, mode, stage, moment), group in _grouped(joined, lambda c: c.pooled_key)
+    ]
+    assert pooled.cells == 3 and pooled.process_window is None
+    assert [(w.process_window, w.n) for w in pooled.windows] == [("proc-a", 2), ("proc-b", 1)]
+    # Two predictors sharing an engine under one label share a cut segment.
     beta = [_joined(CLOSED), _joined(BETA, predictor_id="beta")]
     assert [(key[1], len(group)) for key, group in _segments(beta)] == [("proc-a", 2)]
     row = _correlate(("forward", "cert", "distribution"), joined)
     assert [(w.process_window, w.n) for w in row.windows] == [("proc-a", 2), ("proc-b", 1)]
-    # Under one label nothing is listed.
-    assert _correlate(("forward", "cert", "distribution"), joined[:2]).windows == []
+    assert [
+        (w.process_window, w.n)
+        for w in _correlate(("forward", "cert", "distribution"), joined[:2]).windows
+    ] == [("proc-a", 2)]
+
+
+def test_release_sensitivity_and_semantic_summary_pool_two_windows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Neither surface refuses a predictor whose cells span two windows: the
+    rebuilt board projects the pooled entry with its composition and the cut, and
+    the semantic census states the series it pools."""
+    set_windows(monkeypatch, CLOSED, SUCCESSOR)
+    data = tmp_path / "data"
+    _graded_ledger(data)
+    run = stratify(data)
+    board = rebuild(run.cells, data, {}, run.cell_windows)
+    arm = project(board)[RANKED_ARM]
+    assert arm["entries"]["alpha"]["windows"] == {"proc-a": 1, "proc-b": 1}
+    assert arm["paired"]["engines"]["alpha"]["windows"] == {"proc-a": 1, "proc-b": 1}
+    assert sorted(arm["by_protocol"]) == ["alpha@proc-a", "alpha@proc-b"]
+    blocks = (
+        "exact_pool_anchor",
+        "rule_20_excluded",
+        "post_conference_first_forecasts_excluded",
+    )
+    table = render_table(
+        {
+            "registered_headline": {"figures": project(board)},
+            "blocks": {name: {"figures": {}} for name in blocks},
+        }
+    )
+    assert "  alpha            pools proc-a (n=1), proc-b (n=1)" in table
+    assert any("`by_protocol`" in line for line in table)
+    for case in ("scotus/1", "scotus/2"):
+        path = (
+            CasePaths(data, "scotus", int(case.split("/")[1]))
+            .event(EVENT)
+            .evaluation("e1", "alpha", "r1")
+        )
+        evaluation = read_model(path, Evaluation)
+        block = SemanticGradeBlock(
+            declared_set_version=SEMANTIC_SET_V1,
+            grades=[SemanticGrade(claim_id="majority-ground", grade=SemanticSupport.supported)],
+        )
+        write_json(path, evaluation.model_copy(update={"semantic_grades": block}))
+    result = CliRunner().invoke(app, ["semantic-summary"], env={"FEDCOURTS_DATA_ROOT": str(data)})
+    assert result.exit_code == 0, result.output
+    assert "pooled over alpha proc-a (n=1), alpha proc-b (n=1)" in result.output
+
+
+def test_a_cell_stamped_with_another_predictors_window_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A window records whose digest it counts, so a cell of another predictor
+    carrying that digest is mis-attributed and the pass refuses it."""
+    set_windows(monkeypatch, CLOSED.model_copy(update={"predictor_id": "beta"}))
+    data = tmp_path / "data"
+    _graded_ledger(data)
+    with pytest.raises(ValueError, match="names another predictor"):
+        stratify(data)

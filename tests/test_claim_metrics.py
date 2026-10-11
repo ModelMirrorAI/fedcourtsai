@@ -19,6 +19,7 @@ from fedcourtsai.schemas import (
     ClaimScore,
     ClaimScoreBlock,
     ClaimScoreBoard,
+    CountingWindow,
     Disposition,
     Engine,
     Evaluation,
@@ -32,7 +33,7 @@ from fedcourtsai.schemas import (
     Stratum,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
-from fedcourtsai.store import iter_stratified_evaluations
+from fedcourtsai.store import evaluation_key, iter_stratified_evaluations
 
 runner = CliRunner()
 
@@ -212,6 +213,51 @@ def test_aggregates_per_predictor_per_stratum_and_never_pools() -> None:
     assert alpha.procedural is None
     beta = board.entries[1]
     assert beta.forward is None and beta.procedural is not None
+
+
+def test_a_frozen_board_pools_each_predictor_and_cuts_by_window() -> None:
+    """The default entry is computed over every window's cells — three proc-a events
+    at 0.4 and one proc-b event at -0.4 pool to a mean of 0.2, not to the windows'
+    mean of 0 — and the cut carries each window's own figure."""
+    proc_a = CountingWindow(
+        label="proc-a", digest="sha256:" + "a" * 64, opens=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+    proc_b = CountingWindow(
+        label="proc-b", digest="sha256:" + "b" * 64, opens=datetime(2026, 2, 1, tzinfo=UTC)
+    )
+    evals = [
+        (_evaluation("alpha", claim_scores=_block(0.4), event_id=f"evt-{i}"), proc_a)
+        for i in range(3)
+    ] + [(_evaluation("alpha", claim_scores=_block(-0.4), event_id="evt-x"), proc_b)]
+    # A cell with no block forms no validation pair, so it lists in no composition.
+    evals.append((_evaluation("alpha", event_id="evt-y"), proc_a))
+    cells = _cells(*((ev, FORWARD) for ev, _ in evals))
+    windows = {evaluation_key(ev): window for ev, window in evals}
+    board = build_claim_scores(cells, cell_windows=windows)
+    (entry,) = board.entries
+    assert entry.process_window is None
+    assert [(w.process_window, w.n) for w in entry.windows] == [("proc-a", 3), ("proc-b", 1)]
+    assert entry.forward is not None and entry.forward.events == 4
+    assert entry.forward.mean_total == pytest.approx(0.2)
+    cut = {e.process_window: e for e in board.by_protocol}
+    assert set(cut) == {"proc-a", "proc-b"}
+    assert all(e.windows == [] for e in board.by_protocol)
+    assert cut["proc-a"].forward is not None and cut["proc-b"].forward is not None
+    assert cut["proc-a"].forward.mean_total == pytest.approx(0.4)
+    assert cut["proc-b"].forward.mean_total == pytest.approx(-0.4)
+    # The judge validation lists its series even where it spans one predictor.
+    assert board.forward_agreement is not None
+    assert [(w.predictor_id, w.process_window, w.n) for w in board.forward_agreement.windows] == [
+        ("alpha", "proc-a", 3),
+        ("alpha", "proc-b", 1),
+    ]
+    # And the rubrics the pairs' grades came from: one unstamped judge here.
+    assert [(r.evaluator_id, r.digest, r.n) for r in board.forward_agreement.rubrics] == [
+        ("eval-a", None, 4)
+    ]
+    # An all-versions board has no windows to cut by.
+    unscoped = build_claim_scores(cells, process_scope="all")
+    assert unscoped.by_protocol == [] and unscoped.entries[0].windows == []
 
 
 def test_per_claim_means_keep_unscored_claims_visible() -> None:

@@ -394,11 +394,19 @@
           "type": "string"
         },
         "segments": {
-          "description": "The denominator table, engine then mode then event kind",
+          "description": "The denominator table, engine then mode then event kind \u2014 the pooled default: each segment pools its engine's counted cells across every non-revoked window and lists the series it pools",
           "items": {
             "$ref": "#/$defs/ToolUsefulnessSegment"
           },
           "title": "Segments",
+          "type": "array"
+        },
+        "segments_by_protocol": {
+          "description": "The by-protocol cut: one segment per engine, counting window, mode, stage and moment, ordered engine then the window's opening. Two windows share no event, so a move between them compares different events. Empty on an all-versions build",
+          "items": {
+            "$ref": "#/$defs/ToolUsefulnessSegment"
+          },
+          "title": "Segments By Protocol",
           "type": "array"
         }
       },
@@ -457,7 +465,7 @@
           "type": "string"
         },
         "windows": {
-          "description": "The (predictor, window) series behind this population's cells, each with its cell count: the row pools engines by design. Listed only where the series carry more than one window label \u2014 the figure is then the record across those labels, never one series and never a rank key. Omitted while every series shares one label (the artifact's `frozen_process.windows` names it) and on an all-versions build",
+          "description": "The (predictor, window) series behind this population's cells, each with its cell count: the row pools engines by design. Listed whenever the figure is a frozen-scope pool, a single label included \u2014 the figure is the record across those series, never one series and never a rank key. Empty on an all-versions build, whose cells carry no window",
           "items": {
             "$ref": "#/$defs/WindowCount"
           },
@@ -565,13 +573,21 @@
             }
           ],
           "default": null,
-          "description": "The label of the counting window the segment's cells come from; null on an all-versions build. Part of the key on a frozen build, so one engine's cells from two windows are two segments, never one mean",
+          "description": "On a `segments_by_protocol` cut segment, the label of the counting window its cells come from \u2014 part of that cut's key, so one engine's cells from two windows are two cut segments. Null on a pooled segment, which spans the series `windows` lists, and on every all-versions segment",
           "title": "Process Window"
         },
         "stage": {
           "description": "The event's declared decision stage (cert | interim | merits), or `unknown` for an event the moment registry does not declare. Part of the key because a cert Brier and a merits Brier score different questions against different base rates, so pooling them would mix outcome vocabularies into one meaningless mean",
           "title": "Stage",
           "type": "string"
+        },
+        "windows": {
+          "description": "On a pooled segment, the (predictor, window) series behind its cells, each with its cell count, a single series included. Empty on a cut segment and on an all-versions build",
+          "items": {
+            "$ref": "#/$defs/WindowCount"
+          },
+          "title": "Windows",
+          "type": "array"
         }
       },
       "required": [
@@ -585,7 +601,7 @@
     },
     "WindowCount": {
       "additionalProperties": false,
-      "description": "One (predictor, counting window) series inside a figure that pools several labels.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. Where\nthose span more than one window label, the figure is the **record across\nthose labels**: it lists each series and its ``n`` beside the pooled value,\nand is never a rank key (``docs/process-version.md``, *No figure pools\nwindows*).",
+      "description": "One (predictor, counting window) series inside a figure that pools across predictors.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. It is\nthe **record across those series**: it lists each series and its ``n``\nbeside the pooled value, a single series included, and is never a rank key\n(``docs/process-version.md``, *Pooled by default*). It names its predictor\nbecause such a figure pools several; :class:`WindowShare` is the\none-predictor form a predictor's own pooled figure lists.",
       "properties": {
         "n": {
           "description": "This series' share of the pooled figure's population, in the unit the containing `windows` field names (cells or reads) \u2014 not necessarily the unit of the figure's own count, so the n need not sum to it",
