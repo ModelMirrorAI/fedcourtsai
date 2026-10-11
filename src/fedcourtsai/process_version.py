@@ -161,16 +161,15 @@ def harness_stamps_cert_anchor(label: str | None) -> bool:
 # command that yields it.
 FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
     {
-        # The four newly blessed entries carry step 2's **early** forecast,
-        # `2026-10-09T00:00:00Z` — no later than the freeze commit itself, so
-        # necessarily at or before the carrying merge. Step 4 replaces it with
-        # that merge's committed instant once the promotion lands; the freeze
-        # record's proc-v9 entry carries the merge and the command that yields
-        # it.
+        # The four newly blessed entries carry the carrying merge's committed
+        # instant, `2026-10-11T00:12:02Z` (`6460e9306`, tagged
+        # `promotion/2026-10-10`; `git log -1 --format=%cI
+        # promotion/2026-10-10`), corrected at step 4 from step 2's early
+        # forecast; the freeze record's proc-v9 entry carries the same.
         #
         # predictor: claude-baseline (newly blessed).
         "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734": datetime(
-            2026, 10, 9, 0, 0, 0, tzinfo=UTC
+            2026, 10, 11, 0, 12, 2, tzinfo=UTC
         ),
         # predictors: codex-baseline, gemini-baseline — carried forward
         # byte-identical from proc-v8, so they keep its audited bless moment,
@@ -184,13 +183,13 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
         ),
         # evaluators: claude-judge, codex-judge, gemini-judge (newly blessed).
         "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": datetime(
-            2026, 10, 9, 0, 0, 0, tzinfo=UTC
+            2026, 10, 11, 0, 12, 2, tzinfo=UTC
         ),
         "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": datetime(
-            2026, 10, 9, 0, 0, 0, tzinfo=UTC
+            2026, 10, 11, 0, 12, 2, tzinfo=UTC
         ),
         "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": datetime(
-            2026, 10, 9, 0, 0, 0, tzinfo=UTC
+            2026, 10, 11, 0, 12, 2, tzinfo=UTC
         ),
     }
 )
