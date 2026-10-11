@@ -6892,7 +6892,7 @@ freeze commit is recorded here.
   `claude-baseline` with no counted forecast on that event in either window,
   and the event then sits in no complete grid. No `successor-disclosures`
   bucket reports such an event, so the tagged-commit completion states their
-  count: **0** at the tag (`prereg/proc-v9`, minted 2026-10-11 at about 00:30Z); no
+  count: **0** at the tag (`prereg/proc-v9`, minted 2026-10-11 at 00:14:18Z); no
   scheduled `run-predict` round falls between the carrying merge and the
   instant, so only a manual dispatch before 12:00Z could add one. The
   codex and gemini windows are unaffected. Step 4
