@@ -8,7 +8,7 @@ a second one. Every figure here is the board's own, rebuilt by
 :func:`fedcourtsai.leaderboard.build_leaderboard` over the same stratified
 cells (:func:`fedcourtsai.store.stratify`, frozen scope) — so accuracy, the
 realized floor, the lift, population skill (a ratio of sums), the grant
-comparison and ``complete_grid_by_band`` are computed exactly as the board
+comparison and the paired events per band are computed exactly as the board
 computes them, and the registered headline is the board itself. Three blocks:
 
 1. **Exact-pool anchor.** Each skill-scored cert grading's prior-Term baseline
@@ -76,6 +76,7 @@ from .schemas import (
     LeaderboardStratum,
     Moment,
     Outcome,
+    PairedEvents,
     PredictableEvent,
     Prediction,
     Stage,
@@ -421,6 +422,26 @@ def _stratum(stratum: LeaderboardStratum | None, fields: Sequence[str]) -> dict[
     return {name: dumped.get(name) for name in fields}
 
 
+def _paired(paired: PairedEvents | None, fields: Sequence[str]) -> dict[str, Any] | None:
+    """An arm's paired-event figure: its events, band filing, and each engine's standing."""
+    if paired is None:
+        return None
+    return {
+        "events": paired.events,
+        "by_band": paired.by_band,
+        "band_mismatches": paired.band_mismatches,
+        "engines": {
+            engine.predictor_id: {
+                "rank": engine.rank,
+                "unpaired_events": engine.unpaired_events,
+                "forward": _stratum(engine.forward, fields),
+                "by_band": {band: _stratum(s, fields) for band, s in engine.by_band.items()},
+            }
+            for engine in sorted(paired.entries, key=lambda e: e.predictor_id)
+        },
+    }
+
+
 def project(board: Leaderboard, fields: Sequence[str] = ALL_FIELDS) -> dict[str, Any]:
     """Each cert arm's per-predictor forward and per-band figures, keyed ``<stage>@<moment>``.
 
@@ -430,7 +451,7 @@ def project(board: Leaderboard, fields: Sequence[str] = ALL_FIELDS) -> dict[str,
     arms: dict[str, Any] = {
         RANKED_ARM: {
             "events_scored": board.events_scored,
-            "complete_grid_by_band": board.complete_grid_by_band,
+            "paired": _paired(board.paired, fields),
             "entries": {
                 entry.predictor_id: {
                     "events_scored": entry.events_scored,
@@ -449,7 +470,7 @@ def project(board: Leaderboard, fields: Sequence[str] = ALL_FIELDS) -> dict[str,
             continue
         arms[key] = {
             "events_scored": stage.events_scored,
-            "complete_grid_by_band": stage.complete_grid_by_band,
+            "paired": _paired(stage.paired, fields),
             "entries": {
                 entry.predictor_id: {
                     "events_scored": entry.events_scored,

@@ -36,9 +36,7 @@ from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.moments import first_moment
 from .process_version import (
-    PooledWindowsError,
     counted_on_event,
-    describe_windows,
     freeze_in_force,
     graded_in_window,
     refuse_shared_labels,
@@ -1074,10 +1072,9 @@ class StratifiedRun(NamedTuple):
     population, so the counts are published side by side and never summed.
 
     ``cell_windows`` maps each in-scope cell (:func:`evaluation_key`) to the
-    counting window its scored prediction sits in — the second half of the
-    (predictor, window) key every frozen-scope figure is published under.
-    Empty on an all-versions pass, which pools by definition and says so in its
-    ``process_scope``.
+    counting window its scored prediction sits in — what a pooled figure's
+    composition counts and the by-protocol cut keys on. Empty on an
+    all-versions pass, whose cells carry no window.
     """
 
     cells: list[StratifiedCell]
@@ -1094,7 +1091,6 @@ def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, bot
     *,
     frozen_only: bool = True,
     policy: ForwardClaimPolicy = FORWARD_CLAIM_POLICY,
-    refuse_pooled_windows: bool = True,
 ) -> StratifiedRun:
     """Every evaluation joined to its stratum, stage, and forecast moment, in path order.
 
@@ -1185,18 +1181,14 @@ def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, bot
     ``frozen_only=False`` is the all-versions view, which reproduces every
     scored cell regardless of process.
 
-    **Windows are never pooled silently.** Under ``frozen_only`` each in-scope
-    cell's scored prediction sits in exactly one counting window, and
-    ``cell_windows`` names it per cell, so a caller keys its figures on
-    (predictor, window) — the series a new model under an unchanged id starts.
-    A predictor whose in-scope cells span two windows raises
-    :class:`PooledWindowsError` while ``refuse_pooled_windows`` holds (the
-    default), for a caller that keys on ``predictor_id`` alone and would
-    otherwise average the two as one series. A caller that keys on the series
-    (the leaderboard, the claim scores, the ops report) or publishes each row's
-    or event's window beside it (the dataset export, the conference cut) passes
-    ``False``. Two of one predictor's windows sharing a label raise whatever
-    the flag says, since no caller could publish them apart.
+    **Windows pool, and say so.** Under ``frozen_only`` each in-scope cell's
+    scored prediction sits in exactly one counting window, and ``cell_windows``
+    names it per cell. A predictor's default figure pools its counted cells
+    across every non-revoked window — its forward track record, one counted
+    forecast per event — so a caller states the composition beside the pooled
+    value and keeps the per-window figure as the by-protocol cut
+    (``docs/process-version.md``). Two of one predictor's windows sharing a
+    label raise :class:`PooledWindowsError`: no caller could publish them apart.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -1235,6 +1227,18 @@ def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, bot
         for cell in survivors:
             window = window_of(cell.scored_prediction.process_version)
             if window is not None:
+                # A window records whose digest it counts; a cell of another
+                # predictor stamped with that digest is a mis-attributed cell,
+                # and retirement read off the registry would follow it.
+                if (
+                    window.predictor_id is not None
+                    and window.predictor_id != cell.evaluation.predictor_id
+                ):
+                    raise ValueError(
+                        f"{cell.event_dir}: {cell.evaluation.predictor_id}'s scored prediction "
+                        f"carries {window.predictor_id}'s digest ({window.label}, "
+                        f"{window.digest}) — the counting window names another predictor"
+                    )
                 cell_windows[evaluation_key(cell.evaluation)] = window
     windows: dict[str, set[CountingWindow]] = {}
     for (_case, _event, predictor_id, _evaluator, _run), window in cell_windows.items():
@@ -1243,13 +1247,6 @@ def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, bot
         ((pid, window) for pid, spans in windows.items() for window in spans),
         surface="frozen-scope cells",
     )
-    pooled = [pid for pid, spans in sorted(windows.items()) if len(spans) > 1]
-    if refuse_pooled_windows and pooled:
-        raise PooledWindowsError(
-            "frozen-scope cells span more than one counting window for "
-            + ", ".join(f"{pid} ({describe_windows(windows[pid])})" for pid in pooled)
-            + " — this caller keys on predictor_id alone and would pool them"
-        )
     # The one place a re-grade is still countable: every survivor below is
     # indistinguishable from a cell that was graded once, so the boards take
     # their audit line from this difference rather than re-scanning the ledger.

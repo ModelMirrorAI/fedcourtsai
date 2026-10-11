@@ -219,13 +219,11 @@ def build_tables(
     from the corpus. ``ledger_commits`` maps a resolved ``prediction.json`` path to
     the commit that added it; ``None`` leaves those columns null.
     """
-    # Per-row, and every row carries its window beside it, so the pooled-window
-    # refusal the aggregate boards take does not apply here.
+    # Per-row, and every row carries its window beside it.
     run = stratify(
         data_root,
         frozen_only=not all_versions,
         policy=FORWARD_CLAIM_POLICY,
-        refuse_pooled_windows=False,
     )
     strata: dict[GradingKey, Stratum] = {_grading_key(ev): s for ev, s, _st, _m in run.cells}
     forward_claim = {_grading_key(cell.evaluation) for cell in run.excluded}
