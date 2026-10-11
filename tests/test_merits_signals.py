@@ -10,6 +10,7 @@ from fedcourtsai.pipeline.merits_signals import (
     is_petitioner_merits_brief,
     is_petitioner_merits_reply,
     is_respondent_merits_brief,
+    is_respondent_merits_brief_document,
     is_respondent_merits_reply,
     respondent_brief_date,
 )
@@ -61,6 +62,45 @@ def test_a_respondent_supporting_the_petitioner_is_not_the_adversarial_brief() -
         ("Jul 8 2025", "Brief of respondent Latrice Saxon filed."),
     )
     assert respondent_brief_date(payload, granted_on=GRANT) == date(2025, 7, 8)
+
+
+def test_a_respondent_in_partial_support_of_the_petitioner_is_not_the_adversarial_brief() -> None:
+    # A multi-respondent docket: the aligned respondents all file on the
+    # petitioner's schedule, one of them "in partial support", and the adverse
+    # respondent's brief comes later. Only that later brief opens the moment.
+    text = "Brief of respondents Arizona, et al. in partial support of petitioner filed."
+    assert not is_respondent_merits_brief(text)
+    assert not is_respondent_merits_brief_document(text)
+    payload = _docket(
+        ("Jun 2 2025", "Brief of respondent United States in support of petitioner filed."),
+        ("Jun 2 2025", "Brief of respondents Acme Corp., et al. in support of petitioner filed."),
+        ("Jun 2 2025", text),
+        ("Jul 8 2025", "Brief of respondent Latrice Saxon filed."),
+    )
+    assert respondent_brief_date(payload, granted_on=GRANT) == date(2025, 7, 8)
+
+
+def test_a_petitioner_in_partial_support_of_the_respondent_is_not_its_own_brief() -> None:
+    # The mirror, so one side is not read more loosely than the other.
+    text = "Brief of petitioner Acme Corp. in partial support of respondents filed."
+    assert not is_petitioner_merits_brief(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Brief of respondents Arizona, et al. in partial support of the petitioners filed.",
+        "Reply of respondents Arizona, et al. in partial support of petitioner filed.",
+        "Reply of petitioner Acme Corp. in partial support of respondents filed.",
+    ],
+)
+def test_partial_support_is_excluded_from_every_merits_arm(text: str) -> None:
+    # The reply arms and the "the petitioners" spelling read the same exclusion.
+    assert not is_petitioner_merits_brief(text)
+    assert not is_respondent_merits_brief(text)
+    assert not is_respondent_merits_brief_document(text)
+    assert not is_petitioner_merits_reply(text)
+    assert not is_respondent_merits_reply(text)
 
 
 def test_entries_at_or_before_the_grant_never_qualify() -> None:

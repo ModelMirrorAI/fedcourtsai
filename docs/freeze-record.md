@@ -7378,3 +7378,89 @@ freeze commit is recorded here.
   process-digest --all` prints the same digests as before the promotion, and
   the promotion changes nothing under `metrics/` on this entry's account,
   since it is prose only.
+
+- **A respondent's brief "in partial support of" the petitioner no longer
+  dates the briefed merits moment, 2026-10-11.** A **conditioning** entry in
+  two classes at once: it moves the date the registered **briefed** merits
+  moment opens at (the *provisioning cutoff*), and it moves which entries the
+  merits arms of the document selector read (*what the pipeline provisions*).
+  The exclusion that keeps a party siding with its opponent out of that side's
+  merits filings (`merits_signals._NOT_THE_RESPONDENT_MERITS_FILING_RE`, and
+  its petitioner mirror) read "in support of" and "supporting"; it now reads
+  "in partial support of" as well. Before the change, a multi-respondent
+  docket whose aligned respondent filed "Brief of respondents … in partial
+  support of petitioner" on the petitioner's schedule had its briefed moment
+  opened, and its respondent brief filled, from a petitioner-side-only record.
+  Observed on 25-1017 (`scotus/73281056`): `merits_brief_filed` reads
+  `2026-08-28`, the day three aligned respondents filed, while the adverse
+  respondents' briefs are due `2026-10-13`.
+
+  What reads the two exclusions, and so moves: `respondent_brief_date` (the
+  briefed moment's date, on the respondent side only, since nothing dates a
+  petitioner-side moment); all four merits arms of the selector, the brief
+  and the reply on each side (`is_respondent_merits_brief_document`,
+  `is_petitioner_merits_brief`, and both `is_*_merits_reply` predicates); the
+  consolidated member's borrow, whose side filter reads the same four
+  predicates; and the `document-backfill` gap floor, which measures a docket
+  against those arms. In each, an entry "in partial support of" the other side
+  is no longer read as that side's own merits filing. What stays: the reply
+  arms' motion and application exclusion, the cert-stage arms, and the
+  staged-text contact scrub.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v9` and
+  the six digests `605201bd…` (claude-baseline), `70fee158…`
+  (codex-baseline), `a9033e56…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `18a76b93…` (codex-judge) and `22558044…` (gemini-judge),
+  identical with and without the change.
+
+  **It lands inside `proc-v9`'s window.** `proc-v9` froze at
+  `2026-10-11T12:00:00Z`, so cells on either side of this change share a
+  digest. The document half has no data-visible boundary (the staged
+  documents are in the gitignored `record/`), and on a placed cell
+  `context.cutoff` is non-null on both sides of the moment half, so only this
+  entry separates them. A stamped cell is post-change if the carrying
+  promotion's merge commit is an ancestor of, or equal to, its
+  `process_version.pipeline_sha` — and, for the document half, only once a
+  post-promotion fetch (a live re-poll or a `document-backfill` apply) has
+  stored the newly selected rows for that docket. On an affected docket,
+  cells on either side of the boundary may not be pooled, at every moment and
+  not only the briefed one.
+
+  **How a stored date moves.** `merits_brief_filed` is a fill-in column that
+  a fresh non-null parse overwrites, and the live poll re-derives it on every
+  poll; the events upsert takes the incoming `opened_at` on an open event. So
+  on an affected docket, a post-change poll that finds no adverse brief yet
+  derives nothing and the stored date stays; the first poll after the adverse
+  brief is filed moves both the column and the open briefed event's
+  `opened_at` to that filing's date. `backfill-response-signals` never
+  revisits a row that already carries a date. A briefed cell that already ran
+  keeps the cutoff it ran at. Whether such cells are re-owed once the event
+  reopens at its corrected date is a separate decision, registered when taken.
+
+  **The population.** Re-derived by comparing `respondent_brief_date` under
+  the old and the widened exclusion on each granted row's latest live
+  snapshot, over a copy of the pulled blob read only:
+  `<MEASURE BEFORE MERGE: blob sha256, newest pull stamp, newest stored snapshot>`;
+  `<MEASURE BEFORE MERGE: rows whose briefed date moves, each old -> new>`;
+  `<MEASURE BEFORE MERGE: of those, rows with a briefed event minted or cells run>`.
+
+  **What a post-change cell reads.** On an affected docket, a briefed moment
+  that opens at the adverse respondent's brief rather than an aligned
+  respondent's, and a `merits-brief-respondent` (or reply) document that is
+  the adverse party's filing or, until it is filed, none. No skill movement is
+  predicted. A movement in **either** direction across this boundary may not
+  be read as a model effect.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge commit>`, merged `<FILL: merge time>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_merits_signals.py -k partial_support` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    six digests above.

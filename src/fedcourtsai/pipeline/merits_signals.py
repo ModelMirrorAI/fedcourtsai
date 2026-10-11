@@ -152,16 +152,19 @@ _NOT_A_MERITS_REPLY_RE = re.compile(
 #   reply form is on the docket too ("Reply of respondent United States in
 #   support of petitioner filed."), and it is excluded on the same reading and
 #   at the same cost: that filing is real advocacy no arm here fetches.
+#   "In partial support of" is the same posture on a multi-respondent docket
+#   (an aligned respondent backing part of the other side's case), and leaves
+#   the adversarial argument just as unfiled, so it is excluded with the rest.
 _NOT_THE_RESPONDENT_MERITS_FILING_RE = re.compile(
     r"\bin\s+opposition\b"
     r"|\bamicus\b|\bamici\b"
-    r"|\b(?:in\s+support\s+of|supporting)\s+(?:the\s+)?petitioners?\b",
+    r"|\b(?:in\s+(?:partial\s+)?support\s+of|supporting)\s+(?:the\s+)?petitioners?\b",
     re.I,
 )
 _NOT_THE_PETITIONER_MERITS_FILING_RE = re.compile(
     r"\bin\s+opposition\b"
     r"|\bamicus\b|\bamici\b"
-    r"|\b(?:in\s+support\s+of|supporting)\s+(?:the\s+)?respondents?\b",
+    r"|\b(?:in\s+(?:partial\s+)?support\s+of|supporting)\s+(?:the\s+)?respondents?\b",
     re.I,
 )
 
