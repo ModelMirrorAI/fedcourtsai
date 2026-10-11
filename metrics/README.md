@@ -266,9 +266,9 @@ stays outside the gate:
   the published figure is computed from those inputs, and `Evaluation`
   constrains no relation between its numbers, so a record that disagrees with
   itself is omitted rather than published on a baseline it was never graded
-  against. That coherence check is the only one, and what it guards in
-  practice is the **cert** cell, because it is the only stage whose numbers are
-  the evaluator's arithmetic at all: on a **merits** or **interim** cell
+  against. That coherence check is what guards every **cert** cell the stamp
+  does not own, because those are the only cells whose numbers are the
+  evaluator's arithmetic at all: on a **merits** or **interim** cell
   whose `event.yaml` names its stage, `stamp-cell` writes all three together —
   `brier_score` recomputed from the scored prediction's probability and the
   committed outcome, `segment_base_rate` pooled from the statpack, and the
@@ -276,10 +276,26 @@ stays outside the gate:
   number left to catch. Reproducing from the record is not the same as being
   right, which is why the numerator is stamped too rather than checked: a skill
   derived from an unverified Brier would satisfy the coherence check and still
-  publish the wrong number. The cert numbers stay the evaluator's
-  because they alone require a judgment — which band population the rate is
-  taken over, recorded in `base_rate_basis` — while both pooled rates are a
-  ratio of published integer counts with nothing to decide.
+  publish the wrong number. The cert numbers are the evaluator's only where a
+  judgment remains. From `proc-v9` on, a cert grading whose scored prediction
+  froze a band takes all three from `stamp-cell` too: the frozen band, its
+  salience version and its docket Term leave no population to choose, so the
+  anchor is the scorer's own risk-set pool (the figure `fedcourts
+  segment-anchors` prints), read from the statpack build the grading names in
+  `base_rate_statpack_digest`, under the window recorded in
+  `base_rate_lookback_terms`. The board drops, whatever its build, a `proc-v9`
+  cert cell recording a `risk_set` basis that names no build or window; it
+  re-pools the anchor only where its own statpack is the same build, and drops
+  a cell whose recorded rate does not reproduce;
+  where the build differs (a refresh since the grading) the stamped rate
+  stands. The committed board is built straight after a statpack refresh, so
+  there the re-pool stands down for nearly every cell: it verifies an
+  off-cycle build, and what holds the committed figure is the stamp itself
+  until a cohort's statpack build is pinned. A re-grade keeps the anchor it
+  was first stamped with. An
+  earlier label's cert grading, and a cert cell on the terminal fallback (no
+  frozen band, so the band is re-derived from the corpus row), keep the
+  evaluator's transcription, held by the coherence check alone.
 
   **One grading per cell per judge.** A re-graded cell commits a second
   `evaluation.json` beside the first, and both describe one observation, so
@@ -494,8 +510,9 @@ stays outside the gate:
   badly negative cell moves much further than the figures above. And the two
   published **figures** run over different cell sets — the qualifying rules
   below are narrower in practice and never the same set, since
-  `base_rate_basis` is the evaluator's own field and inclusion is therefore a
-  convention rather than a construction — so the decomposition is a statement
+  `base_rate_basis` is the evaluator's own field (except on a cert cell the
+  stamp owns, from `proc-v9` on) and inclusion is therefore a convention
+  rather than a construction — so the decomposition is a statement
   about a cell, never a licence to subtract one column from the other.
 
   **Both columns aggregate as a ratio of sums, not a mean of per-cell
@@ -811,10 +828,10 @@ stays outside the gate:
   carry the coefficient.
 
   The panel's reads are **not blind to the scores they are compared against**.
-  The prompt asks a judge to form its read before looking at the predictor's
-  `big_case_score`, but the score is a field of the `prediction.json` the judge
-  must read to grade, and the blinded view does not mask it
-  (`fedcourtsai.blinding.mask_prediction`), so nothing enforces the request. A
+  The score is a field of the `prediction.json` the judge must read to grade,
+  and the blinded view does not mask it (`fedcourtsai.blinding.mask_prediction`).
+  The prompt tells a judge the scores are in front of it and asks it to form its
+  read from the case itself without anchoring on them; nothing enforces that. A
   judge records one stakes read per candidate, beside that candidate's own score
   and rationale, and a predictor's panel is built only from the reads recorded
   beside its predictions. Anchoring therefore pulls each predictor's panel toward
@@ -822,7 +839,12 @@ stays outside the gate:
   same amount — most for whichever predictor's score and rationale judges defer
   to — so the comparison *between* predictors is affected as well as the level.
   Read a `big_case` tau as an **upper bound** on how far a predictor's stakes read
-  tracks an independent panel, never as evidence that it does.
+  tracks an independent panel, never as evidence that it does. The bound
+  assumes residual anchoring pulls a read *toward* the score. The prompt tells a
+  judge that a read echoing a predictor's score carries no information, and a
+  judge that over-corrects away from the score pushes agreement down instead;
+  nothing in the record separates the two, so the bound is a reading rule, not
+  a measured property.
 
   How strongly judges anchor depends on the evaluate prompt, so a tau is
   comparable only within one evaluator digest. The board does not split on it:

@@ -555,7 +555,7 @@ def run_analytics(*, corpus_db_path: Path, query: AnalyticsQuery) -> AnalyticsRe
     _require_servable_dimension(query)
     if not corpus_db_path.exists():
         return AnalyticsReport(skipped=True, group_by=query.group_by)
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_local_read(corpus_db_path) as conn:
         return compute_report(conn, query)
 
 
@@ -1755,7 +1755,7 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
     term_accs: dict[int, _TermAcc] = {}
     interim_accs: dict[int, _InterimAcc] = {}
     merits_accs: dict[int, _MeritsAcc] = {}
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_local_read(corpus_db_path) as conn:
         cursor_rows = corpus.live_cursor_rows(conn)
         for row in corpus.iter_rows(conn):
             overall.add(row)

@@ -72,8 +72,14 @@ def _clear_ambient_corpus_addressing(monkeypatch: pytest.MonkeyPatch) -> None:
     would put the *writers* in split mode for the whole session, leaving the
     fixture blobs these tests build payload-free. A test that wants the mode
     says so itself.
+
+    The Actions runner marker goes too: an ambient content store mirrors only
+    inside an Actions job (``casestore.in_actions_job``), so without this a
+    test's mirroring would differ between CI and a dev shell. A test that
+    exercises the writer-job path sets it itself.
     """
     for name in (
+        "GITHUB_ACTIONS",
         "FEDCOURTS_CORPUS_POINTER",
         "CORPUS_POINTER",
         "FEDCOURTS_CORPUS_BASE_URL",
@@ -140,6 +146,9 @@ class DictSnapshotSource:
     def has_documents(self, case_id: str) -> bool:
         return False
 
+    def document_urls(self, case_id: str) -> dict[str, str]:
+        return {}
+
     def opinion_text(self, case_id: str) -> str | None:
         return None
 
@@ -183,8 +192,9 @@ def frozen_stamp() -> ProcessVersion:
     """
     since = process_version.FROZEN_SINCE or datetime(2026, 1, 1, tzinfo=UTC)
     # A counting window's digest, so the stamp counts: only a predictor digest
-    # has a window, and the bless map holds the evaluator half too.
-    windows = process_version.COUNTING_WINDOWS
+    # has a window, and the bless map holds the evaluator half too. The window
+    # must contain the instant — a window the current label closed ends there.
+    windows = [w for w in process_version.COUNTING_WINDOWS if w.contains(since)]
     digest = windows[0].digest if windows else sorted(process_version.FROZEN_PROCESS_DIGESTS)[0]
     return ProcessVersion(
         label=process_version.CURRENT_PROCESS_LABEL, digest=digest, stamped_at=since

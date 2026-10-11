@@ -191,25 +191,33 @@ dispatch plus one daily canary, read-only role — collect binds no environment
 and no role at all, and the labeler smoke binds an environment but assumes no
 role — side-effect
 free) runs one
-scenario per dispatch, or — `scenario=all` — the
-promotion gate's whole required suite as one run (every required scenario, with
-engine-smoke and engine-actions-smoke once per engine each, so three cells'
-token spend plus three boot probes; collect rides the
-run as its own environment-free job beside the matrix). `scenario=all-offline`
-is that suite minus the six token-spending engine legs; the jobs that remain are
+scenario per dispatch, or one of four whole-suite selections. `scenario=gate`
+is the promotion gate's whole required suite as one run (every required
+scenario, with engine-smoke and engine-actions-smoke once per engine each, so
+three cells' token spend plus three boot probes; collect rides the run as its
+own environment-free job beside the matrix). `scenario=offline-gate` is that
+suite minus the six token-spending engine legs; the jobs that remain are
 identical, environment binding included, and the run is token-free end to end.
-Of the two whole-suite modes, **`all-offline` is the dispatch default** — an
-unqualified `gh workflow run integration-test.yml --ref staging` runs it — so
-spending model tokens takes a typed `-f scenario=all`, which a promotion pays
-once per batch at the head it will promote (*Promotion: staging → main* in
+`scenario=all` is every scenario the workflow offers — `gate` plus the
+dispatch-only repro leg and labeler smoke — and
+`scenario=all-offline` every token-free one. Only the two gate selections are
+promotion evidence; `all` and `all-offline` answer whether everything the
+workflow offers still runs, and their titles satisfy nothing (the table in
+*`integration-test` — the infrastructure preflight* in [pipeline.md](pipeline.md) maps all four).
+**`offline-gate` is the dispatch default** — an unqualified `gh workflow run
+integration-test.yml --ref staging` runs it — so spending model tokens takes a
+typed `-f scenario=gate` (or `all`), which a promotion pays once per batch at
+the head it will promote (*Promotion: staging → main* in
 [pipeline.md](pipeline.md)). That default is a spend decision as much as a safety
-one: a paid `scenario=all` spends three real cells plus the boot probes, on the
-order of $8 a run, and at the measured cadence of about 1.4 paid suites a
+one: a paid `scenario=gate` spends three real cells plus the boot probes, on the
+order of $8 a run (an `all` run adds an evaluate cell and the labeler's cents),
+and at the measured cadence of about 1.4 paid suites a
 promotion batch that is roughly $250 a month — re-measured from `gh run list
 --workflow integration-test.yml` filtered to titles beginning
-`integration-test: all @`, against `git tag -l 'promotion/*'` over the same
+`integration-test: gate @` or `integration-test: all @` (both paid suites),
+against `git tag -l 'promotion/*'` over the same
 window. The default changes what an unqualified dispatch
-runs and nothing about what the gate accepts: an `all-offline` title is minted
+runs and nothing about what the gate accepts: an `offline-gate` title is minted
 only by a run that really ran that suite, and it counts as whole-suite
 evidence only under the engine-smoke skip.
 
@@ -309,7 +317,7 @@ the converged and under-coverage refusals — all over corpora and frames built 
 `tmp_path`), and the model call is exactly what `run-analytics` pays for.
 `engine-smoke` is the first of the four token-spending scenario classes: a single
 real-engine
-predictor cell (the `engine` input picks which — an `all` dispatch ignores it
+predictor cell (the `engine` input picks which — a `gate` or `all` dispatch ignores it
 and runs one smoke per engine; one predict cell's spend
 against the run's open-event case — a resolved event also replays
 evaluator cells) driven through `local-cascade` with the agent's retrieval on the
@@ -470,7 +478,7 @@ off a PATH pinned to root-owned directories, rather than the paid lane's
 fresh-checkout scanner: building that scanner is precisely how the paid lane
 avoids running the agent's own workspace Python with the engine key in its
 environment, so replicating it here would invert the control it exists to be.
-Neither whole-suite selection fans it out.
+Of the whole-suite selections only `all` fans it out.
 
 **The repro family** is the fourth token-spending class, and it exists
 because the two engine families above share a blind spot: the resolver
@@ -525,10 +533,11 @@ the finding is that they can disagree: `outputs:` counts the cell's produced
 files against the same `cell-outputs` list the watchdog's sentinel waits on, and
 `step:` says whether it concluded on its own, was reaped by the watchdog, or did
 not conclude — so a future regression is legible as which half broke. And the
-family is **dispatch-only and observational** while its defect is open: no whole-suite
-selection fans it out, and it is absent from `REQUIRED_SCENARIOS`, because a
-defect reproducing on cue inside `all` would redden the run the promotion gate
-matches on and block the promotion carrying the fix. A member whose defect is
+family is **observational and out of the gate** while its defect is open: neither
+gate selection fans it out, and it is absent from `REQUIRED_SCENARIOS`, because a
+defect reproducing on cue inside `gate` would redden the run the promotion gate
+matches on and block the promotion carrying the fix. `all` does run it: an
+`all` title is never evidence, so a repro that reddens it blocks nothing. A member whose defect is
 closed becomes the regression test that keeps it closed, and joining the
 required set is the deliberate maintainer edit described two paragraphs below.
 
@@ -603,16 +612,16 @@ merge to `staging` rather than on the PR branch; nothing broken reaches `main`
 regardless: the gate needs the twelve required integration runs — all eight
 required scenarios, with engine-smoke and engine-actions-smoke counted once per
 engine each, or one green
-`scenario=all` run, which covers all twelve because it succeeds only when each
+`scenario=gate` run, which covers all twelve because it succeeds only when each
 of its eleven matrix legs and its collect job does — green at exactly that
 staging head, and `promotion-gate` is a required check on `main`, so it is
 branch-protection-enforced rather than advisory. A `promote` dispatch carrying
 `skip_engine_smoke` narrows what *that pre-flight* asks for to the six
-token-free scenarios, taking a green `scenario=all-offline` run as their
+token-free scenarios, taking a green `scenario=offline-gate` run as their
 whole-suite evidence — never by default. Both engine families leave together,
 and must: the whole-suite acceptance the skip unlocks is decided before the
 required set is read, so keeping one family required while accepting an
-`all-offline` run — which ran neither — would satisfy that requirement without
+`offline-gate` run — which ran neither — would satisfy that requirement without
 exercising it. Unsound, not stricter. It decides
 nothing about the merge:
 waiving them at the required check is a second, separate act, the
@@ -722,7 +731,8 @@ job waits on the `review` hold), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants
-(`test_workflow_cell_invariants`: the qp-topics oracle fence, the back-test's
+(`test_workflow_cell_invariants`: the qp-topics oracle fence, the predict and
+evaluate cells' committed-record hide and its `skip-worktree` mark, the back-test's
 ledger and big-case-board fences, the corpus base
 URL, the forward leakage guard, the arm/disarm bracket, sentinel and deadline of the
 engine hang watchdog — whose bracket must wrap *every* engine step with no other

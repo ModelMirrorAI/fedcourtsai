@@ -1224,7 +1224,7 @@ value, and raising it **deepens the
 salience-ranked slice rather than changing the ranking**. The **OT2026 default** is
 sized to the **bootstrapping** budget — the flagship three-engine release, with the
 active scorer's arrival cohort included, fits inside that scenario's $24K/yr
-model-spend envelope at the $15–17 per fully predicted event
+model-spend envelope at about $10 per fully predicted event
 ([budget.md](budget.md)) — **12 per regular conference and 24
 for the long conference** (double, because that one cohort clears the summer
 backlog at once). The caps are sized to **bind**, and the gate replay at this
@@ -1281,10 +1281,10 @@ evaluator forms its **own** read of how big the case is, and the grade is the
 *agreement* between the predictor's pre-registered score and the evaluator's
 read:
 
-- The prompt asks the evaluator to form its read before looking at the
-  predictor's number, but the evaluator grades the prediction as written and the
-  blinded view does not mask the score (`fedcourtsai.blinding.mask_prediction`),
-  so the number is in front of it and nothing enforces the request. Any
+- The evaluator grades the prediction as written and the blinded view does not
+  mask the score (`fedcourtsai.blinding.mask_prediction`), so the number is in
+  front of it. The prompt says so, and asks it to form its read from the case
+  itself and not to anchor on the predictors' numbers; nothing enforces that. Any
   anchoring makes the agreement partly circular, so a stakes agreement is read
   as an upper bound (the `big_case` reading rule in
   [metrics/README.md](../metrics/README.md)).
@@ -1436,17 +1436,21 @@ version-starved, so `brier_skill_score` is omitted rather than computed
 against a number no version ever defined; and in the mirror case — a pack
 already re-rendered under a newer version while an old frozen-band cell is
 scored — the risk-set path yields `None` and **that is the whole answer**. The
-cell records no `segment_base_rate` and no skill, and flags the mismatch. It
+cell records no `segment_base_rate` and no skill (and, under `proc-v8` and
+earlier labels, flags the mismatch). It
 does **not** fall back to the terminal band: `terminal` is the basis for a
 prediction that froze no band at all, and relabelling a frozen band's cell as
 terminal would pair a risk-set population with a terminal rate — the several-fold
 mispairing the two bases exist to keep apart — while stamping the *live*
-scorer's version onto a cell banded under an older one. The evaluator
-prompt carries the agent-side half of the same rule, in the same terms: the
-rendered band table's heading names its salience version, and where that does
-not match the prediction's frozen `context.salience_version` — or the
-prediction froze a band with no version beside it — the agent omits the baseline
-and flags it rather than pooling from a table another version rendered. The
+scorer's version onto a cell banded under an older one. Under `proc-v8`
+and earlier labels the evaluator prompt carried the agent-side half of the same
+rule, in the same terms: the rendered band table's heading names its salience
+version, and where that did not match the prediction's frozen
+`context.salience_version` — or the prediction froze a band with no version
+beside it — the agent omitted the baseline and flagged it rather than pooling
+from a table another version rendered. From `proc-v9` the stamp's
+version-pinned pool replaces that rule on a frozen band: the judge records no
+cert anchor there, no flag is raised, and the cleared fields are the record. The
 harness holds the same line from the other side, and it is worth being
 exact about which parts: a recorded `risk_set` basis whose version resolves to
 **nothing** fails the cell at the stamp, so a versionless frozen band cannot
@@ -1457,7 +1461,10 @@ rather than merely forbidden, whether or not the band's version resolves.
 merged ledger, so neither shape rides a green cell into `main`. A version that
 resolves but does not *match* the pack's rendered one passes both — there the
 omission is prompt discipline rather than an enforced rule, and the
-discipline is what this paragraph registers. The
+discipline is what this paragraph registers. From `proc-v9` on it is enforced
+for a cert grading whose prediction froze a band: the stamp pools that band
+through the version-pinned risk-set pooler itself, and a version no prior Term
+carries pools nothing, so rate, basis, version and skill are cleared together. The
 operational consequence is deliberate: after a salience version ships, forward
 cells scored under it have no skill baseline until the statpack re-renders
 under the same version, and that gap is visible instead of silently papered

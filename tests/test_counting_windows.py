@@ -108,6 +108,38 @@ def test_proc_v8_predictor_digests_never_leave_the_registry_without_a_close() ->
             )
 
 
+def test_proc_v9_closes_claude_and_carries_codex_and_gemini_forward() -> None:
+    """proc-v9's registry shape, as the freeze record's proc-v9 entry registers it.
+
+    proc-v9 re-blesses claude-baseline alone on the predictor half. So the live
+    codex-baseline and gemini-baseline digests must still be proc-v8's bytes —
+    a predictor-prompt or engine-default edit that moved them would silently
+    break the one unbroken window this label promises them — and their proc-v8
+    windows stay open. claude-baseline's proc-v8 window closes at the proc-v9
+    instant and its new digest's window opens there, labelled proc-v9.
+    """
+    claude_v8, codex_v8, gemini_v8 = PROC_V8_PREDICTOR_DIGESTS
+    since = process_version.FROZEN_SINCE
+    assert since is not None
+    live = {
+        entry.id: process_version.digest_for_actor(REPO, CONFIG, "predictor", entry.id)
+        for entry in enabled_predictors(CONFIG / "predictors.yaml")
+    }
+    assert live["codex-baseline"] == codex_v8
+    assert live["gemini-baseline"] == gemini_v8
+    assert live["claude-baseline"] != claude_v8
+    by_digest = {w.digest: w for w in process_version.COUNTING_WINDOWS}
+    for carried in (codex_v8, gemini_v8):
+        window = by_digest[carried]
+        assert (window.label, window.opens, window.closes) == ("proc-v8", PROC_V8_INSTANT, None)
+        # Carried forward byte-identical: proc-v8's audited bless moment, verbatim.
+        assert process_version.FROZEN_PROCESS_DIGESTS[carried] == PROC_V8_INSTANT
+    assert by_digest[claude_v8].closes == since
+    successor = by_digest[live["claude-baseline"]]
+    assert (successor.label, successor.opens, successor.closes) == ("proc-v9", since, None)
+    assert len(process_version.COUNTING_WINDOWS) == 4
+
+
 def test_the_counting_registry_is_well_formed() -> None:
     """Windows are aware, ordered, non-overlapping per digest, and predictor-only.
 

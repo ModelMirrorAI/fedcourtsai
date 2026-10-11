@@ -94,14 +94,21 @@ The **scoring baseline** is a third member of this list, and one of two with
 no data-visible boundary at all. Skill numbers are computed against the
 salience-band base rates, and the lookback window that builds them
 (`base_rate_lookback_terms` in `config/tracking.yaml`) sits in no actor's
-canonical config and is recorded in no artifact field — moving it re-bases
+canonical config and is recorded in no artifact field except beside a
+harness-stamped cert anchor (`base_rate_lookback_terms` on the evaluation) —
+moving it re-bases
 every forward skill number and every backtest per-band skill at once, under
 unchanged digests. **Who** computes a scored number sits outside the digest for
 the same reason — and the rule covers the numerator as well as the baseline it
 is scored against: on the merits and interim stages the rate, the Brier, and
 the skill over them are all stamped from harness code rather than computed by
 the evaluator, and on **every** stage so is `correct` — the accuracy column's
-per-cell bit, which needs no pooled baseline and so takes no cert exemption. A
+per-cell bit, which needs no pooled baseline and so takes no cert exemption.
+The cert stage's own record changes author at a label rather than a digest:
+`HARNESS_CERT_ANCHOR_FROM` in `process_version.py` names `proc-v9`, so the
+commit that sets `CURRENT_PROCESS_LABEL` to that label also switches a
+frozen-band cert grading's rate, Brier and skill from the evaluator's
+transcription to the stamp, and its freeze-record entry says so. A
 change there moves how a number was produced without moving
 any actor's digest, and belongs in the freeze record beside the window. This is
 the standard's own trigger case rather than an aside: the same prompt, the same
@@ -170,7 +177,11 @@ nothing in the artifact to say so: the documents live in the cell's gitignored
 that read its petition from one that did not. It is therefore the same shape as
 the scoring baseline and takes the same remedy, which is the only one available:
 a freeze-record entry, since the record is the only place the boundary can
-exist.
+exist. What the predict cell takes *off* disk is the same member from the other
+side: it hides the committed `predictions/` and `evaluations/` trees and deletes
+the labeling oracle for the agent's run, exactly as the evaluate cell does, so
+which directories those steps name moves a predictor's information set under an
+unchanged digest and is registered the same way.
 
 A **membership rule** — which cells a published figure is computed over — is the
 list's last member and the one that moves no value at all. The scoring funnel's

@@ -522,22 +522,31 @@ is the only branch that environment accepts (those runs are the promotion
 gate's freshness evidence; see *Promotion: staging → main* below). The deployment environment resolves from
 the dispatching branch by default — `main` gets `prod`, `staging` gets
 `staging`, any other branch an empty environment holding no role variables
-and no keys — and a `scenario=all` dispatch
-fans the gate's whole required suite (every required scenario — collect rides
-the run as its own environment-free job — with engine-smoke and
-engine-actions-smoke once per engine each, so
-three cells' token spend plus three boot probes) out of one run. The
-repro-family scenarios are deliberately not among them: an open defect
-reproducing inside `all` would redden the run, and a red run is no freshness
-evidence at all — it would block the promotion carrying the fix.
-`scenario=all-offline` is that same
-suite with all six token-spending engine legs dropped: token-free end to end,
-and whole-suite evidence only for a pre-flight that skipped them (*The
-engine-smoke skip* under *Promotion: staging → main* below). It is the
-dispatch **default**, so an unqualified dispatch runs the whole suite and
-spends nothing; `all` is reached only by typing it, which is what a
-promotion-bound suite does once per batch (step 3 of the operator's path
-below).
+and no keys. Four whole-suite selections answer two questions:
+
+| `scenario=` | runs | promotion-gate evidence |
+| --- | --- | --- |
+| `gate` | the gate's whole required suite — every required scenario, collect riding the run as its own environment-free job, engine-smoke and engine-actions-smoke once per engine each, so three cells' token spend plus three boot probes | yes: a green `integration-test: gate @ staging` at the promoted sha satisfies every required scenario |
+| `offline-gate` | `gate` with all six token-spending engine legs dropped: token-free end to end | only under the engine-smoke skip (*The engine-smoke skip* under *Promotion: staging → main* below) |
+| `all` | every scenario the workflow offers: `gate`'s legs plus the dispatch-only `codex-application-repro` and `qp-labeler-smoke` — `gate`'s spend plus an evaluate cell and the labeler's cents, and the repro leg runs a whole evaluate cell under the cells' engine deadline | never |
+| `all-offline` | every token-free scenario (today the same set as `offline-gate`) | never |
+
+The gate reads only its two titles. `all` contains `gate` and `all-offline`
+contains `offline-gate`, but their membership is "everything the workflow
+offers", which a workflow edit may move — a repro red by design while its
+defect is open, a diagnostic added or retired — without that edit
+being a change to the gate; so a green `all` is not promotion evidence, and a
+red one, from a dispatch-only leg, blocks nothing. The repro-family scenarios
+stay out of `gate` for the same reason in reverse: an open defect reproducing
+inside the gate suite would redden the run the gate matches on and block the
+promotion carrying the fix. `offline-gate` is the dispatch **default**, so an
+unqualified dispatch runs every required scenario but the six engine legs and
+spends nothing; `gate`
+is reached only by typing it, which is what a promotion-bound suite does once
+per batch (step 3 of the operator's path below), and `all` is what a
+maintainer types to find out whether everything the workflow offers still
+runs — before a batch that bumps an action the labeler or the repro leg
+uses, say.
 
 The **daily canary** is the schedule: the three `engine-actions-smoke` legs
 alone, at 11:53 UTC, catching a provider-side or action-side flip between
@@ -800,9 +809,11 @@ leave behind.
 A case reaches prediction with the filing that opens it — the petition on a
 cert-form docket, the application on an interim one — because provisioning runs
 at the transition that queues it; a case whose provisioning ran before the
-selector had an arm for its filing type kept nothing, and no lane repairs that,
-since the poller re-fetches a kind only when its link changes and a kind never
-stored has no link to change. It re-keys each candidate off its stored docket
+selector had an arm for its filing type kept nothing. The live channel's
+document-freshness pass repairs that for every predict-relevant case its
+rotations still poll; this pass reaches the ones they no longer do — decided or
+settled cases the rotation has left — and the ones the freshness cap has not yet
+reached, and it floor-probes what neither can fetch. It re-keys each candidate off its stored docket
 number and fetches that docket's JSON **fresh** rather than reading the stored
 snapshot, because the question is whether the link is served now, then runs the
 same selection and fetch the live poller runs — so a recovered case is
@@ -1511,7 +1522,7 @@ The mechanics:
   flight — no unfinished run of any of the three, a round parked on the review
   hold included) and *freshness* (every
   required integration scenario green at exactly the staging head being
-  promoted — one green `scenario=all` run, which succeeds only when every
+  promoted — one green `scenario=gate` run, which succeeds only when every
   matrix leg and its collect job does, satisfies all twelve required runs at
   once, engine-smoke and engine-actions-smoke counted once per engine each).
   The `promote` dispatch runs
@@ -1526,7 +1537,7 @@ The mechanics:
   being the class an action version bump breaks, silently, on the very
   promotion that carries the bump. Both families leave together, and must: the
   whole-suite acceptance the skip unlocks is decided before the required set is
-  read, so keeping one family required while accepting an `all-offline` run —
+  read, so keeping one family required while accepting an `offline-gate` run —
   which ran neither — would satisfy that requirement without exercising it.
   Unsound, not stricter. Whether that evidence
   is worth its tokens for a given batch is the maintainer's risk call; the
@@ -1534,13 +1545,13 @@ The mechanics:
   costs by default changes nothing about what the gate asks for — and a batch
   that cannot affect a cell — docs, analytics, non-cell code — is the clear
   case for waiving. The other case is scoped to a *delta* rather than a batch:
-  a head that moved after a green `all` run, where what the move added cannot
-  reach a cell (*When the head moves after a green `all`* in the operator's
+  a head that moved after a green `gate` run, where what the move added cannot
+  reach a cell (*When the head moves after a green `gate`* in the operator's
   path below).
   It takes **two separate acts**, because a pre-flight and a merge are
   different decisions:
   - `promote`'s **`skip_engine_smoke` input** drops all six from that
-    dispatch's freshness check and accepts a token-free `scenario=all-offline`
+    dispatch's freshness check and accepts a token-free `scenario=offline-gate`
     run as whole-suite evidence. It buys a cheap answer to *is anything else
     missing* before paying for them, and decides nothing about the merge.
   - the **`promote:skip-engine-smoke` label** on the promotion PR drops them
@@ -1577,15 +1588,17 @@ The full path of a change, operator's view:
    conflicts, run the printed commands (your admin-bypass push) — then
    re-dispatch.
 3. Dispatch the required integration scenarios at staging's post-sync head —
-   one `scenario=all` dispatch covers the whole suite, or per-scenario runs
-   add up to it (the summary prints both forms) — then re-dispatch `promote`.
-   **Pay for `all` once per batch, at the head the batch will actually
+   one `gh workflow run integration-test.yml --ref staging -f scenario=gate`
+   covers the whole suite, or per-scenario runs add up to it (the summary
+   prints both forms) — then re-dispatch `promote`. An `all` run is not
+   evidence, however green: dispatch `gate` even when `all` already ran at the
+   head. **Pay for `gate` once per batch, at the head the batch will actually
    promote**: after the sync has landed and after every staging merge the
    batch carries. Freshness is per-SHA, so a head that moves afterwards
    discards the evidence and not the spend — three engine-smoke cells plus
    three boot probes, re-paid at the new head. Everyday dispatches want the
    default instead: `gh workflow run integration-test.yml --ref staging` with
-   no `scenario` runs the token-free `all-offline` suite, which exercises
+   no `scenario` runs the token-free `offline-gate` suite, which exercises
    every required scenario but the six engine legs.
    Leave `docket` empty: the run-time case resolver self-resolves on the seeded
    staging slice as it does on production, falling back to a content-store probe
@@ -1594,13 +1607,13 @@ The full path of a change, operator's view:
    docket=<slice member>`) only to aim a dispatch at one; the staging-corpus
    runbook in [security.md](security.md) says which cases the slice holds.
    On a cell-inert batch, `promote -f skip_engine_smoke=true` first: it prints
-   the `all-offline` form and tells you whether anything *else* is missing
+   the `offline-gate` form and tells you whether anything *else* is missing
    before you pay for the engine legs, which step 4 still needs.
 
-   **When the head moves after a green `all`.** The gate's rule is
-   mechanical and does not read the delta: the green `all` run sits at the
+   **When the head moves after a green `gate`.** The gate's rule is
+   mechanical and does not read the delta: the green `gate` run sits at the
    old sha, so at the new one nothing satisfies the twelve, and the choice is
-   to re-dispatch `all` or to dispatch `all-offline` at the new head and take
+   to re-dispatch `gate` or to dispatch `offline-gate` at the new head and take
    the skip's **two acts** — `promote -f skip_engine_smoke=true` for the
    pre-flight, the `promote:skip-engine-smoke` label on the promotion PR for
    the required check — which is the gate's only path to accepting a
@@ -1610,7 +1623,7 @@ The full path of a change, operator's view:
    data commit the sync brought over, docs, analytics — the engine evidence
    from the earlier sha is the maintainer's inference, which the gate does
    not check and the label is the record of. Where the delta touches cells,
-   engine CLIs, engine actions or the invocation path, re-dispatch `all`:
+   engine CLIs, engine actions or the invocation path, re-dispatch `gate`:
    that is precisely the evidence the skip trades away, and an action version
    bump is the class it breaks silently (*The engine-smoke skip* above).
 4. Green promote hands you the `gh pr create` for the staging→main PR; its
@@ -1689,7 +1702,7 @@ scripts/promotion-gate.sh contexts <candidate>   # the context you want to requi
 
 It reads `main: require PR`'s live required contexts and `main`'s own workflow
 files, fails if anything already required has no producing job, and reports each
-candidate as ready or not-yet. It is **not** part of `all`: reading a ruleset
+candidate as ready or not-yet. It is **not** part of `promotion-gate.sh all`: reading a ruleset
 needs repository-administration read, which `GITHUB_TOKEN` cannot hold at all,
 so automating it would mean handing a CI job the repo's most powerful scope to
 report an advisory fact. Run it with your own token.
@@ -2249,9 +2262,16 @@ A second pair of steps keeps the aliases worth having. The committed `prediction
 judge before it has read the contract that forbids that tree; `fedcourts
 hide-cell-record` moves both out of the working tree after the staging step and
 `fedcourts restore-cell-record` moves them back the moment the agent stops,
-ahead of every step that reads them. It narrows the accidental
-route only — the checkout carries full history — and nothing a cell hides or
-fails to restore can reach the run PR as a deletion: the collect job unions each
+ahead of every step that reads them. A predict cell runs the same pair around
+its agent, after provisioning, for a different reason: the trees hold every
+other predictor's forecasts, the same case's earlier moments included, and a
+predictor that reads one is no longer the independent forecaster a cross-engine
+comparison assumes. Both cells first mark every tracked path under the two
+trees and `data/qp-topics/` `skip-worktree`, so the removal leaves `git status`
+clean and a tidying `git restore .`, `git checkout -- .` or `git reset --hard`
+cannot write them back. It narrows the accidental route only — the checkout
+carries full history, so the bytes stay one `git show` away — and nothing a cell
+hides or fails to restore can reach the run PR as a deletion: the collect job unions each
 cell's `data/` *add-only* onto a freshly fetched clean `origin/main` checkout —
 a file the checkout already carries is never overwritten, and a differing copy
 is refused with the checkout's kept — and `assert-paths` rejects any
@@ -2691,6 +2711,45 @@ observed) and the capture tail behind it (at most 1.3), with room. A wider
 claim — that a cell of some shape legitimately runs past fifty — would move
 this one number, in the three places a workflow-shape test holds equal (both
 cell jobs and the integration suite's application-repro leg).
+
+**Gemini's in-step retry** spends part of that deadline on purpose. gemini-cli
+ends a turn whose model stream went bad — after its own mid-stream retries —
+with a zero exit and an `INVALID_STREAM` error inside its JSON result, seconds
+into a cell while sibling cells on the same model complete. Left alone, such a
+cell lands no output and waits for a later scheduled run, by which time a
+fast-moving event may have resolved and the cell turned retrospective. So both
+cell workflows' gemini step runs `scripts/gemini-cell.sh`, which takes up to
+three turns, each a fresh CLI process, under four rules the script states and
+`tests/test_gemini_cell.py` drives against a stub engine. Each attempt is
+classified by `fedcourts engine-attempt-class` — the local runner's own
+classifier over its own signature sets — and only a `transient` verdict
+retries: a content-filter or context-length fault, a spent quota, or anything
+unrecognized ends the step on that attempt. A retry starts only while 20
+minutes of the deadline would remain after its backoff (the backoff is 15
+seconds per attempt so far, plus up to 15 of jitter): past the watchdog's
+three-minute margin by more than the longest cell observed, so a retry is a
+whole fresh chance and not a cell the deadline then kills. It runs inside the
+same step, under the same `timeout-minutes` and the same watchdog bracket, so
+no retry can carry the step past the deadline. Before the first attempt the
+cell's output root is snapshotted (`cell-output-snapshot`), and before each
+retry everything an attempt added under it is removed (`cell-output-reset`),
+so a half-written file from a failed turn is never read as the cell's output;
+an attempt that already wrote the cell's judgment artifact is never retried, and
+neither is one that wrote the cell's `flags.json` — a disclosure (in a replay
+cell, of outcome-revealing material) that a fresh session would know nothing
+of, so the reset declines rather than discard it. Files an attempt leaves
+outside the output root are not reset; the cell contract writes nothing there.
+The telemetry log stays in place across attempts — gemini-cli opens it for
+append — so `usage.json` and `retrieval_log.json` count every attempt's tokens
+and tool calls, failed turns included. The step's exit status is its last
+attempt's, and each non-`ok` attempt leaves a `::warning::` naming the cell, the
+verdict and, where the result names one, the engine's fault type. A cell that
+still lands nothing is named by its record step in a `::warning::` too, beside
+the failure fact the collect job records against its attempt cap (`no_output`,
+or `quota` when the whole engine produced nothing); the job stays green, as
+collect needs it to. The
+claude and codex steps have no equivalent: they are pinned actions, which a
+step cannot loop, and each of those CLIs retries transient API faults itself.
 
 Agent steps need more than that bound, because a step can stay `in_progress`
 straight through its own timeout until the *job* cap cancels the runner — and a

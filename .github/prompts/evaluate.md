@@ -51,7 +51,7 @@ substitute the literals from your kickoff prompt.
 | `EVENT_ID`     | The resolved event, e.g. `evt-motion-stay`          |
 | `EVALUATOR_ID` | Your evaluator id; names your output directory      |
 | `RUN_ID`       | Shared run id for this fan-out (a UTC timestamp)    |
-| `MODEL_ID`     | The model you are running as, e.g. `claude-fable-5-1` |
+| `MODEL_ID`     | The model you are running as, e.g. `claude-opus-5-5` |
 
 ## Inputs (read-only)
 
@@ -222,58 +222,40 @@ fails the cell.
     (`pipeline.moments.scores_votes`), and `validate` fails a committed
     `vote_accuracy` off a merits event, so a number written here does not
     quietly become a score — it fails the cell.
-  - `segment_base_rate` — **cert-stage cells only** (on an interim and a merits
-    cell the harness stamps this field and you write nothing; see the stage
-    rules below):
-    the case's **salience-band** grant rate over prior Terms
-    only, read from committed `metrics/statpack.md`. Take the band from the
-    prediction's own `context.band` — the band frozen when that cell ran — and
-    **do not re-derive it from the docket**: a band only ever strengthens, so a
-    band worked out now is the one the petition *ended* at, and scoring against it
-    would hold the predictor to a baseline computed with knowledge of its own
-    future. In the per-Term "Segment base rate by salience band" table use the
-    **bracketed `reached`** figure and its `n` (the rate among petitions that had
-    reached the band), pooled resolved-weighted over Terms **strictly before** this
-    case's Term — the same leakage-safe cut a replay self-selects.
-    **The basis choice keys on `context.salience_version`, not on
-    `context.band`.** The two fields are independently optional and a band name
-    means something only under the version that assigned it, so take the
-    `risk_set` basis only where the prediction's frozen context carries **both**
-    a `band` and a `salience_version` — and the rendered table's heading names
-    that same version. Where the prediction carries **no frozen band at all**
-    (an older cell, or one whose snapshot disclosed no proceedings), fall back
-    to the band you can derive and the *leading* figure, and say so in
-    `evaluation.md`. Record which you used in
-    `base_rate_basis` (`risk_set` for a frozen band, `terminal` for that
-    fallback);
-    the two are several-fold apart in the weak bands and a skill score only means
-    anything within one basis. A recorded `risk_set` basis whose salience
-    version does not resolve **fails the cell** at the harness stamp, so a band
-    without a version is never a `risk_set` cell — it is the omit case below.
-    **Your own cell's `record/context.json` is not the
-    band to use** — it is provisioned from the decided docket, so its band is
-    terminal. The band you want is on the prediction you are scoring. Pool every Term
-    row that table shows that precedes the case's; its caption states how many of
-    the pack's Terms are rendered, and where that is fewer than the pack holds, the
-    shown window *is* your window. The table's heading also names the **salience
-    version** its bands were computed under, and that is the second half of the
-    version rule: where the heading does not match the prediction's
-    `context.salience_version`, or the prediction froze a band with **no**
-    `salience_version` beside it, the table is no baseline for that band — a
-    band name only means something under the version that assigned it — so
-    **omit `segment_base_rate` (and with it `brier_skill_score`), leave
-    `base_rate_basis` null, and record the mismatch in `flags.json`** with the
-    detail in `evaluation.md`. That omission is the **only** answer to a version
-    mismatch. Do not relabel the number as `terminal` and carry on: that basis
-    is for a prediction with no frozen band at all, and applying it to a frozen
-    band would pair a risk-set population with a terminal rate — the exact
-    mispairing the two bases exist to keep apart. The relabel is also
-    machine-refused: a `terminal` basis recorded against a prediction that
-    froze a band **fails the cell at the harness stamp**, the same refusal an
-    unresolvable `risk_set` meets, so the omission — rate, basis, and skill
-    nulled together — is the correction that survives the record here. Omit
-    likewise when the case has no Term or no prior-Term
-    band resolved.
+  - `segment_base_rate` — **yours only on a cert cell whose scored prediction
+    froze no band.** Everywhere else the harness stamps it and you write
+    nothing (see the stage rules below): on an interim and a merits cell, and on
+    a **cert** cell whose scored prediction carries a frozen `context.band`.
+    There the anchor is mechanical — the risk set of that band, under the
+    salience version that assigned it, pooled over Terms strictly before the
+    prediction's own Term from the committed statpack by the scorer's own
+    pooler — so `stamp-cell` writes the rate, `base_rate_basis`,
+    `brier_skill_score` and the statpack build it read, and nulls all of them
+    together where the pack cannot support the pool (for example a band frozen
+    with no `salience_version`, or no prior Term carrying it). Leave
+    `segment_base_rate`, `brier_skill_score` and `base_rate_basis` null on such a
+    cell: anything you write there is overwritten. Do not pool or quote a rate
+    of your own for it in `evaluation.md` either, since the stamped record is the
+    only anchor the board reads and a second figure beside it is one a reader
+    cannot reconcile; where the comparison matters to your write-up, refer to
+    "the stamped segment base rate".
+    **The cert cell whose prediction froze no band** (an older cell, or one whose
+    snapshot disclosed no proceedings) is the one case left to you, because its
+    band has to be derived. Take the band you can derive from the docket — your
+    own cell's `record/context.json`, which is provisioned from the decided
+    docket and so carries the terminal band — and the **leading** figure for that
+    band in the per-Term "Segment base rate by salience band" table of committed
+    `metrics/statpack.md`, pooled resolved-weighted over Terms **strictly
+    before** this case's Term. Pool every Term row that table shows that
+    precedes the case's; its caption states how many of the pack's Terms are
+    rendered, and where that is fewer than the pack holds, the shown window *is*
+    your window. Record `base_rate_basis` `terminal` and say in `evaluation.md`
+    that you used the terminal fallback. Never record `risk_set`: that basis is
+    the harness's and needs a frozen band, so a `risk_set` you record **fails
+    the cell** at the harness stamp. A `terminal` recorded against a prediction
+    that froze a band is overwritten by the stamp and warned on. Omit the rate (and with it `brier_skill_score`), leaving
+    `base_rate_basis` null, when the case has no Term or no prior-Term band
+    resolved.
   - `brier_skill_score` — `1 - brier_score / (segment_base_rate - actual_granted)**2`:
     the forecast's skill over the naive baseline that always predicts the segment base
     rate (positive beats it, ~0 merely parrots it, negative is worse). Omit when
@@ -302,8 +284,8 @@ fails the cell.
     fields alone anyway and
     add a `flags.json` `data-quality` note that an interim cell carried a cert
     band. The ordinary interim shape takes no flag: it is the
-    stage's standing rule, not a per-cell anomaly a maintainer needs surfaced —
-    unlike the salience-version mismatch above. Say in `evaluation.md` that the
+    stage's standing rule, not a per-cell anomaly a maintainer needs surfaced.
+    Say in `evaluation.md` that the
     cell is interim, that the baseline and skill are the harness's, and — where
     the stamped rate comes back null — what the pack could not support, since
     the reader cannot tell a thin pool from a missing section by looking at a
@@ -415,18 +397,21 @@ fails the cell.
     signals, and the committed statpack, per the do-not-score rule above. Leave
     the field absent.
   - Do **not** write `base_rate_salience_version` — the harness derives it at
-    the stamp from the `base_rate_basis` you record and the scored prediction's
-    frozen context, so anything you put there is overwritten. Record the basis;
-    the version half is not yours.
+    the stamp from the basis and the scored prediction's frozen context, so
+    anything you put there is overwritten. On the terminal fallback record the
+    basis; on a frozen-band cert cell the stamp writes both halves. The version
+    half is never yours.
   - Do **not** write `segment_base_rate` or `brier_skill_score` **on a merits
     or an interim cell** — the harness pools both from the committed statpack
     at the stamp and clears them where it declines the pool, so a number you
-    write there is overwritten rather than read (the stage rules above). On a
-    **cert** cell both are yours, because which band population the rate is
-    taken over is a judgment about the scored prediction's frozen band.
+    write there is overwritten rather than read (the stage rules above). The
+    same holds on a **cert** cell whose scored prediction froze a band: the
+    harness pools its risk-set anchor. Both are yours only on a cert cell whose
+    prediction froze **no** band, the terminal fallback above.
   - `correct` and `brier_score` are **stamped over** too — `correct` on every
-    stage, cert included; `brier_score` on a merits or an interim cell (on a
-    **cert** cell the Brier stays yours) — each recomputed in code at the
+    stage, cert included; `brier_score` on a merits or an interim cell and on a
+    cert cell whose prediction froze a band (on a **cert** cell whose
+    prediction froze no band the Brier stays yours) — each recomputed in code at the
     stamp from the latest committed prediction and the outcome, so the
     committed number is never your word. **Write them anyway, per their
     definitions above** — this is the one pair where the overwrite does not
@@ -441,13 +426,18 @@ fails the cell.
     (`mode`, `retrieved_outcome_material`, `influenced_prediction`, `notes`),
     and `leakage_suspected` kept in step with it (`true` iff
     `influenced_prediction` is `possible` or `likely`).
-  - `big_case` (optional) — your **own** independent read of the case's stakes /
-    significance: `{evaluator_score (0–1), notes}`. Form it **before** looking
-    at the predictor's `big_case_score`, so your read is not anchored to theirs.
+  - `big_case` (optional) — your **own** read of the case's stakes /
+    significance: `{evaluator_score (0–1), notes}`. The predictors'
+    `big_case_score` and `big_case_rationale` are in the predictions you grade,
+    so you will have seen them; nothing hides them from you. Form your read
+    from the case itself — the questions presented, the parties, the record —
+    and do your best not to anchor on their numbers. Your read is what their
+    scores are compared against, so a read that echoes a predictor's score
+    carries no information about it.
     You are a *judge* here, not a blind forecaster — you may use post-decision
     context available now (the outcome, the reaction). Do **not** compute an
     agreement number: the predictor's score is graded against the panel's reads by
-    rank-agreement at leaderboard time; you only supply your independent read.
+    rank-agreement at leaderboard time; you only supply your own read.
 
   The quantitative pieces are computed identically in code by
   `fedcourtsai.pipeline.evaluate` (`is_correct`, `judgment_correct`,
@@ -458,8 +448,9 @@ fails the cell.
   mask) and are the harness's alone — you neither match nor approximate them, as
   are the merits and interim `segment_base_rate` / `brier_skill_score` pair
   (`merits_base_rate`, `interim_base_rate`, stamped by `stamp-cell`). What is
-  left to you numerically is the cert cell's rate, and there one exception is
-  explicit: `segment_base_rate`'s in-code lookback is
+  left to you numerically is the rate on a cert cell whose prediction froze no
+  band (a frozen band's cert anchor is stamped by `stamp-cell` as well), and
+  there one exception is explicit: `segment_base_rate`'s in-code lookback is
   `salience.base_rate_lookback_terms`, while yours is bounded by what the Term
   table in `statpack.md` renders. Where the caption shows fewer Terms than the
   pack holds, prefer the rendered window — it is the only one you can compute —
@@ -705,9 +696,13 @@ candidate:
    or reasoning show outcome-revealing material about *this case* was retrieved
    — a `retrieved_doc_date` on or after the event's resolution, queries for the
    case's own docket/caption reaching past the event date, the disposing order
-   or opinion, a `file-read` or `file-search` call whose query names
-   `data/qp-topics/` (membership there encodes cert outcomes; the prompts forbid
-   the read), or the candidate's own disclosure in its prose or `retrieval.md`
+   or opinion, a `file-read` or `file-search` call that reads or searches
+   inside `data/qp-topics/` (membership there encodes cert outcomes; the prompts
+   forbid the read — a search that opens no file there, such as `find …
+   -prune`, `find … -not -path 'data/qp-topics/*'`, `grep --exclude-dir` or
+   `rg -g '!data/qp-topics'`, is not a read; a filter applied to output after
+   the files were opened, such as `… | grep -v qp-topics`, is a read), or the
+   candidate's own disclosure in its prose or `retrieval.md`
    (an honest disclosure is a point *for* the cell's integrity, not against it —
    and note the candidate's `flags.json`, the other place such a disclosure
    lives, is not staged into the blinded set, so its absence proves nothing)? A hosted

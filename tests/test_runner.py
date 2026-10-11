@@ -16,6 +16,7 @@ from typer.testing import CliRunner
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.runner import (
+    AttemptClass,
     ClaudeCodeRunner,
     CodexRunner,
     CommandResult,
@@ -30,6 +31,8 @@ from fedcourtsai.pipeline.runner import (
     _failure_is_transient,
     _input_snapshot,
     _run_subprocess,
+    classify_engine_attempt,
+    engine_result_error,
     get_runner,
 )
 from fedcourtsai.process_version import ENGINE_RETRIEVAL
@@ -181,7 +184,7 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert recorder.env["EVENT_ID"] == EVENT
     assert recorder.env["PREDICTOR_ID"] == PREDICTOR
     assert recorder.env["RUN_ID"] == RUN
-    assert recorder.env["MODEL_ID"] == "claude-fable-5-1"
+    assert recorder.env["MODEL_ID"] == "claude-opus-5-5"
     assert "EVALUATOR_ID" not in recorder.env
     # Live cells carry no replay clock; both halves are back-test-only.
     assert "DECIDED_BEFORE" not in recorder.env
@@ -190,7 +193,7 @@ def test_claude_runner_builds_the_workflow_env_contract(tmp_path: Path) -> None:
     assert recorder.argv[0] == "claude"
     assert "-p" in recorder.argv
     assert "bypassPermissions" in recorder.argv
-    assert "claude-fable-5-1" in recorder.argv
+    assert "claude-opus-5-5" in recorder.argv
     # The registry prompt path rides in the instruction it passes the agent.
     assert ".github/prompts/predict.md" in recorder.argv[recorder.argv.index("-p") + 1]
     # It reports the artifacts the agent left at the canonical paths.
@@ -745,6 +748,127 @@ def test_transient_signatures_are_retryable(stderr: str) -> None:
 )
 def test_permanent_signatures_are_not_retryable(stderr: str) -> None:
     assert not _failure_is_transient(CommandResult(1, stderr))
+
+
+# What gemini-cli 0.49.0 prints on stdout when a turn's stream goes bad: an
+# ordinary zero exit, the fault inside the JSON result (run-predict's gemini
+# cell on 2026-10-02, abridged to the fields the classifier reads).
+_INVALID_STREAM_RESULT = (
+    '{"session_id": "s", "response": "", "stats": {"models": {}}, "error": '
+    + '{"type": "INVALID_STREAM", "message": "Invalid stream: The model returned '
+    + 'an empty response or malformed tool call."}}'
+)
+
+
+@pytest.mark.parametrize(
+    ("returncode", "stdout", "stderr", "expected"),
+    [
+        # A clean turn, whatever its stderr chatter says.
+        (0, '{"session_id": "s", "response": "done"}', "", AttemptClass.ok),
+        (0, '{"response": "done"}', "Ripgrep is not available; request timed out", AttemptClass.ok),
+        (0, "", "", AttemptClass.ok),
+        (0, "not json at all", "", AttemptClass.ok),
+        # The observed failure: zero exit, the fault only in the result.
+        (0, _INVALID_STREAM_RESULT, "", AttemptClass.transient),
+        # A zero exit's error is read alone: stderr cannot promote a permanent
+        # result error to a retry.
+        (
+            0,
+            '{"error": {"type": "FatalToolExecutionError", "message": "no such file"}}',
+            "429 rate limit",
+            AttemptClass.permanent,
+        ),
+        # A non-zero exit reads stderr, as the runner's retry loop does …
+        (1, "", "HTTP 429 Too Many Requests", AttemptClass.transient),
+        (1, "", "context length exceeded", AttemptClass.permanent),
+        (1, "", "", AttemptClass.permanent),
+        # … plus the result's error, when the CLI wrote one.
+        (1, _INVALID_STREAM_RESULT, "", AttemptClass.transient),
+        # A spent quota overrides the throttle words it carries, on either surface.
+        (
+            1,
+            "",
+            "TerminalQuotaError: You have exhausted your daily quota on this model. 429",
+            AttemptClass.terminal_quota,
+        ),
+        (
+            0,
+            '{"error": {"type": "TerminalQuotaError", "message": "quota exceeded"}}',
+            "",
+            AttemptClass.terminal_quota,
+        ),
+    ],
+)
+def test_classify_engine_attempt(
+    returncode: int, stdout: str, stderr: str, expected: AttemptClass
+) -> None:
+    assert classify_engine_attempt(returncode, stdout, stderr) is expected
+
+
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        "HTTP 429 Too Many Requests",
+        "503 Service Unavailable",
+        "connection reset",
+        "TerminalQuotaError: exhausted your daily quota 429",
+        "context length exceeded",
+        "",
+    ],
+)
+def test_the_attempt_classifier_agrees_with_the_runners_retry_on_every_stderr(
+    stderr: str,
+) -> None:
+    """The workflow step and the local runner read one signature set.
+
+    On a non-zero exit with no JSON result, the classifier's verdict is exactly
+    the runner's retry decision — so the step cannot retry what the runner
+    would not, nor give up on what the runner would retry.
+    """
+    result = CommandResult(1, stderr)
+    verdict = classify_engine_attempt(1, "", stderr)
+    assert (verdict is AttemptClass.transient) == _failure_is_transient(result)
+    assert (verdict is AttemptClass.terminal_quota) == _failure_is_terminal_quota(result)
+
+
+def test_engine_result_error_reads_only_a_result_objects_error() -> None:
+    assert engine_result_error(_INVALID_STREAM_RESULT) == (
+        "INVALID_STREAM: Invalid stream: The model returned an empty response or "
+        + "malformed tool call."
+    )
+    assert engine_result_error('{"error": "plain text"}') == "plain text"
+    assert engine_result_error('{"error": {}}') is None
+    assert engine_result_error('{"error": null}') is None
+    assert engine_result_error('["error"]') is None
+    assert engine_result_error("") is None
+
+
+def test_the_engine_attempt_class_command_prints_the_verdict(tmp_path: Path) -> None:
+    stdout = tmp_path / "out.json"
+    stdout.write_text(_INVALID_STREAM_RESULT)
+    stderr = tmp_path / "err.txt"
+    stderr.write_text("YOLO mode is enabled.\n")
+    args = ["engine-attempt-class", "--stdout-file", str(stdout), "--stderr-file", str(stderr)]
+    result = CliRunner().invoke(app, [*args, "--exit-code", "0"])
+    assert result.exit_code == 0, result.output
+    assert result.output.strip() == "transient"
+    # A capture that is missing reads as empty: a non-zero exit with nothing
+    # to recognize stays on the permanent side.
+    missing = tmp_path / "missing"
+    result = CliRunner().invoke(
+        app,
+        [
+            "engine-attempt-class",
+            "--exit-code",
+            "2",
+            "--stdout-file",
+            str(missing),
+            "--stderr-file",
+            str(missing),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output.strip() == "permanent"
 
 
 def test_backoff_delay_prefers_a_capped_retry_after() -> None:

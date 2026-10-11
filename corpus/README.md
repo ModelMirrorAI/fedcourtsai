@@ -43,6 +43,10 @@ The corpus has two halves:
     documents/<kind>/<YYYY-MM-DD>-<digest>.txt   # extracted text (content-addressed)
   ```
 
+  A corpus write mirrors to production's store only inside a GitHub Actions
+  job and only from the configured corpus file — and only production's writer
+  jobs hold a role that may write there — so a local writer run or a temporary database never
+  reaches the store (see [docs/data-pipeline.md](../docs/data-pipeline.md)).
   Document text leaves are content-addressed and dated snapshots immutable per
   day, so bulk content is never overwritten in place; the small manifests are
   versioned by the bucket rather than deleted. The `questions-presented` leaf is
@@ -296,7 +300,7 @@ a normalized `cases` row cannot fully capture. `pull` diffs the latest stored
 snapshot against the fresh fetch to decide whether a case *changed* (what routes
 it onto the predict queue), and provisioning materializes a snapshot for the agent
 to predict from (`fedcourts provision-snapshot`) — **which** snapshot being the
-moment's question, not the table's: a forward cell is placed at the information
+moment's question, not the table's: a cell is placed at the information
 set the event it forecasts declares, so it reads the payload the docket served
 then (or the latest one truncated to that cutoff), and only a cell with no
 declared moment reads the latest snapshot as stored (the `provision-snapshot`

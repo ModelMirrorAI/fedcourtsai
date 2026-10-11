@@ -47,16 +47,21 @@ ENV_RESOLUTION = (
 # tells a maintainer to use; drop the right and a corpus that cannot answer
 # reddens the three scenarios that never read one.
 RESOLVE_GATE = (
-    'inputs.docket == \'\' && contains(fromJSON(\'["all", "all-offline", '
-    '"ranged-reads", "corpus-service", "stub-cascade", "engine-smoke"]\'), '
+    'inputs.docket == \'\' && contains(fromJSON(\'["gate", "offline-gate", "all", '
+    '"all-offline", "ranged-reads", "corpus-service", "stub-cascade", "engine-smoke"]\'), '
     "inputs.scenario)"
 )
 
-# The two whole-suite scenarios, whose titles carry the bare scenario name
-# rather than a `<scenario> / <engine>` pair — the shapes the freshness gate
-# accepts as evidence for the whole required set. Duplicated in the run-name
-# and the concurrency group for the same reason ENV_RESOLUTION is.
-WHOLE_SUITE = "(inputs.scenario == 'all' || inputs.scenario == 'all-offline')"
+# The four whole-suite scenarios, whose titles carry the bare scenario name
+# rather than a `<scenario> / <engine>` pair. Two of them — `gate` and
+# `offline-gate` — are the shapes the freshness gate accepts as evidence;
+# `all` and `all-offline` render the same way and are never evidence.
+# Duplicated in the run-name and the concurrency group for the same reason
+# ENV_RESOLUTION is.
+WHOLE_SUITE_SCENARIOS = ("gate", "offline-gate", "all", "all-offline")
+WHOLE_SUITE = (
+    "(" + " || ".join(f"inputs.scenario == '{name}'" for name in WHOLE_SUITE_SCENARIOS) + ")"
+)
 
 # A scheduled run carries no inputs, so every expression that reads one has a
 # schedule branch in front of it: the run title, the concurrency group, and the
@@ -69,7 +74,7 @@ CANARY_SCENARIO = "${{ github.event_name == 'schedule' && 'canary' || inputs.sce
 # required-set entries carry an engine.
 ENGINE_SCENARIOS = ("engine-smoke", "engine-actions-smoke")
 
-# The token-spending legs `all-offline` drops, spelled as required-set entries.
+# The token-spending legs `offline-gate` drops, spelled as required-set entries.
 SMOKE_ENTRIES = [
     "engine-smoke/claude-code",
     "engine-smoke/codex",
@@ -155,11 +160,15 @@ def test_freshness_title_coupling_holds_at_both_ends() -> None:
     # per-scenario prefix.
     assert 'prefix="^integration-test: ${scenario} / ${engine} @"' in script
     assert 'prefix="^integration-test: ${scenario} /"' in script
-    # The whole-suite acceptance: one green `all` run counts for every
+    # The whole-suite acceptance: one green `gate` run counts for every
     # required scenario. Whole-line (-x) on the one fully-fixed title.
-    assert 'grep -Fqx "integration-test: all @ staging"' in script
+    assert 'grep -Fqx "integration-test: gate @ staging"' in script
     # And its narrowed twin, reachable only under the engine-smoke skip.
-    assert 'grep -Fqx "integration-test: all-offline @ staging"' in script
+    assert 'grep -Fqx "integration-test: offline-gate @ staging"' in script
+    # The every-scenario selections are never matched: their membership moves
+    # with the workflow, not with the gate.
+    assert "integration-test: all @" not in script
+    assert "integration-test: all-offline @" not in script
     # The end-anchored suffix pins the staging deployment environment on the
     # per-scenario matches (unanchored, `@ staging-anything` would match); the
     # branch filter rejects same-sha runs from any other ref; and a title
@@ -172,8 +181,9 @@ def test_freshness_title_coupling_holds_at_both_ends() -> None:
     assert isinstance(run_name, str)
     # Pinned in full: a scheduled run — which carries no inputs at all — must
     # title itself rather than render the degenerate ` / ` pair; a whole-suite
-    # branch must yield `integration-test: <all|all-offline> @ <env>` —
-    # rendering the scenario itself, so the two cannot collapse onto one title
+    # branch must yield `integration-test: <gate|offline-gate|all|all-offline>
+    # @ <env>` — rendering the scenario itself, so none can collapse onto
+    # another's title
     # — and the single-scenario branch the exact per-scenario shape the gate's
     # prefixes grep for.
     assert run_name == (
@@ -225,8 +235,8 @@ def test_deploy_environment_resolution_is_identical_at_every_site() -> None:
     assert body.count("inputs.deploy-environment") == 8  # 4 sites x 2 reads each
 
 
-def _all_matrix_entries() -> list[dict[str, str]]:
-    """The one suite literal every derived selection in the plan step filters."""
+def _suite_literal() -> list[dict[str, Any]]:
+    """The one tagged suite literal every derived selection in the plan step filters."""
     workflow = _load(WORKFLOWS / "integration-test.yml")
     (step,) = [s for s in workflow["jobs"]["plan"]["steps"] if s.get("id") == "plan"]
     body = str(step["run"])
@@ -236,16 +246,26 @@ def _all_matrix_entries() -> list[dict[str, str]]:
     return entries
 
 
-def test_the_all_scenario_matrix_is_exactly_the_required_set() -> None:
-    # `scenario=all` is freshness evidence for the whole required set, so the
+def _legs(entries: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Entries as the matrix receives them: tags stripped, scenario and engine kept."""
+    return [{"scenario": entry["scenario"], "engine": entry["engine"]} for entry in entries]
+
+
+def _gate_matrix_entries() -> list[dict[str, str]]:
+    """The `gate: true` legs of the suite literal — the required suite's matrix."""
+    return _legs([entry for entry in _suite_literal() if entry["gate"]])
+
+
+def test_the_gate_scenario_matrix_is_exactly_the_required_set() -> None:
+    # `scenario=gate` is freshness evidence for the whole required set, so the
     # legs it runs and the set the gate demands must coincide — a leg missing
-    # here would let the gate accept an `all` run that never exercised a
+    # here would let the gate accept a `gate` run that never exercised a
     # required scenario. collect is required evidence too, but it rides its
     # own environment-free job rather than the matrix, so the matrix must
     # cover exactly the required set minus collect — and the whole-suite
-    # equivalence then rests on the collect job firing inside an `all` run,
+    # equivalence then rests on the collect job firing inside a `gate` run,
     # asserted here beside the coverage claim it completes.
-    entries = _all_matrix_entries()
+    entries = _gate_matrix_entries()
     as_required = [
         entry["scenario"] + (f"/{entry['engine']}" if entry["scenario"] in ENGINE_SCENARIOS else "")
         for entry in entries
@@ -253,14 +273,25 @@ def test_the_all_scenario_matrix_is_exactly_the_required_set() -> None:
     required = _required_scenario_entries()
     assert "collect" in required
     assert sorted(as_required) == sorted(entry for entry in required if entry != "collect")
-    assert all(entry["scenario"] != "collect" for entry in entries)
+    assert all(entry["scenario"] != "collect" for entry in _suite_literal())
     collect_if = _load(WORKFLOWS / "integration-test.yml")["jobs"]["collect-scenario"]["if"]
-    assert "inputs.scenario == 'all'" in collect_if
-    # Every leg carries both keys with non-empty values: the engine legs'
-    # steps and their secret ternaries read matrix.engine, and an empty
-    # engine would break the CLI install's case-switch and drop every key.
-    assert all(set(entry) == {"scenario", "engine"} for entry in entries)
-    assert all(entry["scenario"] and entry["engine"] for entry in entries)
+    assert "inputs.scenario == 'gate'" in collect_if
+    # Every entry carries exactly the two legs' keys plus the two boolean
+    # tags, with non-empty values: the engine legs' steps and their secret
+    # ternaries read matrix.engine, and an empty engine would break the CLI
+    # install's case-switch and drop every key.
+    literal = _suite_literal()
+    assert all(set(entry) == {"scenario", "engine", "gate", "spends"} for entry in literal)
+    assert all(entry["scenario"] and entry["engine"] for entry in literal)
+    assert all(isinstance(entry[tag], bool) for entry in literal for tag in ("gate", "spends"))
+    # The `spends` tag is what the offline selections filter on, so it must
+    # be true on exactly the legs that spend: both engine families and the
+    # repro leg. A spender tagged false would put tokens behind a dispatch
+    # that promises none.
+    assert {entry["scenario"] for entry in literal if entry["spends"]} == {
+        *ENGINE_SCENARIOS,
+        "codex-application-repro",
+    }
 
 
 def _plan_matrix(scenario: str, tmp_path: Path) -> list[dict[str, str]]:
@@ -270,7 +301,7 @@ def _plan_matrix(scenario: str, tmp_path: Path) -> list[dict[str, str]]:
     script = tmp_path / f"plan-{scenario}.sh"
     script.write_text(str(step["run"]))
     output = tmp_path / f"output-{scenario}"
-    output.touch()
+    output.write_text("")  # fresh per call: a second read must not see the first
     subprocess.run(
         ["bash", str(script)],
         check=True,
@@ -289,23 +320,106 @@ def _plan_matrix(scenario: str, tmp_path: Path) -> list[dict[str, str]]:
 
 
 @needs_jq
-def test_all_offline_is_the_all_matrix_minus_exactly_the_engine_smokes(tmp_path: Path) -> None:
-    # `all-offline` is the promotion gate's required suite with the six
+def test_offline_gate_is_the_gate_matrix_minus_exactly_the_engine_smokes(tmp_path: Path) -> None:
+    # `offline-gate` is the promotion gate's required suite with the six
     # token-spending legs removed, and nothing else: a leg quietly dropped
     # alongside them would let a skipped-smoke promotion accept evidence that
     # never exercised a still-required scenario. Run the plan step's real
     # shell for both dispatches rather than re-deriving the filter here.
-    full = _plan_matrix("all", tmp_path)
-    offline = _plan_matrix("all-offline", tmp_path)
-    assert full == _all_matrix_entries()
+    full = _plan_matrix("gate", tmp_path)
+    offline = _plan_matrix("offline-gate", tmp_path)
+    assert full == _gate_matrix_entries()
     assert offline == [entry for entry in full if entry["scenario"] not in ENGINE_SCENARIOS]
     assert len(full) - len(offline) == len(SMOKE_ENTRIES)
     # The collect job is required evidence and costs no tokens, so it rides an
-    # `all-offline` run exactly as it rides an `all` one.
+    # `offline-gate` run exactly as it rides a `gate` one.
     collect_if = _load(WORKFLOWS / "integration-test.yml")["jobs"]["collect-scenario"]["if"]
-    assert "inputs.scenario == 'all-offline'" in collect_if
+    assert "inputs.scenario == 'offline-gate'" in collect_if
     # A single-scenario dispatch is untouched by the whole-suite branch.
     assert _plan_matrix("qp-topic", tmp_path) == [{"scenario": "qp-topic", "engine": "claude-code"}]
+    # The repro leg's engine is the literal's, not the dispatcher's.
+    assert _plan_matrix("codex-application-repro", tmp_path) == [
+        {"scenario": "codex-application-repro", "engine": "codex"}
+    ]
+
+
+def _whole_suite_scenarios(selection: str, tmp_path: Path) -> set[str]:
+    """Every scenario a whole-suite dispatch runs: its matrix legs plus the
+    standalone jobs whose gate admits it.
+
+    Each standalone job's gate is a pure disjunction of affirmative
+    equalities on `inputs.scenario`, which is asserted before it is read, so
+    collecting those terms is the job's real verdict for that dispatch. The
+    standalone jobs are pinned whole: a job added beside the matrix must name
+    the scenario it runs here, or this helper would silently skip it.
+    """
+    jobs = _load(WORKFLOWS / "integration-test.yml")["jobs"]
+    standalone = {"collect-scenario": "collect", "qp-labeler-smoke": "qp-labeler-smoke"}
+    assert set(jobs) == {"plan", "scenario", *standalone}
+    ran = {entry["scenario"] for entry in _plan_matrix(selection, tmp_path)}
+
+    def admits(expression: str) -> bool:
+        assert "&&" not in expression and "!" not in expression, expression
+        equal = re.findall(r"inputs\.scenario == '([^']+)'", expression)
+        assert len(equal) == expression.count("||") + 1, expression
+        return selection in equal
+
+    for job, scenario in standalone.items():
+        if admits(jobs[job]["if"]):
+            ran.add(scenario)
+    return ran
+
+
+@needs_jq
+def test_all_runs_every_scenario_and_contains_the_gate_suites(tmp_path: Path) -> None:
+    # `all` means all: every scenario the dispatch form offers, the
+    # dispatch-only ones included — a scenario added to the options and to no
+    # selection would quietly fall outside the one dispatch whose name
+    # promises it. `all-offline` is every token-free one. Each contains its
+    # gate twin, so dispatching the every-scenario form never runs less than
+    # the gate asks for — even though the gate never reads its title.
+    workflow = _load(WORKFLOWS / "integration-test.yml")
+    options = set(workflow[True]["workflow_dispatch"]["inputs"]["scenario"]["options"])
+    single = options - set(WHOLE_SUITE_SCENARIOS)
+    jobs_all = workflow["jobs"]
+    everything = _whole_suite_scenarios("all", tmp_path)
+    assert everything == single
+    gate = _whole_suite_scenarios("gate", tmp_path)
+    offline_gate = _whole_suite_scenarios("offline-gate", tmp_path)
+    all_offline = _whole_suite_scenarios("all-offline", tmp_path)
+    assert gate <= everything
+    assert offline_gate <= all_offline
+    # Leg for leg, too: every gate leg (engine included) is an `all` leg.
+    all_legs = _plan_matrix("all", tmp_path)
+    assert all(leg in all_legs for leg in _gate_matrix_entries())
+    assert all_legs == _legs(_suite_literal())
+    # The token-spending scenarios — and nothing else — are what the offline
+    # every-scenario selection leaves out.
+    spenders = {*ENGINE_SCENARIOS, "codex-application-repro", "qp-labeler-smoke"}
+    assert all_offline == single - spenders
+    # The gate suites reach no dispatch-only scenario: a repro inside `gate`
+    # would turn an open defect into a blocked promotion.
+    for dispatch_only in spenders - set(ENGINE_SCENARIOS):
+        assert dispatch_only not in gate, dispatch_only
+        assert dispatch_only not in offline_gate, dispatch_only
+    # Legs that share an `all` run must not share an artifact name:
+    # upload-artifact refuses a duplicate name within one run, so a name not
+    # keyed on the matrix fails (or silently drops) the second leg's upload.
+    # Every upload in the matrix job carries the matrix key in its name — the
+    # codex transcript shapes are uploaded by both the codex engine-smoke leg
+    # and the repro leg, which share an `all` run and the codex engine. The
+    # standalone jobs run once per run, so their fixed names cannot collide.
+    for step in jobs_all["scenario"]["steps"]:
+        if str(step.get("uses") or "").startswith("actions/upload-artifact"):
+            assert "matrix.scenario" in str(step["with"]["name"]), step.get("name")
+    # The engine legs ride `all` once per engine, as they ride `gate`.
+    full = all_legs
+    for scenario in ENGINE_SCENARIOS:
+        assert [e["engine"] for e in full if e["scenario"] == scenario] == [
+            "claude-code",
+            "codex",
+            "gemini",
+        ]
 
 
 @needs_jq
@@ -318,7 +432,7 @@ def test_the_canary_runs_exactly_the_action_path_legs_the_gate_requires(tmp_path
     # what a boot canary is for.
     canary = _plan_matrix("canary", tmp_path)
     assert canary == [
-        entry for entry in _all_matrix_entries() if entry["scenario"] == "engine-actions-smoke"
+        entry for entry in _gate_matrix_entries() if entry["scenario"] == "engine-actions-smoke"
     ]
     assert [entry["engine"] for entry in canary] == ["claude-code", "codex", "gemini"]
     # And `canary` is reachable only from the schedule branch — never a
@@ -395,25 +509,29 @@ def test_a_canary_run_can_never_satisfy_the_freshness_gate(tmp_path: Path) -> No
         assert _missing(result) == _required_scenario_entries(), title
 
 
-def test_all_offline_is_dispatchable_and_titled_as_a_whole_suite() -> None:
-    # The gate accepts an `all-offline` title only if such a run can exist,
-    # and only if its title renders bare — the same coupling `all` has.
+def test_the_whole_suite_selections_are_dispatchable_and_titled_bare() -> None:
+    # The gate accepts a `gate` or `offline-gate` title only if such a run can
+    # exist, and only if its title renders bare; `all` and `all-offline`
+    # render the same way, so none can be mistaken for a per-scenario run.
     workflow = _load(WORKFLOWS / "integration-test.yml")
     options = workflow[True]["workflow_dispatch"]["inputs"]["scenario"]["options"]
-    assert "all-offline" in options
-    # The plan step's own two couplings, pinned without shelling out so the
-    # `all-offline` shape keeps a check on a runner with no jq: both
-    # whole-suite scenarios share the one matrix literal, and the only thing
-    # separating them is the engine-smoke filter.
+    for name in WHOLE_SUITE_SCENARIOS:
+        assert name in options, name
+    # The plan step's own couplings, pinned without shelling out so the
+    # selection shapes keep a check on a runner with no jq: every whole-suite
+    # scenario shares the one tagged literal, filtered on its two tags.
     (step,) = [s for s in workflow["jobs"]["plan"]["steps"] if s.get("id") == "plan"]
     body = str(step["run"])
-    assert "all)" in body and "all-offline)" in body
-    # One literal, three derivations: `all`, its offline filter, and the
-    # canary's. A second literal is what could drift from the first.
+    for name in WHOLE_SUITE_SCENARIOS:
+        assert f"\n{name})\n" in body, name
+    # One literal, every derivation filtered from it. A second literal is
+    # what could drift from the first.
     assert body.count("suite='") == 1
     assert body.count("matrix='") == 0
-    for scenario in ENGINE_SCENARIOS:
-        assert f'.scenario != "{scenario}"' in body, scenario
+    assert "matrix=$(legs '.gate')" in body
+    assert "matrix=$(legs '.gate and (.spends | not)')" in body
+    assert "matrix=$(legs 'true')" in body
+    assert "matrix=$(legs '.spends | not')" in body
     assert WHOLE_SUITE in str(workflow["run-name"])
     # And the concurrency group keys on the scenario alone for both, so two
     # dispatches differing only on the meaningless engine input supersede each
@@ -421,22 +539,22 @@ def test_all_offline_is_dispatchable_and_titled_as_a_whole_suite() -> None:
     assert WHOLE_SUITE in str(workflow["concurrency"]["group"])
 
 
-def test_an_unqualified_dispatch_runs_the_token_free_whole_suite() -> None:
+def test_an_unqualified_dispatch_runs_the_token_free_gate_suite() -> None:
     # Model spend is a typed choice, never what a bare dispatch falls into:
     # the scenario default is the whole required suite with both engine
-    # families dropped, so `-f scenario=all` is the only way to reach the
-    # three cells and three boot probes. What the default moves is the cost
-    # of an unqualified dispatch, not what the gate accepts — an
-    # `all-offline` title is minted only by a run that really ran that
-    # suite, and it stands in for `all` only under the engine-smoke skip
+    # families dropped, so `-f scenario=gate` (or `all`) is the only way to
+    # reach the three cells and three boot probes. What the default moves is
+    # the cost of an unqualified dispatch, not what the gate accepts — an
+    # `offline-gate` title is minted only by a run that really ran that
+    # suite, and it stands in for `gate` only under the engine-smoke skip
     # (the freshness tests below pin that half).
     inputs = _load(WORKFLOWS / "integration-test.yml")[True]["workflow_dispatch"]["inputs"]
-    assert inputs["scenario"]["default"] == "all-offline"
+    assert inputs["scenario"]["default"] == "offline-gate"
     # A choice default GitHub cannot select would leave the dispatch form
     # empty; and the paid suite must stay selectable beside it, because a
     # promotion still has to be able to ask for it.
     assert inputs["scenario"]["default"] in inputs["scenario"]["options"]
-    assert "all" in inputs["scenario"]["options"]
+    assert "gate" in inputs["scenario"]["options"]
 
 
 def _case_step(
@@ -584,6 +702,8 @@ def test_the_case_resolution_is_skipped_where_no_leg_reads_a_case() -> None:
     # the top of a pinned dispatch — the escape hatch, silently gone.
     assert job["env"]["RESOLVE_CASE"] == f"${{{{ {RESOLVE_GATE} }}}}"
     corpus_reading = {
+        "gate",
+        "offline-gate",
         "all",
         "all-offline",
         "ranged-reads",
@@ -746,7 +866,7 @@ def test_the_smoke_skip_drops_exactly_the_engine_smoke_entries(tmp_path: Path) -
     # entries — both engine families — leave the required set and nothing else
     # moves. Both have to go together, because the whole-suite acceptance the
     # skip unlocks returns before the required set is looped over: keeping one
-    # family required while accepting an `all-offline` run — which ran neither
+    # family required while accepting an `offline-gate` run — which ran neither
     # — would satisfy that entry without exercising it. Unsound, not stricter,
     # and the last assertion here is what shows the ordering. Per-scenario
     # evidence for the token-free scenarios only here, so those six are the
@@ -760,13 +880,13 @@ def test_the_smoke_skip_drops_exactly_the_engine_smoke_entries(tmp_path: Path) -
     skipped = _run_freshness(tmp_path, offline_titles, PROMOTION_SKIP_SMOKE="1")
     assert skipped.returncode == 0, skipped.stdout
     assert _missing(skipped) == []
-    # The ordering itself: under the skip, one whole-suite `all-offline` title
+    # The ordering itself: under the skip, one whole-suite `offline-gate` title
     # and no per-scenario evidence at all is already a clean gate. Whatever the
     # required set still held at that point was never consulted — which is why
     # a filter that dropped one engine family and kept the other would waive
     # the kept one just as completely, while looking stricter.
     shortcut = _run_freshness(
-        tmp_path, ["integration-test: all-offline @ staging"], PROMOTION_SKIP_SMOKE="1"
+        tmp_path, ["integration-test: offline-gate @ staging"], PROMOTION_SKIP_SMOKE="1"
     )
     assert shortcut.returncode == 0, shortcut.stdout
     assert _missing(shortcut) == []
@@ -774,23 +894,34 @@ def test_the_smoke_skip_drops_exactly_the_engine_smoke_entries(tmp_path: Path) -
 
 def test_the_default_required_set_is_unchanged(tmp_path: Path) -> None:
     # No environment set: every entry the script has always demanded is still
-    # demanded, and the whole-suite `all` acceptance still stands alone.
+    # demanded, and the whole-suite `gate` acceptance still stands alone.
     result = _run_freshness(tmp_path, [])
     assert result.returncode == 1
     assert _missing(result) == _required_scenario_entries()
-    assert _run_freshness(tmp_path, ["integration-test: all @ staging"]).returncode == 0
-    # An `all-offline` run is NOT whole-suite evidence by default — the lever
+    assert _run_freshness(tmp_path, ["integration-test: gate @ staging"]).returncode == 0
+    # An `offline-gate` run is NOT whole-suite evidence by default — the lever
     # is what admits it, so a dispatcher choosing the cheaper scenario cannot
     # relax the gate on their own.
-    default = _run_freshness(tmp_path, ["integration-test: all-offline @ staging"])
+    default = _run_freshness(tmp_path, ["integration-test: offline-gate @ staging"])
     assert default.returncode == 1
     assert _missing(default) == _required_scenario_entries()
 
 
-def test_the_skip_accepts_either_whole_suite_run(tmp_path: Path) -> None:
-    # The narrowed acceptance, and the strictly larger one: a full `all` run
+def test_the_every_scenario_titles_are_never_evidence(tmp_path: Path) -> None:
+    # `all` and `all-offline` contain the gate suites today, but their
+    # membership follows the workflow's options, not the gate — so a green one
+    # earns nothing, with or without the skip.
+    for title in ("integration-test: all @ staging", "integration-test: all-offline @ staging"):
+        for env in ({}, {"PROMOTION_SKIP_SMOKE": "1"}):
+            result = _run_freshness(tmp_path, [title], **env)
+            assert result.returncode == 1, (title, env)
+            assert _missing(result), (title, env)
+
+
+def test_the_skip_accepts_either_gate_run(tmp_path: Path) -> None:
+    # The narrowed acceptance, and the strictly larger one: a full `gate` run
     # is always sufficient evidence for the smaller requirement.
-    for title in ("integration-test: all-offline @ staging", "integration-test: all @ staging"):
+    for title in ("integration-test: offline-gate @ staging", "integration-test: gate @ staging"):
         result = _run_freshness(tmp_path, [title], PROMOTION_SKIP_SMOKE="1")
         assert result.returncode == 0, result.stdout
     # A red run is never evidence: the gate reads only titles the API call
@@ -802,7 +933,7 @@ def test_the_skip_fails_closed_on_anything_but_one(tmp_path: Path) -> None:
     # promote.yml sets '1' or the empty string, and nothing else may enable
     # the relaxation: a typo, a truthy-looking word, or a stray '0' all leave
     # the gate strict rather than silently dropping the smokes.
-    titles = ["integration-test: all-offline @ staging"]
+    titles = ["integration-test: offline-gate @ staging"]
     for value in ("", "0", "true", "yes", "01", " 1"):
         result = _run_freshness(tmp_path, titles, PROMOTION_SKIP_SMOKE=value)
         assert result.returncode == 1, value
@@ -811,9 +942,9 @@ def test_the_skip_fails_closed_on_anything_but_one(tmp_path: Path) -> None:
 
 def test_a_local_narrowing_still_forbids_the_whole_suite_shortcut(tmp_path: Path) -> None:
     # PROMOTION_SCENARIOS is unchanged by the lever: an overridden set may
-    # name something outside the `all` matrix, so neither whole-suite title
+    # name something outside the `gate` matrix, so neither whole-suite title
     # can satisfy it — with or without the skip.
-    titles = ["integration-test: all @ staging", "integration-test: all-offline @ staging"]
+    titles = ["integration-test: gate @ staging", "integration-test: offline-gate @ staging"]
     for env in ({}, {"PROMOTION_SKIP_SMOKE": "1"}):
         result = _run_freshness(tmp_path, titles, PROMOTION_SCENARIOS="qp-topic", **env)
         assert result.returncode == 1
@@ -840,7 +971,7 @@ def test_a_local_narrowing_still_forbids_the_whole_suite_shortcut(tmp_path: Path
 
 def test_promote_threads_the_skip_to_the_freshness_step_only() -> None:
     # Two explicit acts stand between a promotion and a smoke-free gate: the
-    # dispatch input here, and the `all-offline` scenario the maintainer must
+    # dispatch input here, and the `offline-gate` scenario the maintainer must
     # have dispatched. The input is a boolean defaulting to false, and the
     # expression is a truthiness test — an absent inputs context yields '',
     # never the enabling value.
@@ -901,15 +1032,17 @@ def test_promote_help_text_lists_every_required_scenario() -> None:
     # The one-shot dispatch leads: a single whole-suite run satisfies the
     # freshness gate, so it is the first command the summary offers, with the
     # per-scenario dispatches kept as the fallback. Which suite it names
-    # follows the skip — telling a smoke-free batch to dispatch `all` would
+    # follows the skip — telling a smoke-free batch to dispatch `gate` would
     # spend exactly the tokens the lever exists to save.
-    all_command = "gh workflow run integration-test.yml --ref staging -f scenario=${suite}"
-    assert all_command in text
-    assert text.index(all_command) < text.index("-f scenario=${s}")
-    assert "suite=all\n" in text
-    assert "suite=all-offline\n" in text
+    suite_command = "gh workflow run integration-test.yml --ref staging -f scenario=${suite}"
+    assert suite_command in text
+    assert text.index(suite_command) < text.index("-f scenario=${s}")
+    assert "suite=gate\n" in text
+    assert "suite=offline-gate\n" in text
+    # Never the every-scenario selections: their titles are not evidence.
+    assert "suite=all" not in text
     # The engine-smoke dispatches are printed only while they are required.
-    assert '"$suite" = all' in text
+    assert '"$suite" = gate' in text
 
 
 def test_main_base_jail_covers_every_legitimate_lane() -> None:

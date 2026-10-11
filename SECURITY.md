@@ -202,6 +202,17 @@ runbook, [docs/security.md](docs/security.md).
   what *concludes* the step. So no step mints a token for it, its arm and
   disarm steps hold no GitHub credential, and the script makes no network
   call.
+- **The hidden-record stash is forgeable by the same-user engines, and buys
+  nothing a cell does not already have.** Predict and evaluate cells move the
+  committed `predictions/` and `evaluations/` trees into a stash under
+  `RUNNER_TEMP` for the agent's run and restore them after. A claude or gemini
+  agent can write that stash; a codex agent cannot (the codex setup strips
+  other access from `RUNNER_TEMP`). The restore shape-checks every manifest
+  entry, keeps each destination inside the data root, refuses symlinks and
+  never overwrites, and the cell artifact carries only the cell's own event
+  directory, which the collect union adds without modifying committed bytes —
+  so a planted file is at most an addition the agent could have written into
+  its own event directory directly.
 - **The reaper gives a cell one runner-local switch, and it is bounded by what a
   cell already faces.** The watchdog ends a step whose required output files all
   exist, parse, and stop changing — so an agent can end its own step early by

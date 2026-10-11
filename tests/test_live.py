@@ -1880,6 +1880,153 @@ def test_live_rotation_reads_a_whole_conference_stalest_first(tmp_path: Path) ->
     assert head == ["scotus/3", "scotus/2"]
 
 
+def test_live_rotation_demotes_a_past_conference_once_its_order_list_was_read(
+    tmp_path: Path,
+) -> None:
+    """A still-pending petition on a past conference (held, CVSG, rescheduled)
+    leads every cycle on its past date until a poll has read that conference's
+    order list. Polled more than ``order_list_lag_days`` after the conference,
+    it drops to the Term tiers, so the next conference leads; polled only
+    inside the lag, or never polled, it keeps the tier. Without the lag the
+    order is unchanged."""
+    db = tmp_path / "corpus.db"
+    long_conference = date(2026, 9, 28)
+    with corpus.connect(db) as conn:
+        _seed_pending(
+            conn,
+            [
+                # Held after the long conference, polled after its order list
+                # (2026-10-05 is the lag's last day) -> demoted.
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="26-1",
+                    distributed_for_conference=long_conference,
+                    last_live_polled=date(2026, 10, 6),
+                ),
+                # Same conference, last polled on the order list's day -> kept.
+                corpus.CorpusRow(
+                    case_id="scotus/2",
+                    court="scotus",
+                    docket_number="26-2",
+                    distributed_for_conference=long_conference,
+                    last_live_polled=date(2026, 10, 5),
+                ),
+                # Same conference, never polled -> kept (it has not been read).
+                corpus.CorpusRow(
+                    case_id="scotus/3",
+                    court="scotus",
+                    docket_number="25-3",
+                    distributed_for_conference=long_conference,
+                ),
+                # The next conference: leads once the read past one is demoted.
+                corpus.CorpusRow(
+                    case_id="scotus/4",
+                    court="scotus",
+                    docket_number="26-4",
+                    distributed_for_conference=date(2026, 10, 9),
+                    last_live_polled=date(2026, 10, 8),
+                ),
+                # An undistributed current-Term row, staler than scotus/1.
+                corpus.CorpusRow(
+                    case_id="scotus/5",
+                    court="scotus",
+                    docket_number="26-5",
+                    last_live_polled=date(2026, 10, 2),
+                ),
+                # An undistributed older-Term row: behind the current Term.
+                corpus.CorpusRow(
+                    case_id="scotus/6",
+                    court="scotus",
+                    docket_number="25-6",
+                    last_live_polled=date(2026, 9, 1),
+                ),
+                # Held on a summer conference, read after its order list and
+                # unpolled since: demoted, and the stalest row of all.
+                corpus.CorpusRow(
+                    case_id="scotus/7",
+                    court="scotus",
+                    docket_number="26-7",
+                    distributed_for_conference=date(2026, 8, 1),
+                    last_live_polled=date(2026, 8, 20),
+                ),
+            ],
+        )
+        no_lag = [r.case_id for r in corpus.live_rotation(conn, limit=10)]
+        demoted = [r.case_id for r in corpus.live_rotation(conn, limit=10, order_list_lag_days=7)]
+        head = [r.case_id for r in corpus.live_rotation(conn, limit=3, order_list_lag_days=7)]
+        # The overdue bound still reaches a demoted row that goes unpolled: the
+        # stalest overdue row is the demoted scotus/7, not the tier's head.
+        overdue = [
+            r.case_id
+            for r in corpus.live_rotation(
+                conn,
+                limit=1,
+                overdue_before=date(2026, 10, 7),
+                overdue_limit=1,
+                order_list_lag_days=7,
+            )
+        ]
+    assert no_lag == [
+        "scotus/7",
+        "scotus/3",
+        "scotus/2",
+        "scotus/1",
+        "scotus/4",
+        "scotus/5",
+        "scotus/6",
+    ]
+    # Demoted, scotus/7 and scotus/1 rotate in their Term, stalest first.
+    assert demoted == [
+        "scotus/3",
+        "scotus/2",
+        "scotus/4",
+        "scotus/7",
+        "scotus/5",
+        "scotus/1",
+        "scotus/6",
+    ]
+    assert head == ["scotus/3", "scotus/2", "scotus/4"]
+    assert overdue == ["scotus/7"]
+
+
+def test_live_poll_all_passes_the_order_list_lag_through(tmp_path: Path) -> None:
+    """The cycle wires ``order_list_lag_days``: with a cap of one, a held
+    petition whose past conference's order list it already read yields the
+    slot to a petition on the next conference."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    today = date(2026, 10, 7)
+    with corpus.connect(db) as conn:
+        _seed_pending(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9026000001",
+                    court="scotus",
+                    docket_number="26-1",
+                    distributed_for_conference=date(2026, 9, 28),
+                    last_live_polled=date(2026, 10, 6),
+                ),
+                corpus.CorpusRow(
+                    case_id="scotus/9026000002",
+                    court="scotus",
+                    docket_number="26-2",
+                    distributed_for_conference=date(2026, 10, 9),
+                    last_live_polled=date(2026, 10, 6),
+                ),
+            ],
+        )
+    served = {k: _payload(k) for k in ("26-1", "26-2")}
+    config = LiveConfig(max_cases_per_run=1, max_new_cases_per_run=0, max_applications_per_run=0)
+    with _frontier_client(served) as client:
+        live_poll_all(client, db, tmp_path / "data", term=26, config=config, today=today)
+    with corpus.connect(db) as conn:
+        held = corpus.get_row(conn, "scotus/9026000001")
+        upcoming = corpus.get_row(conn, "scotus/9026000002")
+    assert upcoming is not None and upcoming.last_live_polled == today
+    assert held is not None and held.last_live_polled == date(2026, 10, 6)
+
+
 def test_conference_date_survives_a_courtlistener_write(tmp_path: Path) -> None:
     # A CourtListener enrichment (no conference parse) must not wipe the live
     # channel's stored membership — the COALESCE latch, like last_live_polled.

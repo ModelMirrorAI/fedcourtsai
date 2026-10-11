@@ -29,7 +29,12 @@ heading, and the order text is everything else. A consolidated caption may
 print its docket numbers alone, one per line, then a column of brackets, then
 a capitals caption line per docket: a line holding only a docket number opens
 an entry when the caption goes on below it, bracket lines are dropped, and
-capitals lines before the order text are the caption's. A change to the split
+capitals lines before the order text are the caption's. The extracted text
+of a long list can lift some captions' serial numbers out of their lines
+(``25- DOE …``) into a column of bare numbers above them; the column is
+rejoined to those captions in order where every serial fits between its
+neighbours, a problem otherwise, and never read as order text — nor is any
+entry text with no letters, which is a problem. A change to the split
 can hand either grammar different text, so it bumps both grammar versions.
 An order-list entry may print a short writing inline, after a colon
 (``Justice Jackson, dissenting: …``); its header is read and its body is not.
@@ -66,8 +71,9 @@ document (:func:`read_url`) never covers an order's writings.
 from __future__ import annotations
 
 import html
+import itertools
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
@@ -144,6 +150,13 @@ _BRACKET_LINE_RE = re.compile(r"^[()\[\]{}| ]+$")
 # A line of order text that runs on into a docket number on the next line.
 _RUNS_INTO_DOCKET_RE = re.compile(r"(?:\bNos?\.|,|\band|\bor)$", re.I)
 _APPLICATION_LINE_RE = re.compile(r"^\((?P<docket>\d{2}A\d{1,5})\)$")
+# The extracted text of a long list can lift a caption's serial out of its
+# line: the caption prints as ``25- DOE, JANE V. ROE`` and the page's lifted
+# serials land together, above its captions, as a column of bare numbers.
+_LIFTED_CAPTION_RE = re.compile(r"^(?P<prefix>\d{2})-\s+(?!.*[a-z]{3})\S")
+_NUMBER_LINE_RE = re.compile(r"^\d{1,5}$")
+_DOCKET_SERIAL_RE = re.compile(r"^(?P<prefix>\d{2})-(?P<serial>\d{1,5})$")
+_LETTER_RE = re.compile(r"[A-Za-z]")
 _PAGE_NUMBER_RE = re.compile(r"^\d{1,3}$")
 _RULE_RE = re.compile(r"^[_\u2014\u2013\-]{3,}$")
 _CITE_AS_RE = re.compile(r"^(?:\d+\s+)?Cite as:.*$")
@@ -280,8 +293,11 @@ class SplitDocument:
     """A document cut into grammar-sized pieces, with what the cut itself found.
 
     ``problems`` are the document's own: text the cut could assign to no
-    docket that is shaped like a Justice's act, a section with no dockets, or
-    a running head naming nobody on the roster. ``docket_problems`` belong to
+    docket that is shaped like a Justice's act, a section with no dockets, a
+    running head naming nobody on the roster, a column of lifted caption
+    serials that does not fit its captions (or a lifted caption with no
+    column, or a column no caption claims), or an entry whose order text has
+    no letters. ``docket_problems`` belong to
     single dockets (a section dated other than its document).
     """
 
@@ -375,6 +391,116 @@ def _opens_bare_caption(lines: Sequence[str], index: int) -> bool:
     return False
 
 
+def _neighbor_serial(lines: Sequence[str], indices: Iterable[int], prefix: str) -> int | None:
+    """The serial of the first whole caption at ``indices`` carrying ``prefix``."""
+    for i in indices:
+        caption = _CAPTION_RE.match(lines[i])
+        if caption is None:
+            continue
+        whole = _DOCKET_SERIAL_RE.match(_docket(caption.group("docket")))
+        if whole is not None and whole.group("prefix") == prefix:
+            return int(whole.group("serial"))
+    return None
+
+
+def _number_runs(lines: Sequence[str]) -> list[list[int]]:
+    """The line indices of each run of bare-number lines, blank lines between them aside."""
+    runs: list[list[int]] = []
+    last_text: int | None = None
+    for index, line in enumerate(lines):
+        if not line:
+            continue
+        if _NUMBER_LINE_RE.match(line):
+            if runs and last_text is not None and runs[-1][-1] == last_text:
+                runs[-1].append(index)
+            else:
+                runs.append([index])
+        last_text = index
+    return runs
+
+
+def _pair_column(
+    lines: Sequence[str], run: Sequence[int], claimants: Sequence[int]
+) -> dict[int, str] | None:
+    """The claimants' rejoined dockets, or ``None`` if the column does not fit them.
+
+    The run's last numbers are the serials, in the claimants' order; at most
+    one number ahead of them may be a page number. Every serial must ascend
+    and sit between the whole captions printed around its claimant
+    (``25-1374`` < ``25-1375`` < ``25-1377``), at least one of which must be
+    there to bound it.
+    """
+    if len(run) < len(claimants):
+        return None
+    lead = run[: len(run) - len(claimants)]
+    if len(lead) > 1 or not all(_PAGE_NUMBER_RE.match(lines[i]) for i in lead):
+        return None
+    pairs: list[tuple[int, str, int]] = []
+    for claimant, serial_index in zip(claimants, run[len(lead) :], strict=True):
+        found = _LIFTED_CAPTION_RE.match(lines[claimant])
+        assert found is not None
+        pairs.append((claimant, found.group("prefix"), int(lines[serial_index])))
+    serials = [serial for _claimant, _prefix, serial in pairs]
+    if any(later <= earlier for earlier, later in itertools.pairwise(serials)):
+        return None
+    for claimant, prefix, serial in pairs:
+        below = _neighbor_serial(lines, range(claimant - 1, -1, -1), prefix)
+        above = _neighbor_serial(lines, range(claimant + 1, len(lines)), prefix)
+        if below is None and above is None:
+            return None
+        if (below is not None and below >= serial) or (above is not None and above <= serial):
+            return None
+    return {claimant: f"{prefix}-{serial}" for claimant, prefix, serial in pairs}
+
+
+def _rejoin_lifted_serials(
+    lines: Sequence[str],
+) -> tuple[dict[int, str], set[int], list[str]]:
+    """Captions whose serial the extraction lifted out, rejoined to it.
+
+    A run of bare-number lines is claimed by the lifted captions (``25- DOE …``)
+    that follow it before the next run, and rejoined to them by
+    :func:`_pair_column`; a column that does not fit is a problem, and its
+    claimants stay unnumbered. Every run's lines are dropped either way, so a
+    column of numbers is never read as an entry's order text. A run of more
+    than one number that no caption claims is a problem too, as is a lifted
+    caption no run precedes.
+
+    Returns the rejoined docket by line index, the line indices to drop, and
+    the problems.
+    """
+    runs = _number_runs(lines)
+    lifted = [i for i, line in enumerate(lines) if _LIFTED_CAPTION_RE.match(line)]
+    rejoined: dict[int, str] = {}
+    dropped: set[int] = set()
+    problems: list[str] = []
+    claimed: set[int] = set()
+    for number, run in enumerate(runs):
+        dropped.update(run)
+        end = runs[number + 1][0] if number + 1 < len(runs) else len(lines)
+        claimants = [i for i in lifted if run[-1] < i < end]
+        claimed.update(claimants)
+        column = " ".join(lines[i] for i in run)
+        if not claimants:
+            if len(run) > 1:
+                problems.append(f"a column of bare numbers no caption claims: {column[:160]!r}")
+            continue
+        paired = _pair_column(lines, run, claimants)
+        if paired is None:
+            problems.append(
+                f"{len(claimants)} caption(s) printed without a serial could not be "
+                f"rejoined to the column {column[:160]!r}"
+            )
+            continue
+        rejoined.update(paired)
+    problems.extend(
+        f"a caption printed without a serial: {lines[index][:160]!r}"
+        for index in lifted
+        if index not in claimed
+    )
+    return rejoined, dropped, problems
+
+
 def _split_list(  # noqa: PLR0912 - one branch per line shape the list prints
     lines: Sequence[str], day: date | None
 ) -> tuple[list[OrderPiece], list[str]]:
@@ -382,19 +508,28 @@ def _split_list(  # noqa: PLR0912 - one branch per line shape the list prints
     groups: list[_Group] = []
     current: _Group | None = None
     orphans: list[str] = []
+    rejoined, dropped, problems = _rejoin_lifted_serials(lines)
     for index, line in enumerate(lines):
         if not line or _LIST_TOP_RE.match(line) or _DAY_LINE_RE.match(line):
             continue
-        if _is_page_furniture(line) or _BRACKET_LINE_RE.match(line):
+        if index in dropped or _is_page_furniture(line) or _BRACKET_LINE_RE.match(line):
             continue
-        caption = _CAPTION_RE.match(line)
-        if caption is None and (bare := _BARE_DOCKET_RE.match(line)) is not None:
-            caption = bare if _opens_bare_caption(lines, index) else None
-        if caption is not None:
+        docket: str | None = None
+        if (caption := _CAPTION_RE.match(line)) is not None:
+            docket = _docket(caption.group("docket"))
+        elif (bare := _BARE_DOCKET_RE.match(line)) is not None and _opens_bare_caption(
+            lines, index
+        ):
+            docket = _docket(bare.group("docket"))
+        # A lifted caption that could not be rejoined still opens its entry, so
+        # the order below it is not read onto the captions above; its own docket
+        # is unknown, and the problem is already recorded.
+        if docket is not None or index in rejoined or _LIFTED_CAPTION_RE.match(line):
             if current is None or current.lines:
                 current = _Group()
                 groups.append(current)
-            current.dockets.append(_docket(caption.group("docket")))
+            if (docket := docket or rejoined.get(index)) is not None:
+                current.dockets.append(docket)
             continue
         if (application := _APPLICATION_LINE_RE.match(line)) is not None and current is not None:
             current.dockets.append(_docket(application.group("docket")))
@@ -411,8 +546,11 @@ def _split_list(  # noqa: PLR0912 - one branch per line shape the list prints
     pieces: list[OrderPiece] = []
     for group in groups:
         if group.lines:
-            pieces.extend(_inline_pieces(tuple(group.dockets), "\n".join(group.lines), day))
-    problems = []
+            text = "\n".join(group.lines)
+            if not _LETTER_RE.search(text):
+                # A run of bare numbers or punctuation is never an order.
+                problems.append(f"an entry's order text has no letters: {text[:160]!r}")
+            pieces.extend(_inline_pieces(tuple(group.dockets), text, day))
     orphan_text = normalize_order_text("\n".join(orphans))
     if _TRIGGER_RE.search(orphan_text):
         problems.append(f"text outside any entry reads like a notation: {orphan_text[:160]!r}")

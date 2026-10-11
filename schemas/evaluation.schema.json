@@ -2,10 +2,10 @@
   "$defs": {
     "BigCaseAssessment": {
       "additionalProperties": false,
-      "description": "The evaluator's independent read of a case's stakes (the big-case dimension).\n\nThe evaluator forms its **own** opinion of how big / significant the case is,\n**before** it is shown the predictor's ``big_case_score`` \u2014 so, under\ncross-evaluation, the panel's reads stay independent and the agreement is not\ncircular. Unlike the blind grant forecast, this is a *judge's* read: the\nevaluator may use post-decision context available at evaluation time (the\noutcome, the immediate reaction). The predictor's pre-registered score is\ngraded by its agreement with this read \u2014 **rank-agreement across the evaluated\ncohort** at leaderboard time, since bigness is comparative (a per-case\nabsolute delta is a secondary diagnostic); this record stores only the\nindependent read, never the grade. Optional on the evaluation so records\nwritten before the dimension existed still validate. See ``docs/salience.md``.",
+      "description": "The evaluator's own read of a case's stakes (the big-case dimension).\n\nThe evaluator forms its **own** opinion of how big / significant the case is.\nIt is not blind: the predictions it grades carry the predictors'\n``big_case_score`` and ``big_case_rationale``, so the read is formed with\nthem in view and the prompt asks only that it not anchor on them \u2014 which is\nwhy the agreement it grades is read as an upper bound (``metrics/README.md``,\nthe ``big_case`` reading rule). Unlike the blind grant forecast, this is a *judge's* read: the\nevaluator may use post-decision context available at evaluation time (the\noutcome, the immediate reaction). The predictor's pre-registered score is\ngraded by its agreement with this read \u2014 **rank-agreement across the evaluated\ncohort** at leaderboard time, since bigness is comparative (a per-case\nabsolute delta is a secondary diagnostic); this record stores only the\nevaluator's read, never the grade. Optional on the evaluation so records\nwritten before the dimension existed still validate. See ``docs/salience.md``.",
       "properties": {
         "evaluator_score": {
-          "description": "The evaluator's own 0-1 stakes / significance read, formed before seeing the predictor's big_case_score",
+          "description": "The evaluator's own 0-1 stakes / significance read, formed from the case itself without anchoring on the predictors' big_case_score, which is in view",
           "maximum": 1.0,
           "minimum": 0.0,
           "title": "Evaluator Score",
@@ -68,7 +68,7 @@
             }
           ],
           "default": null,
-          "description": "How the claim resolved: 1 true, 0 false. None when the record does not disclose it \u2014 the availability mask, a property of the record and never of the predictor: an outcome without a signals block discloses no increment, a context whose signals were unobservable fixes no prediction-time value, and a CVSG already on the docket at prediction time makes the cvsg-increment claim vacuous",
+          "description": "How the claim resolved: 1 true, 0 false. None when the record does not disclose it \u2014 the availability mask, a property of the record and never of the predictor: an outcome without a signals block discloses no increment, a context whose signals were unobservable fixes no prediction-time value, and a CVSG already on the docket at prediction time, or a federal party named in the case's caption, makes the cvsg-increment claim vacuous",
           "title": "Outcome"
         },
         "probability": {
@@ -384,6 +384,20 @@
       "description": "Which salience-band population segment_base_rate was taken over. Null wherever the rate is not a band product \u2014 a merits cell's Term-pooled disturbed rate, and an interim cell's application-Term-pooled grant rate: an application freezes no band by rule, so there is no band population for this field to name, and the event's stage axis carries the disambiguation instead. The stamp clears it on both of those stages, where the rate beside it is the harness's own pooled number, so the null is structural rather than a rule an evaluator has to honour. 'risk_set' pools across every petition that had REACHED the prediction's frozen band \u2014 the population a live cell was actually in, and the right basis wherever the prediction carries a frozen band under a resolvable salience version. 'terminal' pools across petitions that ENDED in the band derived from the row now, the fallback where no frozen band exists (an older cell, or one whose snapshot disclosed no proceedings) \u2014 never a relabel of a frozen band whose version fails to resolve, which yields no baseline at all. The two differ several-fold in the weak bands, so a skill score is only comparable within one basis; absent on evaluations written before the distinction existed. A cert cell whose scored prediction froze a band but no resolvable salience version lands with both this field and segment_base_rate null \u2014 the enforced state rather than a permitted shorthand: `stamp-cell` and `validate` both fail a 'risk_set' basis that resolves no version, and both equally fail a 'terminal' basis recorded while the scored prediction froze a band at all \u2014 the fallback taken where a risk-set pairing existed to take.",
       "title": "Base Rate Basis"
     },
+    "base_rate_lookback_terms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Harness-stamped `salience.base_rate_lookback_terms` a harness-stamped cert segment_base_rate was pooled under (0 = no window), written beside base_rate_statpack_digest so the build and the window together name the pool; the leaderboard re-pools under this recorded window rather than the one in config at build time. Null wherever base_rate_statpack_digest is.",
+      "title": "Base Rate Lookback Terms"
+    },
     "base_rate_salience_version": {
       "anyOf": [
         {
@@ -397,6 +411,19 @@
       "description": "Harness-stamped record of which salience version the segment_base_rate's band was read under \u2014 the version half of the basis record, the parallel of `base_rate_basis`. Stamped by `stamp-cell --role evaluator` deterministically from the same inputs the basis names (never the evaluator's word, and an evaluator-written value does not survive the stamp): on the `risk_set` path it is the scored prediction's frozen `context.salience_version`, on the `terminal` path the live scorer's version. Null when no basis is recorded, and cleared outright on every merits and every interim cell, whose harness-stamped baseline is not a salience-band product and so has no scorer version to pin; null too on records written before the field existed.",
       "title": "Base Rate Salience Version"
     },
+    "base_rate_statpack_digest": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Harness-stamped digest (`pipeline.base_rates.statpack_digest`, `sha256:` over the parsed statpack's canonical JSON) of the statpack build a harness-stamped cert segment_base_rate was pooled from. Written by `stamp-cell --role evaluator` beside every cert anchor it stamps (proc-v9 and later, where the scored prediction froze a band); the leaderboard re-pools the anchor wherever its own statpack carries the same digest and drops a cell whose recorded rate does not reproduce. Null wherever the rate is not a harness-stamped cert anchor \u2014 every merits and interim cell, an earlier label's cert grading, a cert cell on the terminal fallback \u2014 and on records written before the field existed.",
+      "title": "Base Rate Statpack Digest"
+    },
     "big_case": {
       "anyOf": [
         {
@@ -407,7 +434,7 @@
         }
       ],
       "default": null,
-      "description": "The evaluator's independent big-case read (see BigCaseAssessment); null when not assessed and on records written before the dimension existed. The predictor's big_case_score is graded against these reads by rank-agreement at leaderboard time."
+      "description": "The evaluator's own big-case read (see BigCaseAssessment); null when not assessed and on records written before the dimension existed. The predictor's big_case_score is graded against these reads by rank-agreement at leaderboard time."
     },
     "brier_score": {
       "anyOf": [
@@ -421,7 +448,7 @@
         }
       ],
       "default": null,
-      "description": "`(probability - actual_granted)**2` over the stage's declared binary \u2014 granted on a cert or interim cell, judgment-disturbed on a merits one \u2014 computed identically in code by `pipeline.evaluate.brier_score`. Who owns it splits by stage. On a **merits** or **interim** cell whose `event.yaml` names that stage it is harness-stamped **at stamp time** by `stamp-cell --role evaluator` from the scored prediction's committed `probability` and the outcome's `actual_granted`, never the evaluator's word, and cleared where either artifact is missing \u2014 so the `segment_base_rate` and `brier_skill_score` stamped beside it share one source and the skill ratio is verifiable rather than merely self-consistent. An unstamped cell keeps whatever it was written with. On a **cert** cell it is the evaluator's, and the leaderboard's coherence check holds it to the skill recorded against it. Null where the cell scored no probability and on records written before the field existed.",
+      "description": "`(probability - actual_granted)**2` over the stage's declared binary \u2014 granted on a cert or interim cell, judgment-disturbed on a merits one \u2014 computed identically in code by `pipeline.evaluate.brier_score`. Who owns it splits by stage. On a **merits** or **interim** cell whose `event.yaml` names that stage it is harness-stamped **at stamp time** by `stamp-cell --role evaluator` from the scored prediction's committed `probability` and the outcome's `actual_granted`, never the evaluator's word, and cleared where either artifact is missing \u2014 so the `segment_base_rate` and `brier_skill_score` stamped beside it share one source and the skill ratio is verifiable rather than merely self-consistent. An unstamped cell keeps whatever it was written with. On a **cert** grading stamped under proc-v9 or later whose scored prediction froze a band it is harness-stamped the same way, beside the stamped cert anchor; on any other cert cell it is the evaluator's, and the leaderboard's coherence check holds it to the skill recorded against it. Null where the cell scored no probability and on records written before the field existed.",
       "title": "Brier Score"
     },
     "brier_skill_score": {
@@ -435,7 +462,7 @@
         }
       ],
       "default": null,
-      "description": "Brier skill score vs `segment_base_rate` (1 - brier / baseline_brier): ~0 when the prediction merely parrots the segment base rate, positive when it beats it, negative when worse. On a merits or interim cell it is harness-derived at stamp time from the *stamped* brier_score, the outcome, and the stamped `segment_base_rate` \u2014 all three off one set of committed artifacts, so the ratio is correct by construction rather than merely reproducible from the record; on a cert cell it is the evaluator's, computed against the band rate it recorded. Null when `segment_base_rate` is null, when the baseline is already exact (the base rate matched the outcome), and on records written before the field existed.",
+      "description": "Brier skill score vs `segment_base_rate` (1 - brier / baseline_brier): ~0 when the prediction merely parrots the segment base rate, positive when it beats it, negative when worse. On a merits or interim cell it is harness-derived at stamp time from the *stamped* brier_score, the outcome, and the stamped `segment_base_rate` \u2014 all three off one set of committed artifacts, so the ratio is correct by construction rather than merely reproducible from the record \u2014 and so is a cert cell's wherever segment_base_rate is the harness-stamped anchor (proc-v9 and later, frozen band); on any other cert cell it is the evaluator's, computed against the band rate it recorded. Null when `segment_base_rate` is null, when the baseline is already exact (the base rate matched the outcome), and on records written before the field existed.",
       "title": "Brier Skill Score"
     },
     "case_id": {
@@ -607,7 +634,7 @@
         }
       ],
       "default": null,
-      "description": "The leakage-safe segment base rate for this case, on the stage's own axis. On a cert cell that is its salience band's grant rate pooled over statpack Terms strictly before the case's Term, and which band \u2014 therefore which of the two published rates \u2014 is recorded in base_rate_basis below; that choice is a judgment about the scored prediction's frozen band, so the cert rate is the evaluator's to record. On a merits cell it is instead the statpack merits section's disturbed rate pooled over grant Terms strictly before the case's (`pipeline.base_rates.merits_base_rate`), keyed on the Term certiorari was granted in and harness-stamped by `stamp-cell --role evaluator` \u2014 never the evaluator's word, and cleared where the harness cannot compute one, so a hand-pooled number never survives the stamp. On an interim cell it is the statpack interim section's substantive grant rate pooled over application Terms strictly before the case's own, read off the scored prediction's frozen context (`pipeline.base_rates.interim_base_rate`) and harness-stamped the same way, null below that pool's own pre-registered floor. Neither pooled rate is a salience-band product, so the stamp clears base_rate_basis and base_rate_salience_version on both. The naive baseline the prediction's skill is scored against; null on a cert cell from an offline evaluator, when no prior-Term data exists for the stage's rate, and on records written before the field existed.",
+      "description": "The leakage-safe segment base rate for this case, on the stage's own axis. On a cert cell that is its salience band's grant rate pooled over statpack Terms strictly before the case's Term, and which band \u2014 therefore which of the two published rates \u2014 is recorded in base_rate_basis below. On a cert grading stamped under proc-v9 or later whose scored prediction froze a band, the rate is harness-stamped by `stamp-cell --role evaluator`: the risk-set rate pooled through the scorer's own pooler over the prediction's frozen band, salience version, and Term, from the statpack build named in base_rate_statpack_digest, and cleared where that pool is empty. On an earlier label's cert grading, and on a cert cell whose prediction froze no band (the terminal fallback, which re-derives a band from the corpus row), the rate is the evaluator's to record. On a merits cell it is instead the statpack merits section's disturbed rate pooled over grant Terms strictly before the case's (`pipeline.base_rates.merits_base_rate`), keyed on the Term certiorari was granted in and harness-stamped by `stamp-cell --role evaluator` \u2014 never the evaluator's word, and cleared where the harness cannot compute one, so a hand-pooled number never survives the stamp. On an interim cell it is the statpack interim section's substantive grant rate pooled over application Terms strictly before the case's own, read off the scored prediction's frozen context (`pipeline.base_rates.interim_base_rate`) and harness-stamped the same way, null below that pool's own pre-registered floor. Neither pooled rate is a salience-band product, so the stamp clears base_rate_basis and base_rate_salience_version on both. The naive baseline the prediction's skill is scored against; null on a cert cell from an offline evaluator, when no prior-Term data exists for the stage's rate, and on records written before the field existed.",
       "title": "Segment Base Rate"
     },
     "semantic_grades": {

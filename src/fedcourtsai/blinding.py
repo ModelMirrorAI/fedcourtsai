@@ -894,10 +894,13 @@ def hide_committed_cells(*, data_root: Path, stash_dir: Path) -> tuple[Path, ...
       so each run gets a stash of its own.
     - **Hiding nothing at all.** A wrong ``data_root``, a wrong working
       directory, or a renamed ledger layout all yield an empty sweep, which
-      would otherwise exit green having hidden nothing. The cell's staging step
-      exits non-zero unless the event carries a prediction, so by the time this
-      runs at least one ``predictions/`` tree provably exists; an empty sweep is
-      therefore a fault in the sweep, not a fact about the ledger.
+      would otherwise exit green having hidden nothing. Both callers run over a
+      ledger that holds committed forecasts — the evaluate cell's staging step
+      exits non-zero unless its own event carries a prediction, and a predict
+      cell runs against the production ledger, which is never empty — so an
+      empty sweep is a fault in the sweep, not a fact about the ledger. A predict
+      cell over a fresh, empty data root would fail here, which is the intended
+      side: it is a cell pointed at the wrong tree.
     """
     manifest_path = stash_dir / HIDDEN_MANIFEST
     if manifest_path.exists():

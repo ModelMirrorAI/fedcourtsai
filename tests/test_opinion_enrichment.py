@@ -996,6 +996,9 @@ class _SpySink:
     def __init__(self) -> None:
         self.mirrored: list[str] = []
 
+    def mirrors_connection(self, conn: corpus.ReadConnection) -> bool:
+        return True
+
     def mirror_cases(self, rows: Sequence[corpus.CorpusRow]) -> None:
         self.mirrored.extend(row.case_id for row in rows)
 

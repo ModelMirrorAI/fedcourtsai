@@ -153,10 +153,13 @@ from .disposition_convergence import converge_disposition_labels
 from .docket_marking_migration import normalize_docket_markings
 from .finalize import (
     FinalizeRole,
+    OutputSnapshot,
     agent_produced_output,
     blinded_candidates,
     cell_output_root,
     required_outputs,
+    reset_output_root,
+    snapshot_output_root,
 )
 from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
@@ -246,6 +249,8 @@ from .pipeline.base_rates import (
     _version_segments,
     interim_base_rate,
     merits_base_rate,
+    prediction_base_rate,
+    statpack_digest,
 )
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.caption import CAPTION_RULE_VERSION, CAPTION_RULES, caption_census
@@ -303,6 +308,7 @@ from .pipeline.party import (
     PARTY_AS_OF_FIELDS,
     PARTY_RULE_VERSION,
     PARTY_RULES,
+    caption_names_federal_party,
     party_census,
 )
 from .pipeline.party_rates import DEFAULT_RATES_RULE, party_rates
@@ -318,7 +324,12 @@ from .pipeline.pull import (
     pull_cases,
 )
 from .pipeline.response_backfill import backfill_response_fields
-from .pipeline.runner import EngineFailed, EngineUnavailable, available_backends
+from .pipeline.runner import (
+    EngineFailed,
+    EngineUnavailable,
+    available_backends,
+    classify_engine_attempt,
+)
 from .pipeline.salience import (
     SALIENCE_VERSION,
     SCORERS,
@@ -504,7 +515,8 @@ def validate(
 
     Two corpus-free layers the PR gate can enforce offline: every known artifact
     matches its schema, and every judgment references an event that exists in the
-    git tree (with its declared ids matching the path) while every evaluation
+    git tree (with its declared ids matching the path), every event directory
+    holds only the entries the ledger layout defines, every evaluation
     targets a real prediction, every recorded ``risk_set`` base-rate basis
     carries the salience version it was banded under, every prose document a
     prediction names sits beside it, and every committed claims block is one
@@ -2175,8 +2187,9 @@ def ocr_recover_petitions_cmd(
     poller and the Term walker re-fetch a kind only when its link changes.
     This is the pass that repairs it, on the terms in *Contract for the recovery
     pass* (`docs/live-sources.md`): the population is every stored row a cell
-    reads that was fetched as a PDF — the petition, the application, the brief
-    in opposition, the four merits filings — whose text is empty or
+    reads that was fetched as a PDF — the petition, the application and the
+    filings answering it, the appendix, the brief in opposition, the cert-stage
+    reply, the invited brief, the four merits filings — whose text is empty or
     whitespace-only, whose page count is above zero (a zero-page row is a PDF
     the extractor could not open, which is not OCR's to repair, and a case with
     no row of a kind at all is a fetch gap), and whose stored URL is one link.
@@ -2193,7 +2206,7 @@ def ocr_recover_petitions_cmd(
     its pages go through the extractor with the OCR seam supplied, which reads a
     page off its rendered image only where that page's own extraction yielded
     nothing. The same per-document character cap and truncation flag bound the
-    result, so a recovered row is bounded exactly like a fetched one, and
+    result — the plain head cut, never the appendix-aware one — and
     every recovered row carries `ocr_derived`: OCR output is derived text, and
     must never read as a clean extraction. Additive — text is written only where
     the stored row held none — and a recovered **petition** re-derives its
@@ -4289,10 +4302,11 @@ def backfill_documents_cmd(
     runs at the transition that queues it, and a granted case reaches its merits
     moments with both sides' merits advocacy because the selection sweep
     re-provisions it while a merits event is open. A case whose provisioning ran
-    before the selector had an arm for its filing type kept nothing, and no lane
-    repairs that: the poller re-fetches a kind only when its link changes, and a
-    kind never stored has no link to change. This applies the current selector to
-    the cases already past their trigger.
+    before the selector had an arm for its filing type kept nothing. The live
+    document-freshness pass repairs that for the predict-relevant cases its
+    rotations still poll; this applies the current selector to the cases already
+    past their trigger that the rotations no longer reach, or that the freshness
+    cap has not reached yet.
 
     The population is live-slice rows queued for prediction or selected by the
     salience gate — not the wide distributed stock, which is overwhelmingly
@@ -4972,11 +4986,12 @@ def _blob_drift_text(drift: corpus_remote.BlobDrift) -> str:
     """
     pulled = drift.pointer_source.name.endswith(".pulled" + corpus_ranged.POINTER_SUFFIX)
     cause = (
-        "it was rewritten since the pull, most often by a local read that migrated "
-        "its schema in place"
+        "it was rewritten since the pull, by a writer or maintenance command run "
+        "against it locally (a dry run included; the read-only commands never rewrite it)"
         if pulled
-        else "it is not the blob that pointer names — rewritten in place by a local "
-        "read that migrated its schema, built locally, or the committed pointer moved"
+        else "it is not the blob that pointer names — rewritten in place by a "
+        "writer or maintenance command run locally (a dry run included), built locally, "
+        "or the committed pointer moved"
     )
     return (
         f"the blob on disk no longer matches the sha256 its pointer names "
@@ -5027,8 +5042,8 @@ def corpus_pull(
     fails loudly instead of masquerading as the corpus.
 
     Warns on stderr, without changing what it fetches, when the local blob it
-    replaces no longer matched its pointer (a local read migrated it in place)
-    and when the committed pointer differs from the one ``origin/main``
+    replaces no longer matched its pointer (a writer or maintenance command,
+    or its dry run, rewrote it) and when the committed pointer differs from the one ``origin/main``
     carries as of the last fetch (a checkout on an old commit pulls an old blob).
     """
     if missing_pointer not in {"fail", "warn"}:
@@ -5563,9 +5578,12 @@ def segment_anchors_command(
 ) -> None:
     """Print the exact pooled per-band segment base rates behind cert-cell skill.
 
-    A cert cell's skill is computed against the ``segment_base_rate`` its
-    evaluator recorded, pooled off the rendered statpack table, so a recorded
-    rate can sit up to about 0.0005 from the exact pool printed here.
+    A cert cell's skill is computed against the ``segment_base_rate`` it
+    records. From proc-v9 on, where the scored prediction froze a band, the
+    stamp writes that rate through this same pooler, so it is the pool printed
+    here. On an earlier label's grading and on the terminal fallback it is the
+    evaluator's pooling of the rendered statpack table, which can sit up to
+    about 0.0005 from the exact pool.
 
     Reads only the committed ``metrics/statpack.json`` (no corpus) and pools
     each band through the scorer's own pooler,
@@ -6274,7 +6292,7 @@ def backtest(
         write_json(destination, report)
         typer.echo(f"No corpus at {db_path} — wrote empty back-test report -> {destination}")
         return
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_local_read(db_path) as conn:
         items = select_backtest_set(conn, court=court or None, limit=limit)
         report = run_backtest(default_backtesters(conn), items)
     write_json(destination, report)
@@ -6559,7 +6577,7 @@ def cert_backtest_cmd(
     # the floor is what `--scope selected` means, and the lookback window sets
     # every segment base rate the per-band skill is scored against.
     salience_cfg = load_salience_config(settings.config_root)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_local_read(db_path) as conn:
         # An engine replay draws from the replayable petitions, passing over the
         # rest as it walks, so the limit is the set's size and an unreplayable
         # petition never costs the draw a slot it would have filled.
@@ -7159,11 +7177,19 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     salience-band product. All three come off one set of committed artifacts, so
     the skill ratio is verifiable rather than merely self-consistent: stamping
     the denominator over an agent-written numerator would reproduce from the
-    record and still be wrong. The **cert** path stays the evaluator's and none
-    of the three is touched there: which band population the rate is taken over
-    — ``risk_set`` against ``terminal`` — is a judgment about the scored
-    prediction's frozen band, recorded in ``base_rate_basis``, and the
-    leaderboard's coherence check is what holds that arithmetic to its record.
+    record and still be wrong. A **cert** grading stamped under
+    :data:`fedcourtsai.process_version.HARNESS_CERT_ANCHOR_FROM` or later whose
+    scored prediction froze a band takes the same treatment: the frozen band
+    leaves no population to choose, so the harness pools the risk-set anchor
+    through the scorer's own pooler and stamps the Brier, the rate, the skill,
+    both halves of the basis record, and the statpack build it read
+    (``base_rate_statpack_digest``). Every other cert cell — an earlier label's
+    grading, and a prediction that froze no band, whose terminal fallback
+    re-derives a band from the corpus row — keeps the evaluator's three
+    numbers, and the leaderboard's coherence check is what holds that
+    arithmetic to its record. The label is the stamp's own: the one this
+    invocation writes, or on a re-grade the one the record carries, so a
+    re-grade never moves a grading onto a rule its label did not register.
 
     A mispaired basis exits non-zero after every cell is stamped — either
     half. A recorded ``risk_set`` basis whose version does not resolve: the
@@ -7218,7 +7244,10 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     invocation. Reconstructing a stamp-vintage pool would price a corrected
     outcome against a pack that never saw the correction. So the vintage
     discipline is the operator's: re-grade a whole cohort against one committed
-    statpack, never a cell at a time across a moving pack.
+    statpack, never a cell at a time across a moving pack. One exception: a
+    harness-stamped cert anchor keeps the rate, build and window it was first
+    stamped with (:func:`_cert_skill_record_for`), since a strictly-prior pool
+    is not what an outcome correction changes.
 
     Re-grade **every evaluator on the event**, not one: ``validate``'s
     :func:`fedcourtsai.validate.check_evaluation_correct_agrees` collapses to
@@ -7323,7 +7352,17 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             # the harness's word. The basis trio it returns is what the
             # mispairing guard below judges — the record as stamped, never as
             # the evaluator wrote it.
-            skill_fields, basis_records[path] = _skill_record_for(event_paths, record, settings)
+            # The label the record is stamped with decides who owns a cert
+            # anchor: the one this stamp writes, or — on a re-grade, which
+            # preserves the stamp — the one already on the record.
+            label = (
+                (record.process_version.label if record.process_version is not None else None)
+                if regrade
+                else process_version.CURRENT_PROCESS_LABEL
+            )
+            skill_fields, basis_records[path] = _skill_record_for(
+                event_paths, record, settings, label, regrade=regrade
+            )
             cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
         graded += 1
@@ -7875,11 +7914,18 @@ def _require_reproducible_trio(
     ``brier_skill_score`` together, or commit a genuine re-derivation — after
     which the re-grade proceeds. A correction that leaves the binary alone (a
     disposition relabelled within the granted set, say) reproduces and passes.
+    A cert record the harness owns (:func:`_harness_owns_cert_record`, judged
+    on the label the record already carries, which a re-grade preserves) is
+    recomputed whole like a merits one, so it is never refused here.
     """
-    if _event_stage_and_opened(event_paths)[0] in _HARNESS_SKILL_STAGES:
+    stage = _event_stage_and_opened(event_paths)[0]
+    if stage in _HARNESS_SKILL_STAGES:
         return
     outcome = _outcome_for(event_paths)
     for path, record in records:
+        label = record.process_version.label if record.process_version is not None else None
+        if _harness_owns_cert_record(stage, label, _scored_prediction_for(event_paths, record)):
+            continue
         recorded = record.brier_score
         if recorded is None:
             continue
@@ -8105,7 +8151,29 @@ def _claim_scores_for(
         statpack,
         lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
         grant_term=_grant_term_for(event_paths),
+        federal_party=_names_federal_party(event_paths),
     )
+
+
+def _names_federal_party(event_paths: EventPaths) -> bool:
+    """Whether the committed event's caption names a federal party on either side.
+
+    Read off the ``event.yaml`` ``title`` — the case caption — through
+    ``party-v2``'s class predicate
+    (:func:`~fedcourtsai.pipeline.party.caption_names_federal_party`), for the
+    claim scorer's federal-party mask. Best-effort like the grant Term beside
+    it: a missing or unreadable definition, or one with no title, answers
+    ``False`` and leaves the claim to its own resolver rather than guessing a
+    party.
+    """
+    event_file = event_paths.event_file
+    if not event_file.is_file():
+        return False
+    try:
+        event = read_model(event_file, PredictableEvent)
+    except (OSError, ValueError, ValidationError, yaml.YAMLError):
+        return False
+    return caption_names_federal_party(event.title)
 
 
 def _scored_prediction_for(event_paths: EventPaths, evaluation: Evaluation) -> Prediction | None:
@@ -8161,14 +8229,21 @@ def _statpack_for(settings: Settings) -> StatPack | None:
 #: and the ``brier_skill_score`` over them — the harness stamps rather than the
 #: evaluator recording it: both pool a Term-keyed ratio of the statpack's
 #: published integer counts, with no salience band to choose between and so no
-#: judgment for an evaluator to exercise. The cert stage is absent by design —
-#: see :func:`stamp_cell`. It governs the *skill record* only: ``correct`` needs
-#: no pooled rate and so no band, and is stamped on every stage including cert.
+#: judgment for an evaluator to exercise. The cert stage is absent: its record
+#: is the harness's only from a label on and only over a frozen band
+#: (:func:`_harness_owns_cert_record`) — see :func:`stamp_cell`. It governs the
+#: *skill record* only: ``correct`` needs no pooled rate and so no band, and is
+#: stamped on every stage including cert.
 _HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim)
 
 
 def _skill_record_for(
-    event_paths: EventPaths, evaluation: Evaluation, settings: Settings
+    event_paths: EventPaths,
+    evaluation: Evaluation,
+    settings: Settings,
+    label: str | None,
+    *,
+    regrade: bool = False,
 ) -> tuple[dict[str, object], tuple[str | None, str | None, Prediction | None]]:
     """This cell's ``correct`` and skill record as a stamp update, plus its basis trio.
 
@@ -8187,9 +8262,13 @@ def _skill_record_for(
     Like the Brier it is ``None`` where either committed artifact — the scored
     predictor's latest prediction, or the outcome — is unreadable.
 
-    The **skill record** beside it takes two shapes, keyed on the stage. On a
-    **cert** cell the Brier, the rate, and
-    the skill are the evaluator's — which band population the rate was taken
+    The **skill record** beside it takes three shapes, keyed on the stage and,
+    on a cert cell, on the stamp's ``label`` and the scored prediction. On a
+    **cert** grading stamped under a label
+    :func:`fedcourtsai.process_version.harness_stamps_cert_anchor` admits whose
+    scored prediction froze a band, the whole record is the harness's
+    (:func:`_cert_skill_record_for`). On any other **cert** cell the Brier, the
+    rate, and the skill are the evaluator's — which band population the rate was taken
     over is a judgment about the scored prediction's frozen band, and the
     leaderboard's coherence check is what stands between that arithmetic and the
     published column — so only the version half of the basis record is derived
@@ -8232,10 +8311,22 @@ def _skill_record_for(
     stage = _event_stage_and_opened(event_paths)[0]
     if stage not in _HARNESS_SKILL_STAGES:
         latest = _scored_prediction_for(event_paths, evaluation)
+        if _harness_owns_cert_record(stage, label, latest):
+            # Narrowing only: the predicate requires a scored prediction.
+            assert latest is not None
+            fields, basis, version = _cert_skill_record_for(
+                event_paths, evaluation, settings, outcome, latest, regrade=regrade
+            )
+            return {"correct": correct} | fields, (basis, version, latest)
         context = latest.context if latest is not None else None
         version = _base_rate_salience_version_for(evaluation, context)
         return (
-            {"correct": correct, "base_rate_salience_version": version},
+            {
+                "correct": correct,
+                "base_rate_salience_version": version,
+                "base_rate_statpack_digest": None,
+                "base_rate_lookback_terms": None,
+            },
             (evaluation.base_rate_basis, version, latest if stage == Stage.cert else None),
         )
     rate = _harness_base_rate_for(event_paths, evaluation, settings)
@@ -8250,9 +8341,142 @@ def _skill_record_for(
             "brier_skill_score": _harness_skill_for(brier, outcome, rate),
             "base_rate_basis": None,
             "base_rate_salience_version": None,
+            "base_rate_statpack_digest": None,
+            "base_rate_lookback_terms": None,
         },
         (None, None, None),
     )
+
+
+def _harness_owns_cert_record(
+    stage: Stage | None, label: str | None, scored: Prediction | None
+) -> bool:
+    """Whether this cell's cert skill record is the harness's to stamp.
+
+    A **cert** cell, stamped under a label from
+    :data:`fedcourtsai.process_version.HARNESS_CERT_ANCHOR_FROM` on, whose
+    scored prediction froze a ``context.band``. The frozen band is what makes
+    the anchor mechanical: the population is the risk set of that band under
+    the version that assigned it, keyed on the frozen docket Term, so nothing is
+    left to judge. A cert prediction that froze **no** band takes the terminal
+    fallback, which re-derives a band from the corpus row — a read the stamp
+    does not make — so that record stays the evaluator's, under the evaluator path's
+    guards.
+    """
+    return (
+        stage == Stage.cert
+        and process_version.harness_stamps_cert_anchor(label)
+        and scored is not None
+        and scored.context is not None
+        and scored.context.band is not None
+    )
+
+
+def _cert_skill_record_for(
+    event_paths: EventPaths,
+    evaluation: Evaluation,
+    settings: Settings,
+    outcome: Outcome | None,
+    scored: Prediction,
+    *,
+    regrade: bool,
+) -> tuple[dict[str, object], str | None, str | None]:
+    """The harness's whole cert skill record, for a cell :func:`_harness_owns_cert_record` admits.
+
+    The anchor is :func:`fedcourtsai.pipeline.base_rates.prediction_base_rate`
+    — the scorer's own pooler over the scored prediction's frozen
+    ``(band, salience_version, term)``, the risk-set rate, strictly-prior Terms
+    inside ``salience.base_rate_lookback_terms`` — so it is the exact pool
+    ``fedcourts segment-anchors`` prints rather than a transcription off the
+    rendered ``metrics/statpack.md``. Because the pooler reads a Term's
+    ``alt_segments`` too, a band frozen under a salience version the rendered
+    table no longer shows still pools. The Brier and the skill over the two are
+    stamped beside it from the same committed artifacts, as on merits and
+    interim, so the ratio is verifiable rather than merely self-consistent.
+
+    The basis is ``risk_set`` and the version the frozen one wherever the pool
+    yields a rate; where it does not — no readable statpack, a frozen band with
+    no ``salience_version`` or no ``term`` beside it, or no prior Term carrying
+    the band under its version — rate, basis, version, and skill are all null:
+    the omission the evaluator path prescribes for the same cases, never a
+    relabel to ``terminal``. ``base_rate_statpack_digest`` and
+    ``base_rate_lookback_terms`` name the build and the window a stamped rate
+    was pooled under, so the board can re-pool the same pool; both are null
+    beside a null rate.
+
+    **A re-grade keeps the anchor as stamped.** It recomputes the Brier and the
+    skill against the corrected outcome, but the rate, its build, its window
+    and its basis pair are the ones the grading was first stamped with: the
+    anchor is a strictly-prior pool, which an outcome correction does not move,
+    and re-pooling it from whatever build is current would move the baseline
+    after the fact. Returned with the stamped basis and version, the pair the
+    mispairing guard judges.
+    """
+    brier = _harness_brier_for(event_paths, evaluation, outcome)
+    rate: float | None
+    digest: str | None
+    lookback: int | None
+    basis: str | None
+    version: str | None
+    if regrade:
+        rate = evaluation.segment_base_rate
+        digest = evaluation.base_rate_statpack_digest
+        lookback = evaluation.base_rate_lookback_terms
+        basis = evaluation.base_rate_basis
+        version = evaluation.base_rate_salience_version
+    else:
+        rate, digest, lookback = _pool_cert_anchor(scored, settings)
+        _warn_on_discarded_number(
+            evaluation, "segment_base_rate", evaluation.segment_base_rate, rate
+        )
+        basis = "risk_set" if rate is not None else None
+        # `prediction_base_rate` yields a rate only off a context carrying band,
+        # Term, and version, so a rate implies the version it was pooled under.
+        version = scored.context.salience_version if rate is not None and scored.context else None
+        if evaluation.base_rate_basis is not None and evaluation.base_rate_basis != basis:
+            # Not a number, so `_warn_on_discarded_number` cannot say it; a
+            # judge's wrong basis would otherwise be corrected silently whenever
+            # the two tables' rates happen to agree.
+            typer.echo(
+                f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} "
+                + f"recorded base_rate_basis {evaluation.base_rate_basis!r} for a "
+                + f"harness-stamped field; the stamp wrote {basis!r}.",
+                err=True,
+            )
+    _warn_on_discarded_number(evaluation, "brier_score", evaluation.brier_score, brier)
+    fields: dict[str, object] = {
+        "brier_score": brier,
+        "segment_base_rate": rate,
+        "brier_skill_score": _harness_skill_for(brier, outcome, rate),
+        "base_rate_basis": basis,
+        "base_rate_salience_version": version,
+        "base_rate_statpack_digest": digest,
+        "base_rate_lookback_terms": lookback,
+    }
+    return fields, basis, version
+
+
+def _pool_cert_anchor(
+    scored: Prediction, settings: Settings
+) -> tuple[float | None, str | None, int | None]:
+    """The cert anchor pooled now: ``(rate, statpack build, lookback window)``.
+
+    All three ``None`` where no rate pools, so a build and a window are only
+    ever named beside the rate they produced.
+    """
+    statpack = _statpack_for(settings)
+    if statpack is None:
+        typer.echo(
+            "::warning::stamp: no readable metrics/statpack.json — this cert cell's "
+            "segment base rate and skill are cleared rather than pooled.",
+            err=True,
+        )
+        return None, None, None
+    lookback = load_salience_config(settings.config_root).base_rate_lookback_terms
+    rate = prediction_base_rate(scored.context, statpack, lookback_terms=lookback)
+    if rate is None:
+        return None, None, None
+    return rate, statpack_digest(statpack), lookback
 
 
 #: How far a recorded number may sit from the stamped one before
@@ -8385,9 +8609,8 @@ def _harness_base_rate_for(
     strictly before the cell's, read off the scored prediction's **frozen**
     ``context.term`` (the application Term the cell was conditioned on) rather
     than re-derived at stamp time. A **cert** cell returns ``None``: there the
-    rate is a band product, and which population it is taken over — the
-    risk-set table against the terminal one — is a judgment about the scored
-    prediction's frozen band, which the evaluator makes and records.
+    rate is a band product, stamped where the harness owns it by
+    :func:`_cert_skill_record_for` and otherwise the evaluator's.
 
     ``None`` too wherever an input is missing: no readable statpack, no Term to
     key on, no prediction to read a frozen one off, or a pool below its own
@@ -8487,7 +8710,7 @@ def _event_stage_and_opened(event_paths: EventPaths) -> tuple[Stage | None, date
         return (None, None)
     try:
         event = read_model(event_file, PredictableEvent)
-    except (OSError, ValueError, ValidationError):
+    except (OSError, ValueError, ValidationError, yaml.YAMLError):
         return (None, None)
     return (event.stage, event.opened_at)
 
@@ -10138,8 +10361,8 @@ def _vote_pass(  # noqa: PLR0913 - one shared body for the two commands' identic
     )
     settings = get_settings()
     if emit_projection is not None:
-        # Strictly read-only: the projection reads two columns every blob
-        # carries, so the pulled file is never migrated in place.
+        # The projection reads two columns every blob carries, so it opens the
+        # blob as packed and never pays for a migrated read copy.
         with corpus.connect_readonly(db_path, migrate=False) as conn:
             numbers = vote_docket_numbers(conn, settings.data_root, source=source)
         write_handoff(emit_projection, numbers)
@@ -11178,7 +11401,9 @@ def corpus_info(
         typer.Option(
             "--text-coverage",
             help="Also count the stored documents whose text is empty, per kind "
-            "(petition / application / brief-in-opposition / "
+            "(petition / application / appendix / application-response / "
+            "application-reply / brief-in-opposition / "
+            "cert-reply / sg-invited-brief / "
             "merits-brief-petitioner / merits-brief-respondent / "
             "merits-reply-petitioner / merits-reply-respondent / "
             "questions-presented) and split on "
@@ -11210,7 +11435,9 @@ def corpus_info(
     Under ``local`` the blob is opened strictly read-only with no schema
     migration, so the report never rewrites the file it dates and a pulled
     blob keeps matching its pointer, even when it predates the code reading it.
-    Other local reads still migrate it, so the report also says when the bytes
+    No read-only command rewrites it, but a writer or maintenance command
+    run against it does — its dry run included, which opens the file through
+    the writer seam — so the report also says when the bytes
     on disk no longer match the sha256 their pointer names (settled by the
     digest unless the blob is untouched since its pull), and — with no pointer
     override set — when the checkout's committed pointer differs from the one
@@ -11312,9 +11539,9 @@ def _echo_pointer_provenance(db_path: Path, backend: str, *, override_set: bool)
                     f"pointer: the blob on disk is not the committed ref's (pulled "
                     f"sha256 {pulled_sha}) — re-pull before quoting this vintage"
                 )
-        # The bytes half: a pull lands a verified blob, but a default local
-        # read migrates it in place, after which the vintage dates a file no
-        # pointer names.
+        # The bytes half: a pull lands a verified blob, but a writer or
+        # maintenance command (a dry run included) run locally rewrites it in
+        # place, after which the vintage dates a file no pointer names.
         drift = corpus_remote.local_blob_drift(db_path)
         if drift is not None:
             typer.echo(f"pointer: {_blob_drift_text(drift)} — re-pull before quoting this vintage")
@@ -12236,9 +12463,9 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "by default; it acts on a cell whose --event names a declared "
             "moment whose opened_at is that moment's trigger and whose corpus "
             "row records it, so a case-baseline cell and an evaluate cell (no "
-            "--event) are untouched either way. Forward-only except on the "
-            "interim arrival moment, whose bound is a property of the moment "
-            "rather than the lane and so applies in either mode.",
+            "--event) are untouched either way. Applies in either mode: a "
+            "moment's information set is a property of the moment rather than "
+            "the lane, so a replay cell is cut exactly as a forward one is.",
         ),
     ] = True,
     max_snapshot_age_days: Annotated[
@@ -12265,11 +12492,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     the per-case content store (``--corpus-backend casestore``, the default under
     the corpus-split mode) — and write it where the agent reads it (a gitignored
     ``record/`` path, never committed). Any stored filed-document text (petition,
-    questions presented, the cert-stage brief in opposition, each side's brief on
-    the merits once the petition is granted, and the application itself wherever
-    one was filed — fetched pipeline-side by the live poller) is
+    questions presented, the separately linked appendix, the cert-stage brief in
+    opposition, the petitioner's cert-stage reply, the Solicitor General's invited
+    brief, each side's brief on the merits once the petition is granted, and the
+    application itself wherever one was filed, with the first response to it and
+    the applicant's reply — fetched pipeline-side by the live poller) is
     materialized alongside, under ``record/documents/`` with a
-    ``documents.json`` manifest, so the cell reads identical content with no
+    ``documents.json`` manifest whose rows each carry a one-sentence
+    ``kind_description``, so the cell reads identical content with no
     fetch rights. That staged text is passed through the **contact-detail
     scrub** where the snapshot names nobody but the filer to write to on
     either party side, petitioner or respondent, or on an amicus block of the
@@ -12320,22 +12550,21 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     case = ids.case_id(court, docket)
     backend = _provision_backend(corpus_backend)
     gate_active = refuse_terminal and mode == "forward"
-    # The cut applies to a forward cell that names an event; whether that event
-    # *declares* a moment with a usable date is `provision.moment_cutoff`'s call.
+    # The cut applies to a cell that names an event, in either mode; whether that
+    # event *declares* a moment with a usable date is `provision.moment_cutoff`'s call.
     read = _read_cell_inputs(
         backend,
         db_path,
         case,
         event,
         want_row=gate_active,
-        # The interim arrival moment takes its cut in EITHER mode. Every other
-        # moment's cut is forward-only because the replay provisioners take their
-        # own; the arrival bound is a property of the moment rather than of the
-        # lane, and a replay path that provisioned one uncut would reconstruct the
-        # exact conditioning the forward path refuses.
-        cut=moment_cutoff
-        and bool(event)
-        and (mode == "forward" or provision.is_interim_arrival(event)),
+        # The cut is taken in EITHER mode. A moment's information set is a
+        # property of the moment rather than of the lane: the stored documents
+        # are as fresh as the last poll that read the docket, so a replay cell
+        # read uncut would stage every filing docketed after its cutoff — the
+        # exact conditioning the forward path refuses — and the interim arrival
+        # bound would be skipped with it.
+        cut=moment_cutoff and bool(event),
     )
     found = read.latest
     documents = read.documents
@@ -13019,7 +13248,9 @@ def hide_cell_record_cmd(
     ``ls`` of the ledger names every predictor one directory above the staging
     area — before the agent has read the contract that forbids that tree. This
     moves both trees to ``--stash-dir`` for the duration of the run;
-    ``restore-cell-record`` puts them back.
+    ``restore-cell-record`` puts them back. The predict cell runs the same pair
+    after provisioning, so a predictor does not read the other engines'
+    committed forecasts.
 
     Repo-wide, so it needs no cell coordinates and cannot be mis-keyed onto the
     wrong event, and because a predictor's prose on another case identifies it
@@ -13029,7 +13260,9 @@ def hide_cell_record_cmd(
 
     This narrows the accidental surface, not the deliberate one — the checkout
     carries full history, so the hidden bytes stay one ``git show`` away, under
-    the prompt's prohibition and the logged-tool-call audit.
+    the evaluate prompt's prohibition and the logged-tool-call audit in an
+    evaluate cell, and under the audit alone in a predict cell, whose prompt
+    states no read rule for those trees.
 
     Exits 1 before moving anything when the stash already holds a manifest — any
     earlier hide, restored or not, since a second sweep over an emptied tree
@@ -14017,6 +14250,12 @@ def live_poll(
         typer.echo(
             "Ledger-outcome convergence: "
             + ", ".join(f"{key}={value}" for key, value in queues.convergence.items())
+            + "."
+        )
+    if queues.document_freshness:
+        typer.echo(
+            "Document freshness: "
+            + ", ".join(f"{key}={value}" for key, value in queues.document_freshness.items())
             + "."
         )
     # The window's document-fetch ledger. Last, after the queue counts, because
@@ -17211,6 +17450,136 @@ def finalize_produced_cmd(
         run_id=run_id,
     )
     typer.echo("true" if produced else "false")
+
+
+@app.command("engine-attempt-class")
+def engine_attempt_class_cmd(
+    exit_code: Annotated[int, typer.Option(help="The engine invocation's exit status.")],
+    stdout_file: Annotated[
+        Path, typer.Option(help="The invocation's captured stdout (its JSON result).")
+    ],
+    stderr_file: Annotated[Path, typer.Option(help="The invocation's captured stderr.")],
+) -> None:
+    """Print what one finished engine invocation amounted to: ok, transient, permanent,
+    or terminal_quota.
+
+    The cell workflows' gemini step (``scripts/gemini-cell.sh``) reads this after
+    every attempt and retries in place only on ``transient``. The classification
+    is the local runner's own (:func:`fedcourtsai.pipeline.runner.classify_engine_attempt`
+    over the runner's transient and terminal-quota signature sets), so the step
+    and the runner cannot disagree on what a serving hiccup looks like. A capture
+    file that cannot be read counts as empty, which leaves an unrecognized fault
+    on the permanent side.
+    """
+
+    def _read(path: Path) -> str:
+        try:
+            return path.read_text(errors="replace")
+        except OSError:
+            return ""
+
+    verdict = classify_engine_attempt(exit_code, _read(stdout_file), _read(stderr_file))
+    typer.echo(verdict.value)
+
+
+@app.command("cell-output-snapshot")
+def cell_output_snapshot_cmd(
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id the cell acts on.")],
+    actor: Annotated[str, typer.Option(help="The predictor_id / evaluator_id for this cell.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    out: Annotated[Path, typer.Option(help="Where to write the snapshot (outside the workspace).")],
+) -> None:
+    """Record what this cell's output root holds before its first engine attempt.
+
+    The other half of ``cell-output-reset``: the gemini step snapshots the root
+    (``cell-outputs``' first line) before it invokes the engine, so a retry can
+    start from exactly that state rather than from whatever a failed attempt
+    left half-written.
+    """
+    settings = get_settings()
+    root = cell_output_root(
+        role,
+        data_root=settings.data_root,
+        court=court,
+        docket=docket,
+        event=event,
+        actor=actor,
+        run_id=run_id,
+    )
+    try:
+        snapshot = snapshot_output_root(root)
+    except ValueError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    out.write_text(snapshot.to_json() + "\n")
+    typer.echo(f"{len(snapshot.entries)} entr(ies) under {root} before the first attempt")
+
+
+@app.command("cell-output-reset")
+def cell_output_reset_cmd(
+    role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id the cell acts on.")],
+    actor: Annotated[str, typer.Option(help="The predictor_id / evaluator_id for this cell.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    snapshot_file: Annotated[
+        Path, typer.Option("--snapshot", help="The file `cell-output-snapshot` wrote.")
+    ],
+) -> None:
+    """Return a cell's output root to its snapshot by removing what an attempt added.
+
+    Run by the gemini step between a failed attempt and its retry. Removes every
+    file, directory and symlink under the root that the snapshot did not hold
+    (never following a link). The snapshot sits on a path the agent can write,
+    so the root it names is checked against the one this cell's coordinates
+    resolve to, and a snapshot naming any other is refused. Every refusal — a
+    foreign or unreadable snapshot, or a root reached through a symlink — exits
+    non-zero with nothing removed, which the step reads as a reason not to retry
+    rather than retrying over a dirty root.
+    """
+    settings = get_settings()
+    expected = cell_output_root(
+        role,
+        data_root=settings.data_root,
+        court=court,
+        docket=docket,
+        event=event,
+        actor=actor,
+        run_id=run_id,
+    )
+    events = CasePaths(settings.data_root, court, docket).event(event)
+    flags = (
+        events.prediction_flags(actor, run_id)
+        if role is FinalizeRole.predict
+        else events.evaluation_flags(actor, run_id)
+    )
+    try:
+        snapshot = OutputSnapshot.from_json(snapshot_file.read_text())
+        if snapshot.root != Path(os.path.abspath(expected)):
+            raise ValueError("the snapshot names a root other than this cell's")
+        relative = Path(os.path.abspath(flags)).relative_to(snapshot.root).as_posix()
+        if flags.is_file() and relative not in snapshot.entries:
+            # A flags.json is the cell's written disclosure — in a replay cell,
+            # of outcome-revealing material it ran into. A retry is a fresh
+            # session that knows nothing of it, so wiping the file would lose
+            # the disclosure; the attempt is kept instead, as it stands.
+            typer.echo(
+                "::warning::the failed attempt wrote the cell's flags.json; "
+                + "keeping the attempt rather than discarding its disclosure",
+                err=True,
+            )
+            raise typer.Exit(code=3)
+        removed = reset_output_root(snapshot)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"::error::cannot reset the cell's output root: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    # A count, never the names: those are the agent's to choose, and a name
+    # echoed raw into the job log could carry a workflow command.
+    typer.echo(f"removed {len(removed)} entr(ies) the failed attempt left under {snapshot.root}")
 
 
 @app.command("cell-outputs")

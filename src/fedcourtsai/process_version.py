@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -79,28 +80,69 @@ from .schemas import (
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
-CURRENT_PROCESS_LABEL = "proc-v8"
+CURRENT_PROCESS_LABEL = "proc-v9"
+
+# The first label whose **cert** gradings carry a harness-stamped skill record
+# (`stamp-cell --role evaluator`; `cli._cert_skill_record_for`): the Brier, the
+# risk-set anchor pooled through the scorer's own pooler over the scored
+# prediction's frozen `(band, salience_version, term)`, and the skill over
+# them. Keyed on the label a grading is stamped with, never on the stamp's
+# date, so a grading stamped under an earlier label keeps the registered
+# reading — the evaluator's transcription off `metrics/statpack.md`, held only
+# by the board's self-consistency check — through any later re-grade, and a
+# scoring rule never changes inside one label's life.
+HARNESS_CERT_ANCHOR_FROM = "proc-v9"
+
+_LABEL_PATTERN = re.compile(r"proc-v(\d+)")
+
+
+def label_ordinal(label: str | None) -> int | None:
+    """The integer ``N`` of a ``proc-vN`` label, or ``None`` for any other string."""
+    if label is None:
+        return None
+    match = _LABEL_PATTERN.fullmatch(label)
+    return int(match.group(1)) if match else None
+
+
+def harness_stamps_cert_anchor(label: str | None) -> bool:
+    """Whether a cert grading stamped under ``label`` takes the harness's skill record.
+
+    True from :data:`HARNESS_CERT_ANCHOR_FROM` on. False for an earlier label,
+    for an unstamped record (``None``), and for a label that is not a
+    ``proc-vN`` at all, so an unrecognised label keeps the registered reading
+    rather than acquiring a new scoring rule by accident.
+    """
+    ordinal = label_ordinal(label)
+    threshold = label_ordinal(HARNESS_CERT_ANCHOR_FROM)
+    return ordinal is not None and threshold is not None and ordinal >= threshold
+
 
 # The blessed process digests, each mapped to its bless moment — the current
 # label's blessing and the retroactivity record, not the counting rule (that is
-# COUNTING_WINDOWS below): the six proc-v8
-# baselines (claude/codex/gemini, predictor and evaluator each), read off
-# `fedcourts process-digest --all`; set together with FROZEN_SINCE below,
-# which a test pins. proc-v8 is a **full** freeze: all six digests are newly
-# blessed at one carrying promotion. The predictor half moves because the
-# predict contract's bytes move — the snapshot stamp's canonical form, the
-# stakes read as a required number-or-null, the merits documents a granted
-# docket now carries, and the entry forms the interim amicus count reads — and
-# the evaluator half because the grading protocol's bytes move: the evaluate
-# cell is handed the case's staged majority opinion at `record/opinion/`, and
-# the mask's ground becomes a counted field the grader names rather than free
-# text inside `basis`. The map holds one blessed process per actor, so
-# proc-v7's six digests are replaced rather than kept beside these. This
-# constant names the live fleet's processes alone; the de-counted digests of
-# earlier labels and the census of what ran under them live in the freeze
-# record. Keyed
-# on the digest, never the label,
-# so a process that drifted under an unchanged label is not silently blessed.
+# COUNTING_WINDOWS below). Read off `fedcourts process-digest --all` and set
+# together with FROZEN_SINCE below, which a test pins. The map holds one
+# blessed process per actor, so a digest a label stops blessing leaves it; the
+# de-counted digests of the labels before proc-v8 and the census of what ran
+# under every superseded digest live in the freeze record. Keyed on the
+# digest, never the label, so a process that drifted under an unchanged label
+# is not silently blessed.
+#
+# proc-v9 blesses four digests newly and carries two forward:
+#
+# - claude-baseline's predictor digest is new: the claude engine's default
+#   model (`pricing.DEFAULT_MODELS`, a digest input) is claude-opus-5-5. This
+#   is the predictor-half re-bless, so it closes the proc-v8 claude-baseline
+#   window and opens a proc-v9 one (COUNTING_WINDOWS).
+# - the three evaluator digests are new: the evaluate prompt's stakes-read
+#   instruction says the predictors' `big_case_score` is in view and asks for
+#   a read that does not anchor on it, its `qp-topics` leakage rule reads a
+#   search that excludes the path as not touching it, and a frozen-band cert
+#   cell's anchor is left to the stamp; claude-judge also takes the claude
+#   default model. An evaluator digest records and never partitions, so this
+#   half closes and opens no window.
+# - codex-baseline's and gemini-baseline's predictor digests are byte-identical
+#   to proc-v8's. They keep proc-v8's bless moment verbatim and their proc-v8
+#   windows stay open and unbroken (a test asserts the bytes did not move).
 #
 # Each digest maps to **the instant it was blessed**: the merge time of the
 # promotion that carried its freeze commit to `main`, the moment its bytes
@@ -119,34 +161,36 @@ CURRENT_PROCESS_LABEL = "proc-v8"
 # command that yields it.
 FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
     {
-        # Every entry below is the audited carrying-merge time per the block
-        # comment above: `2026-09-16T00:26:04Z`, the committed instant of the
-        # merge `545e26e2b` that carried this label's two freeze commits to
-        # `main`, which `promotion/2026-09-16` tags and the freeze record
-        # carries the re-derivation command for. Nothing here is carried
-        # forward from proc-v7, so every entry takes step 4's correction off
-        # that one merge and all six carry the same value — one promotion
-        # carries both halves, which is what makes this a full freeze.
+        # The four newly blessed entries carry step 2's **early** forecast,
+        # `2026-10-09T00:00:00Z` — no later than the freeze commit itself, so
+        # necessarily at or before the carrying merge. Step 4 replaces it with
+        # that merge's committed instant once the promotion lands; the freeze
+        # record's proc-v9 entry carries the merge and the command that yields
+        # it.
         #
-        # predictors: claude-baseline, codex-baseline, gemini-baseline.
-        "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a": datetime(
-            2026, 9, 16, 0, 26, 4, tzinfo=UTC
+        # predictor: claude-baseline (newly blessed).
+        "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734": datetime(
+            2026, 10, 9, 0, 0, 0, tzinfo=UTC
         ),
+        # predictors: codex-baseline, gemini-baseline — carried forward
+        # byte-identical from proc-v8, so they keep its audited bless moment,
+        # `2026-09-16T00:26:04Z` (the merge `545e26e2b`, tagged
+        # `promotion/2026-09-16`).
         "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c": datetime(
             2026, 9, 16, 0, 26, 4, tzinfo=UTC
         ),
         "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f": datetime(
             2026, 9, 16, 0, 26, 4, tzinfo=UTC
         ),
-        # evaluators: claude-judge, codex-judge, gemini-judge.
-        "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13": datetime(
-            2026, 9, 16, 0, 26, 4, tzinfo=UTC
+        # evaluators: claude-judge, codex-judge, gemini-judge (newly blessed).
+        "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": datetime(
+            2026, 10, 9, 0, 0, 0, tzinfo=UTC
         ),
-        "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1": datetime(
-            2026, 9, 16, 0, 26, 4, tzinfo=UTC
+        "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": datetime(
+            2026, 10, 9, 0, 0, 0, tzinfo=UTC
         ),
-        "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe": datetime(
-            2026, 9, 16, 0, 26, 4, tzinfo=UTC
+        "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": datetime(
+            2026, 10, 9, 0, 0, 0, tzinfo=UTC
         ),
     }
 )
@@ -157,38 +201,32 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
 # blessed would otherwise read as frozen retroactively — pre-registration
 # means the commitment preceded the run, and only a time cutoff can say so.
 # Compared against the stamp's `stamped_at`, which the harness writes; anything
-# at or after the instant is in. It sits at or after every bless moment in the
-# map above — guessed generously late at the freeze commit, then verified at
-# step 4 against the merge that actually landed and bumped where it came in
-# early, never pulled back — so a cell minted in any window between the two
-# lands as shakedown rather than as a counted cell. One
-# shape inverts that order — an evaluator-half re-bless that holds this
-# instant while swapping only the evaluator entries above, licensed because
-# the enforced predictor half is then byte-identical to the prior `prereg/`
-# tag's and such a label is audited by that byte comparison rather than by the
-# date rule (the supersession notes in `docs/process-version.md`).
+# at or after the instant is in. It opens every window the current label newly
+# blesses and closes every window it stops blessing; a carried-forward digest's
+# window keeps the instant that opened it. It sits at or after every bless
+# moment in the map above — guessed generously late at the freeze commit, then
+# verified at step 4 against the merge that actually landed and bumped where it
+# came in early, never pulled back — so a cell minted in any window between the
+# two lands as shakedown rather than as a counted cell. One shape inverts that
+# order — an evaluator-half re-bless that holds this instant while swapping
+# only the evaluator entries above, licensed because the enforced predictor
+# half is then byte-identical to the prior `prereg/` tag's and such a label is
+# audited by that byte comparison rather than by the date rule (the
+# supersession notes in `docs/process-version.md`).
 #
-# proc-v8 is not that shape. It blesses both halves at one promotion, so the
-# ordinary rule governs: the literal must be at or after the date of the
-# promotion merge that carried this label's freeze commits to `main` (verified
-# against `promotion/2026-09-16` before the `prereg/` tag is minted) and before
-# the first run intended to count.
-#
-# The instant is that merge's own committed instant — the same
-# `2026-09-16T00:26:04Z` every entry in the map above carries, which is the
-# earliest value the rule allows. An instant behind the merge would count
-# cells against a commitment still editable when they ran; the enforced half's
-# bytes are new here, so nothing licenses one.
-#
-# Placing it *at* the merge rather than past it is what closes the window, and
-# that window costs more than a few uncounted cells. A cell minted between the
-# merge and a later instant carries a blessed digest and still fails
-# `is_frozen`'s time limb, so the pre-freeze re-predict rule re-owes it and the
-# event is paid for twice. Equality leaves no such cell to mint, so the window
-# is empty by construction rather than by `run-predict`'s review hold keeping
-# it so — the hold stays the control over *when* the first counted round
-# spends, not over whether its cells can count.
-FROZEN_SINCE: datetime | None = datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC)
+# proc-v9 is not that shape: it newly blesses a predictor digest, so the
+# instant moves and the ordinary rule governs — the literal must be at or after
+# the merge of the promotion that carries this label's freeze commit to `main`
+# and before the first run intended to count. That merge is not known at the
+# freeze commit, so the instant is a **late** forecast,
+# `2026-10-11T12:00:00Z`: after the promotion the maintainer is landing on
+# 2026-10-10, and before `run-predict`'s first scheduled round on 2026-10-11
+# (14:12Z), so no scheduled round falls between the merge and the instant. A
+# cell the new claude digest stamps between that merge and the instant is
+# honest shakedown, uncounted and re-owed; one stamped before the
+# merge cannot exist, since nothing carries the new bytes until the merge does.
+# Should the promotion slip past the instant, step 4 bumps it before the tag.
+FROZEN_SINCE: datetime | None = datetime(2026, 10, 11, 12, 0, 0, tzinfo=UTC)
 
 # The counting registry: one window per blessing of a predictor digest, and
 # the counting rule every frozen-scope reader applies (`is_frozen`,
@@ -217,24 +255,37 @@ FROZEN_SINCE: datetime | None = datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC)
 # each was superseded, under the rule then in force, and the freeze record's
 # 2026-09-26 entry leaves them de-counted.
 #
-# proc-v8 opens one window per predictor digest, at FROZEN_SINCE (a test pins
-# both that and that none of the three leaves this registry without a closing
-# instant): claude-baseline, codex-baseline, gemini-baseline.
+# proc-v8 opened one window per predictor digest at its counting instant,
+# `2026-09-16T00:26:04Z` (a test pins that none of the three leaves this
+# registry without a closing instant). proc-v9 closes claude-baseline's at
+# FROZEN_SINCE and opens a proc-v9 window for the new claude-baseline digest
+# there; codex-baseline's and gemini-baseline's stay open, still labelled
+# proc-v8.
 COUNTING_WINDOWS: tuple[CountingWindow, ...] = (
+    # claude-baseline under proc-v8 (claude-fable-5-1): closed by proc-v9.
     CountingWindow(
         label="proc-v8",
         digest="sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
         opens=datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC),
+        closes=datetime(2026, 10, 11, 12, 0, 0, tzinfo=UTC),
     ),
+    # codex-baseline: carried forward byte-identical into proc-v9, open.
     CountingWindow(
         label="proc-v8",
         digest="sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
         opens=datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC),
     ),
+    # gemini-baseline: carried forward byte-identical into proc-v9, open.
     CountingWindow(
         label="proc-v8",
         digest="sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
         opens=datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC),
+    ),
+    # claude-baseline under proc-v9 (claude-opus-5-5): opens at FROZEN_SINCE.
+    CountingWindow(
+        label="proc-v9",
+        digest="sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+        opens=datetime(2026, 10, 11, 12, 0, 0, tzinfo=UTC),
     ),
 )
 

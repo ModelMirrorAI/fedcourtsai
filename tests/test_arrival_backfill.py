@@ -799,7 +799,7 @@ def test_the_write_re_mirrors_the_touched_cases(
     ) as conn:
         # Patched after seeding: the seed's own upserts go through the real
         # (absent) sink, so what this records is the pass's write and only it.
-        monkeypatch.setattr(corpus, "_mirror_sink", lambda: sink)
+        monkeypatch.setattr(corpus, "_mirror_sink", lambda conn: sink)
         backfill_arrival_stamps(conn, apply=True, max_fills=5)
     assert mirrored == [[_CASE]]
 

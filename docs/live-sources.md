@@ -132,6 +132,12 @@ then recent Terms first, then stalest. Staleness leads the Term inside a confere
 distributed set must be re-read once its order list issues: Term first, the
 newest Term's still-pending dockets (relisted, rescheduled) would take the head
 of every cycle while an older Term's petitions on the same conference waited.
+A past conference holds its petitions in the distributed tier only until that
+read: a still-pending petition polled more than `live.order_list_lag_days`
+after its conference date — by when the order list has issued — drops to the
+Term tiers. A held, CVSG or rescheduled petition is no longer days from a
+result, so keyed on its past date it would lead every cycle until its docket
+moved; a relist or new distribution writes a later date and re-admits it.
 
 Each of those tiers is unbounded in size while the cycle's cap
 (`live.max_cases_per_run`) is fixed, so a tier larger than the cap — the
@@ -286,8 +292,62 @@ the docket form, so one function serves both lanes:
   a plain extension phrase misses), more pages, more words — is not selected,
   and neither is an ask the classifier cannot read, which costs no cell because
   the same reading keeps that docket out of the queue.
+- **`application-response`** — the respondent's **response to the application**:
+  the first "Response to application … filed." entry in docket order, from its
+  `Main Document` link alone (the entry also posts its proofs of service). It is
+  read by the same anchor that dates the interim **response-filed** moment, so
+  that moment's cell holds the filing that opened it, and a cell placed at the
+  arrival or response-requested moment — cut before the response was docketed —
+  never does. The Justice's *request* for a response shares the opening and is
+  not taken, since it carries no filing verb. The first only: a later
+  respondent's response is a known loss, as a later respondent group's merits
+  brief is.
+- **`application-reply`** — the **applicant's reply** to that response ("Reply of
+  applicant … filed."), from the `Reply` link the Clerk posts it under, or a
+  `Main Document` link, and from no other. The party word is what keeps it apart
+  from the cert-stage and merits replies, which name a petitioner or a
+  respondent; an amicus's reply and a reply on collateral motion practice are
+  excluded. A reply link that serves the application's own PDF — the docket has
+  posted one under the `Reply` label — is not taken: one PDF is one row.
+- **`appendix`** — the appendix the case-opening entry, or the application
+  entry, posts under its own `Appendix` link beside the filing, and no other
+  link. One per docket. It carries the opinions and orders below, which is what
+  a vehicle reading needs and what a petition with a separately filed appendix
+  otherwise never provisions. A petition whose appendix is bound into the same
+  PDF keeps it inside the `petition` row; both are cut by the appendix-aware
+  rule below.
 - **`brief-in-opposition`** — every non-amicus opposition brief **filed at the
-  cert stage**, combined into one document.
+  cert stage**, combined into one document. The respondent's brief is read in
+  the Court's other spellings too: "Brief **for** the respondent(s) …", up to
+  three words before the party word ("Brief of Federal Respondents filed.",
+  "Brief for the Federal Respondents filed."), and the **response** the Clerk
+  enters without the word "brief" ("Response of respondents … filed.",
+  "Response to petition from respondent … filed."). The response form is kept
+  off the collateral responses that share its opening — to a motion, an
+  application, a rehearing petition, a letter, an order or a suggestion of
+  mootness.
+- **`cert-reply`** — the petitioner's **cert-stage** reply, the Rule 15.6 answer
+  to the opposition and often the only filing that meets its vehicle and
+  preservation objections. The first "Reply [brief] of/for … petitioner(s) …"
+  entry filed before the grant and before any disposition entry, from its `Main
+  Document` link alone. The merits reply arm reads the same words after the
+  grant, so the grant date is what separates the two, and the docket order of
+  the disposition keeps a reply filed after a denial (a rehearing paper) out.
+  "In opposition" is no exclusion here — "Reply of petitioner to brief in
+  opposition" is exactly this filing — while any reply naming a motion, an
+  application, a letter or a suggestion of mootness (collateral practice,
+  "in support of" it or "to the response to" it), replies supporting the other
+  side, amici's replies and rehearing and supplemental papers are.
+- **`sg-invited-brief`** — the **Solicitor General's invited brief**: the first
+  brief for the United States as amicus curiae ("Brief amicus curiae of United
+  States filed.", "Brief for the United States as amicus curiae filed.") entered
+  **after** the Court's invitation to file one and before any disposition entry,
+  in docket order, from its `Main Document` link alone. The filer must be the
+  United States and nothing after it, so an amicus whose name merely opens with
+  those words ("United States Conference of …") is not read as one, and the entry
+  must say "amicus", so the United States filing as a party stays with the
+  opposition. It is the one amicus filing any arm selects: the Court asked for
+  it, and on an invited petition it is most often the filing that decides it.
 - **`merits-brief-petitioner`** / **`merits-brief-respondent`** — each side's
   brief on the merits, one row per side and one URL per row, taken from the
   entry's `Main Document` link and from no other (a merits-brief entry posts its
@@ -391,9 +451,21 @@ selection. The rules:
   lead. The lead's party blocks are not compared at provisioning (it reads one
   case's snapshot), so a lead whose party side reads as self-represented lends
   nothing, and the run log says so. A self-filing amicus on the lead's `Other`
-  list does not block it: an amicus brief is not a staged kind.
+  list does not block it: no amicus brief is staged but the Solicitor
+  General's invited one (`sg-invited-brief`), which counsel for the United
+  States files.
 - **A lead that does not serve** is warned into the run log and read as no lead:
   the member's own documents are stored without it.
+
+The **lead's own** selection reads the same attribution the other way round. A
+lead docket — one whose consolidation entry names its own number — carries
+every member's merits filings as well as its own, so a first match there can
+store a member's brief as the lead's. Its merits kinds therefore prefer an entry
+attributed to the lead (an "(as to No. …)" mark naming it, or a filer on its own
+side list), fall back to any entry not marked for other dockets alone (most
+often an unmarked "Brief for the petitioner"), and never take one the Clerk
+marked for other dockets alone. Its cert-stage kinds are its own
+docket's, as on any other.
 **Implemented:** each lane fetches at the moment it queues prediction, which is
 not the same moment for both. On a cert docket that is the **distribution
 transition** (the
@@ -407,17 +479,125 @@ merits event, never at the trigger that first filled its cert documents. A
 granted, briefed case whose merits documents were never fetched — whatever the
 state of its events — is also reached by `document-backfill`'s merits arm, the
 maintenance pass that applies the current selector to the cases already past
-their trigger ([data-pipeline.md](data-pipeline.md)). An
+their trigger ([data-pipeline.md](data-pipeline.md)), and a polled one by the
+*Document freshness* pass below, which brings any predict-relevant docket's
+stored set up to the filings it carries, merits ones included. An
 application docket is never distributed for conference, so its lane fetches on
 **any change while the application is still pending, in scope, and substantive**
 — the application rotation's own queue condition. Text is extracted with pypdf (born-digital filings under the
 e-filing mandate; a scanned paper filing degrades to empty text), capped at
-`live.document_text_cap` per document, and stored as the case's document row in
+`live.document_text_cap` per document (one cap per row, so a separately linked
+appendix, a reply or the invited brief each has its own and none is cut for
+another's length), and stored as the case's document row in
 the access-gated corpus — the per-case content store under the corpus split, the
 blob's `documents` table on a self-contained one — never the git ledger.
 `provision-snapshot` materializes it
 into the cell's gitignored `record/documents/` with a `documents.json`
-manifest, and the predict prompt points agents at it.
+manifest, and the predict prompt points agents at it. Each manifest row carries
+a one-sentence `kind_description` saying what the file is and how it was cut, so
+a kind the prompt does not name yet still describes itself.
+
+**Document freshness.** The triggers above fire on a *transition*, so on their
+own they freeze a case's stored set at whatever its docket carried that day: an
+opposition, a cert reply, the Solicitor General's brief, a respondent's brief
+lost at the first fetch, or an application's response, docketed after it,
+reaches the corpus only if a later trigger happens to fire, and the cell then
+stages a current snapshot beside a stale document set. So every live cycle ends
+with a freshness pass (`live.refresh_stale_documents`) over the cases both
+rotations just polled:
+
+- **Population.** A polled case that is predict-relevant — queued for
+  prediction or salience-selected, the document back-fill's own predicate — and
+  was not provisioned on this poll's trigger. The poll has just read its docket,
+  so the selection over it is current and costs no request.
+- **Test.** The case is stale where its stored set does not hold every link the
+  selection names (`documents.unheld_document_kinds`): a kind absent, a kind at
+  another link, or an opposition row whose set of briefs differs from the
+  selected set. That is exactly the test the fetch skips a filing on, so a
+  stale case is one the fetch will download for, and a held case costs nothing
+  but the content-store read.
+- **Fetch.** Through the poller's own `provision_documents` — the same
+  selection, idempotent per kind and URL, the same consolidation-lead GET for a
+  member. An unchanged link is never re-downloaded, so a row stored under an
+  older cut keeps it (the appendix-aware cut below says what that leaves).
+  A consolidated member's own docket is what the test reads, so a merits filing
+  entered on its lead alone is not seen as owed here; the selection sweep, which
+  re-provisions a case while a merits event is open, and the back-fill's merits
+  arm remain its routes.
+- **Bound.** Moved dockets first, then the cases owing what an earlier fetch
+  missed, at most `live.document_freshness_per_run` cases a cycle, and last in
+  the cycle, on what the polls, the outcome convergence and the selection sweep
+  left of the soft deadline. A case past the cap or the deadline is owed again
+  at its next poll, because the test reads state rather than change; a link
+  upstream does not serve keeps its case stale and is retried at each poll,
+  behind every docket that moved, and the unchanged cases are taken in an order
+  that rotates daily, so a run of such cases cannot hold the cap ahead of the
+  same healthy ones every cycle — the ledger's `unwritten` count is those
+  cases, refreshed and still storing nothing. The `Document freshness:` line in
+  the run log carries the counts. The pass is failure-isolated as the outcome
+  convergence is: a case whose fetch raises is counted `failed`, and a pass that
+  raises as a whole records `error=<type>` and costs the window nothing it had
+  already polled.
+- **Cost of the check.** Links only: the content store's document manifest, one
+  read per candidate, never a document body.
+- **Cutoff.** Freshness changes when a filing is *stored*, never where a cell is
+  *placed*. Each row keeps its proceedings entry's own date, and provisioning
+  keeps a document only where that date falls strictly before the cell's cutoff
+  (`provision.documents_before`), in either mode — so a filing stored weeks
+  after it was docketed reaches exactly the cells placed after its docketing,
+  forward or replay. Two residuals are stated where the cut is made, and
+  freshness makes both more reachable. **Combination**: the opposition row is
+  dated by its earliest brief, so it admits a later respondent's brief to a
+  cell cut between the two; the moment a cut can fall between two oppositions
+  on is the CVSG moment, where a respondent filing after the invitation is
+  rare, and the arrival moment's cut falls before any opposition.
+  **Supersession**: a kind is one row, so a filing re-posted at a new link
+  replaces the stored row under its own later date, and a cell placed between
+  the two loses that kind rather than reading the earlier version.
+- **Writer.** It runs inside `run-pull`'s live job, the corpus writer that
+  already provisions on the triggers; nothing new holds a credential, and no
+  cell or dev checkout fetches.
+
+**The appendix-aware cut.** The `petition`, `application` and `appendix` rows
+are not head-cut at the cap, because on a filing that carries an appendix a head
+cut loses the wrong half: the cap lands inside the appendix, and everything
+after its first long opinion — the short lower-court orders an application turns
+on above all — is dropped. Those three kinds read every page and are cut so
+that:
+
+- **under the cap nothing is cut** — the text is every page joined, exactly the
+  plain extractor's output;
+- **the filing's own body is never cut for its appendix** — the body (every page
+  before the appendix starts: an `APPENDIX` divider, the appendix's own contents
+  page or its first folio, read from the fourth page on and never on a contents
+  page of the filing itself) is kept whole, and only the appendix pays for the
+  overflow; a body that alone fills the cap is head-cut with the appendix;
+- **every appendix item keeps its opening** — the appendix is split into its
+  items (by its own index, matched to the folio each page prints; else by its
+  "Appendix A/B/…" headings; else by a running header that changes and holds),
+  each keeps about a page, and the rest goes to the **court decisions** —
+  opinions, orders, judgments — before record material such as complaints and
+  briefs. On a petition the decisions are completed in appendix order, the
+  judgment under review first; on an application they are completed shortest
+  first, so an order under review printed after a sixty-page opinion is kept
+  whole;
+- **every cut is stated in the text**, on its own line, as `[pipeline note: N
+  characters of … omitted here, from part-way through PDF page X to …, to fit the
+  150,000-character text cap]`, beside the row's `truncated: true`.
+
+Where a filing runs past ten times the cap, reading stops there and a last
+note names the pages never read. A page that fails to extract costs that page
+alone. The cut applies to rows stored under it: fetching is idempotent per
+kind and URL — the freshness pass included, which downloads only a link the
+stored set lacks — so a petition or application already stored keeps its head
+cut until its link changes, and the corpus holds both vintages side by side —
+which is why each kind's `kind_description` says a truncated row with no
+`[pipeline note:` line was cut at the cap from the end.
+
+The OCR recovery pass keeps the plain head cut for the rows it recovers: the
+appendix-aware cut reads every page, which on a scan means recognizing every
+page, and a long scan would spend its whole document budget and be discarded on
+every pass.
 
 That staged copy is where the **contact-detail scrub** applies, and it applies
 to the copy alone: the source PDF and the stored row keep the filing as filed.
@@ -459,12 +639,13 @@ served with separate counsel, which the arm would read as an incarcerated
 filer. The residual is a represented amicus block that did carry a real
 register number (none on that blob): it would stay as served, where a
 party-side one is withheld whatever its `Attorney` says. A docket whose only
-qualifying block is an amicus's gets the **value pass alone** (below): the
-amicus's own brief is not a staged kind, so what is staged there is counsel's
+qualifying block is an amicus's gets the **value pass alone** (below): no
+amicus's own brief is staged — the one amicus kind, `sg-invited-brief`, is the
+United States' brief filed by its counsel — so what is staged there is counsel's
 filings, and the shape pass would cost their text its misreads of legal prose —
 a case name led by a street number, a regulation number in telephone shape —
 where the staged filers are represented. The premise is about amici, whose
-briefs are never staged; a self-represented non-amicus `Other` filer (an
+own briefs are never staged; a self-represented non-amicus `Other` filer (an
 intervenor, say) whose own opposition is staged would get the value pass alone
 too, so a detail of theirs spelled otherwise than the docket serves it would
 stay (none on the pulled blob). Where no amicus value clears its
@@ -585,7 +766,10 @@ the causes differ: an empty petition or brief in opposition is the scan; a
 near-zero count on any of the four merits kinds is the shape of the granted
 slice, since nothing selects them before a grant, rather than a coverage gap
 (and the two reply rows are narrower again, bounded by the granted cases whose
-docket carries a reply at all); and an empty
+docket carries a reply at all); the `appendix`, `cert-reply` and
+`sg-invited-brief` counts are bounded the same way, by the dockets that post a
+separate appendix, carry a cert-stage reply, or were answered after a call for
+the Solicitor General's views; and an empty
 derived questions-presented row is as likely to be a capture the deriver would
 not vouch for. And the command reports the **absent** petition
 beside the empty one, because that is the larger failure and a different
@@ -791,8 +975,10 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   ceiling on the possible one, so the step's cap stays the backstop for what
   runs past it.
 - **What it reads.** Stored rows of a **fetched** kind — every kind a cell
-  reads that arrived as a PDF: the petition, the application, the brief in
-  opposition and the four merits filings, which is the text-coverage set less
+  reads that arrived as a PDF: the petition, the application, the separately
+  linked appendix, the response to an application and the applicant's reply,
+  the brief in opposition, the cert-stage reply, the invited brief and the four
+  merits filings, which is the text-coverage set less
   its one derived member — whose text is empty or whitespace-only, whose page
   count is above zero, and whose stored URL is one link. A zero-page row is
   either a PDF the extractor could not open or a derived section — `pages`
@@ -828,8 +1014,9 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   an injected `ocr_page` seam, defaulted to none, so this pass is the only
   caller that supplies one and no fetching lane grows the dependency —
   and the same per-document text cap the fetching lane applies and the same
-  truncation flag bound the result, because they are the same code. A recovered
-  row is bounded exactly like a fetched one. Additive by construction: text
+  truncation flag bound the result, because they are the same code — the plain
+  head cut, never the appendix-aware one a fetched petition, application or
+  appendix takes (see *The appendix-aware cut*). Additive by construction: text
   is written only where extraction stored none, so the pass cannot overwrite an
   extraction. Nor is a recovery overwritten later — the row keeps its URL, and
   both the poller and the Term walker re-fetch a kind only when its link
@@ -898,7 +1085,14 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   `contact_replacements`, `contact_scrub_passes`) the prompt describes none
   of — it has `documents.json` listing what is present, pages and truncation —
   so until that re-bless a cell meeting the token has to account for it
-  unaided, and the likeliest cost is a `data-quality` flag spent on it.
+  unaided, and the likeliest cost is a `data-quality` flag spent on it. **A
+  fourth rides with them**: the `appendix`, `cert-reply`, `sg-invited-brief`,
+  `application-response` and `application-reply` kinds and the appendix-aware
+  cut's `[pipeline note: …]` lines reach a cell
+  before the prompt names them. Each manifest row's `kind_description` is what
+  carries them meanwhile — the prompt already sends a cell to `documents.json`
+  for what is present — and the prompt's list of provisioned files gains the
+  five kinds, and a reading rule for the cut notes, at that re-bless.
 - **What follows a recovery.** A recovered **petition** re-derives its
   questions-presented row through the existing deriver — the pass's one
   follow-on write, and petitions alone have it, since no other recoverable kind

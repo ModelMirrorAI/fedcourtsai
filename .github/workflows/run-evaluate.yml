@@ -572,9 +572,20 @@ jobs:
       #    record/blinded and needs neither tree. Runs after the staging step
       #    above, which reads the committed predictions to build the candidates;
       #    the trees come back the moment the agent stops.
+      #
+      # Every tracked path under them is marked skip-worktree first, so the
+      # removal leaves `git status` clean and an agent "tidying" its checkout
+      # with `git restore .`, `git checkout -- .` or `git reset --hard` cannot
+      # write them back — a plain deletion shows as a change, which an agent
+      # may restore. The bits are never cleared: the runner is
+      # discarded, and nothing after the agent reads git's view of the tree.
       - name: Remove the de-blinding surfaces from the agent's tree
         run: |
           set -euo pipefail
+          git ls-files -z -- data/qp-topics \
+            ':(glob)data/cases/*/*/events/*/predictions/**' \
+            ':(glob)data/cases/*/*/events/*/evaluations/**' \
+            | git update-index -z --skip-worktree --stdin
           rm -rf data/qp-topics
           uv run fedcourts hide-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
 
@@ -888,6 +899,15 @@ jobs:
       # reproduces what the action ran: an exact-version npm install, env-var
       # auth, the same workspace settings file (telemetry preserved for the
       # usage-capture step), and the same headless `--yolo` prompt call.
+      #
+      # The call is made by `scripts/gemini-cell.sh`, which retries it in place
+      # when a turn ends on a transient fault (gemini's INVALID_STREAM arrives
+      # as a zero exit with the fault inside the JSON result) — classified by
+      # the local runner's own signature sets, started only from a clean
+      # output root and only while enough of this step's deadline remains,
+      # never past it: the step's timeout and the watchdog bracket are
+      # unchanged. The script states the rules; run-predict's gemini step runs
+      # the same file.
       - name: Evaluate with Gemini
         id: evaluate_gemini
         if: matrix.engine == 'gemini'
@@ -944,7 +964,12 @@ jobs:
             for a reply.
         run: |
           set -euo pipefail
-          gemini --yolo --model "$MODEL_ID" --prompt "$PROMPT" --output-format json
+          # A copy taken before the turn starts, as the arm step takes of the
+          # watchdog: bash reads a script file as it executes it, and the agent
+          # has the run of the workspace for the whole of its turn. Against an
+          # edit to `scripts/` mid-turn, not a boundary against the agent.
+          cp scripts/gemini-cell.sh "$RUNNER_TEMP/gemini-cell.sh"
+          bash "$RUNNER_TEMP/gemini-cell.sh" evaluate "$EVALUATOR_ID"
 
       # Stand the watchdog down the moment the engine step is over, however it
       # ended, so it can never fire late and kill something in the tail.
@@ -1311,6 +1336,13 @@ jobs:
           produced=$(uv run fedcourts finalize-produced --role evaluate \
             --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
             --actor "$EVALUATOR_ID" --run-id "$RUN_ID")
+          # A cell that lands nothing still concludes green — the collect job
+          # owns the miss, recording its failure fact against the cell's
+          # attempt cap — so it is named here, where the run's annotations
+          # carry it, rather than left to be found by its absence.
+          if [ "$produced" != "true" ]; then
+            echo "::warning::cell ${EVALUATOR_ID} ${COURT_ID}/${DOCKET_ID} ${EVENT_ID} produced no output (no_output; engine step ok: ${AGENT_OK})"
+          fi
           validated=false
           if [ "$produced" = "true" ] && uv run fedcourts validate data; then
             validated=true

@@ -330,6 +330,18 @@ class LiveConfig(BaseModel):
     # than this drains over several cycles instead of displacing the
     # distributed petitions, whose order-list results are due within days.
     max_overdue_per_run: int = Field(default=100, ge=1)
+    # Days after a conference by which its order list has issued (the Monday
+    # after a Friday conference, Tuesday after a Monday holiday; the first
+    # Monday of October after the long conference). A still-pending petition
+    # live-polled later than this past its conference date has had that order
+    # list read, so it leaves the distributed tier for the Term tiers until a
+    # relist or new distribution gives it a later conference; without this a
+    # held, CVSG, or rescheduled petition leads every cycle indefinitely on its
+    # past date. Sized for the
+    # long conference's week-long gap, so a Friday conference's held rows keep
+    # leading for up to five days past their Monday order list; lowering it to
+    # 3 would demote long-conference rows before their order list is read.
+    order_list_lag_days: int = Field(default=7, ge=0)
     # New petitions onboarded from the Term's numbering frontier per cycle.
     max_new_cases_per_run: int = Field(default=25, ge=0)
     # Unresolved interim applications re-polled per cycle (the application
@@ -350,6 +362,12 @@ class LiveConfig(BaseModel):
     # ~150k characters is roughly 40 dense pages — the petition's argument in
     # full for a typical filing; a longer one is stored truncated (and flagged).
     document_text_cap: int = Field(default=150_000, ge=1_000)
+    # Cases per cycle whose stored documents the freshness pass may fetch for
+    # (`live.refresh_stale_documents`): a polled, predict-relevant case not
+    # provisioned on a trigger whose stored set lacks a link the docket now
+    # selects. A spend cap on filing downloads, not a refusal — a case past it
+    # is owed again at its next poll. 0 disables the pass.
+    document_freshness_per_run: int = Field(default=20, ge=0)
     # Days after the July docket-number roll during which discovery also probes
     # the *outgoing* Term (`supremecourt.current_docket_term`). At the roll new
     # filings take the incoming Term's prefix, so the primary probe leaves the

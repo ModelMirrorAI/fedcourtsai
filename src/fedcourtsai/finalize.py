@@ -24,7 +24,11 @@ as still working.
 
 from __future__ import annotations
 
+import json
+import os
+import shutil
 from collections.abc import Sequence
+from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
@@ -167,3 +171,128 @@ def required_outputs(
             paths.append(events.evaluation_notes(actor, candidate, run_id))
         return paths
     raise ValueError(f"required_outputs is for predict/evaluate, not {role.value}")
+
+
+# --- a clean slate between in-step engine attempts ------------------------------
+#
+# The cell workflows' gemini step retries a transient fault in place
+# (`scripts/gemini-cell.sh`), and a retried attempt must start from the state the
+# first one did: a half-written `reasoning.md` the failed attempt left behind
+# would otherwise be read — by the retry, by the completion sentinel, and by the
+# tail — as the cell's own output. So the step records what the output root held
+# before the first attempt, and resets it to exactly that before each retry.
+
+
+@dataclass(frozen=True)
+class OutputSnapshot:
+    """What a cell's output root held before its first engine attempt.
+
+    ``entries`` are root-relative POSIX paths of every file, directory and
+    symlink under the root; ``existed`` says whether the root itself was there
+    (a predict cell's run-keyed directory is not; an evaluate cell's evaluator
+    directory may be, holding earlier runs' committed work).
+    """
+
+    root: Path
+    existed: bool
+    entries: frozenset[str]
+
+    def to_json(self) -> str:
+        return json.dumps(
+            {"root": str(self.root), "existed": self.existed, "entries": sorted(self.entries)},
+            indent=2,
+        )
+
+    @classmethod
+    def from_json(cls, text: str) -> OutputSnapshot:
+        raw = json.loads(text)
+        if not isinstance(raw, dict):
+            raise ValueError("an output snapshot is a JSON object")
+        root, existed, entries = raw.get("root"), raw.get("existed"), raw.get("entries")
+        if not isinstance(root, str) or not os.path.isabs(root):
+            raise ValueError("an output snapshot names its root as an absolute path")
+        if not isinstance(existed, bool):
+            raise ValueError("an output snapshot says whether its root existed")
+        if not isinstance(entries, list) or not all(isinstance(e, str) for e in entries):
+            raise ValueError("an output snapshot lists its entries as strings")
+        return cls(root=Path(root), existed=existed, entries=frozenset(entries))
+
+
+def _walk_entries(root: Path) -> set[str]:
+    """Every entry under ``root``, root-relative, never following a symlink."""
+    found: set[str] = set()
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        base = Path(dirpath)
+        for name in [*dirnames, *filenames]:
+            found.add((base / name).relative_to(root).as_posix())
+    return found
+
+
+def _refuse_a_linked_root(root: Path) -> None:
+    """Refuse a root reached through a symlink anywhere along its path.
+
+    The reset deletes what it did not record, so it must act on the directory
+    the cell's path names and on nothing a link could redirect it to.
+    """
+    if root.resolve() != root:
+        raise ValueError(f"{root} is reached through a symlink; refusing to act on it")
+
+
+def snapshot_output_root(root: Path) -> OutputSnapshot:
+    """Record what ``root`` holds now, before an engine attempt writes to it."""
+    absolute = Path(os.path.abspath(root))
+    if absolute.is_symlink() or (absolute.exists() and not absolute.is_dir()):
+        raise ValueError(f"{root} exists and is not a plain directory")
+    if not absolute.exists():
+        return OutputSnapshot(root=absolute, existed=False, entries=frozenset())
+    _refuse_a_linked_root(absolute)
+    return OutputSnapshot(root=absolute, existed=True, entries=frozenset(_walk_entries(absolute)))
+
+
+def reset_output_root(snapshot: OutputSnapshot) -> list[str]:
+    """Remove every entry under the snapshot's root that the snapshot did not hold.
+
+    Returns the removed paths, root-relative and sorted (``.`` for the root
+    itself). A file or symlink is unlinked, never followed; a directory the
+    snapshot did not hold is removed whole, since nothing under it can be an
+    entry the snapshot did. An entry the snapshot held is left as it is, even if
+    an attempt rewrote it — restoring content is not this function's to do, and
+    the collect job's add-only path jail already refuses a cell that edited an
+    existing file. A root the snapshot says did not exist is removed entirely.
+    """
+    root = snapshot.root
+    if root.is_symlink():
+        if snapshot.existed:
+            raise ValueError(f"{root} became a symlink; refusing to reset it")
+        root.unlink()
+        return ["."]
+    if not root.exists():
+        return []
+    _refuse_a_linked_root(root)
+    if not snapshot.existed:
+        shutil.rmtree(root)
+        return ["."]
+    removed: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
+        base = Path(dirpath)
+        kept: list[str] = []
+        for name in dirnames:
+            path = base / name
+            relative = path.relative_to(root).as_posix()
+            if relative in snapshot.entries:
+                kept.append(name)
+                continue
+            if path.is_symlink():
+                path.unlink()
+            else:
+                shutil.rmtree(path)
+            removed.append(relative)
+        # Pruned in place, so the walk never descends into what was just removed.
+        dirnames[:] = kept
+        for name in filenames:
+            path = base / name
+            relative = path.relative_to(root).as_posix()
+            if relative not in snapshot.entries:
+                path.unlink()
+                removed.append(relative)
+    return sorted(removed)

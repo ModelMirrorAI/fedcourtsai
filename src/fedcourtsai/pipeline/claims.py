@@ -299,6 +299,13 @@ def _resolve_cvsg_increment(context: PredictionContext, outcome: Outcome) -> int
     looked", so its null ``cvsg_date`` fixes no prediction-time state; and a
     CVSG already on the docket at prediction time makes the increment vacuous —
     a ``cvsg_date``, once set, stays set, so there is nothing left to forecast.
+
+    A fourth mask sits outside this function because its input is not on the
+    context/outcome pair: where the United States is a named party the Court
+    does not call for the Solicitor General's views, so the claim is
+    structurally near zero and stating it would score as free skill rather than
+    a forecast. :func:`resolve_claim` masks it there (``federal_party``, see
+    :data:`_FEDERAL_PARTY_VACUOUS`).
     """
     if outcome.signals is None or not context.signals_observable:
         return None
@@ -773,8 +780,32 @@ _BASELINES: Mapping[str, _BaselineFn] = {
 }
 
 
-def resolve_claim(claim_id: str, context: PredictionContext, outcome: Outcome) -> int | None:
-    """One claim's resolution — 1 true, 0 false, ``None`` masked-unresolvable."""
+# The claims the record makes vacuous where the United States (or a federal
+# agency or officer) is a named party, so they resolve ``None`` there. A CVSG is
+# an invitation to the Solicitor General, who already represents a federal
+# party; it does not issue in such a case, so the increment is structurally
+# close to zero and a stated low probability against it would bank skill no
+# forecast earned. The same shape as the cert-stage vacuous masks: a property of
+# the case, never of the predictor.
+_FEDERAL_PARTY_VACUOUS: frozenset[str] = frozenset({CLAIM_CVSG_INCREMENT})
+
+
+def resolve_claim(
+    claim_id: str,
+    context: PredictionContext,
+    outcome: Outcome,
+    *,
+    federal_party: bool = False,
+) -> int | None:
+    """One claim's resolution — 1 true, 0 false, ``None`` masked-unresolvable.
+
+    ``federal_party`` says the case's caption names a federal party on either
+    side (the caller reads it off the committed event's ``title`` through
+    :func:`fedcourtsai.pipeline.party.caption_names_federal_party`); it masks
+    the claims in :data:`_FEDERAL_PARTY_VACUOUS` and touches no other.
+    """
+    if federal_party and claim_id in _FEDERAL_PARTY_VACUOUS:
+        return None
     return _RESOLVERS[claim_id](context, outcome)
 
 
@@ -847,6 +878,7 @@ def score_claims(
     *,
     lookback_terms: int,
     grant_term: int | None = None,
+    federal_party: bool = False,
 ) -> ClaimScoreBlock | None:
     """Assemble the claim-score block for one prediction, or ``None`` for none.
 
@@ -867,7 +899,8 @@ def score_claims(
     the census, fixes what is scored.
 
     Per claim: the outcome from its resolver (``None`` = the availability
-    mask), the baseline from its baseline function, and the score from
+    mask, ``federal_party`` included — see :func:`resolve_claim`), the
+    baseline from its baseline function, and the score from
     :func:`fedcourtsai.pipeline.base_rates.claim_score` where both exist. The
     ``total`` sums the scored claims only; the ``floor`` is the realized total
     of the control that reports every scored claim's baseline — identically
@@ -895,7 +928,7 @@ def score_claims(
     floor: float | None = None
     for claim_id in claim_ids:
         probability = stated[claim_id]
-        resolved = resolve_claim(claim_id, prediction.context, outcome)
+        resolved = resolve_claim(claim_id, prediction.context, outcome, federal_party=federal_party)
         baseline = claim_baseline(
             claim_id,
             prediction.context,

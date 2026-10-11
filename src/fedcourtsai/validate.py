@@ -18,7 +18,8 @@ Two layers of checks:
   snapshot, or whitespace-variant id is duplicated.
 * **referential integrity** — the cross-store checks nothing else does: every
   ``outcome``/``prediction``/``evaluation`` under ``data/`` references a case and
-  event that exist in the corpus (no orphan judgments); every evaluation
+  event that exist in the corpus (no orphan judgments); every event directory
+  holds only the entries the ledger layout defines; every evaluation
   targets a predictor that actually produced a prediction for that event; every
   evaluation recording a ``risk_set`` base-rate basis carries the salience
   version that population was banded under; every
@@ -123,6 +124,9 @@ CHECK_DOMAIN_VALUES = "domain_values_valid"
 CHECK_NO_DUPLICATES = "no_duplicate_cases_or_events"
 CHECK_LEDGER_REFERENCES = "ledger_references_exist"
 CHECK_LEDGER_EVENTS_IN_GIT = "ledger_events_exist_in_git"
+# An event directory holds its definition, its outcome, and the two cell trees;
+# anything else is output no reader looks for.
+CHECK_EVENT_DIR_ENTRIES = "event_dirs_hold_only_ledger_entries"
 # The corpus→ledger direction of the same referential rule
 # `CHECK_LEDGER_REFERENCES` runs the other way: a minted forecast moment owes
 # both halves at its mint, so its corpus row must carry the committed
@@ -1794,11 +1798,70 @@ def check_ledger_events_in_git(data_root: Path) -> CorpusCheck:
     return _check(CHECK_LEDGER_EVENTS_IN_GIT, problems, checked=checked)
 
 
+#: What an event directory may hold, and whether each is a directory: its
+#: definition, its outcome, and the predict and evaluate cell trees — the only
+#: names :class:`fedcourtsai.paths.EventPaths` builds at the event level. Every
+#: reader (scoring, the leaderboard, the claim and vote checks) reaches cell
+#: output through ``predictions/`` or ``evaluations/``, so a file beside them is
+#: never read and never scored; refusing it keeps a salvage or hand commit from
+#: parking output where it silently counts for nothing.
+_EVENT_DIR_ENTRIES: dict[str, bool] = {
+    "event.yaml": False,
+    "outcome.json": False,
+    "predictions": True,
+    "evaluations": True,
+}
+
+
+def check_event_dir_entries(data_root: Path) -> CorpusCheck:
+    """Every entry under an event directory must be one the ledger layout defines.
+
+    ``data/cases/<court>/<docket>/events/<event_id>/`` holds ``event.yaml`` and
+    ``outcome.json`` (files) and ``predictions/`` and ``evaluations/``
+    (directories) — :data:`_EVENT_DIR_ENTRIES`. Any other name, or one of those
+    names as the wrong kind of entry, is refused, as is a non-directory sitting
+    directly under ``events/`` where an event directory belongs. The per-file
+    schema check cannot see this shape: a ``prediction.json`` one level too high
+    still validates as a prediction, it is just never read.
+
+    Corpus-free, so it runs in the PR gate.
+    """
+    problems: list[str] = []
+    checked = 0
+    cases_dir = data_root / "cases"
+    events_dirs = sorted(cases_dir.glob("*/*/events")) if cases_dir.is_dir() else []
+    for events_dir in events_dirs:
+        if not events_dir.is_dir():
+            continue
+        for event_dir in sorted(events_dir.iterdir()):
+            if not event_dir.is_dir():
+                checked += 1
+                problems.append(f"{event_dir}: a stray entry under events/, not an event directory")
+                continue
+            for entry in sorted(event_dir.iterdir()):
+                checked += 1
+                expect_dir = _EVENT_DIR_ENTRIES.get(entry.name)
+                if expect_dir is not None and entry.is_dir() == expect_dir:
+                    continue
+                name = entry.name
+                if expect_dir is None:
+                    problems.append(
+                        f"{entry}: {name!r} is not an event-directory entry (only "
+                        f"{', '.join(sorted(_EVENT_DIR_ENTRIES))}); cell output belongs "
+                        "under predictions/ or evaluations/"
+                    )
+                else:
+                    kind = "a directory" if expect_dir else "a file"
+                    problems.append(f"{entry}: {name!r} must be {kind}")
+    return _check(CHECK_EVENT_DIR_ENTRIES, problems, checked=checked)
+
+
 def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
     """The git-only referential checks the PR gate runs (no corpus, no network).
 
     The subset of layer-C checks that need only the git ledger under ``data/``:
-    every judgment references an event defined in git, every evaluation targets
+    every judgment references an event defined in git, every event directory
+    holds only the entries the ledger layout defines, every evaluation targets
     a prediction that exists, every recorded ``risk_set`` base-rate basis carries
     the salience version it was banded under, every prose document a prediction
     names is there, every committed claims block is one the claim scorer will not
@@ -1811,6 +1874,7 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
     """
     return [
         check_ledger_events_in_git(data_root),
+        check_event_dir_entries(data_root),
         check_evaluation_targets(data_root),
         check_base_rate_version(data_root),
         check_prediction_docs(data_root),
@@ -1851,6 +1915,7 @@ def _run_checks(
         # Corpus-dependent, so it stays off `run_ledger_referential_checks` —
         # that gate is deliberately offline and has no corpus to read.
         check_corpus_events_in_ledger(conn, data_root),
+        check_event_dir_entries(data_root),
         check_evaluation_targets(data_root),
         check_base_rate_version(data_root),
         check_prediction_docs(data_root),
@@ -1891,7 +1956,7 @@ def run_corpus_validation(
     if not corpus_db_path.exists():
         return CorpusValidation(ok=True, skipped=True)
     try:
-        with corpus.connect(corpus_db_path) as conn:
+        with corpus.connect_local_read(corpus_db_path) as conn:
             return _run_checks(
                 conn,
                 data_root=data_root,
@@ -2000,7 +2065,7 @@ def run_scope_audit(*, corpus_db_path: Path) -> CorpusScopeAudit:
     shapes: Counter[str] = Counter()
     seen_rows: dict[str, corpus.CorpusRow | None] = {}
     open_events = 0
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_local_read(corpus_db_path) as conn:
         corpus_rows = corpus.count(conn)
         for event in corpus.iter_open_events(conn, court="scotus"):
             open_events += 1

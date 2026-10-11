@@ -722,10 +722,14 @@ not replicated here, since building it is how that lane avoids running the
 agent's own workspace Python with the key in its environment. The key is the
 credential worth a check there: the job's own `github.token` is capped at
 `contents: read` and dies with the job.
-An `all` dispatch fans one engine-smoke and one engine-actions-smoke leg per
+A `gate` dispatch fans one engine-smoke and one engine-actions-smoke leg per
 engine, so a single run reads all three keys — each confined to its own job —
-and spends three cells plus three boot probes; `all-offline`, the same suite
-without either family, reads no engine key and spends nothing. The keys live on
+and spends three cells plus three boot probes; `offline-gate`, the same suite
+without either family, reads no engine key and spends nothing. An `all`
+dispatch reads no further key — the labeler smoke holds the Anthropic key and
+the repro leg the OpenAI key, each confined to its own job — and it spends the
+repro's evaluate cell and the labeler's cents on top; `all-offline` reads no
+engine key. The keys live on
 the `prod`
 environment and, as **separate per-environment secrets**, on `staging` — a
 smoke dispatched at the staging head spends against staging's own keys
@@ -909,6 +913,19 @@ backlog derivations and the whole-corpus scanners (`run-analytics` and
 Developer access is separate from the workflow roles: the maintainer uses IAM
 Identity Center SSO, and a contributor gets an on-demand IAM user scoped
 read-only to the corpus bucket — the one static credential in the system.
+
+The code holds the same line without relying on the credential. A corpus
+write mirrors to the content store only inside a GitHub Actions job (a marker
+the runner sets in every job) and only from the configured corpus file, so a
+writer pass run locally, or a script that seeds a temporary database through
+the corpus write helpers, never attempts a store write even where the
+environment names production's store. The marker is a guard against
+accidents, not a control — anyone can set it — so outside Actions the
+read-only role remains what refuses a write; the marker only keeps a local
+writer run from attempting one. Inside Actions the role scoping above is what
+confines writes to the writer jobs. The mechanism is *Only an
+Actions job's writes to the corpus file reach the store* in
+[data-pipeline.md](data-pipeline.md).
 
 Every role's OIDC trust is scoped to named environments of this repo
 (`...:sub` like `repo:<owner>/<repo>:environment:prod`), so only a job binding
@@ -1106,7 +1123,8 @@ snapshot that changed after the plan never crosses; `summarize` refuses one as
 well. It
 widens that footing in one way the extract does not: the extract carries one
 section of each petition, while this carries every stored filing of each
-planned case. `case-summaries`, seven days, carries the generated summaries
+planned case — whole appendices, cert-stage replies, the Solicitor General's
+invited briefs and the responses and replies on an application among them. `case-summaries`, seven days, carries the generated summaries
 after the jail and the secret scan and before any human review — on a staging
 rehearsal, the only place those summaries go.
 

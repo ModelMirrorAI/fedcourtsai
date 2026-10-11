@@ -319,8 +319,43 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
     assert by_id["disposition"]["score"] == pytest.approx(0.06**2 - 0.2**2)
     assert by_id["relist-increment"]["outcome"] == 1
     assert by_id["relist-increment"]["score"] is None
+    # No event definition on disk names a party, so the CVSG increment resolves.
+    assert by_id["cvsg-increment"]["outcome"] == 0
     assert block["floor"] == 0.0
     assert block["total"] == pytest.approx(0.06**2 - 0.2**2)
+
+    # The committed caption names the United States: the Court does not invite
+    # the Solicitor General's views there, so the stamp masks the CVSG increment
+    # and leaves every other claim's resolution where it was.
+    write_yaml(
+        event_paths.event_file,
+        PredictableEvent(
+            event_id=event,
+            case_id="scotus/3",
+            kind=EventKind.petition,
+            stage=Stage.cert,
+            title="Jane Roe, Petitioner v. United States",
+            opened_at=date(2026, 1, 1),
+        ),
+    )
+    result = _stamp("evaluator", "claude-judge", 3, event, "RID")
+    assert result.exit_code == 0, result.output
+    masked = {
+        row["claim_id"]: row for row in json.loads(eval_path.read_text())["claim_scores"]["claims"]
+    }
+    assert masked["cvsg-increment"]["outcome"] is None
+    assert masked["relist-increment"]["outcome"] == 1
+    assert masked["disposition"]["score"] == pytest.approx(0.06**2 - 0.2**2)
+
+    # An event definition that does not parse names no party: the stamp still
+    # lands, and the claim goes to its own resolver rather than failing the cell.
+    event_paths.event_file.write_text("a: [\n")
+    result = _stamp("evaluator", "claude-judge", 3, event, "RID")
+    assert result.exit_code == 0, result.output
+    unparsed = {
+        row["claim_id"]: row for row in json.loads(eval_path.read_text())["claim_scores"]["claims"]
+    }
+    assert unparsed["cvsg-increment"]["outcome"] == 0
 
 
 def test_stamp_evaluator_clears_claim_scores_where_nothing_supports_a_block(
@@ -1982,7 +2017,7 @@ def test_stamp_evaluator_fails_a_risk_set_basis_whose_join_finds_no_prediction(
 
 
 def test_stamp_evaluator_fails_a_terminal_basis_where_a_band_was_frozen(
-    _data_root: Path,
+    _data_root: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The mirror mispairing: `terminal` taken where the prediction froze a band.
 
@@ -1991,7 +2026,12 @@ def test_stamp_evaluator_fails_a_terminal_basis_where_a_band_was_frozen(
     band priced at the terminal rate, where omission is the only answer — and
     each error names its own correction. Only a prediction that froze no band
     at all takes the fallback legitimately.
+
+    Pinned to a label before the harness owns a frozen band's cert record
+    (``process_version.HARNESS_CERT_ANCHOR_FROM``), where the basis is still
+    the evaluator's to mispair.
     """
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v8")
     event = "evt-petition-writ-of-certiorari"
     event_paths = CasePaths(_data_root, "scotus", 20).event(event)
     # The guard's terminal arm keys on the cert stage, so the event definition
@@ -2336,7 +2376,11 @@ def test_stamp_names_the_graded_prediction_and_a_regrade_preserves_it(
     evaluator-written value; a re-grade leaves the stamped identity alone —
     so a predictor re-run between the grading and a later correction cannot
     re-point the record at a prediction the evaluator never judged.
+
+    Pinned to a label before the harness owns a frozen band's cert record, so
+    the evaluator's recorded basis is what the version half is derived from.
     """
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v8")
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
     event_paths = _seed_cert_cell(_data_root, 23, actual=Disposition.granted)
     context = PredictionContext(

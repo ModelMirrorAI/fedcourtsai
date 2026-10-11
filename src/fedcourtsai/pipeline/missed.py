@@ -49,7 +49,8 @@ row is selected, because they can be placed in no window.
 
 **What is read, and when.** The corpus row and event as they stand *now*, not
 as they stood while the event was open — the corpus keeps no history of either.
-The directions that leaves, stated rather than patched:
+The directions that leaves, and the one day granularity adds, stated rather
+than patched:
 
 - ``salience_selected`` is a latch that normally only sets, so a row selected
   now may have been unselected while the event was open, which can only turn a
@@ -64,6 +65,12 @@ The directions that leaves, stated rather than patched:
 - ``opened_at`` is the docket date of the transition, not the day the pipeline
   first observed it, so ingestion lag makes the round rule *over*-report (a
   miss that no round could have reached) — the safe direction for an alarm.
+- Events are dated to the day, so merits funding counts a merits event only
+  if it opened *before* the resolution day — the one a cert grant mints opens
+  on the day the petition resolves. An unrelated event resolving the same day
+  a merits event opened is therefore declined ``not_funded`` absent other
+  funding, which can hide a miss when it resolved after the merits event
+  opened.
 - The default window is a lookback from today, so an event whose resolution is
   recorded more than that window after it happened never enters a scheduled
   window; ``--missed-since`` is the way back to it.
@@ -339,14 +346,23 @@ def _first_prediction_dates(data_root: Path, predictor_ids: list[str]) -> dict[s
 
 
 def _merits_funded(events: list[corpus.CorpusEvent], resolved_at: date) -> bool:
-    """Whether the case carried a merits event opened by ``resolved_at``.
+    """Whether the case carried a merits event opened before ``resolved_at``.
 
     The walk funds every event of a case with an open merits event (the Court's
-    own selection); an event resolved while such a proceeding was open was
+    own selection); an event resolved after such a proceeding opened was
     funded the same way.
+
+    Strictly before: the merits event is minted by the cert grant, which is the
+    petition's own resolution, so on a granted petition it opens on exactly the
+    day the cert-stage event resolves. Counting that day would read the grant as
+    having funded the forecast of itself, and file an unselected grant as a
+    pipeline miss rather than a salience decline. The cost is the same-day
+    sliver where an unrelated event resolves after a merits event opened that
+    morning — an under-report this monitor cannot separate from the grant case
+    at the day granularity it dates every event to.
     """
     return any(
-        e.stage == Stage.merits and (e.opened_at is None or e.opened_at <= resolved_at)
+        e.stage == Stage.merits and (e.opened_at is None or e.opened_at < resolved_at)
         for e in events
     )
 

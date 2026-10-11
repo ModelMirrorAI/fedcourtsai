@@ -177,11 +177,13 @@ class BlobDrift:
 def local_blob_drift(db_path: Path) -> BlobDrift | None:
     """The drift between the blob on disk and its pointer, or ``None`` when it matches.
 
-    A pull lands a sha256-verified blob, but a default local read migrates the
-    file in place (``corpus.connect``), after which its bytes are no longer the
-    ones any pointer names and a vintage quoted from it describes a blob that
-    exists nowhere else. The expected digest is the pull-provenance sidecar's
-    — the pointer the blob actually came from — else the committed ``.ref``.
+    A pull lands a sha256-verified blob, but a writer or maintenance command
+    run against it locally — its dry run included — rewrites the file in place
+    (``corpus.connect``; the read-only commands open it without changing it),
+    after which its bytes are no longer the ones any pointer names and a
+    vintage quoted from it describes a blob that exists nowhere else. The
+    expected digest is the pull-provenance sidecar's — the pointer the blob
+    actually came from — else the committed ``.ref``.
     A blob matching the committed ref is not drift either: ``corpus-push``
     publishes the blob on disk and rewrites the ref, leaving the sidecar behind.
 
