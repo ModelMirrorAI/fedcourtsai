@@ -56,11 +56,15 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import cache
 from pathlib import Path
 from types import MappingProxyType
+from typing import Final, Literal
 
 from .pricing import DEFAULT_MODELS
 from .registry import (
@@ -76,6 +80,7 @@ from .schemas import (
     PredictorConfig,
     ProcessVersion,
     WindowCount,
+    WindowShare,
 )
 
 # Human label the current process is stamped with. Bump on a deliberate,
@@ -265,6 +270,7 @@ COUNTING_WINDOWS: tuple[CountingWindow, ...] = (
     CountingWindow(
         label="proc-v8",
         digest="sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+        predictor_id="claude-baseline",
         opens=datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC),
         closes=datetime(2026, 10, 11, 12, 0, 0, tzinfo=UTC),
     ),
@@ -272,18 +278,21 @@ COUNTING_WINDOWS: tuple[CountingWindow, ...] = (
     CountingWindow(
         label="proc-v8",
         digest="sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+        predictor_id="codex-baseline",
         opens=datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC),
     ),
     # gemini-baseline: carried forward byte-identical into proc-v9, open.
     CountingWindow(
         label="proc-v8",
         digest="sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
+        predictor_id="gemini-baseline",
         opens=datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC),
     ),
     # claude-baseline under proc-v9 (claude-opus-5-5): opens at FROZEN_SINCE.
     CountingWindow(
         label="proc-v9",
         digest="sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+        predictor_id="claude-baseline",
         opens=datetime(2026, 10, 11, 12, 0, 0, tzinfo=UTC),
     ),
 )
@@ -634,18 +643,18 @@ def describe_windows(windows: Iterable[CountingWindow]) -> str:
 
 
 class PooledWindowsError(ValueError):
-    """A figure that would pool one predictor's cells from two counting windows as one series.
+    """Two of one predictor's counting windows share a label.
 
-    Raised where a surface keyed on ``predictor_id`` (or the engine) alone meets
-    a predictor whose in-scope cells span two windows, and where two of one
-    predictor's windows share a label, which would publish two series under one
-    name.
+    Every by-protocol figure is published under ``(predictor_id, label)``, and
+    every composition names a window by its label, so two windows under one
+    label could not be told apart on any surface.
     """
 
 
-#: One forecaster on a frozen-scope figure: a predictor and the counting window
-#: its counted cells come from (``None`` on an all-versions build, which keys on
-#: the predictor alone).
+#: One by-protocol series on a frozen-scope figure: a predictor and the
+#: counting window its counted cells come from (``None`` on an all-versions
+#: build, which keys on the predictor alone). The pooled default keys on the
+#: predictor and lists these as its composition.
 type Series = tuple[str, CountingWindow | None]
 
 
@@ -709,8 +718,8 @@ def co_current(windows: Iterable[CountingWindow]) -> bool:
 def pooled_windows(counts: Mapping[Series, int]) -> list[WindowCount]:
     """The series a pooled figure spans, with each one's ``n`` — or ``[]`` under one label.
 
-    The record-across-labels listing (``docs/process-version.md``, *No figure
-    pools windows*): a figure keyed on something other than the forecaster
+    The record-across-labels listing (``docs/process-version.md``, *Pooled by
+    default*): a figure keyed on something other than the forecaster
     lists its series where they carry more than one label, and is never a rank
     key. Under a single label — every window opening at one instant, as
     ``proc-v8``'s do — the artifact's ``frozen_process.windows`` already names
@@ -727,6 +736,225 @@ def pooled_windows(counts: Mapping[Series, int]) -> list[WindowCount]:
         )
         if window is not None
     ]
+
+
+def composition(counts: Mapping[CountingWindow, int]) -> list[WindowShare]:
+    """The windows a pooled figure spans, each with its ``n``, in opening order.
+
+    The composition every pooled frozen-scope figure states beside its value
+    (``docs/process-version.md``, *Pooled by default*). Listed even for a
+    single window: the composition is part of the figure, not a warning shown
+    only when there is something to warn about. A window is named by its own
+    label and opening instant — the window the cell's digest and stamp fall
+    in — never by the label on the cell's stamp.
+    """
+    return [
+        WindowShare(process_window=window.label, opens=window.opens, n=n)
+        for window, n in sorted(counts.items(), key=lambda item: (item[0].opens, item[0].digest))
+    ]
+
+
+def is_retired(predictor_id: str) -> bool:
+    """Whether every counting window registered to ``predictor_id`` is closed or revoked.
+
+    A retired predictor keeps its pooled record and its by-protocol cut but
+    leaves the ranked set, so the paired events stop following an engine that
+    no longer forecasts. Taking a predictor off the roster goes through a
+    re-bless that closes its window, which is what lets this read the registry
+    alone. A predictor no window names is not retired: the registry records
+    every production window's predictor (a test holds it to that), so only a
+    hand-built registry leaves one unnamed, and an unknown is not a retirement.
+    """
+    owned = [window for window in COUNTING_WINDOWS if window.predictor_id == predictor_id]
+    return bool(owned) and all(
+        window.closes is not None or window.revoked_at is not None for window in owned
+    )
+
+
+#: Which cells a boundary's change can reach. ``all`` and ``replay cells`` are
+#: decidable from a cell's own committed record; the two docket-scoped reaches
+#: are not (a docket's representation lives in the corpus's party data, and its
+#: grant state is a fact about the docket at the cell's moment).
+type BoundaryReach = Literal["self-represented dockets", "granted dockets", "all", "replay cells"]
+
+
+@dataclass(frozen=True)
+class HarnessBoundary:
+    """A dated change to what a predict cell reads under an unchanged predictor digest.
+
+    Composition, not a cut: the pooled default and the paired figure keep both
+    sides and list how many cells sit on each. A cell's side is read by
+    ancestry (:func:`boundary_side`), and ``at`` — the carrying commit's
+    committer time — is for display only.
+    """
+
+    name: str
+    #: The full SHA of the commit that carried the change to ``main``.
+    merge: str
+    #: That commit's committer time; display only, never the side test.
+    at: datetime
+    #: The predictors the boundary splits; ``None`` for every predictor.
+    predictors: frozenset[str] | None
+    #: The cells the change can reach.
+    reach: BoundaryReach
+
+
+_CODEX_AND_GEMINI = frozenset({"codex-baseline", "gemini-baseline"})
+_SCRUB_0921 = "a2f84f2eedb4e3b3dcc222522a55b8a93ae1eff0"
+_PROMOTION_0929 = "adccd9c427be6e1dd4b43d92b2472d7d21fd8d24"
+_PROMOTION_1001 = "b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b"
+_PROMOTION_1003 = "41d003e28da4232d772031bf142a773afea52ff5"
+_PROMOTION_1010 = "6460e93061a0f4d6a06c14b5b1526346aba7a353"
+
+#: Every :class:`HarnessBoundary` dated since the earliest counting window
+#: opened, in the order their carrying commits reached ``main``: the freeze
+#: record's 2026-10-11 implementation-choices entry registers this list, and a
+#: later change of the class joins it in the PR that carries it. The scrubs
+#: and the merits-brief selector reach every predictor; the ``proc-v9``
+#: three split only the carried-forward codex and gemini windows, since the
+#: same merge moved claude-baseline's digest.
+HARNESS_BOUNDARIES: Final[tuple[HarnessBoundary, ...]] = (
+    HarnessBoundary(
+        "pro-se-document-scrub",
+        _SCRUB_0921,
+        datetime(2026, 9, 21, 18, 1, 19, tzinfo=UTC),
+        None,
+        "self-represented dockets",
+    ),
+    HarnessBoundary(
+        "scrub-ocr-and-served-values",
+        _PROMOTION_0929,
+        datetime(2026, 9, 29, 23, 30, 38, tzinfo=UTC),
+        None,
+        "self-represented dockets",
+    ),
+    HarnessBoundary(
+        "pro-se-snapshot-scrub",
+        _PROMOTION_0929,
+        datetime(2026, 9, 29, 23, 30, 38, tzinfo=UTC),
+        None,
+        "self-represented dockets",
+    ),
+    HarnessBoundary(
+        "scrub-pro-se-respondent",
+        _PROMOTION_1001,
+        datetime(2026, 10, 1, 16, 15, 45, tzinfo=UTC),
+        None,
+        "self-represented dockets",
+    ),
+    HarnessBoundary(
+        "scrub-pro-se-amicus",
+        _PROMOTION_1001,
+        datetime(2026, 10, 1, 16, 15, 45, tzinfo=UTC),
+        None,
+        "self-represented dockets",
+    ),
+    HarnessBoundary(
+        "scrub-in-re-self-filer",
+        _PROMOTION_1003,
+        datetime(2026, 10, 3, 19, 8, 49, tzinfo=UTC),
+        None,
+        "self-represented dockets",
+    ),
+    HarnessBoundary(
+        "scrub-titled-joinder-self-filer",
+        _PROMOTION_1003,
+        datetime(2026, 10, 3, 19, 8, 49, tzinfo=UTC),
+        None,
+        "self-represented dockets",
+    ),
+    HarnessBoundary(
+        "merits-brief-spellings-consolidated-lead",
+        _PROMOTION_1003,
+        datetime(2026, 10, 3, 19, 8, 49, tzinfo=UTC),
+        None,
+        "granted dockets",
+    ),
+    HarnessBoundary(
+        "predict-cell-record-hide",
+        _PROMOTION_1010,
+        datetime(2026, 10, 11, 0, 12, 2, tzinfo=UTC),
+        _CODEX_AND_GEMINI,
+        "all",
+    ),
+    HarnessBoundary(
+        "widened-document-kinds-freshness",
+        _PROMOTION_1010,
+        datetime(2026, 10, 11, 0, 12, 2, tzinfo=UTC),
+        _CODEX_AND_GEMINI,
+        "all",
+    ),
+    HarnessBoundary(
+        "replay-moment-cut",
+        _PROMOTION_1010,
+        datetime(2026, 10, 11, 0, 12, 2, tzinfo=UTC),
+        _CODEX_AND_GEMINI,
+        "replay cells",
+    ),
+)
+
+
+class BoundaryHistoryError(RuntimeError):
+    """The checkout cannot answer a boundary's ancestry test, so no side is read.
+
+    Raised on a shallow clone and on a commit the checkout does not hold. Never
+    answered by a guess: a cell filed on the wrong side of a boundary is a wrong
+    count published as a right one.
+    """
+
+
+type BoundarySide = Literal["before", "after"]
+
+
+def boundary_side(
+    boundary: HarnessBoundary, pipeline_sha: str | None, *, repo: Path
+) -> BoundarySide | None:
+    """Which side of ``boundary`` a cell built at ``pipeline_sha`` sits on.
+
+    ``after`` where the boundary's carrying commit is an ancestor of, or equal
+    to, the cell's ``process_version.pipeline_sha`` — the "or equal" files a run
+    started on that commit itself as post-change — else ``before``. ``None``
+    for a cell with no ``pipeline_sha``, which sits on neither side and is
+    counted as such by the caller. Read with ``git merge-base --is-ancestor``
+    in ``repo``, cached per (commit, sha); raises
+    :class:`BoundaryHistoryError` rather than guess where ``repo`` is shallow
+    or lacks either commit.
+    """
+    if not pipeline_sha:
+        return None
+    return "after" if _is_ancestor(str(repo), boundary.merge, pipeline_sha) else "before"
+
+
+def _git(repo: str, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", "-C", repo, *args],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+
+@cache
+def _is_ancestor(repo: str, ancestor: str, descendant: str) -> bool:
+    shallow = _git(repo, "rev-parse", "--is-shallow-repository")
+    if shallow.returncode != 0:
+        raise BoundaryHistoryError(f"{repo} is not a git checkout: {shallow.stderr.strip()}")
+    if shallow.stdout.strip() == "true":
+        raise BoundaryHistoryError(
+            f"{repo} is a shallow clone: a harness-boundary side needs the full history"
+        )
+    for sha in (ancestor, descendant):
+        if _git(repo, "cat-file", "-e", f"{sha}^{{commit}}").returncode != 0:
+            raise BoundaryHistoryError(
+                f"{repo} holds no commit {sha}: a harness-boundary side cannot be read"
+            )
+    result = _git(repo, "merge-base", "--is-ancestor", ancestor, descendant)
+    if result.returncode not in (0, 1):
+        raise BoundaryHistoryError(
+            f"git merge-base --is-ancestor {ancestor} {descendant} failed in {repo}: "
+            + result.stderr.strip()
+        )
+    return result.returncode == 0
 
 
 @contextmanager

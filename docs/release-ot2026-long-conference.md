@@ -505,7 +505,7 @@ jq '.stages' metrics/leaderboard.json                      # unranked moment blo
 BAND='{events_scored, evaluations, mean_depth: (if .events_scored > 0 then .evaluations / .events_scored else null end), accuracy_events_scored, event_accuracy, event_always_deny_accuracy, event_accuracy_lift, accuracy, accuracy_scored, always_deny_accuracy, accuracy_lift, population_brier_skill_score, skill_scored, grants_expected, grants_expected_scored, grants_realized_expected_scored, grants_realized}'
 jq ".entries[] | {predictor_id, evaluators, by_band: ((.by_band // {}) | map_values($BAND))}" metrics/leaderboard.json
 jq ".stages[\"cert@cvsg\"].entries[]? | {predictor_id, evaluators, by_band: ((.by_band // {}) | map_values($BAND))}" metrics/leaderboard.json
-jq '.complete_grid_by_band, .stages["cert@cvsg"].complete_grid_by_band' metrics/leaderboard.json
+jq '.paired.by_band, .stages["cert@cvsg"].paired.by_band' metrics/leaderboard.json
 # the pooled per-band anchors, per docket Term (risk_set is the frozen-band anchor)
 uv run fedcourts segment-anchors --term 2025 --term 2026
 sed -n '/Segment base rate by salience band/,/^## /p' metrics/statpack.md   # per-Term rows behind them
@@ -668,7 +668,7 @@ evidence of miscalibration. It does move skill in a known direction: in the
 baseline band every scored petition was denied, so skill there rewards
 forecasting low rather than separating grants from denials, and the pending
 shortfall currently favours the lower forecaster — the baseline row's skill
-is not a reading of discrimination. Complete grid (`complete_grid_by_band`): baseline
+is not a reading of discrimination. Complete grid (`paired.by_band`): baseline
 67, elevated 28, high 1, federal 1 — every engine's `accuracy_events_scored`
 equals its band's grid count in every band.
 
@@ -910,7 +910,7 @@ prediction.
 > events.
 >
 > Per band, engines are compared only over that band's **complete grid** —
-> the board's `complete_grid_by_band`, the forward petitions in the band on
+> the board's `paired.by_band`, the forward petitions in the band on
 > which every engine carries an accuracy-scored grading. The grid is a count,
 > not a population any figure is computed over, so a per-band ordering is read
 > only where every engine's `by_band[band].accuracy_events_scored` equals the
@@ -976,7 +976,7 @@ under both. Each engine's
 complete grid is 97 (67 + 28 + 1 + 1 over the bands); each entry's only
 stratum is forward, with 291 evaluations, a panel of 3 evaluators and a mean
 depth of 3.0; there is no retrospective or procedural block. Per band, every
-engine's `accuracy_events_scored` equals `complete_grid_by_band`: baseline 67,
+engine's `accuracy_events_scored` equals `paired.by_band`: baseline 67,
 elevated 28, high 1, federal 1. Coverage is therefore equal, and the
 per-band orderings in the table above are read over the same petitions — but
 equal coverage certifies the event set only. With the six post-conference

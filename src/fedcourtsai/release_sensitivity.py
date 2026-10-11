@@ -8,7 +8,7 @@ a second one. Every figure here is the board's own, rebuilt by
 :func:`fedcourtsai.leaderboard.build_leaderboard` over the same stratified
 cells (:func:`fedcourtsai.store.stratify`, frozen scope) — so accuracy, the
 realized floor, the lift, population skill (a ratio of sums), the grant
-comparison and ``complete_grid_by_band`` are computed exactly as the board
+comparison and the paired events per band are computed exactly as the board
 computes them, and the registered headline is the board itself. Three blocks:
 
 1. **Exact-pool anchor.** Each skill-scored cert grading's prior-Term baseline
@@ -430,7 +430,7 @@ def project(board: Leaderboard, fields: Sequence[str] = ALL_FIELDS) -> dict[str,
     arms: dict[str, Any] = {
         RANKED_ARM: {
             "events_scored": board.events_scored,
-            "complete_grid_by_band": board.complete_grid_by_band,
+            "paired_by_band": board.paired.by_band if board.paired is not None else {},
             "entries": {
                 entry.predictor_id: {
                     "events_scored": entry.events_scored,
@@ -449,7 +449,7 @@ def project(board: Leaderboard, fields: Sequence[str] = ALL_FIELDS) -> dict[str,
             continue
         arms[key] = {
             "events_scored": stage.events_scored,
-            "complete_grid_by_band": stage.complete_grid_by_band,
+            "paired_by_band": stage.paired.by_band if stage.paired is not None else {},
             "entries": {
                 entry.predictor_id: {
                     "events_scored": entry.events_scored,

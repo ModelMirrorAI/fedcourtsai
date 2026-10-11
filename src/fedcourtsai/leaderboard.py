@@ -14,13 +14,24 @@ never ex-ante forecasting skill. A cell whose outcome was mootness practice
 (the outcome's ``disposition_basis``) is *procedural* regardless of timing —
 its label tracks the Court's vacatur wording, not cert-worthiness. The strata
 are aggregated separately and never blended into one headline number, and only
-forward/retrospective enter the ranking. The board consumes that vocabulary
+the forward stratum enters the ranking. The board consumes that vocabulary
 rather than defining it: the stratum names and
 :func:`fedcourtsai.integrity.classify_stratum`, the single definition of the
 timing split, live in :mod:`fedcourtsai.integrity` beside the harness clock the
 split rests on (:func:`fedcourtsai.integrity.cell_clock`, vs the outcome's
 ``resolved_at`` — derivable offline from committed artifacts); the procedural
 override lives with the join in ``store.stratify``.
+
+**Pooled by default, compared over paired events.** Each predictor's entry
+pools its counted cells across every non-revoked counting window — its forward
+track record, still one counted forecast per event — and lists its composition,
+each window with its ``n``. The per-(predictor, window) entries ride beside it
+as the unranked ``by_protocol`` cut. Two pooled entries cover different events,
+so they are never compared: the rank is read off the **paired** figure, the
+events on which every ranked engine holds a qualifying forward cell from any
+window (:func:`_paired`), and each entry carries its rank beside that paired
+``n``. A retired predictor — every window closed or revoked — keeps its record
+and its cut but leaves the paired set.
 
 Orthogonal to the strata runs the **stage/moment axis**: the ranked board is
 cert's *first* forecast moment, and every other population — a different
@@ -47,10 +58,9 @@ Two exclusions run before any of that, both applied at the join
 (``store.stratify``) and both published beside the standings so neither can be
 silent: the forward-claim rule, and the evaluators' leakage bit. A cell whose
 grading carries ``leakage_suspected`` may have read its own outcome, so it
-enters no rank key and no scored aggregate — including the retrospective pair
-that orders predictors with no forward cells, which is where near-perfect
-leaked numbers would otherwise decide a standing. The bit changes membership
-and never a value; ``leakage_exclusion`` carries the count and its
+enters no rank key and no scored aggregate, where near-perfect leaked numbers
+would otherwise move a standing or a mean. The bit changes membership and never
+a value; ``leakage_exclusion`` carries the count and its
 per-predictor split. Both exclusions reach exactly the cells the join yields,
 which is **not** the two agreement views below: they read the ledger by their
 own path (:func:`_scoped_evaluations`) and apply neither rule, deliberately —
@@ -64,7 +74,8 @@ by that judge, and an engine whose cells backfill late is ranked over fewer
 events than one that ran on time. Each entry carries its ``events_scored`` and
 its population carries the union across entries, so unequal coverage is readable
 off the artifact before any cross-engine comparison rests on it — nothing here
-adjusts a rank or a mean for it. Equality is necessary and not sufficient: it
+adjusts a pooled mean for it, which is why the rank reads the paired events
+instead. Equality is necessary and not sufficient: it
 certifies the same event *set*, never the same stratum mix or panel depth, so
 the check refuses a comparison rather than blessing one.
 
@@ -87,6 +98,7 @@ import math
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
@@ -95,6 +107,7 @@ from .integrity import (
     PROCEDURAL,
     RETROSPECTIVE,
     StratifiedCell,
+    cell_clock,
     latest_evaluations,
 )
 from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statpack_digest
@@ -102,10 +115,11 @@ from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
 from .pipeline.moments import first_moment, scores_votes
 from .process_version import (
     Series,
-    co_current,
+    composition,
     frozen_process_record,
     graded_in_window,
     harness_stamps_cert_anchor,
+    is_retired,
     pooled_windows,
     refuse_shared_labels,
     series_sort_key,
@@ -116,7 +130,6 @@ from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     NO_BAND_KEY,
     BigCaseLeaderboard,
-    CompleteGrid,
     CountingWindow,
     Disposition,
     Evaluation,
@@ -130,17 +143,21 @@ from .schemas import (
     LeakageExclusionRecord,
     Moment,
     Outcome,
+    PairedEngine,
+    PairedEvents,
     Prediction,
     PredictionContext,
     Stage,
     StatPack,
     Stratum,
+    WindowShare,
 )
 from .serialize import read_model
 from .store import EvaluationKey, evaluation_key, prediction_counts, scored_prediction
 
 #: A big-case agreement's key: the predictor and the label of the counting
-#: window its reads come from (``None`` on an all-versions build).
+#: window its reads come from — ``None`` on the pooled default, which spans
+#: every window, and on an all-versions build.
 SeriesLabel = tuple[str, str | None]
 
 # The `stages` key a stage-less cell shares (a null-stage event of a
@@ -263,6 +280,9 @@ class CellFacts:
     #: superseded, so pairing it with a baseline read off the current one would
     #: be an unpaired ratio.
     brier_reproduces: bool
+    #: The scored prediction's harness clock (:func:`fedcourtsai.integrity.cell_clock`)
+    #: — what "earliest counted cell" means when a paired event is filed under a band.
+    clock: datetime
 
 
 def band_key(context: PredictionContext | None) -> str:
@@ -530,86 +550,126 @@ def _floor_fields(
     return fields
 
 
-@dataclass(frozen=True)
-class CompleteGrids:
-    """A population's complete grid, its per-combination split, and its split events."""
+def _qualifies(evaluation: Evaluation) -> bool:
+    """Whether a forward grading carries both an accuracy and a Brier score.
 
-    by_band: dict[str, int]
-    grids: list[CompleteGrid]
-    split_by_band: dict[str, int]
+    The paired figure's unit: a counted forward cell qualifies through a
+    grading that scores both rank keys, so every engine's paired aggregate
+    takes its accuracy and its mean Brier over one set of gradings.
+    """
+    return evaluation.correct is not None and evaluation.brier_score is not None
 
 
-def _complete_grids(
+def _paired_rank_key(
+    predictor_id: str, forward: LeaderboardStratum | None
+) -> tuple[float, float, str]:
+    """Forward accuracy (highest first), forward mean Brier (lowest first), then id.
+
+    Read over the paired events, where every ranked engine is scored on the
+    same events, so neither key compares two event sets. There is no
+    retrospective tie-break: retrospective cells are not paired. No skill
+    column is a key — the realized-Term one scores against a rate no predictor
+    could have known in-season, and the in-sample one contains the scored
+    case's own outcome.
+    """
+    accuracy = (
+        forward.accuracy if forward is not None and forward.accuracy is not None else _NO_ACCURACY
+    )
+    brier = (
+        forward.mean_brier_score
+        if forward is not None and forward.mean_brier_score is not None
+        else _NO_BRIER
+    )
+    return (-accuracy, brier, predictor_id)
+
+
+def _paired(
     cells: Sequence[tuple[Evaluation, Stratum]],
-    series: Iterable[Series],
+    skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None,
     cell_windows: Mapping[EvaluationKey, CountingWindow],
-) -> CompleteGrids:
-    """Per band key, the forward events every predictor has an accuracy-scored cell on.
+    *,
+    frozen: bool,
+    ranked: bool,
+    vote_scores: Mapping[EvaluationKey, float] | None = None,
+) -> PairedEvents | None:
+    """A population's paired-event figure, or ``None`` while no engine qualifies.
 
-    The per-band complete grid: an event counts under a band only where each
-    predictor in ``roster`` carries an accuracy-scored forward grading of it
-    filed under that same band, so an event whose predictors froze different
-    bands is complete under none. Cert cells only (those carrying facts); empty
-    without facts.
+    **The engines.** Every predictor holding at least one qualifying cell — a
+    counted forward cell graded with both an accuracy and a Brier score
+    (:func:`_qualifies`) — and, on a frozen build, a counting window neither
+    closed nor revoked (:func:`fedcourtsai.process_version.is_retired`). A
+    retired predictor keeps its pooled entry and its cut, unranked.
 
-    **Each from one named window.** A predictor holds one counted cell per
-    event, so a complete event names one window per predictor — its
-    combination. The grid is read per combination, and only over windows that
-    ran together (:func:`fedcourtsai.process_version.co_current`): an event
-    whose combination pairs a closed window with the successor that closed it
-    is a **split event**, counted under ``split_by_band`` and in no grid.
-    ``by_band`` is the total over the co-current combinations, each event in
-    exactly one. ``grids`` breaks it out per combination wherever the
-    population's ``series`` carry more than one window label — even where one
-    combination, or none, holds every complete event — because a per-window
-    entry, unlike a per-predictor one, need not cover its population's grid: a
-    successor's entry can sit beside a total it shares no event with, and only
-    the per-combination list shows that. Under one label each predictor has at
-    most one window, every entry covers the grid, and the total is the grid. An
-    all-versions build carries no windows, so every complete event shares the
-    one window-less combination and nothing is split.
+    **The paired events.** The events on which every engine holds a qualifying
+    cell, from any window. Pairing never reads the salience band: no rank key
+    uses a band anchor, so a band condition would only shrink and select the
+    set. Each engine's figure is :func:`_aggregate` over its qualifying
+    gradings on those events, and its ``unpaired_events`` are its qualifying
+    events outside them.
+
+    **Bands.** Where ``facts`` covers the cells (cert populations), each paired
+    event is filed under the band key of its earliest qualifying cell by
+    harness clock, across the engines, and an event whose engines' cells carry
+    different band keys counts in ``band_mismatches``.
+
+    **Ranks** (``ranked`` only, and only while the paired set is non-empty):
+    :func:`_paired_rank_key` over each engine's paired aggregate. One engine
+    pairs with itself — its paired events are its own qualifying events — and
+    ranks 1.
     """
-    population = list(series)
-    members = {pid for pid, _ in population}
-    labelled = len({window.label for _, window in population if window is not None}) > 1
-    if facts is None or not members:
-        return CompleteGrids({}, [], {})
-    covered: dict[tuple[str, tuple[str, str]], dict[str, CountingWindow | None]] = defaultdict(dict)
-    for ev, stratum in cells:
-        fact = facts.get(_evaluation_key(ev))
-        if stratum != FORWARD or ev.correct is None or fact is None:
-            continue
-        covered[(fact.band_key, (ev.case_id, ev.event_id))][ev.predictor_id] = cell_windows.get(
-            _evaluation_key(ev)
-        )
-    total: dict[str, int] = defaultdict(int)
-    split: dict[str, int] = defaultdict(int)
-    combos: dict[tuple[Series, ...], dict[str, int]] = defaultdict(lambda: defaultdict(int))
-    for (band, _event), who in covered.items():
-        if set(who) < members:
-            continue
-        combination = tuple(sorted(((pid, who[pid]) for pid in members), key=series_sort_key))
-        windows = [window for _, window in combination if window is not None]
-        if not co_current(windows):
-            split[band] += 1
-            continue
-        total[band] += 1
-        combos[combination][band] += 1
-    grids = (
-        [
-            CompleteGrid(
-                windows={pid: window.label for pid, window in combination if window is not None},
-                by_band=dict(sorted(counts.items())),
-            )
-            for combination, counts in sorted(
-                combos.items(), key=lambda item: [series_sort_key(series) for series in item[0]]
-            )
-        ]
-        if labelled
-        else []
+    qualifying: dict[str, dict[tuple[str, str], list[Evaluation]]] = defaultdict(
+        lambda: defaultdict(list)
     )
-    return CompleteGrids(dict(sorted(total.items())), grids, dict(sorted(split.items())))
+    for ev, stratum in cells:
+        if stratum == FORWARD and _qualifies(ev):
+            qualifying[ev.predictor_id][(ev.case_id, ev.event_id)].append(ev)
+    engines = sorted(pid for pid in qualifying if not (frozen and is_retired(pid)))
+    if not engines:
+        return None
+    paired = set.intersection(*(set(qualifying[pid]) for pid in engines))
+    entries: list[PairedEngine] = []
+    for pid in engines:
+        gradings = [ev for event in sorted(paired) for ev in qualifying[pid][event]]
+        windows: dict[CountingWindow, int] = defaultdict(int)
+        for ev in gradings:
+            if (window := cell_windows.get(_evaluation_key(ev))) is not None:
+                windows[window] += 1
+        entries.append(
+            PairedEngine(
+                predictor_id=pid,
+                forward=_aggregate(gradings, skills, facts, vote_scores=vote_scores),
+                windows=composition(windows),
+                unpaired_events=len(set(qualifying[pid]) - paired),
+            )
+        )
+    if ranked and paired:
+        entries.sort(key=lambda entry: _paired_rank_key(entry.predictor_id, entry.forward))
+        for position, entry in enumerate(entries, start=1):
+            entry.rank = position
+    by_band: dict[str, int] = defaultdict(int)
+    mismatches = 0
+    if facts is not None:
+        for event in paired:
+            filed = [
+                fact
+                for pid in engines
+                for ev in qualifying[pid][event]
+                if (fact := facts.get(_evaluation_key(ev))) is not None
+            ]
+            if not filed:
+                continue
+            earliest = min(filed, key=lambda fact: (fact.clock, fact.band_key))
+            by_band[earliest.band_key] += 1
+            if len({fact.band_key for fact in filed}) > 1:
+                mismatches += 1
+    return PairedEvents(
+        predictors=engines,
+        events=len(paired),
+        by_band=dict(sorted(by_band.items())),
+        band_mismatches=mismatches,
+        entries=entries,
+    )
 
 
 def _by_band(
@@ -644,28 +704,14 @@ def _by_band(
 def coverage_shortfalls(
     covered: int, entries: Sequence[LeaderboardEntry | LeaderboardStageEntry]
 ) -> list[tuple[LeaderboardEntry | LeaderboardStageEntry, int]]:
-    """Each entry scored on fewer events than it is compared against, with that figure.
+    """Each entry scored on fewer events than its population's union, with that figure.
 
-    Under one window label the figure is the population's own ``events_scored``
-    union, as the board publishes it. Where the entries carry more than one
-    label, two windows cover different events by construction, so an entry is
-    read against its own label's cohort instead: the largest ``events_scored``
-    in that cohort, a lower bound on the cohort's union — a shortfall against it
-    is unequal coverage for certain, and a cohort read against the whole board
-    would be short on every entry and say nothing.
+    ``covered`` is the population's own ``events_scored`` union, as the board
+    publishes it. A pooled entry spans every window of its predictor, so one
+    union denominates every entry; a shortfall is unequal coverage, which the
+    paired figure — not the entries — is there to compare across.
     """
-    labels = {entry.process_window for entry in entries}
-    if len(labels) <= 1:
-        return [(entry, covered) for entry in entries if entry.events_scored < covered]
-    cohort = {
-        label: max(e.events_scored for e in entries if e.process_window == label)
-        for label in labels
-    }
-    return [
-        (entry, cohort[entry.process_window])
-        for entry in entries
-        if entry.events_scored < cohort[entry.process_window]
-    ]
+    return [(entry, covered) for entry in entries if entry.events_scored < covered]
 
 
 def entry_name(
@@ -681,43 +727,6 @@ def entry_name(
     if sum(1 for other in entries if other.predictor_id == entry.predictor_id) > 1:
         return f"{entry.predictor_id}@{entry.process_window}"
     return entry.predictor_id
-
-
-def _rank_key(entry: LeaderboardEntry) -> tuple[float, float, float, float, str]:
-    """Forward stratum first, retrospective as tie-break, then id.
-
-    Applied within one window label's cohort (:func:`_ranked`), where each
-    predictor has one entry, so the id makes the order total.
-
-    Forward accuracy (desc, missing last) then forward Brier (asc, missing last) lead because
-    only the forward stratum measures forecasting skill; the retrospective pair
-    orders predictors that have no forward cells yet. The procedural stratum
-    never contributes — vacatur-practice calls buy no rank. ``predictor_id`` makes the
-    ranking deterministic under full ties.
-
-    No skill column is a rank key, and the realized-Term one could not be: it
-    scores against a rate no predictor could have known in-season, so ranking on
-    it would rank in-season on an ex-post fact. The in-sample column is further
-    out still: its baseline contains the scored case's own outcome.
-    """
-
-    def acc(stratum: LeaderboardStratum | None) -> float:
-        if stratum is None or stratum.accuracy is None:
-            return _NO_ACCURACY
-        return stratum.accuracy
-
-    def brier(stratum: LeaderboardStratum | None) -> float:
-        if stratum is None or stratum.mean_brier_score is None:
-            return _NO_BRIER
-        return stratum.mean_brier_score
-
-    return (
-        -acc(entry.forward),
-        brier(entry.forward),
-        -acc(entry.retrospective),
-        brier(entry.retrospective),
-        entry.predictor_id,
-    )
 
 
 def kendall_tau_b(points: Sequence[tuple[float, float]]) -> float | None:
@@ -794,9 +803,9 @@ def _scoped_evaluations(
 
 
 def big_case_agreement(
-    data_root: Path, *, frozen_only: bool = True
+    data_root: Path, *, frozen_only: bool = True, by_window: bool = True
 ) -> dict[SeriesLabel, BigCaseLeaderboard]:
-    """Each predictor's big-case rank-agreement with the evaluator panel, per window.
+    """Each predictor's big-case rank-agreement with the evaluator panel.
 
     Deterministic and offline over the committed ledger. For every
     ``(predictor, case, event)`` an evaluator gave a big-case read on, pairs the
@@ -810,12 +819,15 @@ def big_case_agreement(
     be events wearing the name of cases. Predictors with no comparable case are
     absent from the map (their ``big_case`` stays null).
 
-    Keyed on ``(predictor_id, window label)`` — the leaderboard entry's own key:
-    under ``frozen_only`` each read is filed under the counting window of the
-    prediction it read, so a predictor whose counted cells span two windows
-    gets a correlation per window and never one over both. A case whose moments
-    fall in two windows contributes a point to each, from that window's moments
-    alone. On an all-versions build the label is ``None``.
+    Keyed on ``(predictor_id, window label)`` under ``by_window`` — the
+    by-protocol cut's key: under ``frozen_only`` each read is filed under the
+    counting window of the prediction it read, so a predictor whose counted
+    cells span two windows gets a correlation per window, and a case whose
+    moments fall in two windows contributes a point to each, from that
+    window's moments alone. Without ``by_window`` — the pooled default the
+    leaderboard's entries carry — every read of a predictor pools into one
+    correlation keyed ``(predictor_id, None)``, one point per case over all its
+    moments; an all-versions build is keyed the same way.
 
     ``frozen_only`` (the default) keeps only cells whose **scored** prediction —
     the run each evaluation's harness stamp names, latest as the legacy
@@ -849,15 +861,15 @@ def big_case_agreement(
             continue
         if frozen_only and not _prediction_counts(cases_dir, evaluation, scored):
             continue
-        window = window_of(scored.process_version) if frozen_only else None
+        window = window_of(scored.process_version) if frozen_only and by_window else None
         series: Series = (evaluation.predictor_id, window)
         key = (series, evaluation.case_id, evaluation.event_id, scored.run_id)
         _, scores = reads.setdefault(key, (scored.big_case_score, []))
         scores.append(evaluation.big_case.evaluator_score)
 
-    # One predictor's reads from two counting windows are two forecasters'
-    # reads, so the correlation below is keyed on the series, never the
-    # predictor alone; two windows sharing a label could not be named apart.
+    # Under `by_window` one predictor's reads from two counting windows are two
+    # cuts, keyed on the series; two windows sharing a label could not be
+    # named apart.
     refuse_shared_labels((series for series, *_ in reads), surface="big-case agreement")
 
     # Collapsed to the CASE, not the event. Big-caseness is a property of the
@@ -1157,6 +1169,7 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
                     abs_tol=BRIER_REPRODUCTION_TOLERANCE,
                 )
             ),
+            clock=cell_clock(scored),
         )
     return facts
 
@@ -1409,20 +1422,84 @@ def _events_scored(evals: Iterable[Evaluation]) -> int:
     return len({(ev.case_id, ev.event_id) for ev in evals})
 
 
+def _group_by_predictor(
+    cells: Sequence[tuple[Evaluation, Stratum]],
+) -> dict[str, dict[Stratum, list[Evaluation]]]:
+    """Group one stage's cells by predictor, keeping the strata apart, in id order.
+
+    The pooled default's grouping: every counted cell of a predictor, in every
+    non-revoked window, under one key.
+    """
+    by_predictor: dict[str, dict[Stratum, list[Evaluation]]] = defaultdict(
+        lambda: {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
+    )
+    for ev, stratum in cells:
+        by_predictor[ev.predictor_id][stratum].append(ev)
+    return {pid: by_predictor[pid] for pid in sorted(by_predictor)}
+
+
+def _composition_of(
+    evals: Iterable[Evaluation], cell_windows: Mapping[EvaluationKey, CountingWindow]
+) -> list[WindowShare]:
+    """The windows ``evals`` come from, each with its grading count — the pooled entry's makeup."""
+    counts: dict[CountingWindow, int] = defaultdict(int)
+    for ev in evals:
+        if (window := cell_windows.get(_evaluation_key(ev))) is not None:
+            counts[window] += 1
+    return composition(counts)
+
+
+def _stage_entry(
+    predictor_id: str,
+    window: CountingWindow | None,
+    strata: Mapping[Stratum, list[Evaluation]],
+    skills: Mapping[EvaluationKey, CellSkill],
+    facts: Mapping[EvaluationKey, CellFacts] | None,
+    cell_windows: Mapping[EvaluationKey, CountingWindow],
+    vote_scores: Mapping[EvaluationKey, float] | None,
+) -> LeaderboardStageEntry:
+    """One unranked entry: pooled where ``window`` is ``None``, else that window's cut."""
+    evals = strata[FORWARD] + strata[RETROSPECTIVE] + strata[PROCEDURAL]
+    return LeaderboardStageEntry(
+        predictor_id=predictor_id,
+        process_window=window_label(window),
+        windows=_composition_of(evals, cell_windows) if window is None else [],
+        evaluators=len({ev.evaluator_id for ev in evals}),
+        events_scored=_events_scored(evals),
+        forward=_aggregate(strata[FORWARD], skills, facts, vote_scores=vote_scores),
+        retrospective=_aggregate(strata[RETROSPECTIVE], skills, facts, vote_scores=vote_scores),
+        procedural=_aggregate(strata[PROCEDURAL], skills, facts, vote_scores=vote_scores),
+        by_band=_by_band(strata[FORWARD], skills, facts, vote_scores=vote_scores),
+    )
+
+
+def _cut_series(
+    by_series: Mapping[Series, dict[Stratum, list[Evaluation]]],
+) -> list[tuple[str, CountingWindow, dict[Stratum, list[Evaluation]]]]:
+    """The by-protocol cut's series: every (predictor, window) with a window, in series order."""
+    return [
+        (predictor_id, window, strata)
+        for (predictor_id, window), strata in by_series.items()
+        if window is not None
+    ]
+
+
 def _stage_board(
     cells: Sequence[tuple[Evaluation, Stratum]],
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None,
     cell_windows: Mapping[EvaluationKey, CountingWindow],
     *,
+    frozen: bool,
     vote_scores: Mapping[EvaluationKey, float] | None = None,
 ) -> LeaderboardStage:
-    """One non-cert stage's unranked block: per-series aggregates plus counts.
+    """One non-cert stage's unranked block: pooled entries, the cut, and the paired figure.
 
-    The same per-stratum aggregation as the cert entries, one per (predictor,
-    window), but ordered by ``predictor_id`` then window and never ranked — a
-    stage resolves on its own decision standard, so nothing here is comparable
-    to the cert board or another stage.
+    The same per-stratum aggregation as the cert entries — one pooled entry per
+    predictor with its composition, the per-(predictor, window) entries as the
+    by-protocol cut, and the paired figure over the block's own events — but
+    never ranked: a stage resolves on its own decision standard, so nothing
+    here is comparable to the cert board or another stage.
     Only cert cells ever carry a realized-Term baseline, so a stage block's
     realized-Term figure is null and its count zero: the realized-Term rate is a
     *band* rate, and no other stage is a salience-band product. Their
@@ -1436,24 +1513,14 @@ def _stage_board(
     so those stay null there.
     """
     by_series = _group_by_series(cells, cell_windows)
-    entries: list[LeaderboardStageEntry] = []
-    for (predictor_id, window), strata in by_series.items():
-        evals = strata[FORWARD] + strata[RETROSPECTIVE] + strata[PROCEDURAL]
-        entries.append(
-            LeaderboardStageEntry(
-                predictor_id=predictor_id,
-                process_window=window_label(window),
-                evaluators=len({ev.evaluator_id for ev in evals}),
-                events_scored=_events_scored(evals),
-                forward=_aggregate(strata[FORWARD], skills, facts, vote_scores=vote_scores),
-                retrospective=_aggregate(
-                    strata[RETROSPECTIVE], skills, facts, vote_scores=vote_scores
-                ),
-                procedural=_aggregate(strata[PROCEDURAL], skills, facts, vote_scores=vote_scores),
-                by_band=_by_band(strata[FORWARD], skills, facts, vote_scores=vote_scores),
-            )
-        )
-    grids = _complete_grids(cells, by_series, facts, cell_windows)
+    entries = [
+        _stage_entry(pid, None, strata, skills, facts, cell_windows, vote_scores)
+        for pid, strata in _group_by_predictor(cells).items()
+    ]
+    cut = [
+        _stage_entry(pid, window, strata, skills, facts, cell_windows, vote_scores)
+        for pid, window, strata in _cut_series(by_series)
+    ]
     return LeaderboardStage(
         evaluations_total=sum(
             _stratum_total(by_series, stratum) for stratum in (FORWARD, RETROSPECTIVE, PROCEDURAL)
@@ -1463,44 +1530,17 @@ def _stage_board(
         retrospective_evaluations=_stratum_total(by_series, RETROSPECTIVE),
         procedural_evaluations=_stratum_total(by_series, PROCEDURAL),
         entries=entries,
-        complete_grid_by_band=grids.by_band,
-        complete_grids=grids.grids,
-        split_events_by_band=grids.split_by_band,
-    )
-
-
-def _ranked(entries: list[LeaderboardEntry], series: Iterable[Series]) -> list[LeaderboardEntry]:
-    """``entries`` in board order, each ranked within its window label's cohort.
-
-    A rank is a cross-engine comparison, and engines are compared only over
-    events, never spans: an entry from a successor's window covers the events
-    the closed window did not reach, a selected population, and a closed
-    window's standing must not move because a later window's cells interleave
-    above it. So ``rank`` restarts in each cohort of entries sharing a
-    ``process_window`` label, cohorts ordered by the earliest opening among
-    their windows; a carried-forward window ranks with the cohort of the label
-    that opened it. Under one label — every build before a successor, and every
-    all-versions build — this is one ranking over the board.
-    Within a cohort the order is :func:`_rank_key`, total down to the id.
-    """
-    opening: dict[str | None, float] = {}
-    for _, window in series:
-        if window is not None:
-            stamp = window.opens.timestamp()
-            opening[window.label] = min(stamp, opening.get(window.label, stamp))
-    ordered = sorted(
-        entries,
-        key=lambda entry: (
-            opening.get(entry.process_window, float("-inf")),
-            entry.process_window or "",
-            _rank_key(entry),
+        by_protocol=cut,
+        paired=_paired(
+            cells,
+            skills,
+            facts,
+            cell_windows,
+            frozen=frozen,
+            ranked=False,
+            vote_scores=vote_scores,
         ),
     )
-    position: dict[str | None, int] = defaultdict(int)
-    for entry in ordered:
-        position[entry.process_window] += 1
-        entry.rank = position[entry.process_window]
-    return ordered
 
 
 def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input the board publishes
@@ -1529,22 +1569,25 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         ``big_case`` and ``evaluators`` maps the caller supplies are stage-blind by
         contract: they describe stakes reads, not stage-scoped skill.)
 
-        One entry per predictor and counting window (see ``cell_windows``), each
-        carrying its **forward** and **retrospective** aggregates separately (a
-        stratum with no cells is null, never zero-filled into a blend). Entries
-        rank by forward accuracy (desc, missing last), forward Brier (asc,
-        missing last), the retrospective pair as tie-break, then ``predictor_id`` —
-        a total order, so the ranking is deterministic even under ties. ``big_case``
+        One pooled entry per predictor — every counted cell in every non-revoked
+        window, its composition listed — each carrying its **forward** and
+        **retrospective** aggregates separately (a stratum with no cells is null,
+        never zero-filled into a blend). A pooled entry is the predictor's track
+        record over its own events, so two entries are never ranked against each
+        other: the rank is read off the **paired** figure (:func:`_paired`), the
+        events every ranked engine holds a qualifying forward cell on, from any
+        window, and copied onto the entry beside its paired ``n``. ``big_case``
         (from :func:`big_case_agreement`) attaches each predictor's big-case
-        rank-agreement as a second, orthogonal dimension that never affects the rank;
-        absent from the map (or unsupplied) leaves the entry's ``big_case`` null.
+        rank-agreement as a second, orthogonal dimension that never affects the
+        rank — a pooled entry reads the key ``(predictor_id, None)``, a cut entry
+        ``(predictor_id, label)``; absent from the map leaves it null.
 
     ``skills`` (from :func:`skill_components` over the same cells) supplies both
         skill columns' terms — the cell's Brier and each baseline's — which are
         aggregated as a ratio of sums, never a mean of per-cell ratios
         (:class:`CellSkill`). The two columns keep separate populations and separate
         ``*_scored`` counts, are never combined, and neither reaches
-        :func:`_rank_key`. Unsupplied, both columns are null everywhere with zero
+        :func:`_paired_rank_key`. Unsupplied, both columns are null everywhere with zero
         counts — the board still carries accuracy, Brier, and every count.
 
         ``process_scope`` only labels the board — the caller has already filtered
@@ -1570,8 +1613,8 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
     ``facts`` (from :func:`cell_facts` over the same cells) supplies each cert
         cell's frozen band key and realized outcome: the forward stratum's
         ``by_band`` cut, every cert stratum's realized always-deny floor,
-        lifts, and grant counts, and each population's
-        ``complete_grid_by_band``. None of them reaches :func:`_rank_key`.
+        lifts, and grant counts, and each paired figure's band filing (by its
+        cells' harness ``clock``). None of them reaches :func:`_paired_rank_key`.
         Unsupplied, no entry carries ``by_band`` and those fields are null.
 
     ``vote_scores`` (from :func:`vote_scores` over the same cells) is each
@@ -1581,17 +1624,12 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         Unsupplied, every vote mean is null and every count zero.
 
     ``cell_windows`` (``store.StratifiedRun.cell_windows`` from the same pass)
-        names the counting window each cell's scored prediction sits in. Every
-        entry, stage entry, ``by_band`` cut and agreement key is per (predictor,
-        window), published as the entry's ``process_window``: a new model under
-        an unchanged ``predictor_id`` is a different forecaster, so a predictor
-        whose counted cells span two windows has an entry per window and no
-        figure pools them. The complete grids are taken per window combination
-        and a split event belongs to none (:func:`_complete_grids`). Ranks
-        restart in each window label's cohort (:func:`_ranked`), so no entry
-        is ranked against a window that covers different events. Unsupplied —
-        an all-versions build — every entry is keyed on the predictor alone and
-        the field is null.
+        names the counting window each cell's scored prediction sits in: what each
+        pooled entry's ``windows`` composition counts, and the key of the
+        ``by_protocol`` cut — one unranked entry per (predictor, window), a
+        comparison over different events whenever one predictor's windows are
+        read against each other. Unsupplied or empty — an all-versions build —
+        no entry lists a composition and there is no cut.
     """
     cell_skills = skills or {}
     cert_cells: list[tuple[Evaluation, Stratum]] = []
@@ -1604,31 +1642,44 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
             stage_cells[stage_moment_key(stage, moment)].append((ev, stratum))
 
     windows = cell_windows or {}
+    frozen = process_scope == "frozen"
     by_series = _group_by_series(cert_cells, windows)
-    entries: list[LeaderboardEntry] = []
-    for (predictor_id, window), strata in by_series.items():
+    paired = _paired(
+        cert_cells, cell_skills, facts, windows, frozen=frozen, ranked=True, vote_scores=vote_scores
+    )
+    standing = {
+        engine.predictor_id: engine.rank
+        for engine in (paired.entries if paired is not None else [])
+        if engine.rank is not None
+    }
+
+    def entry(
+        predictor_id: str, window: CountingWindow | None, strata: dict[Stratum, list[Evaluation]]
+    ) -> LeaderboardEntry:
         evals = strata[FORWARD] + strata[RETROSPECTIVE] + strata[PROCEDURAL]
-        entries.append(
-            LeaderboardEntry(
-                predictor_id=predictor_id,
-                process_window=window_label(window),
-                rank=1,  # provisional; assigned after sorting
-                evaluators=len({ev.evaluator_id for ev in evals}),
-                events_scored=_events_scored(evals),
-                forward=_aggregate(strata[FORWARD], cell_skills, facts, vote_scores=vote_scores),
-                retrospective=_aggregate(
-                    strata[RETROSPECTIVE], cell_skills, facts, vote_scores=vote_scores
-                ),
-                procedural=_aggregate(
-                    strata[PROCEDURAL], cell_skills, facts, vote_scores=vote_scores
-                ),
-                by_band=_by_band(strata[FORWARD], cell_skills, facts, vote_scores=vote_scores),
-                big_case=(big_case or {}).get((predictor_id, window_label(window))),
-            )
+        rank = standing.get(predictor_id) if window is None else None
+        return LeaderboardEntry(
+            predictor_id=predictor_id,
+            process_window=window_label(window),
+            windows=_composition_of(evals, windows) if window is None else [],
+            rank=rank,
+            paired_events=paired.events if rank is not None and paired is not None else None,
+            evaluators=len({ev.evaluator_id for ev in evals}),
+            events_scored=_events_scored(evals),
+            forward=_aggregate(strata[FORWARD], cell_skills, facts, vote_scores=vote_scores),
+            retrospective=_aggregate(
+                strata[RETROSPECTIVE], cell_skills, facts, vote_scores=vote_scores
+            ),
+            procedural=_aggregate(strata[PROCEDURAL], cell_skills, facts, vote_scores=vote_scores),
+            by_band=_by_band(strata[FORWARD], cell_skills, facts, vote_scores=vote_scores),
+            big_case=(big_case or {}).get((predictor_id, window_label(window))),
         )
 
-    entries = _ranked(entries, by_series)
-    grids = _complete_grids(cert_cells, by_series, facts, windows)
+    entries = sorted(
+        (entry(pid, None, strata) for pid, strata in _group_by_predictor(cert_cells).items()),
+        key=lambda e: (e.rank is None, e.rank or 0, e.predictor_id),
+    )
+    cut = [entry(pid, window, strata) for pid, window, strata in _cut_series(by_series)]
 
     return Leaderboard(
         process_scope=process_scope,
@@ -1652,7 +1703,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         salience_versions=sorted(
             {ev.base_rate_salience_version for ev, _ in cert_cells if ev.base_rate_salience_version}
         ),
-        predictors_ranked=len(entries),
+        predictors_ranked=len(standing),
         events_scored=_events_scored(ev for ev, _ in cert_cells),
         evaluations_total=sum(
             _stratum_total(by_series, stratum) for stratum in (FORWARD, RETROSPECTIVE, PROCEDURAL)
@@ -1662,12 +1713,16 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         procedural_evaluations=_stratum_total(by_series, PROCEDURAL),
         evaluator_agreement=dict(evaluators or {}),
         entries=entries,
-        complete_grid_by_band=grids.by_band,
-        complete_grids=grids.grids,
-        split_events_by_band=grids.split_by_band,
+        by_protocol=cut,
+        paired=paired,
         stages={
             key: _stage_board(
-                stage_cells[key], cell_skills, facts, windows, vote_scores=vote_scores
+                stage_cells[key],
+                cell_skills,
+                facts,
+                windows,
+                frozen=frozen,
+                vote_scores=vote_scores,
             )
             for key in sorted(stage_cells)
         },
