@@ -70,8 +70,13 @@ It rebuilds the frozen board exactly as `fedcourts leaderboard` does, so
 `registered_headline.figures` is the board's own cert arms, keyed
 `<stage>@<moment>` (`cert@distribution` is the ranked board, `cert@cvsg` the
 CVSG arm), and `matches_committed_board` says whether the committed
-`metrics/leaderboard.json` is that board. Each block under `.blocks` carries
-its figures in the same shape, each with its own `n`. It is run from the same
+`metrics/leaderboard.json` is that board. Each arm's `entries` are the pooled
+records, each listing the windows it pools with their `n`; beside them,
+`by_protocol` (keyed `<predictor>@<window>`) is the per-window cut. While
+`proc-v8` cells are the only graded cells the two agree, and once a later
+window's cell is graded the release's figures are the cut's `@proc-v8` entries.
+Each block under `.blocks` carries its figures in the same shape, each with its
+own `n`. It is run from the same
 checkout and corpus as the fill export (section 8, step 2), with full git
 history (the anchor block reads the statpack each grading's checkout carried)
 and the content store wired (the other two read the stored live snapshots), so

@@ -71,8 +71,11 @@ from .pipeline import cert_signals
 from .pipeline.base_rates import _pooled_band_rate
 from .pipeline.moments import first_moment
 from .schemas import (
+    CountingWindow,
     Evaluation,
     Leaderboard,
+    LeaderboardEntry,
+    LeaderboardStageEntry,
     LeaderboardStratum,
     Moment,
     Outcome,
@@ -404,14 +407,25 @@ def _key(evaluation: Evaluation) -> EvaluationKey:
 
 
 def rebuild(
-    cells: Sequence[StratifiedCell], data_root: Path, skills: Mapping[EvaluationKey, CellSkill]
+    cells: Sequence[StratifiedCell],
+    data_root: Path,
+    skills: Mapping[EvaluationKey, CellSkill],
+    cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
 ) -> Leaderboard:
-    """The frozen board's aggregates over ``cells``, built as ``fedcourts leaderboard`` does."""
+    """The frozen board's aggregates over ``cells``, built as ``fedcourts leaderboard`` does.
+
+    ``cell_windows`` (the stratify pass's) makes it the pooled board: each
+    entry over every window its predictor's cells come from, with that
+    composition and the by-protocol cut beside it, and the ranked set read
+    under the open-window condition. Its harness-boundary counts are not
+    rebuilt, since no sensitivity line moves them.
+    """
     keys = {_key(ev) for ev, _s, _st, _m in cells}
     return build_leaderboard(
         cells,
         skills={key: skill for key, skill in skills.items() if key in keys},
         facts=cell_facts(cells, data_root),
+        cell_windows={key: w for key, w in (cell_windows or {}).items() if key in keys} or None,
     )
 
 
@@ -442,47 +456,64 @@ def _paired(paired: PairedEvents | None, fields: Sequence[str]) -> dict[str, Any
     }
 
 
+def _entry(
+    entry: LeaderboardEntry | LeaderboardStageEntry, fields: Sequence[str]
+) -> dict[str, Any]:
+    """One entry's projected figures; a pooled entry also carries its composition."""
+    projected: dict[str, Any] = {
+        "events_scored": entry.events_scored,
+        "evaluators": entry.evaluators,
+        "forward": _stratum(entry.forward, fields),
+        "by_band": {band: _stratum(s, fields) for band, s in (entry.by_band or {}).items()},
+    }
+    if entry.windows:
+        projected["windows"] = {w.process_window: w.n for w in entry.windows}
+    return projected
+
+
+def _arm(
+    events_scored: int,
+    paired: PairedEvents | None,
+    entries: Sequence[LeaderboardEntry | LeaderboardStageEntry],
+    cut: Sequence[LeaderboardEntry | LeaderboardStageEntry],
+    fields: Sequence[str],
+) -> dict[str, Any]:
+    """One arm: its paired figure, its pooled entries, and the by-protocol cut where built."""
+    arm: dict[str, Any] = {
+        "events_scored": events_scored,
+        "paired": _paired(paired, fields),
+        "entries": {
+            entry.predictor_id: _entry(entry, fields)
+            for entry in sorted(entries, key=lambda e: e.predictor_id)
+        },
+    }
+    if cut:
+        arm["by_protocol"] = {
+            f"{entry.predictor_id}@{entry.process_window}": _entry(entry, fields) for entry in cut
+        }
+    return arm
+
+
 def project(board: Leaderboard, fields: Sequence[str] = ALL_FIELDS) -> dict[str, Any]:
     """Each cert arm's per-predictor forward and per-band figures, keyed ``<stage>@<moment>``.
 
     The ranked board is :data:`RANKED_ARM`; every other cert-stage block (the
-    CVSG arm among them) is its own arm, never pooled with it.
+    CVSG arm among them) is its own arm, never pooled with it. Each arm's
+    ``entries`` are the pooled default, each with the windows it pools and
+    their ``n``; ``by_protocol``, keyed ``<predictor>@<window>``, is the
+    per-window cut wherever the board was built with windows.
     """
     arms: dict[str, Any] = {
-        RANKED_ARM: {
-            "events_scored": board.events_scored,
-            "paired": _paired(board.paired, fields),
-            "entries": {
-                entry.predictor_id: {
-                    "events_scored": entry.events_scored,
-                    "evaluators": entry.evaluators,
-                    "forward": _stratum(entry.forward, fields),
-                    "by_band": {
-                        band: _stratum(s, fields) for band, s in (entry.by_band or {}).items()
-                    },
-                }
-                for entry in sorted(board.entries, key=lambda e: e.predictor_id)
-            },
-        }
+        RANKED_ARM: _arm(
+            board.events_scored, board.paired, board.entries, board.by_protocol, fields
+        )
     }
     for key, stage in sorted(board.stages.items()):
         if not key.startswith(f"{Stage.cert}@"):
             continue
-        arms[key] = {
-            "events_scored": stage.events_scored,
-            "paired": _paired(stage.paired, fields),
-            "entries": {
-                entry.predictor_id: {
-                    "events_scored": entry.events_scored,
-                    "evaluators": entry.evaluators,
-                    "forward": _stratum(entry.forward, fields),
-                    "by_band": {
-                        band: _stratum(s, fields) for band, s in (entry.by_band or {}).items()
-                    },
-                }
-                for entry in stage.entries
-            },
-        }
+        arms[key] = _arm(
+            stage.events_scored, stage.paired, stage.entries, stage.by_protocol, fields
+        )
     return arms
 
 
@@ -605,6 +636,7 @@ def exact_pool_anchor(
     skills: Mapping[EvaluationKey, CellSkill],
     builds: BuildSource,
     registered: set[tuple[str, str]] | None,
+    cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
 ) -> dict[str, Any]:
     """Block 1: skill against the exact pool of the build each grading read, plus the spread.
 
@@ -687,7 +719,7 @@ def exact_pool_anchor(
             prior_term_baseline=baseline,
             realized_term_baseline=skill.realized_term_baseline,
         )
-    board = rebuild(cells, data_root, adjusted)
+    board = rebuild(cells, data_root, adjusted, cell_windows)
     block = {
         "departure": (
             "each skill-scored cert grading's prior-Term baseline taken from the exact "
@@ -798,6 +830,7 @@ def rule_20_excluded(
     events: Sequence[_EventInfo],
     payloads: PayloadReader,
     registered: set[tuple[str, str]] | None,
+    cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
 ) -> dict[str, Any]:
     """Block 2: the board without the cases whose opening petition is a Rule 20 writ."""
     graded = _graded(cells)
@@ -854,7 +887,7 @@ def rule_20_excluded(
         "not_certiorari_not_rule_20": flagged,
         "unclassified": unclassified,
         "board_cells_removed": len(cells) - len(kept),
-        "figures": project(rebuild(kept, data_root, skills), ACCURACY_SKILL_FIELDS),
+        "figures": project(rebuild(kept, data_root, skills, cell_windows), ACCURACY_SKILL_FIELDS),
     }
 
 
@@ -912,6 +945,7 @@ def post_conference_excluded(
     payloads: PayloadReader,
     registered: set[tuple[str, str]] | None,
     grant_list: date | None,
+    cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
 ) -> dict[str, Any]:
     """Block 3: the board without the events first forecast after their considering conference.
 
@@ -1010,7 +1044,7 @@ def post_conference_excluded(
         "scored_after_conference_outside_subset": outside,
         "lines_equal_headline": graded_members == 0,
         "board_cells_removed": len(cells) - len(kept),
-        "figures": project(rebuild(kept, data_root, skills), ALL_FIELDS),
+        "figures": project(rebuild(kept, data_root, skills, cell_windows), ALL_FIELDS),
     }
 
 
@@ -1019,7 +1053,7 @@ def post_conference_excluded(
 # ---------------------------------------------------------------------------
 
 
-def release_sensitivity(
+def release_sensitivity(  # noqa: PLR0913 - one keyword per stratify-pass input it reads
     cells: Sequence[StratifiedCell],
     data_root: Path,
     statpack: StatPack | None,
@@ -1029,6 +1063,7 @@ def release_sensitivity(
     registered: set[tuple[str, str]] | None = None,
     grant_list: date | None = None,
     committed_board: Leaderboard | None = None,
+    cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
 ) -> dict[str, Any]:
     """The registered headline and the three sensitivity blocks, as one JSON-ready dict.
 
@@ -1037,10 +1072,14 @@ def release_sensitivity(
     leaderboard`` builds from — so the registered headline is the board.
     ``committed_board``, when given, is checked against it: a ``false`` means
     the committed ``metrics/leaderboard.json`` is not this ledger's board and
-    nothing here may be quoted beside it.
+    nothing here may be quoted beside it. ``cell_windows`` (the same pass's)
+    makes every board the pooled one: each predictor's figure over every window
+    it holds cells in, with the composition and the by-protocol cut projected
+    beside it, so a ledger whose predictor spans two windows reads as one
+    record and its breakdown rather than as a refusal.
     """
     skills = skill_components(cells, data_root, statpack)
-    registered_board = rebuild(cells, data_root, skills)
+    registered_board = rebuild(cells, data_root, skills, cell_windows)
     headline = project(registered_board)
     cached: dict[str, tuple[date, Mapping[str, Any]] | None] = {}
 
@@ -1051,10 +1090,21 @@ def release_sensitivity(
 
     events = _cert_events(data_root)
     blocks = {
-        "exact_pool_anchor": exact_pool_anchor(cells, data_root, skills, builds, registered),
-        "rule_20_excluded": rule_20_excluded(cells, data_root, skills, events, read, registered),
+        "exact_pool_anchor": exact_pool_anchor(
+            cells, data_root, skills, builds, registered, cell_windows=cell_windows
+        ),
+        "rule_20_excluded": rule_20_excluded(
+            cells, data_root, skills, events, read, registered, cell_windows=cell_windows
+        ),
         "post_conference_first_forecasts_excluded": post_conference_excluded(
-            cells, data_root, skills, events, read, registered, grant_list
+            cells,
+            data_root,
+            skills,
+            events,
+            read,
+            registered,
+            grant_list,
+            cell_windows=cell_windows,
         ),
     }
     stored = sorted(found[0] for found in cached.values() if found is not None)

@@ -51,6 +51,7 @@ from .leaderboard import kendall_tau_b
 from .pipeline.moments import first_moment
 from .process_version import (
     Series,
+    composition_of,
     frozen_process_record,
     pooled_windows,
     refuse_shared_labels,
@@ -181,9 +182,10 @@ def _agreement(
     publish a coefficient the suppression rule is holding back.
 
     The validation pools every predictor's cells by design — it validates the
-    judge, not a forecaster — so where those cells come from windows carrying
-    more than one label it lists each (predictor, window) series and its cell
-    count as ``windows`` (:func:`fedcourtsai.process_version.pooled_windows`).
+    judge, not a forecaster — so it lists each (predictor, window) series and
+    its cell count as ``windows``
+    (:func:`fedcourtsai.process_version.pooled_windows`), a single series
+    included.
     """
     if not evals:
         return None
@@ -263,15 +265,22 @@ def build_claim_scores(
     validation is computed over every in-population cell, block-carrying or
     not, so the absence counts describe the whole population the intersection
     was drawn from. ``cell_windows`` (``store.StratifiedRun.cell_windows``,
-    from the same pass) names each cell's counting window: entries are per
-    (predictor, window), ordered by ``predictor_id`` then the window's opening,
-    with the label as ``process_window``, so a predictor whose cells span two
-    windows has an entry per window and none pools them. The judge validation
-    pools predictors and lists its series where they span labels. Unsupplied —
-    an all-versions build — entries key on the predictor and the field is null.
+    from the same pass) names each cell's counting window. ``entries`` is the
+    pooled default — one per predictor, over every counted cell in every
+    non-revoked window, with ``windows`` listing each window and its grading
+    count — and ``by_protocol`` is the per-(predictor, window) cut, ordered by
+    ``predictor_id`` then the window's opening, with the label as
+    ``process_window``. Both are computed over their own cells, never averaged
+    from one another (``docs/process-version.md``, *Pooled by default*). The
+    judge validation pools predictors and lists its series. Unsupplied — an
+    all-versions build — entries key on the predictor, list no windows, and
+    there is no cut.
     """
     by_stratum: dict[Stratum, list[Evaluation]] = {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
     windows = cell_windows or {}
+    by_predictor: dict[str, dict[Stratum, list[Evaluation]]] = defaultdict(
+        lambda: {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
+    )
     by_series: dict[Series, dict[Stratum, list[Evaluation]]] = defaultdict(
         lambda: {FORWARD: [], RETROSPECTIVE: [], PROCEDURAL: []}
     )
@@ -288,22 +297,23 @@ def build_claim_scores(
         if ev.claim_scores is not None:
             with_claims += 1
         by_stratum[stratum].append(ev)
+        by_predictor[ev.predictor_id][stratum].append(ev)
         by_series[(ev.predictor_id, windows.get(evaluation_key(ev)))][stratum].append(ev)
 
     refuse_shared_labels(by_series, surface="claim scores")
     entries: list[ClaimScoreEntry] = []
-    for series in sorted(by_series, key=series_sort_key):
-        predictor_id, window = series
-        strata = by_series[series]
-        entry = ClaimScoreEntry(
-            predictor_id=predictor_id,
-            process_window=window_label(window),
-            forward=_aggregate_stratum(strata[FORWARD]),
-            retrospective=_aggregate_stratum(strata[RETROSPECTIVE]),
-            procedural=_aggregate_stratum(strata[PROCEDURAL]),
-        )
+    for predictor_id in sorted(by_predictor):
+        entry = _entry(predictor_id, None, by_predictor[predictor_id], windows)
         if not _is_empty(entry):
             entries.append(entry)
+    cut: list[ClaimScoreEntry] = []
+    for series in sorted(by_series, key=series_sort_key):
+        predictor_id, window = series
+        if window is None:
+            continue
+        entry = _entry(predictor_id, window, by_series[series], windows)
+        if not _is_empty(entry):
+            cut.append(entry)
     return ClaimScoreBoard(
         process_scope=process_scope,
         forward_claim=forward_claim,
@@ -317,6 +327,34 @@ def build_claim_scores(
         retrospective_agreement=_agreement(by_stratum[RETROSPECTIVE], windows),
         procedural_agreement=_agreement(by_stratum[PROCEDURAL], windows),
         entries=entries,
+        by_protocol=cut,
+    )
+
+
+def _entry(
+    predictor_id: str,
+    window: CountingWindow | None,
+    strata: Mapping[Stratum, list[Evaluation]],
+    cell_windows: Mapping[EvaluationKey, CountingWindow],
+) -> ClaimScoreEntry:
+    """One entry: the pooled default where ``window`` is ``None``, else that window's cut.
+
+    The pooled entry's ``windows`` counts the block-carrying gradings each
+    window contributes — the population its aggregates are computed over.
+    """
+    carrying = [
+        evaluation_key(ev)
+        for stratum in (FORWARD, RETROSPECTIVE, PROCEDURAL)
+        for ev in strata[stratum]
+        if ev.claim_scores is not None
+    ]
+    return ClaimScoreEntry(
+        predictor_id=predictor_id,
+        process_window=window_label(window),
+        windows=composition_of(carrying, cell_windows) if window is None else [],
+        forward=_aggregate_stratum(strata[FORWARD]),
+        retrospective=_aggregate_stratum(strata[RETROSPECTIVE]),
+        procedural=_aggregate_stratum(strata[PROCEDURAL]),
     )
 
 

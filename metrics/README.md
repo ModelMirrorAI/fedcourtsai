@@ -78,8 +78,8 @@ No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
 - `release-sensitivity` and `semantic-summary` pool with the breakdown rather
   than refuse.
 
-**The leaderboard is built to that rule; the other surfaces are not yet.** On
-the leaderboard and each of its stage blocks:
+**The surfaces are built to that rule; the per-rubric readings are not yet.**
+On the leaderboard and each of its stage blocks:
 
 - each entry is the predictor's pooled record, with its composition as
   `windows` — each window by label and opening instant, with its `n` in
@@ -133,38 +133,59 @@ cells, one per (case, event) per engine.
 **Judge-dependent figures are coverage until the per-rubric reading is
 built.** A pooled `big_case` lists the windows it spans and the
 (evaluator, digest) pairs its panel means draw on (`rubrics`, each with its `n`
-in reads); `mean_reasoning_quality` lists neither yet. Every judge's evaluate
+in reads), and a semantic census lists the same pairs over its block-carrying
+gradings; `mean_reasoning_quality` lists neither yet. Every judge's evaluate
 digest moved at `proc-v9` — `claude-judge`'s with its model — so a pooled
-`big_case`, `mean_reasoning_quality`, `evaluator_agreement` or judge-validation
-figure that spans more than one digest of any evaluator mixes judge rubrics:
-it is coverage, never a claimable figure or a comparison, until the
-per-rubric-signature readings land.
+`big_case`, `mean_reasoning_quality`, `evaluator_agreement`, judge-validation
+figure, ops reasoning-quality quantile or semantic census that spans more than
+one digest of any evaluator mixes judge rubrics: it is coverage, never a
+claimable figure or a comparison, until the per-rubric-signature readings land.
 
-Everywhere else the **by-protocol cut** is still the published shape. The
-claim scores, each ops score row and each tool-usage segment are keyed on
-**(predictor, window)** and name it as `process_window`, so a predictor whose
-counted cells span two windows has a row per window. **Two windows of one
-predictor share no event** — a predictor holds one counted forecast per event,
-the earliest window's — so their rows are two cuts over disjoint events, and a
-rise across a window boundary is not a measurement of improvement. A figure
-keyed on something other than the forecaster — the claim scores' judge
-validation, the board's `evaluator_agreement` (it compares graders, and pools
-the predictors' windows by design), the ops calibration block, a tool-usage
-coefficient row — is the **record across labels** wherever its cells come from
-windows carrying more than one label: it lists each (predictor, window) series
-and its `n` as `windows` beside the pooled value, and is never a rank key.
+**The other surfaces take the same shape.**
+
+- **Claim scores.** `claim-scores.json`'s `entries` are each predictor's pooled
+  record with its `windows`, counted in block-carrying gradings; `by_protocol`
+  is the per-(predictor, window) cut, named by `process_window`.
+- **Ops report.** Its `predictor_scores` rows pool the same way, listing each
+  row's windows, and `predictor_scores_by_protocol` carries the cut. The
+  rendered report draws the cut as its own *By protocol* table only where some
+  predictor's record spans two windows, since otherwise every cut row repeats
+  its pooled row.
+- **Tool usage.** Its `segments` are pooled per engine, mode, stage and
+  moment, each listing the (predictor, window) series behind its cells with
+  their cell counts. `segments_by_protocol` is the per-window cut.
+
+**Two windows of one predictor share no event** — a predictor holds one counted
+forecast per event, the earliest window's — so a cut's rows cover disjoint
+events, and a rise across a window boundary is not a measurement of
+improvement.
+
+A figure keyed on something other than the forecaster is the record across the
+series it pools. These are:
+
+- the claim scores' judge validation;
+- the board's `evaluator_agreement`, which compares graders and pools the
+  predictors' windows by design;
+- the ops calibration block;
+- a tool-usage coefficient row;
+- a semantic census.
+
+Each lists every (predictor, window) series it pools, with its `n`, as `windows`
+beside the pooled value, a single series included, and is never a rank key.
 Every artifact carries the whole registry in `frozen_process.windows`, each
 window naming its predictor.
 
-`release-sensitivity` and `semantic-summary` do not list a pooled figure's
-composition yet, so they still **refuse** — exit 2 — a frozen-scope ledger in
-which one predictor's counted cells span two windows. The check reads the whole
-ledger, so once any predictor holds graded cells in two windows, which the
-first graded `proc-v9` `claude-baseline` cell makes true, neither command builds
-at frozen scope. `release-sensitivity` is included, although the release it
-serves is `proc-v8` inside `proc-v8`'s window, so its figures are re-derived
-before that, or the command is split, never quoted off a refusal. The refusal
-is the floor, not a figure.
+`release-sensitivity` and `semantic-summary` pool rather than refuse.
+
+- **`release-sensitivity`** rebuilds the board with the stratify pass's
+  windows. Each arm projects the pooled entries with their `windows`, the
+  paired figure, and the cut as `by_protocol`, keyed `<predictor>@<window>`.
+  Its release is `proc-v8` inside `proc-v8`'s window, so a release figure is
+  read off the cut's `proc-v8` entries, or off the board pinned to the refresh
+  commit. A pooled entry stops being the release figure once a `proc-v9` cell
+  is graded.
+- **`semantic-summary`** states the census's `windows` and `rubrics`, and
+  prints the composition on its census line in the withheld state too.
 
 **One prediction per predictor per event, and re-predicting a live event is a
 registered rule.** A predictor may hold several committed runs on one event —

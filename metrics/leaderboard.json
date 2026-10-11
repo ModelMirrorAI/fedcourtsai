@@ -1288,15 +1288,66 @@
   "evaluator_agreement": {
     "claude-judge": {
       "events": 91,
-      "rank_agreement": 0.814403294166735
+      "rank_agreement": 0.814403294166735,
+      "windows": [
+        {
+          "n": 110,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v8"
+        },
+        {
+          "n": 110,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v8"
+        },
+        {
+          "n": 109,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v8"
+        }
+      ]
     },
     "codex-judge": {
       "events": 4,
-      "rank_agreement": 1.0
+      "rank_agreement": 1.0,
+      "windows": [
+        {
+          "n": 4,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v8"
+        },
+        {
+          "n": 4,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v8"
+        },
+        {
+          "n": 4,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v8"
+        }
+      ]
     },
     "gemini-judge": {
       "events": 89,
-      "rank_agreement": 0.8226172265978622
+      "rank_agreement": 0.8226172265978622,
+      "windows": [
+        {
+          "n": 91,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v8"
+        },
+        {
+          "n": 91,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v8"
+        },
+        {
+          "n": 89,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v8"
+        }
+      ]
     }
   },
   "events_scored": 97,

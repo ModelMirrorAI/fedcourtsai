@@ -55,7 +55,7 @@
           "type": "boolean"
         },
         "windows": {
-          "description": "The (predictor, window) series behind this stratum's cells, each with its cell count: the validation pools predictors by design. Listed only where the series carry more than one window label \u2014 the figure is then the record across those labels, never one series and never a rank key. Omitted while every series shares one label (the artifact's `frozen_process.windows` names it) and on an all-versions build",
+          "description": "The (predictor, window) series behind this stratum's cells, each with its cell count: the validation pools predictors by design. Listed whenever the figure is a frozen-scope pool, a single label included \u2014 the figure is the record across those series, never one series and never a rank key. Empty on an all-versions build, whose cells carry no window",
           "items": {
             "$ref": "#/$defs/WindowCount"
           },
@@ -112,7 +112,7 @@
     },
     "ClaimScoreEntry": {
       "additionalProperties": false,
-      "description": "One predictor's claim-score aggregates, per stratum, in id order.\n\nEntries carry no rank on purpose: a claim total is never a rank key, so\nthe artifact orders predictors alphabetically and assigns no standings.",
+      "description": "One predictor's claim-score aggregates, per stratum, in id order.\n\nEntries carry no rank on purpose: a claim total is never a rank key, so\nthe artifact orders predictors alphabetically and assigns no standings. A\nboard's ``entries`` are the pooled default \u2014 one per predictor, over every\ncounted cell in every non-revoked window, with ``windows`` stating the\nmakeup \u2014 and its ``by_protocol`` list carries the per-window cut.",
       "properties": {
         "forward": {
           "anyOf": [
@@ -152,7 +152,7 @@
             }
           ],
           "default": null,
-          "description": "The label of the counting window every cell behind this entry comes from (e.g. `proc-v8`); null on an all-versions build, which pools every process by definition. A frozen build keys its entries on (predictor_id, process_window): a predictor whose counted cells span two windows has one entry per window, and no entry pools them",
+          "description": "On a `by_protocol` cut entry, the label of the counting window every cell behind it comes from (e.g. `proc-v8`). Null on a pooled entry, which spans the windows `windows` lists, and on every all-versions entry",
           "title": "Process Window"
         },
         "retrospective": {
@@ -166,6 +166,14 @@
           ],
           "default": null,
           "description": "Aggregates over retrospective cells \u2014 iteration signal only, never claimable (a resolved case's claims are retrievable, not forecastable); null when none carry a block"
+        },
+        "windows": {
+          "description": "The windows this figure pools, each with its `n` in gradings, ordered by opening. Listed whenever the figure is a frozen-scope pool, a single window included; empty on an all-versions build, whose cells carry no window",
+          "items": {
+            "$ref": "#/$defs/WindowShare"
+          },
+          "title": "Windows",
+          "type": "array"
         }
       },
       "required": [
@@ -473,7 +481,7 @@
     },
     "WindowCount": {
       "additionalProperties": false,
-      "description": "One (predictor, counting window) series inside a figure that pools several labels.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. Where\nthose span more than one window label, the figure is the **record across\nthose labels**: it lists each series and its ``n`` beside the pooled value,\nand is never a rank key (``docs/process-version.md``, *Pooled by\ndefault*).",
+      "description": "One (predictor, counting window) series inside a figure that pools across predictors.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. It is\nthe **record across those series**: it lists each series and its ``n``\nbeside the pooled value, a single series included, and is never a rank key\n(``docs/process-version.md``, *Pooled by default*).",
       "properties": {
         "n": {
           "description": "This series' share of the pooled figure's population, in the unit the containing `windows` field names (cells or reads) \u2014 not necessarily the unit of the figure's own count, so the n need not sum to it",
@@ -498,11 +506,49 @@
       ],
       "title": "WindowCount",
       "type": "object"
+    },
+    "WindowShare": {
+      "additionalProperties": false,
+      "description": "One counting window's share of a pooled figure: its label, opening, and ``n``.\n\nA pooled figure is computed over every counted cell its predictor holds in\nevery non-revoked window, and states its composition beside the value. The\nwindow is the one the cell's digest and harness stamp fall in, named by its\nown label and opening instant, never by the label on the cell's stamp: a\ncell of a carried-forward window stamped under a later label lists under\nthe window it counts in.",
+      "properties": {
+        "n": {
+          "description": "Gradings of this figure's population drawn from cells in this window",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        },
+        "opens": {
+          "description": "The instant the window opened",
+          "format": "date-time",
+          "title": "Opens",
+          "type": "string"
+        },
+        "process_window": {
+          "description": "The counting window's label (e.g. `proc-v8`)",
+          "title": "Process Window",
+          "type": "string"
+        }
+      },
+      "required": [
+        "process_window",
+        "opens",
+        "n"
+      ],
+      "title": "WindowShare",
+      "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/claim-scores.json`` \u2014 the mechanical claim-score surface.\n\nA deterministic, offline roll-up of every ``claim_scores`` block in the\nevaluations ledger, advisory beside the leaderboard rather than inside it:\nnothing here alters or reorders the board. Aggregates live per predictor\nper pre-registration stratum, never pooled; the headline is the per-stratum\njudge validation (:class:`ClaimJudgeAgreement`). Computed by ``fedcourts\nclaim-scores``; carries no timestamp so the same ledger always serializes\nidentically. Interpretation contract: ``metrics/README.md`` and\n``docs/outcome-decomposition.md``.",
+  "description": "``metrics/claim-scores.json`` \u2014 the mechanical claim-score surface.\n\nA deterministic, offline roll-up of every ``claim_scores`` block in the\nevaluations ledger, advisory beside the leaderboard rather than inside it:\nnothing here alters or reorders the board. Aggregates live per predictor\nper pre-registration stratum, never pooled across strata; the headline is the per-stratum\njudge validation (:class:`ClaimJudgeAgreement`). Computed by ``fedcourts\nclaim-scores``; carries no timestamp so the same ledger always serializes\nidentically. Interpretation contract: ``metrics/README.md`` and\n``docs/outcome-decomposition.md``.",
   "properties": {
+    "by_protocol": {
+      "description": "The by-protocol cut: one entry per (predictor, counting window) with at least one block-carrying cell, ordered by predictor_id then the window's opening. Two windows of one predictor share no event, so a move between them is a comparison over different events, never a measurement of improvement. Empty on an all-versions build",
+      "items": {
+        "$ref": "#/$defs/ClaimScoreEntry"
+      },
+      "title": "By Protocol",
+      "type": "array"
+    },
     "cells_with_claims": {
       "description": "Evaluation cells carrying a claim-score block \u2014 0 is the honest state while every committed evaluation predates the claims contract's first scored run, not a regression",
       "minimum": 0,
@@ -510,7 +556,7 @@
       "type": "integer"
     },
     "entries": {
-      "description": "One entry per predictor \u2014 per (predictor, counting window) on a frozen build \u2014 with at least one block-carrying cell, ordered by predictor_id then the window's opening \u2014 never ranked",
+      "description": "The pooled default: one entry per predictor with at least one block-carrying cell, over every counted cell in every non-revoked window, ordered by predictor_id \u2014 never ranked",
       "items": {
         "$ref": "#/$defs/ClaimScoreEntry"
       },
