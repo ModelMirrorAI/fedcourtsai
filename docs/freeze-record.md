@@ -7663,7 +7663,9 @@ freeze commit is recorded here.
     completes this entry's placeholders, as the registry's first eleven rows
     did. A leaderboard built on `main` between the promotion and that fill
     omits this boundary's listing. That loses composition only, never a cut or
-    a score, and the fill is due before the next leaderboard refresh.
+    a score. The fill PR targets `staging`, so the omission lasts until the
+    promotion that carries the fill, not only until the next leaderboard
+    refresh.
   - **The side test** is the registered one. A stamped cell is after the change
     if the carrying merge is an ancestor of, or equal to, its
     `process_version.pipeline_sha`. A cell with no `pipeline_sha` is counted on
@@ -7746,7 +7748,9 @@ freeze commit is recorded here.
     newest pull stamp is 2026-10-11 and its newest stored snapshot row is
     2026-07-13. The content store is in split mode, so each docket's live
     snapshot was read from the per-case store: 1,237 of the 1,243 granted
-    rows had one.
+    rows had one. The other six (`scotus/17248925`, `66644642`, `69560850`,
+    `72460882`, `72478318`, `8494454`) have none and are unmeasured. Every
+    figure below is over the 1,237.
   - **Entries that change.** Exactly one docket changes, `scotus/73281056`
     (25-1017, snapshot 2026-10-04). One entry, "Brief of respondents Arizona,
     et al. in partial support of petitioner filed." (Aug 28 2026), stops
@@ -7765,8 +7769,8 @@ freeze commit is recorded here.
     event is `evt-brief-judgment`, minted, with the three counted cells named
     above: one each for `claude-baseline`, `codex-baseline` and
     `gemini-baseline`, all in their `proc-v8` windows. Its
-    `evt-order-judgment` cells (run `20260816T111104Z`) are cut at the grant
-    and unaffected.
+    `evt-order-judgment` cells (run `20260816T111104Z`) are cut at the grant,
+    sit in no counting window, and are unaffected.
 
   **What does not move.** No base rate re-prices and no membership rule moves.
   The briefed-moment population changes as stated above. No scored figure
@@ -7781,6 +7785,7 @@ freeze commit is recorded here.
   - `uv run pytest tests/test_merits_signals.py -k partial_support` is green;
   - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
     six digests above;
-  - after the fill PR, `uv run python -c "from fedcourtsai.process_version
+  - on `main` once the promotion that carries the fill PR has merged, `uv run
+    python -c "from fedcourtsai.process_version
     import HARNESS_BOUNDARIES as H; print([b.name for b in H][-1])"` prints
     `merits-brief-partial-support`.
