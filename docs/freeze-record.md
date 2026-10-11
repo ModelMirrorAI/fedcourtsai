@@ -7591,15 +7591,15 @@ freeze commit is recorded here.
   over it, as stated under *The paired events and the rank*.
 
   At the carrying merge, the census of `proc-v9` `claude-baseline` cells on
-  `main` reads `<FILL: proc-v9 claude-baseline predictions on main at the
-  carrying merge, how many sit on an event with a committed outcome, and how
-  many are graded; where any is graded, each listed with its event and
-  outcome>`. Where any is graded, this entry governs those gradings as choices
+  `main` reads **1** prediction, `scotus/9026000071` `evt-petition-disposition`
+  run `20261011T142504Z`, on an event with no committed outcome, and **0**
+  graded (`git grep` for the `605201bd…` digest over `data/` at the carrying
+  merge `c432a95a9`). Where any is graded, this entry governs those gradings as choices
   made with their outcomes visible, under the same disclosure as the `proc-v8`
   slice.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-11-2` (merge commit
+  `c432a95a9`, merged `2026-10-11T23:41:22Z`).
 
   The runnable effect check once it is live: on `main`, `uv run fedcourts
   process-digest --all` prints the same digests as before the promotion, and
@@ -7778,8 +7778,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-11-2` (merge commit
+  `c432a95a9`, merged `2026-10-11T23:41:22Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_merits_signals.py -k partial_support` is green;

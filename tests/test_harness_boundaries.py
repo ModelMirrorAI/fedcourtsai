@@ -105,19 +105,23 @@ def test_a_shallow_clone_is_refused(history: tuple[Path, dict[str, str]], tmp_pa
 
 def test_the_registry_is_well_formed() -> None:
     names = [boundary.name for boundary in HARNESS_BOUNDARIES]
-    assert len(names) == len(set(names)) == 11
+    assert len(names) == len(set(names)) == 12
     assert [b.at for b in HARNESS_BOUNDARIES] == sorted(b.at for b in HARNESS_BOUNDARIES)
     for boundary in HARNESS_BOUNDARIES:
         assert len(boundary.merge) == 40 and int(boundary.merge, 16) >= 0
         assert boundary.at.tzinfo is UTC
     # The proc-v9 three split only the carried-forward windows: the same merge
     # moved claude-baseline's digest.
-    for boundary in HARNESS_BOUNDARIES[-3:]:
-        assert boundary.predictors == frozenset({"codex-baseline", "gemini-baseline"})
-    # The two that reached the corpus by back-fill are marked gradual.
+    proc_v9 = {"predict-cell-record-hide", "widened-document-kinds-freshness", "replay-moment-cut"}
+    for boundary in HARNESS_BOUNDARIES:
+        if boundary.name in proc_v9:
+            assert boundary.predictors == frozenset({"codex-baseline", "gemini-baseline"})
+    # The three that reach a docket only through a later poll or back-fill
+    # are marked gradual.
     assert {b.name for b in HARNESS_BOUNDARIES if b.gradual} == {
         "merits-brief-spellings-consolidated-lead",
         "widened-document-kinds-freshness",
+        "merits-brief-partial-support",
     }
 
 
