@@ -24,13 +24,19 @@
     "grammars": [
       {
         "grammar": "scotus-order-notations",
-        "version": 1
+        "version": 3
       }
     ],
-    "participating": 9,
+    "participating": 8,
     "source": "supremecourt-orders"
   },
-  "votes": [],
+  "votes": [
+    {
+      "justice": "Alito",
+      "vote": "did-not-participate",
+      "writing": null
+    }
+  ],
   "writing_roles": [
     {
       "justice": "Thomas",
@@ -38,10 +44,6 @@
     },
     {
       "justice": "Roberts",
-      "writing": "none"
-    },
-    {
-      "justice": "Alito",
       "writing": "none"
     },
     {

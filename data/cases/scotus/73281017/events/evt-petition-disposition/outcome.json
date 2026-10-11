@@ -20,7 +20,7 @@
     "grammars": [
       {
         "grammar": "scotus-order-notations",
-        "version": 1
+        "version": 3
       }
     ],
     "participating": 7,

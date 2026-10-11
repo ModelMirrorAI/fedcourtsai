@@ -1,5 +1,5 @@
 {
-  "cases": 283,
+  "cases": 284,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
@@ -8,7 +8,7 @@
       "n": 3
     },
     {
-      "cases": 27,
+      "cases": 28,
       "n": 2
     },
     {
@@ -16,21 +16,21 @@
       "n": 1
     }
   ],
-  "current_reads": 847,
-  "declared_no_view": 14,
+  "current_reads": 850,
+  "declared_no_view": 15,
   "frozen_process": {
     "digests": [
-      "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+      "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+      "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+      "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+      "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
       "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
-      "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
-      "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
-      "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
-      "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13"
+      "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f"
     ],
-    "since": "2026-09-16T00:26:04Z",
+    "since": "2026-10-11T12:00:00Z",
     "windows": [
       {
-        "closes": null,
+        "closes": "2026-10-11T12:00:00Z",
         "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
@@ -48,6 +48,13 @@
         "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+        "label": "proc-v9",
+        "opens": "2026-10-11T12:00:00Z",
         "revoked_at": null
       }
     ]
@@ -70,7 +77,7 @@
     "leakage_note": "A leakage-flagged read is worse here than on a board that drops it. A stakes read is partly a read of the disposition, so a predictor that saw its own outcome may have read the stakes off it too \u2014 and on this board that cell is not one point inside a coefficient, it is the published number. Every read and every row carries `leakage_suspected`, set where any committed grading of that run recorded the bit. Read a marked row as evidence about the cell, not about the case. The **row** mark is moment-scoped like every other row figure: it covers the reads the row publishes, so a flagged read on an earlier moment leaves the row unmarked while staying visible, and marked, under its own event.",
     "no_time_series": "The committed ledger spans a boundary at which `big_case_score` became required with an explicit null escape (`docs/freeze-record.md`). Cells either side of it are two populations \u2014 the ask changed, so which cells carry a read changed with it \u2014 and **this build spans it**, so the board publishes no trend and no history. Nor is a movement between two consecutive builds a measurement: a row's mean, `n` and rank also move when its `moment` does, which is the **docket** advancing and the whole panel switching question at once, not a predictor changing its mind. A movement across any of these boundaries measures nothing.",
     "population": "Every case in the committed ledger carrying at least one **in-scope** scored read on its current moment, pending and decided alike. `cases_without_score` counts the predicted cases whose in-scope reads carry no number at all and which are therefore absent \u2014 including a case whose current moment drew only declining reads whilst an earlier moment carried scores, which are history here and never promoted back into a row. The list is the predictions', never the corpus's \u2014 and the predictions' list is the salience gate's deliberately non-representative selection (`docs/salience.md`), so the board inherits that gate and is **not** a sample of the docket or of any conference. `status` says only whether a committed `outcome.json` sits on the case's predicted events: `pending` means the ledger records no outcome, which is not a statement about what the Court has done.",
-    "process_label": "proc-v8",
+    "process_label": "proc-v9",
     "rank_resolution": "The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer together than the predictors inside a single row sit to each other, so the difference between two adjacent ranks is smaller than the disagreement the ranks are built from. `median_adjacent_gap` and `median_score_range` are published beside each other so that comparison can be made rather than assumed. The moment-first collapse sharpens this rather than settling it: each row is one moment, so a row's mean **is** comparable across its own predictors, but two rows on different moments are not comparable to each other and the `#` column orders across moments anyway. The panel reads stakes systematically higher at later moments, so a row's position reflects which question its panel answered as well as how big its case is.",
     "reading_rule": "A stakes read is neither scored nor ranked: it resolves against nothing, so no **stakes** figure here is an accuracy, a calibration or an ordering of predictors, and none may be quoted as one. The per-cell `probability` carried beside it **is** a forecast \u2014 the cell's raw value, unstratified, unexcluded and unscored \u2014 and it is not a claimable one either; scored forecast performance lives on the leaderboard and nowhere else. Like the leaderboard's big-case views, this board reads the ledger directly, so neither the forward-claim exclusion nor the leakage exclusion applies; it is wider still than those, since it also reads cells no judge has graded and every process version. A wider population than the scored boards, deliberately, and a caveat that has to travel with a quoted number. The mean is a panel opinion about which cases matter, and it says nothing about how likely any of them is to be granted.",
     "short_caption_rule": "`short_caption` is derived from `caption` by a fixed rule and is null wherever the rule is not sure, because a null costs a reader nothing (the full caption stands) while a wrong short form misnames a case. Each side of the single ` v. ` (an `In re` caption has one side) is reduced to its first-named party \u2014 the text before the first comma, everything after it being description. `United States` and a state or territory stand as written. An organisation \u2014 a corporate form, an institutional noun, an alias segment (`dba`, `fka`, `aka`), or any name not shaped like a person's \u2014 keeps its name with a leading `The`, a parenthetical and trailing corporate forms dropped (kept where the rest is initials only); a federal agency the Court's own case names abbreviate takes that acronym (CFPB, EEOC, EPA, FBI, FCC, FDA, FEC, FERC, FTC, NLRB, SEC), and a federal trial or appellate court named with its seat keeps the court's name. An organisation name still longer than 6 words is null, since its conventional short form is an acronym or phrase only a reader knows. A person is their surname, the last word; a name of initials only stands whole, and so does a name of exactly 3 full words, whose last two may be one surname; a name with a surname particle or longer than 3 words is null, since the caption cannot say where the surname starts. Either side null makes the short caption null. Display-only: nothing predicts, evaluates or scores on it.",
@@ -20174,6 +20181,122 @@
       "status": "resolved"
     },
     {
+      "asking_declined": null,
+      "asking_party": "Southern Company Services",
+      "caption": "Southern Company Services, Inc., et al. v. William Drummond, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000443",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A pure ERISA statutory question affecting defined-benefit plans with very large aggregate assets and dozens of pending class actions, but technical, low public salience, and this docket is a hold-request companion to the Sixth Circuit petitions rather than the likely lead vehicle.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261010T142428Z"
+        },
+        {
+          "big_case_rationale": "The actuarial-assumptions question could affect defined-benefit pension administration, survivor benefits, and recurring ERISA class actions nationally. Its financial and regulatory stakes are substantial, although the issue is technical and confined to a particular benefit calculation.",
+          "big_case_score": 0.58,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261010T142428Z"
+        },
+        {
+          "big_case_rationale": "Routine ERISA actuarial equivalence question in a baseline salience case; no apparent broader public significance.",
+          "big_case_score": null,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261010T142428Z"
+        }
+      ],
+      "docket_id": 9026000443,
+      "docket_number": "26-443",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-443.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A pure ERISA statutory question affecting defined-benefit plans with very large aggregate assets and dozens of pending class actions, but technical, low public salience, and this docket is a hold-request companion to the Sixth Circuit petitions rather than the likely lead vehicle.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9026000443/events/evt-petition-disposition/predictions/claude-baseline/20261010T142428Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000443/events/evt-petition-disposition/predictions/claude-baseline/20261010T142428Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.1,
+              "run_id": "20261010T142428Z"
+            },
+            {
+              "big_case_rationale": "The actuarial-assumptions question could affect defined-benefit pension administration, survivor benefits, and recurring ERISA class actions nationally. Its financial and regulatory stakes are substantial, although the issue is technical and confined to a particular benefit calculation.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/9026000443/events/evt-petition-disposition/predictions/codex-baseline/20261010T142428Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000443/events/evt-petition-disposition/predictions/codex-baseline/20261010T142428Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.12,
+              "run_id": "20261010T142428Z"
+            },
+            {
+              "big_case_rationale": "Routine ERISA actuarial equivalence question in a baseline salience case; no apparent broader public significance.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9026000443/events/evt-petition-disposition/predictions/gemini-baseline/20261010T142428Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000443/events/evt-petition-disposition/predictions/gemini-baseline/20261010T142428Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.04,
+              "run_id": "20261010T142428Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Southern Company Services, Inc., et al. v. William Drummond, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.465,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-02",
+      "n": 2,
+      "other_party": "Drummond",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Southern Company Services' case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Southern Company Services' petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.58,
+      "score_min": 0.35,
+      "score_range": 0.23,
+      "short_caption": "Southern Company Services v. Drummond",
+      "status": "pending"
+    },
+    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "Benjamin M. Bauer v. Anne Elizabeth Alma Marks",
@@ -35821,5 +35944,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.2",
-  "scored_reads": 818
+  "scored_reads": 820
 }

@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000071",
+  "gaps": [
+    "Web requests returned no usable content for a generic Rule 10 verification.",
+    "The committed statpack does not embed the underlying newest-pull and newest-snapshot timestamps.",
+    "A separate reschedule indicator would help distinguish repeated distribution entries from completed-conference relists."
+  ],
+  "helpful": [
+    "Provisioned cert reply supplied material related-case federal advocacy alongside both sides' vehicle arguments.",
+    "Matching sal-v4 reached-band rates and exact JSON denominators enabled a strictly-prior pooled anchor.",
+    "CourtListener MCP allowed a narrow historical precedent check without searching this petition's outcome."
+  ],
+  "notes": "No corpus prior query was needed. The default uv cache was read-only; a temporary cache permitted CLI use. Petition appendix truncation was explicit in the manifest and text. Neither context nor process_version was authored.",
+  "role": "predictor",
+  "run_id": "20261011T142504Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file reads",
+    "committed statpack",
+    "jq",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

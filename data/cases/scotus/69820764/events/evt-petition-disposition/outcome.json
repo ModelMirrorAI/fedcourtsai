@@ -24,11 +24,11 @@
     "grammars": [
       {
         "grammar": "scotus-order-notations",
-        "version": 1
+        "version": 3
       },
       {
         "grammar": "scotus-writing-headers",
-        "version": 1
+        "version": 3
       }
     ],
     "participating": 9,
