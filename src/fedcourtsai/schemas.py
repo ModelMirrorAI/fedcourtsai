@@ -3472,8 +3472,9 @@ class BoundaryCount(_Strict):
 
 
 _BOUNDARIES_DESCRIPTION = (
-    "Every registered harness boundary that falls inside this figure's cells — cells on "
-    "both sides of it, or any cell with no `pipeline_sha` — with the counts on each side, "
+    "Every registered harness boundary that falls inside this figure's cells' span — its "
+    "carrying commit's time between their earliest and latest harness clock — and has "
+    "cells on both sides or any cell with no `pipeline_sha`, with the counts on each side, "
     "over every cell the boundary's predictors and mode admit (a replay-only boundary counts "
     "replay cells alone). Cells, not gradings: one per (case, event). A boundary outside the "
     "span cuts nothing and is not listed; omitted while none is"

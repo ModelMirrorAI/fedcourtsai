@@ -29,6 +29,9 @@ from tests.test_dataset_export import _event, _grade, _outcome, _prediction
 
 T1 = datetime(2026, 1, 1, tzinfo=UTC)
 T2 = datetime(2026, 4, 1, tzinfo=UTC)
+#: When every fixture cell is stamped: a test boundary dated here falls inside
+#: their span, which a listed boundary must.
+STAMPED = datetime(2026, 2, 1, tzinfo=UTC)
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -170,7 +173,7 @@ def test_the_board_reads_each_cells_side_off_its_pipeline_sha(
     repo, shas = history
     digest = "sha256:" + "a" * 64
     set_windows(monkeypatch, CountingWindow(label="proc-a", digest=digest, opens=T1))
-    boundary = HarnessBoundary("test-boundary", shas["merge"], T1, None, "all")
+    boundary = HarnessBoundary("test-boundary", shas["merge"], STAMPED, None, "all")
     monkeypatch.setattr(leaderboard, "HARNESS_BOUNDARIES", (boundary,))
     data = tmp_path / "data"
     for n, sha in ((1, shas["before"]), (2, shas["merge"]), (3, None)):
@@ -187,7 +190,10 @@ def test_the_board_reads_each_cells_side_off_its_pipeline_sha(
     run = stratify(data)
     sides = boundary_sides(run.cells, data, repo=repo)
     assert sorted(
-        (ev.case_id, sides[(ev.case_id, ev.event_id, ev.predictor_id, ev.evaluator_id, ev.run_id)])
+        (
+            ev.case_id,
+            sides[(ev.case_id, ev.event_id, ev.predictor_id, ev.evaluator_id, ev.run_id)].sides,
+        )
         for ev, *_ in run.cells
     ) == [
         ("scotus/1", {"test-boundary": "before"}),
@@ -227,7 +233,7 @@ def test_the_leaderboard_command_lists_a_boundary_read_in_its_checkout(
     repo, shas = history
     digest = "sha256:" + "a" * 64
     set_windows(monkeypatch, CountingWindow(label="proc-a", digest=digest, opens=T1))
-    boundary = HarnessBoundary("test-boundary", shas["merge"], T1, None, "all", gradual=True)
+    boundary = HarnessBoundary("test-boundary", shas["merge"], STAMPED, None, "all", gradual=True)
     monkeypatch.setattr(leaderboard, "HARNESS_BOUNDARIES", (boundary,))
     data = tmp_path / "data"
     _stamped_ledger(data, digest, [shas["before"], shas["after"]])

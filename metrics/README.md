@@ -107,8 +107,9 @@ the leaderboard and each of its stage blocks:
   same paired figure, unranked;
 - each pooled entry, and each engine in `paired`, lists as `boundaries` every
   registered harness boundary (`process_version.HARNESS_BOUNDARIES`) that falls
-  inside its cells — cells on both sides of it, or any cell with no
-  `pipeline_sha` — with `before` and `after` counted over every cell the
+  inside its cells' span (its carrying commit's time between their earliest and
+  latest harness clock) and has cells on both sides of it or any cell with no
+  `pipeline_sha`, with `before` and `after` counted over every cell the
   boundary's predictors and mode admit, and `unstamped`, the cells with no
   `pipeline_sha`, on neither side. A cell's
   side is the conditioning entries' ancestry test: after where the carrying

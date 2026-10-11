@@ -1237,9 +1237,16 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
     return facts
 
 
-#: Each admitted harness boundary's side for one graded cell, keyed by boundary
-#: name; ``None`` where the cell's scored prediction carries no ``pipeline_sha``.
-type CellSides = Mapping[str, BoundarySide | None]
+@dataclass(frozen=True)
+class CellSides:
+    """One graded cell's harness clock and its side of each boundary that admits it."""
+
+    #: The scored prediction's harness clock (:func:`fedcourtsai.integrity.cell_clock`)
+    #: — what bounds the span a boundary must fall inside to be listed.
+    clock: datetime
+    #: Each admitting boundary's side, keyed by name; ``None`` where the scored
+    #: prediction carries no ``pipeline_sha``.
+    sides: Mapping[str, BoundarySide | None]
 
 
 def boundary_sides(
@@ -1265,11 +1272,14 @@ def boundary_sides(
         mode = scored.context.mode if scored.context is not None else None
         sha = scored.process_version.pipeline_sha if scored.process_version is not None else None
         try:
-            sides[_evaluation_key(evaluation)] = {
-                boundary.name: boundary_side(boundary, sha, repo=repo)
-                for boundary in HARNESS_BOUNDARIES
-                if boundary_admits(boundary, evaluation.predictor_id, mode)
-            }
+            sides[_evaluation_key(evaluation)] = CellSides(
+                clock=cell_clock(scored),
+                sides={
+                    boundary.name: boundary_side(boundary, sha, repo=repo)
+                    for boundary in HARNESS_BOUNDARIES
+                    if boundary_admits(boundary, evaluation.predictor_id, mode)
+                },
+            )
         except BoundaryHistoryError as error:
             raise BoundaryHistoryError(
                 f"{evaluation.case_id} {evaluation.event_id} {evaluation.predictor_id} "
@@ -1284,10 +1294,12 @@ def _boundary_counts(
     """The harness boundaries inside ``evals``' cells, with the cells on each side.
 
     Counted in cells — one per (case, event, predictor), whatever its panel
-    depth — over every cell each boundary admits. A boundary is listed
-    where cells sit on both sides of it — one outside the span cuts nothing —
-    or where any admitted cell carries no ``pipeline_sha``, which sits on
-    neither side and so could be on either.
+    depth — over every cell each boundary admits. A boundary is listed only
+    where it falls inside those cells' span — its carrying commit's time
+    between the earliest and latest admitted cell's harness clock — since one
+    outside it cuts nothing; within the span, where cells sit on both sides of
+    it, or where an admitted cell carries no ``pipeline_sha`` and so sits on
+    neither side.
     """
     if not sides:
         return []
@@ -1297,7 +1309,12 @@ def _boundary_counts(
             per_cell.setdefault((ev.case_id, ev.event_id, ev.predictor_id), cell)
     counts: list[BoundaryCount] = []
     for boundary in HARNESS_BOUNDARIES:
-        admitted = [cell[boundary.name] for cell in per_cell.values() if boundary.name in cell]
+        cells = [cell for cell in per_cell.values() if boundary.name in cell.sides]
+        if not cells or not (
+            min(cell.clock for cell in cells) <= boundary.at <= max(cell.clock for cell in cells)
+        ):
+            continue
+        admitted = [cell.sides[boundary.name] for cell in cells]
         before = sum(1 for side in admitted if side == "before")
         after = sum(1 for side in admitted if side == "after")
         unstamped = sum(1 for side in admitted if side is None)

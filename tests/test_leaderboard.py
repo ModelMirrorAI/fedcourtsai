@@ -25,6 +25,7 @@ from fedcourtsai.integrity import (
 from fedcourtsai.leaderboard import (
     NO_STAGE_KEY,
     CellFacts,
+    CellSides,
     CellSkill,
     _evaluation_key,
     _scored_prediction,
@@ -3347,8 +3348,13 @@ def test_a_pooled_entry_and_a_paired_engine_list_the_boundaries_inside_their_cel
         for judge in ("e1", "e2")
     ] + [_evaluation("beta", event_id="evt-a")]
     side_of: dict[str, BoundarySide | None] = {"evt-a": "before", "evt-b": "after", "evt-c": None}
-    sides: dict[Any, dict[str, BoundarySide | None]] = {
-        _evaluation_key(ev): {early: side_of[ev.event_id], late: "after"} for ev in cells
+    # The cells run either side of the early boundary, and all before the late one.
+    clock_of = {"evt-a": _SEP_20, "evt-b": _SEP_20 + timedelta(days=5), "evt-c": _SEP_20}
+    sides = {
+        _evaluation_key(ev): CellSides(
+            clock=clock_of[ev.event_id], sides={early: side_of[ev.event_id], late: "after"}
+        )
+        for ev in cells
     }
     board = build_leaderboard([_forward(ev) for ev in cells], boundaries=sides)
     alpha = next(e for e in board.entries if e.predictor_id == "alpha")
@@ -3409,12 +3415,18 @@ def test_each_paired_engine_carries_its_figure_per_assigned_band() -> None:
     assert plain.paired.by_band == {} and plain.paired.entries[0].by_band == {}
 
 
+#: An instant just before the earliest registered boundary (2026-09-21T18:01:19Z).
+_SEP_20 = datetime(2026, 9, 20, tzinfo=UTC)
+
+
 def test_a_boundary_with_only_unstamped_cells_is_still_listed() -> None:
     name = HARNESS_BOUNDARIES[0].name
     cells = [_evaluation("alpha", event_id=f"evt-{n}") for n in ("a", "b")]
-    sides: dict[Any, dict[str, BoundarySide | None]] = {
-        _evaluation_key(cells[0]): {name: "after"},
-        _evaluation_key(cells[1]): {name: None},
+    sides = {
+        _evaluation_key(cells[0]): CellSides(
+            clock=_SEP_20 + timedelta(days=2), sides={name: "after"}
+        ),
+        _evaluation_key(cells[1]): CellSides(clock=_SEP_20, sides={name: None}),
     }
     board = build_leaderboard([_forward(ev) for ev in cells], boundaries=sides)
     (entry,) = board.entries
@@ -3460,3 +3472,18 @@ def test_a_pooled_entry_is_the_cell_weighted_figure_over_both_windows() -> None:
     # Not the mean of the two windows' figures (1/3), which would weight a
     # one-cell window like a three-cell one.
     assert entry.forward.accuracy != pytest.approx((2 / 3 + 0.0) / 2)
+
+
+def test_an_unstamped_entry_lists_only_the_boundaries_inside_its_span() -> None:
+    """Unstamped cells sit on neither side, but a boundary outside the cells'
+    span still cuts nothing: only the one their harness clocks straddle is listed."""
+    first, last = HARNESS_BOUNDARIES[0].name, HARNESS_BOUNDARIES[-1].name
+    cells = [_evaluation("alpha", event_id=f"evt-{n}") for n in ("a", "b")]
+    sides = {
+        _evaluation_key(ev): CellSides(clock=clock, sides={first: None, last: None})
+        for ev, clock in zip(cells, (_SEP_20, _SEP_20 + timedelta(days=5)), strict=True)
+    }
+    (entry,) = build_leaderboard([_forward(ev) for ev in cells], boundaries=sides).entries
+    assert [(b.boundary, b.before, b.after, b.unstamped) for b in entry.boundaries] == [
+        (first, 0, 0, 2)
+    ]

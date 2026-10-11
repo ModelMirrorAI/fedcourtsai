@@ -310,7 +310,7 @@
           "description": "The predictor's big-case-score rank-agreement with the evaluator panel (see BigCaseLeaderboard); a second, orthogonal skill dimension that never affects the ranking. Null when no case carries both a predictor big_case_score and an evaluator read."
         },
         "boundaries": {
-          "description": "Every registered harness boundary that falls inside this figure's cells \u2014 cells on both sides of it, or any cell with no `pipeline_sha` \u2014 with the counts on each side, over every cell the boundary's predictors and mode admit (a replay-only boundary counts replay cells alone). Cells, not gradings: one per (case, event). A boundary outside the span cuts nothing and is not listed; omitted while none is. On a pooled entry; never on a cut entry",
+          "description": "Every registered harness boundary that falls inside this figure's cells' span \u2014 its carrying commit's time between their earliest and latest harness clock \u2014 and has cells on both sides or any cell with no `pipeline_sha`, with the counts on each side, over every cell the boundary's predictors and mode admit (a replay-only boundary counts replay cells alone). Cells, not gradings: one per (case, event). A boundary outside the span cuts nothing and is not listed; omitted while none is. On a pooled entry; never on a cut entry",
           "items": {
             "$ref": "#/$defs/BoundaryCount"
           },
@@ -521,7 +521,7 @@
       "description": "One predictor's aggregates within a single non-cert stage.\n\nThe same per-stratum aggregate shape as a ranked :class:`LeaderboardEntry`,\nminus the rank and the big-case dimension: a non-cert stage's cells resolve\non a different decision standard than the cert board's, so they report\nseparately and never rank \u2014 and never pool into any cert figure.",
       "properties": {
         "boundaries": {
-          "description": "Every registered harness boundary that falls inside this figure's cells \u2014 cells on both sides of it, or any cell with no `pipeline_sha` \u2014 with the counts on each side, over every cell the boundary's predictors and mode admit (a replay-only boundary counts replay cells alone). Cells, not gradings: one per (case, event). A boundary outside the span cuts nothing and is not listed; omitted while none is. On a pooled entry; never on a cut entry",
+          "description": "Every registered harness boundary that falls inside this figure's cells' span \u2014 its carrying commit's time between their earliest and latest harness clock \u2014 and has cells on both sides or any cell with no `pipeline_sha`, with the counts on each side, over every cell the boundary's predictors and mode admit (a replay-only boundary counts replay cells alone). Cells, not gradings: one per (case, event). A boundary outside the span cuts nothing and is not listed; omitted while none is. On a pooled entry; never on a cut entry",
           "items": {
             "$ref": "#/$defs/BoundaryCount"
           },
@@ -984,7 +984,7 @@
       "description": "One engine's standing over a population's paired events.\n\nThe aggregate over the engine's qualifying gradings on the events every\nengine in the paired set holds a qualifying cell on \u2014 the same events for\nevery engine, whichever windows its cells come from \u2014 which is the only\nfigure a cross-engine comparison or a rank is read off.",
       "properties": {
         "boundaries": {
-          "description": "Every registered harness boundary that falls inside this figure's cells \u2014 cells on both sides of it, or any cell with no `pipeline_sha` \u2014 with the counts on each side, over every cell the boundary's predictors and mode admit (a replay-only boundary counts replay cells alone). Cells, not gradings: one per (case, event). A boundary outside the span cuts nothing and is not listed; omitted while none is. Over this engine's cells on the paired events",
+          "description": "Every registered harness boundary that falls inside this figure's cells' span \u2014 its carrying commit's time between their earliest and latest harness clock \u2014 and has cells on both sides or any cell with no `pipeline_sha`, with the counts on each side, over every cell the boundary's predictors and mode admit (a replay-only boundary counts replay cells alone). Cells, not gradings: one per (case, event). A boundary outside the span cuts nothing and is not listed; omitted while none is. Over this engine's cells on the paired events",
           "items": {
             "$ref": "#/$defs/BoundaryCount"
           },
