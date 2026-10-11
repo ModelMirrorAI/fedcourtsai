@@ -1,13 +1,13 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 1364.9,
+    "actions_minutes": 1197.3,
     "actions_monthly_usd": 0.0,
-    "estimated_monthly_usd": 1596.7,
+    "estimated_monthly_usd": 1582.62,
     "fixed_monthly_usd": 115.0,
-    "model_cost_usd": 4336.838242,
-    "model_monthly_usd": 1481.7,
-    "window_days": 1.8
+    "model_cost_usd": 4344.318721,
+    "model_monthly_usd": 1467.62,
+    "window_days": 1.5
   },
   "data_health": {
     "corpus": {
@@ -21,15 +21,15 @@
           "problems": []
         },
         {
-          "checked": 2153444,
-          "detail": "2153444 rows vs baseline 2153444",
+          "checked": 2153445,
+          "detail": "2153445 rows vs baseline 2153445",
           "failures": 0,
           "name": "row_count_monotonic",
           "passed": true,
           "problems": []
         },
         {
-          "checked": 4310124,
+          "checked": 4310127,
           "detail": "",
           "failures": 0,
           "name": "required_columns_non_empty",
@@ -37,7 +37,7 @@
           "problems": []
         },
         {
-          "checked": 2153444,
+          "checked": 2153445,
           "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
           "failures": 0,
           "name": "docket_numbers_carry_no_capital_marking",
@@ -46,7 +46,7 @@
         },
         {
           "checked": 3073,
-          "detail": "as of 2026-10-10",
+          "detail": "as of 2026-10-11",
           "failures": 0,
           "name": "snapshot_not_future_dated",
           "passed": true,
@@ -54,15 +54,15 @@
         },
         {
           "checked": 659,
-          "detail": "granted before 2024-10-10 (730 days); 18 resolved by termination (1 abated, 1 dismissed-moot, 1 grant-vacated, 10 judgment-issued, 5 voluntary-dismissal); excepted (terminal off-docket): scotus/72466202, scotus/72466229, scotus/72466705",
+          "detail": "granted before 2024-10-11 (730 days); 18 resolved by termination (1 abated, 1 dismissed-moot, 1 grant-vacated, 10 judgment-issued, 5 voluntary-dismissal); excepted (terminal off-docket): scotus/72466202, scotus/72466229, scotus/72466705",
           "failures": 0,
           "name": "no_stale_unparsed_grants",
           "passed": true,
           "problems": []
         },
         {
-          "checked": 2153444,
-          "detail": "0 future-dated, 22 decided-before-filed vs accepted baseline 50 (as of 2026-10-10); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
+          "checked": 2153445,
+          "detail": "0 future-dated, 22 decided-before-filed vs accepted baseline 50 (as of 2026-10-11); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
           "failures": 22,
           "name": "case_dates_ordered",
           "passed": true,
@@ -90,7 +90,7 @@
           ]
         },
         {
-          "checked": 4307051,
+          "checked": 4307054,
           "detail": "",
           "failures": 0,
           "name": "domain_values_valid",
@@ -98,7 +98,7 @@
           "problems": []
         },
         {
-          "checked": 4310124,
+          "checked": 4310127,
           "detail": "",
           "failures": 0,
           "name": "no_duplicate_cases_or_events",
@@ -106,7 +106,7 @@
           "problems": []
         },
         {
-          "checked": 15736,
+          "checked": 15739,
           "detail": "",
           "failures": 0,
           "name": "ledger_references_exist",
@@ -114,10 +114,18 @@
           "problems": []
         },
         {
-          "checked": 144,
+          "checked": 145,
           "detail": "",
           "failures": 0,
           "name": "minted_moments_defined_in_ledger",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 26763,
+          "detail": "",
+          "failures": 0,
+          "name": "event_dirs_hold_only_ledger_entries",
           "passed": true,
           "problems": []
         },
@@ -138,7 +146,7 @@
           "problems": []
         },
         {
-          "checked": 2428,
+          "checked": 2434,
           "detail": "",
           "failures": 0,
           "name": "prediction_docs_exist",
@@ -146,7 +154,7 @@
           "problems": []
         },
         {
-          "checked": 1009,
+          "checked": 1012,
           "detail": "",
           "failures": 0,
           "name": "prediction_claims_scoreable",
@@ -210,14 +218,14 @@
           "problems": []
         }
       ],
-      "corpus_events": 2153607,
-      "corpus_rows": 2153444,
+      "corpus_events": 2153609,
+      "corpus_rows": 2153445,
       "ok": true,
       "schema_version": "1.0",
       "skipped": false
     },
     "ledger": {
-      "checked": 35947,
+      "checked": 35967,
       "invalid": 0,
       "ok": true,
       "problems": []
@@ -225,11 +233,26 @@
     "ok": true
   },
   "flags": {
-    "archived": 417,
+    "archived": 420,
     "blockers": 0,
-    "cells": 266,
+    "cells": 265,
     "infos": 290,
     "recent": [
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000443",
+        "flags": [
+          {
+            "category": "other",
+            "event_id": "evt-petition-disposition",
+            "message": "Decisive forward signal from outside the provisioned baseline: this petition asks to be held for Nos. 26-360 (FedEx v. Watt) and 26-387 (Kellogg v. Reichert), both from the Sixth Circuit's Reichert decision; supremecourt.gov shows respondent waivers in both (Sept 24 and 25, 2026) and no distribution yet. The corpus carries both as open evt-petition-disposition events (dockets 9026000360 and 9026000387), so the three cells' outcomes are coupled and should be read together when scored.",
+            "severity": "info"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261010T142428Z",
+        "schema_version": "1.0"
+      },
       {
         "actor_id": "codex-baseline",
         "case_id": "scotus/9526000416",
@@ -562,68 +585,64 @@
         "role": "evaluator",
         "run_id": "20261007T185906Z",
         "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-judge",
-        "case_id": "scotus/9026000183",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-arrival-disposition",
-            "message": "gemini-baseline, claude-baseline, and codex-baseline freeze band baseline under sal-v3 for Term 2026, but the committed metrics/statpack.md segment table is headed sal-v4. Per the evaluation contract, segment_base_rate and brier_skill_score are omitted and base_rate_basis is null for all three. A frozen band cannot use the terminal fallback. Outcome correctness and Brier scores are unaffected; individual evaluation.md files explain the unavailable baseline.",
-            "severity": "warning"
-          }
-        ],
-        "role": "evaluator",
-        "run_id": "20261007T185906Z",
-        "schema_version": "1.0"
       }
     ],
-    "total": 366,
-    "warnings": 76,
+    "total": 364,
+    "warnings": 74,
     "window_days": 14
   },
-  "generated_at": "2026-10-10T08:12:54.401185+00:00",
+  "generated_at": "2026-10-11T08:13:16.102130+00:00",
   "health": [
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-08T21:49:56Z",
-      "median_seconds": 80,
-      "p95_seconds": 80,
+      "last_run_at": "2026-10-11T00:12:21Z",
+      "median_seconds": 98,
+      "p95_seconds": 98,
+      "runs_considered": 1,
+      "success_rate": 1.0,
+      "successes": 1,
+      "workflow": "Dependabot Updates"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-10-11T02:01:51Z",
+      "median_seconds": 70,
+      "p95_seconds": 70,
       "runs_considered": 1,
       "success_rate": 1.0,
       "successes": 1,
       "workflow": "Dependency Graph"
     },
     {
-      "failures": 6,
+      "failures": 14,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-10T07:44:27Z",
-      "median_seconds": 308,
-      "p95_seconds": 454,
-      "runs_considered": 65,
-      "success_rate": 0.9076923076923077,
-      "successes": 59,
+      "last_run_at": "2026-10-11T07:46:04Z",
+      "median_seconds": 153,
+      "p95_seconds": 471,
+      "runs_considered": 67,
+      "success_rate": 0.7910447761194029,
+      "successes": 53,
       "workflow": "ci"
     },
     {
-      "failures": 6,
+      "failures": 7,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-10T07:44:27Z",
-      "median_seconds": 197,
-      "p95_seconds": 246,
+      "last_run_at": "2026-10-11T07:46:04Z",
+      "median_seconds": 198,
+      "p95_seconds": 218,
       "runs_considered": 79,
-      "success_rate": 0.9240506329113924,
-      "successes": 73,
+      "success_rate": 0.9113924050632911,
+      "successes": 72,
       "workflow": "codeql"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-09T18:05:54Z",
-      "median_seconds": 277,
-      "p95_seconds": 929,
+      "last_run_at": "2026-10-11T01:48:50Z",
+      "median_seconds": 224,
+      "p95_seconds": 548,
       "runs_considered": 5,
       "success_rate": 1.0,
       "successes": 5,
@@ -632,53 +651,64 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-09T20:14:14Z",
-      "median_seconds": 31,
-      "p95_seconds": 33,
+      "last_run_at": "2026-10-11T00:12:06Z",
+      "median_seconds": 30,
+      "p95_seconds": 34,
       "runs_considered": 7,
       "success_rate": 1.0,
       "successes": 7,
       "workflow": "lint-actions"
     },
     {
-      "failures": 0,
+      "failures": 1,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-09T18:11:48Z",
-      "median_seconds": 25,
-      "p95_seconds": 26,
-      "runs_considered": 2,
-      "success_rate": 1.0,
-      "successes": 2,
+      "last_run_at": "2026-10-11T01:53:37Z",
+      "median_seconds": 24,
+      "p95_seconds": 25,
+      "runs_considered": 4,
+      "success_rate": 0.75,
+      "successes": 3,
       "workflow": "promote"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-10T04:47:42Z",
-      "median_seconds": 51,
-      "p95_seconds": 264,
-      "runs_considered": 3,
+      "last_run_at": "2026-10-11T04:49:32Z",
+      "median_seconds": 50,
+      "p95_seconds": 60,
+      "runs_considered": 2,
       "success_rate": 1.0,
-      "successes": 3,
+      "successes": 2,
       "workflow": "run-analytics"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-09T15:49:23Z",
-      "median_seconds": 45,
-      "p95_seconds": 55,
-      "runs_considered": 2,
+      "last_run_at": "2026-10-10T12:44:57Z",
+      "median_seconds": 6,
+      "p95_seconds": 6,
+      "runs_considered": 1,
       "success_rate": 1.0,
-      "successes": 2,
+      "successes": 1,
+      "workflow": "run-backtest"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-10-10T15:46:24Z",
+      "median_seconds": 52,
+      "p95_seconds": 52,
+      "runs_considered": 1,
+      "success_rate": 1.0,
+      "successes": 1,
       "workflow": "run-evaluate"
     },
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-10-10T08:12:05Z",
-      "median_seconds": 64,
-      "p95_seconds": 64,
+      "last_run_at": "2026-10-11T08:12:21Z",
+      "median_seconds": 60,
+      "p95_seconds": 60,
       "runs_considered": 2,
       "success_rate": 1.0,
       "successes": 1,
@@ -687,42 +717,42 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-09T17:38:40Z",
-      "median_seconds": 1216,
-      "p95_seconds": 3840,
-      "runs_considered": 4,
+      "last_run_at": "2026-10-10T17:36:36Z",
+      "median_seconds": 80,
+      "p95_seconds": 1388,
+      "runs_considered": 2,
       "success_rate": 1.0,
-      "successes": 4,
+      "successes": 2,
       "workflow": "run-predict"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-10T07:32:06Z",
-      "median_seconds": 833,
-      "p95_seconds": 895,
-      "runs_considered": 15,
+      "last_run_at": "2026-10-11T07:33:41Z",
+      "median_seconds": 890,
+      "p95_seconds": 1129,
+      "runs_considered": 12,
       "success_rate": 1.0,
-      "successes": 15,
+      "successes": 12,
       "workflow": "run-pull"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-10T02:53:03Z",
-      "median_seconds": 122,
+      "last_run_at": "2026-10-11T02:55:39Z",
+      "median_seconds": 116,
       "p95_seconds": 657,
-      "runs_considered": 7,
+      "runs_considered": 6,
       "success_rate": 1.0,
-      "successes": 7,
+      "successes": 6,
       "workflow": "run-seed"
     },
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-10-10T03:53:20Z",
-      "median_seconds": 25942,
-      "p95_seconds": 25942,
+      "last_run_at": "2026-10-11T03:57:05Z",
+      "median_seconds": 24375,
+      "p95_seconds": 24375,
       "runs_considered": 2,
       "success_rate": 1.0,
       "successes": 1,
@@ -731,32 +761,32 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-10T03:32:17Z",
-      "median_seconds": 22,
-      "p95_seconds": 68,
-      "runs_considered": 6,
+      "last_run_at": "2026-10-11T03:36:04Z",
+      "median_seconds": 25,
+      "p95_seconds": 29,
+      "runs_considered": 8,
       "success_rate": 1.0,
-      "successes": 6,
+      "successes": 8,
       "workflow": "sync-staging"
     }
   ],
   "leakage": {
-    "assessed": 1059,
+    "assessed": 1050,
     "flagged": [],
     "likely": 0,
-    "none": 111,
-    "not_applicable": 946,
+    "none": 108,
+    "not_applicable": 940,
     "possible": 2,
     "window_days": 14
   },
   "open_triggers": [],
   "schema_version": "1.0",
   "spend": {
-    "estimated_cost_usd": 4336.838242,
-    "mean_cost_usd_per_run": 2.337918,
-    "runs": 1855,
-    "total_tokens": 2905547522,
-    "window_days": 87.8080787037037
+    "estimated_cost_usd": 4344.318721,
+    "mean_cost_usd_per_run": 2.338169,
+    "runs": 1858,
+    "total_tokens": 2909963611,
+    "window_days": 88.80355324074074
   },
   "substance": {
     "calibration": {
@@ -775,12 +805,12 @@
       "evaluations_forward": 945,
       "evaluations_forward_delta": 873,
       "evaluations_retrospective": 40,
-      "evaluations_retrospective_delta": 6,
-      "events_predicted": 347,
+      "evaluations_retrospective_delta": 2,
+      "events_predicted": 348,
       "predicted_resolved": 139,
       "predicted_resolved_delta": 104,
-      "predictions": 1419,
-      "predictions_delta": 258
+      "predictions": 1422,
+      "predictions_delta": 231
     },
     "forward_claim": {
       "by_predictor": {},
@@ -903,20 +933,20 @@
         },
         {
           "conference": "2026-10-16",
-          "petitions": 76
+          "petitions": 75
         },
         {
           "conference": "2026-11-06",
-          "petitions": 13
+          "petitions": 15
         }
       ],
-      "documents_provisioned": 129,
-      "generated_on": "2026-10-10",
+      "documents_provisioned": 130,
+      "generated_on": "2026-10-11",
       "next_conference": "2026-10-16",
-      "next_conference_petitions": 76,
+      "next_conference_petitions": 75,
       "schema_version": "1.0",
       "skipped": false,
-      "watchlist": 479
+      "watchlist": 480
     },
     "predictor_scores": [
       {
@@ -953,8 +983,8 @@
     "process_scope": "frozen"
   },
   "tooling": {
-    "base_rate_uses": 706,
-    "corpus_query_uses": 160,
+    "base_rate_uses": 707,
+    "corpus_query_uses": 161,
     "gaps": [
       {
         "count": 7,
@@ -1040,6 +1070,87 @@
       }
     ],
     "recent": [
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000443",
+        "gaps": [
+          "fedcourts query CLI is a bit finicky without exact options"
+        ],
+        "helpful": [
+          "statpack.md baseline salience segment rate"
+        ],
+        "notes": null,
+        "role": "predictor",
+        "run_id": "20261010T142428Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "metrics/statpack.md",
+          "mcp_courtlistener_search"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": false
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000443",
+        "gaps": [
+          "General web search and open calls returned no usable content.",
+          "No respondent brief or separate appendix was provisioned; the snapshot records a response waiver.",
+          "The committed statpack has no explicit build timestamp in its top-level metadata."
+        ],
+        "helpful": [
+          "Full petition and questions presented exposed the requested companion hold/GVR route.",
+          "Frozen context identified the correct sal-v4 baseline risk set.",
+          "Statpack JSON supplied unrounded reached-rate denominators for pooling."
+        ],
+        "notes": "Forecast completed from the provisioned pre-decision record and committed aggregate rates. No target or companion outcome was retrieved. The default uv cache was read-only; a writable temporary cache allowed CLI execution. No corpus-service or MCP lookup was needed.",
+        "role": "predictor",
+        "run_id": "20261010T142428Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "local provisioned-file reads",
+          "fedcourts paths",
+          "committed statpack Markdown and JSON",
+          "local Python base-rate calculation",
+          "web search/open attempts"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": false
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000443",
+        "gaps": [
+          "A corpus lookup by SCOTUS docket number or party name (query has no text filter), so finding companion petitions required guessing the docket id convention",
+          "CourtListener holds no SCOTUS dockets for current-Term numbers, so lead-docket status had to come from the web",
+          "A statpack cut for petitions that request a hold for a pending petition, since their grant mass is mostly GVR"
+        ],
+        "helpful": [
+          "Provisioned petition text and questions-presented file (the hold request is the whole case)",
+          "sal-v4 segment-by-band table with bracketed reached rates",
+          "open-events confirming the lead dockets are in the corpus",
+          "WebFetch of supremecourt.gov docket pages for the lead petitions"
+        ],
+        "notes": "Corpus service answered from a warm cache (0 GETs on both queries).",
+        "role": "predictor",
+        "run_id": "20261010T142428Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts paths",
+          "fedcourts open-events",
+          "fedcourts query",
+          "metrics/statpack.md",
+          "courtlistener search",
+          "courtlistener call_endpoint",
+          "WebSearch",
+          "WebFetch"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
       {
         "actor_id": "gemini-baseline",
         "case_id": "scotus/9526000446",
@@ -1164,82 +1275,6 @@
           "fedcourts corpus-info (failed)",
           "web.run open (no usable content)",
           "urllib.request and pypdf"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/9526000416",
-        "gaps": [
-          "The respondents' opposition was filed before the snapshot date but was not provisioned; I had to fetch the PDF and extract its text myself (pypdf), which the fetch tool could not do",
-          "fedcourts query cannot filter to substantive applications only or to a government applicant, so its ranked rows were dominated by same-day time-extension grants and were useless as priors here",
-          "No conditioned interim cut exists for a federal-government applicant or for the response-requested rung; the pooled baseline is a different population from this cell"
-        ],
-        "helpful": [
-          "CourtListener docket-entries endpoint returned the full text of the D.C. Circuit's stay-denial order and the dissent in one call",
-          "The provisioned application text, which carries the whole procedural history",
-          "The statpack's interim section with per-Term counts, which made the pooled baseline a two-line computation"
-        ],
-        "notes": "Roughly 21 retrieval calls in total. The corpus service's first query cost 27 ranged GETs; the second was served warm.",
-        "role": "predictor",
-        "run_id": "20261009T143059Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "provisioned snapshot and application.txt",
-          "metrics/statpack.md (interim docket section)",
-          "fedcourts query (two calls, --include-applications)",
-          "CourtListener MCP (docket search, docket-entries endpoint, opinion search)",
-          "web search and web fetch (supremecourt.gov docket, SCOTUSblog, Brennan Center tracker, the opposition PDF)"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": true
-      },
-      {
-        "actor_id": "gemini-baseline",
-        "case_id": "scotus/9026000436",
-        "gaps": [],
-        "helpful": [
-          "metrics/statpack.md provided necessary baseline data for the 'baseline' salience band and relist count."
-        ],
-        "notes": "No live CourtListener retrieval was necessary since the case facts and vehicle issues (waiver/forfeiture) were clear from the provisioned text and base rates provided sufficient context.",
-        "role": "predictor",
-        "run_id": "20261009T143059Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "read_file",
-          "list_directory"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/9026000436",
-        "gaps": [
-          "Petition source is marked truncated; complete appendix availability is not guaranteed.",
-          "Web tools returned no usable content for the general-precedent requests."
-        ],
-        "helpful": [
-          "Frozen context supplied the correct band, version, and distribution count.",
-          "Petition Appendix A supplied the actual appellate preservation reasoning rather than only counsel's characterization.",
-          "Statpack JSON made the prior-Term reached-band pooling exact.",
-          "CourtListener literal opinion search corroborated general precedent without querying the target case."
-        ],
-        "notes": "No target-case external retrieval was needed. A read-only default CLI cache was worked around with a temporary writable cache. The aggregate pack's commit timestamp is known; its corpus pull freshness was not independently checked.",
-        "role": "predictor",
-        "run_id": "20261009T143059Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "local shell reads and jq",
-          "fedcourts paths",
-          "committed statpack",
-          "web search and open attempts",
-          "CourtListener MCP search",
-          "CourtListener MCP search_document"
         ],
         "used_base_rates": true,
         "used_corpus_query": false
