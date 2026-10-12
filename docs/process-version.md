@@ -413,8 +413,8 @@ property of the current process, and a move between two cuts is a comparison
 over different events. [metrics/README.md](../metrics/README.md) carries the
 reading rules.
 
-**Every frozen-scope surface is built to it; the per-rubric readings are
-not yet.** The
+**Every frozen-scope surface is built to it, and the leaderboard's per-rubric
+readings are too.** The
 shared stratify pass names each in-scope cell's window
 (`StratifiedRun.cell_windows`). On the leaderboard and each of its stage
 blocks, each entry pools its predictor's counted cells and lists its
@@ -436,10 +436,16 @@ boundary inside its cells with the cells before and after and those with no
 `pipeline_sha`, over every cell the boundary's predictors and mode admit, its
 reach printed as `scope` rather than applied; `fedcourts leaderboard` reads
 the sides in the checkout it runs from, so it needs full history. The
-per-rubric breakdown is not built yet: a pooled `big_case` lists the windows
-and the (evaluator, digest) pairs it spans, and until that reading lands a
-judge-dependent figure spanning more than one digest of an evaluator is
-coverage, not a claim. Each paired engine also carries `by_band`, its paired
+judge-dependent figures on the board carry their per-rubric readings beside
+the pooled value, which is coverage wherever it spans more than one digest of
+an evaluator: each stratum reads `mean_reasoning_quality` per (evaluator,
+digest) as `reasoning_quality_rubrics`, and `big_case` and
+`evaluator_agreement` read per rubric signature as `by_signature`
+(`leaderboard.signature_readings`: the maximal sets of (evaluator, digest)
+pairs the points' reads form, one digest per evaluator, with a point holding
+an evaluator under two digests counted in `mixed_signature_points` and in no
+reading). The claim judge validation, the ops quantiles and the semantic
+census list their rubrics without a per-rubric reading yet. Each paired engine also carries `by_band`, its paired
 gradings under the one band filing every engine shares, which is where a
 per-band ordering is read; a boundary that reached the corpus by back-fill is
 marked `gradual`. Two of one predictor's windows sharing a label are refused, since no

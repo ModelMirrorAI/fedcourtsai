@@ -78,7 +78,8 @@ No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
 - `release-sensitivity` and `semantic-summary` pool with the breakdown rather
   than refuse.
 
-**The surfaces are built to that rule; the per-rubric readings are not yet.**
+**The surfaces are built to that rule; the leaderboard's per-rubric readings
+are too, the other surfaces' not yet.**
 On the leaderboard and each of its stage blocks:
 
 - each entry is the predictor's pooled record, with its composition as
@@ -138,9 +139,9 @@ On the leaderboard and each of its stage blocks:
 - **Boundaries.** A boundary's `before`, `after` and `unstamped` count cells,
   one per (case, event) per engine.
 
-**Judge-dependent figures are coverage until the per-rubric reading is
-built.** These figures list `rubrics`, the (evaluator, evaluate digest) pairs
-they draw on, each with its `n`:
+**Judge-dependent figures list their rubrics, and the leaderboard's carry
+per-rubric readings.** These figures list `rubrics`, the (evaluator, evaluate
+digest) pairs they draw on, each with its `n`:
 
 - a pooled `big_case`, over the reads its panel means use;
 - `evaluator_agreement`, over every read behind an evaluator's leave-one-out
@@ -150,13 +151,32 @@ they draw on, each with its `n`:
   taken over;
 - a semantic census, over its block-carrying gradings.
 
-`mean_reasoning_quality` on the board lists none yet.
+On the leaderboard the readings ride beside the pooled value:
 
-Every judge's evaluate digest moved at `proc-v9`, `claude-judge`'s with its
-model. So any of these figures, `mean_reasoning_quality` included, that pools
-more than one digest of one evaluator mixes judge rubrics. It is coverage,
-never a claimable figure or a comparison, until the per-rubric-signature
-readings land. A `rubrics` list naming one evaluator twice is the sign.
+- **`mean_reasoning_quality`**, a per-judge figure, is read per (evaluator,
+  digest) in each stratum's `reasoning_quality_rubrics`: each rubric with its
+  `n` in graded gradings, the stamps' `labels` naming it, and the mean over
+  that rubric's grades alone.
+- **`big_case` and `evaluator_agreement`**, panel figures, are read per rubric
+  signature in `by_signature`. A point's pairs are the (evaluator, digest)
+  pairs of every read behind it: for `big_case`, every panel read across the
+  case's moments; for a leave-one-out point, the judge's reads and its peers'
+  on the case. The signatures read are the maximal sets those pairs form,
+  one digest per evaluator, and a point joins every signature holding all of
+  its pairs. So a case only part of a panel read stays with the panel it was
+  read under, a point read only under digests two signatures share sits in
+  both, and the readings' `points` need not sum to the pooled count. A point
+  holding one evaluator under two digests joins no reading; it is counted in
+  `mixed_signature_points` and stays in the pooled value.
+
+The per-rubric reading is the claimable figure. Every judge's evaluate digest
+moved at `proc-v9`, `claude-judge`'s with its model, so a pooled value spanning
+more than one digest of one evaluator mixes judge rubrics: it is coverage,
+never a claimable figure or a comparison. A `rubrics` list naming one evaluator
+twice is the sign. The claim judge validation, the ops quantiles and the
+semantic census list their rubrics but carry no per-rubric reading yet, so
+there a pooled value spanning two digests of an evaluator has no claimable
+form.
 
 **The other surfaces take the same shape.**
 

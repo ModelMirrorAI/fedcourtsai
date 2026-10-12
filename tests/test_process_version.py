@@ -548,3 +548,14 @@ def test_the_pending_window_prediction_is_ledgered_but_not_counted() -> None:
     )
     assert process_version.at_or_after_bless(window)
     assert not process_version.is_frozen(window)
+
+
+def test_a_rubric_signature_holds_one_digest_per_evaluator() -> None:
+    """Sorted and de-duplicated; one evaluator under two digests spans two signatures."""
+    assert process_version.rubric_signature(
+        [("b", "sha256:2"), ("a", None), ("b", "sha256:2")]
+    ) == (
+        ("a", None),
+        ("b", "sha256:2"),
+    )
+    assert process_version.rubric_signature([("a", "sha256:1"), ("a", "sha256:3")]) is None

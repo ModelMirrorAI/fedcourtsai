@@ -784,6 +784,17 @@ def rubric_of(evaluation: Evaluation) -> Rubric:
     return (evaluation.evaluator_id, stamp.digest if stamp is not None else None)
 
 
+#: A panel figure's rubric signature: the sorted set of (evaluator, digest)
+#: pairs its reads come from, in :func:`rubric_order`.
+RubricSignature = tuple[Rubric, ...]
+
+
+def rubric_order(rubric: Rubric) -> tuple[str, bool, str]:
+    """The stable order rubrics list in: by evaluator, then digest, ``None`` first."""
+    evaluator, digest = rubric
+    return (evaluator, digest is not None, digest or "")
+
+
 def rubric_listing(counts: Mapping[Rubric, int]) -> list[RubricCount]:
     """The rubrics a judge-dependent figure spans, each with its ``n``, in a stable order.
 
@@ -792,10 +803,22 @@ def rubric_listing(counts: Mapping[Rubric, int]) -> list[RubricCount]:
     """
     return [
         RubricCount(evaluator_id=evaluator, digest=digest, n=n)
-        for (evaluator, digest), n in sorted(
-            counts.items(), key=lambda item: (item[0][0], item[0][1] is not None, item[0][1] or "")
-        )
+        for (evaluator, digest), n in sorted(counts.items(), key=lambda item: rubric_order(item[0]))
     ]
+
+
+def rubric_signature(rubrics: Iterable[Rubric]) -> RubricSignature | None:
+    """The rubric signature of one panel point's reads, or ``None`` where they span two.
+
+    A signature holds one digest per evaluator, so a point whose reads carry
+    one evaluator under two digests spans two signatures and belongs to no
+    per-rubric reading; it still counts in the pooled coverage value.
+    """
+    pairs = sorted(set(rubrics), key=rubric_order)
+    evaluators = [evaluator for evaluator, _ in pairs]
+    if len(set(evaluators)) != len(evaluators):
+        return None
+    return tuple(pairs)
 
 
 def is_retired(predictor_id: str) -> bool:

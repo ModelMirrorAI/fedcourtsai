@@ -4,11 +4,26 @@
       "additionalProperties": false,
       "description": "A predictor's big-case-score agreement with the evaluator panel's stakes reads.\n\nA *second* skill dimension, orthogonal to the grant/deny ranking (a model can\nread a case's significance well while calling grant/deny only modestly, or the\nreverse). Bigness is comparative, so the agreement is a **rank** correlation \u2014\nKendall's tau-b between the predictor's ``big_case_score`` ordering and the\npanel's (the mean of the evaluators' own reads), across the scored\n**cases** both sides rated. A case carrying several forecast moments\ncontributes one point, both sides averaged over its moments: bigness is a\nproperty of the case, so a case's moments are not independent observations\nand a correlation that assumed they were would overstate its own evidence.\nNever enters the leaderboard ranking; reported alongside it.",
       "properties": {
+        "by_signature": {
+          "description": "The figure read per rubric signature: one reading per maximal set of (evaluator, evaluate digest) pairs some point's reads carry, over every point whose own pairs it holds, so a point may sit in two readings and their points need not sum to the pooled count. The per-rubric reading is the claimable figure; the pooled value is coverage wherever it spans more than one digest of one evaluator. A case's point's reads are every panel read across its moments",
+          "items": {
+            "$ref": "#/$defs/SignatureReading"
+          },
+          "title": "By Signature",
+          "type": "array"
+        },
         "cases": {
           "default": 0,
           "description": "Cases with both a predictor big_case_score and at least one evaluator big-case read \u2014 cases, not events: a case's forecast moments are averaged into one point",
           "minimum": 0,
           "title": "Cases",
+          "type": "integer"
+        },
+        "mixed_signature_points": {
+          "default": 0,
+          "description": "Points whose reads carry one evaluator under two digests, so they span two signatures and enter no reading in `by_signature`; they still count in the pooled value. Omitted at zero",
+          "minimum": 0,
+          "title": "Mixed Signature Points",
           "type": "integer"
         },
         "rank_agreement": {
@@ -27,7 +42,7 @@
           "title": "Rank Agreement"
         },
         "rubrics": {
-          "description": "The (evaluator, evaluate digest) pairs whose reads the panel mean draws on, each with its `n` in reads. A correlation whose panel spans more than one digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable figure, until the per-rubric reading is built",
+          "description": "The (evaluator, evaluate digest) pairs whose reads the panel mean draws on, each with its `n` in reads. A figure spanning more than one digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable figure; `by_signature` carries the claimable per-rubric readings",
           "items": {
             "$ref": "#/$defs/RubricCount"
           },
@@ -176,11 +191,26 @@
       "additionalProperties": false,
       "description": "How far one evaluator's big-case reads track the rest of the panel's.\n\nThe check on grader latitude. An evaluator with room to judge can be\nsystematically generous or strict, and nothing in a per-predictor score would\nshow it \u2014 the distortion is spread evenly across everyone that evaluator\nscored. Comparing each grader against its peers is what makes it visible.\n\nComputed **leave-one-out**: the evaluator's ordering against the mean of the\n*other* evaluators' reads on the events they share. Including the evaluator in\nthe panel it is scored against would correlate it partly with itself, and with\na three-judge panel that self-term is a third of the comparison.\n\nA rank correlation for the same reason the predictor-side agreement is one:\nbigness is comparative, so what matters is whether two graders order cases the\nsame way, not whether they pick the same numbers. Read it with ``events``\nbeside it \u2014 with a panel this small and few shared events, tau-b is noisy, and\na single disagreement moves it far.",
       "properties": {
+        "by_signature": {
+          "description": "The figure read per rubric signature: one reading per maximal set of (evaluator, evaluate digest) pairs some point's reads carry, over every point whose own pairs it holds, so a point may sit in two readings and their points need not sum to the pooled count. The per-rubric reading is the claimable figure; the pooled value is coverage wherever it spans more than one digest of one evaluator. A leave-one-out point's reads are the evaluator's and its peers' on the case",
+          "items": {
+            "$ref": "#/$defs/SignatureReading"
+          },
+          "title": "By Signature",
+          "type": "array"
+        },
         "events": {
           "default": 0,
           "description": "Events this evaluator and at least one peer both read \u2014 the sample the correlation rests on, and small enough to matter",
           "minimum": 0,
           "title": "Events",
+          "type": "integer"
+        },
+        "mixed_signature_points": {
+          "default": 0,
+          "description": "Points whose reads carry one evaluator under two digests, so they span two signatures and enter no reading in `by_signature`; they still count in the pooled value. Omitted at zero",
+          "minimum": 0,
+          "title": "Mixed Signature Points",
           "type": "integer"
         },
         "rank_agreement": {
@@ -199,7 +229,7 @@
           "title": "Rank Agreement"
         },
         "rubrics": {
-          "description": "The (evaluator, evaluate digest) pairs of every read behind this evaluator's points \u2014 its own and its peers', since a leave-one-out point compares the two \u2014 each with its `n` in reads. A figure spanning more than one digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable figure, until the per-rubric reading is built",
+          "description": "The (evaluator, evaluate digest) pairs of every read behind this evaluator's points \u2014 its own and its peers', since a leave-one-out point compares the two \u2014 each with its `n` in reads. A figure spanning more than one digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable figure; `by_signature` carries the claimable per-rubric readings",
           "items": {
             "$ref": "#/$defs/RubricCount"
           },
@@ -866,7 +896,7 @@
             }
           ],
           "default": null,
-          "description": "Mean evaluator reasoning-quality score",
+          "description": "Mean evaluator reasoning-quality score, pooled over every judge rubric in `reasoning_quality_rubrics`. Spanning more than one digest of one evaluator, it is coverage; the per-rubric reading is the claimable figure",
           "title": "Mean Reasoning Quality"
         },
         "mean_vote_accuracy": {
@@ -932,6 +962,14 @@
           "minimum": 0,
           "title": "Realized Term Skill Scored",
           "type": "integer"
+        },
+        "reasoning_quality_rubrics": {
+          "description": "`mean_reasoning_quality` read per (evaluator, evaluate digest): each rubric the mean draws on, with its `n` in graded gradings and the mean over those alone. Omitted while no grading carries a grade",
+          "items": {
+            "$ref": "#/$defs/RubricReading"
+          },
+          "title": "Reasoning Quality Rubrics",
+          "type": "array"
         },
         "skill_scored": {
           "default": 0,
@@ -1138,6 +1176,113 @@
         "n"
       ],
       "title": "RubricCount",
+      "type": "object"
+    },
+    "RubricReading": {
+      "additionalProperties": false,
+      "description": "A per-judge figure read over one judge rubric's gradings alone.\n\nA per-judge figure averages one evaluator's grades, so a pool across\nevaluator digests mixes judge rubrics. Its per-rubric reading \u2014 the figure\nover the gradings of one (evaluator, digest) pair \u2014 is the claimable figure,\nand the pooled value beside it is coverage wherever it spans more than one\ndigest of one evaluator.",
+      "properties": {
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The evaluate process digest on the gradings' harness stamps; null for unstamped gradings",
+          "title": "Digest"
+        },
+        "evaluator_id": {
+          "title": "Evaluator Id",
+          "type": "string"
+        },
+        "labels": {
+          "description": "The process labels on these reads' harness stamps, sorted: the evaluate labels the digests ran under. A name only; a label never partitions a reading",
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "mean_reasoning_quality": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean reasoning-quality grade over this rubric's gradings alone",
+          "title": "Mean Reasoning Quality"
+        },
+        "n": {
+          "description": "Gradings under this rubric that carry a grade",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "evaluator_id",
+        "digest",
+        "n"
+      ],
+      "title": "RubricReading",
+      "type": "object"
+    },
+    "SignatureReading": {
+      "additionalProperties": false,
+      "description": "A panel figure read over the points of one rubric signature.\n\nA panel figure combines several judges' reads, so its rubric is a\n*signature*: a sorted set of (evaluator, digest) pairs, one digest per\nevaluator. The signatures read are the maximal sets the points' own pairs\nform, so a case only part of a panel read is not split off from the panel\nit was read under. A point belongs to every signature holding all of its\npairs; one whose reads hold an evaluator under two digests belongs to none.\nThe correlation over one signature's points is the claimable figure.",
+      "properties": {
+        "labels": {
+          "description": "The process labels on these reads' harness stamps, sorted: the evaluate labels the digests ran under. A name only; a label never partitions a reading",
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "points": {
+          "description": "Points (cases) the reading rests on",
+          "minimum": 0,
+          "title": "Points",
+          "type": "integer"
+        },
+        "rank_agreement": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Kendall's tau-b over this signature's points alone; null with fewer than 2 points or when every pair ties on one side",
+          "title": "Rank Agreement"
+        },
+        "signature": {
+          "description": "The signature's (evaluator, evaluate digest) pairs, each with its `n` in reads behind this reading's points",
+          "items": {
+            "$ref": "#/$defs/RubricCount"
+          },
+          "title": "Signature",
+          "type": "array"
+        }
+      },
+      "required": [
+        "signature",
+        "points"
+      ],
+      "title": "SignatureReading",
       "type": "object"
     },
     "WindowCount": {
