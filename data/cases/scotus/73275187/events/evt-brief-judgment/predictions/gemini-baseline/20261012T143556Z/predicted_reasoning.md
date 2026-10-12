@@ -1,0 +1,7 @@
+The Court will likely reverse the judgment of the Alaska Supreme Court. 
+
+I expect the Court to hold that the Excessive Fines Clause requires an individualized proportionality analysis. Specifically, when determining the "gravity of the offense," courts must look at the specific defendant's conduct, culpability, and the actual harm caused, rather than evaluating the offense purely in the abstract. 
+
+The majority ground will rest on extending the proportionality principles of *United States v. Bajakajian* and *Timbs v. Indiana*, holding that the Eighth Amendment's protections against excessive fines are rendered meaningless if courts can justify any forfeiture by invoking the abstract evils of the statutory violation (in this case, transporting alcohol into a dry village) without weighing it against the defendant's specific actions (transporting a mere six-pack of beer) and the value of the property forfeited (a $95,000 airplane). The breadth of the ruling will likely be categorical, requiring this specific, individualized assessment in all Excessive Fines Clause challenges.
+
+I predict a unified or nearly unified Court, with a 9-0 or 8-1 lineup in favor of the petitioner, given the cross-ideological support for robust Excessive Fines Clause enforcement. Any separate writing would likely concur in the judgment but might disagree on the specific historical bounds of in rem forfeiture, though the majority will coalesce around the individualized proportionality test.

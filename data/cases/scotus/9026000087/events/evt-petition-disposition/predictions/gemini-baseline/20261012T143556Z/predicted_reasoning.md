@@ -1,0 +1,5 @@
+Distributed once so far (for the November 6, 2026 conference); expect zero further relists before a decision on the petition. 
+The petition raises highly fact-bound procedural and evidentiary questions concerning the district court's exclusion of expert testimony under Rule 37 and subsequent grant of summary judgment under Rule 56. The Fifth Circuit's opinion is unpublished, and there is no genuine circuit split implicated.
+Expect no CVSG, because this is a private insurance dispute raising no issues of federal policy or sovereign interest. 
+If granted, the Court would likely focus on the standard for imposing case-ending discovery sanctions (QP 1 & 3), but a grant is highly improbable. A summary disposition route (GVR) is unlikely given the lack of any intervening relevant Supreme Court decision or confession of error.
+Should the Court deny certiorari, expect no separate writing (no dissent from denial), as the issues are routine and do not command the attention of the Justices.

@@ -1,0 +1,9 @@
+P(disturbed) 0.95.
+
+My prediction strongly favors a reversal (disturbed judgment) based primarily on a substantive review of the parties' merits briefs and Supreme Court precedent, anchored by the baseline rates for merits cases.
+
+The baseline rate for disturbed judgments on the merits docket over the 10 preceding terms (OT2015 to OT2024, given the OT2025 grant) is roughly 69.8% (360 disturbed out of 516 parsed judgments with no date guard issues). 
+
+From that base rate, I adjust upward considerably. The case presents a clear circuit and state supreme court split on the standard for applying the Excessive Fines Clause. The Alaska Supreme Court upheld the forfeiture of a $95,000 airplane for the offense of transporting a six-pack of beer, evaluating the gravity of the offense "purely in the abstract." This directly conflicts with the U.S. Supreme Court's touchstone of proportionality under *United States v. Bajakajian* and *Timbs v. Indiana*, which both heavily suggest that the Excessive Fines Clause requires evaluating the individual defendant's culpability and the specific harm caused. A categorical rule permitting forfeiture based purely on an abstract view of the offense effectively nullifies the Excessive Fines Clause in many real-world applications, a result that both the liberal and conservative wings of the Court have shown strong resistance to in recent terms (e.g., in *Timbs*).
+
+The respondent's arguments rely heavily on the state's historical practice and the general harm of alcohol in rural Alaska. However, this does not overcome the core Eighth Amendment proportionality requirement for individual defendants. Because the lower court's test is fundamentally at odds with modern Supreme Court jurisprudence on Excessive Fines, the judgment below is highly likely to be reversed.

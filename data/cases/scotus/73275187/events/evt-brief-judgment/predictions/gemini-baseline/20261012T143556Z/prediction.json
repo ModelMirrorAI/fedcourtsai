@@ -1,0 +1,45 @@
+{
+  "case_id": "scotus/73275187",
+  "event_id": "evt-brief-judgment",
+  "predictor_id": "gemini-baseline",
+  "run_id": "20261012T143556Z",
+  "engine": "gemini",
+  "model": "gemini-3.1-pro-preview",
+  "created_at": "2026-10-12T14:40:00Z",
+  "input_snapshot": "2026-10-06.json",
+  "granted": 1,
+  "probability": 0.95,
+  "predicted_disposition": "other",
+  "judgment": "reversed",
+  "votes": [
+    { "justice": "Roberts", "vote": "majority", "confidence": 0.9 },
+    { "justice": "Thomas", "vote": "majority", "confidence": 0.8 },
+    { "justice": "Alito", "vote": "majority", "confidence": 0.8 },
+    { "justice": "Sotomayor", "vote": "majority", "confidence": 0.95 },
+    { "justice": "Kagan", "vote": "majority", "confidence": 0.95 },
+    { "justice": "Gorsuch", "vote": "majority", "confidence": 0.95 },
+    { "justice": "Kavanaugh", "vote": "majority", "confidence": 0.9 },
+    { "justice": "Barrett", "vote": "majority", "confidence": 0.9 },
+    { "justice": "Jackson", "vote": "majority", "confidence": 0.95 }
+  ],
+  "big_case_score": 0.65,
+  "big_case_rationale": "The case resolves a circuit split on the standard for Excessive Fines Clause challenges, establishing an important protection against disproportionate civil and criminal forfeiture, but lacking the broader societal impacts of a top-tier blockbuster.",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.95
+    }
+  ],
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Excessive Fines Clause requires courts to evaluate the gravity of an offense by considering the specific facts of the defendant's wrongdoing, not by analyzing the offense purely in the abstract."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "A categorical rule requiring an individualized assessment of a defendant's conduct and harm in Excessive Fines Clause proportionality challenges."
+    }
+  ],
+  "reasoning_doc": "reasoning.md",
+  "predicted_reasoning_doc": "predicted_reasoning.md"
+}
