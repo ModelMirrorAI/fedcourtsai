@@ -784,6 +784,62 @@ def rubric_of(evaluation: Evaluation) -> Rubric:
     return (evaluation.evaluator_id, stamp.digest if stamp is not None else None)
 
 
+#: A panel figure's rubric signature: the sorted set of (evaluator, digest)
+#: pairs its reads come from, in :func:`rubric_order`.
+RubricSignature = tuple[Rubric, ...]
+
+# Every evaluate label that blessed each evaluator digest, in blessing order,
+# kept after those labels are superseded: `FROZEN_PROCESS_DIGESTS` holds only
+# the digests the current label blesses, while a per-rubric reading over an
+# older judge rubric is still named by the labels that blessed it.
+#
+# Append-only. A label that newly blesses an evaluator digest adds it with
+# that label; a label that carries a digest forward byte-identical appends
+# itself to that digest's tuple. No entry or label is ever edited, removed or
+# reordered, since a published reading's name would move with it. A test pins
+# every live evaluator digest's tuple to contain `CURRENT_PROCESS_LABEL`.
+#
+# The map starts at `proc-v8` because `COUNTING_WINDOWS` does: no cell before
+# the first window counts, so no earlier judge digest can appear in a
+# frozen-scope point.
+EVALUATE_BLESSING_LABELS: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {
+        # proc-v8: claude-judge, codex-judge, gemini-judge.
+        "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13": ("proc-v8",),
+        "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1": ("proc-v8",),
+        "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe": ("proc-v8",),
+        # proc-v9: claude-judge, codex-judge, gemini-judge.
+        "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": ("proc-v9",),
+        "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": ("proc-v9",),
+        "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": ("proc-v9",),
+    }
+)
+
+
+def blessing_labels(rubrics: Iterable[Rubric]) -> list[str]:
+    """Every evaluate label that blessed these rubrics' digests, sorted.
+
+    The union over the digests, each carrying every label that blessed it,
+    carried-forward labels included. A name for a per-rubric reading, never a
+    partition. An unstamped grading's digest and a digest no label blessed
+    name nothing.
+    """
+    return sorted(
+        {
+            label
+            for _, digest in rubrics
+            if digest is not None
+            for label in EVALUATE_BLESSING_LABELS.get(digest, ())
+        }
+    )
+
+
+def rubric_order(rubric: Rubric) -> tuple[str, bool, str]:
+    """The stable order rubrics list in: by evaluator, then digest, ``None`` first."""
+    evaluator, digest = rubric
+    return (evaluator, digest is not None, digest or "")
+
+
 def rubric_listing(counts: Mapping[Rubric, int]) -> list[RubricCount]:
     """The rubrics a judge-dependent figure spans, each with its ``n``, in a stable order.
 
@@ -792,10 +848,22 @@ def rubric_listing(counts: Mapping[Rubric, int]) -> list[RubricCount]:
     """
     return [
         RubricCount(evaluator_id=evaluator, digest=digest, n=n)
-        for (evaluator, digest), n in sorted(
-            counts.items(), key=lambda item: (item[0][0], item[0][1] is not None, item[0][1] or "")
-        )
+        for (evaluator, digest), n in sorted(counts.items(), key=lambda item: rubric_order(item[0]))
     ]
+
+
+def rubric_signature(rubrics: Iterable[Rubric]) -> RubricSignature | None:
+    """The rubric signature of one panel point's reads, or ``None`` where they span two.
+
+    A signature holds one digest per evaluator, so a point whose reads carry
+    one evaluator under two digests spans two signatures and belongs to no
+    per-rubric reading; it still counts in the pooled coverage value.
+    """
+    pairs = sorted(set(rubrics), key=rubric_order)
+    evaluators = [evaluator for evaluator, _ in pairs]
+    if len(set(evaluators)) != len(evaluators):
+        return None
+    return tuple(pairs)
 
 
 def is_retired(predictor_id: str) -> bool:

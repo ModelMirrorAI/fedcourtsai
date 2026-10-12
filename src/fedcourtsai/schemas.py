@@ -3245,8 +3245,24 @@ class LeaderboardStratum(_Strict):
         "absent or incomplete",
     )
     mean_reasoning_quality: float | None = Field(
-        default=None, ge=0.0, le=1.0, description="Mean evaluator reasoning-quality score"
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean evaluator reasoning-quality score, pooled over every judge rubric "
+        "in `reasoning_quality_rubrics`. Spanning more than one digest of one evaluator, it "
+        "is coverage; the per-rubric reading is the claimable figure",
     )
+    reasoning_quality_rubrics: list[RubricReading] = Field(
+        default_factory=list,
+        description="`mean_reasoning_quality` read per (evaluator, evaluate digest): each "
+        "rubric the mean draws on, with its `n` in graded gradings and the mean over those "
+        "alone. Omitted while no grading carries a grade",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_ungraded(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``reasoning_quality_rubrics`` while it lists nothing."""
+        return _omit_empty(handler(self), reasoning_quality_rubrics=self.reasoning_quality_rubrics)
 
 
 class WindowCount(_Strict):
@@ -3282,6 +3298,31 @@ _POOLED_WINDOWS_DESCRIPTION = (
 _RUBRIC_COVERAGE = (
     "A figure spanning more than one digest of one evaluator mixes judge rubrics, so it "
     "is coverage, never a claimable figure, until the per-rubric reading is built"
+)
+
+_RUBRIC_COVERAGE_READ = (
+    "A figure spanning more than one digest of one evaluator mixes judge rubrics, so it "
+    "is coverage, never a claimable figure; `by_signature` carries the claimable per-rubric "
+    "readings"
+)
+
+_BY_SIGNATURE_DESCRIPTION = (
+    "The figure read per rubric signature: one reading per maximal set of (evaluator, "
+    "evaluate digest) pairs some point's reads carry, over every point whose own pairs it "
+    "holds. A point may sit in two readings, so readings sharing points are not independent "
+    "and are never differenced as if they were, and their `cases` need not sum to the "
+    "pooled count. Check each pair's `n` before quoting a reading: a single point read "
+    "under a new digest can form a maximal signature whose distinguishing pair has n=1. "
+    "The per-rubric reading is the claimable figure; the pooled value is coverage wherever "
+    "it spans more than one digest of one evaluator"
+)
+
+_MIXED_SIGNATURE_DESCRIPTION = (
+    "Points whose reads carry one evaluator under two digests, so they span two signatures "
+    "and enter no reading in `by_signature`; they still count in the pooled value. Such "
+    "points concentrate in cases read at several moments, the granted ones, so after a "
+    "digest move a reading covers a population short of exactly the higher-stakes cases; "
+    "compare each reading's `cases` with the figure's own count. Omitted at zero"
 )
 
 
@@ -3326,8 +3367,9 @@ class EvaluatorAgreement(_Strict):
     events: int = Field(
         default=0,
         ge=0,
-        description="Events this evaluator and at least one peer both read — the "
-        "sample the correlation rests on, and small enough to matter",
+        description="Cases this evaluator and at least one peer both read, one "
+        "leave-one-out point per case (its moments averaged) despite the name — the sample "
+        "the correlation rests on, and small enough to matter",
     )
     windows: list[WindowCount] = Field(
         default_factory=list,
@@ -3340,13 +3382,26 @@ class EvaluatorAgreement(_Strict):
         default_factory=list,
         description="The (evaluator, evaluate digest) pairs of every read behind this "
         "evaluator's points — its own and its peers', since a leave-one-out point compares "
-        "the two — each with its `n` in reads. " + _RUBRIC_COVERAGE,
+        "the two — each with its `n` in reads. " + _RUBRIC_COVERAGE_READ,
     )
+    by_signature: list[SignatureReading] = Field(
+        default_factory=list,
+        description=_BY_SIGNATURE_DESCRIPTION + ". A leave-one-out point's reads are the "
+        "evaluator's and its peers' on the case. Each reading's `cases` compares to this "
+        "figure's `events`, its pooled count of cases",
+    )
+    mixed_signature_points: int = Field(default=0, ge=0, description=_MIXED_SIGNATURE_DESCRIPTION)
 
     @model_serializer(mode="wrap")
     def _omit_single_label(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``windows`` and ``rubrics`` while they list nothing."""
-        return _omit_empty(handler(self), windows=self.windows, rubrics=self.rubrics)
+        """Drop the composition and per-rubric fields while they list nothing."""
+        return _omit_empty(
+            handler(self),
+            windows=self.windows,
+            rubrics=self.rubrics,
+            by_signature=self.by_signature,
+            mixed_signature_points=self.mixed_signature_points,
+        )
 
 
 class BigCaseLeaderboard(_Strict):
@@ -3389,15 +3444,25 @@ class BigCaseLeaderboard(_Strict):
     rubrics: list[RubricCount] = Field(
         default_factory=list,
         description="The (evaluator, evaluate digest) pairs whose reads the panel mean draws "
-        "on, each with its `n` in reads. A correlation whose panel spans more than one "
-        "digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable "
-        "figure, until the per-rubric reading is built",
+        "on, each with its `n` in reads. " + _RUBRIC_COVERAGE_READ,
     )
+    by_signature: list[SignatureReading] = Field(
+        default_factory=list,
+        description=_BY_SIGNATURE_DESCRIPTION + ". A case's point's reads are every panel "
+        "read across its moments. Each reading's `cases` compares to this figure's `cases`",
+    )
+    mixed_signature_points: int = Field(default=0, ge=0, description=_MIXED_SIGNATURE_DESCRIPTION)
 
     @model_serializer(mode="wrap")
     def _omit_empty_composition(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``windows`` and ``rubrics`` while empty."""
-        return _omit_empty(handler(self), windows=self.windows, rubrics=self.rubrics)
+        """Drop the composition and per-rubric fields while empty."""
+        return _omit_empty(
+            handler(self),
+            windows=self.windows,
+            rubrics=self.rubrics,
+            by_signature=self.by_signature,
+            mixed_signature_points=self.mixed_signature_points,
+        )
 
 
 class RubricCount(_Strict):
@@ -3415,6 +3480,70 @@ class RubricCount(_Strict):
         "unstamped grading"
     )
     n: int = Field(ge=0, description="Reads or gradings drawn from this rubric")
+
+
+_RUBRIC_LABELS_DESCRIPTION = (
+    "The evaluate labels that blessed these digests, sorted, from the registry "
+    "(`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest "
+    "names none. A name only; a label never partitions a reading"
+)
+
+
+class RubricReading(_Strict):
+    """A per-judge figure read over one judge rubric's gradings alone.
+
+    A per-judge figure averages one evaluator's grades, so a pool across
+    evaluator digests mixes judge rubrics. Its per-rubric reading — the figure
+    over the gradings of one (evaluator, digest) pair — is the claimable figure,
+    and the pooled value beside it is coverage wherever it spans more than one
+    digest of one evaluator.
+    """
+
+    evaluator_id: str
+    digest: str | None = Field(
+        description="The evaluate process digest on the gradings' harness stamps; null for "
+        "unstamped gradings"
+    )
+    labels: list[str] = Field(default_factory=list, description=_RUBRIC_LABELS_DESCRIPTION)
+    n: int = Field(ge=0, description="Gradings under this rubric that carry a grade")
+    mean_reasoning_quality: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean reasoning-quality grade over this rubric's gradings alone",
+    )
+
+
+class SignatureReading(_Strict):
+    """A panel figure read over the points of one rubric signature.
+
+    A panel figure combines several judges' reads, so its rubric is a
+    *signature*: a sorted set of (evaluator, digest) pairs, one digest per
+    evaluator. The signatures read are the maximal sets the points' own pairs
+    form, so a case only part of a panel read is not split off from the panel
+    it was read under. A point belongs to every signature holding all of its
+    pairs; one whose reads hold an evaluator under two digests belongs to none.
+    The correlation over one signature's points is the claimable figure.
+    """
+
+    signature: list[RubricCount] = Field(
+        description="The signature's (evaluator, evaluate digest) pairs, each with its `n` in "
+        "reads behind this reading's points"
+    )
+    labels: list[str] = Field(default_factory=list, description=_RUBRIC_LABELS_DESCRIPTION)
+    rank_agreement: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Kendall's tau-b over this signature's points alone; null with fewer than "
+        "2 points or when every pair ties on one side",
+    )
+    cases: int = Field(
+        ge=0,
+        description="Cases the reading rests on, one point each; against the figure's pooled "
+        "count (`cases` on a big-case figure, `events` on an evaluator agreement) it shows "
+        "how many points this signature leaves out",
+    )
 
 
 class WindowShare(_Strict):

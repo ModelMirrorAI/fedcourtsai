@@ -34,6 +34,7 @@ from fedcourtsai.leaderboard import (
     cell_facts,
     evaluator_agreement,
     kendall_tau_b,
+    signature_readings,
     skill_components,
     stage_moment_key,
     vote_scores,
@@ -3487,3 +3488,214 @@ def test_an_unstamped_entry_lists_only_the_boundaries_inside_its_span() -> None:
     assert [(b.boundary, b.before, b.after, b.unstamped) for b in entry.boundaries] == [
         (first, 0, 0, 2)
     ]
+
+
+# Two blessed claude-judge digests and their labels, from the registry.
+_V8_JUDGE = "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13"
+_V9_JUDGE = "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12"
+_V8_PEER = "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1"
+
+
+def _judge_stamp(digest: str, label: str = "proc-v9") -> ProcessVersion:
+    return ProcessVersion(label=label, digest=digest, stamped_at=datetime(2026, 1, 1, tzinfo=UTC))
+
+
+def test_mean_reasoning_quality_is_read_per_judge_rubric() -> None:
+    """The pooled mean spans every rubric; each (evaluator, digest) reading is
+    the mean over that rubric's own grades, named by the label that blessed its
+    digest (not the stamp's), and a digest no label blessed is named nothing."""
+    cells = [
+        _forward(
+            _evaluation(
+                "alpha",
+                event_id="evt-a",
+                evaluator_id="judge",
+                reasoning_quality=0.4,
+                # Stamped under a later label; the digest's blessing names it.
+                process_version=_judge_stamp(_V8_JUDGE, "proc-v9"),
+            )
+        ),
+        _forward(
+            _evaluation(
+                "alpha",
+                event_id="evt-b",
+                evaluator_id="judge",
+                reasoning_quality=0.8,
+                process_version=_judge_stamp(_V9_JUDGE),
+            )
+        ),
+        _forward(
+            _evaluation(
+                "alpha",
+                event_id="evt-c",
+                evaluator_id="judge",
+                reasoning_quality=1.0,
+                process_version=_judge_stamp(_V9_JUDGE),
+            )
+        ),
+        _forward(
+            _evaluation(
+                "alpha",
+                event_id="evt-a",
+                evaluator_id="other",
+                reasoning_quality=0.6,
+                process_version=_judge_stamp("sha256:never-blessed"),
+            )
+        ),
+    ]
+    stratum = build_leaderboard(cells).entries[0].forward
+    assert stratum is not None
+    assert stratum.mean_reasoning_quality == pytest.approx(0.7)
+    readings = [
+        (r.evaluator_id, r.digest, r.labels, r.n, r.mean_reasoning_quality)
+        for r in stratum.reasoning_quality_rubrics
+    ]
+    assert readings == [
+        ("judge", _V9_JUDGE, ["proc-v9"], 2, pytest.approx(0.9)),
+        ("judge", _V8_JUDGE, ["proc-v8"], 1, 0.4),
+        ("other", "sha256:never-blessed", [], 1, 0.6),
+    ]
+
+
+def test_an_ungraded_stratum_omits_its_rubric_readings() -> None:
+    stratum = build_leaderboard([_forward(_evaluation("alpha", reasoning_quality=None))])
+    forward = stratum.entries[0].forward
+    assert forward is not None and forward.reasoning_quality_rubrics == []
+    assert "reasoning_quality_rubrics" not in forward.model_dump(mode="json")
+
+
+def test_signature_readings_read_maximal_panels_and_set_mixed_points_aside() -> None:
+    """A case part of a panel read joins the panel it was read under; a point
+    holding one judge under two digests joins no reading; a point read only
+    under a digest two panels share sits in both."""
+    old_a, shared_b, new_a = ("a", _V8_JUDGE), ("b", _V8_PEER), ("a", _V9_JUDGE)
+    points = [
+        ((0.1, 0.2), "c1", [old_a, shared_b]),
+        ((0.2, 0.3), "c2", [old_a, shared_b]),
+        ((0.3, 0.1), "c3", [old_a]),
+        ((0.4, 0.5), "c4", [new_a, shared_b]),
+        ((0.5, 0.6), "c5", [new_a, shared_b]),
+        ((0.6, 0.4), "c6", [shared_b]),
+        ((0.9, 0.9), "c7", [old_a, new_a]),
+    ]
+    readings, mixed = signature_readings(points)
+    assert mixed == 1
+    shaped = [
+        (
+            [(r.evaluator_id, r.digest, r.n) for r in reading.signature],
+            reading.labels,
+            reading.cases,
+        )
+        for reading in readings
+    ]
+    assert shaped == [
+        ([("a", _V9_JUDGE, 2), ("b", _V8_PEER, 3)], ["proc-v8", "proc-v9"], 3),
+        ([("a", _V8_JUDGE, 3), ("b", _V8_PEER, 3)], ["proc-v8"], 4),
+    ]
+    assert readings[1].rank_agreement == kendall_tau_b(
+        [(0.1, 0.2), (0.2, 0.3), (0.3, 0.1), (0.6, 0.4)]
+    )
+
+
+def _write_stamped_read(
+    data_root: Path,
+    case: int,
+    evaluator_id: str,
+    digest: str,
+    score: float,
+    *,
+    own: float,
+    event_id: str = "evt-petition-disposition",
+) -> None:
+    """One stamped big-case read on ``case``'s ``event_id``, with the cell it grades."""
+    event = CasePaths(data_root, "scotus", case).event(event_id)
+    write_json(
+        event.prediction("p", "p1"),
+        Prediction(
+            case_id=f"scotus/{case}",
+            event_id=event_id,
+            predictor_id="p",
+            engine=Engine.claude_code,
+            run_id="p1",
+            created_at=datetime(2026, 6, 20, tzinfo=UTC),
+            input_snapshot="corpus",
+            granted=1,
+            probability=0.7,
+            predicted_disposition=Disposition.granted,
+            big_case_score=own,
+        ),
+    )
+    write_json(
+        event.evaluation(evaluator_id, "p", "r1"),
+        Evaluation(
+            case_id=f"scotus/{case}",
+            event_id=event_id,
+            predictor_id="p",
+            evaluator_id=evaluator_id,
+            engine=Engine.claude_code,
+            run_id="r1",
+            created_at=datetime(2026, 6, 24, tzinfo=UTC),
+            correct=1,
+            big_case=BigCaseAssessment(evaluator_score=score),
+            process_version=_judge_stamp(digest),
+        ),
+    )
+
+
+def test_a_digest_move_splits_the_panel_readings_and_sets_a_straddling_case_aside(
+    tmp_path: Path,
+) -> None:
+    """A judge on digest A for some cases and B for others gives two readings; a
+    case it read at two moments under both is mixed, outside every reading yet
+    still in the pooled count — and the same straddle makes the peer's
+    leave-one-out point on that case mixed too."""
+    data_root = tmp_path / "data"
+    for case, (own, a, b) in enumerate([(0.1, 0.2, 0.3), (0.5, 0.4, 0.5), (0.9, 0.8, 0.7)], 1):
+        _write_stamped_read(data_root, case, "judge", _V8_JUDGE, a, own=own)
+        _write_stamped_read(data_root, case, "peer", _V8_PEER, b, own=own)
+    for case, (own, a, b) in enumerate([(0.2, 0.1, 0.2), (0.6, 0.7, 0.6)], 4):
+        _write_stamped_read(data_root, case, "judge", _V9_JUDGE, a, own=own)
+        _write_stamped_read(data_root, case, "peer", _V8_PEER, b, own=own)
+    # Case 6: the judge read its first moment under A and its second under B.
+    _write_stamped_read(data_root, 6, "judge", _V8_JUDGE, 0.5, own=0.5)
+    _write_stamped_read(data_root, 6, "peer", _V8_PEER, 0.5, own=0.5)
+    _write_stamped_read(
+        data_root, 6, "judge", _V9_JUDGE, 0.6, own=0.5, event_id="evt-brief-judgment"
+    )
+
+    board = _by_predictor(big_case_agreement(data_root, frozen_only=False))["p"]
+    assert board.cases == 6
+    assert board.mixed_signature_points == 1
+    assert [
+        ([r.digest for r in reading.signature], reading.labels, reading.cases)
+        for reading in board.by_signature
+    ] == [
+        ([_V9_JUDGE, _V8_PEER], ["proc-v8", "proc-v9"], 2),
+        ([_V8_JUDGE, _V8_PEER], ["proc-v8"], 3),
+    ]
+    agreement = evaluator_agreement(data_root, frozen_only=False)
+    assert agreement["peer"].events == 6
+    assert agreement["peer"].mixed_signature_points == 1
+    assert sorted(r.cases for r in agreement["peer"].by_signature) == [2, 3]
+
+
+def test_the_panel_figures_carry_their_signature_readings(tmp_path: Path) -> None:
+    """Every read on one rubric per judge: one reading, equal to the pooled figure."""
+    data_root = tmp_path / "data"
+    for case, own, reads in [(1, 0.1, [0.2, 0.3]), (2, 0.5, [0.4, 0.6]), (3, 0.9, [0.8, 0.7])]:
+        _write_big_case_cell(data_root, "p", f"scotus/{case}", pred_score=own, eval_scores=reads)
+    board = _by_predictor(big_case_agreement(data_root, frozen_only=False))["p"]
+    (reading,) = board.by_signature
+    assert reading.rank_agreement == board.rank_agreement
+    assert reading.cases == board.cases == 3
+    assert [(r.evaluator_id, r.digest, r.n) for r in reading.signature] == [
+        ("eval-0", None, 3),
+        ("eval-1", None, 3),
+    ]
+    assert reading.labels == []
+    assert board.mixed_signature_points == 0
+    assert "mixed_signature_points" not in board.model_dump(mode="json")
+    agreement = evaluator_agreement(data_root, frozen_only=False)
+    (first,) = agreement["eval-0"].by_signature
+    assert first.cases == agreement["eval-0"].events == 3
+    assert first.rank_agreement == agreement["eval-0"].rank_agreement
