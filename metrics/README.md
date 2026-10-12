@@ -69,8 +69,9 @@ No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
 - every figure computed from an evaluator's judgment — `mean_reasoning_quality`,
   the `big_case` and judge-validation tau-b, `evaluator_agreement`, the
   semantic grades — lists each evaluator digest it spans with its `n`; its
-  per-rubric reading is the claimable figure, and a value pooled across
-  rubrics is coverage;
+  per-rubric reading (on the board, `reasoning_quality_rubrics` and
+  `by_signature`) is the claimable figure, and a value pooled across rubrics
+  is coverage;
 - pooling windows licenses **no other pooling**: stratum, stage and moment,
   salience band and version, scoring baseline, claim-set version and every
   other registered boundary still cut the pooled figure;
@@ -78,8 +79,8 @@ No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
 - `release-sensitivity` and `semantic-summary` pool with the breakdown rather
   than refuse.
 
-**The surfaces are built to that rule; the leaderboard's per-rubric readings
-are too, the other surfaces' not yet.**
+**Every frozen-scope surface is built to that rule, and the leaderboard's
+per-rubric readings are too.**
 On the leaderboard and each of its stage blocks:
 
 - each entry is the predictor's pooled record, with its composition as

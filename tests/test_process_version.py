@@ -563,9 +563,48 @@ def test_a_rubric_signature_holds_one_digest_per_evaluator() -> None:
 
 
 def test_every_live_evaluator_digest_is_named_by_the_current_label() -> None:
-    """A label that blesses a new evaluator digest records it in the blessing map."""
+    """A label that blesses a judge digest, newly or carried forward, appends itself."""
     for entry in enabled_evaluators(Path("config") / "evaluators.yaml"):
         digest = process_version.digest_for_actor(Path("."), Path("config"), "evaluator", entry.id)
-        assert process_version.EVALUATE_BLESSING_LABELS.get(digest) == (
-            process_version.CURRENT_PROCESS_LABEL
-        ), entry.id
+        labels = process_version.EVALUATE_BLESSING_LABELS.get(digest, ())
+        assert process_version.CURRENT_PROCESS_LABEL in labels, entry.id
+
+
+def test_the_blessing_labels_only_ever_grow() -> None:
+    """Every entry the map has held is still there with its labels as a prefix,
+    each tuple in blessing order without repeats — append-only, so no published
+    reading is renamed."""
+    held = {
+        "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13": ("proc-v8",),
+        "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1": ("proc-v8",),
+        "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe": ("proc-v8",),
+        "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": ("proc-v9",),
+        "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": ("proc-v9",),
+        "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": ("proc-v9",),
+    }
+    registry = process_version.EVALUATE_BLESSING_LABELS
+    for digest, labels in held.items():
+        assert registry[digest][: len(labels)] == labels, digest
+    for digest, labels in registry.items():
+        ordinals = [
+            ordinal
+            for label in labels
+            if (ordinal := process_version.label_ordinal(label)) is not None
+        ]
+        assert labels and len(ordinals) == len(labels), digest
+        assert ordinals == sorted(set(ordinals)), digest
+
+
+def test_a_carried_forward_judge_digest_is_named_by_every_label_that_blessed_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        process_version,
+        "EVALUATE_BLESSING_LABELS",
+        {"sha256:kept": ("proc-v8", "proc-v9"), "sha256:new": ("proc-v9",)},
+    )
+    assert process_version.blessing_labels([("a", "sha256:kept"), ("b", "sha256:new")]) == [
+        "proc-v8",
+        "proc-v9",
+    ]
+    assert process_version.blessing_labels([("a", None), ("b", "sha256:unknown")]) == []

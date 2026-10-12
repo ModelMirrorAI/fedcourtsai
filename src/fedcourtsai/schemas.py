@@ -3367,8 +3367,9 @@ class EvaluatorAgreement(_Strict):
     events: int = Field(
         default=0,
         ge=0,
-        description="Events this evaluator and at least one peer both read — the "
-        "sample the correlation rests on, and small enough to matter",
+        description="Cases this evaluator and at least one peer both read, one "
+        "leave-one-out point per case (its moments averaged) despite the name — the sample "
+        "the correlation rests on, and small enough to matter",
     )
     windows: list[WindowCount] = Field(
         default_factory=list,
@@ -3386,7 +3387,8 @@ class EvaluatorAgreement(_Strict):
     by_signature: list[SignatureReading] = Field(
         default_factory=list,
         description=_BY_SIGNATURE_DESCRIPTION + ". A leave-one-out point's reads are the "
-        "evaluator's and its peers' on the case",
+        "evaluator's and its peers' on the case. Each reading's `cases` compares to this "
+        "figure's `events`, its pooled count of cases",
     )
     mixed_signature_points: int = Field(default=0, ge=0, description=_MIXED_SIGNATURE_DESCRIPTION)
 
@@ -3447,7 +3449,7 @@ class BigCaseLeaderboard(_Strict):
     by_signature: list[SignatureReading] = Field(
         default_factory=list,
         description=_BY_SIGNATURE_DESCRIPTION + ". A case's point's reads are every panel "
-        "read across its moments",
+        "read across its moments. Each reading's `cases` compares to this figure's `cases`",
     )
     mixed_signature_points: int = Field(default=0, ge=0, description=_MIXED_SIGNATURE_DESCRIPTION)
 
@@ -3538,8 +3540,9 @@ class SignatureReading(_Strict):
     )
     cases: int = Field(
         ge=0,
-        description="Cases the reading rests on, one point each; against the figure's own "
-        "count it shows how many points this signature leaves out",
+        description="Cases the reading rests on, one point each; against the figure's pooled "
+        "count (`cases` on a big-case figure, `events` on an evaluator agreement) it shows "
+        "how many points this signature leaves out",
     )
 
 

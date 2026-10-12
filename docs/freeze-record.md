@@ -7822,9 +7822,14 @@ freeze commit is recorded here.
     signature's pairs, so a member meets it exactly as it meets the pooled
     one. A point is never re-formed from only its in-signature reads to make
     it a member.
-  - **Names.** A reading is named by the evaluate labels that blessed its
-    digests, from `process_version.EVALUATE_BLESSING_LABELS`, never by the
-    labels on the stamps. The label never partitions anything.
+  - **Names.** A reading is named by the union, over its signature's
+    digests, of every evaluate label that blessed each digest, from
+    `process_version.EVALUATE_BLESSING_LABELS`, never by the labels on the
+    stamps. That map is append-only and keeps each digest's labels in blessing
+    order: a label that newly blesses a judge digest adds it, and a label that
+    carries one forward byte-identical appends itself to that digest's labels,
+    so no published reading is ever renamed. The label never partitions
+    anything.
 
   **The alternative not chosen.** A data-independent definition would take
   each label's blessed evaluator digests from the registry as the signatures:
@@ -7862,11 +7867,14 @@ freeze commit is recorded here.
   under the new rubrics.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`). At the carrying merge,
+  committed evaluations on `origin/main` carrying any of the three `proc-v9`
+  evaluator digests (`167b7d71…`, `18a76b93…`, `22558044…`; `git grep` over
+  `data/`): `<FILL: proc-v9 judge-digest evaluations at the carrying merge>`.
 
   The runnable effect check once it is live: on `main`, after the next
   metrics refresh, `jq '[.entries[].big_case.by_signature | length],
-  .evaluator_agreement["claude-judge"].by_signature' metrics/leaderboard.json`
-  prints one reading per figure until a `proc-v9` grading lands, and `uv run
-  fedcourts process-digest --all` prints the same digests as before the
-  promotion.
+  [.by_protocol[].big_case.by_signature | length], [.evaluator_agreement[] |
+  .by_signature | length]' metrics/leaderboard.json` prints all 1s until a
+  `proc-v9` grading lands, and `uv run fedcourts process-digest --all` prints
+  the same digests as before the promotion.

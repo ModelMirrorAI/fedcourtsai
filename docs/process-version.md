@@ -444,9 +444,10 @@ digest) as `reasoning_quality_rubrics`, and `big_case` and
 (`leaderboard.signature_readings`: the maximal sets of (evaluator, digest)
 pairs the points' reads form, one digest per evaluator, with a point holding
 an evaluator under two digests counted in `mixed_signature_points` and in no
-reading). Each reading is named by the evaluate labels that blessed its
-digests (`process_version.EVALUATE_BLESSING_LABELS`, which keeps a superseded
-label's evaluator digests). The claim judge-validation tau-b, the ops
+reading). Each reading is named by every evaluate label that blessed its
+digests (`process_version.EVALUATE_BLESSING_LABELS`, append-only, which keeps
+a superseded label's evaluator digests and appends a carrying-forward label to
+a digest it keeps). The claim judge-validation tau-b, the ops
 reasoning-quality quantiles and the semantic per-grader agreement list their
 rubrics without a per-rubric reading yet. Each paired engine also carries
 `by_band`, its paired gradings under the one band filing every engine shares,
@@ -612,8 +613,13 @@ land; recording and tagging that commit complete the procedure:
    every window whose digest this label stops blessing; the entry quotes
    `fedcourts successor-disclosures` for what the close owes. Never delete a window:
    a closed window's cells keep counting, and a test fails the suite if a
-   `proc-v8` predictor digest leaves the registry without a close. Each digest's value is its **bless
-   moment**, which is not known yet at this step: it is the merge time of the
+   `proc-v8` predictor digest leaves the registry without a close. Then
+   append each newly blessed **evaluator** digest to
+   `EVALUATE_BLESSING_LABELS` under the new label, and append the new label to
+   every evaluator digest the label carries forward; never edit or remove an
+   entry, since a published per-rubric reading is named from it (a test fails
+   the suite if a live evaluator digest's labels lack the current label). Each
+   digest's value in `FROZEN_PROCESS_DIGESTS` is its **bless moment**, which is not known yet at this step: it is the merge time of the
    promotion that will carry this commit, so write a placeholder here and
    correct it at step 4 against the merge that actually landed. **Guess this
    one early** — this commit's own date is the safe floor, since the carrying
