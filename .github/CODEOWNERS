@@ -1,5 +1,5 @@
 # The change classes that wait for the maintainer even into `staging`
-# (AGENTS.md, "Four kinds of change still wait for the maintainer"). The
+# (AGENTS.md, "Five kinds of change still wait for the maintainer"). The
 # `staging` ruleset requires a code owner's review, so a PR touching any path
 # below cannot merge on green checks alone — for any identity without the
 # admin role. An interactive agent session acts as the maintainer's own account, so
@@ -40,6 +40,18 @@
 # What agents are and what they may reach.
 /config/predictors.yaml @modelmirror
 /config/evaluators.yaml @modelmirror
+
+# The authority to spend without a human release: the auto-release caps, the
+# rates a round is priced at, the decisions that read them, and their tests.
+# A raised cap or a lowered rate lets more spend run unattended.
+/config/review-hold.yaml @modelmirror
+/src/fedcourtsai/planning_rates.py @modelmirror
+/src/fedcourtsai/review_hold.py @modelmirror
+/src/fedcourtsai/dispatch_chain.py @modelmirror
+/tests/test_review_hold.py @modelmirror
+/tests/test_dispatch_chain.py @modelmirror
+/tests/test_workflow_dispatch_chain.py @modelmirror
+/tests/test_workflow_agent_bot.py @modelmirror
 
 # This file, so ownership cannot be narrowed without the owner.
 /.github/CODEOWNERS @modelmirror

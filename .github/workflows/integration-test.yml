@@ -1540,7 +1540,7 @@ jobs:
           # rollout into the workspace `.codex/sessions` the assertion below
           # reads; that step keeps `CODEX_HOME` there.
         with:
-          allow-bot-users: "fedcourtsai-data[bot]"
+          allow-bot-users: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt: |
             Read ${{ steps.repro.outputs.prompt }} and AGENTS.md, then score every predictor's
@@ -2006,7 +2006,7 @@ jobs:
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
         uses: anthropics/claude-code-action@cab360f6565aa35a51d6ce9e43f1f4287c0a32ea # v1.0.241
         with:
-          allowed_bots: "fedcourtsai-data[bot]"
+          allowed_bots: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # DEVIATION, in the safe direction. The cells hand the action a
           # freshly minted App token (issues/PR write, for the agent's own
@@ -2048,7 +2048,7 @@ jobs:
         # surfaces the rollout into the workspace `.codex/sessions` the assertion
         # below reads.
         with:
-          allow-bot-users: "fedcourtsai-data[bot]"
+          allow-bot-users: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           # DEVIATION, as on the claude leg above: a boot probe, not a cell.
           prompt: |

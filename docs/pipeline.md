@@ -33,7 +33,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-pull`       | daily schedules (pull + live jobs), manual dispatch (+ dispatch-only `enrich-opinions` mode) | script (no agent)    |
 | `run-seed`       | daily schedules (4 dead-zone windows), manual | script (no agent)    |
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
-| `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less manual dispatch | Claude Code + Codex + Gemini |
+| `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
 | `run-evaluate`   | daily schedule (15:39 UTC), input-less manual dispatch | Claude Code + Codex + Gemini |
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
@@ -1121,11 +1121,32 @@ checkpoint.
 
 ## Cascade
 
-Every arrow below is a **schedule**, not a handoff. No stage tells the next one
-what to do; each reads committed state and derives what it owes. That is what
-makes the whole cascade level-triggered: a window that failed, a round that was
-declined, a cron GitHub silently dropped — each is re-derived next cycle, and
-nothing has to be re-filed for it.
+Every arrow below is a **schedule**, and two are also a **dispatch**; none is a
+handoff. No stage tells the next one what to do; each reads committed state and
+derives what it owes. That is what makes the whole cascade level-triggered: a
+window that failed, a round that was declined, a cron GitHub silently dropped —
+each is re-derived next cycle, and nothing has to be re-filed for it.
+
+The two dispatches only move *when* a predict round derives, never what it
+works on. A `run-pull` window whose commit added or changed an event record,
+or moved the scope manifest (`fedcourts window-forecast-relevance`), starts a
+round (`chain-predict`), so a newly opened moment is planned within the hour
+rather than at the next fixed slot — and forecast then too when the round
+auto-releases, or once a maintainer releases its hold. Every window commits a
+corpus pointer, so a window that moved only that, or recorded outcomes,
+starts nothing; a change the relevance read misses waits for the schedule. A round
+that a cap stopped short of the backlog starts the next one once its own
+collect PR has merged (`chain`, which waits up to 40 minutes and gives up
+quietly on a draft, an unmerged close or no PR at all), so a backlog drains in
+consecutive rounds instead of one per slot. Both are the same input-less
+dispatch a maintainer would send, on `main`, with the dispatch App
+([security.md](security.md)); both stand down while a promotion PR is ready
+(`fedcourts chain-step`, since the promotion gate's quiescence check fails on
+any queued, running or waiting predict round); both are off until the
+repository-level `DISPATCH_CHAIN_ENABLED` variable is `true`; and
+`run-predict`'s schedule stays as the backstop for a dispatch that never
+arrives. `run-evaluate` is not chained: a grading round needs the predictions
+it grades to have merged, and its daily slot already follows predict's.
 
 ```
 daily ×4 → run-seed → walk Terms newest-first, ingest every decided petition
@@ -1612,6 +1633,14 @@ The full path of a change, operator's view:
    the `offline-gate` form and tells you whether anything *else* is missing
    before you pay for the engine legs, which step 4 still needs.
 
+   **Quiet the dispatch chain first.** Quiescence fails on any queued,
+   running or waiting `run-predict`, and a chained round can start at any
+   pull window. Both chain jobs dispatch nothing while a ready, same-repo
+   `staging` → `main` PR is open, so open the promotion PR (or mark its draft
+   ready) before this step, and let any round already running finish. For a
+   longer quiet window, set the `DISPATCH_CHAIN_ENABLED` variable to `false`
+   and restore it after the merge.
+
    **When the head moves after a green `gate`.** The gate's rule is
    mechanical and does not read the delta: the green `gate` run sits at the
    old sha, so at the new one nothing satisfies the twelve, and the choice is
@@ -1877,8 +1906,39 @@ was minted, so a long
 hold un-anchors them — two simultaneously held plans over overlapping
 events were each minted before the other spent, and releasing both
 double-spends the overlap. The two plan reports make the overlap visible
-before either release, each on its own run's step summary; a mechanical post-release re-check
-belongs to the auto-release follow-up, where no human reads the reports. A
+before either release, each on its own run's step summary.
+
+**Auto-release.** A predict round can skip the wait. Its plan job runs `fedcourts
+hold-decision` over the plan document the report renders and the matrix the
+round minted. A round auto-releases, binding the reviewer-less `review-auto`
+environment instead of `review`, when three things hold:
+- the matrix holds exactly the plan's would-mint cells, so the price is the
+  price of what runs;
+- the larger of the plan's estimate and the matrix's own cells at the planning
+  rates is within `auto_release_usd_per_round` (`config/review-hold.yaml`);
+- fewer than `auto_release_rounds_per_day` rounds were auto-released in the
+  trailing 24 hours.
+
+The daily count is the larger of two records: the round's deployment to
+`review-auto`, and its ready collect commit on `main`, which collect marks
+`[auto-released]`. A write holder could prune the first or edit an unmerged
+collect PR, but not `main`'s history. The `spend` backstop, read from the
+committed ledger, stays behind both. It is an ex-post bound that lags the
+ledger, so the two caps' product, which bounds *estimated* spend, is the only
+bound that applies before a round spends. Both caps start at 0, which disables
+it, and the decision fails closed: an unreadable count, a missing or mismatched
+matrix, or a plan with no estimate keeps the hold. The caps, the planning rates
+and the decision code are maintainer-owned. Lowering a cap rides a promotion,
+so the emergency stop is a required reviewer on the `review-auto` environment:
+it takes effect at the next round, without a commit, and every round then waits
+as if held. The `DISPATCH_CHAIN_ENABLED` variable is no substitute, because
+`false` stops only the chaining and a scheduled round still auto-releases. The staleness rule above does not bite on
+this path, because the plan is released minutes after it is minted; what keeps
+a following round from re-planning this one's cells is the stranded-run guard,
+and the `chain` job's wait for the collect PR to merge. The plan report and a
+*Hold and drain* line on the run's summary record what was released and why,
+so an auto-released round reads like a held one afterwards. Evaluate and the
+back-test have no auto-release; every round of theirs waits on the hold. A
 rejected hold is an unsatisfied-gate report, not an incident — but unlike
 `promote`, whose failures the ops report annotates as gate reports, the
 report cannot distinguish a rejected hold from a real fan-out failure,
@@ -3149,8 +3209,9 @@ backfill:
 
 **The hold, not the enable, is the spend gate.** A resuming round starts
 at the plan job, which renders a fresh plan report, and the matrix waits behind
-the approval job on the `review` environment's required reviewers. So a recovery
-cannot leak spend past the hold, and the fresh plan re-anchors the
+the approval job on the `review` environment's required reviewers — or, for a
+predict round within the auto-release caps, binds `review-auto` at once. So a
+recovery cannot leak spend past the hold or those caps, and the fresh plan re-anchors the
 already-predicted gate and the stranded-run guard exactly as the review-hold
 rules above require. Two outcomes of that first round back are the machinery
 working, not the recovery failing: with cells sitting in an uncollected run's

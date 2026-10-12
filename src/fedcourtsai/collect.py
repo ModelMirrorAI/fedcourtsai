@@ -538,6 +538,12 @@ def parse_cell_artifact_name(role: FinalizeRole, name: str) -> ExpectedCell | No
     return cell if cell_artifact_name(role, cell) == name else None
 
 
+#: The mark a review-hold auto-released predict round's ready commit carries in
+#: its subject (:func:`collect_plan`), and what
+#: :func:`fedcourtsai.review_hold.count_auto_released` counts on ``main``.
+AUTO_RELEASED_MARKER = "[auto-released]"
+
+
 @dataclass(frozen=True)
 class PrPlan:
     """One PR the collect job should open: ready or partial."""
@@ -1490,6 +1496,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     prior_availability: PriorAvailabilityRollup | None = None,
     self_provisioned: SelfProvisionedRollup | None = None,
     stakes_reads: StakesReadRollup | None = None,
+    auto_released: bool = False,
 ) -> CollectPlan:
     """Partition a run's cells into one ready PR, one draft PR, and the skipped.
 
@@ -1647,10 +1654,15 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
             if issue is not None and not salvage and not dead_actors and not lost and not uncovered
             else ""
         )
+        # A round the review hold auto-released says so in the ready commit's
+        # subject and in the PR title, so `main` keeps it whichever of the two
+        # the squash merge takes: that committed history is what `hold-decision`
+        # counts the daily cap from, beside the `review-auto` deployment record.
+        released = f" {AUTO_RELEASED_MARKER}" if auto_released else ""
         ready_plan = PrPlan(
             branch=run_branch(role, run_id),
-            commit_message=f"{role.value}(run {run_id}): {len(ready)} {noun}(s)",
-            title=f"{role.value}: {len(ready)} {noun}(s) (run {run_id})",
+            commit_message=f"{role.value}(run {run_id}): {len(ready)} {noun}(s){released}",
+            title=f"{role.value}: {len(ready)} {noun}(s) (run {run_id}){released}",
             body=(
                 f"Automated {noun}s for run `{run_id}`."
                 f"\n\n{_table(ready, with_reason=False)}{note}{closes}"

@@ -1,0 +1,21 @@
+# When a predict round may skip the `review` hold (src/fedcourtsai/review_hold.py
+# and `fedcourts hold-decision`). Every round renders its plan and waits for a
+# maintainer to release it; a round whose plan prices at most
+# `auto_release_usd_per_round` of spend is released without that wait, for at
+# most `auto_release_rounds_per_day` rounds in any trailing 24 hours. The next
+# round past either cap waits on the `review` hold, and the `spend` backstop in
+# tracking.yaml stands behind both, ex post.
+#
+# This file is spend authority, so it lives apart from tracking.yaml and is
+# owned by the maintainer (.github/CODEOWNERS, AGENTS.md's maintainer-only
+# classes): raising a cap lets more spend run without a human release.
+#
+# The price is the planning rate table's (src/fedcourtsai/planning_rates.py),
+# taken over both the plan's would-mint cells and the matrix the round actually
+# minted, the larger of the two. Those rates price some engines low, and retries
+# spend more than a cell's rate, so actual spend can exceed the estimate; set
+# the per-round cap with that margin in mind. `0` DISABLES auto-release, which
+# is where both start: adopting it is a maintainer's decision, and the unattended
+# daily bound on *estimated* spend is at most the product of the two caps.
+auto_release_usd_per_round: 0
+auto_release_rounds_per_day: 0

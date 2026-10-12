@@ -57,6 +57,14 @@ inputs:
       indistinguishable from a cell that was never queued.
     required: false
     default: ''
+  auto-released:
+    description: >
+      `true` when the round skipped the review hold under its auto-release caps
+      (run-predict's `hold-decision`). The ready commit's subject then carries
+      the auto-released mark, which a squash merge keeps on `main`, where the
+      next round's plan counts its daily cap. Anything but `true` is no mark.
+    required: false
+    default: 'false'
   courtlistener-token:
     description: >
       Scan input only, for the secret scan's literal-containment detector — the
@@ -242,6 +250,7 @@ runs:
         # 0 is `collect-plan`'s "no issue" sentinel; see the input's description.
         ISSUE: ${{ inputs.issue || 0 }}
         ROLE: ${{ inputs.role }}
+        AUTO_RELEASED: ${{ inputs.auto-released }}
         # Via env, never interpolated into the shell body: the matrix carries
         # the court/docket/event ids the plan job derived.
         # The CLI pinned to this checkout by the step above — never a bare
@@ -309,9 +318,11 @@ runs:
         # computed by the tested `collect-plan`; this step only runs git and gh.
         # The ready PR closes the triggering issue on merge (unless a draft still
         # has work); the facts-only PR never does.
+        release_args=()
+        [ "$AUTO_RELEASED" = "true" ] && release_args=(--auto-released)
         plan=$("$FEDCOURTS" collect-plan --role "$ROLE" --run-id "$run_id" \
           --status-dir cell-artifacts --issue "$ISSUE" \
-          --missing-file missing-artifacts.txt "${matrix_args[@]}")
+          --missing-file missing-artifacts.txt "${matrix_args[@]}" "${release_args[@]}")
         # Never silently drop a cell: warn for each that produced no output. The
         # judgment noun rides on the plan (`_JUDGMENT_NOUN`, the same mapping that
         # names the PR title and commit message) rather than being re-derived
