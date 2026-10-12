@@ -1,14 +1,14 @@
 # Corpus statpack
 
-**2153445** case(s): 53466 resolved, 2099979 open.
+**2153447** case(s): 54405 resolved, 2099042 open.
 
-**Live/historical slice:** 23563 case(s), 22499 resolved — the polled population the live-slice sections below draw from. It also carries the interim application rows, which no cert section aggregates, so a cert section's denominator can sit below this count; 46026 docketed filing(s) across the walked Terms (exact for docketed numbers, a slight upper bound on real petitions — withheld serials still count).
+**Live/historical slice:** 24502 case(s), 23438 resolved — the polled population the live-slice sections below draw from. It also carries the interim application rows, which no cert section aggregates, so a cert section's denominator can sit below this count; 46026 docketed filing(s) across the walked Terms (exact for docketed numbers, a slight upper bound on real petitions — withheld serials still count).
 
-**Overall base rate (resolved):** other 44.9%, denied 35.4%, dismissed 13.4%, granted 5.1%, gvr 1.1%, withdrawn 0.0%, granted-in-part 0.0%
+**Overall base rate (resolved):** other 44.1%, denied 35.2%, dismissed 13.2%, granted 6.4%, gvr 1.1%, withdrawn 0.0%, granted-in-part 0.0%
 
-**Dated share:** 22522 of 29461 machine-readable resolved case(s) carry a resolution date (76.4%) — the slice the time-masked replay clock can anchor.
+**Dated share:** 23461 of 30400 machine-readable resolved case(s) carry a resolution date (77.2%) — the slice the time-masked replay clock can anchor.
 
-**Filing → decision timing:** median 64d, p90 144d (mean 78.3d over 21296 dated case(s))
+**Filing → decision timing:** median 63d, p90 143d (mean 75.5d over 22171 dated case(s))
 
 _Scope: docket **termination**, every court and both SCOTUS docket forms pooled — cert petitions beside emergency applications, whose lifespans differ by orders of magnitude. The mixture follows which rows carry a `date_decided` at all, so it tracks ingestion coverage rather than a chosen population, and the headline moves as coverage does. Read a petition-timing question off the per-Term table below, which keys on the cert-stage resolution date instead._
 
@@ -17,7 +17,7 @@ _Scope: all courts; includes the frozen bulk import._
 
 | court | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| scotus | 591366 | 22795 | 568571 | denied 81.2%, granted 11.0%, dismissed 4.2%, gvr 2.6%, other 1.0%, withdrawn 0.0% |
+| scotus | 591368 | 23734 | 567634 | denied 78.8%, granted 13.7%, dismissed 4.0%, gvr 2.5%, other 1.0%, withdrawn 0.0% |
 | ca9 | 247637 | 1463 | 246174 | other 94.5%, dismissed 2.6%, denied 2.0%, granted 0.8%, withdrawn 0.1% |
 | ca5 | 203464 | 1502 | 201962 | other 91.0%, dismissed 4.0%, denied 3.5%, granted 1.5% |
 | ca4 | 187218 | 15593 | 171625 | other 63.2%, dismissed 36.2%, denied 0.4%, granted 0.2%, granted-in-part 0.0% |
@@ -37,13 +37,13 @@ _Scope: scotus; includes the frozen bulk import._
 
 | era | cases | resolved | open | base rate (resolved) |
 | --- | --: | --: | --: | --- |
-| (none) | 126776 | 267 | 126509 | other 76.4%, dismissed 17.6%, denied 4.5%, granted 1.5% |
+| (none) | 126719 | 267 | 126452 | other 76.4%, dismissed 17.6%, denied 4.5%, granted 1.5% |
 | 2000s | 124840 | 13 | 124827 | other 100.0% |
 | 1990s | 109307 | 12 | 109295 | other 91.7%, denied 8.3% |
 | 2010s | 97059 | 6515 | 90544 | denied 87.6%, dismissed 5.2%, gvr 3.9%, granted 3.3% |
 | 1980s | 62149 | 1 | 62148 | other 100.0% |
 | 1970s | 36385 | 3 | 36382 | other 100.0% |
-| 2020s | 34691 | 15984 | 18707 | denied 80.0%, granted 14.3%, dismissed 3.5%, gvr 2.1%, withdrawn 0.0% |
+| 2020s | 34750 | 16923 | 17827 | denied 76.7%, granted 18.0%, dismissed 3.3%, gvr 2.0%, withdrawn 0.0% |
 | 1960s | 107 | 0 | 107 | — |
 | 1910s | 20 | 0 | 20 | — |
 | 1930s | 10 | 0 | 10 | — |
@@ -205,15 +205,15 @@ _Replay/backtest cells: your anchoring clock is `record/context.json`'s `decided
 ## The interim docket (applications)
 _SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the time-extension requests that dominate the docket), split by application-Term year; raw counts, never reweighted. The rows below **ground the interim stage's scored base rate**: an application cell is scored against the grant rate pooled over the resolved substantive slice of application-Terms strictly before its own, unweighted, and only where that pooled sample clears the pre-registered per-pool floor (`INTERIM_BASE_RATE_MIN_RESOLVED` = 50); below it there is no baseline and no substitute — not this table's pack-level rate, which contains the case's own Term, and not one Term's alone (docs/salience.md). Extensions are counted so their dominance stays visible, but they never pool into any rate. Five caveats travel with the number wherever it is quoted: resolved means a machine-matched interim disposition, so the resolved slice is selected for machine-matchable resolution text and an unmatched resolution stays visibly unresolved rather than entering any denominator; withdrawn/dismissed resolutions count as ungranted; a mixed partial disposition reads denial-first; **parse coverage is uneven across Terms** (`unparsed` below), so a pooled rate blends a Term the poller covered fully with one it reached only in part; and the **scored population is narrower than the pooled one** — the interim reserve fills its slots in escalation-ladder order, so a predicted application sits systematically higher on those rungs than this cohort, and interim skill against this rate is not by itself evidence of forecast skill (docs/salience.md). This is not a salience-band product and carries no salience version. The escalation-signal columns count over **all** substantive applications in the slice, pending ones included — so their denominator is not the resolved count beside them, and they are right-censored rather than terminal. They also read each row **as at its last poll**: the columns max-latch, the application rotation re-polls only unresolved applications, and a resolved row's values are final — so a Term's columns are only as uniform as the poll recency of the rows behind them. No rate here conditions on them; the as-at-prediction values a conditioned rate would need live on the cells' own frozen contexts. Replay/backtest cells: the cert Term tables' self-selection rule applies here too — anchor only on Term rows strictly preceding `record/context.json`'s `decided_before`, an October Term._
 
-**27813** application(s): 1831 extension, 391 substantive, 90 unknown ask, 25501 never parsed.
+**27815** application(s): 2599 extension, 512 substantive, 140 unknown ask, 24564 never parsed.
 
-**Substantive slice:** 382 resolved, 39 granted — grant rate 10.2% (n=382). Escalation signals: response requested 69, referred to the Court 188, with amicus 71.
+**Substantive slice:** 503 resolved, 43 granted — grant rate 8.5% (n=503). Escalation signals: response requested 93, referred to the Court 257, with amicus 84.
 
 | Term | applications | extension | substantive | unknown | unparsed | resolved (subst.) | granted | grant rate | resp. requested | referred | amicus |
 | --- | --: | --: | --: | --: | --: | --: | --: | --- | --: | --: | --: |
 | 2026 | 485 | 378 | 89 | 18 | 0 | 81 | 8 | 9.9% (n=81) | 17 | 25 | 19 |
 | 2025 | 1467 | 1181 | 227 | 59 | 0 | 226 | 17 | 7.5% (n=226) | 27 | 107 | 27 |
-| 2024 | 1297 | 272 | 75 | 13 | 937 | 75 | 14 | 18.7% (n=75) | 25 | 56 | 25 |
+| 2024 | 1299 | 1040 | 196 | 63 | 0 | 196 | 18 | 9.2% (n=196) | 49 | 125 | 38 |
 | 2023 | 1177 | 0 | 0 | 0 | 1177 | 0 | 0 | — | 0 | 0 | 0 |
 | 2022 | 1133 | 0 | 0 | 0 | 1133 | 0 | 0 | — | 0 | 0 | 0 |
 | 2021 | 878 | 0 | 0 | 0 | 878 | 0 | 0 | — | 0 | 0 | 0 |
