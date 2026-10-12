@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000087",
+  "run_id": "20261012T143556Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "provisioned record/documents"],
+  "helpful": ["Provisioned petition, BIO and appendix text made the vehicle problems (unpublished summary-calendar opinion, preservation) immediately visible"],
+  "gaps": ["A pro se vs counseled cut of the paid baseline band in the statpack would give a better anchor for cases like this one"],
+  "notes": "Clear-cut pro se denial; I judged retrieval unnecessary."
+}

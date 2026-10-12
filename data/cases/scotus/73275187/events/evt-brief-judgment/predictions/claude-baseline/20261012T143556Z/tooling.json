@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73275187",
+  "run_id": "20261012T143556Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md merits section", "provisioned record/documents merits briefs"],
+  "helpful": ["Both merits briefs provisioned as text made the briefed-moment forecast substantive"],
+  "gaps": ["Supplemental briefs (here Jun 25 2026) are not provisioned, and the reason for a long hold is not visible from the record"],
+  "notes": "Merits pool arithmetic was easy to compute from the per-Term table."
+}
