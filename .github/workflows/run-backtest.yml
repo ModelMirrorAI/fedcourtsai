@@ -662,9 +662,11 @@ jobs:
           # passes the cell's own case tree under its root to the CLI as an
           # extra workspace directory (`GeminiRunner.build_command`,
           # `--include-directories`; re-check on any gemini-cli bump) and a
-          # gemini cell reaches it with write_file rather than only the shell. Each engine's lane runs under its own
-          # sub-root of this one (`<work_dir>/<engine>/`), provisioned with the
-          # same inputs, so the root gemini is given holds gemini's cells alone.
+          # gemini cell reaches it with write_file rather than only the shell.
+          # Each engine's lane runs under its own sub-root of this one
+          # (`<work_dir>/<engine>/`), provisioned with the same inputs, so the
+          # case tree gemini is given, inside its own sub-root, holds gemini's
+          # cells alone.
           # A fresh mktemp directory keeps the path
           # unpredictable and unshared across runs on a non-ephemeral runner;
           # run_id is inside every cell path anyway, so a stale cell could never

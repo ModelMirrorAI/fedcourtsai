@@ -8003,7 +8003,18 @@ freeze commit is recorded here.
   input through its file tools reads the same files, and one that reached
   outside its case tree through them falls back to the shell, as an
   off-workspace path always has. A cert back-test before and after the
-  carrying commit is compared as before. No published figure moves.
+  carrying commit is compared as before. No published figure moves. In
+  today's cert back-test each case tree holds exactly one gemini cell (one
+  event per case, one gemini predictor), so the shared-tree residual is
+  currently empty; a transient retry of the same cell reuses its tree, so the
+  only context file it could meet there is its own.
+
+  The runnable effect check once it is live: on `main`, `uv run pytest
+  tests/test_runner.py -k "admits_its_own_case_tree or
+  admission_holds_no_other_case"` passes (the runner does not log its argv,
+  so the tests are where the admitted path is read); and the next
+  `run-backtest` with the gemini lane lands its gemini cells with no file-tool
+  refusal for a path outside the workspace in the engine log.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit
   `<FILL: merge hash>`, merged `<FILL: merged-at>`).
