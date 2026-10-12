@@ -585,13 +585,13 @@ def test_the_blessing_labels_only_ever_grow() -> None:
     registry = process_version.EVALUATE_BLESSING_LABELS
     for digest, labels in held.items():
         assert registry[digest][: len(labels)] == labels, digest
-    for digest, labels in registry.items():
+    for digest, blessed in registry.items():
         ordinals = [
             ordinal
-            for label in labels
+            for label in blessed
             if (ordinal := process_version.label_ordinal(label)) is not None
         ]
-        assert labels and len(ordinals) == len(labels), digest
+        assert blessed and len(ordinals) == len(blessed), digest
         assert ordinals == sorted(set(ordinals)), digest
 
 
