@@ -1,0 +1,45 @@
+# The change classes that wait for the maintainer even into `staging`
+# (AGENTS.md, "Four kinds of change still wait for the maintainer"). The
+# `staging` ruleset requires a code owner's review, so a PR touching any path
+# below cannot merge on green checks alone — for any identity without the
+# admin role. An interactive agent session acts as the maintainer's own account, so
+# for it this is discipline, not a rule (AGENTS.md). A path not listed here has
+# no owner and merges on the ruleset's other rules.
+#
+# Later lines win, and no line here shadows another: each names one class.
+
+# The permission surface: workflows and the composites that run inside them.
+/.github/workflows/ @modelmirror
+/.github/actions/ @modelmirror
+
+# The security posture, its setup, and the authorization check that enforces
+# it (`authorize-trigger` and the tests that pin the trigger surface).
+/SECURITY.md @modelmirror
+/docs/security.md @modelmirror
+/src/fedcourtsai/authz.py @modelmirror
+/tests/test_authz.py @modelmirror
+/tests/test_workflow_auth_gate.py @modelmirror
+
+# The promotion gate and the lane machinery that decides which gate checks a
+# change gets. `promote.yml`, `sync-staging.yml` and ci.yml's gate jobs are
+# covered by the workflows line above. `tests/conftest.py` is owned whole
+# because it registers the lane guard.
+/scripts/promotion-gate.sh @modelmirror
+/scripts/gate.sh @modelmirror
+/scripts/ci_lane.py @modelmirror
+/tests/test_ci_lane.py @modelmirror
+/tests/lane_guard.py @modelmirror
+/tests/conftest.py @modelmirror
+# The gate's Python halves: the required-contexts check `promotion-gate.sh`
+# runs, and the path jail behind the required `paths` check (which keeps an
+# auto-merged agent PR inside `data/`). `collect.py` is owned whole because
+# the jail lives in it.
+/src/fedcourtsai/required_checks.py @modelmirror
+/src/fedcourtsai/collect.py @modelmirror
+
+# What agents are and what they may reach.
+/config/predictors.yaml @modelmirror
+/config/evaluators.yaml @modelmirror
+
+# This file, so ownership cannot be narrowed without the owner.
+/.github/CODEOWNERS @modelmirror
