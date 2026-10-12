@@ -395,14 +395,21 @@ runbook, [docs/security.md](docs/security.md).
   `run-seed`, `run-repair`) push corpus facts
   straight to `main` while everything agentic goes through that PR — enforced
   by identity, since the agent workflows authenticate as a separate,
-  non-bypass **dev App**. Both rulesets require **zero** approving reviews, so
-  maintainer review is a convention `AGENTS.md` carries, not something the
-  platform enforces. Code and config reach `main` only as a gated promotion
-  batch from `staging`, whose own ruleset requires a PR passing `gate` and
-  `paths` (sole bypass: the repository admin role, for the maintainer's
+  non-bypass **dev App**. `main`'s ruleset requires **zero** approving reviews,
+  so maintainer review of a promotion is a convention `AGENTS.md` carries, not
+  something the platform enforces. Code and config reach `main` only as a gated
+  promotion batch from `staging`, whose own ruleset requires a PR passing `gate`
+  and `paths` (sole bypass: the repository admin role, for the maintainer's
   deterministic sync push — no App bypasses it, and the `sync-staging`
   workflow's write token reaches the branch only through a PR that satisfies
-  the same checks). A ruleset with **no** bypass blocks force-pushes and branch
+  the same checks). On the paths `.github/CODEOWNERS` names — the permission
+  surface, this security posture and its authorization check, the promotion
+  gate and lane machinery, and the agent configs — it also requires a code
+  owner's review. That review binds every identity but the admin role, which
+  interactive agent sessions share with the maintainer, so for them it stays
+  discipline: such a session neither merges an owned-path PR through the
+  bypass nor approves one, since its approval would read as the
+  maintainer's. A ruleset with **no** bypass blocks force-pushes and branch
   deletion for everyone, so the committed *history* of the predictions,
   outcomes, and evaluations under `data/` is immutable — every forward change
   is a new, attributable commit. Forward deletions of ledger records are

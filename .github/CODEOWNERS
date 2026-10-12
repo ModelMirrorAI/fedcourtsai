@@ -1,5 +1,5 @@
 # The change classes that wait for the maintainer even into `staging`
-# (AGENTS.md, "Four kinds of change still wait for the maintainer"). The
+# (AGENTS.md, "Five kinds of change still wait for the maintainer"). The
 # `staging` ruleset requires a code owner's review, so a PR touching any path
 # below cannot merge on green checks alone — for any identity without the
 # admin role. An interactive agent session acts as the maintainer's own account, so

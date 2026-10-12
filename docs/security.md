@@ -300,7 +300,27 @@ pre-registration record's commit ids.
   staging-targeted PR: `gate` and `paths`. (`main`'s other two,
   `promotion-gate` and `main-base`, are structurally always-`skipped` here —
   each keys on a base of `main` — so requiring them would add no
-  signal.) **Bypass: the repository
+  signal.) It also requires **review from a code owner**, and **dismisses
+  stale approvals when new commits are pushed**: it binds only on a PR whose
+  diff touches a path `.github/CODEOWNERS` names (the maintainer owns all of
+  them), and a push after the approval dismisses it, so an approved PR cannot
+  be extended and merged on the old approval. Every other PR still merges on
+  the checks alone, at zero approving reviews. GitHub reads `CODEOWNERS` from the PR's base, so
+  the rule binds on `staging` once the file is there. It binds the dev App and
+  any other identity without the admin role; it does **not** bind an
+  interactive agent session, which acts as the maintainer's own account — the
+  owner, and an admin. A session's own owned-path PR can merge only through
+  the bypass, which is visible afterwards as a bypassed merge. A session can
+  also *approve* an owned-path PR it did not open (a Dependabot workflow bump,
+  a collaborator's PR), and that approval satisfies the rule with no bypass
+  and leaves nothing to tell it from the maintainer's own review. Holding back
+  from both is `AGENTS.md`'s discipline, not a rule this ruleset can
+  enforce. The sync PR is not held by it in practice: its diff
+  against `staging` is the `main` commits `staging` lacks, which are writer
+  data commits, since code reaches `main` only from `staging`; a commit to an
+  owned path reaching `main` any other way would stall the sync's auto-merge
+  until the maintainer approves it or lands the sync through the bypass.
+  **Bypass: the repository
   admin role only**, the escape hatch for a main→staging sync when the ordinary
   PR path is unavailable; its content is by construction already-gated `main`
   history merged with already-gated `staging` history.
@@ -592,7 +612,9 @@ diff.
 
 A per-run approval is the stronger control against a *second* write-access
 human, who could otherwise merge to `staging` (the ruleset requires zero
-approving reviews) and reach the environment without the maintainer. It is
+approving reviews off the code-owned paths) and reach the environment without
+the maintainer; the code-owner rule already stops such a collaborator changing
+the workflows themselves. It is
 redundant against the arrangement that exists: no workflow declares
 `actions: write`, the one App granted an Actions scope (the dispatch App) is
 minted only by the two chain jobs, whose code starts nothing but `run-predict`
@@ -625,7 +647,7 @@ evidence-bearing run — begin with a maintainer-only dispatch; the
 re-seed-before-evidence practice below resets the slice, so a poisoned
 fixture cannot persist into a promotion's evidence; and the permission
 surface that could quietly widen a staging job waits for the maintainer even
-into `staging` (the convention recorded below). A per-run reviewer rule is
+into `staging` (the code-owner rule recorded below). A per-run reviewer rule is
 the escalation if any dispatch-side premise above breaks. No workflow
 filters on a staging ref today; every branch filter names `main`.
 
@@ -633,10 +655,23 @@ What neither shape covers: the `staging` ruleset requires no workflow linter, so
 a workflow change that reads a secret is caught by no *required* check.
 `lint-actions` still runs zizmor and actionlint on any PR touching `.github/**`,
 non-blockingly, and the branch policy forces such a change to become a PR diff
-at all. The real control is `AGENTS.md`'s rule that `.github/workflows/**` and
+at all. The real control is that `.github/workflows/**` and
 `.github/actions/**` — the permission surface, composites included, since a
 composite runs inside the job and reads the same secrets — wait for the
-maintainer even into `staging`. Convention, not ruleset, and recorded as such.
+maintainer even into `staging`. The `staging` ruleset enforces it for every
+identity without the admin role: it requires a code owner's review, and
+`.github/CODEOWNERS` names the maintainer as owner of those directories, of
+this document and `SECURITY.md`, of the promotion gate and lane machinery, of
+the authorization check (`src/fedcourtsai/authz.py` and its tests), of the
+agent configs, and of the CODEOWNERS file itself. The admin role is the
+exception, and two kinds of change use it: the maintainer's own PR to an owned
+path, since GitHub does not let an author approve their own PR, and any PR an
+interactive agent session opens, since such a session acts as the
+maintainer's account. A session acting as that account could also approve an
+owned-path PR someone else opened, and its approval would read as the
+maintainer's. For all of these it remains `AGENTS.md`'s convention, recorded
+as such; separating the agent's identity from the maintainer's is what would
+make it a rule.
 
 Blast radius is bounded on **integrity of production**, not on confidentiality
 or spend: staging's engine keys are separate and independently revocable, and
