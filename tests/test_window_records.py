@@ -142,9 +142,13 @@ def test_a_revoked_windows_board_over_its_resolved_slice(
     _ledger(data)
     record = revoked_window_board(data, label="proc-a", statpack=None)
     # Event 1 resolved before the revocation; event 2 resolved after it.
-    assert [(e.predictor_id, e.process_window, e.events_scored) for e in record.board.entries] == [
-        ("alpha", "proc-a", 1)
-    ]
+    assert [
+        (e.predictor_id, [w.process_window for w in e.windows], e.events_scored)
+        for e in record.board.entries
+    ] == [("alpha", ["proc-a"], 1)]
+    assert [
+        (e.predictor_id, e.process_window, e.events_scored) for e in record.board.by_protocol
+    ] == [("alpha", "proc-a", 1)]
     assert record.board.frozen_process is not None
     assert record.board.frozen_process.windows == list(process_version.COUNTING_WINDOWS)
     assert process_version.COUNTING_WINDOWS[0].revoked_at is not None

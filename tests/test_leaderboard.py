@@ -2,7 +2,8 @@
 
 import json
 from collections.abc import Sequence
-from datetime import UTC, date, datetime
+from dataclasses import replace
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ from fedcourtsai.integrity import (
 from fedcourtsai.leaderboard import (
     NO_STAGE_KEY,
     CellFacts,
+    CellSides,
     CellSkill,
     _evaluation_key,
     _scored_prediction,
@@ -39,6 +41,11 @@ from fedcourtsai.leaderboard import (
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.evaluate import is_correct
 from fedcourtsai.pipeline.moments import first_moment, moments_for
+from fedcourtsai.process_version import (
+    HARNESS_BOUNDARIES,
+    BoundarySide,
+    boundary_admits,
+)
 from fedcourtsai.schemas import (
     GRANTED_DISPOSITIONS,
     NO_BAND_KEY,
@@ -48,6 +55,7 @@ from fedcourtsai.schemas import (
     ClaimScore,
     ClaimScoreBlock,
     ClaimScoreBoard,
+    CountingWindow,
     Disposition,
     Engine,
     Evaluation,
@@ -260,10 +268,11 @@ def test_aggregates_per_predictor_per_stratum() -> None:
     assert beta.retrospective is None
 
 
-def test_ranking_orders_by_forward_then_retrospective() -> None:
+def test_ranking_orders_by_forward_accuracy_then_brier_over_the_paired_events() -> None:
     cells = [
-        # No forward cells at all: sorts after everyone with any forward cell,
-        # however strong its retrospective numbers.
+        # No forward cells at all: outside the paired set, so unranked and
+        # listed after every ranked entry, however strong its retrospective
+        # numbers — retrospective cells are not paired, so they break no tie.
         _retro(_evaluation("retro-only", correct=1, brier_score=0.05)),
         _forward(_evaluation("low", correct=0, brier_score=0.1)),
         _forward(_evaluation("high", correct=1, brier_score=0.4)),
@@ -273,14 +282,19 @@ def test_ranking_orders_by_forward_then_retrospective() -> None:
     board = build_leaderboard(cells)
     order = [(e.rank, e.predictor_id) for e in board.entries]
     # Forward accuracy desc; perfect-but-tied predictors split on forward Brier
-    # (lower wins); 0-forward-accuracy still beats having no forward cells.
+    # (lower wins); the rank is read over the one event all four share.
     assert order == [
         (1, "mid-b"),
         (2, "high"),
         (3, "mid-a"),
         (4, "low"),
-        (5, "retro-only"),
+        (None, "retro-only"),
     ]
+    assert board.paired is not None
+    assert board.paired.predictors == ["high", "low", "mid-a", "mid-b"]
+    assert board.paired.events == 1
+    assert [e.paired_events for e in board.entries] == [1, 1, 1, 1, None]
+    assert board.predictors_ranked == 4
 
 
 def test_accuracy_averages_only_over_the_cells_reporting_correct() -> None:
@@ -677,7 +691,7 @@ def test_committed_interim_cell_lands_in_the_stages_block_not_the_cert_board(
 def test_cli_writes_valid_sorted_leaderboard(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     _write_cell(data_root, _evaluation("alpha", correct=0, brier_score=0.3, event_id="evt-a"))
-    _write_cell(data_root, _evaluation("beta", correct=1, brier_score=0.2, event_id="evt-b"))
+    _write_cell(data_root, _evaluation("beta", correct=1, brier_score=0.2, event_id="evt-a"))
     out = tmp_path / "leaderboard.json"
     result = runner.invoke(
         app,
@@ -688,7 +702,7 @@ def test_cli_writes_valid_sorted_leaderboard(tmp_path: Path) -> None:
     assert "2 forward / 0 retrospective" in result.output
     board = read_model(out, Leaderboard)
     assert board.process_scope == "all"
-    assert [e.predictor_id for e in board.entries] == ["beta", "alpha"]
+    assert [(e.rank, e.predictor_id) for e in board.entries] == [(1, "beta"), (2, "alpha")]
     # Deterministic: a second run reproduces the file byte for byte.
     first = out.read_text()
     runner.invoke(
@@ -2775,6 +2789,7 @@ def test_a_gvr_is_a_miss_for_always_deny_and_for_a_granted_call(tmp_path: Path) 
     run = stratify(tmp_path, frozen_only=False)
     (fact,) = cell_facts(run.cells, tmp_path).values()
     assert fact == CellFacts(
+        clock=fact.clock,
         band_key="sal-v1/high",
         always_deny_correct=0,
         recomputed_correct=0,
@@ -2789,11 +2804,16 @@ def test_a_gvr_is_a_miss_for_always_deny_and_for_a_granted_call(tmp_path: Path) 
     assert entry.forward.grants_realized == 1
 
 
+#: A harness clock for hand-built facts: one instant, so no cell is earlier.
+_CLOCK = datetime(2026, 1, 1, tzinfo=UTC)
+
+
 def _cert_facts(
     *evals: Evaluation, band: str = "sal-v1/high", always_deny_correct: int = 1
 ) -> dict[Any, CellFacts]:
     return {
         _evaluation_key(ev): CellFacts(
+            clock=_CLOCK,
             band_key=band,
             always_deny_correct=always_deny_correct,
             recomputed_correct=ev.correct or 0,
@@ -2932,6 +2952,7 @@ def test_realized_grants_are_paired_to_the_expected_events() -> None:
     unrated = _evaluation("alpha", event_id="evt-b")
     facts = {
         _evaluation_key(ev): CellFacts(
+            clock=_CLOCK,
             band_key="sal-v1/high",
             always_deny_correct=0,
             recomputed_correct=1,
@@ -2960,6 +2981,7 @@ def test_realized_grants_are_paired_to_the_expected_events() -> None:
 def _in_sample_facts(graded: Sequence[tuple[Evaluation, int]]) -> dict[Any, CellFacts]:
     return {
         _evaluation_key(ev): CellFacts(
+            clock=_CLOCK,
             band_key="sal-v1/high",
             always_deny_correct=1 - target,
             recomputed_correct=ev.correct or 0,
@@ -3216,27 +3238,81 @@ def test_event_fields_are_null_where_one_events_gradings_disagree() -> None:
     assert forward.always_deny_accuracy == 0.0
 
 
-def test_complete_grid_by_band_counts_events_every_predictor_covers() -> None:
+def test_paired_events_ignore_the_band_and_file_each_under_its_earliest_cell() -> None:
     both = [_evaluation(p, event_id="evt-both") for p in ("alpha", "beta")]
     alpha_only = _evaluation("alpha", event_id="evt-alpha")
     split_alpha = _evaluation("alpha", event_id="evt-split")
     split_beta = _evaluation("beta", event_id="evt-split")
     ungraded = [_evaluation(p, event_id="evt-null", correct=None) for p in ("alpha", "beta")]
     evals = [*both, alpha_only, split_alpha, split_beta, *ungraded]
+    # beta's cell on the split event ran first, under a lower band: the event
+    # still pairs, files under beta's band, and counts as a band mismatch.
+    (beta_key,) = _cert_facts(split_beta)
     facts = {
         **_cert_facts(*both, alpha_only, split_alpha, *ungraded),
-        **_cert_facts(split_beta, band="sal-v1/low"),
+        beta_key: replace(
+            _cert_facts(split_beta)[beta_key],
+            band_key="sal-v1/low",
+            clock=_CLOCK - timedelta(days=1),
+        ),
     }
     board = build_leaderboard([_forward(ev) for ev in evals], facts=facts)
-    assert board.complete_grid_by_band == {"sal-v1/high": 1}
+    assert board.paired is not None
+    assert board.paired.predictors == ["alpha", "beta"]
+    assert board.paired.events == 2
+    assert board.paired.by_band == {"sal-v1/high": 1, "sal-v1/low": 1}
+    assert board.paired.band_mismatches == 1
+    # The ungraded event qualifies for neither; alpha's own event is its loss.
+    assert {e.predictor_id: e.unpaired_events for e in board.paired.entries} == {
+        "alpha": 1,
+        "beta": 0,
+    }
+    paired_alpha = next(e for e in board.paired.entries if e.predictor_id == "alpha")
+    assert paired_alpha.forward is not None and paired_alpha.forward.events_scored == 2
     cvsg = build_leaderboard(
         [_forward(ev, Stage.cert, Moment.cvsg) for ev in both], facts=_cert_facts(*both)
     )
     block = cvsg.stages[stage_moment_key(Stage.cert, Moment.cvsg)]
-    assert block.complete_grid_by_band == {"sal-v1/high": 1}
-    # Without facts the key is absent from the serialized board.
+    assert block.paired is not None
+    assert block.paired.by_band == {"sal-v1/high": 1}
+    # A stage block pairs but never ranks.
+    assert [e.rank for e in block.paired.entries] == [None, None]
+    # Without facts there is no band filing, and the key is absent.
     plain = build_leaderboard([_forward(ev) for ev in both])
-    assert "complete_grid_by_band" not in plain.model_dump(mode="json")
+    assert plain.paired is not None
+    assert "by_band" not in plain.model_dump(mode="json")["paired"]
+
+
+def test_a_paired_event_needs_a_brier_as_well_as_an_accuracy() -> None:
+    graded = _evaluation("alpha", event_id="evt-a", correct=1, brier_score=0.1)
+    unscored = _evaluation("beta", event_id="evt-a", correct=1, brier_score=None)
+    board = build_leaderboard([_forward(graded), _forward(unscored)])
+    assert board.paired is not None
+    # beta holds no qualifying cell, so it is outside the set and alpha pairs
+    # with itself: its own qualifying events, ranked 1.
+    assert board.paired.predictors == ["alpha"]
+    assert [(e.predictor_id, e.rank, e.paired_events) for e in board.entries] == [
+        ("alpha", 1, 1),
+        ("beta", None, None),
+    ]
+
+
+def test_an_empty_paired_set_ranks_nobody() -> None:
+    board = build_leaderboard(
+        [
+            _forward(_evaluation("alpha", event_id="evt-a")),
+            _forward(_evaluation("beta", event_id="evt-b")),
+        ]
+    )
+    assert board.paired is not None
+    assert board.paired.events == 0
+    assert [(e.predictor_id, e.rank) for e in board.entries] == [
+        ("alpha", None),
+        ("beta", None),
+    ]
+    assert board.predictors_ranked == 0
+    assert all(engine.forward is None for engine in board.paired.entries)
+    assert [e.unpaired_events for e in board.paired.entries] == [1, 1]
 
 
 def test_cli_writes_the_banded_cut(tmp_path: Path) -> None:
@@ -3253,8 +3329,161 @@ def test_cli_writes_the_banded_cut(tmp_path: Path) -> None:
     (entry,) = payload["entries"]
     assert set(entry["by_band"]) == {"sal-v1/high", "sal-v1/low", NO_BAND_KEY}
     assert entry["by_band"]["sal-v1/low"]["accuracy_lift"] == pytest.approx(-0.5)
-    assert payload["complete_grid_by_band"] == {
+    assert payload["paired"]["by_band"] == {
         "sal-v1/high": 3,
         "sal-v1/low": 4,
         NO_BAND_KEY: 1,
     }
+
+
+def test_a_pooled_entry_and_a_paired_engine_list_the_boundaries_inside_their_cells() -> None:
+    """Cells on both sides of a boundary list it with each side's count; a
+    boundary every cell sits after is outside the span and is not listed; a
+    cell with no `pipeline_sha` sits on neither side and is counted beside."""
+    names = [boundary.name for boundary in HARNESS_BOUNDARIES]
+    early, late = names[0], names[-1]
+    cells = [
+        _evaluation("alpha", event_id=f"evt-{n}", evaluator_id=judge)
+        for n in ("a", "b", "c")
+        for judge in ("e1", "e2")
+    ] + [_evaluation("beta", event_id="evt-a")]
+    side_of: dict[str, BoundarySide | None] = {"evt-a": "before", "evt-b": "after", "evt-c": None}
+    # The cells run either side of the early boundary, and all before the late one.
+    clock_of = {"evt-a": _SEP_20, "evt-b": _SEP_20 + timedelta(days=5), "evt-c": _SEP_20}
+    sides = {
+        _evaluation_key(ev): CellSides(
+            clock=clock_of[ev.event_id], sides={early: side_of[ev.event_id], late: "after"}
+        )
+        for ev in cells
+    }
+    board = build_leaderboard([_forward(ev) for ev in cells], boundaries=sides)
+    alpha = next(e for e in board.entries if e.predictor_id == "alpha")
+    # Cells, not gradings: two judges on each event count it once.
+    assert [(b.boundary, b.before, b.after, b.unstamped) for b in alpha.boundaries] == [
+        (early, 1, 1, 1)
+    ]
+    assert alpha.boundaries[0].scope == HARNESS_BOUNDARIES[0].reach
+    beta = next(e for e in board.entries if e.predictor_id == "beta")
+    assert beta.boundaries == []
+    assert "boundaries" not in beta.model_dump(mode="json")
+    # The paired figure lists over each engine's paired cells: only evt-a pairs.
+    assert board.paired is not None
+    assert all(engine.boundaries == [] for engine in board.paired.entries)
+
+
+def test_a_replay_boundary_admits_replay_cells_of_its_predictors_alone() -> None:
+    (replay,) = [b for b in HARNESS_BOUNDARIES if b.reach == "replay cells"]
+    assert boundary_admits(replay, "codex-baseline", "replay")
+    assert not boundary_admits(replay, "codex-baseline", "forward")
+    assert not boundary_admits(replay, "claude-baseline", "replay")
+    scrub = HARNESS_BOUNDARIES[0]
+    # A docket-scoped reach is printed as scope, never applied as a filter.
+    assert scrub.reach == "self-represented dockets"
+    assert boundary_admits(scrub, "claude-baseline", "forward")
+
+
+def test_each_paired_engine_carries_its_figure_per_assigned_band() -> None:
+    """The per-band reading: every engine's paired gradings filed under one band
+    per event, so each band's figures are over the same events for every engine;
+    an event with no facts files under `(none)`, so the filing sums to `events`."""
+    one = [_evaluation(p, event_id="evt-1", correct=c) for p, c in (("alpha", 1), ("beta", 0))]
+    two = [_evaluation(p, event_id="evt-2", correct=1) for p in ("alpha", "beta")]
+    bare = [_evaluation(p, event_id="evt-3", correct=1) for p in ("alpha", "beta")]
+    (beta_two,) = _cert_facts(two[1])
+    facts = {
+        **_cert_facts(*one),
+        **_cert_facts(two[0], band="sal-v1/low"),
+        # beta's cell on evt-2 froze another band but ran later: alpha's files it.
+        beta_two: replace(_cert_facts(two[1])[beta_two], clock=_CLOCK + timedelta(days=1)),
+    }
+    board = build_leaderboard([_forward(ev) for ev in (*one, *two, *bare)], facts=facts)
+    assert board.paired is not None
+    assert board.paired.by_band == {NO_BAND_KEY: 1, "sal-v1/high": 1, "sal-v1/low": 1}
+    assert sum(board.paired.by_band.values()) == board.paired.events
+    assert board.paired.band_mismatches == 1
+    for engine in board.paired.entries:
+        assert set(engine.by_band) == {NO_BAND_KEY, "sal-v1/high", "sal-v1/low"}
+        assert all(block.events_scored == 1 for block in engine.by_band.values())
+    beta = next(e for e in board.paired.entries if e.predictor_id == "beta")
+    assert beta.by_band["sal-v1/high"].accuracy == 0.0
+    # beta's own entry files its evt-2 cell under its own frozen band.
+    beta_entry = next(e for e in board.entries if e.predictor_id == "beta")
+    assert beta_entry.by_band is not None and "sal-v1/low" not in beta_entry.by_band
+    # Without facts — a non-cert block — there is no filing at all.
+    plain = build_leaderboard([_forward(ev) for ev in one])
+    assert plain.paired is not None
+    assert plain.paired.by_band == {} and plain.paired.entries[0].by_band == {}
+
+
+#: An instant just before the earliest registered boundary (2026-09-21T18:01:19Z).
+_SEP_20 = datetime(2026, 9, 20, tzinfo=UTC)
+
+
+def test_a_boundary_with_only_unstamped_cells_is_still_listed() -> None:
+    name = HARNESS_BOUNDARIES[0].name
+    cells = [_evaluation("alpha", event_id=f"evt-{n}") for n in ("a", "b")]
+    sides = {
+        _evaluation_key(cells[0]): CellSides(
+            clock=_SEP_20 + timedelta(days=2), sides={name: "after"}
+        ),
+        _evaluation_key(cells[1]): CellSides(clock=_SEP_20, sides={name: None}),
+    }
+    board = build_leaderboard([_forward(ev) for ev in cells], boundaries=sides)
+    (entry,) = board.entries
+    assert [(b.boundary, b.before, b.after, b.unstamped) for b in entry.boundaries] == [
+        (name, 0, 1, 1)
+    ]
+
+
+def test_a_pooled_entry_is_the_cell_weighted_figure_over_both_windows() -> None:
+    """Pooling computes over the pooled cells, never an average of window figures:
+    accuracy and Brier weight every cell once, skill is a ratio of pooled sums."""
+    early = CountingWindow(
+        label="proc-a", digest="sha256:" + "a" * 64, opens=datetime(2026, 1, 1, tzinfo=UTC)
+    )
+    late = CountingWindow(
+        label="proc-b", digest="sha256:" + "b" * 64, opens=datetime(2026, 4, 1, tzinfo=UTC)
+    )
+    graded = [
+        (early, 1, 0.1, 0.25),
+        (early, 1, 0.2, 0.25),
+        (early, 0, 0.6, 0.30),
+        (late, 0, 0.9, 0.20),
+    ]
+    evals = [
+        _evaluation("alpha", event_id=f"evt-{n}", correct=correct, brier_score=brier)
+        for n, (_w, correct, brier, _b) in enumerate(graded)
+    ]
+    windows = {_evaluation_key(ev): w for ev, (w, *_rest) in zip(evals, graded, strict=True)}
+    skills = {
+        _evaluation_key(ev): CellSkill(brier=brier, prior_term_baseline=baseline)
+        for ev, (_w, _c, brier, baseline) in zip(evals, graded, strict=True)
+    }
+    board = build_leaderboard([_forward(ev) for ev in evals], skills=skills, cell_windows=windows)
+    (entry,) = board.entries
+    assert entry.forward is not None
+    assert entry.forward.accuracy == pytest.approx(2 / 4)
+    assert entry.forward.mean_brier_score == pytest.approx(1.8 / 4)
+    assert entry.forward.population_brier_skill_score == pytest.approx(1 - 1.8 / 1.0)
+    assert [(w.process_window, w.n) for w in entry.windows] == [("proc-a", 3), ("proc-b", 1)]
+    cut = {e.process_window: e.forward for e in board.by_protocol}
+    assert cut["proc-a"] is not None and cut["proc-a"].accuracy == pytest.approx(2 / 3)
+    assert cut["proc-b"] is not None and cut["proc-b"].accuracy == 0.0
+    # Not the mean of the two windows' figures (1/3), which would weight a
+    # one-cell window like a three-cell one.
+    assert entry.forward.accuracy != pytest.approx((2 / 3 + 0.0) / 2)
+
+
+def test_an_unstamped_entry_lists_only_the_boundaries_inside_its_span() -> None:
+    """Unstamped cells sit on neither side, but a boundary outside the cells'
+    span still cuts nothing: only the one their harness clocks straddle is listed."""
+    first, last = HARNESS_BOUNDARIES[0].name, HARNESS_BOUNDARIES[-1].name
+    cells = [_evaluation("alpha", event_id=f"evt-{n}") for n in ("a", "b")]
+    sides = {
+        _evaluation_key(ev): CellSides(clock=clock, sides={first: None, last: None})
+        for ev, clock in zip(cells, (_SEP_20, _SEP_20 + timedelta(days=5)), strict=True)
+    }
+    (entry,) = build_leaderboard([_forward(ev) for ev in cells], boundaries=sides).entries
+    assert [(b.boundary, b.before, b.after, b.unstamped) for b in entry.boundaries] == [
+        (first, 0, 0, 2)
+    ]

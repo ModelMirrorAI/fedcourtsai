@@ -1,6 +1,5 @@
 {
-  "cells_with_claims": 873,
-  "entries": [
+  "by_protocol": [
     {
       "forward": {
         "cells": 291,
@@ -140,6 +139,168 @@
       "retrospective": null
     }
   ],
+  "cells_with_claims": 873,
+  "entries": [
+    {
+      "forward": {
+        "cells": 291,
+        "claims": [
+          {
+            "claim_id": "disposition",
+            "mean_score": 0.017784659815936046,
+            "scored": 97
+          },
+          {
+            "claim_id": "relist-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "cvsg-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "summary-disposition-route",
+            "mean_score": 0.3026025461467722,
+            "scored": 3
+          },
+          {
+            "claim_id": "dissent-from-denial",
+            "mean_score": null,
+            "scored": 0
+          }
+        ],
+        "declared_set_versions": [
+          "cert-v2"
+        ],
+        "events": 97,
+        "largest_claim_id": "disposition",
+        "largest_claim_score": 0.5269518970727389,
+        "mean_floor": 0.0,
+        "mean_lift": 0.02714350144934137,
+        "mean_total": 0.02714350144934137,
+        "scored_events": 97
+      },
+      "predictor_id": "claude-baseline",
+      "procedural": null,
+      "process_window": null,
+      "retrospective": null,
+      "windows": [
+        {
+          "n": 291,
+          "opens": "2026-09-16T00:26:04Z",
+          "process_window": "proc-v8"
+        }
+      ]
+    },
+    {
+      "forward": {
+        "cells": 291,
+        "claims": [
+          {
+            "claim_id": "disposition",
+            "mean_score": 0.012280814455111306,
+            "scored": 97
+          },
+          {
+            "claim_id": "relist-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "cvsg-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "summary-disposition-route",
+            "mean_score": 0.30166921281343884,
+            "scored": 3
+          },
+          {
+            "claim_id": "dissent-from-denial",
+            "mean_score": null,
+            "scored": 0
+          }
+        ],
+        "declared_set_versions": [
+          "cert-v2"
+        ],
+        "events": 97,
+        "largest_claim_id": "disposition",
+        "largest_claim_score": 0.49945189707273896,
+        "mean_floor": 0.0,
+        "mean_lift": 0.021610790109135185,
+        "mean_total": 0.021610790109135185,
+        "scored_events": 97
+      },
+      "predictor_id": "codex-baseline",
+      "procedural": null,
+      "process_window": null,
+      "retrospective": null,
+      "windows": [
+        {
+          "n": 291,
+          "opens": "2026-09-16T00:26:04Z",
+          "process_window": "proc-v8"
+        }
+      ]
+    },
+    {
+      "forward": {
+        "cells": 291,
+        "claims": [
+          {
+            "claim_id": "disposition",
+            "mean_score": -0.0114003298747856,
+            "scored": 97
+          },
+          {
+            "claim_id": "relist-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "cvsg-increment",
+            "mean_score": null,
+            "scored": 0
+          },
+          {
+            "claim_id": "summary-disposition-route",
+            "mean_score": -0.16906412051989447,
+            "scored": 3
+          },
+          {
+            "claim_id": "dissent-from-denial",
+            "mean_score": null,
+            "scored": 0
+          }
+        ],
+        "declared_set_versions": [
+          "cert-v2"
+        ],
+        "events": 97,
+        "largest_claim_id": "disposition",
+        "largest_claim_score": -0.6427326958878432,
+        "mean_floor": 0.0,
+        "mean_lift": -0.016629117107359658,
+        "mean_total": -0.016629117107359658,
+        "scored_events": 97
+      },
+      "predictor_id": "gemini-baseline",
+      "procedural": null,
+      "process_window": null,
+      "retrospective": null,
+      "windows": [
+        {
+          "n": 291,
+          "opens": "2026-09-16T00:26:04Z",
+          "process_window": "proc-v8"
+        }
+      ]
+    }
+  ],
   "evaluations_total": 873,
   "forward_agreement": {
     "masked_claim_total": 0,
@@ -148,7 +309,41 @@
     "pair_events": 97,
     "pairs": 873,
     "rank_agreement": 0.087574946245926,
-    "suppressed": false
+    "rubrics": [
+      {
+        "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+        "evaluator_id": "claude-judge",
+        "n": 291
+      },
+      {
+        "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+        "evaluator_id": "codex-judge",
+        "n": 291
+      },
+      {
+        "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+        "evaluator_id": "gemini-judge",
+        "n": 291
+      }
+    ],
+    "suppressed": false,
+    "windows": [
+      {
+        "n": 291,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v8"
+      },
+      {
+        "n": 291,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v8"
+      },
+      {
+        "n": 291,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v8"
+      }
+    ]
   },
   "forward_claim": {
     "by_predictor": {},
@@ -158,20 +353,21 @@
   },
   "frozen_process": {
     "digests": [
-      "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+      "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+      "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+      "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+      "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
       "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
-      "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
-      "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
-      "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
-      "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13"
+      "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f"
     ],
-    "since": "2026-09-16T00:26:04Z",
+    "since": "2026-10-11T12:00:00Z",
     "windows": [
       {
-        "closes": null,
+        "closes": "2026-10-11T12:00:00Z",
         "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
+        "predictor_id": "claude-baseline",
         "revoked_at": null
       },
       {
@@ -179,6 +375,7 @@
         "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
+        "predictor_id": "codex-baseline",
         "revoked_at": null
       },
       {
@@ -186,6 +383,15 @@
         "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+        "label": "proc-v9",
+        "opens": "2026-10-11T12:00:00Z",
+        "predictor_id": "claude-baseline",
         "revoked_at": null
       }
     ]

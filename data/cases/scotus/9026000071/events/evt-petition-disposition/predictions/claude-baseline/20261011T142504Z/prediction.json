@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "Supremacy Clause intergovernmental-immunity question about state regulation of federal immigration-detention contractors; the SG calls the issue exceptionally important and similar laws are pending in several states, but the posture is interlocutory and confined to one facility.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/9026000071",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.27
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.55
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.05
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.55
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.15
+    }
+  ],
+  "confidence": 0.55,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-11",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-11T14:30:13Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-11.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.27,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+    "label": "proc-v9",
+    "pipeline_sha": "2e668793b1bf6d8bd86fb5aa3d84472a43f53415",
+    "stamped_at": "2026-10-11T14:32:29.469390Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261011T142504Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

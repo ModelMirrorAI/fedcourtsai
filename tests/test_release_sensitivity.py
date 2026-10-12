@@ -13,7 +13,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import corpus, leaderboard
 from fedcourtsai.cli import app
 from fedcourtsai.ids import parse_run_id
 from fedcourtsai.paths import CasePaths
@@ -713,6 +713,10 @@ def test_the_command_reads_the_committed_board_and_the_registered_cohort(
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(repo / "metrics"))
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
     # The committed board, built by `leaderboard` itself over the same ledger.
+    # The ledger's cells name a stand-in `pipeline_sha` this repo does not hold,
+    # so no harness boundary is read here: their side test refuses an unknown
+    # commit, and `tests/test_harness_boundaries.py` covers it.
+    monkeypatch.setattr(leaderboard, "HARNESS_BOUNDARIES", ())
     built = runner.invoke(app, ["leaderboard"])
     assert built.exit_code == 0, built.output
     _git(repo, "add", "-A")

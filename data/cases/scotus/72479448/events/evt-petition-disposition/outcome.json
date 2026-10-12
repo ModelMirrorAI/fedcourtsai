@@ -24,13 +24,19 @@
     "grammars": [
       {
         "grammar": "scotus-order-notations",
-        "version": 1
+        "version": 3
       }
     ],
     "participating": 9,
     "source": "supremecourt-orders"
   },
-  "votes": [],
+  "votes": [
+    {
+      "justice": "Gorsuch",
+      "vote": "grant",
+      "writing": "none"
+    }
+  ],
   "writing_roles": [
     {
       "justice": "Thomas",

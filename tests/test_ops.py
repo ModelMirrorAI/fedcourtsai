@@ -1262,7 +1262,8 @@ def test_substance_accuracy_skips_the_cells_reporting_no_correct() -> None:
     # percentage over one cell cannot read as a percentage over three.
     md = ops.render_substance(digest)
     assert "(n=1 of 3)" in md
-    assert "| unscored | 1 | — | 0 |" in md
+    # An all-versions digest carries no windows, so the composition column reads `—`.
+    assert "| unscored | — | 1 | — | 0 |" in md
 
 
 def test_quantiles_are_deterministic_on_an_odd_sample() -> None:
