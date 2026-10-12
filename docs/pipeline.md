@@ -2048,8 +2048,9 @@ confirmation is the exception.
 
 Such a campaign accounts for its losses rather than ending on one, so a report
 always lands. An engine whose CLI binary is missing drops that predictor whole.
-A cell whose engine exited non-zero, and a cell that left no readable
-`prediction.json` where the runner reads it, are each a loss for that
+A cell whose engine failed — a non-zero exit, or a zero-exit Gemini turn
+whose result reported a fault and left no output — and a cell that left no
+readable `prediction.json` where the runner reads it, are each a loss for that
 (petition, predictor) pair alone. An engine that reports its own allowance
 exhausted — a fault the runner classifies as terminal rather than retrying it
 through the backoff budget — has its remaining cells recorded as lost without
@@ -2845,6 +2846,18 @@ or `quota` when the whole engine produced nothing); the job stays green, as
 collect needs it to. The
 claude and codex steps have no equivalent: they are pinned actions, which a
 step cannot loop, and each of those CLIs retries transient API faults itself.
+The back-test's own Gemini runner (`GeminiRunner`, which `run-backtest` drives
+with a real engine) meets the same fault under the same rules, in Python: it
+captures each turn's stdout while still teeing both streams to the log,
+classifies every attempt with the same classifier, retries only a `transient`
+one under the runner's own backoff and attempt cap (the `runner:` section of
+`config/tracking.yaml`), and resets the cell's output root to its pre-attempt
+snapshot before each retry, never past a written judgment artifact or
+`flags.json`. A zero-exit turn that is not retried keeps whatever it produced;
+one that produced nothing is a classified failure — a lost cell, or a spent
+quota that finishes the engine for the campaign — rather than a cell that
+silently wrote nothing. It has no deadline floor, since a back-test cell runs
+under the job's cap rather than a per-step engine deadline.
 
 Agent steps need more than that bound, because a step can stay `in_progress`
 straight through its own timeout until the *job* cap cancels the runner — and a

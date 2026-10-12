@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import os
+import sys
 import tempfile
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import date
 from itertools import pairwise
@@ -31,6 +33,7 @@ from fedcourtsai.pipeline.runner import (
     _failure_is_transient,
     _input_snapshot,
     _run_subprocess,
+    _run_subprocess_capturing,
     classify_engine_attempt,
     engine_result_error,
     get_runner,
@@ -882,6 +885,226 @@ def test_backoff_delay_prefers_a_capped_retry_after() -> None:
         3, CommandResult(1, "429"), base=2.0, cap=30.0, jitter=_identity_jitter
     )
     assert computed == 8.0
+
+
+# --- a fault inside the result: gemini's zero-exit INVALID_STREAM ---------------
+#
+# gemini-cli ends a turn whose stream went bad with exit 0 and the fault inside
+# the JSON result it prints. The Gemini runner reads that result, so such a turn
+# retries like any transient fault, from an output root reset to what it held
+# before the first attempt; the claude and codex runners never read stdout.
+
+_INVALID_STREAM = json.dumps(
+    {
+        "error": {
+            "type": "INVALID_STREAM",
+            "message": "The model returned an empty response or malformed tool call",
+        }
+    }
+)
+
+
+class _AttemptRunner:
+    """A `command_runner` whose attempts each run a side effect, then return a result."""
+
+    def __init__(self, attempts: list[tuple[Callable[[], object], CommandResult]]) -> None:
+        self._attempts = list(attempts)
+        self.calls = 0
+
+    def __call__(self, argv: Sequence[str], env: Mapping[str, str]) -> CommandResult:
+        self.calls += 1
+        effect, result = self._attempts.pop(0)
+        effect()
+        return result
+
+
+def _nothing() -> None:
+    return None
+
+
+def _gemini(seq: _AttemptRunner, sleeps: list[float]) -> GeminiRunner:
+    return GeminiRunner(command_runner=seq, sleep=sleeps.append, jitter=_identity_jitter)
+
+
+def test_a_zero_exit_invalid_stream_retries_from_a_reset_root(tmp_path: Path) -> None:
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    half = events.prediction_dir(PREDICTOR, RUN) / "reasoning.md"
+
+    def half_written() -> None:
+        half.parent.mkdir(parents=True, exist_ok=True)
+        half.write_text("half a turn\n")
+
+    seq = _AttemptRunner(
+        [
+            (half_written, CommandResult(0, stdout=_INVALID_STREAM)),
+            (lambda: StubRunner().run(request), CommandResult(0, stdout="{}")),
+        ]
+    )
+    sleeps: list[float] = []
+
+    written = _gemini(seq, sleeps).run(request)
+
+    assert seq.calls == 2
+    assert len(sleeps) == 1
+    assert written == _predict_artifacts(events)
+    # The retry's own reasoning, not the failed turn's half-written one.
+    assert half.read_text() != "half a turn\n"
+
+
+def test_the_reset_removes_what_a_failed_attempt_added(tmp_path: Path) -> None:
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    stray = events.prediction_dir(PREDICTOR, RUN) / "scratch.md"
+
+    def leave_stray() -> None:
+        stray.parent.mkdir(parents=True, exist_ok=True)
+        stray.write_text("draft\n")
+
+    seq = _AttemptRunner(
+        [
+            (leave_stray, CommandResult(0, stdout=_INVALID_STREAM)),
+            (lambda: StubRunner().run(request), CommandResult(0)),
+        ]
+    )
+
+    _gemini(seq, []).run(request)
+
+    assert not stray.exists()
+
+
+def test_a_persistent_invalid_stream_fails_at_the_attempt_cap(tmp_path: Path) -> None:
+    seq = _AttemptRunner([(_nothing, CommandResult(0, stdout=_INVALID_STREAM))] * 3)
+    sleeps: list[float] = []
+
+    with pytest.raises(EngineFailed, match="retry budget exhausted") as raised:
+        _gemini(seq, sleeps).run(_predict_request(tmp_path / "data"))
+
+    assert seq.calls == 3
+    assert len(sleeps) == 2
+    assert "INVALID_STREAM" in str(raised.value)
+
+
+def test_a_failure_message_names_only_a_screened_fault_type(tmp_path: Path) -> None:
+    # The message reaches a back-test report; the result's free text never does,
+    # and a type that is not a bare identifier is dropped whole.
+    for fault, named in (("INVALID_STREAM", "(INVALID_STREAM)"), ("x y\n::error::z", None)):
+        result = json.dumps({"error": {"type": fault, "message": "secret-looking free text"}})
+        seq = _AttemptRunner([(_nothing, CommandResult(0, stdout=result))] * 3)
+
+        with pytest.raises(EngineFailed) as raised:
+            _gemini(seq, []).run(_predict_request(tmp_path / "data"))
+
+        message = str(raised.value)
+        assert "free text" not in message
+        assert "::error::" not in message
+        if named is not None:
+            assert named in message
+
+
+def test_a_clean_gemini_turn_is_not_retried(tmp_path: Path) -> None:
+    request = _predict_request(tmp_path / "data")
+    seq = _AttemptRunner(
+        [(lambda: StubRunner().run(request), CommandResult(0, stdout='{"response": "ok"}'))]
+    )
+    sleeps: list[float] = []
+
+    written = _gemini(seq, sleeps).run(request)
+
+    assert seq.calls == 1
+    assert sleeps == []
+    assert written == _predict_artifacts(CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT))
+
+
+def test_a_zero_exit_permanent_fault_with_no_output_fails_without_a_retry(
+    tmp_path: Path,
+) -> None:
+    result = json.dumps({"error": {"type": "FatalInputError", "message": "prompt too long"}})
+    seq = _AttemptRunner([(_nothing, CommandResult(0, stdout=result))])
+    sleeps: list[float] = []
+
+    with pytest.raises(EngineFailed, match="exited 0") as raised:
+        _gemini(seq, sleeps).run(_predict_request(tmp_path / "data"))
+
+    assert seq.calls == 1
+    assert sleeps == []
+    assert not isinstance(raised.value, EngineQuotaExhausted)
+
+
+def test_an_attempt_that_produced_the_judgment_keeps_it(tmp_path: Path) -> None:
+    # A retry would wipe a prediction the turn already wrote, so the turn stands.
+    request = _predict_request(tmp_path / "data")
+    seq = _AttemptRunner(
+        [(lambda: StubRunner().run(request), CommandResult(0, stdout=_INVALID_STREAM))]
+    )
+
+    written = _gemini(seq, []).run(request)
+
+    assert seq.calls == 1
+    assert written == _predict_artifacts(CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT))
+
+
+def test_an_attempt_that_wrote_its_flags_is_not_retried(tmp_path: Path) -> None:
+    # A flags.json is a disclosure; a fresh session would know nothing of it.
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    flags = events.prediction_flags(PREDICTOR, RUN)
+
+    def flag() -> None:
+        flags.parent.mkdir(parents=True, exist_ok=True)
+        flags.write_text("{}\n")
+
+    seq = _AttemptRunner([(flag, CommandResult(0, stdout=_INVALID_STREAM))])
+
+    with pytest.raises(EngineFailed, match=r"flags\.json"):
+        _gemini(seq, []).run(request)
+
+    assert seq.calls == 1
+    assert flags.is_file()
+
+
+def test_a_zero_exit_spent_quota_stops_the_engine(tmp_path: Path) -> None:
+    result = json.dumps(
+        {
+            "error": {
+                "type": "TerminalQuotaError",
+                "message": "You have exhausted your daily quota on this model",
+            }
+        }
+    )
+    assert classify_engine_attempt(0, result, "") is AttemptClass.terminal_quota
+    seq = _AttemptRunner([(_nothing, CommandResult(0, stdout=result))])
+
+    with pytest.raises(EngineQuotaExhausted):
+        _gemini(seq, []).run(_predict_request(tmp_path / "data"))
+
+    assert seq.calls == 1
+
+
+def test_claude_and_codex_never_read_stdout(tmp_path: Path) -> None:
+    # Their stdout is not captured; a result-shaped fault there changes nothing.
+    request = _predict_request(tmp_path / "data")
+    StubRunner().run(request)
+    claude = _SequenceRunner([CommandResult(0, stdout=_INVALID_STREAM)])
+    ClaudeCodeRunner(command_runner=claude).run(request)
+    codex = _SequenceRunner([CommandResult(0, stdout=_INVALID_STREAM)])
+    CodexRunner(command_runner=codex).run(request)
+    assert (claude.calls, codex.calls) == (1, 1)
+
+
+def test_the_capturing_executor_tees_and_keeps_both_streams() -> None:
+    result = _run_subprocess_capturing(
+        [sys.executable, "-c", "import sys; print('{}'); sys.stderr.write('warn\\n')"], {}
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == "{}\n"
+    assert result.stderr == "warn\n"
+
+
+def test_the_capturing_executor_maps_a_missing_binary() -> None:
+    with pytest.raises(EngineUnavailable, match="not on PATH"):
+        _run_subprocess_capturing(["fedcourts-no-such-binary-xyz"], {})
 
 
 # --- predict -------------------------------------------------------------------

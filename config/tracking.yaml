@@ -505,7 +505,10 @@ spend:
 # though it arrives throttle-shaped: an engine that says its own allowance is
 # spent (its message names that, where a plain 429 does not) fails after one
 # attempt, since no wait inside this budget can clear a spent allowance.
-# The transient/permanent split mirrors pull's is_transient classifier.
+# The transient/permanent split mirrors pull's is_transient classifier. Gemini
+# can end a failed turn with a zero exit, its fault inside the JSON result, so
+# its runner classifies every attempt on that result too and retries from an
+# output root reset to its pre-attempt state, as the cells' gemini step does.
 runner:
   # Total attempts a transient-failing cell gets (1 = no retries). A 429/5xx that
   # has not cleared after a handful of exponentially-spaced waits is a degraded

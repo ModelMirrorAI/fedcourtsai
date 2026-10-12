@@ -49,15 +49,24 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from enum import StrEnum
 from pathlib import Path
-from typing import Protocol
+from typing import IO, ClassVar, Protocol, TextIO
 
 from ..config import get_settings, load_runner_config
+from ..finalize import (
+    FinalizeRole,
+    OutputSnapshot,
+    agent_produced_output,
+    cell_output_root,
+    reset_output_root,
+    snapshot_output_root,
+)
 from ..ids import case_id as make_case_id
 from ..ids import parse_run_id
 from ..paths import CasePaths, EventPaths
@@ -537,6 +546,10 @@ class CommandResult:
 
     returncode: int
     stderr: str = ""
+    # The engine's stdout, for a runner that reads its result object
+    # (:attr:`AgenticRunner.reads_result`); empty for one that leaves stdout
+    # streaming to the log uncaptured.
+    stdout: str = ""
 
 
 # A command executor: run argv with env, return the finished :class:`CommandResult`
@@ -801,6 +814,49 @@ def _run_subprocess(argv: Sequence[str], env: Mapping[str, str]) -> CommandResul
     if completed.stderr:
         sys.stderr.write(completed.stderr)
     return CommandResult(returncode=completed.returncode, stderr=completed.stderr or "")
+
+
+def _tee(source: IO[str], sink: TextIO, kept: list[str]) -> None:
+    """Copy ``source`` line by line to ``sink`` as it arrives, keeping each line."""
+    for line in source:
+        sink.write(line)
+        sink.flush()
+        kept.append(line)
+
+
+def _run_subprocess_capturing(argv: Sequence[str], env: Mapping[str, str]) -> CommandResult:
+    """:data:`CommandRunner` for an engine whose fault can sit in its stdout.
+
+    gemini-cli's ``--output-format json`` ends a turn whose stream went bad with
+    a zero exit and the fault inside the result object it prints, so the
+    classifier has to read stdout as well as stderr. Both streams are teed: each
+    line reaches this process's own stream as it is written, so the run log
+    still shows the turn live (and a turn the caller abandons still leaves its
+    diagnostic behind), and is kept for :func:`classify_engine_attempt`.
+    """
+    try:
+        process = subprocess.Popen(
+            list(argv),
+            env=dict(env),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        raise EngineUnavailable(str(argv[0])) from exc
+    out: list[str] = []
+    err: list[str] = []
+    assert process.stdout is not None and process.stderr is not None
+    readers = [
+        threading.Thread(target=_tee, args=(process.stdout, sys.stdout, out), daemon=True),
+        threading.Thread(target=_tee, args=(process.stderr, sys.stderr, err), daemon=True),
+    ]
+    for reader in readers:
+        reader.start()
+    returncode = process.wait()
+    for reader in readers:
+        reader.join()
+    return CommandResult(returncode=returncode, stderr="".join(err), stdout="".join(out))
 
 
 def _codex_login(api_key: str, env: Mapping[str, str]) -> int:
@@ -1082,6 +1138,35 @@ def _backoff_delay(
     return jitter(ceiling)
 
 
+_FAULT_TYPE = re.compile(r"[A-Za-z0-9_]{1,64}")
+
+
+def _result_fault_type(stdout: str) -> str | None:
+    """The fault's own type name from a result object, shape-screened, or ``None``.
+
+    Only the type reaches a failure message, and only as a bare identifier: the
+    message lands in a back-test report's lost-cell record, and a result object
+    is the agent's turn's to shape, so its free text never rides along. The
+    cells' gemini step screens the same field the same way for its warning.
+    """
+    try:
+        result = json.loads(stdout)
+    except ValueError:
+        return None
+    error = result.get("error") if isinstance(result, dict) else None
+    kind = error.get("type") if isinstance(error, dict) else None
+    return kind if isinstance(kind, str) and _FAULT_TYPE.fullmatch(kind) else None
+
+
+def _added_since(snapshot: OutputSnapshot, path: Path) -> bool:
+    """Whether ``path`` lies under the snapshot's root and was not there at the snapshot."""
+    try:
+        relative = Path(os.path.abspath(path)).relative_to(snapshot.root).as_posix()
+    except ValueError:
+        return False
+    return relative not in snapshot.entries
+
+
 @dataclass(frozen=True)
 class AgenticRunner:
     """Drive a headless coding-agent CLI over one cell, off the shared seam.
@@ -1095,6 +1180,8 @@ class AgenticRunner:
     :func:`_failure_is_transient`) is retried
     with exponential backoff and jitter up to ``max_attempts``; a *permanent*
     fault (content filter, context length, auth) fails loudly and immediately.
+    An engine that can report its fault inside a zero-exit result
+    (:attr:`reads_result`) has every attempt classified on that result too.
     The ``command_runner`` seam lets tests assert on the built command — and drive
     the retry path — without spawning an agent; the ``sleep`` / ``jitter`` seams
     keep the backoff deterministic and instant under test.
@@ -1127,6 +1214,12 @@ class AgenticRunner:
     # jitter so it neither waits nor flakes.
     sleep: Callable[[float], None] | None = None
     jitter: Callable[[float], float] | None = None
+    # Whether this engine can end a failed turn with a zero exit, its fault
+    # reported only inside the result object it prints: such an engine's stdout
+    # is captured and every attempt is classified on it
+    # (:meth:`_run_reading_result`). The others are classified on a non-zero
+    # exit's stderr alone, their stdout left streaming uncaptured.
+    reads_result: ClassVar[bool] = False
 
     def build_command(self, request: RunRequest) -> EngineCommand:  # pragma: no cover
         raise NotImplementedError
@@ -1153,9 +1246,18 @@ class AgenticRunner:
         """
         command = self.build_command(request)
         env = {**_agent_base_env(self.auth_vars), **extra_env, **command.env}
-        run_command = self.command_runner or _run_subprocess
         sleep = self.sleep or time.sleep
         jitter = self.jitter or _full_jitter
+        if self.reads_result:
+            return self._run_reading_result(
+                request,
+                command,
+                env,
+                self.command_runner or _run_subprocess_capturing,
+                sleep,
+                jitter,
+            )
+        run_command = self.command_runner or _run_subprocess
 
         for attempt in range(1, self.max_attempts + 1):
             result = run_command(command.argv, env)
@@ -1190,6 +1292,139 @@ class AgenticRunner:
         # Unreachable: the loop returns on success or raises on the final attempt;
         # max_attempts >= 1 (RunnerConfig / the field) guarantees one iteration.
         raise AssertionError("retry loop exited without a result")  # pragma: no cover
+
+    def _run_reading_result(
+        self,
+        request: RunRequest,
+        command: EngineCommand,
+        env: Mapping[str, str],
+        run_command: CommandRunner,
+        sleep: Callable[[float], None],
+        jitter: Callable[[float], float],
+    ) -> list[Path]:
+        """The retry loop for an engine whose fault can arrive with a zero exit.
+
+        The cell workflows' gemini step takes the same turns under the same
+        rules (``scripts/gemini-cell.sh``), so a back-test cell and a live cell
+        meet a bad stream alike:
+
+        * **Every attempt is classified** by :func:`classify_engine_attempt`,
+          over its exit code, its result object and its stderr; only a
+          ``transient`` verdict retries, under this runner's backoff and
+          attempt cap.
+        * **Only from a clean output root.** The cell's output root is
+          snapshotted before the first attempt and reset to that snapshot
+          before each retry, so a half-written file from a failed turn is never
+          read as the retry's output. An attempt that produced the cell's
+          judgment artifact, or wrote its ``flags.json``, is never retried —
+          the retry would discard the one or know nothing of the other — and
+          nor is one whose root could not be snapshotted or reset.
+
+        A zero-exit attempt that is not retried keeps what it produced, as the
+        cell step does. One that produced nothing raises instead, so the caller
+        records a classified failure rather than a cell that silently wrote
+        nothing: :class:`EngineQuotaExhausted` for a spent quota,
+        :class:`EngineFailed` otherwise. A non-zero exit raises as the shared
+        loop does.
+        """
+        role = (
+            FinalizeRole.predict if request.role == UsageRole.predictor else FinalizeRole.evaluate
+        )
+        events = request.event_paths
+        flags = (
+            events.prediction_flags(request.actor_id, request.run_id)
+            if role is FinalizeRole.predict
+            else events.evaluation_flags(request.actor_id, request.run_id)
+        )
+        root = cell_output_root(
+            role,
+            data_root=request.data_root,
+            court=request.court_id,
+            docket=request.docket_id,
+            event=request.event_id,
+            actor=request.actor_id,
+            run_id=request.run_id,
+        )
+        snapshot: OutputSnapshot | None
+        try:
+            snapshot = snapshot_output_root(root)
+        except (OSError, ValueError):
+            snapshot = None
+        cell = f"{request.actor_id}/{request.event_id}"
+
+        for attempt in range(1, self.max_attempts + 1):
+            result = run_command(command.argv, env)
+            verdict = classify_engine_attempt(result.returncode, result.stdout, result.stderr)
+            if verdict is AttemptClass.ok:
+                return _produced_artifacts(request)
+            produced = agent_produced_output(
+                role,
+                data_root=request.data_root,
+                court=request.court_id,
+                docket=request.docket_id,
+                event=request.event_id,
+                actor=request.actor_id,
+                run_id=request.run_id,
+            )
+            base = f"{self.backend} exited {result.returncode} for cell {cell}"
+            if result.returncode == 0:
+                fault = _result_fault_type(result.stdout)
+                base += f" reporting a {verdict.value} fault" + (f" ({fault})" if fault else "")
+            if verdict is AttemptClass.terminal_quota and (result.returncode != 0 or not produced):
+                raise EngineQuotaExhausted(
+                    f"{base} (terminal quota: the engine's quota is exhausted "
+                    "and no retry can clear it)"
+                )
+            reason = self._retry_refusal(
+                verdict, attempt, produced=produced, snapshot=snapshot, flags=flags
+            )
+            if reason is None:
+                sleep(
+                    _backoff_delay(
+                        attempt, result, self.backoff_base_seconds, self.backoff_max_seconds, jitter
+                    )
+                )
+                continue
+            if result.returncode == 0 and produced:
+                sys.stderr.write(f"{base}; not retried: {reason}; keeping its output\n")
+                return _produced_artifacts(request)
+            raise EngineFailed(f"{base} ({reason})" if verdict is AttemptClass.transient else base)
+        raise AssertionError("retry loop exited without a result")  # pragma: no cover
+
+    def _retry_refusal(
+        self,
+        verdict: AttemptClass,
+        attempt: int,
+        *,
+        produced: bool,
+        snapshot: OutputSnapshot | None,
+        flags: Path,
+    ) -> str | None:
+        """Why a failed attempt is not retried, or ``None`` once its root is reset for one.
+
+        The checks run in the cell step's order, and the reset is the last of
+        them: a root is only cleared once nothing in it is worth keeping.
+        """
+        refusal: str | None = None
+        if verdict is not AttemptClass.transient:
+            refusal = "the fault is not a transient one"
+        elif attempt >= self.max_attempts:
+            refusal = f"transient failure after {attempt} attempts, retry budget exhausted"
+        elif produced:
+            refusal = "the attempt produced the cell's output, which a retry would discard"
+        elif snapshot is None:
+            refusal = "the output root could not be snapshotted, so it cannot be reset"
+        elif flags.is_file() and _added_since(snapshot, flags):
+            refusal = (
+                "the attempt wrote the cell's flags.json, "
+                "a disclosure a fresh session would know nothing of"
+            )
+        else:
+            try:
+                reset_output_root(snapshot)
+            except (OSError, ValueError):
+                refusal = "the output root could not be reset to its snapshot"
+        return refusal
 
 
 @dataclass(frozen=True)
@@ -1320,6 +1555,9 @@ class GeminiRunner(AgenticRunner):
     backend: str = "gemini"
     engine: Engine = Engine.gemini
     model: str = _GEMINI_MODEL
+    # gemini-cli ends a turn whose stream went bad (INVALID_STREAM) with a zero
+    # exit and the fault inside its JSON result.
+    reads_result: ClassVar[bool] = True
     auth_vars: tuple[str, ...] = (
         "GEMINI_API_KEY",
         "GOOGLE_API_KEY",
