@@ -150,6 +150,7 @@ from .dataset_export import (
     with_docket_numbers,
     write_bundle,
 )
+from .dispatch_chain import ChainMode, chain_step, forecast_relevance
 from .disposition_convergence import converge_disposition_labels
 from .docket_marking_migration import normalize_docket_markings
 from .finalize import (
@@ -341,6 +342,9 @@ from .pipeline.salience import (
     unlatch_overselected,
 )
 from .pipeline.scope_reconcile import reconcile_predict_scope
+from .planning_rates import PLANNING_RATES_USD_PER_CELL as _PLANNING_RATES_USD_PER_CELL
+from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
+from .planning_rates import price_cells
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .promotion_body import Batch, batch_prs, render, same_body, splice
 from .registry import (
@@ -358,6 +362,8 @@ from .release_sensitivity import (
     render_table,
 )
 from .required_checks import produced_contexts
+from .review_hold import decide_from_files as decide_hold_from_files
+from .review_hold import render_summary as render_hold_summary
 from .salience_replay import replay_gate
 from .schemas import (
     EXPORTABLE_MODELS,
@@ -16387,40 +16393,6 @@ def evaluate_matrix_cmd(
     typer.echo(json.dumps(fanout.matrix, separators=(",", ":")))
 
 
-#: The **fallback** per-cell rate: the ~$15 a fully-tournamented case costs,
-#: divided across its design mix of six cells. It prices a cell whose engine the
-#: table below does not name — a new engine, or a registry entry ahead of the
-#: table — so a plan never silently drops such a cell from its total. Re-anchor
-#: it when the table below moves.
-_PLANNING_USD_PER_CELL = 2.50
-
-#: Per-cell rates in USD, keyed (seam, engine) — the source for every spend
-#: figure a plan prints; ``docs/budget.md`` sizes the program from measurements
-#: like these, not the other way round. The predict row is measured: one stamped
-#: fan-out, 81 cells over 27 events, since re-based out of the frozen partition
-#: by the predictor re-blesses that followed it. The evaluate row is the
-#: better-matched of the two pre-freeze cert-stage anchors — the ``proc-v2``
-#: grading — scaled by the whole predict move (x1.218), the same scaling the
-#: per-case derivation uses. The other stamped evaluate gradings are
-#: interim-stage, graded before the current instant under superseded evaluator
-#: digests, so they re-anchor nothing here; see the caveats below. The two sum
-#: to $6.79 + $8.18 = $14.97 a case, which the $2.50 fallback is the six-cell
-#: rounding of — so a full three-engine, both-seam fan-out prices within a cent
-#: either way. ``docs/budget.md``'s $15-17 per fully predicted event is that
-#: same total rounded up, carrying the headroom the codex row's pending
-#: re-anchor needs (the caveats below): one table, described twice, not two
-#: measurements. What conditioning buys is the *narrowed* plan: within a seam the
-#: engines differ ~7x, so an engine-narrowed backfill priced at the flat rate is
-#: wrong by up to ~4x.
-#:
-#: Engine keys, not actor ids: a cell carries its resolved ``engine``, and the
-#: per-actor measurements behind these rows are one actor per engine in the
-#: shipped registries.
-_PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
-    "predict": {"claude-code": 4.27, "codex": 1.88, "gemini": 0.64},
-    "evaluate": {"claude-code": 5.92, "codex": 1.30, "gemini": 0.96},
-}
-
 #: What the rates above can and cannot support, carried on every plan beside the
 #: number so the estimate is never read as a measurement of this run. Keyed by
 #: seam where the standing differs; :func:`_shared_spend_caveats` adds the rest.
@@ -16541,14 +16513,7 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
     than as a cell missing from the total.
     """
     rates = _PLANNING_RATES_USD_PER_CELL[seam]
-    total = 0.0
-    at_fallback = 0
-    for cell in cells:
-        rate = rates.get(str(cell["engine"]))
-        if rate is None:
-            rate = _PLANNING_USD_PER_CELL
-            at_fallback += 1
-        total += rate
+    total, at_fallback = price_cells(cells, seam=seam)
     caveats = list(_SPEND_BASIS_CAVEATS[seam]) + _shared_spend_caveats(seam)
     if seam == "predict":
         caveats.append(
@@ -16578,7 +16543,7 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
         # lives inside the basis block, named as the fallback it is.
         "spend_estimate_basis": {
             "source": (
-                "fedcourtsai.cli._PLANNING_RATES_USD_PER_CELL — the predict "
+                "fedcourtsai.planning_rates.PLANNING_RATES_USD_PER_CELL — the predict "
                 "whole-run measurement, and the evaluate pre-freeze cert-stage "
                 "anchor (the proc-v2 grading, scaled by the predict move)"
             ),
@@ -16586,7 +16551,7 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
             "rates_usd_per_cell": dict(rates),
             "fallback_usd_per_cell": _PLANNING_USD_PER_CELL,
             "fallback_source": (
-                "fedcourtsai.cli._PLANNING_USD_PER_CELL (~$15 per "
+                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$15 per "
                 "fully-tournamented case over a six-cell design mix)"
             ),
             "cells_at_fallback_rate": at_fallback,
@@ -17330,6 +17295,171 @@ def promotion_body_cmd(
         if exit_unchanged and same_body(existing, block):
             raise typer.Exit(code=3)
     typer.echo(block)
+
+
+@app.command("hold-decision")
+def hold_decision_cmd(
+    plan_file: Annotated[
+        Path,
+        typer.Option("--plan-file", help="The round's `predict-plan` JSON document."),
+    ],
+    matrix_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--matrix-file",
+            help=(
+                "The `predict-matrix` document the round minted. Auto-release needs "
+                "it to hold exactly the plan's would-mint cells, and prices it too; "
+                "omitted or unreadable keeps the hold."
+            ),
+        ),
+    ] = None,
+    deployments_released: Annotated[
+        int | None,
+        typer.Option(
+            "--deployments-released",
+            help=(
+                "`review-auto` deployments in the trailing 24 hours. Omit when it "
+                "could not be read: an unknown count keeps the review hold."
+            ),
+        ),
+    ] = None,
+    main_subjects_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--main-subjects-file",
+            help=(
+                "Subjects of the commits on `main` in the trailing 24 hours, one per "
+                "line; the auto-released ones are counted. Omit when they could not "
+                "be read: an unknown count keeps the review hold."
+            ),
+        ),
+    ] = None,
+    summary_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--summary-file",
+            help="Also append the decision's step-summary block to this file.",
+        ),
+    ] = None,
+) -> None:
+    """Decide whether a predict round skips the review hold, and whether to chain another.
+
+    Reads the round's plan and minted matrix and `config/review-hold.yaml`'s
+    caps, and prints a `HoldDecision`: `auto_release` (the matrix holds exactly
+    the plan's cells, their price is within the per-round cap, and the rounds
+    auto-released in the last 24 hours, the larger of the deployment count and
+    the auto-released commits on `main`, are under the daily cap) and
+    `drain_more` (a cap stopped the round short of the backlog, so another round
+    is owed as soon as this one's output lands). Fails closed: a disabled cap, an
+    unreadable count, a missing matrix or a plan with no estimate keeps the hold.
+    Spends nothing and reads no corpus.
+    """
+    settings = get_settings()
+    try:
+        plan = json.loads(plan_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        typer.echo(f"hold-decision: cannot read the plan at {plan_file}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    if not isinstance(plan, dict):
+        typer.echo(f"hold-decision: the plan at {plan_file} is not a JSON object", err=True)
+        raise typer.Exit(code=1)
+    if deployments_released is not None and deployments_released < 0:
+        typer.echo("hold-decision: --deployments-released cannot be negative", err=True)
+        raise typer.Exit(code=1)
+    decision = decide_hold_from_files(
+        plan,
+        settings.config_root,
+        deployments_released=deployments_released,
+        main_subjects_file=main_subjects_file,
+        matrix_file=matrix_file,
+    )
+    if summary_file is not None:
+        with summary_file.open("a", encoding="utf-8") as handle:
+            handle.write(render_hold_summary(decision))
+    typer.echo(decision.model_dump_json())
+
+
+@app.command("window-forecast-relevance")
+def window_forecast_relevance_cmd(
+    changes_file: Annotated[
+        Path,
+        typer.Option(
+            "--changes-file",
+            help=(
+                "The window commit's changed paths as `--name-status` lines "
+                "(`<status>\\t<path>`), against its first parent."
+            ),
+        ),
+    ],
+) -> None:
+    """Say whether a pull window's commit should start a predict round.
+
+    Prints a `Relevance`: relevant when the commit added or changed an event
+    record (`data/cases/<court>/<docket>/events/<event>/event.yaml`) or moved
+    anything under `data/scope/`. A corpus pointer bump alone is not relevant.
+    An unreadable file exits non-zero, so the calling step records no relevance
+    and the chain does not fire.
+    """
+    try:
+        lines = changes_file.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        typer.echo(f"window-forecast-relevance: cannot read {changes_file}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    changes = []
+    for line in lines:
+        status, _, path = line.partition("\t")
+        if path:
+            changes.append((status, path))
+    typer.echo(forecast_relevance(changes).model_dump_json())
+
+
+@app.command("chain-step")
+def chain_step_cmd(
+    mode: Annotated[ChainMode, typer.Option(help="pull | drain: which chain job asks.")],
+    repo: Annotated[str, typer.Option(help="The `owner/name` the chain dispatches in.")],
+    promotion_prs_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--promotion-prs-file",
+            help="The open PRs against `main` (REST list). Omitted stands the chain down.",
+        ),
+    ] = None,
+    collect_prs_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--collect-prs-file",
+            help="Drain mode: this round's collect PR (REST list, newest first).",
+        ),
+    ] = None,
+    attempt: Annotated[int, typer.Option(min=1, help="Drain mode: this attempt's number.")] = 1,
+    max_attempts: Annotated[int, typer.Option(min=1, help="Drain mode: the last attempt.")] = 40,
+) -> None:
+    """Decide one step of a dispatch-chain job: dispatch, wait, or stop.
+
+    Prints a `ChainStep` (`action`, `reason`). The chain stands down while a
+    ready promotion PR is open, or when the open PRs could not be read; in drain
+    mode it dispatches only once this round's collect PR has merged.
+    """
+
+    def _read_list(path: Path | None) -> list[Any] | None:
+        if path is None:
+            return None
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        return loaded if isinstance(loaded, list) else None
+
+    step = chain_step(
+        mode,
+        repo=repo,
+        promotion_pulls=_read_list(promotion_prs_file),
+        collect_pulls=_read_list(collect_prs_file),
+        attempt=attempt,
+        max_attempts=max_attempts,
+    )
+    typer.echo(step.model_dump_json())
 
 
 @app.command("evaluate-plan")
@@ -18686,6 +18816,15 @@ def collect_plan_cmd(
             "at all are named in the PR body and withhold the issue close."
         ),
     ] = None,
+    auto_released: Annotated[
+        bool,
+        typer.Option(
+            "--auto-released",
+            help="The round skipped the review hold under its auto-release caps: the "
+            "ready commit's subject carries the auto-released mark that the daily "
+            "cap is counted from on `main`.",
+        ),
+    ] = False,
 ) -> None:
     """Emit the per-run aggregate PR decision as compact JSON.
 
@@ -18724,6 +18863,7 @@ def collect_plan_cmd(
         role,
         run_id=run_id,
         cells=cells,
+        auto_released=auto_released,
         issue=issue or None,
         flags=_load_flag_sets(status_dir, run_id),
         # A lost artifact leaves no status.json, so it is invisible to the cell

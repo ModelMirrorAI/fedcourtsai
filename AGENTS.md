@@ -92,7 +92,7 @@ non-interactive** container. Two consequences shape everything you do:
   call, and the better one when the change is large, novel, or rewrites a
   contract others read. Use judgement; say which you chose in the PR
   description.
-  **Four kinds of change still wait for the maintainer even into `staging`**,
+  **Five kinds of change still wait for the maintainer even into `staging`**,
   because a green gate is weakest evidence exactly where they are strongest
   risk: anything under `.github/workflows/` or `.github/actions/` (the
   permission surface), `SECURITY.md` or the security posture it describes, the
@@ -100,11 +100,29 @@ non-interactive** container. Two consequences shape everything you do:
   `sync-staging.yml`, ci.yml's gate jobs, and the lane machinery that decides
   which of the gate's checks a change gets: `scripts/gate.sh`,
   `scripts/ci_lane.py`, `tests/test_ci_lane.py`, `tests/lane_guard.py` and its
-  registration in `tests/conftest.py`), and `config/predictors.yaml` /
-  `config/evaluators.yaml` (what agents are and what they may reach). Open
-  those, get them green, and report them ready.
-  The branch rulesets do not encode this: both require zero approvals, so the
-  discipline is yours to keep, not the platform's to enforce.
+  registration in `tests/conftest.py`), `config/predictors.yaml` /
+  `config/evaluators.yaml` (what agents are and what they may reach), and the
+  authority to spend without a human release: `config/review-hold.yaml` (the
+  auto-release caps), `src/fedcourtsai/planning_rates.py` (the rates a round
+  is priced at), `src/fedcourtsai/review_hold.py` and
+  `src/fedcourtsai/dispatch_chain.py` (the decisions), and their tests
+  (`tests/test_review_hold.py`, `tests/test_dispatch_chain.py`,
+  `tests/test_workflow_dispatch_chain.py`, `tests/test_workflow_agent_bot.py`).
+  A raised cap or a lowered rate lets more spend run unattended, which is why
+  it is not a configuration change like any other. Open those, get them
+  green, and report them ready.
+  The `staging` ruleset encodes this through `.github/CODEOWNERS` for every
+  identity that does not hold the admin role — Dependabot's workflow bumps, the
+  sync PR and any second collaborator: a PR touching an owned path needs the
+  maintainer's code-owner review before it can merge. It does **not** bind an
+  interactive session: such a session acts as the maintainer's own account,
+  which owns those paths and holds the admin bypass, so for you this rule is
+  still discipline. That includes reviews: **never submit an approving review
+  on a PR that touches an owned path**, whoever opened it. An approval from the
+  maintainer's account satisfies the code-owner rule outright, with no bypass
+  and nothing in the record to tell it from the maintainer's own. The discipline also covers
+  what a path cannot name — a change that alters the security posture from
+  outside the owned files. Open either kind and report it ready rather than merging it.
 - **When you merge it yourself, the reviewer subagents are the only review a
   `staging` merge gets.** With the maintainer out of the loop, "run the
   relevant reviewer(s)" below stops
@@ -214,10 +232,10 @@ staging  ──●──●────●────●────●──�
 
 Both `main`→`staging` syncs and `staging`→`main` promotions are merge commits;
 your own feature PR may squash. Data commits bypass `staging` entirely. The
-diagram is not a licence to self-merge anything: the four change classes named
+diagram is not a licence to self-merge anything: the five change classes named
 in the golden rules — the permission surface, the security posture, the
-promotion gate, the agent configs — wait for the maintainer even into
-`staging`.
+promotion gate, the agent configs, the unattended-spend authority — wait for
+the maintainer even into `staging`.
 
 Then work the task in three beats:
 
@@ -346,7 +364,8 @@ same PR.
   labeled`, so a label starts nothing and an issue is a description of work
   rather than a request for a run. The lanes wake on their own schedules and
   derive what they owe from committed state; starting one early is a
-  `workflow_dispatch`, which is the maintainer's (see the next bullet).
+  `workflow_dispatch`, which is the maintainer's or a chain job's, never yours
+  (see the next bullet).
 - **You cannot dispatch a workflow.** The repo-scoped token an interactive
   session holds is refused (403) on `workflow_dispatch`, even where it can read
   the run history and push branches. So `gh workflow run …` is never your step:

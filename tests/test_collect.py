@@ -14,6 +14,7 @@ import pytest
 from fedcourtsai import retrieval
 from fedcourtsai.blinding import neutral_tool_class
 from fedcourtsai.collect import (
+    AUTO_RELEASED_MARKER,
     CODE_MODE_PARENT_TOOL,
     CODE_MODE_SHELL_BUILTINS,
     CellStatus,
@@ -47,6 +48,7 @@ from fedcourtsai.collect import (
     union_cell_tree,
 )
 from fedcourtsai.finalize import FinalizeRole
+from fedcourtsai.review_hold import count_auto_released
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
@@ -404,6 +406,28 @@ def test_union_of_a_symlinked_source_root_is_empty(tmp_path: Path) -> None:
 
 
 # --- collect plan ----------------------------------------------------------
+
+
+def test_an_auto_released_round_marks_its_ready_commit_and_nothing_else() -> None:
+    """The daily auto-release cap is counted from `main`'s commit subjects, so
+    the mark rides the ready commit's subject (which a squash of the one-commit
+    PR keeps) and the title; a held round carries no mark, and the draft PR,
+    which never auto-merges, carries none either."""
+
+    cells = [_cell("claude-baseline"), _cell("codex-baseline", validated=False)]
+    released = collect_plan(
+        FinalizeRole.predict, run_id="20261012T141200Z", cells=cells, auto_released=True
+    )
+    held = collect_plan(FinalizeRole.predict, run_id="20261012T141200Z", cells=cells)
+    assert released.ready is not None and held.ready is not None
+    assert released.ready.commit_message.endswith(AUTO_RELEASED_MARKER)
+    assert released.ready.title.endswith(AUTO_RELEASED_MARKER)
+    assert AUTO_RELEASED_MARKER not in held.ready.commit_message
+    assert released.partial is not None
+    assert AUTO_RELEASED_MARKER not in released.partial.commit_message
+    # The counter reads the subject exactly as a squash merge lands it.
+    assert count_auto_released([f"{released.ready.commit_message} (#2400)"]) == 1
+    assert count_auto_released([f"{held.ready.commit_message} (#2400)"]) == 0
 
 
 def test_all_ready_opens_one_ready_pr_no_draft() -> None:

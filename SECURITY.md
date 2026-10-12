@@ -336,7 +336,15 @@ runbook, [docs/security.md](docs/security.md).
   carve-out `docs/security.md` describes) resolve an off-list ref to an empty
   auto-created environment the role trusts do not name, failing closed at the
   first credential instead. That is why no lane carries an actor gate of its
-  own: there is no trigger for one to judge.
+  own: there is no trigger for one to judge. Two jobs dispatch a lane
+  themselves — `run-pull`'s `chain-predict` and `run-predict`'s `chain`, each
+  starting an input-less `run-predict` on `main` with the **dispatch App**,
+  whose token holds Actions write (and PR read) and nothing else and whose key
+  only `main`'s code can mint. A dispatch from it enters through the same gate
+  as a maintainer's and reaches the same code; the round it starts still waits
+  on the review hold unless its own plan is within the auto-release caps. The
+  pull window chains only on a forecast-relevant change, and neither job
+  dispatches while a promotion PR is ready.
   Three workflows *do* take an outside-reachable trigger — `ci.yml`,
   `lint-actions.yml` and `codeql.yml` on `pull_request`, which any fork
   contributor fires — and they are the shape that makes the rule readable rather
@@ -349,33 +357,61 @@ runbook, [docs/security.md](docs/security.md).
   two, and requires every job that mints a token, assumes a role, or runs an
   agent to bind one of the branch-policied environments — so a workflow added
   later inherits the boundary. Behind all of it the `review` hold remains the
-  thing between a plan and any spend, on every round alike.
+  thing between a plan and any spend, on every round alike — save one bounded
+  carve-out: a predict round whose own plan is within the auto-release caps
+  (`config/review-hold.yaml`; 0, so off, unless a maintainer sets them) binds
+  the reviewer-less `review-auto` instead. The caps bound **estimated** spend
+  (the planning rates over the round's own minted matrix); actual spend can
+  exceed the estimate, since retries spend and the rates price some engines
+  low. The `spend` backstop stands behind both, but it is **ex post**: it reads
+  the collected ledger, so it lags the rounds it bounds and stops the next
+  round, never the current one. The caps, the planning rates and the decision
+  code are maintainer-owned (`.github/CODEOWNERS`). The daily cap counts the
+  larger of two records, the `review-auto` deployments and the auto-released
+  collect commits on `main`. A write holder, which includes an interactive
+  agent session acting as the maintainer, can prune the deployment list or edit
+  an unmerged collect PR, so each record alone is tamperable; `main`'s history
+  is not, once a round's commit has landed.
   The claude/codex agent steps on `run-predict` / `run-evaluate` allow exactly
-  one bot login through their own actor checks (the claude action's
+  two bot logins through their own actor checks (the claude action's
   `allowed_bots`, the codex action's `allow-bot-users`), pinned to the data
-  App's own login and never `*`. Those actions refuse a bot actor by default,
-  and an unattended round's actor is not a requester at all — it is whatever
+  App's and the dispatch App's own logins and never `*`. Those actions refuse
+  a bot actor by default, and an unattended round's actor is not a requester at all — it is whatever
   GitHub attributes the cron to, which on a repo whose deterministic writers
   push to the default branch can be that login — so the grant is what keeps a
   round from dying on an attribution it does not control.
   `tests/test_workflow_agent_bot.py` locks the pin in. It grants nothing a
   round could not already do: the round is running because a cron or a
   write-gated dispatch started it, and it spends only if a reviewer releases
-  the hold. The gemini steps and `run-backtest` set no such allowance.
+  the hold or its plan is within the auto-release caps. The allowance also
+  names the dispatch App's login, since a chained predict round runs as that
+  App; `run-evaluate` and the action-path smoke carry the same pair because the
+  cells' invocation surface is held in lockstep. The App's token holds
+  `actions: write`, which could start any workflow; the two chain jobs that
+  mint it start nothing but `run-predict`, pinned by
+  `tests/test_workflow_dispatch_chain.py`. The gemini steps and `run-backtest` set no such
+  allowance.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
   is the sole bypass actor, so the deterministic writer jobs (`run-pull`,
   `run-seed`, `run-repair`) push corpus facts
   straight to `main` while everything agentic goes through that PR — enforced
   by identity, since the agent workflows authenticate as a separate,
-  non-bypass **dev App**. Both rulesets require **zero** approving reviews, so
-  maintainer review is a convention `AGENTS.md` carries, not something the
-  platform enforces. Code and config reach `main` only as a gated promotion
-  batch from `staging`, whose own ruleset requires a PR passing `gate` and
-  `paths` (sole bypass: the repository admin role, for the maintainer's
+  non-bypass **dev App**. `main`'s ruleset requires **zero** approving reviews,
+  so maintainer review of a promotion is a convention `AGENTS.md` carries, not
+  something the platform enforces. Code and config reach `main` only as a gated
+  promotion batch from `staging`, whose own ruleset requires a PR passing `gate`
+  and `paths` (sole bypass: the repository admin role, for the maintainer's
   deterministic sync push — no App bypasses it, and the `sync-staging`
   workflow's write token reaches the branch only through a PR that satisfies
-  the same checks). A ruleset with **no** bypass blocks force-pushes and branch
+  the same checks). On the paths `.github/CODEOWNERS` names — the permission
+  surface, this security posture and its authorization check, the promotion
+  gate and lane machinery, and the agent configs — it also requires a code
+  owner's review. That review binds every identity but the admin role, which
+  interactive agent sessions share with the maintainer, so for them it stays
+  discipline: such a session neither merges an owned-path PR through the
+  bypass nor approves one, since its approval would read as the
+  maintainer's. A ruleset with **no** bypass blocks force-pushes and branch
   deletion for everyone, so the committed *history* of the predictions,
   outcomes, and evaluations under `data/` is immutable — every forward change
   is a new, attributable commit. Forward deletions of ledger records are
@@ -397,7 +433,9 @@ runbook, [docs/security.md](docs/security.md).
   run-backtest and summarize all bind it; one environment serves every spend
   hold rather than each minting its own. What each hold covers differs by what
   the trigger already gates: the two fan-outs and summarize put every run
-  behind it, scheduled or dispatched, while run-backtest
+  behind it, scheduled or dispatched — except a predict round auto-released
+  within the auto-release caps, which binds the reviewer-less `review-auto`,
+  whose deployments are one of the daily cap's two counts — while run-backtest
   holds its **scheduled** fortnight and lets a `workflow_dispatch` through, since
   a dispatch is a human choosing the parameters and its `engine` input defaults
   to the free offline stub. The promotion gate's

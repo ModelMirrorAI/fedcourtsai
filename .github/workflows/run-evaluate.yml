@@ -752,10 +752,13 @@ jobs:
           # default. This workflow's rounds are unattended, so their actor is not
           # a requester at all — it is whatever GitHub attributes the cron to,
           # which on a repo whose deterministic writers push to the default
-          # branch can be the pipeline App's own login. Allow exactly that one
-          # login (never `*`) so a round cannot die on an attribution it does not
-          # control; what gates the spend is the `review` hold, not this setting.
-          allowed_bots: "fedcourtsai-data[bot]"
+          # branch can be the pipeline App's own login. The dispatch App's login
+          # rides along because the cells' invocation surface is held in
+          # lockstep with run-predict's, where a chained round runs as it. Allow
+          # exactly those two logins (never `*`) so a round cannot die on an
+          # attribution it does not control; what gates the spend is the
+          # `review` hold, not this setting.
+          allowed_bots: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           # Auth is the Anthropic API key (pay-per-token): automated pipeline
           # inference is API-metered by design (see docs/budget.md), and per
           # Anthropic policy the Max subscription OAuth token is for interactive
@@ -840,9 +843,10 @@ jobs:
           # `.codex`, where the teardown step surfaces the rollout for it.
         with:
           # As with the Claude step: let a round GitHub attributes to the
-          # pipeline App's login (`fedcourtsai-data[bot]`) past codex-action's
-          # write-access check, which a bot installation fails.
-          allow-bot-users: "fedcourtsai-data[bot]"
+          # pipeline App's login (`fedcourtsai-data[bot]`), or the dispatch App's
+          # held in lockstep with run-predict, past codex-action's write-access
+          # check, which a bot installation fails.
+          allow-bot-users: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           # The same kickoff prompt as the Claude and Gemini steps (identifiers
           # inline — the engines' methodology stays comparable, and the contract

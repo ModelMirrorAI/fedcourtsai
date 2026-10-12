@@ -233,6 +233,15 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
             )
 
 
+# The hold's one routed form: a round whose own plan auto-released it binds the
+# reviewer-less `review-auto`, every other round binds `review`.
+AUTO_RELEASED_HOLD = {
+    "run-predict.yml": (
+        "${{ needs.plan.outputs.auto_release == 'true' && 'review-auto' || 'review' }}"
+    ),
+}
+
+
 def test_the_agent_cells_sit_behind_the_review_hold() -> None:
     """The spend gate, which sits behind the trigger rather than in it.
 
@@ -240,10 +249,16 @@ def test_the_agent_cells_sit_behind_the_review_hold() -> None:
     required reviewers do. Every job that hands control to a coding agent must
     therefore wait on the `approval` hold job, or a round would spend the moment
     its cron fired.
+
+    The one exception is spelled exactly: a predict round its own plan job
+    auto-released (`hold-decision`, within `review_hold`'s caps) binds the
+    reviewer-less `review-auto` instead. Any other expression — one keyed on a
+    trigger, an input, or anything but the plan's decision — fails here.
     """
     for name in AGENT_FAN_OUTS:
         wf = _load(name)
-        assert wf["jobs"]["approval"]["environment"] == "review", (
+        allowed = {"review", AUTO_RELEASED_HOLD.get(name, "review")}
+        assert wf["jobs"]["approval"]["environment"] in allowed, (
             f"{name}'s hold must bind the `review` environment"
         )
         agent_jobs = [
@@ -262,6 +277,26 @@ def test_the_agent_cells_sit_behind_the_review_hold() -> None:
             assert "approval" in needs, (
                 f"{name}:{job_name} runs an agent without waiting on the review hold"
             )
+
+
+def test_the_auto_release_output_comes_only_from_the_hold_decision() -> None:
+    """The routed hold above trusts `needs.plan.outputs.auto_release`, so pin
+    where that value is made: the plan job's `hold` step, which runs the tested
+    `fedcourts hold-decision` and writes nothing else to that output. A later
+    edit that fed the output from an input, a variable or another step would
+    route a round past the reviewers without the caps' say-so."""
+    plan = _load("run-predict.yml")["jobs"]["plan"]
+    assert plan["outputs"]["auto_release"] == "${{ steps.hold.outputs.auto_release }}"
+    holds = [step for step in _steps(plan) if step.get("id") == "hold"]
+    assert len(holds) == 1
+    run = str(holds[0].get("run", ""))
+    assert "uv run fedcourts hold-decision" in run
+    assert run.count("auto_release=") == 1
+    assert "auto_release=$(jq -r '.auto_release' <<<\"$decision\")" in run
+    # No other step in the job writes that output.
+    for step in _steps(plan):
+        if step.get("id") != "hold":
+            assert "auto_release=" not in str(step.get("run", ""))
 
 
 def test_the_scheduled_back_test_spends_only_behind_the_review_hold() -> None:

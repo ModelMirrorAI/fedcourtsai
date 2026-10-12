@@ -9,6 +9,7 @@ caller where it is reviewable next to the trigger, and that the two call sites
 differ by nothing but their role.
 """
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +68,13 @@ def test_no_workflow_reimplements_collect_inline() -> None:
             )
 
 
+def _held_environment(environment: str) -> str:
+    """The environment a held round binds: a literal, or a routed expression's
+    fallback arm (`... || '<held>' }}`)."""
+    routed = re.search(r"\|\|\s*'([^']+)'\s*}}$", environment)
+    return routed.group(1) if routed else environment
+
+
 def test_the_hold_environment_name_agrees_with_the_report_it_gates() -> None:
     """The renderer's closing line names the environment a reviewer must find
     in the Actions UI, and the promotion gate greps for the same binding — a
@@ -74,9 +82,14 @@ def test_the_hold_environment_name_agrees_with_the_report_it_gates() -> None:
     not exist, exactly the drift a reader would have to catch otherwise. The
     same pass pins that every fan-out binds the one environment: a hold that
     minted its own would fork the approver's surface and escape the gate's
-    reviewer check."""
+    reviewer check.
+
+    A hold routed by the plan's auto-release decision is read by its held arm —
+    the environment a round binds when it does wait — since that is the one an
+    approver is pointed at."""
     environments = {
-        name: _load(WORKFLOWS / name)["jobs"]["approval"]["environment"] for name in FAN_OUTS
+        name: _held_environment(_load(WORKFLOWS / name)["jobs"]["approval"]["environment"])
+        for name in FAN_OUTS
     }
     assert len(set(environments.values())) == 1, (
         f"one `review` environment serves every spend hold, got {environments}"
@@ -119,11 +132,22 @@ def test_the_two_call_sites_differ_only_by_role() -> None:
     assert "needs.approval.result == 'success'" in evaluate_if
     assert predict_if == evaluate_if
 
-    # The delegating step differs only in `role`; normalize it out, then the two
-    # jobs must be byte-equal — setup steps, permissions, timeout, everything.
-    def _normalized(job: dict[str, Any]) -> dict[str, Any]:
+    # The delegating step differs only in `role` and, on predict alone, the
+    # auto-released mark the review hold's daily cap is counted from (evaluate
+    # has no auto-release, so it leaves the input at its `false` default).
+    # Normalize both out, then the two jobs must be byte-equal — setup steps,
+    # permissions, timeout, everything.
+    def _call(job: dict[str, Any]) -> dict[str, Any]:
         call = next(s for s in _steps(job) if s.get("uses", "").endswith("collect-run"))
-        call["with"] = {k: v for k, v in call["with"].items() if k != "role"}
+        assert isinstance(call, dict)
+        return call
+
+    assert _call(predict)["with"]["auto-released"] == "${{ needs.plan.outputs.auto_release }}"
+    assert "auto-released" not in _call(evaluate)["with"]
+
+    def _normalized(job: dict[str, Any]) -> dict[str, Any]:
+        call = _call(job)
+        call["with"] = {k: v for k, v in call["with"].items() if k not in {"role", "auto-released"}}
         return job
 
     assert _normalized(predict) == _normalized(evaluate), (
