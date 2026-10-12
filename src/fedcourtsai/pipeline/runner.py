@@ -643,8 +643,8 @@ def _under_the_ledger(data_root: Path) -> bool:
         return False
 
 
-def _admitted_workspace_root(data_root: Path) -> Path | None:
-    """The absolute output root a workspace-bounded engine must be admitted to.
+def _admitted_workspace_root(request: RunRequest) -> Path | None:
+    """The absolute case tree a workspace-bounded engine must be admitted to.
 
     ``None`` whenever there is nothing to admit: a cell writing to the ledger,
     which sits inside the launch directory already, and a path the OS refuses to
@@ -652,13 +652,21 @@ def _admitted_workspace_root(data_root: Path) -> Path | None:
     cannot be named absolutely either. One resolution answers both questions, so
     a caller never resolves a second time and raises out of command construction
     where that one swallowed.
+
+    Off the ledger the admitted directory is the cell's own case tree
+    (``<root>/cases/<court>/<docket>/``), never the whole output root: admission
+    also makes a directory a ``GEMINI.md`` discovery root, and the case tree is
+    everything the harness provisions for the cell and everything the kickoff
+    points it at, so a wider root would only widen which earlier cells' files can
+    instruct this one.
     """
-    if _under_the_ledger(data_root):
+    if _under_the_ledger(request.data_root):
         return None
     try:
-        return data_root.resolve()
+        root = request.data_root.resolve()
     except OSError:  # pragma: no cover - a path the OS refuses to resolve
         return None
+    return CasePaths(root, request.court_id, request.docket_id).base
 
 
 def _output_root_block(request: RunRequest) -> str:
@@ -1622,8 +1630,9 @@ class GeminiRunner(AgenticRunner):
     SHA-pinning policy rejects, so it is bypassed there too). Auth is the
     inherited ``GEMINI_API_KEY``; a headless run must trust the workspace
     explicitly (``GEMINI_CLI_TRUST_WORKSPACE=true``) or the CLI exits 55, and a
-    cell writing outside the workspace boundary its file tools enforce needs that
-    root passed as ``--include-directories`` (see :meth:`build_command`). As in
+    cell writing outside the workspace boundary its file tools enforce needs its
+    own case tree under that root passed as ``--include-directories`` (see
+    :meth:`build_command`). As in
     the workflow, the cell identifiers ride inline in the prompt: Gemini's CLI
     sanitizer runs strict whenever ``GITHUB_SHA`` is set and strips every custom
     env var from the agent's shell **unless the workspace's
@@ -1670,15 +1679,16 @@ class GeminiRunner(AgenticRunner):
         #
         # Admission is also what makes a directory a `GEMINI.md` context-file
         # discovery root — at startup, and again whenever a file tool touches a
-        # path under it — so the back-test's shared work root carries that
-        # channel alongside the checkout, which is one already;
-        # `run-backtest.yml` states the residual beside the root it creates. The
+        # path under it — so only the cell's own case tree is admitted (see
+        # :func:`_admitted_workspace_root`), never the shared work root; the
+        # checkout is a discovery root already, and `run-backtest.yml` states
+        # the residual beside the root it creates. The
         # CLI splits the value on commas (`coerce: coerceCommaSeparated`), so a
         # hand-passed `--work-dir` holding one is admitted as two directories
         # that do not exist and the cell degrades to the shell path rather than
         # failing; mktemp never produces one. Both are gemini-cli 0.49.0
         # behaviour — re-check on any CLI bump.
-        admitted = _admitted_workspace_root(request.data_root)
+        admitted = _admitted_workspace_root(request)
         if admitted is not None:
             argv += ["--include-directories", admitted.as_posix()]
         argv += [

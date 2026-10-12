@@ -7978,3 +7978,43 @@ freeze commit is recorded here.
   merge has landed a claude cell that used `WebFetch`, `jq -r '.calls[] |
   select(.tool=="WebFetch") | .query | split("\n")[0]'` over that cell's
   `retrieval_log.json` prints URLs, one per fetch.
+
+- **The cert back-test's Gemini cells are admitted their own case tree, not
+  their lane's work root; recorded 2026-10-12.** A **back-test harness**
+  entry. gemini-cli's file tools are bounded to the launch directory, so an
+  off-ledger cell's output root is passed to the CLI as an extra workspace
+  directory, and admission also makes that directory a `GEMINI.md`
+  context-file discovery root (read at startup, and again whenever a file
+  tool touches a path under it). Before this change the whole lane root,
+  `<work_dir>/gemini/`, was admitted, so a context file one gemini cell left
+  anywhere in the lane would have been read as instructions by every gemini
+  cell after it. From the carrying commit the runner admits only the cell's
+  own case tree, `<root>/cases/<court>/<docket>/`, which holds everything the
+  back-test provisions for the cell and everything its kickoff names. Gemini
+  cells for other events of the same case still share that tree, and the
+  checkout stays a discovery root for every gemini cell, as before. No
+  process digest moves (the admission is runner argv, which no digest
+  folds), no forward cell runs through it (a ledger cell is admitted
+  nothing, and its command line is unchanged), and claude and codex are
+  untouched.
+
+  **The reading rule.** A gemini cell's information set narrows only in
+  which context files can reach it. A cell that reached for a provisioned
+  input through its file tools reads the same files, and one that reached
+  outside its case tree through them falls back to the shell, as an
+  off-workspace path always has. A cert back-test before and after the
+  carrying commit is compared as before. No published figure moves. In
+  today's cert back-test each case tree holds exactly one gemini cell (one
+  event per case, one gemini predictor), so the shared-tree residual is
+  currently empty; a transient retry of the same cell reuses its tree, so the
+  only context file it could meet there is its own.
+
+  The runnable effect check once it is live: on `main`, `uv run pytest
+  tests/test_runner.py -k "admits_its_own_case_tree or
+  admission_holds_no_other_case"` passes (the runner does not log its argv,
+  so the tests are where the admitted path is read); and the next
+  `run-backtest` with the gemini lane lands its gemini cells with no file-tool
+  refusal for a path outside the workspace in the engine log.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).

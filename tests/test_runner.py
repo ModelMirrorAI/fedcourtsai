@@ -459,16 +459,18 @@ def test_a_ledger_gemini_cell_carries_no_workspace_flag(
     ]
 
 
-def test_a_scratch_root_gemini_cell_admits_its_work_root(
+def test_a_scratch_root_gemini_cell_admits_its_own_case_tree(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Off the ledger, the scratch root is passed as an extra workspace directory.
+    """Off the ledger, the cell's case tree is passed as an extra workspace directory.
 
     A replay cell writes under the back-test's work root, which is outside both
     the launch directory and the CLI's per-project temp dir, so every
     `write_file` there is refused and the cell can only land through the shell
-    tool. `--include-directories` takes the root absolutely, on the same
-    condition the kickoff names it absolutely on.
+    tool. `--include-directories` takes the cell's own case tree absolutely, on
+    the same condition the kickoff names its output directory absolutely on —
+    never the work root, whose other cases' files would otherwise be
+    `GEMINI.md` discovery roots for this cell.
     """
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "ledger"))
     work_root = tmp_path / "backtest-cells"
@@ -478,6 +480,7 @@ def test_a_scratch_root_gemini_cell_admits_its_work_root(
     runner = GeminiRunner(command_runner=recorder)
     runner.run(request)
     kickoff = recorder.argv[recorder.argv.index("--prompt") + 1]
+    case_tree = CasePaths(work_root.resolve(), COURT, DOCKET).base.as_posix()
     # Pinned whole, symmetric with the ledger test: the flag is additive and
     # nothing else about the call moves.
     assert recorder.argv == [
@@ -486,7 +489,7 @@ def test_a_scratch_root_gemini_cell_admits_its_work_root(
         "--model",
         runner.model,
         "--include-directories",
-        work_root.resolve().as_posix(),
+        case_tree,
         "--prompt",
         kickoff,
         "--output-format",
@@ -498,10 +501,7 @@ def test_a_scratch_root_gemini_cell_admits_its_work_root(
     # the tree, not the role.
     evaluate = _Recorder()
     GeminiRunner(command_runner=evaluate).run(_evaluate_request(work_root))
-    assert (
-        evaluate.argv[evaluate.argv.index("--include-directories") + 1]
-        == work_root.resolve().as_posix()
-    )
+    assert evaluate.argv[evaluate.argv.index("--include-directories") + 1] == case_tree
 
     # The other two engines reach the work root under their own rules and gain
     # no flag from this.
@@ -511,6 +511,33 @@ def test_a_scratch_root_gemini_cell_admits_its_work_root(
     claude = _Recorder()
     ClaudeCodeRunner(command_runner=claude).run(request)
     assert "--include-directories" not in claude.argv
+
+
+def test_a_gemini_cell_s_admission_holds_no_other_case_or_the_work_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The admitted directory is the cell's case tree and nothing above or beside it.
+
+    Admission makes a directory a `GEMINI.md` discovery root, and the CLI's
+    just-in-time discovery walks upward from a touched path only as far as that
+    root. A context file planted at the work root, or in another case's tree,
+    must therefore sit outside what this cell's CLI ever reads as instructions.
+    """
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "ledger"))
+    work_root = tmp_path / "backtest-cells" / "gemini"
+    recorder = _Recorder()
+    request = _predict_request(work_root)
+    StubRunner().run(request)
+    GeminiRunner(command_runner=recorder).run(request)
+    admitted = Path(recorder.argv[recorder.argv.index("--include-directories") + 1])
+    assert recorder.argv.count("--include-directories") == 1
+    assert admitted == CasePaths(work_root.resolve(), COURT, DOCKET).base
+    other_case = CasePaths(work_root.resolve(), COURT, DOCKET + 1).base
+    for outside in (work_root.resolve(), work_root.resolve() / "cases", other_case):
+        assert not outside.is_relative_to(admitted)
+    # The cell's own output directory still sits inside what is admitted.
+    target = CasePaths(work_root.resolve(), COURT, DOCKET).event(EVENT)
+    assert target.prediction_dir(PREDICTOR, request.run_id).is_relative_to(admitted)
 
 
 def test_nonzero_exit_raises_engine_failed(tmp_path: Path) -> None:
