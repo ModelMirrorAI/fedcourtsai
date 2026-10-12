@@ -2835,6 +2835,30 @@ def test_the_cap_trims_a_long_prompt_and_never_the_fetch_target(tmp_path: Path) 
     assert call.query.startswith(f"{_BIO_PDF}\nQuote the QP.")
 
 
+def test_a_credential_in_a_fetched_url_is_redacted_in_the_composed_slice(tmp_path: Path) -> None:
+    # Redaction runs over the composed candidate, so a key carried in the URL a
+    # fetch reached for leaves the harness unusable while its host and path stay
+    # legible.
+    token = "Q9fQ2xLm7Vb3Np8Rt4Kz6Wc1Hd5Yj0Ae"
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(
+        json.dumps(
+            _webfetch_transcript(
+                {
+                    "url": f"https://api.example.org/v1/doc?api_key={token}",
+                    "prompt": "Summarize it.",
+                }
+            )
+        )
+    )
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query is not None
+    assert call.query.startswith("https://api.example.org/v1/doc?api_key=")
+    assert "[redacted:" in call.query
+    assert token not in call.query
+    assert call.query.endswith("\nSummarize it.")
+
+
 @pytest.mark.parametrize(
     ("tool_input", "expected"),
     [
@@ -2843,9 +2867,17 @@ def test_the_cap_trims_a_long_prompt_and_never_the_fetch_target(tmp_path: Path) 
         ({"prompt": f"Fetch {_BIO_PDF} and summarize it."}, f"Fetch {_BIO_PDF} and summarize it."),
         # A blank prompt is no prompt.
         ({"url": _BIO_PDF, "prompt": "  "}, _BIO_PDF),
-        # A query key outranks both, exactly as before.
+        # A key ranked ahead of `prompt` outranks the fetch rule, exactly as before.
         ({"query": "brief in opposition", "url": _BIO_PDF}, "brief in opposition"),
+        (
+            {"query": "brief in opposition", "url": _BIO_PDF, "prompt": "Summarize it."},
+            "brief in opposition",
+        ),
+        # No `url`: `prompt` still outranks `command`, as it always did.
         ({"command": "curl -sL x", "prompt": "why"}, "why"),
+        # A non-string `url` or `prompt` is not one: the key-order pick.
+        ({"url": ["a"], "prompt": "p"}, "p"),
+        ({"url": "https://example.org/u", "prompt": 3}, "https://example.org/u"),
     ],
 )
 def test_a_call_without_both_url_and_prompt_keeps_its_key_order_slice(
