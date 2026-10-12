@@ -1648,7 +1648,7 @@ The full path of a change, operator's view:
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
 checks that can report on a staging-targeted PR (`gate` and `paths`),
-require review from code owners and approval of the most recent push,
+require review from code owners and dismiss stale approvals on new commits,
 **repository admin role as the only bypass actor** (docs/security.md
 inventories it); and add `promotion-gate` — and, once the *Adding a required
 status check* procedure below clears it, `main-base` — to `main`'s required
