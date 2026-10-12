@@ -1,10 +1,10 @@
 {
-  "cases": 284,
+  "cases": 285,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
     {
-      "cases": 254,
+      "cases": 255,
       "n": 3
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 850,
+  "current_reads": 853,
   "declared_no_view": 15,
   "frozen_process": {
     "digests": [
@@ -34,6 +34,7 @@
         "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
+        "predictor_id": "claude-baseline",
         "revoked_at": null
       },
       {
@@ -41,6 +42,7 @@
         "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
+        "predictor_id": "codex-baseline",
         "revoked_at": null
       },
       {
@@ -48,6 +50,7 @@
         "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
+        "predictor_id": "gemini-baseline",
         "revoked_at": null
       },
       {
@@ -55,6 +58,7 @@
         "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
         "label": "proc-v9",
         "opens": "2026-10-11T12:00:00Z",
+        "predictor_id": "claude-baseline",
         "revoked_at": null
       }
     ]
@@ -10957,6 +10961,122 @@
       "score_range": 0.15,
       "short_caption": "Rio Grande Foundation v. Maggie Toulouse Oliver",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "GEO Group",
+      "caption": "The GEO Group, Inc., a Florida Corporation v. Bob Ferguson, Governor of Washington, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000071",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Supremacy Clause intergovernmental-immunity question about state regulation of federal immigration-detention contractors; the SG calls the issue exceptionally important and similar laws are pending in several states, but the posture is interlocutory and confined to one facility.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261011T142504Z"
+        },
+        {
+          "big_case_rationale": "The boundary between state health-and-safety regulation and federal immigration operations carried out by contractors has substantial national federalism and detention-policy consequences, although this petition concerns one facility and an interlocutory ruling.",
+          "big_case_score": 0.75,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261011T142504Z"
+        },
+        {
+          "big_case_rationale": "Involves state regulation of federal immigration contractors, implicating the Supremacy Clause and federalism.",
+          "big_case_score": 0.65,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261011T142504Z"
+        }
+      ],
+      "docket_id": 9026000071,
+      "docket_number": "26-71",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-71.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Supremacy Clause intergovernmental-immunity question about state regulation of federal immigration-detention contractors; the SG calls the issue exceptionally important and similar laws are pending in several states, but the posture is interlocutory and confined to one facility.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000071/events/evt-petition-disposition/predictions/claude-baseline/20261011T142504Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000071/events/evt-petition-disposition/predictions/claude-baseline/20261011T142504Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.27,
+              "run_id": "20261011T142504Z"
+            },
+            {
+              "big_case_rationale": "The boundary between state health-and-safety regulation and federal immigration operations carried out by contractors has substantial national federalism and detention-policy consequences, although this petition concerns one facility and an interlocutory ruling.",
+              "big_case_score": 0.75,
+              "cell_path": "data/cases/scotus/9026000071/events/evt-petition-disposition/predictions/codex-baseline/20261011T142504Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000071/events/evt-petition-disposition/predictions/codex-baseline/20261011T142504Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.46,
+              "run_id": "20261011T142504Z"
+            },
+            {
+              "big_case_rationale": "Involves state regulation of federal immigration contractors, implicating the Supremacy Clause and federalism.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9026000071/events/evt-petition-disposition/predictions/gemini-baseline/20261011T142504Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000071/events/evt-petition-disposition/predictions/gemini-baseline/20261011T142504Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.45,
+              "run_id": "20261011T142504Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "The GEO Group, Inc., a Florida Corporation v. Bob Ferguson, Governor of Washington, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.65,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-16",
+      "n": 3,
+      "other_party": "Ferguson",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up GEO Group's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "GEO Group's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.75,
+      "score_min": 0.55,
+      "score_range": 0.2,
+      "short_caption": "GEO Group v. Ferguson",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -35944,5 +36064,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.2",
-  "scored_reads": 820
+  "scored_reads": 823
 }
