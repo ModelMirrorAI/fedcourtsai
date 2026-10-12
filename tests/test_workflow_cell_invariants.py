@@ -917,7 +917,7 @@ def test_no_file_in_the_checkout_is_a_gemini_context_file() -> None:
     """The checkout is a context-file discovery root for every gemini cell.
 
     A gemini cell launches in the checkout, and the back-test additionally
-    admits its work root, so anything named like a context file inside either
+    admits each cell's case tree, so anything named like a context file inside either
     tree is read into the model's context before the prompt contract is —
     instructions with none of a prompt's review, no process-digest input, and
     no artifact. Nothing in this repository is meant to be one; the pin is that
