@@ -3503,7 +3503,7 @@ def _judge_stamp(digest: str, label: str = "proc-v9") -> ProcessVersion:
 def test_mean_reasoning_quality_is_read_per_judge_rubric() -> None:
     """The pooled mean spans every rubric; each (evaluator, digest) reading is
     the mean over that rubric's own grades, named by the label that blessed its
-    digest (not the stamp's), and a rubric with no grade is not listed."""
+    digest (not the stamp's), and a digest no label blessed is named nothing."""
     cells = [
         _forward(
             _evaluation(
@@ -3538,14 +3538,14 @@ def test_mean_reasoning_quality_is_read_per_judge_rubric() -> None:
                 "alpha",
                 event_id="evt-a",
                 evaluator_id="other",
-                reasoning_quality=None,
+                reasoning_quality=0.6,
                 process_version=_judge_stamp("sha256:never-blessed"),
             )
         ),
     ]
     stratum = build_leaderboard(cells).entries[0].forward
     assert stratum is not None
-    assert stratum.mean_reasoning_quality == pytest.approx(2.2 / 3)
+    assert stratum.mean_reasoning_quality == pytest.approx(0.7)
     readings = [
         (r.evaluator_id, r.digest, r.labels, r.n, r.mean_reasoning_quality)
         for r in stratum.reasoning_quality_rubrics
@@ -3553,6 +3553,7 @@ def test_mean_reasoning_quality_is_read_per_judge_rubric() -> None:
     assert readings == [
         ("judge", _V9_JUDGE, ["proc-v9"], 2, pytest.approx(0.9)),
         ("judge", _V8_JUDGE, ["proc-v8"], 1, 0.4),
+        ("other", "sha256:never-blessed", [], 1, 0.6),
     ]
 
 
