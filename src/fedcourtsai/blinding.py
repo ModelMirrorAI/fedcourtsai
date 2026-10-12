@@ -90,8 +90,8 @@ blinded number depends on naming them:
   call's source names the engine outright. And the log-level count of
   **filing fetches**, which is engine-shaped by construction rather than by
   behaviour: what a fetch leaves in a query slice depends on how an engine
-  spells its tools, so an engine that pulls filings through its shell scores
-  above one that pulls the same filings through a prompted fetch tool. The
+  spells its tools and when its log was captured, so two engines doing the
+  same work need not count alike. The
   grader reads the rows, so nothing in the grading depends on the summary over
   them (:func:`mask_retrieval_log`).
 - **A query slice is not respelled, and a freeform call's slice is program
@@ -524,9 +524,9 @@ def mask_retrieval_log(
     above runs the other way for it. It is a count of the calls through which the
     cell fetched a court filing from outside its provisioned document set, and it
     is engine-shaped by construction rather than by behaviour: what a fetch
-    leaves in a query slice depends on how an engine spells its tools, so a
-    shell-pulling engine scores above one using a prompted fetch tool over
-    identical work. Unlike the capture markers there is nothing to weigh against
+    leaves in a query slice depends on how an engine spells its tools and when
+    its log was captured, so two engines doing identical work need not count
+    alike. Unlike the capture markers there is nothing to weigh against
     that, because the grading reads the *rows* and no part of it reads a summary
     over them — the rows themselves stay, respelled like any other. Dropping it
     also keeps the staged file's field set exactly what it was, so the surface a

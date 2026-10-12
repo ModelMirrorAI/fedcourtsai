@@ -122,6 +122,9 @@ _QUERY_CAP = 500
 _REDACT_WINDOW = 16 * 1024
 # Keys that carry the query-ish part of a tool's params, most specific first.
 _QUERY_KEYS = ("q", "query", "search", "citation", "prompt", "command", "url", "endpoint")
+# The keys ahead of ``prompt`` in that order: a call carrying one keeps it, even
+# where a ``url`` and a ``prompt`` sit beside it.
+_OUTRANKS_PROMPT = _QUERY_KEYS[: _QUERY_KEYS.index("prompt")]
 # A document/decision date in a result payload — the leakage grading's timing signal. The
 # quotes tolerate a backslash: a result often nests JSON inside a text block,
 # so the serialized form the regex scans carries escaped quotes.
@@ -239,6 +242,9 @@ def _query_candidate(params: Any) -> str | None:
     if isinstance(params, str):
         return params.strip() or None
     if isinstance(params, dict):
+        fetched = _fetch_target(params)
+        if fetched is not None:
+            return fetched
         for key in _QUERY_KEYS:
             value = params.get(key)
             if isinstance(value, str) and value.strip():
@@ -248,6 +254,33 @@ def _query_candidate(params: Any) -> str | None:
         except (TypeError, ValueError):
             return None
     return None
+
+
+def _fetch_target(params: dict[str, Any]) -> str | None:
+    """A fetch-shaped call's slice: its URL first, then the prompt it was asked.
+
+    Any call whose params carry both a ``url`` and a ``prompt`` — claude's
+    ``WebFetch`` is the one that does, but the rule keys on the params, not the
+    tool name — would otherwise keep the prompt alone, since ``prompt``
+    outranks ``url`` in :data:`_QUERY_KEYS`; and the URL is the one thing that
+    says what the call reached for, which the self-provisioning record and the
+    leakage grading both key on. Both are kept, URL ahead, so the cap trims the
+    prompt's tail rather than the target, at the cost of the URL's length plus
+    one from the prompt. A key that outranks ``prompt``
+    (:data:`_OUTRANKS_PROMPT`) still wins, and a call carrying only one of the
+    two keeps the key-order pick unchanged.
+    """
+    for key in _OUTRANKS_PROMPT:
+        value = params.get(key)
+        if isinstance(value, str) and value.strip():
+            return None
+    url = params.get("url")
+    prompt = params.get("prompt")
+    if not (isinstance(url, str) and url.strip()):
+        return None
+    if not (isinstance(prompt, str) and prompt.strip()):
+        return None
+    return f"{url.strip()}\n{prompt.strip()}"
 
 
 def _result_text(result: Any) -> str:

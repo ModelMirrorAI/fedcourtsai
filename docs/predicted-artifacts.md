@@ -595,16 +595,17 @@ directory without knowing which part is which invites trusting the wrong half.
   gap says so. A floor with four known holes, and an **engine-shaped**
   one, which binds exactly where the reading is a comparison: a call that left
   no row is absent, a URL past the row's query cut is unseen, a hosted web
-  search carrying a bare URL is not a fetch, and a fetch tool called with a
-  prompt beside its URL keeps the *prompt* in its query slice and so leaves that
-  whole channel unmatchable. The holes do not share a sign, so the residual
-  cannot be signed either. That fourth hole is a **capture** choice rather than
-  a limit of the predicate: a row's query slice is cut from the first params
-  key capture finds, and `prompt` sits ahead of `url` in that order, so the
-  slice keeps the instruction the cell wrote instead of the address it asked
-  for. Reversing the pair would make the channel legible and would cost the
-  leakage grading the prompt text it reads a fetch's *intent* from, which is
-  the trade, and it is not taken here. Excluded on other
+  search carrying a bare URL is not a fetch, and, on a log captured before the
+  slice rule the freeze record dates, a prompted fetch kept only its *prompt*
+  and so is unmatchable there. The fourth applies only to such logs. The holes
+  do not share a sign, so the residual cannot be signed either. The fourth is a
+  **capture** matter rather than a limit of the predicate: under the slice
+  rule, a call carrying both a `url` and a `prompt`, and no key capture ranks
+  ahead of `prompt`, keeps the URL first and the prompt after it, inside the
+  same 500-character cut, so the slice names the address the cell asked for
+  and still carries the instruction the leakage grading reads a fetch's
+  *intent* from; a long prompt loses its tail, never the target. Every other
+  call keeps the first params key capture finds. Excluded on other
   grounds are the tools that can only have written the URL down — a file write,
   read or search — and a shell row naming no HTTP client, which is what a patch
   applying the cell's own note about a *failed* fetch looks like. Unlike the two
