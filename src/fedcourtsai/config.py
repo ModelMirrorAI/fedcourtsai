@@ -794,7 +794,7 @@ class SpendConfig(BaseModel):
 
 
 class ReviewHoldConfig(BaseModel):
-    """When a predict round may skip the `review` hold (`tracking.yaml`'s `review_hold`).
+    """When a predict round may skip the `review` hold (``config/review-hold.yaml``).
 
     The hold is the per-round spend gate: a maintainer releases each round's plan
     before a cell spends. Auto-release lets a round whose *estimated* spend is
@@ -810,7 +810,9 @@ class ReviewHoldConfig(BaseModel):
     # without the hold. `0` DISABLES auto-release (the convention the other caps
     # use), which is the default: every round waits on the hold until a
     # maintainer adopts a value.
-    auto_release_usd_per_round: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
+    # At most $50: a sanity bound, so a slipped decimal ("500" for "5.00")
+    # is refused at load rather than adopted as a cap.
+    auto_release_usd_per_round: float = Field(default=0.0, ge=0.0, le=50.0, allow_inf_nan=False)
     # At most this many rounds are auto-released in any trailing 24 hours; the
     # next one waits on the hold. `0` disables auto-release too. The daily bound
     # on unattended *estimated* spend is therefore at most this times the
@@ -819,15 +821,20 @@ class ReviewHoldConfig(BaseModel):
     auto_release_rounds_per_day: int = Field(default=0, ge=0, le=100)
 
 
-def load_review_hold_config(config_root: Path) -> ReviewHoldConfig:
-    """Read the auto-release knobs from ``config_root/tracking.yaml``.
+#: The auto-release caps' own file, apart from ``tracking.yaml`` because it is
+#: spend authority the maintainer owns (``.github/CODEOWNERS``).
+REVIEW_HOLD_FILENAME = "review-hold.yaml"
 
-    Falls back to the defaults — **disabled**, every round held — if the file or
-    its ``review_hold`` section is absent.
+
+def load_review_hold_config(config_root: Path) -> ReviewHoldConfig:
+    """Read the auto-release caps from ``config_root/review-hold.yaml``.
+
+    Falls back to the defaults — **disabled**, every round held — if the file is
+    absent.
     """
-    path = config_root / TRACKING_FILENAME
+    path = config_root / REVIEW_HOLD_FILENAME
     data = yaml.safe_load(path.read_text()) if path.exists() else {}
-    return ReviewHoldConfig.model_validate((data or {}).get("review_hold", {}))
+    return ReviewHoldConfig.model_validate(data or {})
 
 
 def load_spend_config(config_root: Path) -> SpendConfig:

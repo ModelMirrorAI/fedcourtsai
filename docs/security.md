@@ -51,10 +51,17 @@ convention `AGENTS.md` carries, not something identity enforces):
   round's actor. It is its own App rather
   than a scope added to the dev App because the dev App's key sits in jobs that
   run agent cells' collect step and open PRs; a dispatch-capable token there
-  would let any of those jobs start any workflow. The two chain jobs run no
-  agent, corpus or PR-head code and hold nothing else, and
-  `tests/test_workflow_dispatch_chain.py` pins the minters, their grants and
-  their one dispatch. Both jobs are skipped unless the **repository-level**
+  would let any of those jobs start any workflow. It is an App rather than
+  the job's own token because a token's dispatch is attributed to the job's
+  actor and can start only what that token's workflow may, whereas the
+  separate key gives a chained round a distinct, allow-listed bot login and
+  keeps the dispatch grant out of every job but the two that need it. The two
+  chain jobs run no agent, corpus or PR-head code (they check out `main`, for
+  the tested `fedcourts chain-step`, and mint the token only after that), and
+  hold nothing else; `tests/test_workflow_dispatch_chain.py` pins the minters,
+  their grants, their action order, their read-only API calls and their one
+  dispatch, and refuses `toJSON(secrets)` or `secrets: inherit` in any
+  workflow. Both jobs are skipped unless the **repository-level**
   `DISPATCH_CHAIN_ENABLED` variable is `true`: a job's `if:` is read before the
   job binds its environment, so the switch cannot live on `prod`.
 - **staging App** (`fedcourtsai-staging`) — referenced by no workflow. Its
@@ -458,11 +465,21 @@ purpose — adding one would only make it a second `review` — no secrets, no
 variables, no role, and deployment branches restricted to `main`, so only a
 `main` run adds to the deployment count the next round's plan reads against
 the daily cap. Create it that way before setting the caps: GitHub would
-otherwise create it on first reference with no branch policy. That count is
-only as good as the deployment record, which a write holder could prune; the
-`spend` backstop, read from the committed ledger, is the bound that does not
-rest on it — though it is an ex-post bound that lags the ledger, so the two
-caps' product is the only bound that applies before a round spends. In either
+otherwise create it on first reference with no branch policy, and the
+promotion gate's `contexts` stage refuses a `main` that binds it unless it is
+restricted to `main` and carries no secrets or variables. The deployment count
+is only as good as the deployment record, which any write holder could prune,
+and that includes an interactive agent session, since it acts as the
+maintainer's account. So the daily cap reads a second record beside it, the
+auto-released collect commits on `main` (collect marks a released round's
+ready commit, and `main`'s history cannot be rewritten), and takes the larger
+count; an unreadable record keeps the hold. A write holder could still edit an
+unmerged collect PR's commit, so the committed count bounds what has landed,
+not what is in flight. The `spend` backstop, read from the committed ledger,
+is the bound that rests on neither, though it is ex post: it lags the ledger
+and stops the next round, never the current one. So the two caps' product,
+which bounds *estimated* spend, is the only bound that applies before a round
+spends, and actual spend can exceed an estimate. In either
 environment, each job it gates runs one echo under `permissions: {}`, so the
 environment grants nothing and merely withholds the spend behind it — a
 fan-out's matrix, the back-test's fortnightly replay, or a case-summary

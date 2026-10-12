@@ -112,9 +112,10 @@ jobs:
     # a network step hangs.
     timeout-minutes: 45
     environment: prod
-    # Whether this window moved committed state, for the `chain-predict` job.
+    # Whether this window committed a forecast-relevant change, for the
+    # `chain-predict` job.
     outputs:
-      committed: ${{ steps.commit.outputs.committed }}
+      forecast_relevant: ${{ steps.relevance.outputs.forecast_relevant }}
     # This environment's whole corpus estate, as one base URL
     # (s3://<bucket>[/<prefix>]) resolved from the `prod` environment, falling
     # back to a repo/org variable of the same name. fedcourtsai.paths fixes
@@ -266,6 +267,24 @@ jobs:
           message: "pull: refresh corpus + outcomes"
           label: outcomes + corpus pointer
           append-date: 'true'
+
+      # Whether the commit above moved anything a predict round would forecast
+      # on: `fedcourts window-forecast-relevance` over the commit's own changed
+      # paths (an added or changed event record, or the scope manifest). Every
+      # window commits a corpus pointer, so "committed" alone would chain every
+      # window. Non-blocking: a failure here leaves the output empty, which
+      # chains nothing, and the window's facts are already on `main`.
+      - name: Read whether the window moved forecast-relevant state
+        id: relevance
+        if: ${{ steps.commit.outputs.committed == 'true' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          git diff --name-status --no-renames HEAD^1 HEAD > window-changes.txt
+          relevance=$(uv run fedcourts window-forecast-relevance --changes-file window-changes.txt)
+          echo "forecast_relevant=$(jq -r '.relevant' <<<"$relevance")" >> "$GITHUB_OUTPUT"
+          echo "Forecast relevance: $(jq -r '.reason' <<<"$relevance")"
 
       # Trailing, NON-BLOCKING data-validation: the corpus is already pulled here, so
       # produce the correctness verdict (corpus integrity + ledger referential checks)
@@ -441,9 +460,10 @@ jobs:
     # setup (checkout + corpus-pull) before the poll and the push after it.
     timeout-minutes: 35
     environment: prod
-    # Whether this window moved committed state, for the `chain-predict` job.
+    # Whether this window committed a forecast-relevant change, for the
+    # `chain-predict` job.
     outputs:
-      committed: ${{ steps.commit.outputs.committed }}
+      forecast_relevant: ${{ steps.relevance.outputs.forecast_relevant }}
     # This environment's corpus estate as one base URL (see the pull job): both
     # halves derive from it, and the store's address is the corpus-split mode.
     env:
@@ -555,6 +575,24 @@ jobs:
           message: "live: refresh corpus + outcomes"
           label: outcomes + corpus pointer
           append-date: 'true'
+
+      # Whether the commit above moved anything a predict round would forecast
+      # on: `fedcourts window-forecast-relevance` over the commit's own changed
+      # paths (an added or changed event record, or the scope manifest). Every
+      # window commits a corpus pointer, so "committed" alone would chain every
+      # window. Non-blocking: a failure here leaves the output empty, which
+      # chains nothing, and the window's facts are already on `main`.
+      - name: Read whether the window moved forecast-relevant state
+        id: relevance
+        if: ${{ steps.commit.outputs.committed == 'true' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          git diff --name-status --no-renames HEAD^1 HEAD > window-changes.txt
+          relevance=$(uv run fedcourts window-forecast-relevance --changes-file window-changes.txt)
+          echo "forecast_relevant=$(jq -r '.relevant' <<<"$relevance")" >> "$GITHUB_OUTPUT"
+          echo "Forecast relevance: $(jq -r '.reason' <<<"$relevance")"
 
       # Unrecorded outcomes are surfaced on the step summary below, exactly
       # as in `pull`: live resolution is machine-readable by construction (the
@@ -799,28 +837,42 @@ jobs:
           label: corpus pointer
           append-date: 'true'
 
-  # The pull -> predict hand-off. A window that committed new corpus state
-  # dispatches a predict round, so a docket entry the Court may act on quickly
-  # is forecast within the hour rather than at the next fixed predict slot. The
-  # round is an ordinary input-less dispatch on `main`: it derives its own
-  # backlog from committed state (a window that changed nothing it would forecast
-  # yields an empty matrix and ends at no cost), and it waits on the review hold
-  # unless its own plan auto-releases. `run-predict`'s schedule stays as the
-  # backstop for a dispatch that never arrives.
+  # The pull -> predict hand-off. A window that committed a forecast-relevant
+  # change (an added or changed event record, or the scope manifest; the
+  # `relevance` steps above) dispatches a predict round, so a newly opened
+  # moment is forecast within the hour rather than at the next fixed predict
+  # slot. A window that only moved the corpus pointer or recorded outcomes
+  # dispatches nothing. The round is an ordinary input-less dispatch on `main`:
+  # it derives its own backlog from committed state, and it waits on the review
+  # hold unless its own plan auto-releases. `run-predict`'s schedule stays as
+  # the backstop for a change the relevance read misses and for a dispatch that
+  # never arrives. No round is dispatched while a promotion PR is ready
+  # (`fedcourts chain-step`): the promotion gate's quiescence check would fail
+  # on it.
   #
   # This job runs no corpus code and holds no corpus role. Its one token is the
-  # dispatch App's, scoped to `actions: write`, so the writer jobs above never
-  # hold a credential that can start a workflow. Off unless the
+  # dispatch App's, scoped to `actions: write` and PR read, so the writer jobs
+  # above never hold a credential that can start a workflow. Off unless the
   # repository-level `DISPATCH_CHAIN_ENABLED` variable is `true` (see
   # run-predict's `chain` job for why the switch is not on `prod`).
   chain-predict:
     needs: [pull, live]
-    if: ${{ !cancelled() && (needs.pull.outputs.committed == 'true' || needs.live.outputs.committed == 'true') && vars.DISPATCH_CHAIN_ENABLED == 'true' }}
+    if: ${{ !cancelled() && (needs.pull.outputs.forecast_relevant == 'true' || needs.live.outputs.forecast_relevant == 'true') && vars.DISPATCH_CHAIN_ENABLED == 'true' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     environment: prod
-    permissions: {}
+    # The checkout below needs read; everything else rides the dispatch token.
+    permissions:
+      contents: read
     steps:
+      # `main`'s own code (the job binds `prod`, which admits only `main`), for
+      # `fedcourts chain-step`. No credential persists in the checkout.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
       - name: Mint the dispatch token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
@@ -828,12 +880,23 @@ jobs:
           client-id: ${{ vars.DISPATCH_APP_CLIENT_ID }}
           private-key: ${{ secrets.DISPATCH_APP_PRIVATE_KEY }}
           permission-actions: write
+          permission-pull-requests: read
 
-      - name: Dispatch a predict round
+      - name: Dispatch a predict round unless a promotion is ready
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh workflow run run-predict.yml --repo "$REPO" --ref main
-          echo "## Dispatched a predict round on the state this window committed." >> "$GITHUB_STEP_SUMMARY"
+          # A read only (a GET with the query in the URL). A failed read drops
+          # the file, which `chain-step` reads as unknown and stands down on.
+          gh api "repos/${REPO}/pulls?state=open&base=main&per_page=100" > promotion-prs.json \
+            || rm -f promotion-prs.json
+          args=(--mode pull --repo "$REPO")
+          [ -f promotion-prs.json ] && args+=(--promotion-prs-file promotion-prs.json)
+          step=$(uv run fedcourts chain-step "${args[@]}")
+          reason=$(jq -r '.reason' <<<"$step")
+          if [ "$(jq -r '.action' <<<"$step")" = "dispatch" ]; then
+            gh workflow run run-predict.yml --repo "$REPO" --ref main
+          fi
+          echo "## Pull -> predict chain: ${reason}." >> "$GITHUB_STEP_SUMMARY"

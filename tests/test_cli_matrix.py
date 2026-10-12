@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import cli, corpus
+from fedcourtsai import cli, corpus, planning_rates
 from fedcourtsai.cli import app
 from fedcourtsai.collect import ExpectedCell, cell_artifact_name, run_branch
 from fedcourtsai.config import ReviewHoldConfig
@@ -2317,8 +2317,8 @@ def test_the_planning_rate_table_matches_the_per_event_totals() -> None:
     Pinning the sums rather than only the columns means a re-anchor of the table
     lands here as a visible test edit instead of silently re-pricing every plan.
     """
-    assert round(sum(cli._PLANNING_RATES_USD_PER_CELL["predict"].values()), 2) == 6.79
-    assert round(sum(cli._PLANNING_RATES_USD_PER_CELL["evaluate"].values()), 2) == 8.18
+    assert round(sum(planning_rates.PLANNING_RATES_USD_PER_CELL["predict"].values()), 2) == 6.79
+    assert round(sum(planning_rates.PLANNING_RATES_USD_PER_CELL["evaluate"].values()), 2) == 8.18
     # And the pair is the $14.97 the six-cell $2.50 fallback is the rounding of.
     assert round(6.79 + 8.18, 2) == 14.97
 
@@ -2330,7 +2330,7 @@ def test_predict_plan_prices_an_unknown_engine_at_the_stated_fallback(
     # Standing in for that: a table with gemini removed, which is the same code
     # path a genuinely new engine takes.
     monkeypatch.setitem(
-        cli._PLANNING_RATES_USD_PER_CELL,
+        planning_rates.PLANNING_RATES_USD_PER_CELL,
         "predict",
         {"claude-code": 4.27, "codex": 1.88},
     )
@@ -3203,9 +3203,21 @@ def test_hold_decision_reads_a_real_predict_plan(tmp_path: Path) -> None:
         runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env).stdout
     )
     assert plan["counts"]["cell_ledger"]["deferred_by_cap_cells"] > 0
-    decision = decide_hold(plan, ReviewHoldConfig(), released_last_day=0)
+    matrix = json.loads(
+        runner.invoke(
+            app, ["predict-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+        ).stdout
+    )
+    # The two walks agree on the cell count, which is what lets auto-release
+    # price the plan as the price of what runs; the matrix's own priced cells
+    # are the same rates over the same cells.
+    assert len(matrix["include"]) == plan["counts"]["cell_ledger"]["would_mint_cells"]
+    decision = decide_hold(plan, ReviewHoldConfig(), released_last_day=0, matrix=matrix)
     assert decision.drain_more
     assert decision.estimated_spend_usd == plan["estimated_spend_usd"]
+    assert decision.matrix_cells == decision.plan_cells
+    on = ReviewHoldConfig(auto_release_usd_per_round=50.0, auto_release_rounds_per_day=1)
+    assert decide_hold(plan, on, released_last_day=0, matrix=matrix).auto_release
 
     uncapped = tmp_path / "uncapped"
     uncapped.mkdir()
@@ -3218,4 +3230,4 @@ def test_hold_decision_reads_a_real_predict_plan(tmp_path: Path) -> None:
     plan = json.loads(
         runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env).stdout
     )
-    assert not decide_hold(plan, ReviewHoldConfig(), released_last_day=0).drain_more
+    assert not decide_hold(plan, ReviewHoldConfig(), released_last_day=0, matrix=None).drain_more

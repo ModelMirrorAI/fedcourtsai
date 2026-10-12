@@ -116,8 +116,8 @@ design. Two fixes, either sufficient:
   the lane starts by dispatch. The dispatch can stand in for the approval only
   if its inputs name the PR and the expected head SHA, which `plan` checks and
   refuses on a mismatch, and only while the maintainer is the one identity that
-  can dispatch (any token holding Actions write can, including any App
-  later granted that scope); otherwise the environment's reviewer stays the required key.
+  can dispatch (any token holding Actions write can, which includes the
+  dispatch App's, though its jobs only start `run-predict`); otherwise the environment's reviewer stays the required key.
   Whoever can push to this ref controls the workflow that binds the
   environment, so a ruleset must limit its pushes to the fast-forward from
   `main`.

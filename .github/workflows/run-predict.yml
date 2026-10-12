@@ -15,11 +15,12 @@ name: run-predict
 #
 # The trigger decides only *when* a round derives; it never names its cases. Two
 # dispatches arrive without a human: `run-pull`'s `chain-predict` job, when a
-# pull window commits new state, and this workflow's own `chain` job, when a cap
-# stopped a round short of the backlog. Both are the same input-less dispatch.
+# pull window commits a forecast-relevant change, and this workflow's own
+# `chain` job, when a cap stopped a round short of the backlog. Both are the same input-less dispatch.
 # What decides whether a round spends is the `review` hold: every run renders its
 # plan report and waits on that environment's required reviewers before a cell
-# spends a token, unless its plan is within `review_hold`'s auto-release caps.
+# spends a token, unless its plan is within the auto-release caps
+# (`config/review-hold.yaml`).
 on:
   schedule:
     # Twice a day, each slot margined after one of run-pull's ingestion windows
@@ -114,8 +115,9 @@ jobs:
       # branch this job may not fetch is not visible through `contents: read`.
       pull-requests: read
       # Count the rounds auto-released in the trailing 24 hours: each one left a
-      # deployment to the `review-auto` environment, and that record is the
-      # daily cap's only input. Read only; the job creates no deployment.
+      # deployment to the `review-auto` environment. Read only; the job creates
+      # no deployment. The commits the count is also read from are `main`'s
+      # history, which `contents: read` above already covers.
       deployments: read
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
@@ -349,6 +351,9 @@ jobs:
             --collect-prs-file collect-prs.json \
             --stranded-note-file stranded-note.md)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          # Kept for the hold decision, which refuses to auto-release unless this
+          # minted matrix holds exactly the cells the plan below prices.
+          printf '%s\n' "$matrix" > matrix.json
           # The report step re-derives the plan under this same id: the run id
           # is the join key between the approval record and the committed
           # prediction paths, so the two invocations must not mint their own.
@@ -437,12 +442,16 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Whether this round waits on the hold, and whether it owes another round.
-      # Both are `fedcourts hold-decision` over the plan document above and
-      # `tracking.yaml`'s `review_hold` caps. It fails closed: with the caps at
-      # 0 (the default), or a 24-hour count this step cannot read, the round
-      # waits on the `review` hold. The count is the `review-auto`
-      # environment's deployments in the trailing day, one per auto-released
-      # round; a failed read leaves `--released-last-day` off, which holds.
+      # Both are `fedcourts hold-decision` over the plan document above, the
+      # matrix the round minted and `config/review-hold.yaml`'s caps. It fails
+      # closed: with the caps at 0 (the default), a matrix that disagrees with
+      # the plan, or a 24-hour count this step cannot read, the round waits on
+      # the `review` hold. The count has two sources, and the larger binds: the
+      # `review-auto` environment's deployments (one per auto-released round,
+      # but prunable by a write holder) and the auto-released commits on `main`
+      # (collect marks a released round's ready commit; `main`'s history is
+      # append-only). A failed read leaves its flag off, which holds. This step
+      # only reads; the rule and the summary are the command's.
       - name: Decide the hold and the drain
         id: hold
         if: ${{ steps.plan.outputs.has_jobs == 'true' }}
@@ -453,33 +462,24 @@ jobs:
         run: |
           set -euo pipefail
           since=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
-          count_flag=()
+          count_args=()
           if released=$(gh api "repos/${REPO}/deployments?environment=review-auto&per_page=100" \
-                --jq "[.[] | select(.created_at >= \"${since}\")] | length" 2>/dev/null) \
+                --jq "[.[] | select(.created_at >= \"${since}\")] | length" 2>deploy-read.err) \
              && [[ "$released" =~ ^[0-9]+$ ]]; then
-            count_flag=(--released-last-day "$released")
+            count_args+=(--deployments-released "$released")
           else
-            echo "::warning::could not count the rounds auto-released in the last 24h; this round waits on the hold"
+            echo "::warning::could not count review-auto deployments in the last 24h ($(head -c 300 deploy-read.err | tr -s '\n:' '  ')); this round waits on the hold"
           fi
-          decision=$(uv run fedcourts hold-decision --plan-file plan.json "${count_flag[@]}")
-          auto=$(jq -r '.auto_release' <<<"$decision")
-          drain=$(jq -r '.drain_more' <<<"$decision")
-          echo "auto_release=${auto}" >> "$GITHUB_OUTPUT"
-          echo "drain_more=${drain}" >> "$GITHUB_OUTPUT"
-          {
-            echo ""
-            echo "### Hold and drain"
-            if [ "$auto" = "true" ]; then
-              echo "- **Auto-released:** $(jq -r '.auto_release_reason' <<<"$decision")."
-            else
-              echo "- **Waits on the review hold:** $(jq -r '.auto_release_reason' <<<"$decision")."
-            fi
-            if [ "$drain" = "true" ]; then
-              echo "- **Another round is owed:** $(jq -r '.drain_reason' <<<"$decision"); it is dispatched once this round's collect PR merges."
-            else
-              echo "- **No further round from this one:** $(jq -r '.drain_reason' <<<"$decision")."
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          if gh api --paginate "repos/${REPO}/commits?sha=main&since=${since}&per_page=100" \
+                --jq '.[].commit.message | split("\n")[0]' > main-subjects.txt 2>subjects-read.err; then
+            count_args+=(--main-subjects-file main-subjects.txt)
+          else
+            echo "::warning::could not read main's commits from the last 24h ($(head -c 300 subjects-read.err | tr -s '\n:' '  ')); this round waits on the hold"
+          fi
+          decision=$(uv run fedcourts hold-decision --plan-file plan.json \
+            --matrix-file matrix.json --summary-file "$GITHUB_STEP_SUMMARY" "${count_args[@]}")
+          echo "auto_release=$(jq -r '.auto_release' <<<"$decision")" >> "$GITHUB_OUTPUT"
+          echo "drain_more=$(jq -r '.drain_more' <<<"$decision")" >> "$GITHUB_OUTPUT"
 
   # The hold. This job carries no code, no token, and no permissions — its one
   # purpose is the deployment environment: the `review` environment's required
@@ -490,13 +490,13 @@ jobs:
   # configured before this reaches main: GitHub auto-creates a referenced
   # environment unprotected, and an unprotected environment is no gate at all.
   #
-  # A round the plan job auto-released (`hold-decision`: estimated spend within
-  # `review_hold`'s per-round cap, under its daily count) binds `review-auto`
-  # instead. That environment has no reviewers on purpose — GitHub creates it on
-  # first reference — so the job runs at once; what it adds is the deployment
-  # record the next round's plan counts against the daily cap. Every job
-  # downstream reads `approval.result` whichever environment it bound, so the
-  # two paths differ only in whether a human released this job.
+  # A round the plan job auto-released (`hold-decision`: its minted matrix
+  # priced within the per-round cap, under the daily count) binds `review-auto`
+  # instead. That environment has no reviewers on purpose, so the job runs at
+  # once; what it adds is one of the two records the next round's plan counts
+  # against the daily cap (the other is the marked collect commit on `main`).
+  # Every job downstream reads `approval.result` whichever environment it
+  # bound, so the two paths differ only in whether a human released this job.
   #
   # `review-auto` must exist with its deployment branches restricted to `main`
   # and no required reviewers (docs/security.md), so only a `main` run can add
@@ -1869,6 +1869,8 @@ jobs:
           repo: ${{ github.repository }}
           issue: ${{ github.event.issue.number }}
           matrix: ${{ needs.plan.outputs.matrix }}
+          # The mark the next round's daily auto-release cap counts on `main`.
+          auto-released: ${{ needs.plan.outputs.auto_release }}
           github-token: ${{ github.token }}
           courtlistener-token: ${{ secrets.COURTLISTENER_API_TOKEN }}
 
@@ -1992,7 +1994,11 @@ jobs:
   # committed state, so dispatching earlier would hand the stranded-run guard
   # this round's cells to withhold and plan a narrower round. A PR that has not
   # merged inside the wait, or closed unmerged, dispatches nothing — the schedule
-  # picks the backlog up, since the lane is level-triggered.
+  # picks the backlog up, since the lane is level-triggered. Nor does a ready
+  # promotion PR: the promotion gate's quiescence check fails on any queued,
+  # running or waiting predict round, so the chain stands down until that PR
+  # merges or returns to draft. Each step's answer is `fedcourts chain-step`'s;
+  # the loop below only reads the PRs and acts on it.
   #
   # The dispatched round is an ordinary input-less dispatch on `main`: it
   # derives its own backlog and renders its own plan, and waits on the hold
@@ -2011,11 +2017,21 @@ jobs:
     if: ${{ !cancelled() && needs.plan.outputs.drain_more == 'true' && needs.collect.result == 'success' && vars.DISPATCH_CHAIN_ENABLED == 'true' }}
     runs-on: ubuntu-24.04
     # The wait below is 40 minutes; the cap leaves the dispatch inside the App
-    # token's one-hour life.
-    timeout-minutes: 50
+    # token's one-hour life, which is minted after the checkout and setup.
+    timeout-minutes: 55
     environment: prod
-    permissions: {}
+    # The checkout below needs read; everything else rides the dispatch token.
+    permissions:
+      contents: read
     steps:
+      # `main`'s own code (the job binds `prod`, which admits only `main`), for
+      # `fedcourts chain-step`. No credential persists in the checkout.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+
       - name: Mint the dispatch token
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
@@ -2034,29 +2050,29 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in $(seq 1 40); do
-            state=$(gh api "repos/${REPO}/pulls?head=${OWNER}:${BRANCH}&state=all&per_page=1" \
-              --jq 'if length == 0 then "none" elif .[0].merged_at != null then "merged" elif .[0].draft then "draft" else .[0].state end') \
-              || state="unreadable"
-            # A ready PR is pushed before `collect` finishes, so a missing one
-            # after the first minutes means this round opened none (all its
-            # output went to a draft or a facts-only branch), and a draft never
-            # auto-merges: either way, waiting would only hold the group.
-            if [ "$state" = "draft" ] || { [ "$state" = "none" ] && [ "$attempt" -ge 3 ]; }; then
-              echo "## Drain chain: this round has no auto-merging collect PR (${state}); nothing dispatched — the schedule picks the backlog up." >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            case "$state" in
-              merged)
+            # Reads only (GETs with the query in the URL). A failed read drops
+            # its file, which `chain-step` reads as unknown: a missing promotion
+            # list stands the chain down, a missing collect PR waits.
+            gh api "repos/${REPO}/pulls?state=open&base=main&per_page=100" > promotion-prs.json \
+              || rm -f promotion-prs.json
+            gh api "repos/${REPO}/pulls?head=${OWNER}:${BRANCH}&state=all&per_page=1" > collect-prs.json \
+              || rm -f collect-prs.json
+            args=(--mode drain --repo "$REPO" --attempt "$attempt" --max-attempts 40)
+            [ -f promotion-prs.json ] && args+=(--promotion-prs-file promotion-prs.json)
+            [ -f collect-prs.json ] && args+=(--collect-prs-file collect-prs.json)
+            step=$(uv run fedcourts chain-step "${args[@]}")
+            action=$(jq -r '.action' <<<"$step")
+            reason=$(jq -r '.reason' <<<"$step")
+            case "$action" in
+              dispatch)
                 gh workflow run run-predict.yml --repo "$REPO" --ref main
-                echo "## Drain chain: dispatched the next predict round (this round's collect PR merged)." >> "$GITHUB_STEP_SUMMARY"
+                echo "## Drain chain: ${reason}." >> "$GITHUB_STEP_SUMMARY"
                 exit 0
                 ;;
-              closed)
-                echo "## Drain chain: this round's collect PR closed unmerged; nothing dispatched — the schedule picks the backlog up." >> "$GITHUB_STEP_SUMMARY"
+              stop)
+                echo "## Drain chain: ${reason}; the schedule picks the backlog up." >> "$GITHUB_STEP_SUMMARY"
                 exit 0
                 ;;
             esac
             sleep 60
           done
-          echo "::warning::this round's collect PR (${BRANCH}) did not merge within 40 minutes; nothing dispatched"
-          echo "## Drain chain: this round's collect PR did not merge in time; nothing dispatched — the schedule picks the backlog up." >> "$GITHUB_STEP_SUMMARY"

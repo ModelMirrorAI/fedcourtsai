@@ -279,6 +279,26 @@ def test_the_agent_cells_sit_behind_the_review_hold() -> None:
             )
 
 
+def test_the_auto_release_output_comes_only_from_the_hold_decision() -> None:
+    """The routed hold above trusts `needs.plan.outputs.auto_release`, so pin
+    where that value is made: the plan job's `hold` step, which runs the tested
+    `fedcourts hold-decision` and writes nothing else to that output. A later
+    edit that fed the output from an input, a variable or another step would
+    route a round past the reviewers without the caps' say-so."""
+    plan = _load("run-predict.yml")["jobs"]["plan"]
+    assert plan["outputs"]["auto_release"] == "${{ steps.hold.outputs.auto_release }}"
+    holds = [step for step in _steps(plan) if step.get("id") == "hold"]
+    assert len(holds) == 1
+    run = str(holds[0].get("run", ""))
+    assert "uv run fedcourts hold-decision" in run
+    assert run.count("auto_release=") == 1
+    assert "auto_release=$(jq -r '.auto_release' <<<\"$decision\")" in run
+    # No other step in the job writes that output.
+    for step in _steps(plan):
+        if step.get("id") != "hold":
+            assert "auto_release=" not in str(step.get("run", ""))
+
+
 def test_the_scheduled_back_test_spends_only_behind_the_review_hold() -> None:
     """The same spend gate, on the lane the sweep above cannot see.
 

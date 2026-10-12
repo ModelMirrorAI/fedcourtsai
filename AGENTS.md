@@ -92,7 +92,7 @@ non-interactive** container. Two consequences shape everything you do:
   call, and the better one when the change is large, novel, or rewrites a
   contract others read. Use judgement; say which you chose in the PR
   description.
-  **Four kinds of change still wait for the maintainer even into `staging`**,
+  **Five kinds of change still wait for the maintainer even into `staging`**,
   because a green gate is weakest evidence exactly where they are strongest
   risk: anything under `.github/workflows/` or `.github/actions/` (the
   permission surface), `SECURITY.md` or the security posture it describes, the
@@ -100,9 +100,17 @@ non-interactive** container. Two consequences shape everything you do:
   `sync-staging.yml`, ci.yml's gate jobs, and the lane machinery that decides
   which of the gate's checks a change gets: `scripts/gate.sh`,
   `scripts/ci_lane.py`, `tests/test_ci_lane.py`, `tests/lane_guard.py` and its
-  registration in `tests/conftest.py`), and `config/predictors.yaml` /
-  `config/evaluators.yaml` (what agents are and what they may reach). Open
-  those, get them green, and report them ready.
+  registration in `tests/conftest.py`), `config/predictors.yaml` /
+  `config/evaluators.yaml` (what agents are and what they may reach), and the
+  authority to spend without a human release: `config/review-hold.yaml` (the
+  auto-release caps), `src/fedcourtsai/planning_rates.py` (the rates a round
+  is priced at), `src/fedcourtsai/review_hold.py` and
+  `src/fedcourtsai/dispatch_chain.py` (the decisions), and their tests
+  (`tests/test_review_hold.py`, `tests/test_dispatch_chain.py`,
+  `tests/test_workflow_dispatch_chain.py`, `tests/test_workflow_agent_bot.py`).
+  A raised cap or a lowered rate lets more spend run unattended, which is why
+  it is not a configuration change like any other. Open those, get them
+  green, and report them ready.
   The branch rulesets do not encode this: both require zero approvals, so the
   discipline is yours to keep, not the platform's to enforce.
 - **When you merge it yourself, the reviewer subagents are the only review a
@@ -214,10 +222,10 @@ staging  ──●──●────●────●────●──�
 
 Both `main`→`staging` syncs and `staging`→`main` promotions are merge commits;
 your own feature PR may squash. Data commits bypass `staging` entirely. The
-diagram is not a licence to self-merge anything: the four change classes named
+diagram is not a licence to self-merge anything: the five change classes named
 in the golden rules — the permission surface, the security posture, the
-promotion gate, the agent configs — wait for the maintainer even into
-`staging`.
+promotion gate, the agent configs, the unattended-spend authority — wait for
+the maintainer even into `staging`.
 
 Then work the task in three beats:
 

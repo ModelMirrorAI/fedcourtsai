@@ -1128,17 +1128,22 @@ window that failed, a round that was declined, a cron GitHub silently dropped �
 each is re-derived next cycle, and nothing has to be re-filed for it.
 
 The two dispatches only move *when* a predict round derives, never what it
-works on. A `run-pull` window that commits new state starts a round
-(`chain-predict`), so a docket entry the Court may act on quickly is planned
-within the hour rather than at the next fixed slot — and forecast then too
-when the round auto-releases, or once a maintainer releases its hold. A round
+works on. A `run-pull` window whose commit added or changed an event record,
+or moved the scope manifest (`fedcourts window-forecast-relevance`), starts a
+round (`chain-predict`), so a newly opened moment is planned within the hour
+rather than at the next fixed slot — and forecast then too when the round
+auto-releases, or once a maintainer releases its hold. Every window commits a
+corpus pointer, so a window that moved only that, or recorded outcomes,
+starts nothing; a change the relevance read misses waits for the schedule. A round
 that a cap stopped short of the backlog starts the next one once its own
 collect PR has merged (`chain`, which waits up to 40 minutes and gives up
 quietly on a draft, an unmerged close or no PR at all), so a backlog drains in
 consecutive rounds instead of one per slot. Both are the same input-less
 dispatch a maintainer would send, on `main`, with the dispatch App
-([security.md](security.md)); both are off until the repository-level
-`DISPATCH_CHAIN_ENABLED` variable is `true`; and
+([security.md](security.md)); both stand down while a promotion PR is ready
+(`fedcourts chain-step`, since the promotion gate's quiescence check fails on
+any queued, running or waiting predict round); both are off until the
+repository-level `DISPATCH_CHAIN_ENABLED` variable is `true`; and
 `run-predict`'s schedule stays as the backstop for a dispatch that never
 arrives. `run-evaluate` is not chained: a grading round needs the predictions
 it grades to have merged, and its daily slot already follows predict's.
@@ -1626,6 +1631,14 @@ The full path of a change, operator's view:
    the `offline-gate` form and tells you whether anything *else* is missing
    before you pay for the engine legs, which step 4 still needs.
 
+   **Quiet the dispatch chain first.** Quiescence fails on any queued,
+   running or waiting `run-predict`, and a chained round can start at any
+   pull window. Both chain jobs dispatch nothing while a ready, same-repo
+   `staging` → `main` PR is open, so open the promotion PR (or mark its draft
+   ready) before this step, and let any round already running finish. For a
+   longer quiet window, set the `DISPATCH_CHAIN_ENABLED` variable to `false`
+   and restore it after the merge.
+
    **When the head moves after a green `gate`.** The gate's rule is
    mechanical and does not read the delta: the green `gate` run sits at the
    old sha, so at the new one nothing satisfies the twelve, and the choice is
@@ -1893,17 +1906,26 @@ double-spends the overlap. The two plan reports make the overlap visible
 before either release, each on its own run's step summary.
 
 **Auto-release.** A predict round can skip the wait. Its plan job runs `fedcourts
-hold-decision` over the plan document the report renders, and a round whose
-estimated spend is within `review_hold.auto_release_usd_per_round`
-(`config/tracking.yaml`), while fewer than `auto_release_rounds_per_day` rounds
-were auto-released in the trailing 24 hours, binds the reviewer-less
-`review-auto` environment instead of `review`. Its deployment there is the
-record the next round's plan counts against the daily cap — a record a write
-holder could prune, which is why the `spend` backstop, read from the committed
-ledger, stays behind it — an ex-post bound that lags the ledger, so the two
-caps' product is the only bound that applies before a round spends. Both caps start at
-0, which disables it, and the decision fails closed: an unreadable count or a
-plan with no estimate keeps the hold. The staleness rule above does not bite on
+hold-decision` over the plan document the report renders and the matrix the
+round minted. A round auto-releases, binding the reviewer-less `review-auto`
+environment instead of `review`, when three things hold:
+- the matrix holds exactly the plan's would-mint cells, so the price is the
+  price of what runs;
+- the larger of the plan's estimate and the matrix's own cells at the planning
+  rates is within `auto_release_usd_per_round` (`config/review-hold.yaml`);
+- fewer than `auto_release_rounds_per_day` rounds were auto-released in the
+  trailing 24 hours.
+
+The daily count is the larger of two records: the round's deployment to
+`review-auto`, and its ready collect commit on `main`, which collect marks
+`[auto-released]`. A write holder could prune the first or edit an unmerged
+collect PR, but not `main`'s history. The `spend` backstop, read from the
+committed ledger, stays behind both. It is an ex-post bound that lags the
+ledger, so the two caps' product, which bounds *estimated* spend, is the only
+bound that applies before a round spends. Both caps start at 0, which disables
+it, and the decision fails closed: an unreadable count, a missing or mismatched
+matrix, or a plan with no estimate keeps the hold. The caps, the planning rates
+and the decision code are maintainer-owned. The staleness rule above does not bite on
 this path, because the plan is released minutes after it is minted; what keeps
 a following round from re-planning this one's cells is the stranded-run guard,
 and the `chain` job's wait for the collect PR to merge. The plan report and a
