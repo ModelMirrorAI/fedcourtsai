@@ -155,28 +155,42 @@ On the leaderboard the readings ride beside the pooled value:
 
 - **`mean_reasoning_quality`**, a per-judge figure, is read per (evaluator,
   digest) in each stratum's `reasoning_quality_rubrics`: each rubric with its
-  `n` in graded gradings, the stamps' `labels` naming it, and the mean over
-  that rubric's grades alone.
+  `n` in graded gradings, the evaluate label that blessed its digest as
+  `labels`, and the mean over that rubric's grades alone. Judges grade on
+  different scales, so the pooled cross-judge mean compares across predictors
+  only while their per-rubric `n` match, as they do while every judge grades
+  every cell.
 - **`big_case` and `evaluator_agreement`**, panel figures, are read per rubric
   signature in `by_signature`. A point's pairs are the (evaluator, digest)
   pairs of every read behind it: for `big_case`, every panel read across the
   case's moments; for a leave-one-out point, the judge's reads and its peers'
   on the case. The signatures read are the maximal sets those pairs form,
-  one digest per evaluator, and a point joins every signature holding all of
-  its pairs. So a case only part of a panel read stays with the panel it was
-  read under, a point read only under digests two signatures share sits in
-  both, and the readings' `points` need not sum to the pooled count. A point
-  holding one evaluator under two digests joins no reading; it is counted in
-  `mixed_signature_points` and stays in the pooled value.
+  one digest per evaluator, each named by the evaluate labels that blessed its
+  digests, and a point joins every signature holding all of its pairs. So a
+  case only part of a panel read stays with the panel it was read under.
+- **Overlapping readings are not independent.** A point read only under
+  digests two signatures share sits in both readings, so two readings may
+  share points: never difference them as independent figures, and do not
+  expect their `cases` to sum to the pooled count. Check each pair's `n`
+  before quoting a reading, since a single case read under a new digest can
+  form a maximal signature whose distinguishing pair has `n` 1.
+- **Set-aside points are not a random loss.** A point holding one evaluator
+  under two digests joins no reading; it is counted in
+  `mixed_signature_points` and stays in the pooled value. Such points
+  concentrate in cases read at several moments, which are the granted ones,
+  so after a digest move a reading covers a population short of exactly the
+  higher-stakes cases. Read each reading's `cases` against the figure's own
+  count.
 
 The per-rubric reading is the claimable figure. Every judge's evaluate digest
 moved at `proc-v9`, `claude-judge`'s with its model, so a pooled value spanning
 more than one digest of one evaluator mixes judge rubrics: it is coverage,
 never a claimable figure or a comparison. A `rubrics` list naming one evaluator
-twice is the sign. The claim judge validation, the ops quantiles and the
-semantic census list their rubrics but carry no per-rubric reading yet, so
-there a pooled value spanning two digests of an evaluator has no claimable
-form.
+twice is the sign. The claim judge-validation tau-b, the ops reasoning-quality
+quantiles and the semantic per-grader agreement list their rubrics but carry
+no per-rubric reading yet, so there a pooled value spanning two digests of an
+evaluator has no claimable form. The signature rule is registered in
+`docs/freeze-record.md` (2026-10-12).
 
 **The other surfaces take the same shape.**
 

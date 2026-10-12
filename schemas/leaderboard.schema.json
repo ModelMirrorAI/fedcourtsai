@@ -5,7 +5,7 @@
       "description": "A predictor's big-case-score agreement with the evaluator panel's stakes reads.\n\nA *second* skill dimension, orthogonal to the grant/deny ranking (a model can\nread a case's significance well while calling grant/deny only modestly, or the\nreverse). Bigness is comparative, so the agreement is a **rank** correlation \u2014\nKendall's tau-b between the predictor's ``big_case_score`` ordering and the\npanel's (the mean of the evaluators' own reads), across the scored\n**cases** both sides rated. A case carrying several forecast moments\ncontributes one point, both sides averaged over its moments: bigness is a\nproperty of the case, so a case's moments are not independent observations\nand a correlation that assumed they were would overstate its own evidence.\nNever enters the leaderboard ranking; reported alongside it.",
       "properties": {
         "by_signature": {
-          "description": "The figure read per rubric signature: one reading per maximal set of (evaluator, evaluate digest) pairs some point's reads carry, over every point whose own pairs it holds, so a point may sit in two readings and their points need not sum to the pooled count. The per-rubric reading is the claimable figure; the pooled value is coverage wherever it spans more than one digest of one evaluator. A case's point's reads are every panel read across its moments",
+          "description": "The figure read per rubric signature: one reading per maximal set of (evaluator, evaluate digest) pairs some point's reads carry, over every point whose own pairs it holds. A point may sit in two readings, so readings sharing points are not independent and are never differenced as if they were, and their `cases` need not sum to the pooled count. Check each pair's `n` before quoting a reading: a single point read under a new digest can form a maximal signature whose distinguishing pair has n=1. The per-rubric reading is the claimable figure; the pooled value is coverage wherever it spans more than one digest of one evaluator. A case's point's reads are every panel read across its moments",
           "items": {
             "$ref": "#/$defs/SignatureReading"
           },
@@ -21,7 +21,7 @@
         },
         "mixed_signature_points": {
           "default": 0,
-          "description": "Points whose reads carry one evaluator under two digests, so they span two signatures and enter no reading in `by_signature`; they still count in the pooled value. Omitted at zero",
+          "description": "Points whose reads carry one evaluator under two digests, so they span two signatures and enter no reading in `by_signature`; they still count in the pooled value. Such points concentrate in cases read at several moments, the granted ones, so after a digest move a reading covers a population short of exactly the higher-stakes cases; compare each reading's `cases` with the figure's own count. Omitted at zero",
           "minimum": 0,
           "title": "Mixed Signature Points",
           "type": "integer"
@@ -192,7 +192,7 @@
       "description": "How far one evaluator's big-case reads track the rest of the panel's.\n\nThe check on grader latitude. An evaluator with room to judge can be\nsystematically generous or strict, and nothing in a per-predictor score would\nshow it \u2014 the distortion is spread evenly across everyone that evaluator\nscored. Comparing each grader against its peers is what makes it visible.\n\nComputed **leave-one-out**: the evaluator's ordering against the mean of the\n*other* evaluators' reads on the events they share. Including the evaluator in\nthe panel it is scored against would correlate it partly with itself, and with\na three-judge panel that self-term is a third of the comparison.\n\nA rank correlation for the same reason the predictor-side agreement is one:\nbigness is comparative, so what matters is whether two graders order cases the\nsame way, not whether they pick the same numbers. Read it with ``events``\nbeside it \u2014 with a panel this small and few shared events, tau-b is noisy, and\na single disagreement moves it far.",
       "properties": {
         "by_signature": {
-          "description": "The figure read per rubric signature: one reading per maximal set of (evaluator, evaluate digest) pairs some point's reads carry, over every point whose own pairs it holds, so a point may sit in two readings and their points need not sum to the pooled count. The per-rubric reading is the claimable figure; the pooled value is coverage wherever it spans more than one digest of one evaluator. A leave-one-out point's reads are the evaluator's and its peers' on the case",
+          "description": "The figure read per rubric signature: one reading per maximal set of (evaluator, evaluate digest) pairs some point's reads carry, over every point whose own pairs it holds. A point may sit in two readings, so readings sharing points are not independent and are never differenced as if they were, and their `cases` need not sum to the pooled count. Check each pair's `n` before quoting a reading: a single point read under a new digest can form a maximal signature whose distinguishing pair has n=1. The per-rubric reading is the claimable figure; the pooled value is coverage wherever it spans more than one digest of one evaluator. A leave-one-out point's reads are the evaluator's and its peers' on the case",
           "items": {
             "$ref": "#/$defs/SignatureReading"
           },
@@ -208,7 +208,7 @@
         },
         "mixed_signature_points": {
           "default": 0,
-          "description": "Points whose reads carry one evaluator under two digests, so they span two signatures and enter no reading in `by_signature`; they still count in the pooled value. Omitted at zero",
+          "description": "Points whose reads carry one evaluator under two digests, so they span two signatures and enter no reading in `by_signature`; they still count in the pooled value. Such points concentrate in cases read at several moments, the granted ones, so after a digest move a reading covers a population short of exactly the higher-stakes cases; compare each reading's `cases` with the figure's own count. Omitted at zero",
           "minimum": 0,
           "title": "Mixed Signature Points",
           "type": "integer"
@@ -1199,7 +1199,7 @@
           "type": "string"
         },
         "labels": {
-          "description": "The process labels on these reads' harness stamps, sorted: the evaluate labels the digests ran under. A name only; a label never partitions a reading",
+          "description": "The evaluate labels that blessed these digests, sorted, from the registry (`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest names none. A name only; a label never partitions a reading",
           "items": {
             "type": "string"
           },
@@ -1240,19 +1240,19 @@
       "additionalProperties": false,
       "description": "A panel figure read over the points of one rubric signature.\n\nA panel figure combines several judges' reads, so its rubric is a\n*signature*: a sorted set of (evaluator, digest) pairs, one digest per\nevaluator. The signatures read are the maximal sets the points' own pairs\nform, so a case only part of a panel read is not split off from the panel\nit was read under. A point belongs to every signature holding all of its\npairs; one whose reads hold an evaluator under two digests belongs to none.\nThe correlation over one signature's points is the claimable figure.",
       "properties": {
+        "cases": {
+          "description": "Cases the reading rests on, one point each; against the figure's own count it shows how many points this signature leaves out",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
         "labels": {
-          "description": "The process labels on these reads' harness stamps, sorted: the evaluate labels the digests ran under. A name only; a label never partitions a reading",
+          "description": "The evaluate labels that blessed these digests, sorted, from the registry (`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest names none. A name only; a label never partitions a reading",
           "items": {
             "type": "string"
           },
           "title": "Labels",
           "type": "array"
-        },
-        "points": {
-          "description": "Points (cases) the reading rests on",
-          "minimum": 0,
-          "title": "Points",
-          "type": "integer"
         },
         "rank_agreement": {
           "anyOf": [
@@ -1280,7 +1280,7 @@
       },
       "required": [
         "signature",
-        "points"
+        "cases"
       ],
       "title": "SignatureReading",
       "type": "object"

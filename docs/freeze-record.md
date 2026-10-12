@@ -7789,3 +7789,84 @@ freeze commit is recorded here.
     python -c "from fedcourtsai.process_version
     import HARNESS_BOUNDARIES as H; print([b.name for b in H][-1])"` prints
     `merits-brief-partial-support`.
+
+- **A panel figure's rubric signatures are the maximal one-digest-per-judge
+  pair sets its points form, 2026-10-12.** A **reading-rule** entry that
+  settles how the 2026-10-11 implementation-choices entry's *rubric
+  signature* is read, before any `proc-v9` grading exists. It moves no digest,
+  no constant, no window and no membership: `uv run fedcourts process-digest
+  --all` prints the same `proc-v9` digests, and `COUNTING_WINDOWS` is
+  unchanged. It governs the leaderboard's `by_signature` readings on `big_case`
+  and `evaluator_agreement`, and any panel figure that later gains a
+  per-signature reading.
+
+  **The rule.**
+
+  - **Which signatures are read.** A point's pairs are the (evaluator, digest)
+    pairs of every read behind it: for `big_case`, every panel read across the
+    case's moments; for a leave-one-out point, the judge's reads and its
+    peers' on the case. Of the pair sets that hold one digest per evaluator,
+    the signatures read are the **maximal** ones, those no other point's set
+    strictly contains. They are derived from the data, not declared.
+  - **Membership is by subset.** A point joins the reading of every signature
+    that contains all of its pairs. A case only part of a panel read stays
+    with the panel it was read under. A point read only under digests two
+    signatures share sits in both readings, so readings sharing points are not
+    independent and are never differenced as if they were.
+  - **A mixed point joins no reading.** A point holding one evaluator under
+    two digests sits in no signature's reading. It is counted as
+    `mixed_signature_points` and stays in the pooled value, which is coverage.
+  - **The minimum clause is read as implied.** The earlier entry requires a
+    point to meet the pooled figure's own minimum within a signature. Under
+    subset membership every read of a member point carries one of the
+    signature's pairs, so a member meets it exactly as it meets the pooled
+    one. A point is never re-formed from only its in-signature reads to make
+    it a member.
+  - **Names.** A reading is named by the evaluate labels that blessed its
+    digests, from `process_version.EVALUATE_BLESSING_LABELS`, never by the
+    labels on the stamps. The label never partitions anything.
+
+  **The alternative not chosen.** A data-independent definition would take
+  each label's blessed evaluator digests from the registry as the signatures:
+  the `proc-v8` trio and the `proc-v9` trio. It is not chosen because a panel
+  need not match a label's set. An evaluator-only re-bless, or a label that
+  re-blesses some judges and carries the others forward, puts reads under
+  digests from two labels into one point. A label-set rule would then leave
+  that point in no reading, or read it by label, which the rule forbids. Under
+  either definition, a panel blessed by one label gets one reading.
+
+  **What the choice was made after seeing.** The implementation first grouped
+  points by their exact pair set. Over the `proc-v8` resolved slice on
+  `staging` that split each predictor's single `proc-v8` panel into fragments
+  by which judges happened to give a big-case read, 14, 2, 2 and 87 points for
+  `claude-baseline`, every fragment under the same three digests. The output
+  that showed the fragmentation also printed each fragment's tau-b (0.809, 1,
+  1 and 0.863 for `claude-baseline`), so those values were seen. The choice
+  rests on the structure, fragments differing in panel membership and not in
+  rubric, and not on the values. On that slice every maximal-signature reading
+  equals its pooled value: one reading per figure, the same tau-b over the same
+  cases. So the choice moves no published figure.
+
+  **What the date proves.** At `origin/main` `dff75f659`
+  (`2026-10-12T15:53:56Z`), four committed predictions carry
+  `claude-baseline`'s `proc-v9` digest (`605201bd…`):
+  - `scotus/9026000071` `evt-petition-disposition`, run `20261011T142504Z`;
+  - `scotus/9026000087` `evt-petition-disposition`, run `20261012T143556Z`;
+  - `scotus/73275187` `evt-brief-judgment`, run `20261012T143556Z`;
+  - `scotus/73280343` `evt-brief-judgment`, run `20261012T143556Z`.
+
+  No committed evaluation carries any of the three `proc-v9` evaluator digests
+  (`167b7d71…`, `18a76b93…`, `22558044…`), and none is stamped `proc-v9`.
+  `git grep` over `data/` prints nothing for either. So no panel point under a
+  `proc-v9` rubric existed, and no reading this rule governs had an outcome
+  under the new rubrics.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live: on `main`, after the next
+  metrics refresh, `jq '[.entries[].big_case.by_signature | length],
+  .evaluator_agreement["claude-judge"].by_signature' metrics/leaderboard.json`
+  prints one reading per figure until a `proc-v9` grading lands, and `uv run
+  fedcourts process-digest --all` prints the same digests as before the
+  promotion.

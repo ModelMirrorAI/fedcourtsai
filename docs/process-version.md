@@ -444,11 +444,14 @@ digest) as `reasoning_quality_rubrics`, and `big_case` and
 (`leaderboard.signature_readings`: the maximal sets of (evaluator, digest)
 pairs the points' reads form, one digest per evaluator, with a point holding
 an evaluator under two digests counted in `mixed_signature_points` and in no
-reading). The claim judge validation, the ops quantiles and the semantic
-census list their rubrics without a per-rubric reading yet. Each paired engine also carries `by_band`, its paired
-gradings under the one band filing every engine shares, which is where a
-per-band ordering is read; a boundary that reached the corpus by back-fill is
-marked `gradual`. Two of one predictor's windows sharing a label are refused, since no
+reading). Each reading is named by the evaluate labels that blessed its
+digests (`process_version.EVALUATE_BLESSING_LABELS`, which keeps a superseded
+label's evaluator digests). The claim judge-validation tau-b, the ops
+reasoning-quality quantiles and the semantic per-grader agreement list their
+rubrics without a per-rubric reading yet. Each paired engine also carries
+`by_band`, its paired gradings under the one band filing every engine shares,
+which is where a per-band ordering is read; a boundary that reached the
+corpus by back-fill is marked `gradual`. Two of one predictor's windows sharing a label are refused, since no
 figure could name them apart.
 
 The claim scores, the ops report's score rows and the tool-usage segments take

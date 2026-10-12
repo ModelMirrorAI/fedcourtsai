@@ -119,6 +119,7 @@ from .process_version import (
     BoundarySide,
     Rubric,
     Series,
+    blessing_labels,
     boundary_admits,
     boundary_side,
     composition,
@@ -215,43 +216,33 @@ def _mean(values: Sequence[float]) -> float | None:
     return sum(values) / len(values) if values else None
 
 
-def _stamp_label(evaluation: Evaluation) -> str | None:
-    """The process label on a grading's harness stamp, ``None`` when unstamped."""
-    stamp = evaluation.process_version
-    return stamp.label if stamp is not None else None
-
-
 def _reasoning_quality_rubrics(evals: Sequence[Evaluation]) -> list[RubricReading]:
     """``mean_reasoning_quality`` read per (evaluator, digest), in rubric order.
 
     Each rubric's reading is the mean over its own graded gradings alone, the
-    claimable form of a per-judge figure; a rubric none of whose gradings
-    carries a grade has nothing to read and is not listed.
+    claimable form of a per-judge figure, named by the evaluate label that
+    blessed its digest; a rubric none of whose gradings carries a grade has
+    nothing to read and is not listed.
     """
     graded: dict[Rubric, list[float]] = defaultdict(list)
-    labels: dict[Rubric, set[str]] = defaultdict(set)
     for ev in evals:
-        if ev.reasoning_quality is None:
-            continue
-        rubric = rubric_of(ev)
-        graded[rubric].append(ev.reasoning_quality)
-        if (label := _stamp_label(ev)) is not None:
-            labels[rubric].add(label)
+        if ev.reasoning_quality is not None:
+            graded[rubric_of(ev)].append(ev.reasoning_quality)
     return [
         RubricReading(
-            evaluator_id=evaluator,
-            digest=digest,
-            labels=sorted(labels[(evaluator, digest)]),
+            evaluator_id=rubric[0],
+            digest=rubric[1],
+            labels=blessing_labels([rubric]),
             n=len(grades),
             mean_reasoning_quality=_mean(grades),
         )
-        for (evaluator, digest), grades in sorted(graded.items(), key=lambda i: rubric_order(i[0]))
+        for rubric, grades in sorted(graded.items(), key=lambda item: rubric_order(item[0]))
     ]
 
 
-#: One panel point as the signature readings take it: its (x, y) pair and the
-#: (rubric, stamp label) of every read behind it.
-PanelPoint = tuple[tuple[float, float], Sequence[tuple[Rubric, str | None]]]
+#: One panel point as the signature readings take it: its (x, y) pair, the
+#: case it is the point of, and the rubric of every read behind it.
+PanelPoint = tuple[tuple[float, float], str, Sequence[Rubric]]
 
 
 def signature_readings(points: Sequence[PanelPoint]) -> tuple[list[SignatureReading], int]:
@@ -263,16 +254,18 @@ def signature_readings(points: Sequence[PanelPoint]) -> tuple[list[SignatureRead
     contains — so a point read by part of a panel is not split off from the
     panel it was read under. A point joins the reading of every signature
     holding all of its pairs, so a point read only under digests two signatures
-    share sits in both, and the readings' ``points`` need not sum to the pooled
-    count. Each reading is the tau-b over its own points. A point whose reads
-    hold one evaluator under two digests joins none and is counted instead; it
-    stays in the pooled value the caller computes over every point. Readings
-    list in signature order.
+    share sits in both: two readings may share points, and their ``cases``
+    need not sum to the pooled count. Each reading is the tau-b over its own
+    points, named by the evaluate labels that blessed its digests. A point
+    whose reads hold one evaluator under two digests joins none and is counted
+    instead, never re-formed from part of its reads; it stays in the pooled
+    value the caller computes over every point. Readings list in signature
+    order.
     """
     own: list[tuple[frozenset[Rubric], PanelPoint]] = []
     mixed = 0
     for point in points:
-        pairs = rubric_signature(rubric for rubric, _ in point[1])
+        pairs = rubric_signature(point[2])
         if pairs is None:
             mixed += 1
             continue
@@ -280,29 +273,24 @@ def signature_readings(points: Sequence[PanelPoint]) -> tuple[list[SignatureRead
     candidates = {pairs for pairs, _ in own}
     maximal = [pairs for pairs in candidates if not any(pairs < other for other in candidates)]
     readings = []
-    for signature in sorted(
-        (sorted(pairs, key=rubric_order) for pairs in maximal),
-        key=lambda pairs: [rubric_order(rubric) for rubric in pairs],
-    ):
-        members = [point for pairs, point in own if pairs <= set(signature)]
+    for signature in sorted(maximal, key=lambda pairs: sorted(map(rubric_order, pairs))):
+        members = [point for pairs, point in own if pairs <= signature]
         counts: dict[Rubric, int] = defaultdict(int)
-        labels: set[str] = set()
-        for _, reads in members:
-            for rubric, label in reads:
+        for _, _, reads in members:
+            for rubric in reads:
                 counts[rubric] += 1
-                if label is not None:
-                    labels.add(label)
+        ordered = sorted(signature, key=rubric_order)
         readings.append(
             SignatureReading(
                 signature=[
                     RubricCount(
                         evaluator_id=evaluator, digest=digest, n=counts[(evaluator, digest)]
                     )
-                    for evaluator, digest in signature
+                    for evaluator, digest in ordered
                 ],
-                labels=sorted(labels),
-                rank_agreement=kendall_tau_b([pair for pair, _ in members]),
-                points=len(members),
+                labels=blessing_labels(ordered),
+                rank_agreement=kendall_tau_b([pair for pair, _, _ in members]),
+                cases=len({case_id for _, case_id, _ in members}),
             )
         )
     return readings, mixed
@@ -1000,7 +988,7 @@ def big_case_agreement(
     pooled_from: dict[Series, dict[CountingWindow, int]] = defaultdict(lambda: defaultdict(int))
     rubrics: dict[Series, dict[tuple[str, str | None], int]] = defaultdict(lambda: defaultdict(int))
     # Every read behind each case's point, for the point's rubric signature.
-    point_reads: dict[tuple[Series, str], list[tuple[Rubric, str | None]]] = defaultdict(list)
+    point_reads: dict[tuple[Series, str], list[Rubric]] = defaultdict(list)
     for evaluation in _scoped_evaluations(
         cases_dir,
         in_scope=lambda evaluation: not frozen_only or _graded_in_window(cases_dir, evaluation),
@@ -1022,9 +1010,7 @@ def big_case_agreement(
             if read_window is not None:
                 pooled_from[series][read_window] += 1
         rubrics[series][rubric_of(evaluation)] += 1
-        point_reads[(series, evaluation.case_id)].append(
-            (rubric_of(evaluation), _stamp_label(evaluation))
-        )
+        point_reads[(series, evaluation.case_id)].append(rubric_of(evaluation))
 
     # Under `by_window` one predictor's reads from two counting windows are two
     # cuts, keyed on the series; two windows sharing a label could not be
@@ -1047,12 +1033,14 @@ def big_case_agreement(
     ):
         predictor_mean = sum(own for own, _ in moments_read) / len(moments_read)
         panel_mean = sum(panel for _, panel in moments_read) / len(moments_read)
-        points[series].append(((predictor_mean, panel_mean), point_reads[(series, case_id)]))
+        points[series].append(
+            ((predictor_mean, panel_mean), case_id, point_reads[(series, case_id)])
+        )
 
     boards: dict[SeriesLabel, BigCaseLeaderboard] = {}
     for (predictor_id, window), series_points in points.items():
         readings, mixed = signature_readings(series_points)
-        pairs = [pair for pair, _ in series_points]
+        pairs = [pair for pair, _, _ in series_points]
         boards[(predictor_id, window_label(window))] = BigCaseLeaderboard(
             rank_agreement=kendall_tau_b(pairs),
             cases=len(pairs),
@@ -1154,7 +1142,7 @@ def evaluator_agreement(
     # that enter a point. The view pools the predictors' windows by design — it
     # compares graders — so it states the series it pools rather than splitting
     # on them.
-    origins: dict[str, dict[str, list[tuple[Series, Rubric, str | None]]]] = defaultdict(
+    origins: dict[str, dict[str, list[tuple[Series, Rubric]]]] = defaultdict(
         lambda: defaultdict(list)
     )
     for evaluation in _scoped_evaluations(
@@ -1177,7 +1165,7 @@ def evaluator_agreement(
             scored = _scored_prediction(cases_dir, evaluation)
             window = window_of(scored.process_version) if scored is not None else None
         origins[evaluation.case_id][evaluation.evaluator_id].append(
-            ((evaluation.predictor_id, window), rubric_of(evaluation), _stamp_label(evaluation))
+            ((evaluation.predictor_id, window), rubric_of(evaluation))
         )
 
     points: dict[str, list[PanelPoint]] = defaultdict(list)
@@ -1193,23 +1181,21 @@ def evaluator_agreement(
         # so every read on the case is behind each judge's point: each names
         # its rubric, and the point's signature is the set of them all.
         case_reads = [
-            (rubric, label)
-            for reader in per_evaluator
-            for _series, rubric, label in origins[case_id][reader]
+            rubric for reader in per_evaluator for _series, rubric in origins[case_id][reader]
         ]
         for evaluator, own in per_evaluator.items():
             peers = [v for other, v in per_evaluator.items() if other != evaluator]
-            for series, _rubric, _label in origins[case_id][evaluator]:
+            for series, _rubric in origins[case_id][evaluator]:
                 if series[1] is not None:
                     spans[evaluator][series] += 1
-            for rubric, _label in case_reads:
+            for rubric in case_reads:
                 rubrics[evaluator][rubric] += 1
-            points[evaluator].append(((own, sum(peers) / len(peers)), case_reads))
+            points[evaluator].append(((own, sum(peers) / len(peers)), case_id, case_reads))
 
     agreement: dict[str, EvaluatorAgreement] = {}
     for evaluator, evaluator_points in points.items():
         readings, mixed = signature_readings(evaluator_points)
-        pairs = [pair for pair, _ in evaluator_points]
+        pairs = [pair for pair, _, _ in evaluator_points]
         agreement[evaluator] = EvaluatorAgreement(
             rank_agreement=kendall_tau_b(pairs),
             events=len(pairs),

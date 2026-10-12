@@ -559,3 +559,13 @@ def test_a_rubric_signature_holds_one_digest_per_evaluator() -> None:
         ("b", "sha256:2"),
     )
     assert process_version.rubric_signature([("a", "sha256:1"), ("a", "sha256:3")]) is None
+    assert process_version.rubric_signature([("a", None), ("a", "sha256:x")]) is None
+
+
+def test_every_live_evaluator_digest_is_named_by_the_current_label() -> None:
+    """A label that blesses a new evaluator digest records it in the blessing map."""
+    for entry in enabled_evaluators(Path("config") / "evaluators.yaml"):
+        digest = process_version.digest_for_actor(Path("."), Path("config"), "evaluator", entry.id)
+        assert process_version.EVALUATE_BLESSING_LABELS.get(digest) == (
+            process_version.CURRENT_PROCESS_LABEL
+        ), entry.id

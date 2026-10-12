@@ -3309,15 +3309,20 @@ _RUBRIC_COVERAGE_READ = (
 _BY_SIGNATURE_DESCRIPTION = (
     "The figure read per rubric signature: one reading per maximal set of (evaluator, "
     "evaluate digest) pairs some point's reads carry, over every point whose own pairs it "
-    "holds, so a point may sit in two readings and their points need not sum to the pooled "
-    "count. The per-rubric reading is the claimable figure; the pooled value is coverage "
-    "wherever it spans more than one digest of one evaluator"
+    "holds. A point may sit in two readings, so readings sharing points are not independent "
+    "and are never differenced as if they were, and their `cases` need not sum to the "
+    "pooled count. Check each pair's `n` before quoting a reading: a single point read "
+    "under a new digest can form a maximal signature whose distinguishing pair has n=1. "
+    "The per-rubric reading is the claimable figure; the pooled value is coverage wherever "
+    "it spans more than one digest of one evaluator"
 )
 
 _MIXED_SIGNATURE_DESCRIPTION = (
     "Points whose reads carry one evaluator under two digests, so they span two signatures "
-    "and enter no reading in `by_signature`; they still count in the pooled value. Omitted "
-    "at zero"
+    "and enter no reading in `by_signature`; they still count in the pooled value. Such "
+    "points concentrate in cases read at several moments, the granted ones, so after a "
+    "digest move a reading covers a population short of exactly the higher-stakes cases; "
+    "compare each reading's `cases` with the figure's own count. Omitted at zero"
 )
 
 
@@ -3476,8 +3481,9 @@ class RubricCount(_Strict):
 
 
 _RUBRIC_LABELS_DESCRIPTION = (
-    "The process labels on these reads' harness stamps, sorted: the evaluate labels the "
-    "digests ran under. A name only; a label never partitions a reading"
+    "The evaluate labels that blessed these digests, sorted, from the registry "
+    "(`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest "
+    "names none. A name only; a label never partitions a reading"
 )
 
 
@@ -3530,7 +3536,11 @@ class SignatureReading(_Strict):
         description="Kendall's tau-b over this signature's points alone; null with fewer than "
         "2 points or when every pair ties on one side",
     )
-    points: int = Field(ge=0, description="Points (cases) the reading rests on")
+    cases: int = Field(
+        ge=0,
+        description="Cases the reading rests on, one point each; against the figure's own "
+        "count it shows how many points this signature leaves out",
+    )
 
 
 class WindowShare(_Strict):

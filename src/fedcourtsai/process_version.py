@@ -788,6 +788,40 @@ def rubric_of(evaluation: Evaluation) -> Rubric:
 #: pairs its reads come from, in :func:`rubric_order`.
 RubricSignature = tuple[Rubric, ...]
 
+# The evaluate label that blessed each evaluator digest, kept after the label
+# that blessed it is superseded: `FROZEN_PROCESS_DIGESTS` holds only the
+# digests the current label blesses, while a per-rubric reading over an older
+# judge rubric is still named by the label that blessed it. Append-only; a
+# label that blesses a new evaluator digest adds it here in the same change
+# (a test pins every live evaluator digest to `CURRENT_PROCESS_LABEL`).
+EVALUATE_BLESSING_LABELS: Mapping[str, str] = MappingProxyType(
+    {
+        # proc-v8: claude-judge, codex-judge, gemini-judge.
+        "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13": "proc-v8",
+        "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1": "proc-v8",
+        "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe": "proc-v8",
+        # proc-v9: claude-judge, codex-judge, gemini-judge.
+        "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": "proc-v9",
+        "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": "proc-v9",
+        "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": "proc-v9",
+    }
+)
+
+
+def blessing_labels(rubrics: Iterable[Rubric]) -> list[str]:
+    """The evaluate labels that blessed these rubrics' digests, sorted.
+
+    A name for a per-rubric reading, never a partition. An unstamped grading's
+    digest and a digest no label blessed name nothing.
+    """
+    return sorted(
+        {
+            label
+            for _, digest in rubrics
+            if digest is not None and (label := EVALUATE_BLESSING_LABELS.get(digest)) is not None
+        }
+    )
+
 
 def rubric_order(rubric: Rubric) -> tuple[str, bool, str]:
     """The stable order rubrics list in: by evaluator, then digest, ``None`` first."""

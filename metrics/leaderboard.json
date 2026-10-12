@@ -4,10 +4,10 @@
       "big_case": {
         "by_signature": [
           {
+            "cases": 105,
             "labels": [
               "proc-v8"
             ],
-            "points": 105,
             "rank_agreement": 0.8454662597385398,
             "signature": [
               {
@@ -348,10 +348,10 @@
       "big_case": {
         "by_signature": [
           {
+            "cases": 100,
             "labels": [
               "proc-v8"
             ],
-            "points": 100,
             "rank_agreement": 0.7638466435418407,
             "signature": [
               {
@@ -692,10 +692,10 @@
       "big_case": {
         "by_signature": [
           {
+            "cases": 102,
             "labels": [
               "proc-v8"
             ],
-            "points": 102,
             "rank_agreement": 0.773893115492283,
             "signature": [
               {
@@ -1038,10 +1038,10 @@
       "big_case": {
         "by_signature": [
           {
+            "cases": 105,
             "labels": [
               "proc-v8"
             ],
-            "points": 105,
             "rank_agreement": 0.8454662597385398,
             "signature": [
               {
@@ -1463,10 +1463,10 @@
       "big_case": {
         "by_signature": [
           {
+            "cases": 100,
             "labels": [
               "proc-v8"
             ],
-            "points": 100,
             "rank_agreement": 0.7638466435418407,
             "signature": [
               {
@@ -1888,10 +1888,10 @@
       "big_case": {
         "by_signature": [
           {
+            "cases": 102,
             "labels": [
               "proc-v8"
             ],
-            "points": 102,
             "rank_agreement": 0.773893115492283,
             "signature": [
               {
@@ -2315,10 +2315,10 @@
     "claude-judge": {
       "by_signature": [
         {
+          "cases": 91,
           "labels": [
             "proc-v8"
           ],
-          "points": 91,
           "rank_agreement": 0.814403294166735,
           "signature": [
             {
@@ -2379,10 +2379,10 @@
     "codex-judge": {
       "by_signature": [
         {
+          "cases": 4,
           "labels": [
             "proc-v8"
           ],
-          "points": 4,
           "rank_agreement": 1.0,
           "signature": [
             {
@@ -2443,10 +2443,10 @@
     "gemini-judge": {
       "by_signature": [
         {
+          "cases": 89,
           "labels": [
             "proc-v8"
           ],
-          "points": 89,
           "rank_agreement": 0.8226172265978622,
           "signature": [
             {
