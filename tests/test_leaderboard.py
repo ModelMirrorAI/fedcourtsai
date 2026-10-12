@@ -27,11 +27,13 @@ from fedcourtsai.leaderboard import (
     CellFacts,
     CellSides,
     CellSkill,
+    Provisioning,
     _evaluation_key,
     _scored_prediction,
     big_case_agreement,
     build_leaderboard,
     cell_facts,
+    cell_provisioning,
     evaluator_agreement,
     kendall_tau_b,
     signature_readings,
@@ -71,11 +73,15 @@ from fedcourtsai.schemas import (
     Prediction,
     PredictionContext,
     ProcessVersion,
+    RetrievalCall,
+    RetrievalLog,
+    SelfProvisioningCount,
     Stage,
     StatPack,
     StatPackTerm,
     StatPackTermSegment,
     Stratum,
+    UsageRole,
     VoteProvenance,
     VoteValue,
 )
@@ -3370,6 +3376,94 @@ def test_a_pooled_entry_and_a_paired_engine_list_the_boundaries_inside_their_cel
     # The paired figure lists over each engine's paired cells: only evt-a pairs.
     assert board.paired is not None
     assert all(engine.boundaries == [] for engine in board.paired.entries)
+
+
+def test_each_cell_reads_its_self_provisioning_off_its_own_scored_log(tmp_path: Path) -> None:
+    """A filing fetch reads `reached`; a fetch naming no address reads
+    `target_blind`; a log with neither reads `none`; no log reads `unlogged`."""
+    filing = "https://www.supremecourt.gov/DocketPDF/25/25-901/1/20251001_bio.pdf"
+    queries: dict[str, list[tuple[str, str]] | None] = {
+        "alpha": [("WebFetch", f"{filing}\nSummarize the opposition")],
+        "beta": [("WebFetch", "Summarize the opposition")],
+        "gamma": [("Bash", "ls record/documents")],
+        "delta": None,
+    }
+    cells = []
+    for pid, calls in queries.items():
+        ev = _evaluation(pid)
+        _write_cell(tmp_path, ev)
+        if calls is not None:
+            event = CasePaths(tmp_path, "ca9", 123).event(ev.event_id)
+            write_json(
+                event.prediction_retrieval_log(pid, "p1"),
+                RetrievalLog(
+                    case_id=ev.case_id,
+                    run_id="p1",
+                    role=UsageRole.predictor,
+                    actor_id=pid,
+                    engine=Engine.claude_code,
+                    calls=[RetrievalCall(tool=tool, query=query) for tool, query in calls],
+                ),
+            )
+        cells.append(_forward(ev))
+    readings = cell_provisioning(cells, tmp_path)
+    assert {key[2]: reading for key, reading in readings.items()} == {
+        "alpha": "reached",
+        "beta": "target_blind",
+        "gamma": "none",
+        "delta": "unlogged",
+    }
+
+
+def test_self_provisioning_is_counted_and_the_common_record_read_without_moving_a_rank() -> None:
+    """Entries and paired engines count their cells by reading (cells, not
+    gradings); the common-record reading keeps only the paired events every
+    engine forecast from the record alone; ranks and paired figures are the
+    ones the board carries without the reading."""
+    cells = [
+        _evaluation(pid, event_id=f"evt-{n}", evaluator_id=judge, correct=int(n != "a"))
+        for pid in ("alpha", "beta")
+        for n in ("a", "b", "c")
+        for judge in ("e1", "e2")
+    ]
+    reading: dict[tuple[str, str], Provisioning] = {
+        ("alpha", "evt-a"): "reached",
+        ("beta", "evt-c"): "target_blind",
+    }
+    provisioning: dict[Any, Provisioning] = {
+        _evaluation_key(ev): reading.get((ev.predictor_id, ev.event_id), "none") for ev in cells
+    }
+    plain = build_leaderboard([_forward(ev) for ev in cells])
+    board = build_leaderboard([_forward(ev) for ev in cells], provisioning=provisioning)
+    alpha = next(e for e in board.entries if e.predictor_id == "alpha")
+    beta = next(e for e in board.entries if e.predictor_id == "beta")
+    assert alpha.self_provisioning == SelfProvisioningCount(
+        cells=3, reached=1, target_blind=0, unlogged=0
+    )
+    assert beta.self_provisioning == SelfProvisioningCount(
+        cells=3, reached=0, target_blind=1, unlogged=0
+    )
+    assert board.paired is not None and plain.paired is not None
+    common = board.paired.common_record
+    assert common is not None
+    # evt-a: alpha reached; evt-c: beta's fetch target is unknown. Only evt-b
+    # is one information set as far as the logs show.
+    assert common.events == 1
+    assert [(e.predictor_id, e.forward and e.forward.evaluations) for e in common.entries] == [
+        ("alpha", 2),
+        ("beta", 2),
+    ]
+    # Descriptive only: the ranks and every paired figure are unchanged.
+    assert [(e.predictor_id, e.rank, e.forward) for e in board.paired.entries] == [
+        (e.predictor_id, e.rank, e.forward) for e in plain.paired.entries
+    ]
+    assert [(e.predictor_id, e.rank) for e in board.entries] == [
+        (e.predictor_id, e.rank) for e in plain.entries
+    ]
+    # Unsupplied, nothing is listed.
+    dumped = plain.model_dump(mode="json")
+    assert "common_record" not in dumped["paired"]
+    assert all("self_provisioning" not in e for e in dumped["entries"])
 
 
 def test_a_replay_boundary_admits_replay_cells_of_its_predictors_alone() -> None:

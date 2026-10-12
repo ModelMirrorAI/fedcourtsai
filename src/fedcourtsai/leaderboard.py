@@ -110,6 +110,7 @@ from .integrity import (
     cell_clock,
     latest_evaluations,
 )
+from .paths import EventPaths
 from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statpack_digest
 from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
 from .pipeline.moments import first_moment, scores_votes
@@ -143,6 +144,8 @@ from .schemas import (
     NO_BAND_KEY,
     BigCaseLeaderboard,
     BoundaryCount,
+    CommonRecordEngine,
+    CommonRecordReading,
     CountingWindow,
     Disposition,
     Evaluation,
@@ -160,12 +163,16 @@ from .schemas import (
     PairedEvents,
     Prediction,
     PredictionContext,
+    RetrievalLog,
     RubricCount,
     RubricReading,
+    SelfProvisioningCount,
     SignatureReading,
     Stage,
     StatPack,
     Stratum,
+    self_provisioned_fetches,
+    target_blind_fetches,
 )
 from .serialize import read_model
 from .store import EvaluationKey, evaluation_key, prediction_counts, scored_prediction
@@ -679,7 +686,7 @@ def _paired_rank_key(
     return (-accuracy, brier, predictor_id)
 
 
-def _paired(
+def _paired(  # noqa: PLR0913 - one keyword per per-cell reading the figure lists
     cells: Sequence[tuple[Evaluation, Stratum]],
     skills: Mapping[EvaluationKey, CellSkill],
     facts: Mapping[EvaluationKey, CellFacts] | None,
@@ -689,6 +696,7 @@ def _paired(
     ranked: bool,
     vote_scores: Mapping[EvaluationKey, float] | None = None,
     sides: Mapping[EvaluationKey, CellSides] | None = None,
+    provisioning: Mapping[EvaluationKey, Provisioning] | None = None,
 ) -> PairedEvents | None:
     """A population's paired-event figure, or ``None`` while no engine qualifies.
 
@@ -757,6 +765,7 @@ def _paired(
                 },
                 boundaries=_boundary_counts(gradings, sides),
                 unpaired_events=len(set(qualifying[pid]) - paired),
+                self_provisioning=_provisioning_count(gradings, provisioning),
             )
         )
     if ranked and paired:
@@ -772,6 +781,60 @@ def _paired(
         by_band=dict(sorted(by_band.items())),
         band_mismatches=mismatches,
         entries=entries,
+        common_record=_common_record(
+            qualifying, paired, entries, skills, facts, vote_scores, provisioning
+        ),
+    )
+
+
+def _common_record(
+    qualifying: Mapping[str, Mapping[tuple[str, str], Sequence[Evaluation]]],
+    paired: set[tuple[str, str]],
+    entries: Sequence[PairedEngine],
+    skills: Mapping[EvaluationKey, CellSkill],
+    facts: Mapping[EvaluationKey, CellFacts] | None,
+    vote_scores: Mapping[EvaluationKey, float] | None,
+    provisioning: Mapping[EvaluationKey, Provisioning] | None,
+) -> CommonRecordReading | None:
+    """The paired figure over the events every engine forecast from the record alone.
+
+    An event enters only where every engine's every paired grading on it reads
+    ``none`` (:func:`cell_provisioning`): a reach, a target-blind fetch, an
+    unread log or a cell missing from the reading all keep the event out, so
+    the set errs toward excluding an event rather than admitting one whose
+    information set the logs cannot vouch for. Each engine's figure is
+    :func:`_aggregate` over its paired gradings on those events, in the paired
+    figure's order. ``None`` when no reading was supplied.
+    """
+    if provisioning is None:
+        return None
+    common = {
+        event
+        for event in paired
+        if all(
+            provisioning.get(_evaluation_key(ev)) == "none"
+            for entry in entries
+            for ev in qualifying[entry.predictor_id][event]
+        )
+    }
+    return CommonRecordReading(
+        events=len(common),
+        entries=[
+            CommonRecordEngine(
+                predictor_id=entry.predictor_id,
+                forward=_aggregate(
+                    [
+                        ev
+                        for event in sorted(common)
+                        for ev in qualifying[entry.predictor_id][event]
+                    ],
+                    skills,
+                    facts,
+                    vote_scores=vote_scores,
+                ),
+            )
+            for entry in entries
+        ],
     )
 
 
@@ -1449,6 +1512,75 @@ def _boundary_counts(
     return counts
 
 
+#: A scored cell's reading off its own retrieval log: it fetched a court filing
+#: (``reached``); it fetched none legibly (``none``); it fetched none legibly but
+#: holds a fetch whose target the log cannot show (``target_blind``); or its log
+#: is missing or unreadable (``unlogged``).
+Provisioning = Literal["reached", "none", "target_blind", "unlogged"]
+
+
+def cell_provisioning(
+    cells: Iterable[StratifiedCell], data_root: Path
+) -> dict[EvaluationKey, Provisioning]:
+    """Each scored cell's self-provisioning reading, off its scored prediction's log.
+
+    Read off the **scored** prediction's own ``retrieval_log.json`` — the run the
+    evaluation names, as every board reads it — and recomputed from its calls
+    with :func:`fedcourtsai.schemas.self_provisioned_fetches` and
+    :func:`fedcourtsai.schemas.target_blind_fetches` rather than read off the
+    log's baked count, so a log captured before the count existed reads by the
+    same rule. A cell with no readable scored prediction is left out; one whose
+    prediction has no readable log is ``unlogged``.
+    """
+    cases_dir = data_root / "cases"
+    readings: dict[EvaluationKey, Provisioning] = {}
+    for evaluation, _stratum, _stage, _moment in cells:
+        scored = _scored_prediction(cases_dir, evaluation)
+        if scored is None:
+            continue
+        log_path = EventPaths(
+            cases_dir / evaluation.case_id / "events" / evaluation.event_id
+        ).prediction_retrieval_log(evaluation.predictor_id, scored.run_id)
+        try:
+            log = read_model(log_path, RetrievalLog)
+        except (OSError, ValueError):
+            readings[_evaluation_key(evaluation)] = "unlogged"
+            continue
+        if self_provisioned_fetches(log.calls):
+            reading: Provisioning = "reached"
+        elif target_blind_fetches(log.calls):
+            reading = "target_blind"
+        else:
+            reading = "none"
+        readings[_evaluation_key(evaluation)] = reading
+    return readings
+
+
+def _provisioning_count(
+    evals: Iterable[Evaluation], provisioning: Mapping[EvaluationKey, Provisioning] | None
+) -> SelfProvisioningCount | None:
+    """A figure's cells by self-provisioning reading, or ``None`` when none was supplied.
+
+    Counted in cells — one per (case, event, predictor), whatever its panel
+    depth — so a three-judge cell counts once, as a boundary count does.
+    """
+    if provisioning is None:
+        return None
+    per_cell: dict[tuple[str, str, str], Provisioning] = {}
+    for ev in evals:
+        if (reading := provisioning.get(_evaluation_key(ev))) is not None:
+            per_cell.setdefault((ev.case_id, ev.event_id, ev.predictor_id), reading)
+    if not per_cell:
+        return None
+    readings = list(per_cell.values())
+    return SelfProvisioningCount(
+        cells=len(readings),
+        reached=readings.count("reached"),
+        target_blind=readings.count("target_blind"),
+        unlogged=readings.count("unlogged"),
+    )
+
+
 def vote_scores(cells: Iterable[StratifiedCell], data_root: Path) -> dict[EvaluationKey, float]:
     """Each vote-scored cell's participating-bench accuracy.
 
@@ -1713,7 +1845,7 @@ def _group_by_predictor(
     return {pid: by_predictor[pid] for pid in sorted(by_predictor)}
 
 
-def _stage_entry(
+def _stage_entry(  # noqa: PLR0913 - one argument per per-cell reading the entry lists
     predictor_id: str,
     window: CountingWindow | None,
     strata: Mapping[Stratum, list[Evaluation]],
@@ -1722,6 +1854,8 @@ def _stage_entry(
     cell_windows: Mapping[EvaluationKey, CountingWindow],
     vote_scores: Mapping[EvaluationKey, float] | None,
     sides: Mapping[EvaluationKey, CellSides] | None,
+    *,
+    provisioning: Mapping[EvaluationKey, Provisioning] | None = None,
 ) -> LeaderboardStageEntry:
     """One unranked entry: pooled where ``window`` is ``None``, else that window's cut."""
     evals = strata[FORWARD] + strata[RETROSPECTIVE] + strata[PROCEDURAL]
@@ -1734,6 +1868,7 @@ def _stage_entry(
             else []
         ),
         boundaries=_boundary_counts(evals, sides) if window is None else [],
+        self_provisioning=_provisioning_count(evals, provisioning) if window is None else None,
         evaluators=len({ev.evaluator_id for ev in evals}),
         events_scored=_events_scored(evals),
         forward=_aggregate(strata[FORWARD], skills, facts, vote_scores=vote_scores),
@@ -1763,6 +1898,7 @@ def _stage_board(
     frozen: bool,
     vote_scores: Mapping[EvaluationKey, float] | None = None,
     sides: Mapping[EvaluationKey, CellSides] | None = None,
+    provisioning: Mapping[EvaluationKey, Provisioning] | None = None,
 ) -> LeaderboardStage:
     """One non-cert stage's unranked block: pooled entries, the cut, and the paired figure.
 
@@ -1785,7 +1921,17 @@ def _stage_board(
     """
     by_series = _group_by_series(cells, cell_windows)
     entries = [
-        _stage_entry(pid, None, strata, skills, facts, cell_windows, vote_scores, sides)
+        _stage_entry(
+            pid,
+            None,
+            strata,
+            skills,
+            facts,
+            cell_windows,
+            vote_scores,
+            sides,
+            provisioning=provisioning,
+        )
         for pid, strata in _group_by_predictor(cells).items()
     ]
     cut = [
@@ -1811,6 +1957,7 @@ def _stage_board(
             ranked=False,
             vote_scores=vote_scores,
             sides=sides,
+            provisioning=provisioning,
         ),
     )
 
@@ -1829,6 +1976,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
     vote_scores: Mapping[EvaluationKey, float] | None = None,
     cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
     boundaries: Mapping[EvaluationKey, CellSides] | None = None,
+    provisioning: Mapping[EvaluationKey, Provisioning] | None = None,
 ) -> Leaderboard:
     """Roll stratified evaluations up into a best-first leaderboard.
 
@@ -1909,6 +2057,13 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         each pooled entry and each paired engine lists as ``boundaries`` — the
         cells before and after every boundary inside its span. Unsupplied, no
         figure lists one.
+
+    ``provisioning`` (from :func:`cell_provisioning` over the same cells) is each
+        cell's self-provisioning reading off its own retrieval log: what each
+        pooled entry and each paired engine lists as ``self_provisioning``, and
+        what each paired figure's ``common_record`` reading restricts its events
+        by. Descriptive only — no rank key, headline figure or exclusion reads
+        it. Unsupplied, no figure lists either.
     """
     cell_skills = skills or {}
     cert_cells: list[tuple[Evaluation, Stratum]] = []
@@ -1932,6 +2087,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         ranked=True,
         vote_scores=vote_scores,
         sides=boundaries,
+        provisioning=provisioning,
     )
     standing = {
         engine.predictor_id: engine.rank
@@ -1953,6 +2109,9 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
                 else []
             ),
             boundaries=_boundary_counts(evals, boundaries) if window is None else [],
+            self_provisioning=(
+                _provisioning_count(evals, provisioning) if window is None else None
+            ),
             rank=rank,
             paired_events=paired.events if rank is not None and paired is not None else None,
             evaluators=len({ev.evaluator_id for ev in evals}),
@@ -2015,6 +2174,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
                 frozen=frozen,
                 vote_scores=vote_scores,
                 sides=boundaries,
+                provisioning=provisioning,
             )
             for key in sorted(stage_cells)
         },

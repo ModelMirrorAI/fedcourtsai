@@ -2690,8 +2690,10 @@ def self_provisioned_fetches(calls: Sequence[RetrievalCall]) -> list[RetrievalCa
     document tree while others do not — so a fan-out that reads as one
     comparison was run over two different information sets. Nothing else records
     that: the fetch leaves a row in the cell's log and no mark on the
-    prediction. This is the predicate that finds those rows, and it is a
-    **record only** — no score, no metric and no board reads it. It records a
+    prediction. This is the predicate that finds those rows. No score or rank
+    reads it; the leaderboard only describes with it — each figure's cells by
+    reading, and a paired reading over the events no engine reached past the
+    record on (:func:`fedcourtsai.leaderboard.cell_provisioning`). It records a
     *reach*, not an acquisition: the row is the call, and whether anything came
     back is ``result_status``'s business, so a refused fetch counts here and
     moved no information set.
@@ -2742,6 +2744,30 @@ def self_provisioned_fetches(calls: Sequence[RetrievalCall]) -> list[RetrievalCa
         if call.query is not None
         and _FILING_DOCUMENT_URL.search(call.query) is not None
         and _fetched_with(call, call.query)
+    ]
+
+
+# Any web address in a row's query slice: what makes a fetch's target legible.
+_ANY_URL = re.compile(r"https?://", re.IGNORECASE)
+
+
+def target_blind_fetches(calls: Sequence[RetrievalCall]) -> list[RetrievalCall]:
+    """The dedicated-fetch calls whose query slice names no web address at all.
+
+    The complement :func:`self_provisioned_fetches` cannot see: a row from an
+    engine's own fetch tool (:data:`_FETCH_TOOLS`) whose slice carries no
+    ``http(s)://`` anywhere, so whatever it fetched is unknown — it may have
+    been a filing the record lacked. A prompted fetch on a log captured before
+    the URL-first slice rule is the common case (its slice kept the prompt
+    alone); a fetch whose prompt simply omits the address is the other. A
+    cell holding any such row has a self-provisioning reading that is a floor:
+    its zero means *no filing fetch was legible*, not *none happened*.
+    """
+    return [
+        call
+        for call in calls
+        if call.tool.lower() in _FETCH_TOOLS
+        and (call.query is None or _ANY_URL.search(call.query) is None)
     ]
 
 
@@ -2866,9 +2892,11 @@ class RetrievalLog(_Strict):
         "`record/documents/` set is every "
         "predictor's guaranteed-common input, so a cell that repairs a gap in it by live "
         "fetch and a cell that cannot are not running on one information set, and nothing "
-        "else records the difference: the call marks the log and not the prediction. A "
-        "RECORD ONLY — no score, metric or board reads it, and stratifying one on it is "
-        "separate, registered work. A REACH, NOT AN ACQUISITION: the row is the call, and "
+        "else records the difference: the call marks the log and not the prediction. "
+        "DESCRIPTIVE ONLY — no score, rank key or exclusion reads it; the leaderboard "
+        "counts each figure's cells by it and reads a paired figure over the events no "
+        "engine reached past the record on, both registered in the freeze record. "
+        "A REACH, NOT AN ACQUISITION: the row is the call, and "
         "whether anything came back is `result_status`'s business — on a shell row the "
         "engine's own failure marker rather than a read of the payload — so a refused or "
         "404'd fetch counts here and moved no information set. Condition on "
@@ -3620,6 +3648,81 @@ _BOUNDARIES_DESCRIPTION = (
 )
 
 
+class SelfProvisioningCount(_Strict):
+    """A figure's cells by whether they reached past the provisioned record for a filing.
+
+    Descriptive, never a filter and never a rank key. The provisioned
+    `record/documents/` set is every predictor's guaranteed-common input; a cell
+    that fetched a filing outside it ran on a different information set from a
+    cell that did not, so a figure over both is a comparison across information
+    sets wherever the counts below are non-zero. Counted in cells — one per
+    (case, event) — over the figure's cells, each read off its scored
+    prediction's own retrieval log.
+    """
+
+    cells: int = Field(ge=0, description="Cells behind this figure")
+    reached: int = Field(
+        ge=0,
+        description="Cells whose log holds at least one filing fetch "
+        "(`self_provisioned_fetches` > 0): a reach, not an acquisition — a refused fetch "
+        "counts — and not proof the record lacked the filing",
+    )
+    target_blind: int = Field(
+        ge=0,
+        description="Cells that did not reach legibly but hold a dedicated-fetch row whose "
+        "slice names no web address, so a filing fetch could be hidden there. On a log "
+        "captured before the URL-first slice rule this is every prompted fetch, so before "
+        "that rule's carrying merge `reached` is a floor for an engine whose fetch tool "
+        "takes a prompt",
+    )
+    unlogged: int = Field(
+        ge=0,
+        description="Cells whose scored prediction has no readable retrieval log, so "
+        "nothing is known about what they fetched",
+    )
+
+
+_SELF_PROVISIONING_DESCRIPTION = (
+    "This figure's cells by whether they reached past the provisioned document set for a "
+    "court filing (see SelfProvisioningCount). Descriptive only: no rank key, headline "
+    "figure or filter reads it. Omitted while no retrieval-log reading was supplied"
+)
+
+
+class CommonRecordEngine(_Strict):
+    """One engine's figure over the paired events every engine ran on the record alone."""
+
+    predictor_id: str
+    forward: LeaderboardStratum | None = Field(
+        default=None,
+        description="This engine's forward aggregate over its paired gradings on the "
+        "common-record events; null while there are none",
+    )
+
+
+class CommonRecordReading(_Strict):
+    """The paired figure restricted to events no engine reached past the record on.
+
+    The engine comparison over one information set: a paired event enters only
+    where every engine's cell on it has a legible log with no filing fetch and
+    no target-blind fetch row (:class:`SelfProvisioningCount`), so every engine
+    forecast it from the provisioned snapshot alone as far as the logs can show.
+    A **selected** subset of the paired events — events whose record was short
+    are the ones a cell reaches past it on, so these skew toward
+    fully-provisioned events — and never ranked: the rank stays on the full
+    paired figure.
+    """
+
+    events: int = Field(
+        ge=0,
+        description="Paired events on which every engine's cell reached past nothing, legibly",
+    )
+    entries: list[CommonRecordEngine] = Field(
+        default_factory=list,
+        description="Per engine, in the paired figure's order",
+    )
+
+
 _COMPOSITION_DESCRIPTION = (
     "The windows this figure pools, each with its `n` in gradings, ordered by "
     "opening. Listed whenever the figure is a frozen-scope pool, a single window "
@@ -3671,11 +3774,21 @@ class PairedEngine(_Strict):
         description="This engine's qualifying events that are not paired, because some "
         "other engine in the set holds no qualifying cell on them: its pairing loss",
     )
+    self_provisioning: SelfProvisioningCount | None = Field(
+        default=None,
+        description=_SELF_PROVISIONING_DESCRIPTION + ". Over this engine's cells on the paired "
+        "events",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_empty_boundaries(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``boundaries`` and ``by_band`` while empty."""
-        return _omit_empty(handler(self), boundaries=self.boundaries, by_band=self.by_band)
+        """Drop ``boundaries``, ``by_band`` and ``self_provisioning`` while empty."""
+        return _omit_empty(
+            handler(self),
+            boundaries=self.boundaries,
+            by_band=self.by_band,
+            self_provisioning=self.self_provisioning,
+        )
 
 
 class PairedEvents(_Strict):
@@ -3718,11 +3831,18 @@ class PairedEvents(_Strict):
         description="Per engine, its standing over the paired events: in rank order on the "
         "ranked board, by `predictor_id` on an unranked block",
     )
+    common_record: CommonRecordReading | None = Field(
+        default=None,
+        description="The paired figure restricted to the events on which no engine's cell "
+        "reached past the provisioned record (see CommonRecordReading): the engine "
+        "comparison over one information set. A selected subset, never ranked; omitted "
+        "while no retrieval-log reading was supplied",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``by_band`` while it is empty."""
-        return _omit_empty(handler(self), by_band=self.by_band)
+        """Drop ``by_band`` and ``common_record`` while empty."""
+        return _omit_empty(handler(self), by_band=self.by_band, common_record=self.common_record)
 
 
 #: The key :attr:`LeaderboardEntry.by_band` files a cell under when its scored
@@ -3785,6 +3905,11 @@ class LeaderboardEntry(_Strict):
     boundaries: list[BoundaryCount] = Field(
         default_factory=list,
         description=_BOUNDARIES_DESCRIPTION + ". On a pooled entry; never on a cut entry",
+    )
+    self_provisioning: SelfProvisioningCount | None = Field(
+        default=None,
+        description=_SELF_PROVISIONING_DESCRIPTION + ". On a pooled entry, over every "
+        "stratum's cells; never on a cut entry",
     )
     rank: int | None = Field(
         default=None,
@@ -3858,6 +3983,7 @@ class LeaderboardEntry(_Strict):
             _drop_empty_by_band(handler(self), self.by_band),
             windows=self.windows,
             boundaries=self.boundaries,
+            self_provisioning=self.self_provisioning,
         )
 
 
@@ -3881,6 +4007,11 @@ class LeaderboardStageEntry(_Strict):
     boundaries: list[BoundaryCount] = Field(
         default_factory=list,
         description=_BOUNDARIES_DESCRIPTION + ". On a pooled entry; never on a cut entry",
+    )
+    self_provisioning: SelfProvisioningCount | None = Field(
+        default=None,
+        description=_SELF_PROVISIONING_DESCRIPTION + ". On a pooled entry, over every "
+        "stratum's cells; never on a cut entry",
     )
     evaluators: int = Field(
         ge=0, description="Distinct evaluators that scored this predictor in this stage"
@@ -3918,6 +4049,7 @@ class LeaderboardStageEntry(_Strict):
             _drop_empty_by_band(handler(self), self.by_band),
             windows=self.windows,
             boundaries=self.boundaries,
+            self_provisioning=self.self_provisioning,
         )
 
 

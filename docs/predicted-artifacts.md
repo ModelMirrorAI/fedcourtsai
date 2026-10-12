@@ -583,8 +583,10 @@ directory without knowing which part is which invites trusting the wrong half.
   document set is what every predictor in a fan-out is guaranteed to share, so
   a cell that repairs a gap in it by live fetch and a cell that cannot have not
   reasoned from one information set — and nothing else records the split, since
-  the fetch marks the log and not the prediction. A **record only**: no score,
-  board or metric reads it. It is a **reach, not an acquisition** — the row is
+  the fetch marks the log and not the prediction. **Descriptive only**: no
+  score, rank key or exclusion reads it; the leaderboard counts each figure's
+  cells by it and reads a paired figure over the events no engine reached past
+  the record on ([metrics/README.md](../metrics/README.md)). It is a **reach, not an acquisition** — the row is
   the call, and whether anything came back is `result_status`'s business, which
   on a shell row is the engine's own failure marker rather than a read of the
   payload, so a refused fetch counts and moved no information set. It does not

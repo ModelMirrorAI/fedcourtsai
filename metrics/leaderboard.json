@@ -1451,6 +1451,12 @@
       "process_window": null,
       "rank": 1,
       "retrospective": null,
+      "self_provisioning": {
+        "cells": 97,
+        "reached": 4,
+        "target_blind": 16,
+        "unlogged": 0
+      },
       "windows": [
         {
           "n": 291,
@@ -1876,6 +1882,12 @@
       "process_window": null,
       "rank": 2,
       "retrospective": null,
+      "self_provisioning": {
+        "cells": 97,
+        "reached": 15,
+        "target_blind": 0,
+        "unlogged": 0
+      },
       "windows": [
         {
           "n": 291,
@@ -2301,6 +2313,12 @@
       "process_window": null,
       "rank": 3,
       "retrospective": null,
+      "self_provisioning": {
+        "cells": 97,
+        "reached": 0,
+        "target_blind": 0,
+        "unlogged": 0
+      },
       "windows": [
         {
           "n": 291,
@@ -2572,6 +2590,191 @@
       "sal-v4/elevated": 28,
       "sal-v4/federal": 1,
       "sal-v4/high": 1
+    },
+    "common_record": {
+      "entries": [
+        {
+          "forward": {
+            "accuracy": 0.9863013698630136,
+            "accuracy_events_scored": 73,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 219,
+            "always_deny_accuracy": 0.9863013698630136,
+            "evaluations": 219,
+            "event_accuracy": 0.9863013698630136,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 0.9863013698630136,
+            "events_scored": 73,
+            "grants_expected": 5.908942805752559,
+            "grants_expected_scored": 73,
+            "grants_realized": 1,
+            "grants_realized_expected_scored": 1,
+            "in_sample_events_scored": 73,
+            "in_sample_grant_rate": 0.0136986301369863,
+            "in_sample_skill_scored": 219,
+            "mean_brier_score": 0.01178286301369863,
+            "mean_reasoning_quality": 0.8578082191780821,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.35448012460514444,
+            "population_in_sample_skill_score": 0.12790448611111105,
+            "population_realized_term_skill_score": 0.2262988746115835,
+            "realized_term_skill_scored": 216,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8608219178082192,
+                "n": 73
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7964383561643835,
+                "n": 73
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9161643835616438,
+                "n": 73
+              }
+            ],
+            "skill_scored": 219,
+            "vote_cells_scored": 0
+          },
+          "predictor_id": "claude-baseline"
+        },
+        {
+          "forward": {
+            "accuracy": 0.9863013698630136,
+            "accuracy_events_scored": 73,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 219,
+            "always_deny_accuracy": 0.9863013698630136,
+            "evaluations": 219,
+            "event_accuracy": 0.9863013698630136,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 0.9863013698630136,
+            "events_scored": 73,
+            "grants_expected": 5.908942805752559,
+            "grants_expected_scored": 73,
+            "grants_realized": 1,
+            "grants_realized_expected_scored": 1,
+            "in_sample_events_scored": 73,
+            "in_sample_grant_rate": 0.0136986301369863,
+            "in_sample_skill_scored": 219,
+            "mean_brier_score": 0.012894273972602741,
+            "mean_reasoning_quality": 0.8773059360730593,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.2935918784403395,
+            "population_in_sample_skill_score": 0.04564463888888881,
+            "population_realized_term_skill_score": 0.1534977980446458,
+            "realized_term_skill_scored": 216,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8224657534246576,
+                "n": 73
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9146575342465753,
+                "n": 73
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8947945205479451,
+                "n": 73
+              }
+            ],
+            "skill_scored": 219,
+            "vote_cells_scored": 0
+          },
+          "predictor_id": "codex-baseline"
+        },
+        {
+          "forward": {
+            "accuracy": 0.9863013698630136,
+            "accuracy_events_scored": 73,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 219,
+            "always_deny_accuracy": 0.9863013698630136,
+            "evaluations": 219,
+            "event_accuracy": 0.9863013698630136,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 0.9863013698630136,
+            "events_scored": 73,
+            "grants_expected": 5.908942805752559,
+            "grants_expected_scored": 73,
+            "grants_realized": 1,
+            "grants_realized_expected_scored": 1,
+            "in_sample_events_scored": 73,
+            "in_sample_grant_rate": 0.0136986301369863,
+            "in_sample_skill_scored": 219,
+            "mean_brier_score": 0.02091564383561644,
+            "mean_reasoning_quality": 0.6250228310502283,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": -0.14585595936010165,
+            "population_in_sample_skill_score": -0.5480481388888889,
+            "population_realized_term_skill_score": -0.37340666132111866,
+            "realized_term_skill_scored": 216,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.5138356164383562,
+                "n": 73
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.5858904109589042,
+                "n": 73
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7753424657534247,
+                "n": 73
+              }
+            ],
+            "skill_scored": 219,
+            "vote_cells_scored": 0
+          },
+          "predictor_id": "gemini-baseline"
+        }
+      ],
+      "events": 73
     },
     "entries": [
       {
@@ -2931,6 +3134,12 @@
         },
         "predictor_id": "claude-baseline",
         "rank": 1,
+        "self_provisioning": {
+          "cells": 97,
+          "reached": 4,
+          "target_blind": 16,
+          "unlogged": 0
+        },
         "unpaired_events": 0,
         "windows": [
           {
@@ -3297,6 +3506,12 @@
         },
         "predictor_id": "codex-baseline",
         "rank": 2,
+        "self_provisioning": {
+          "cells": 97,
+          "reached": 15,
+          "target_blind": 0,
+          "unlogged": 0
+        },
         "unpaired_events": 0,
         "windows": [
           {
@@ -3663,6 +3878,12 @@
         },
         "predictor_id": "gemini-baseline",
         "rank": 3,
+        "self_provisioning": {
+          "cells": 97,
+          "reached": 0,
+          "target_blind": 0,
+          "unlogged": 0
+        },
         "unpaired_events": 0,
         "windows": [
           {
@@ -4210,6 +4431,12 @@
             "skill_scored": 12,
             "vote_cells_scored": 0
           },
+          "self_provisioning": {
+            "cells": 8,
+            "reached": 0,
+            "target_blind": 3,
+            "unlogged": 0
+          },
           "windows": [
             {
               "n": 24,
@@ -4371,6 +4598,12 @@
             ],
             "skill_scored": 12,
             "vote_cells_scored": 0
+          },
+          "self_provisioning": {
+            "cells": 8,
+            "reached": 0,
+            "target_blind": 0,
+            "unlogged": 0
           },
           "windows": [
             {
@@ -4534,6 +4767,12 @@
             "skill_scored": 7,
             "vote_cells_scored": 0
           },
+          "self_provisioning": {
+            "cells": 7,
+            "reached": 0,
+            "target_blind": 0,
+            "unlogged": 0
+          },
           "windows": [
             {
               "n": 19,
@@ -4548,6 +4787,191 @@
       "forward_evaluations": 36,
       "paired": {
         "band_mismatches": 0,
+        "common_record": {
+          "entries": [
+            {
+              "forward": {
+                "accuracy": 1.0,
+                "accuracy_events_scored": 1,
+                "accuracy_lift": null,
+                "accuracy_scored": 3,
+                "always_deny_accuracy": null,
+                "evaluations": 3,
+                "event_accuracy": 1.0,
+                "event_accuracy_lift": null,
+                "event_always_deny_accuracy": null,
+                "events_scored": 1,
+                "grants_expected": null,
+                "grants_expected_scored": null,
+                "grants_realized": null,
+                "grants_realized_expected_scored": null,
+                "in_sample_events_scored": 0,
+                "in_sample_grant_rate": null,
+                "in_sample_skill_scored": 0,
+                "mean_brier_score": 0.0001,
+                "mean_reasoning_quality": 0.7633333333333333,
+                "mean_vote_accuracy": null,
+                "population_brier_skill_score": 0.9908828303850156,
+                "population_in_sample_skill_score": null,
+                "population_realized_term_skill_score": null,
+                "realized_term_skill_scored": 0,
+                "reasoning_quality_rubrics": [
+                  {
+                    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.78,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.56,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.95,
+                    "n": 1
+                  }
+                ],
+                "skill_scored": 3,
+                "vote_cells_scored": 0
+              },
+              "predictor_id": "claude-baseline"
+            },
+            {
+              "forward": {
+                "accuracy": 1.0,
+                "accuracy_events_scored": 1,
+                "accuracy_lift": null,
+                "accuracy_scored": 3,
+                "always_deny_accuracy": null,
+                "evaluations": 3,
+                "event_accuracy": 1.0,
+                "event_accuracy_lift": null,
+                "event_always_deny_accuracy": null,
+                "events_scored": 1,
+                "grants_expected": null,
+                "grants_expected_scored": null,
+                "grants_realized": null,
+                "grants_realized_expected_scored": null,
+                "in_sample_events_scored": 0,
+                "in_sample_grant_rate": null,
+                "in_sample_skill_scored": 0,
+                "mean_brier_score": 0.0036000000000000003,
+                "mean_reasoning_quality": 0.7000000000000001,
+                "mean_vote_accuracy": null,
+                "population_brier_skill_score": 0.671781893860562,
+                "population_in_sample_skill_score": null,
+                "population_realized_term_skill_score": null,
+                "realized_term_skill_scored": 0,
+                "reasoning_quality_rubrics": [
+                  {
+                    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.62,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.88,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.6,
+                    "n": 1
+                  }
+                ],
+                "skill_scored": 3,
+                "vote_cells_scored": 0
+              },
+              "predictor_id": "codex-baseline"
+            },
+            {
+              "forward": {
+                "accuracy": 1.0,
+                "accuracy_events_scored": 1,
+                "accuracy_lift": null,
+                "accuracy_scored": 3,
+                "always_deny_accuracy": null,
+                "evaluations": 3,
+                "event_accuracy": 1.0,
+                "event_accuracy_lift": null,
+                "event_always_deny_accuracy": null,
+                "events_scored": 1,
+                "grants_expected": null,
+                "grants_expected_scored": null,
+                "grants_realized": null,
+                "grants_realized_expected_scored": null,
+                "in_sample_events_scored": 0,
+                "in_sample_grant_rate": null,
+                "in_sample_skill_scored": 0,
+                "mean_brier_score": 1e-06,
+                "mean_reasoning_quality": 0.5833333333333334,
+                "mean_vote_accuracy": null,
+                "population_brier_skill_score": 0.9999088283038502,
+                "population_in_sample_skill_score": null,
+                "population_realized_term_skill_score": null,
+                "realized_term_skill_scored": 0,
+                "reasoning_quality_rubrics": [
+                  {
+                    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.45,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.4,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.9,
+                    "n": 1
+                  }
+                ],
+                "skill_scored": 3,
+                "vote_cells_scored": 0
+              },
+              "predictor_id": "gemini-baseline"
+            }
+          ],
+          "events": 1
+        },
         "entries": [
           {
             "boundaries": [
@@ -4643,6 +5067,12 @@
             },
             "predictor_id": "claude-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 4,
+              "reached": 0,
+              "target_blind": 3,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -4746,6 +5176,12 @@
             },
             "predictor_id": "codex-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 4,
+              "reached": 0,
+              "target_blind": 0,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -4849,6 +5285,12 @@
             },
             "predictor_id": "gemini-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 4,
+              "reached": 0,
+              "target_blind": 0,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -5374,6 +5816,12 @@
             "skill_scored": 3,
             "vote_cells_scored": 0
           },
+          "self_provisioning": {
+            "cells": 2,
+            "reached": 0,
+            "target_blind": 1,
+            "unlogged": 0
+          },
           "windows": [
             {
               "n": 6,
@@ -5519,6 +5967,12 @@
             ],
             "skill_scored": 3,
             "vote_cells_scored": 0
+          },
+          "self_provisioning": {
+            "cells": 2,
+            "reached": 1,
+            "target_blind": 0,
+            "unlogged": 0
           },
           "windows": [
             {
@@ -5666,6 +6120,12 @@
             "skill_scored": 3,
             "vote_cells_scored": 0
           },
+          "self_provisioning": {
+            "cells": 2,
+            "reached": 0,
+            "target_blind": 0,
+            "unlogged": 0
+          },
           "windows": [
             {
               "n": 6,
@@ -5680,6 +6140,23 @@
       "forward_evaluations": 9,
       "paired": {
         "band_mismatches": 0,
+        "common_record": {
+          "entries": [
+            {
+              "forward": null,
+              "predictor_id": "claude-baseline"
+            },
+            {
+              "forward": null,
+              "predictor_id": "codex-baseline"
+            },
+            {
+              "forward": null,
+              "predictor_id": "gemini-baseline"
+            }
+          ],
+          "events": 0
+        },
         "entries": [
           {
             "forward": {
@@ -5741,6 +6218,12 @@
             },
             "predictor_id": "claude-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 1,
+              "reached": 0,
+              "target_blind": 1,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -5810,6 +6293,12 @@
             },
             "predictor_id": "codex-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 1,
+              "reached": 0,
+              "target_blind": 0,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -5879,6 +6368,12 @@
             },
             "predictor_id": "gemini-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 1,
+              "reached": 0,
+              "target_blind": 0,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -6162,6 +6657,12 @@
           "procedural": null,
           "process_window": null,
           "retrospective": null,
+          "self_provisioning": {
+            "cells": 3,
+            "reached": 0,
+            "target_blind": 2,
+            "unlogged": 0
+          },
           "windows": [
             {
               "n": 9,
@@ -6234,6 +6735,12 @@
           "procedural": null,
           "process_window": null,
           "retrospective": null,
+          "self_provisioning": {
+            "cells": 3,
+            "reached": 0,
+            "target_blind": 0,
+            "unlogged": 0
+          },
           "windows": [
             {
               "n": 9,
@@ -6306,6 +6813,12 @@
           "procedural": null,
           "process_window": null,
           "retrospective": null,
+          "self_provisioning": {
+            "cells": 3,
+            "reached": 0,
+            "target_blind": 0,
+            "unlogged": 0
+          },
           "windows": [
             {
               "n": 9,
@@ -6320,6 +6833,191 @@
       "forward_evaluations": 27,
       "paired": {
         "band_mismatches": 0,
+        "common_record": {
+          "entries": [
+            {
+              "forward": {
+                "accuracy": 1.0,
+                "accuracy_events_scored": 1,
+                "accuracy_lift": null,
+                "accuracy_scored": 3,
+                "always_deny_accuracy": null,
+                "evaluations": 3,
+                "event_accuracy": 1.0,
+                "event_accuracy_lift": null,
+                "event_always_deny_accuracy": null,
+                "events_scored": 1,
+                "grants_expected": null,
+                "grants_expected_scored": null,
+                "grants_realized": null,
+                "grants_realized_expected_scored": null,
+                "in_sample_events_scored": 0,
+                "in_sample_grant_rate": null,
+                "in_sample_skill_scored": 0,
+                "mean_brier_score": 0.03999999999999998,
+                "mean_reasoning_quality": 0.8833333333333333,
+                "mean_vote_accuracy": null,
+                "population_brier_skill_score": 0.950094126023496,
+                "population_in_sample_skill_score": null,
+                "population_realized_term_skill_score": null,
+                "realized_term_skill_scored": 0,
+                "reasoning_quality_rubrics": [
+                  {
+                    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.9,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.85,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.9,
+                    "n": 1
+                  }
+                ],
+                "skill_scored": 3,
+                "vote_cells_scored": 0
+              },
+              "predictor_id": "claude-baseline"
+            },
+            {
+              "forward": {
+                "accuracy": 1.0,
+                "accuracy_events_scored": 1,
+                "accuracy_lift": null,
+                "accuracy_scored": 3,
+                "always_deny_accuracy": null,
+                "evaluations": 3,
+                "event_accuracy": 1.0,
+                "event_accuracy_lift": null,
+                "event_always_deny_accuracy": null,
+                "events_scored": 1,
+                "grants_expected": null,
+                "grants_expected_scored": null,
+                "grants_realized": null,
+                "grants_realized_expected_scored": null,
+                "in_sample_events_scored": 0,
+                "in_sample_grant_rate": null,
+                "in_sample_skill_scored": 0,
+                "mean_brier_score": 0.02560000000000001,
+                "mean_reasoning_quality": 0.8766666666666666,
+                "mean_vote_accuracy": null,
+                "population_brier_skill_score": 0.9680602406550374,
+                "population_in_sample_skill_score": null,
+                "population_realized_term_skill_score": null,
+                "realized_term_skill_scored": 0,
+                "reasoning_quality_rubrics": [
+                  {
+                    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.85,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.93,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.85,
+                    "n": 1
+                  }
+                ],
+                "skill_scored": 3,
+                "vote_cells_scored": 0
+              },
+              "predictor_id": "codex-baseline"
+            },
+            {
+              "forward": {
+                "accuracy": 1.0,
+                "accuracy_events_scored": 1,
+                "accuracy_lift": null,
+                "accuracy_scored": 3,
+                "always_deny_accuracy": null,
+                "evaluations": 3,
+                "event_accuracy": 1.0,
+                "event_accuracy_lift": null,
+                "event_always_deny_accuracy": null,
+                "events_scored": 1,
+                "grants_expected": null,
+                "grants_expected_scored": null,
+                "grants_realized": null,
+                "grants_realized_expected_scored": null,
+                "in_sample_events_scored": 0,
+                "in_sample_grant_rate": null,
+                "in_sample_skill_scored": 0,
+                "mean_brier_score": 0.009999999999999995,
+                "mean_reasoning_quality": 0.6,
+                "mean_vote_accuracy": null,
+                "population_brier_skill_score": 0.987523531505874,
+                "population_in_sample_skill_score": null,
+                "population_realized_term_skill_score": null,
+                "realized_term_skill_scored": 0,
+                "reasoning_quality_rubrics": [
+                  {
+                    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.5,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.55,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.75,
+                    "n": 1
+                  }
+                ],
+                "skill_scored": 3,
+                "vote_cells_scored": 0
+              },
+              "predictor_id": "gemini-baseline"
+            }
+          ],
+          "events": 1
+        },
         "entries": [
           {
             "forward": {
@@ -6381,6 +7079,12 @@
             },
             "predictor_id": "claude-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 3,
+              "reached": 0,
+              "target_blind": 2,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -6450,6 +7154,12 @@
             },
             "predictor_id": "codex-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 3,
+              "reached": 0,
+              "target_blind": 0,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -6519,6 +7229,12 @@
             },
             "predictor_id": "gemini-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 3,
+              "reached": 0,
+              "target_blind": 0,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
