@@ -30,6 +30,12 @@
 /tests/test_ci_lane.py @modelmirror
 /tests/lane_guard.py @modelmirror
 /tests/conftest.py @modelmirror
+# The gate's Python halves: the required-contexts check `promotion-gate.sh`
+# runs, and the path jail behind the required `paths` check (which keeps an
+# auto-merged agent PR inside `data/`). `collect.py` is owned whole because
+# the jail lives in it.
+/src/fedcourtsai/required_checks.py @modelmirror
+/src/fedcourtsai/collect.py @modelmirror
 
 # What agents are and what they may reach.
 /config/predictors.yaml @modelmirror

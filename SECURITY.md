@@ -380,7 +380,9 @@ runbook, [docs/security.md](docs/security.md).
   gate and lane machinery, and the agent configs — it also requires a code
   owner's review. That review binds every identity but the admin role, which
   interactive agent sessions share with the maintainer, so for them it stays
-  discipline. A ruleset with **no** bypass blocks force-pushes and branch
+  discipline: such a session neither merges an owned-path PR through the
+  bypass nor approves one, since its approval would read as the
+  maintainer's. A ruleset with **no** bypass blocks force-pushes and branch
   deletion for everyone, so the committed *history* of the predictions,
   outcomes, and evaluations under `data/` is immutable — every forward change
   is a new, attributable commit. Forward deletions of ledger records are

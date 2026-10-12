@@ -272,20 +272,22 @@ pre-registration record's commit ids.
   staging-targeted PR: `gate` and `paths`. (`main`'s other two,
   `promotion-gate` and `main-base`, are structurally always-`skipped` here —
   each keys on a base of `main` — so requiring them would add no
-  signal.) It also requires **review from a code owner**, with **approval of
-  the most recent push**: it binds only on a PR whose diff touches a path
-  `.github/CODEOWNERS` names (the maintainer owns all of them), and a push after
-  the approval needs a fresh one, so an approved PR cannot be extended and
-  merged on the old approval. (A maintainer push onto a dev App PR therefore
-  leaves it needing an approval the maintainer cannot give as the last
-  pusher, so it merges through the bypass.) Every other PR still merges on
+  signal.) It also requires **review from a code owner**, and **dismisses
+  stale approvals when new commits are pushed**: it binds only on a PR whose
+  diff touches a path `.github/CODEOWNERS` names (the maintainer owns all of
+  them), and a push after the approval dismisses it, so an approved PR cannot
+  be extended and merged on the old approval. Every other PR still merges on
   the checks alone, at zero approving reviews. GitHub reads `CODEOWNERS` from the PR's base, so
   the rule binds on `staging` once the file is there. It binds the dev App and
   any other identity without the admin role; it does **not** bind an
   interactive agent session, which acts as the maintainer's own account — the
-  owner, and an admin, so its owned-path PRs can only merge through the bypass,
-  and holding back from that is `AGENTS.md`'s discipline, visible afterwards
-  as a bypassed merge. The sync PR is not held by it in practice: its diff
+  owner, and an admin. A session's own owned-path PR can merge only through
+  the bypass, which is visible afterwards as a bypassed merge. A session can
+  also *approve* an owned-path PR it did not open (a Dependabot workflow bump,
+  a collaborator's PR), and that approval satisfies the rule with no bypass
+  and leaves nothing to tell it from the maintainer's own review. Holding back
+  from both is `AGENTS.md`'s discipline, not a rule this ruleset can
+  enforce. The sync PR is not held by it in practice: its diff
   against `staging` is the `main` commits `staging` lacks, which are writer
   data commits, since code reaches `main` only from `staging`; a commit to an
   owned path reaching `main` any other way would stall the sync's auto-merge
@@ -607,7 +609,9 @@ agent configs, and of the CODEOWNERS file itself. The admin role is the
 exception, and two kinds of change use it: the maintainer's own PR to an owned
 path, since GitHub does not let an author approve their own PR, and any PR an
 interactive agent session opens, since such a session acts as the
-maintainer's account. For those it remains `AGENTS.md`'s convention, recorded
+maintainer's account. A session acting as that account could also approve an
+owned-path PR someone else opened, and its approval would read as the
+maintainer's. For all of these it remains `AGENTS.md`'s convention, recorded
 as such; separating the agent's identity from the maintainer's is what would
 make it a rule.
 

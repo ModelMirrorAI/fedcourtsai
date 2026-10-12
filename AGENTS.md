@@ -104,11 +104,15 @@ non-interactive** container. Two consequences shape everything you do:
   `config/evaluators.yaml` (what agents are and what they may reach). Open
   those, get them green, and report them ready.
   The `staging` ruleset encodes this through `.github/CODEOWNERS` for every
-  identity that does not hold the admin role — the dev App above all: a PR
-  touching an owned path needs the maintainer's code-owner review before it can
-  merge. It does **not** bind an interactive session: such a session acts as
-  the maintainer's own account, which owns those paths and holds the admin
-  bypass, so for you this rule is still discipline. The discipline also covers
+  identity that does not hold the admin role — Dependabot's workflow bumps, the
+  sync PR and any second collaborator: a PR touching an owned path needs the
+  maintainer's code-owner review before it can merge. It does **not** bind an
+  interactive session: such a session acts as the maintainer's own account,
+  which owns those paths and holds the admin bypass, so for you this rule is
+  still discipline. That includes reviews: **never submit an approving review
+  on a PR that touches an owned path**, whoever opened it. An approval from the
+  maintainer's account satisfies the code-owner rule outright, with no bypass
+  and nothing in the record to tell it from the maintainer's own. The discipline also covers
   what a path cannot name — a change that alters the security posture from
   outside the owned files. Open either kind and report it ready rather than merging it.
 - **When you merge it yourself, the reviewer subagents are the only review a
