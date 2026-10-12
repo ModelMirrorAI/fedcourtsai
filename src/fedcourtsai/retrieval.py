@@ -239,6 +239,9 @@ def _query_candidate(params: Any) -> str | None:
     if isinstance(params, str):
         return params.strip() or None
     if isinstance(params, dict):
+        fetched = _fetch_target(params)
+        if fetched is not None:
+            return fetched
         for key in _QUERY_KEYS:
             value = params.get(key)
             if isinstance(value, str) and value.strip():
@@ -248,6 +251,26 @@ def _query_candidate(params: Any) -> str | None:
         except (TypeError, ValueError):
             return None
     return None
+
+
+def _fetch_target(params: dict[str, Any]) -> str | None:
+    """A fetch-shaped call's slice: its URL first, then the prompt it was asked.
+
+    A fetch tool that takes a prompt beside its URL (claude's ``WebFetch``)
+    would otherwise keep the prompt alone, since ``prompt`` outranks ``url`` in
+    :data:`_QUERY_KEYS` — and the URL is the one thing that says what the call
+    reached for, which the self-provisioning record and the leakage grading both
+    key on. Both are kept, URL ahead, so the cap trims the prompt's tail rather
+    than the target. A call carrying only one of the two keeps the key-order
+    pick unchanged.
+    """
+    url = params.get("url")
+    prompt = params.get("prompt")
+    if not (isinstance(url, str) and url.strip()):
+        return None
+    if not (isinstance(prompt, str) and prompt.strip()):
+        return None
+    return f"{url.strip()}\n{prompt.strip()}"
 
 
 def _result_text(result: Any) -> str:

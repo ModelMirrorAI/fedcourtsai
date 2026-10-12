@@ -2504,12 +2504,13 @@ fetched, and unlike them it stays off the facts-only PR of a wholesale-failed ru
 predictions for a comparability record to qualify. Read the counts as an
 **engine-shaped floor** with four known holes: a call that left no row, a filing
 URL past a row's query cut, a hosted web search carrying a bare URL (not counted,
-since a search is not a fetch), and a fetch tool called with a prompt beside its
-URL, whose query slice keeps the prompt and so leaves the whole channel
-unmatchable. An engine that reaches through its shell is legible where one
-reaching through a prompted fetch tool is not, the holes do not share a sign, and
-the split between actors is therefore not a behavioural difference between
-engines. A log of this run that could not be parsed at all is carried as its own
+since a search is not a fetch), and — on a log captured before a prompted fetch
+kept its URL (the freeze record dates the slice rule) — a fetch tool called with
+a prompt beside its URL, whose slice there holds the prompt alone. A fetch
+tool's row now carries its URL ahead of the prompt, so the channel is legible
+going forward; across that boundary, and through the other holes, the holes do
+not share a sign, and the split between actors is therefore not a behavioural
+difference between engines. A log of this run that could not be parsed at all is carried as its own
 count rather than read as a cell that reached for nothing
 (`self_provisioned_fetches` in [predicted-artifacts.md](predicted-artifacts.md)).
 

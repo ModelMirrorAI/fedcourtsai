@@ -3218,8 +3218,11 @@ re-fetch alike.
 It is a floor with **four** known holes, not one: a call that left no row, a
 URL past the row's 500-character query cut, a hosted web search carrying a bare
 filing URL (deliberately excluded, since a search is not a fetch and such a row
-captures no result either way), and a fetch tool called with a prompt beside
-its URL, whose query slice keeps the prompt and so leaves nothing to match.
+captures no result either way), and — on a log captured before the
+fetch-target slice rule the freeze record dates — a fetch tool called with a
+prompt beside its URL, whose slice there kept the prompt alone and so leaves
+nothing to match. A log captured under that rule carries the URL ahead of the
+prompt, and its prompted fetches are matched like any other.
 None of them is measurable from the rows, so the residual cannot be signed:
 the third hole cuts against one engine and the fourth against another.
 

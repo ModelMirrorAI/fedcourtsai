@@ -2725,14 +2725,13 @@ def self_provisioned_fetches(calls: Sequence[RetrievalCall]) -> list[RetrievalCa
     its params, so a URL — or the client name a shell row is read against —
     past that cut is invisible. One engine's hosted web search carries a bare
     URL as its query, which this declines to count, because a search is not a
-    fetch and such a row records no result either way. And a row's query slice
-    is cut from the **first** params key capture finds, so a fetch tool called
-    with a prompt beside its URL keeps the prompt: such a call is a fetch this
-    cannot see at all, however plainly it fetched. A cell that pulls filings
-    through the shell is therefore counted where one that pulls the same
-    filings through a prompted fetch tool is not — so read a zero as *no filing
-    fetch was legible here*, and read two engines' counts side by side only
-    with that in view. Nor does it claim the fetch **succeeded**: a row is evidence
+    fetch and such a row records no result either way. A fetch tool called
+    with a prompt beside its URL keeps the URL at the head of its slice, so
+    its target is legible; a log captured before that slice rule held its
+    prompt alone (``docs/freeze-record.md`` dates the change), and on such a
+    log a prompted fetch is one this cannot see at all — so read a zero as
+    *no filing fetch was legible here*, and read two engines' counts side by
+    side only with that in view. Nor does it claim the fetch **succeeded**: a row is evidence
     that the cell reached for the filing, and the result it came back with is
     ``result_status``'s business, which on a shell call is the engine's own
     marker rather than a reading of the payload.
@@ -2884,11 +2883,10 @@ class RetrievalLog(_Strict):
         "row is not here; a URL past the row's 500-character query cut is not seen; one "
         "engine's hosted web search carries a bare URL as its query and is deliberately "
         "not counted, since a search is not a fetch and such a row captures no result "
-        "either way; and a query slice is cut from the first params key capture finds, so "
-        "a fetch tool called with a prompt beside its URL keeps the prompt and its fetch "
-        "is invisible here however plainly it fetched. A cell pulling filings through the "
-        "shell is counted where one pulling the same filings through a prompted fetch tool "
-        "is not, so a 0 means `no filing fetch was legible`, never `none happened`. "
+        "either way; and on a log captured before a prompted fetch kept its URL (the "
+        "freeze record dates the slice rule) a fetch tool called with a prompt beside its "
+        "URL kept the prompt alone, so its fetch is invisible there however plainly it "
+        "fetched. A 0 means `no filing fetch was legible`, never `none happened`. "
         "Excluded on a different ground are the tools that can only have written the URL "
         "down — a file write, read or search, and the code-mode lift's prose builtins "
         "(a patch, a plan step, an image reference), whose argument text is the cell's "

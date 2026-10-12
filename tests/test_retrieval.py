@@ -2791,3 +2791,67 @@ def test_record_retrieval_strict_refuses_another_engines_log(
     result = runner.invoke(app, args)
     assert result.exit_code == 1
     assert "no codex log was named" in result.output
+
+
+def _webfetch_transcript(tool_input: dict[str, object]) -> list[dict[str, object]]:
+    return [
+        {
+            "type": "assistant",
+            "timestamp": "2026-07-10T12:00:01Z",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "toolu_1", "name": "WebFetch", "input": tool_input}
+                ]
+            },
+        }
+    ]
+
+
+def test_a_prompted_fetch_keeps_its_url_ahead_of_the_prompt(tmp_path: Path) -> None:
+    # A fetch tool asked a prompt beside its URL keeps both, URL first: the URL
+    # is what says what the call reached for, and every URL-keyed read of the
+    # log — the self-provisioning record among them — needs it on the row.
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(
+        json.dumps(
+            _webfetch_transcript(
+                {"url": _BIO_PDF, "prompt": "Summarize the State's brief in opposition."}
+            )
+        )
+    )
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query == f"{_BIO_PDF}\nSummarize the State's brief in opposition."
+    assert self_provisioned_fetches([call]) == [call]
+
+
+def test_the_cap_trims_a_long_prompt_and_never_the_fetch_target(tmp_path: Path) -> None:
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(
+        json.dumps(_webfetch_transcript({"url": _BIO_PDF, "prompt": "Quote the QP. " * 80}))
+    )
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query is not None
+    assert len(call.query) == 500
+    assert call.query.startswith(f"{_BIO_PDF}\nQuote the QP.")
+
+
+@pytest.mark.parametrize(
+    ("tool_input", "expected"),
+    [
+        # Only one of the two keys: the key-order pick, unchanged.
+        ({"url": _BIO_PDF}, _BIO_PDF),
+        ({"prompt": f"Fetch {_BIO_PDF} and summarize it."}, f"Fetch {_BIO_PDF} and summarize it."),
+        # A blank prompt is no prompt.
+        ({"url": _BIO_PDF, "prompt": "  "}, _BIO_PDF),
+        # A query key outranks both, exactly as before.
+        ({"query": "brief in opposition", "url": _BIO_PDF}, "brief in opposition"),
+        ({"command": "curl -sL x", "prompt": "why"}, "why"),
+    ],
+)
+def test_a_call_without_both_url_and_prompt_keeps_its_key_order_slice(
+    tmp_path: Path, tool_input: dict[str, object], expected: str
+) -> None:
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(json.dumps(_webfetch_transcript(tool_input)))
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query == expected
