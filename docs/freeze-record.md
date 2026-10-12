@@ -6103,13 +6103,13 @@ freeze commit is recorded here.
 
   Carried to `main` by `promotion/2026-10-01` (merge commit
   `b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b`, merged `2026-10-01T16:15:45Z`). Applied by run
-  `<FILL: apply run id>` on `<FILL: apply date>`, landing
-  `<FILL: rows landed>` rows. The first statpack refreshed after it, at commit
-  `<FILL: statpack refresh commit>`, reads the OT2026 pool as
-  `<FILL: OT2026 pool granted/resolved>` (from
-  `<FILL: OT2026 pool before, granted/resolved>`) and the OT2025 pool as
-  `<FILL: OT2025 pool granted/resolved>` (from
-  `<FILL: OT2025 pool before, granted/resolved>`).
+  `38299640074` on `2026-10-12`, landing
+  `939` rows. The first statpack refreshed after it, at commit
+  `ea0a1e70a6f66e8508b649c88f12103f130d195c`, reads the OT2026 pool as
+  `35/422` (from
+  `31/301`) and the OT2025 pool as
+  `18/196` (from
+  `14/75`).
 
   The runnable effect check once it is live:
   - `uv run fedcourts backfill-applications --term 24 --limit 20` (a dev
@@ -7916,6 +7916,68 @@ freeze commit is recorded here.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit
   `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+- **A prompted fetch's retrieval-log row carries its URL ahead of the
+  prompt, 2026-10-12.** A **capture** change of the masking-surface class: no
+  digest, no constant, no window and no membership moves, and `uv run
+  fedcourts process-digest --all` prints the same `proc-v9` digests. Any call
+  whose arguments carry both a `url` and a `prompt`, and no key ranked ahead
+  of `prompt` in capture's key order (`q`, `query`, `search`, `citation`),
+  keeps both in its 500-character query slice: the URL first and the prompt
+  after a newline, so a long prompt loses its tail and never the target. The
+  rule keys on the arguments, not the tool name; claude's `WebFetch` is the
+  call that has that shape. Every other call keeps the first query key capture
+  finds. The slice passes `mask_retrieval_log` unrespelled, so this changes
+  what every evaluator reads on the leakage grading's required reading path —
+  the URL a fetch reached for, beside the prompt it already saw — under
+  unchanged evaluator digests, and it changes what the self-provisioning
+  record and any other URL-keyed read of the log can match.
+
+  **What it costs.** The URL takes its length plus one character of the cap
+  from the prompt. On `staging` at `ed97094b2` the committed predict logs hold
+  415 `WebFetch` rows in 111 claude cells. At a filing URL of about 100
+  characters, 76 of them (about 1 in 6) would lose prompt tail, 5,512
+  characters in all; at 60 characters, 60 rows and 2,826 characters. The
+  median row's slice is 282 characters, and 37 rows already reach the cap.
+
+  **What it reaches.** No number is computed from the slice, but the
+  `leakage_suspected` bit graders form from the staged log gates which cells
+  every rank key and scored aggregate counts, and the leaderboard publishes the
+  result as `leakage_exclusion` (2 of 987 assessed, both gemini-baseline, on
+  the committed board). A claude cell captured after the carrying merge
+  exposes its fetch targets to that bit and one captured before does not, so
+  `leakage_exclusion`'s claude count, and any per-engine comparison of it,
+  spans two capture regimes in the middle of the `proc-v9` window under
+  unchanged evaluator digests. The change is engine-asymmetric: codex's shell
+  fetches and gemini's prompt-embedded fetches were already legible, and only
+  claude's prompted fetch moves. Forward cells, where the bit rarely fires,
+  are the scored population, which bounds the reach.
+
+  **Why no label bump and no harness-boundary row.** A row minted under the
+  rule begins with the URL and a newline, and a row minted before it holds the
+  prompt alone; an older prompt that itself opens with a URL reads the same,
+  so a row's look is a strong hint and the exact test is `pipeline_sha`
+  ancestry against the carrying merge. No predict cell reads anything
+  different — capture runs after the engine, on its own log — so it is not a
+  `process_version.HARNESS_BOUNDARIES` change, which registers changes to what
+  a predict cell reads.
+
+  **What stays blind.** Rows captured before the carrying merge are
+  fetch-target-blind on this channel and stay so: their rollouts are gone, so
+  no re-capture can restore the URL. Of the 415 committed `WebFetch` rows, 1
+  carries `supremecourt.gov` in its slice. The 19 gemini `web_fetch` rows are
+  unchanged, since that tool takes its URLs inside the prompt. A
+  self-provisioning count, and any URL-keyed audit, over cells minted before
+  the carrying merge is a floor on claude's fetch channel in particular, and a
+  comparison across that boundary compares two capture regimes.
+
+  **Carrying merge.** <FILL: promotion tag>, merge <FILL: merge SHA> at
+  <FILL: merged time UTC>.
+
+  **Effect check.** On `main`, once a run-predict round after the carrying
+  merge has landed a claude cell that used `WebFetch`, `jq -r '.calls[] |
+  select(.tool=="WebFetch") | .query | split("\n")[0]'` over that cell's
+  `retrieval_log.json` prints URLs, one per fetch.
 
 - **The cert back-test's Gemini cells are admitted their own case tree, not
   their lane's work root; recorded 2026-10-12.** A **back-test harness**
