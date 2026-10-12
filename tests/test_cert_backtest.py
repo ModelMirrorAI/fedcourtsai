@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import sys
 import threading
@@ -44,6 +45,7 @@ from fedcourtsai.pipeline.runner import (
     EngineFailed,
     EngineQuotaExhausted,
     EngineUnavailable,
+    GeminiRunner,
     Runner,
     RunRequest,
     StubRunner,
@@ -2688,6 +2690,130 @@ def test_a_lane_s_missing_binary_is_still_an_unavailable_engine() -> None:
     run = cert_backtest._lane_command_runner("gemini")
     with pytest.raises(EngineUnavailable):
         run(["fedcourts-no-such-engine-binary"], {})
+
+
+_INVALID_STREAM = json.dumps(
+    {"error": {"type": "INVALID_STREAM", "message": "empty response or malformed tool call"}}
+)
+
+
+def test_a_lane_keeps_the_engine_s_stdout_for_the_result_classifier(
+    capfd: pytest.CaptureFixture[str],
+) -> None:
+    # Gemini reports a zero-exit turn's fault only in the result it prints, so
+    # the lane must hand stdout back as well as stream it.
+    run = cert_backtest._lane_command_runner("gemini")
+    result = run(
+        [sys.executable, "-c", f"print({_INVALID_STREAM!r})"],
+        {"PATH": os.environ.get("PATH", "")},
+    )
+    assert result.returncode == 0
+    assert result.stdout == _INVALID_STREAM + "\n"
+    assert "[gemini] " + _INVALID_STREAM in capfd.readouterr().out
+
+
+def test_a_gemini_lane_retries_a_zero_exit_invalid_stream_through_its_own_executor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # End to end through the lane's executor and a real subprocess: a fake
+    # `gemini` on PATH fails its first turn with exit 0 and the fault in its
+    # result, then writes the cell's output. The lane's runner retries it.
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    count = tmp_path / "count"
+    out = tmp_path / "data" / "cases" / "scotus" / "304" / "events" / "evt-x"
+    fake = bin_dir / "gemini"
+    fake.write_text(
+        "#!/bin/sh\n"
+        + 'n=$(cat "$FAKE_COUNT" 2>/dev/null || echo 0); n=$((n + 1)); echo "$n" > "$FAKE_COUNT"\n'
+        + 'if [ "$n" -eq 1 ]; then\n'
+        + f"  echo '{_INVALID_STREAM}'\n"
+        + "  exit 0\n"
+        + "fi\n"
+        + 'mkdir -p "$FAKE_OUT"; echo done > "$FAKE_OUT/turn"\n'
+        + 'echo \'{"response": "ok"}\'\n'
+    )
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.setenv("FAKE_COUNT", str(count))
+    monkeypatch.setenv("FAKE_OUT", str(out))
+    waits: list[float] = []
+    runner = cert_backtest._in_lane(
+        GeminiRunner(sleep=waits.append, jitter=lambda ceiling: ceiling), "gemini"
+    )
+    request = RunRequest(
+        role=UsageRole.predictor,
+        court_id="scotus",
+        docket_id=304,
+        event_id="evt-x",
+        actor_id="gemini-baseline",
+        run_id="20260706T000000Z",
+        prompt=Path(".github/prompts/predict.md"),
+        data_root=tmp_path / "data",
+    )
+
+    runner.run(request)
+
+    assert count.read_text().strip() == "2"
+    assert len(waits) == 1
+    assert (out / "turn").read_text() == "done\n"
+
+
+def _gemini_lane(runner: Runner) -> list[tuple[PredictorConfig, Runner]]:
+    return [
+        (p, runner)
+        for p, _ in cert_backtest._runners_by_predictor(Path("config"), "stub")
+        if p.id == "gemini-baseline"
+    ]
+
+
+def test_a_persistent_zero_exit_invalid_stream_is_an_engine_failed_loss(tmp_path: Path) -> None:
+    calls: list[int] = []
+
+    def engine(argv: object, env: object) -> CommandResult:
+        calls.append(1)
+        return CommandResult(0, stdout=_INVALID_STREAM)
+
+    runner = GeminiRunner(command_runner=engine, sleep=lambda seconds: None)
+    lane = cert_backtest._run_lane(
+        "gemini",
+        _gemini_lane(runner),
+        _provisioned(tmp_path, (304,)),
+        engines={"gemini-baseline": "gemini"},
+    )
+    assert [(c.case_id, c.reason) for c in lane.losses] == [("scotus/304", "engine-failed")]
+    assert len(calls) == 3
+    assert lane.quota_exhausted == set()
+
+
+def test_a_zero_exit_spent_quota_finishes_the_gemini_engine(tmp_path: Path) -> None:
+    calls: list[int] = []
+    spent = json.dumps(
+        {
+            "error": {
+                "type": "TerminalQuotaError",
+                "message": "You have exhausted your daily quota on this model",
+            }
+        }
+    )
+
+    def engine(argv: object, env: object) -> CommandResult:
+        calls.append(1)
+        return CommandResult(0, stdout=spent)
+
+    runner = GeminiRunner(command_runner=engine, sleep=lambda seconds: None)
+    lane = cert_backtest._run_lane(
+        "gemini",
+        _gemini_lane(runner),
+        _provisioned(tmp_path, (304, 305)),
+        engines={"gemini-baseline": "gemini"},
+    )
+    assert lane.quota_exhausted == {"gemini"}
+    assert [(c.case_id, c.reason) for c in lane.losses] == [
+        ("scotus/304", "quota-exhausted"),
+        ("scotus/305", "quota-exhausted"),
+    ]
+    assert len(calls) == 1
 
 
 def test_only_a_default_agentic_spawn_is_rerouted_through_the_lane() -> None:

@@ -1725,7 +1725,8 @@ the rendered table) and
   counterpart: a (petition, predictor) cell that produced no score, with its
   reason — `missing`, `invalid`, `wrote-outside-work-root` (the cell ran and
   what came back was absent, malformed, or written outside the work root),
-  `engine-failed` (the engine exited non-zero for that cell),
+  `engine-failed` (the engine failed for that cell — a non-zero exit, or a
+  zero-exit turn whose result reported a fault — and wrote nothing to read),
   `quota-exhausted` (the engine's own quota was spent, so that cell failed and
   the engine's remaining cells were recorded lost without being attempted,
   every further invocation being a paid-for certainty of the same failure — so

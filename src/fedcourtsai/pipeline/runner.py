@@ -816,23 +816,59 @@ def _run_subprocess(argv: Sequence[str], env: Mapping[str, str]) -> CommandResul
     return CommandResult(returncode=completed.returncode, stderr=completed.stderr or "")
 
 
-def _tee(source: IO[str], sink: TextIO, kept: list[str]) -> None:
-    """Copy ``source`` line by line to ``sink`` as it arrives, keeping each line."""
+# How long the piped executor waits, once its engine has exited, for its output
+# readers to reach end of stream. A process the engine left running can hold a
+# pipe open indefinitely; the cell is over when the engine is, so the caller
+# moves on.
+PIPE_DRAIN_SECONDS = 10.0
+
+
+def _pump(
+    source: IO[str], sink: TextIO, prefix: str, keep: list[str], lock: threading.Lock | None
+) -> None:
+    """Copy an engine's output stream to ``sink`` line by line, keeping each line.
+
+    Keeps draining ``source`` even when a write to ``sink`` fails: a reader that
+    stopped would leave the engine blocked on a full pipe.
+    """
     for line in source:
-        sink.write(line)
-        sink.flush()
-        kept.append(line)
+        keep.append(line)
+        text = f"{prefix}{line}" if line.endswith("\n") else f"{prefix}{line}\n"
+        try:
+            if lock is None:
+                sink.write(text)
+                sink.flush()
+            else:
+                with lock:
+                    sink.write(text)
+                    sink.flush()
+        except (OSError, ValueError):
+            continue
 
 
-def _run_subprocess_capturing(argv: Sequence[str], env: Mapping[str, str]) -> CommandResult:
-    """:data:`CommandRunner` for an engine whose fault can sit in its stdout.
+def run_piped(
+    argv: Sequence[str],
+    env: Mapping[str, str],
+    *,
+    prefix: str = "",
+    lock: threading.Lock | None = None,
+) -> CommandResult:
+    """Spawn an engine with both streams piped, teed live and kept.
 
-    gemini-cli's ``--output-format json`` ends a turn whose stream went bad with
-    a zero exit and the fault inside the result object it prints, so the
-    classifier has to read stdout as well as stderr. Both streams are teed: each
-    line reaches this process's own stream as it is written, so the run log
-    still shows the turn live (and a turn the caller abandons still leaves its
-    diagnostic behind), and is kept for :func:`classify_engine_attempt`.
+    Each line of stdout and stderr reaches this process's own stream as it is
+    written (under ``prefix``, and under ``lock`` where several engines share
+    the log), so the run log still shows the turn live, and is kept for the
+    caller: stderr for the transient-fault classifier, stdout for an engine
+    that reports its fault inside a zero-exit result
+    (:func:`classify_engine_attempt`). Undecodable bytes are replaced rather
+    than fatal. A missing binary is :class:`EngineUnavailable`.
+
+    The wait for the readers is bounded (:data:`PIPE_DRAIN_SECONDS`): a process
+    the engine left behind can hold a pipe open past the engine's own exit, and
+    an unbounded wait would stall the caller until the job's cap. The readers
+    are daemon threads, so one still attached to such a process never holds the
+    command open either. The cost, in that case only: output still unread when
+    the bound runs out is missing from what the classifier reads.
     """
     try:
         process = subprocess.Popen(
@@ -841,22 +877,39 @@ def _run_subprocess_capturing(argv: Sequence[str], env: Mapping[str, str]) -> Co
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            errors="replace",
         )
     except FileNotFoundError as exc:
         raise EngineUnavailable(str(argv[0])) from exc
+    assert process.stdout is not None and process.stderr is not None  # both piped above
     out: list[str] = []
     err: list[str] = []
-    assert process.stdout is not None and process.stderr is not None
     readers = [
-        threading.Thread(target=_tee, args=(process.stdout, sys.stdout, out), daemon=True),
-        threading.Thread(target=_tee, args=(process.stderr, sys.stderr, err), daemon=True),
+        threading.Thread(
+            target=_pump, args=(process.stdout, sys.stdout, prefix, out, lock), daemon=True
+        ),
+        threading.Thread(
+            target=_pump, args=(process.stderr, sys.stderr, prefix, err, lock), daemon=True
+        ),
     ]
     for reader in readers:
         reader.start()
     returncode = process.wait()
     for reader in readers:
-        reader.join()
-    return CommandResult(returncode=returncode, stderr="".join(err), stdout="".join(out))
+        reader.join(timeout=PIPE_DRAIN_SECONDS)
+    return CommandResult(
+        returncode=returncode, stderr="".join(list(err)), stdout="".join(list(out))
+    )
+
+
+def _run_subprocess_capturing(argv: Sequence[str], env: Mapping[str, str]) -> CommandResult:
+    """:data:`CommandRunner` for an engine whose fault can sit in its stdout.
+
+    gemini-cli's ``--output-format json`` ends a turn whose stream went bad with
+    a zero exit and the fault inside the result object it prints, so the
+    classifier has to read stdout as well as stderr: :func:`run_piped`, unprefixed.
+    """
+    return run_piped(argv, env)
 
 
 def _codex_login(api_key: str, env: Mapping[str, str]) -> int:
@@ -1402,8 +1455,8 @@ class AgenticRunner:
     ) -> str | None:
         """Why a failed attempt is not retried, or ``None`` once its root is reset for one.
 
-        The checks run in the cell step's order, and the reset is the last of
-        them: a root is only cleared once nothing in it is worth keeping.
+        The cell step's checks, and the reset after all of them: a root is only
+        cleared once nothing in it is worth keeping.
         """
         refusal: str | None = None
         if verdict is not AttemptClass.transient:

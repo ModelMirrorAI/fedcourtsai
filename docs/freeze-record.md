@@ -7884,24 +7884,34 @@ freeze commit is recorded here.
   cells' own in-place retry, which the `proc-v9` entry lists among the
   harness changes under unchanged digests. gemini-cli ends a turn whose stream
   went bad (`INVALID_STREAM`) with a zero exit and the fault inside its JSON
-  result. Before this change the back-test's `GeminiRunner` read only a
-  non-zero exit, so such a turn was neither retried nor classified: the cell
-  surfaced as a `missing` loss, its fault unnamed. From the carrying commit the
-  runner classifies every attempt on its result object as well, retries a
-  transient one under the runner's own backoff and three-attempt cap from an
-  output root reset to its pre-attempt state (never past a written judgment or
-  `flags.json`), and records a zero-exit turn that produced nothing as an
-  `engine-failed` loss, or as a spent quota that finishes the engine for the
-  campaign. No process digest moves, no forward cell runs through this runner,
-  and no replay cell's information set changes; claude and codex are
-  untouched.
+  result. Before this change the back-test's Gemini lane read only a non-zero
+  exit (its executor did not keep stdout), so such a turn was neither retried
+  nor classified: the cell surfaced as a `missing` loss, its fault unnamed.
+  From the carrying commit the lane keeps each turn's stdout, and the runner
+  classifies every attempt on its result object as well, retries a transient
+  one under the runner's own backoff and three-attempt cap from an output root
+  reset to its pre-attempt state, and records a zero-exit turn that produced
+  nothing as an `engine-failed` loss, or as a spent quota that finishes the
+  engine for the campaign. The change also runs the other way, on Gemini's
+  non-zero exits: before it, a transient non-zero exit was retried in place
+  with no reset whatever the turn had written, as claude's and codex's still
+  are; after it, a Gemini turn that already wrote its `prediction.json` or
+  `flags.json` is not retried, so a cell that wrote a judgment and then exited
+  non-zero on a transient fault, retryable and possibly scored before, is an
+  `engine-failed` loss after. No process digest moves, no forward cell runs
+  through this runner (the local cascade aside), and no replay cell's
+  information set changes; claude and codex are untouched.
 
   **The reading rule.** A Gemini row in a cert back-test report on either side
   of the carrying commit covers a different share of its campaign's cells
-  where the engine hit the fault: a cell lost before may be scored after, by a
-  second or third turn. A coverage or loss-rate comparison across the boundary
-  says so; a score over the cells both reports scored is unaffected. The
-  committed `metrics/cert-backtest.json` records no lost cell for any engine
+  wherever the engine hit a transient fault: a zero-exit cell lost before may
+  be scored after, by a second or third turn, and a non-zero-exit cell that
+  had written its judgment may be lost after where a retry scored it before.
+  A coverage or loss-rate comparison across the boundary says so, and a
+  reason-by-reason comparison of Gemini's `lost_cells` across it reads
+  `missing` and `engine-failed` together; a score over the cells both reports
+  scored, drawn under the same rule, is unaffected. The committed
+  `metrics/cert-backtest.json` records no lost cell for any engine
   (`events_scored` 10 each), so no published figure moves.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit

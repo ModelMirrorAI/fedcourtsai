@@ -1081,6 +1081,73 @@ def test_a_zero_exit_spent_quota_stops_the_engine(tmp_path: Path) -> None:
     assert seq.calls == 1
 
 
+def test_an_evaluate_retry_keeps_the_evaluator_s_earlier_work(tmp_path: Path) -> None:
+    # An evaluate cell's root is the whole evaluator directory, which may hold
+    # earlier runs' committed work; the reset removes only what the failed
+    # attempt added.
+    request = _evaluate_request(tmp_path / "data")
+    evaluator = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT).evaluator_dir(EVALUATOR)
+    earlier = evaluator / "other-predictor" / "20260101T000000Z" / "evaluation.md"
+    earlier.parent.mkdir(parents=True)
+    earlier.write_text("an earlier run's grade\n")
+    added = evaluator / "scratch.md"
+
+    def half_written() -> None:
+        added.write_text("half a turn\n")
+
+    seq = _AttemptRunner(
+        [
+            (half_written, CommandResult(0, stdout=_INVALID_STREAM)),
+            (_nothing, CommandResult(0)),
+        ]
+    )
+
+    _gemini(seq, []).run(request)
+
+    assert seq.calls == 2
+    assert earlier.read_text() == "an earlier run's grade\n"
+    assert not added.exists()
+
+
+def test_a_gemini_transient_nonzero_exit_retries_from_a_reset_root(tmp_path: Path) -> None:
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    stray = events.prediction_dir(PREDICTOR, RUN) / "scratch.md"
+
+    def leave_stray() -> None:
+        stray.parent.mkdir(parents=True, exist_ok=True)
+        stray.write_text("draft\n")
+
+    seq = _AttemptRunner(
+        [
+            (leave_stray, CommandResult(1, "503 Service Unavailable")),
+            (lambda: StubRunner().run(request), CommandResult(0)),
+        ]
+    )
+
+    written = _gemini(seq, []).run(request)
+
+    assert seq.calls == 2
+    assert not stray.exists()
+    assert written == _predict_artifacts(events)
+
+
+def test_a_gemini_nonzero_exit_after_writing_its_judgment_is_not_retried(
+    tmp_path: Path,
+) -> None:
+    # Unlike claude and codex, a Gemini turn that already wrote its prediction
+    # is not retried over it: a non-zero exit then is a failed cell.
+    request = _predict_request(tmp_path / "data")
+    seq = _AttemptRunner(
+        [(lambda: StubRunner().run(request), CommandResult(1, "503 Service Unavailable"))] * 3
+    )
+
+    with pytest.raises(EngineFailed, match="produced the cell's output"):
+        _gemini(seq, []).run(request)
+
+    assert seq.calls == 1
+
+
 def test_claude_and_codex_never_read_stdout(tmp_path: Path) -> None:
     # Their stdout is not captured; a result-shaped fault there changes nothing.
     request = _predict_request(tmp_path / "data")
