@@ -846,6 +846,30 @@ def _pump(
             continue
 
 
+# The one line the piped executor writes when an engine's output was still
+# streaming at the drain bound. Fixed text, no engine content: it marks a
+# classification read off cut-off streams without echoing what the engine wrote.
+DRAIN_CUTOFF_NOTICE = (
+    "engine output cut off: a stream was still open "
+    f"{PIPE_DRAIN_SECONDS:g}s after the engine exited, so its fault classification "
+    "read only what arrived before then\n"
+)
+
+
+def _write_drain_cutoff(lock: threading.Lock | None) -> None:
+    """Say on stderr that the readers were abandoned at the drain bound."""
+    try:
+        if lock is None:
+            sys.stderr.write(DRAIN_CUTOFF_NOTICE)
+            sys.stderr.flush()
+        else:
+            with lock:
+                sys.stderr.write(DRAIN_CUTOFF_NOTICE)
+                sys.stderr.flush()
+    except (OSError, ValueError):
+        return
+
+
 def run_piped(
     argv: Sequence[str],
     env: Mapping[str, str],
@@ -863,12 +887,15 @@ def run_piped(
     (:func:`classify_engine_attempt`). Undecodable bytes are replaced rather
     than fatal. A missing binary is :class:`EngineUnavailable`.
 
-    The wait for the readers is bounded (:data:`PIPE_DRAIN_SECONDS`): a process
-    the engine left behind can hold a pipe open past the engine's own exit, and
-    an unbounded wait would stall the caller until the job's cap. The readers
-    are daemon threads, so one still attached to such a process never holds the
-    command open either. The cost, in that case only: output still unread when
-    the bound runs out is missing from what the classifier reads.
+    The wait for the readers is bounded by one shared deadline,
+    :data:`PIPE_DRAIN_SECONDS` after the engine exits, across both streams: a
+    process the engine left behind can hold a pipe open past the engine's own
+    exit, and an unbounded wait would stall the caller until the job's cap. The
+    readers are daemon threads, so one still attached to such a process never
+    holds the command open either. The cost, in that case only: output still
+    unread when the bound runs out is missing from what the classifier reads,
+    so the executor says so on stderr — a fixed line carrying no engine output
+    — and a classification read off the cut-off streams is visibly degraded.
     """
     try:
         process = subprocess.Popen(
@@ -895,8 +922,11 @@ def run_piped(
     for reader in readers:
         reader.start()
     returncode = process.wait()
+    deadline = time.monotonic() + PIPE_DRAIN_SECONDS
     for reader in readers:
-        reader.join(timeout=PIPE_DRAIN_SECONDS)
+        reader.join(timeout=max(0.0, deadline - time.monotonic()))
+    if any(reader.is_alive() for reader in readers):
+        _write_drain_cutoff(lock)
     return CommandResult(
         returncode=returncode, stderr="".join(list(err)), stdout="".join(list(out))
     )

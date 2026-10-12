@@ -2717,7 +2717,9 @@ def test_a_gemini_lane_retries_a_zero_exit_invalid_stream_through_its_own_execut
 ) -> None:
     # End to end through the lane's executor and a real subprocess: a fake
     # `gemini` on PATH fails its first turn with exit 0 and the fault in its
-    # result, then writes the cell's output. The lane's runner retries it.
+    # result, then writes the cell's output. The lane's runner retries it. This
+    # proves the retry fires on the lane's own executor; the reset before it is
+    # pinned in test_runner.py.
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     count = tmp_path / "count"

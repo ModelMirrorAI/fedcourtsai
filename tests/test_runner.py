@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
+import signal
 import sys
 import tempfile
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import date
@@ -17,7 +20,9 @@ from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths, EventPaths
+from fedcourtsai.pipeline import runner as runner_module
 from fedcourtsai.pipeline.runner import (
+    DRAIN_CUTOFF_NOTICE,
     AttemptClass,
     ClaudeCodeRunner,
     CodexRunner,
@@ -32,11 +37,13 @@ from fedcourtsai.pipeline.runner import (
     _failure_is_terminal_quota,
     _failure_is_transient,
     _input_snapshot,
+    _pump,
     _run_subprocess,
     _run_subprocess_capturing,
     classify_engine_attempt,
     engine_result_error,
     get_runner,
+    run_piped,
 )
 from fedcourtsai.process_version import ENGINE_RETRIEVAL
 from fedcourtsai.schemas import (
@@ -1167,6 +1174,53 @@ def test_the_capturing_executor_tees_and_keeps_both_streams() -> None:
     assert result.returncode == 0
     assert result.stdout == "{}\n"
     assert result.stderr == "warn\n"
+
+
+def test_a_leftover_child_holding_the_pipe_does_not_stall_the_executor(
+    monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+) -> None:
+    # The engine exits but leaves a process attached to its pipes: the wait for
+    # the readers ends at the drain bound, what arrived before is kept, and the
+    # cut-off is named on stderr in fixed text.
+    monkeypatch.setattr(runner_module, "PIPE_DRAIN_SECONDS", 0.5)
+    script = (
+        "import subprocess, sys; child = subprocess.Popen(['sleep', '20']); "
+        + "print(child.pid); print('before exit'); sys.stdout.flush()"
+    )
+    started = time.monotonic()
+    result = run_piped([sys.executable, "-c", script], {"PATH": os.environ.get("PATH", "")})
+    elapsed = time.monotonic() - started
+    pid_line, kept = result.stdout.splitlines()[:2]
+    os.kill(int(pid_line), signal.SIGKILL)
+
+    assert elapsed < 10
+    assert kept == "before exit"
+    assert DRAIN_CUTOFF_NOTICE in capfd.readouterr().err
+
+
+def test_a_clean_exit_writes_no_cutoff_notice(capfd: pytest.CaptureFixture[str]) -> None:
+    run_piped([sys.executable, "-c", "print('ok')"], {})
+    assert DRAIN_CUTOFF_NOTICE not in capfd.readouterr().err
+
+
+def test_a_failing_log_write_still_keeps_every_line() -> None:
+    # A reader that stopped on a failed write would leave the engine blocked on
+    # a full pipe, and lose the lines the classifier reads.
+    class BrokenSink(io.StringIO):
+        def write(self, text: str) -> int:
+            raise OSError("log gone")
+
+    kept: list[str] = []
+    _pump(io.StringIO("first\nsecond\n"), BrokenSink(), "", kept, None)
+    assert kept == ["first\n", "second\n"]
+
+
+def test_undecodable_engine_output_is_replaced_not_fatal() -> None:
+    result = run_piped(
+        [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xff ok\\n')"], {}
+    )
+    assert result.returncode == 0
+    assert result.stdout == "� ok\n"
 
 
 def test_the_capturing_executor_maps_a_missing_binary() -> None:
