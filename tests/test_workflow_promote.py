@@ -1117,6 +1117,8 @@ def test_the_gate_checks_the_auto_release_environment_run_predict_binds() -> Non
         "environments/review-auto/variables",
     ):
         assert endpoint in gate
+    # A tag policy named `main` must not read as the branch.
+    assert '(.type // "branch") == "branch"' in gate
     workflow = _load(WORKFLOWS / "run-predict.yml")
     environment = workflow["jobs"]["approval"]["environment"]
     assert "'review-auto'" in environment

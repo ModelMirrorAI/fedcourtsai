@@ -13,12 +13,12 @@ from typer.testing import CliRunner
 from fedcourtsai import cli, corpus, planning_rates
 from fedcourtsai.cli import app
 from fedcourtsai.collect import ExpectedCell, cell_artifact_name, run_branch
-from fedcourtsai.config import ReviewHoldConfig
 from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.finalize import FinalizeRole
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.registry import enabled_evaluators
+from fedcourtsai.review_hold import ReviewHoldConfig
 from fedcourtsai.review_hold import decide as decide_hold
 from fedcourtsai.schemas import Disposition, Engine, EventKind, ModelUsage, Stage, UsageRole
 from fedcourtsai.serialize import write_json

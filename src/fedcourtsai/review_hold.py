@@ -32,27 +32,80 @@ of the two, and an unreadable source keeps the hold.
 
 The decision is pure: the counts, the matrix and the commit subjects come in as
 arguments, so the rule is testable without the Actions API, and the workflow is
-responsible only for reading them.
+responsible only for reading them. The caps' model and loader, and the glue
+that turns the files the workflow read into those arguments
+(:func:`decide_from_files`), live here too, so everything that decides whether
+a round spends unattended sits in one code-owned module and the CLI only
+parses options.
 """
 
 from __future__ import annotations
 
+import json
 import math
 import re
 from collections.abc import Iterable, Mapping
+from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel
+import yaml
+from pydantic import BaseModel, ConfigDict, Field
 
 from .collect import AUTO_RELEASED_MARKER
-from .config import ReviewHoldConfig
 from .planning_rates import price_cells
 
-#: A ready predict commit's subject on `main`, carrying the auto-released mark:
-#: ``predict(run <id>): N prediction(s) [auto-released]``, optionally followed
-#: by the squash merge's ``(#N)``.
+
+class ReviewHoldConfig(BaseModel):
+    """When a predict round may skip the `review` hold (``config/review-hold.yaml``).
+
+    The hold is the per-round spend gate: a maintainer releases each round's plan
+    before a cell spends. Auto-release lets a round whose *estimated* spend is
+    small skip that wait, so a backlog drains without a human releasing every
+    cycle. It is bounded twice — per round by estimated spend, per day by the
+    number of rounds released this way — and anything above either bound still
+    waits on the hold. The ex-post backstop (`spend`) stands behind both.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # A round whose plan estimates at most this much spend, USD, is released
+    # without the hold. `0` DISABLES auto-release (the convention the other caps
+    # use), which is the default: every round waits on the hold until a
+    # maintainer adopts a value.
+    # At most $50: a sanity bound, so a slipped decimal ("500" for "5.00")
+    # is refused at load rather than adopted as a cap.
+    auto_release_usd_per_round: float = Field(default=0.0, ge=0.0, le=50.0, allow_inf_nan=False)
+    # At most this many rounds are auto-released in any trailing 24 hours; the
+    # next one waits on the hold. `0` disables auto-release too. The daily bound
+    # on unattended *estimated* spend is therefore at most this times the
+    # per-round cap; the `spend` backstop bounds what is actually spent.
+    # At most 100: the plan job reads one page of the deployments it counts.
+    auto_release_rounds_per_day: int = Field(default=0, ge=0, le=100)
+
+
+#: The auto-release caps' own file, apart from ``tracking.yaml`` because it is
+#: spend authority the maintainer owns (``.github/CODEOWNERS``).
+REVIEW_HOLD_FILENAME = "review-hold.yaml"
+
+
+def load_review_hold_config(config_root: Path) -> ReviewHoldConfig:
+    """Read the auto-release caps from ``config_root/review-hold.yaml``.
+
+    Falls back to the defaults — **disabled**, every round held — if the file is
+    absent.
+    """
+    path = config_root / REVIEW_HOLD_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return ReviewHoldConfig.model_validate(data or {})
+
+
+#: A ready predict commit's subject on `main`, carrying the auto-released mark.
+#: The squash takes the commit message for a one-commit PR —
+#: ``predict(run <id>): N prediction(s) [auto-released] (#N)`` — and the PR
+#: title otherwise — ``predict: N prediction(s) (run <id>) [auto-released] (#N)``
+#: — so the run id is read wherever it sits, before the mark.
 _AUTO_RELEASED_SUBJECT = re.compile(
-    r"^predict\(run (?P<run>\d{8}T\d{6}Z)\): .*" + re.escape(AUTO_RELEASED_MARKER)
+    r"^predict\b.*?\brun (?P<run>\d{8}T\d{6}Z)\b.*" + re.escape(AUTO_RELEASED_MARKER)
 )
 
 
@@ -238,3 +291,49 @@ def render_summary(decision: HoldDecision) -> str:
     else:
         lines.append(f"- **No further round from this one:** {decision.drain_reason}.")
     return "\n".join(lines) + "\n"
+
+
+def _read_matrix(matrix_file: Path | None) -> dict[str, Any] | None:
+    """The minted matrix document, or ``None`` — which keeps the hold — if unread."""
+    if matrix_file is None:
+        return None
+    try:
+        loaded = json.loads(matrix_file.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return loaded if isinstance(loaded, dict) else None
+
+
+def _read_committed(main_subjects_file: Path | None) -> int | None:
+    """The auto-released rounds in ``main``'s subjects, or ``None`` if unread."""
+    if main_subjects_file is None:
+        return None
+    try:
+        subjects = main_subjects_file.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    return count_auto_released(subjects)
+
+
+def decide_from_files(
+    plan: Mapping[str, Any],
+    config_root: Path,
+    *,
+    deployments_released: int | None,
+    main_subjects_file: Path | None,
+    matrix_file: Path | None,
+) -> HoldDecision:
+    """:func:`decide` over what the plan job read: the caps file, the counts, the matrix.
+
+    Every input the workflow could not read arrives as ``None`` (or a file that
+    will not parse) and keeps the hold; the caps come from
+    ``config_root/review-hold.yaml``.
+    """
+    return decide(
+        plan,
+        load_review_hold_config(config_root),
+        released_last_day=released_last_day(
+            deployments_released, _read_committed(main_subjects_file)
+        ),
+        matrix=_read_matrix(matrix_file),
+    )

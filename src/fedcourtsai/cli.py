@@ -133,7 +133,6 @@ from .config import (
     load_live_config,
     load_predict_config,
     load_pull_config,
-    load_review_hold_config,
     load_salience_config,
     load_spend_config,
     load_statpack_config,
@@ -362,9 +361,7 @@ from .release_sensitivity import (
     render_table,
 )
 from .required_checks import produced_contexts
-from .review_hold import count_auto_released
-from .review_hold import decide as decide_hold
-from .review_hold import released_last_day as released_count
+from .review_hold import decide_from_files as decide_hold_from_files
 from .review_hold import render_summary as render_hold_summary
 from .salience_replay import replay_gate
 from .schemas import (
@@ -17304,26 +17301,12 @@ def hold_decision_cmd(
     if deployments_released is not None and deployments_released < 0:
         typer.echo("hold-decision: --deployments-released cannot be negative", err=True)
         raise typer.Exit(code=1)
-    matrix: dict[str, Any] | None = None
-    if matrix_file is not None:
-        try:
-            loaded = json.loads(matrix_file.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            loaded = None
-        matrix = loaded if isinstance(loaded, dict) else None
-    committed: int | None = None
-    if main_subjects_file is not None:
-        try:
-            committed = count_auto_released(
-                main_subjects_file.read_text(encoding="utf-8").splitlines()
-            )
-        except OSError:
-            committed = None
-    decision = decide_hold(
+    decision = decide_hold_from_files(
         plan,
-        load_review_hold_config(settings.config_root),
-        released_last_day=released_count(deployments_released, committed),
-        matrix=matrix,
+        settings.config_root,
+        deployments_released=deployments_released,
+        main_subjects_file=main_subjects_file,
+        matrix_file=matrix_file,
     )
     if summary_file is not None:
         with summary_file.open("a", encoding="utf-8") as handle:

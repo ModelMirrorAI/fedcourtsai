@@ -499,7 +499,14 @@ not what is in flight. The `spend` backstop, read from the committed ledger,
 is the bound that rests on neither, though it is ex post: it lags the ledger
 and stops the next round, never the current one. So the two caps' product,
 which bounds *estimated* spend, is the only bound that applies before a round
-spends, and actual spend can exceed an estimate. In either
+spends, and actual spend can exceed an estimate. The caps change only by
+promotion, so the immediate stop for auto-release is the environment itself:
+adding a required reviewer to `review-auto` makes every round that binds it
+wait like a held one, from the next round on, with no commit. The promotion
+gate checks only `review-auto`'s branch policy and that it holds no secrets or
+variables, so the added reviewer does not block a promotion. Setting the
+`DISPATCH_CHAIN_ENABLED` variable to `false` stops only the chaining; a
+scheduled round still auto-releases within the caps. In either
 environment, each job it gates runs one echo under `permissions: {}`, so the
 environment grants nothing and merely withholds the spend behind it — a
 fan-out's matrix, the back-test's fortnightly replay, or a case-summary

@@ -329,18 +329,21 @@ contexts() {
 
   # The auto-release environment is the review hold's reviewer-less twin: a
   # predict round whose plan is within `config/review-hold.yaml`'s caps binds
-  # `review-auto` instead of `review`. It must have no reviewers (that is its
-  # purpose), so what keeps it a narrow path is everything else: deployments
+  # `review-auto` instead of `review`. It runs without reviewers (that is its
+  # purpose; adding one is auto-release's emergency stop, so reviewers are not
+  # checked), so what keeps it a narrow path is everything else: deployments
   # from `main` alone, so only a promoted workflow can add to or bind it, and
   # no secrets or variables, so binding it reaches nothing. GitHub would
-  # auto-create it on first reference with no branch policy at all. Checked
+  # auto-create it on first reference with no branch policy at all. A tag
+  # policy is listed with its type, so one named `main` cannot pass for the
+  # branch. Checked
   # from the moment main's workflows reference it, like the review check above.
   if grep -rqE "review-auto" "$main_workflows"; then
     local auto_policy auto_branches auto_secrets auto_vars
     auto_policy="$(gh api "repos/${REPO}/environments/review-auto" \
       --jq '.deployment_branch_policy.custom_branch_policies // false' 2>/dev/null || true)"
     auto_branches="$(gh api "repos/${REPO}/environments/review-auto/deployment-branch-policies" \
-      --jq '[.branch_policies[]?.name] | join(",")' 2>/dev/null || true)"
+      --jq '[.branch_policies[]? | if (.type // "branch") == "branch" then .name else "\(.type):\(.name)" end] | join(",")' 2>/dev/null || true)"
     auto_secrets="$(gh api "repos/${REPO}/environments/review-auto/secrets" \
       --jq '.total_count' 2>/dev/null || true)"
     auto_vars="$(gh api "repos/${REPO}/environments/review-auto/variables" \

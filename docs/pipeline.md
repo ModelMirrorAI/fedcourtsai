@@ -1928,7 +1928,11 @@ ledger, so the two caps' product, which bounds *estimated* spend, is the only
 bound that applies before a round spends. Both caps start at 0, which disables
 it, and the decision fails closed: an unreadable count, a missing or mismatched
 matrix, or a plan with no estimate keeps the hold. The caps, the planning rates
-and the decision code are maintainer-owned. The staleness rule above does not bite on
+and the decision code are maintainer-owned. Lowering a cap rides a promotion,
+so the emergency stop is a required reviewer on the `review-auto` environment:
+it takes effect at the next round, without a commit, and every round then waits
+as if held. The `DISPATCH_CHAIN_ENABLED` variable is no substitute, because
+`false` stops only the chaining and a scheduled round still auto-releases. The staleness rule above does not bite on
 this path, because the plan is released minutes after it is minted; what keeps
 a following round from re-planning this one's cells is the stranded-run guard,
 and the `chain` job's wait for the collect PR to merge. The plan report and a

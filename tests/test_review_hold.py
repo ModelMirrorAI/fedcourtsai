@@ -13,10 +13,11 @@ from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
 from fedcourtsai.collect import AUTO_RELEASED_MARKER
-from fedcourtsai.config import ReviewHoldConfig, load_review_hold_config
 from fedcourtsai.review_hold import (
+    ReviewHoldConfig,
     count_auto_released,
     decide,
+    load_review_hold_config,
     released_last_day,
     render_summary,
 )
@@ -168,6 +169,19 @@ def test_auto_released_commits_are_counted_once_per_round() -> None:
         "predict(run 20261012T090000Z): 4 prediction(s) (#2399)",
         "pull: refresh corpus + outcomes (2026-10-12)",
         f"evaluate(run 20261012T150000Z): 3 evaluation(s) {AUTO_RELEASED_MARKER}",
+    ]
+    assert count_auto_released(subjects) == 2
+
+
+def test_a_squash_that_takes_the_pr_title_is_counted_too() -> None:
+    # A collect PR with more than one commit squashes under its title, which
+    # puts the run id after the count rather than in the scope.
+    subjects = [
+        f"predict: 3 prediction(s) (run 20261012T141200Z) {AUTO_RELEASED_MARKER} (#2400)",
+        f"predict(run 20261012T141200Z): 3 prediction(s) {AUTO_RELEASED_MARKER} (#2401)",
+        f"predict: 2 prediction(s) (run 20261012T173600Z) {AUTO_RELEASED_MARKER}",
+        "predict: 1 partial prediction(s) (run 20261012T190000Z) (#2402)",
+        f"evaluate: 3 evaluation(s) (run 20261012T150000Z) {AUTO_RELEASED_MARKER}",
     ]
     assert count_auto_released(subjects) == 2
 

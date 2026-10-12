@@ -386,8 +386,10 @@ runbook, [docs/security.md](docs/security.md).
   the hold or its plan is within the auto-release caps. The allowance also
   names the dispatch App's login, since a chained predict round runs as that
   App; `run-evaluate` and the action-path smoke carry the same pair because the
-  cells' invocation surface is held in lockstep, and the App can start
-  nothing but `run-predict`. The gemini steps and `run-backtest` set no such
+  cells' invocation surface is held in lockstep. The App's token holds
+  `actions: write`, which could start any workflow; the two chain jobs that
+  mint it start nothing but `run-predict`, pinned by
+  `tests/test_workflow_dispatch_chain.py`. The gemini steps and `run-backtest` set no such
   allowance.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**

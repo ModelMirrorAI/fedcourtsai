@@ -39,6 +39,9 @@ SETUP = "./.github/actions/setup-python-env"
 MINT = "create-github-app-token"
 # `gh api` flags that make a call write: an explicit method, or a field or
 # input body (which turns the call into a POST without naming the method).
+# One `gh api` command: from the call to the next shell operator or
+# redirection, so a later command's own flags (`rm -f`) are not read as its.
+GH_API_CALL = re.compile(r"\bgh api\b[^|;&>]*")
 WRITING_FLAGS = re.compile(r"(?:^|\s)(?:-X|--method|-f|-F|--field|--raw-field|--input)(?:\s|=|$)")
 
 
@@ -91,15 +94,17 @@ def test_each_chain_job_binds_prod_and_holds_nothing_else() -> None:
 def test_each_chain_job_dispatches_only_run_predict_on_main() -> None:
     for workflow, job_name in MINTERS:
         job = _load(WORKFLOWS / workflow)["jobs"][job_name]
-        runs = "\n".join(str(s.get("run", "")) for s in _steps(job))
+        # A backslash-continued command is one logical line: join it first, or a
+        # flag on a continuation line escapes the per-line scans below.
+        runs = re.sub(r"\\\n\s*", " ", "\n".join(str(s.get("run", "")) for s in _steps(job)))
         dispatches = [line for line in runs.splitlines() if "gh workflow run" in line]
         assert dispatches, f"{workflow}:{job_name} dispatches nothing"
         for line in dispatches:
             assert DISPATCH.search(line), f"{workflow}:{job_name} dispatches {line.strip()!r}"
         for line in runs.splitlines():
-            if "gh api" in line:
-                assert not WRITING_FLAGS.search(line), (
-                    f"{workflow}:{job_name} makes a writing API call: {line.strip()!r}"
+            for call in GH_API_CALL.findall(line):
+                assert not WRITING_FLAGS.search(call), (
+                    f"{workflow}:{job_name} makes a writing API call: {call.strip()!r}"
                 )
 
 
