@@ -1,0 +1,2 @@
+Consulted the statpack (`metrics/statpack.md`) for modern cert petition base rates and salience band rates. Attempted a CourtListener MCP search for 'GEO Group' and docket '25-828' but found no results.
+No retrieval beyond the provisioned inputs and the statpack.

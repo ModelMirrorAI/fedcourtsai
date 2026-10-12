@@ -1698,8 +1698,9 @@ procedure writes the pre-registration record into the tag message
   itself, and `prereg/proc-v8` sits on the step-4 correction commit, because
   that label has two freeze commits and neither one's tree states the blessed
   digests and the instant together. The namespace blocks moving either.
-- **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit; a
-  `-2` suffix distinguishes a same-day second batch.
+- **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit,
+  named by the merge's **UTC** date; a `-2` suffix distinguishes a second
+  batch merged on the same UTC date.
 - **`results/<term>-<milestone>`** — a `main` commit whose tree carries a
   published metrics refresh and the write-ups quoting it, e.g.
   `results/ot2026-longconf`.

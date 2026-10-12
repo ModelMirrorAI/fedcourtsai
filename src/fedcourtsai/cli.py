@@ -18,6 +18,7 @@ import sys
 import tempfile
 import textwrap
 import time
+from collections import Counter
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
@@ -172,6 +173,7 @@ from .integrity import (
 )
 from .leaderboard import (
     big_case_agreement,
+    boundary_sides,
     build_leaderboard,
     cell_facts,
     coverage_shortfalls,
@@ -417,6 +419,7 @@ from .store import (
     StratifiedRun,
     cases_due_for_pull,
     cell_census,
+    evaluation_key,
     event_has_claimable_prediction,
     forecastable_events,
     forward_refusal_reason,
@@ -5415,9 +5418,9 @@ def leaderboard(
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     frozen_only = not all_versions
-    # Keyed on (predictor, window) throughout, so a predictor whose counted
-    # cells span two windows gets an entry per window rather than a refusal.
-    run = stratify(settings.data_root, frozen_only=frozen_only, refuse_pooled_windows=False)
+    # Each predictor's entry pools its counted cells across every window; the
+    # per-window entries ride beside it as the by-protocol cut.
+    run = stratify(settings.data_root, frozen_only=frozen_only)
     _report_exclusions(run)
     cells = run.cells
     # The realized-Term skill column is scored at render against the committed
@@ -5426,7 +5429,15 @@ def leaderboard(
     statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
     board = build_leaderboard(
         cells,
-        big_case=big_case_agreement(settings.data_root, frozen_only=frozen_only),
+        # The pooled entries read `(predictor, None)`, the cut `(predictor, label)`.
+        big_case={
+            **big_case_agreement(settings.data_root, frozen_only=frozen_only, by_window=False),
+            **(
+                big_case_agreement(settings.data_root, frozen_only=True, by_window=True)
+                if frozen_only
+                else {}
+            ),
+        },
         evaluators=evaluator_agreement(settings.data_root, frozen_only=frozen_only),
         process_scope=scope,
         skills=skill_components(cells, settings.data_root, statpack),
@@ -5442,6 +5453,12 @@ def leaderboard(
         # counted as `vote_cells_scored`.
         vote_scores=vote_scores(cells, settings.data_root),
         cell_windows=run.cell_windows,
+        # Each cell's side of every harness boundary that admits it, by ancestry
+        # of its `pipeline_sha` in this checkout (full history required); frozen
+        # builds only, since only a pooled frozen figure lists the boundaries.
+        boundaries=(
+            boundary_sides(cells, settings.data_root, repo=Path.cwd()) if frozen_only else None
+        ),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
@@ -5533,7 +5550,7 @@ def claim_scores_command(
     """
     settings = get_settings()
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
-    run = stratify(settings.data_root, frozen_only=not all_versions, refuse_pooled_windows=False)
+    run = stratify(settings.data_root, frozen_only=not all_versions)
     _report_exclusions(run)
     board = build_claim_scores(
         run.cells,
@@ -5782,6 +5799,7 @@ def release_sensitivity_command(
             registered=registered,
             grant_list=grant_list_day,
             committed_board=committed,
+            cell_windows=run.cell_windows,
         )
     output: dict[str, Any] = {
         "ledger": {
@@ -6131,11 +6149,15 @@ def semantic_summary_command(
     units: list[semantic.GradedUnit] = []
     blocks = 0
     refused = 0
+    series: Counter[process_version.Series] = Counter()
+    rubrics: Counter[process_version.Rubric] = Counter()
     for key in sorted(latest):
         evaluation = latest[key][1]
         if evaluation.semantic_grades is None:
             continue
         blocks += 1
+        series[(evaluation.predictor_id, run.cell_windows.get(evaluation_key(evaluation)))] += 1
+        rubrics[process_version.rubric_of(evaluation)] += 1
         produced = semantic.graded_units(evaluation)
         if not produced:
             # `graded_units` refuses silently, five ways. A systematic refusal —
@@ -6143,7 +6165,17 @@ def semantic_summary_command(
             # otherwise render as "few grades" rather than "many grades refused".
             refused += 1
         units.extend(produced)
-    summary = semantic.summarize_semantic_grades(units, stratum=segment, process_scope=scope)
+    # The census pools every predictor's gradings across every window they hold
+    # cells in, so it states that composition and the rubrics it spans beside
+    # the counts — the roll-up sees units, which carry neither.
+    summary = semantic.summarize_semantic_grades(
+        units, stratum=segment, process_scope=scope
+    ).model_copy(
+        update={
+            "windows": process_version.pooled_windows(series),
+            "rubrics": process_version.rubric_listing(rubrics),
+        }
+    )
     graded = summary.overall.graded if summary.overall is not None else 0
     masked = summary.overall.not_addressed if summary.overall is not None else 0
     disputed = summary.overall.mask_disputed if summary.overall is not None else 0
@@ -6162,10 +6194,28 @@ def semantic_summary_command(
         if grounds
         else ""
     )
+    makeup = (
+        "; pooled over "
+        + ", ".join(f"{w.predictor_id} {w.process_window} (n={w.n})" for w in summary.windows)
+        if summary.windows
+        else ""
+    )
+    # A grade depends on the evaluate prompt, so the census names the rubrics it
+    # pools, and says so out loud where one evaluator graded under two digests.
+    mixed = len({r.evaluator_id for r in summary.rubrics}) < len(summary.rubrics)
+    judged = (
+        "; graded under "
+        + ", ".join(
+            f"{r.evaluator_id}@{(r.digest or 'unstamped')[:15]} (n={r.n})" for r in summary.rubrics
+        )
+        + (" — mixed judge rubrics, so coverage only" if mixed else "")
+        if summary.rubrics
+        else ""
+    )
     census = (
         f"{blocks} block(s), {refused} refused; {graded} graded / {masked} masked / "
         f"{disputed} mask-disputed unit(s) over {summary.cells} cell(s) "
-        f"on {summary.cases} case(s){ground_split}"
+        f"on {summary.cases} case(s){ground_split}{makeup}{judged}"
     )
     if graded < semantic.SEMANTIC_MIN_GRADED or not agreed:
         reason = (
@@ -9325,9 +9375,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     # like the prediction counts beside it), so its counts pool stages by
     # design; per-stage segmentation — and every claim that must not pool —
     # is the leaderboard's job.
-    stratified_run = stratify(
-        settings.data_root, frozen_only=not all_versions, refuse_pooled_windows=False
-    )
+    stratified_run = stratify(settings.data_root, frozen_only=not all_versions)
     _report_exclusions(stratified_run)
     stratified = [(ev, stratum) for ev, stratum, _stage, _moment in stratified_run.cells]
     substance = summarize_substance(
@@ -15398,9 +15446,11 @@ def _report_uneven_coverage(board: Leaderboard) -> None:
     Grading is gated at ``(evaluator, event)`` grain, so the scored set is
     *selected*: a prediction committed after a judge graded its event is never
     scored by that judge, and an engine whose cells backfill late is compared
-    over a subset of the population's events. The ranks and means make no
+    over a subset of the population's events. The pooled entries' means make no
     adjustment for that, so two entries at unequal coverage are not a
-    cross-engine comparison at all. The board carries the counts; this makes the
+    cross-engine comparison at all — the ranks are read over the paired events
+    instead, which equalizes the event set by construction and states what it
+    loses as each engine's ``unpaired_events``. The board carries the counts; this makes the
     inequality itself loud at build time, so a comparability hazard does not
     wait for a reader to do the subtraction. It stays silent on equal coverage,
     which is not the same as endorsing the comparison: equality certifies the
@@ -15429,8 +15479,8 @@ def _report_uneven_coverage(board: Leaderboard) -> None:
         typer.echo(
             f"::warning::leaderboard [{population}]: unequal scored-set coverage — "
             + ", ".join(short)
-            + ". Ranks and means make no adjustment for this; a cross-engine "
-            "comparison over unequal coverage is over different populations.",
+            + ". Pooled means make no adjustment for this, so entries side by side are "
+            "over different populations; the paired figure is the comparison.",
             err=True,
         )
 

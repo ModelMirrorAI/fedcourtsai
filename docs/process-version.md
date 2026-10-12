@@ -84,8 +84,8 @@ evaluator's information set** — a different scrub-term set and a different num
 of candidates — while moving no evaluator digest, since an evaluator's canonical
 config carries no predictor list. For the evaluators that is a routine
 operation with no boundary behind it; for counting, a new predictor id opens a
-counting window of its own, with its own entries on every board (*Pooled by
-default, built per window*). Until the masking surface is folded into the evaluator's canonical
+counting window of its own, pooled into its own record on every board (*Pooled
+by default*). Until the masking surface is folded into the evaluator's canonical
 config (which would make it a partition key rather than an honour system), a
 registry change that alters the candidate set belongs in the freeze record
 ([freeze-record.md](freeze-record.md)) beside the masking changes.
@@ -395,7 +395,7 @@ prediction's window (`graded_in_window`) — not a successor's later instant, so
 the gradings a closed window's cells collect after the successor froze count
 wherever that instant falls.
 
-**Pooled by default, built per window.** The registered reading rule, declared
+**Pooled by default.** The registered reading rule, declared
 in the freeze record ahead of its implementation, makes a predictor's default
 frozen-scope figure its forward track record: every counted cell in every
 window no revocation de-counted, one counted forecast per (predictor, event) as
@@ -413,46 +413,60 @@ property of the current process, and a move between two cuts is a comparison
 over different events. [metrics/README.md](../metrics/README.md) carries the
 reading rules.
 
-**What is built is the by-protocol cut alone.** Until the implementation
-lands, every frozen-scope figure is per predictor *and* window, published
-under the window's `label` (`process_window` on each board entry, ops score
-row, tool-usage segment, big-case read and export row, and the
-whole registry in each artifact's `frozen_process.windows`). The shared
-stratify pass names each in-scope cell's window (`StratifiedRun.cell_windows`),
-and every aggregate built on it — the leaderboard and its stage blocks,
-`by_band`, the big-case agreement, the claim scores, the ops report — keys on
-the (predictor, window) series, so a predictor whose counted cells span two
-windows has an entry per window. Two of one predictor's windows sharing a label
-are refused, since no figure could name them apart.
+**Every frozen-scope surface is built to it; the per-rubric readings are
+not yet.** The
+shared stratify pass names each in-scope cell's window
+(`StratifiedRun.cell_windows`). On the leaderboard and each of its stage
+blocks, each entry pools its predictor's counted cells and lists its
+composition as `windows` (`process_version.composition`: each window by label
+and opening instant, with its `n`, even for one window); the
+per-(predictor, window) entries ride beside them as the unranked `by_protocol`
+cut; and `paired` is the paired-event figure the ranks are read off — the
+events every ranked engine holds a counted forward cell on, graded with both
+an accuracy and a Brier score, from any window, with no band condition. The
+ranked set is every predictor holding a counting window neither closed nor
+revoked (`process_version.is_retired` reads each window's `predictor_id`) and
+at least one such cell. The harness boundaries are registered
+(`process_version.HARNESS_BOUNDARIES`, each with its carrying commit and the
+cells it can reach) with the ancestry side test (`process_version.boundary_side`:
+after where the carrying commit is an ancestor of, or equal to, the cell's
+`pipeline_sha`, refusing a shallow clone or an unknown commit rather than
+guess). Each pooled entry and each paired engine lists, as `boundaries`, every
+boundary inside its cells with the cells before and after and those with no
+`pipeline_sha`, over every cell the boundary's predictors and mode admit, its
+reach printed as `scope` rather than applied; `fedcourts leaderboard` reads
+the sides in the checkout it runs from, so it needs full history. The
+per-rubric breakdown is not built yet: a pooled `big_case` lists the windows
+and the (evaluator, digest) pairs it spans, and until that reading lands a
+judge-dependent figure spanning more than one digest of an evaluator is
+coverage, not a claim. Each paired engine also carries `by_band`, its paired
+gradings under the one band filing every engine shares, which is where a
+per-band ordering is read; a boundary that reached the corpus by back-fill is
+marked `gradual`. Two of one predictor's windows sharing a label are refused, since no
+figure could name them apart.
 
-A figure keyed on something other than the forecaster pools series by design:
-the evaluator-agreement view (it compares graders), the claim scores' judge
-validation, the ops calibration block and a tool-usage coefficient row. Each
-is the **record across labels** wherever its cells come from windows carrying
-more than one label: it lists each (predictor, window) series and its `n` as
-`windows` beside the pooled value (`process_version.pooled_windows`), and is
-never a rank key. The per-event readers — the dataset export, the big-case
-census (one read per predictor per case, each naming its window), the
-conference cut and the predict backlog — take any ledger. The pass still
-refuses a two-window predictor for a caller that keys on `predictor_id` alone
-and has not been split: `release-sensitivity` and `semantic-summary`, which
-under the registered rule pool with the breakdown instead once it is built. That
-refusal reads the whole ledger, so neither builds at frozen scope once any predictor holds
-graded cells in two windows — `release-sensitivity` included, although its
-release is `proc-v8` inside its own window.
-
-In the built shape, a cross-engine comparison is read only over events on
-which every compared engine holds a counted cell, each from one named window
-(the registered rule drops the window restriction). The complete grid is
-therefore taken per window combination — one window per predictor, windows
-that ran together (`process_version.co_current`) — and an event split across a
-closed window and its successor belongs to no grid: the boards count it per
-band in `split_events_by_band` (among their complete graded events), and list
-each combination's grid in `complete_grids` wherever the entries carry more
-than one window label, since a per-window entry need not cover the total. A
-rank is a cross-engine comparison too, so where the entries carry more than one
-label `rank` restarts within each label's cohort, and a closed window's
-standings never move when a later window's cells land.
+The claim scores, the ops report's score rows and the tool-usage segments take
+the same shape. Each default entry, row or segment pools its predictor's or
+engine's counted cells, with the composition beside it
+(`process_version.composition_of`), and the per-(predictor, window) form rides
+beside it as the cut: `by_protocol`, `predictor_scores_by_protocol` and
+`segments_by_protocol`. The whole registry rides in each artifact's
+`frozen_process.windows`. A figure keyed on something other than the
+forecaster pools series by design: the evaluator-agreement view (it compares
+graders), the claim scores' judge validation, the ops calibration block, a
+tool-usage coefficient row and the semantic census. Each is the **record across
+the series it pools**. It lists each (predictor, window) series and its `n` as
+`windows` beside the pooled value (`process_version.pooled_windows`), a single
+series included, and it is never a rank key. The per-event readers take any
+ledger: the dataset export, the big-case census (one read per predictor per
+case, each naming its window), the conference cut and the predict backlog.
+`release-sensitivity` rebuilds the board with the windows and projects the
+pooled entries with their composition, the paired figure and the cut. Its
+release is `proc-v8` inside its own window. Once a later window's cell is
+graded, a per-entry release figure is read off the cut's `proc-v8` entries.
+The paired figure and each block's counters have no per-window cut, so they
+are read from a run at the refresh commit the release pins. `semantic-summary` pools and states the census's
+`windows` and its (evaluator, digest) `rubrics`.
 
 ### Two boundaries, two jobs
 
@@ -758,15 +772,15 @@ predictor opens a window rather than ranking a later span beside the earlier
 ones, and a predictor-half re-bless closes windows rather than de-counting.
 The frozen scope, the counting rule, the run collapse,
 evaluation staging, the dataset export and the re-predict rule read the
-windows. In the built shape, every aggregate keys on (predictor, window) and
-every pooled figure lists its series (*Pooled by default, built per window*),
-and a window opening after the earliest is an ordinary entry beside the
-earlier ones over its own span of events, ranked within its own label's
-cohort, and a cross-engine reading of it goes through the complete grid of its
-window combination. Tests build every board over a synthetic
-two-window registry and check that each is per window and that nothing pools
-unlisted (`tests/test_counting_windows.py`); `release-sensitivity` and
-`semantic-summary` still refuse a predictor that spans two windows. The
+windows. On the leaderboard a window opening after the earliest pools into
+its predictor's record and appears as its own `by_protocol` entry, and a
+cross-engine reading of it goes through the paired figure; the other
+aggregates pool the same way with their own cut, and a figure pooling
+several predictors lists its series (*Pooled by default*). Tests build every board over a synthetic two-window
+registry and check the pooled entries, the cut, the paired figure, and that
+nothing pools unlisted (`tests/test_counting_windows.py`), and that
+`release-sensitivity` and `semantic-summary` pool a predictor that spans two
+windows. The
 successor's disclosures come from `fedcourts successor-disclosures`, and a
 revoked window's record from `fedcourts revoked-window-board`, so nothing a
 close or a revocation owes is derived by hand; a test fails the suite if one of

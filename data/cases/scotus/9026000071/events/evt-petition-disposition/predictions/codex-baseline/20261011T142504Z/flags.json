@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000071",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Conditioning caution: the frozen elevated band and distribution_count=2 include a pre-conference reschedule, not an observed post-conference relist. The September 30 distribution for October 16 was rescheduled October 6, then distributed October 7 for November 6; both conferences postdate the October 11 snapshot. Context is as-stored with no cutoff. I retained the supplied band and count but discounted any inference of prior conference consideration.",
+      "severity": "info"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "A material positive signal is the provisioned September 30 reply's report that the Solicitor General urged review in related Nwauzor litigation and referenced this case. This is pre-snapshot advocacy, not an outcome. I did not independently retrieve that brief or either case's later history; the forecast distinguishes related federal support from a CVSG or grant recommendation on this docket.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261011T142504Z",
+  "schema_version": "1.0"
+}

@@ -34,6 +34,19 @@
           "title": "Opens",
           "type": "string"
         },
+        "predictor_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The predictor whose process the digest is \u2014 a fact about the digest, recorded so a reader can tell which predictors still hold an open window (the ranked set's condition) without recomputing digests. Omitted where unrecorded",
+          "title": "Predictor Id"
+        },
         "revoked_at": {
           "anyOf": [
             {
