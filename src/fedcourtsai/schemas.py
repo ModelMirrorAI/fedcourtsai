@@ -5949,9 +5949,10 @@ class CertBacktestCellLoss(_Strict):
       the prompt template's ``data/cases/...`` path instead of the work root it
       was given.
     - ``invalid`` — a file was there and is not a valid ``Prediction``.
-    - ``engine-failed`` — the engine CLI exited non-zero for the cell and wrote
-      nothing to read back: a deterministic fault, or a transient one that
-      outlasted the runner's retry budget.
+    - ``engine-failed`` — the engine failed for the cell — a non-zero exit, or
+      a zero-exit turn whose result reported a fault — and wrote nothing to read
+      back: a deterministic fault, or a transient one that outlasted the
+      runner's retry budget.
     - ``quota-exhausted`` — the engine's own quota is spent, so the cell failed
       and no retry could have cleared it. Every later cell on that engine in
       the same campaign carries this reason without being attempted, since the

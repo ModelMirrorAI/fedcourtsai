@@ -30,7 +30,6 @@ from __future__ import annotations
 import hashlib
 import re
 import sqlite3
-import subprocess
 import sys
 import threading
 from collections import Counter
@@ -39,7 +38,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
-from typing import IO, Any, Literal, TextIO
+from typing import Any, Literal, TextIO
 
 from . import corpus
 from .analytics import _is_scored_segment_row
@@ -72,6 +71,7 @@ from .pipeline.runner import (
     Runner,
     RunRequest,
     get_runner,
+    run_piped,
 )
 from .pipeline.salience import (
     SALIENCE_VERSION,
@@ -581,76 +581,23 @@ def _say(message: str, *, stream: TextIO | None = None) -> None:
         print(line, file=stream if stream is not None else sys.stderr, flush=True)
 
 
-# How long a lane waits, once its engine has exited, for the output pumps to
-# reach end of stream. A process the engine left running can hold the pipe open
-# indefinitely; the cell is over when the engine is, so the lane moves on.
-_PUMP_DRAIN_SECONDS = 10.0
-
-
-def _pump(source: IO[str], sink: TextIO, label: str, keep: list[str] | None) -> None:
-    """Copy an engine's output stream to ``sink`` line by line, lane-prefixed.
-
-    Keeps draining ``source`` even when a write to ``sink`` fails: a pump that
-    stopped reading would leave the engine blocked on a full pipe.
-    """
-    for line in source:
-        if keep is not None:
-            keep.append(line)
-        text = f"[{label}] {line}" if line.endswith("\n") else f"[{label}] {line}\n"
-        with _LOG_LOCK:
-            try:
-                sink.write(text)
-                sink.flush()
-            except (OSError, ValueError):
-                continue
-
-
 def _lane_command_runner(label: str) -> CommandRunner:
-    """The engine spawn for one lane: the runner's own, with its output prefixed.
+    """The engine spawn for one lane: the runner's piped executor, lane-prefixed.
 
-    Same contract as the runner's default executor — the agent's stdout streams
-    to the log, its stderr is captured for the transient-fault classifier and
-    echoed, a missing binary is :class:`EngineUnavailable` — except that both
-    streams are read through a pipe and written a line at a time under the
-    lane's label, live, so three engines running at once stay legible. Only a
-    back-test lane uses it; every other caller keeps the runner's default.
+    The runner's own :func:`~fedcourtsai.pipeline.runner.run_piped` — both
+    streams piped, teed live a line at a time and kept, a bounded wait for them
+    once the engine exits, a missing binary as :class:`EngineUnavailable` — with
+    every line written under the lane's label and the shared log lock, so three
+    engines running at once stay legible. Both streams are kept for every
+    engine: stderr is what the transient-fault classifier reads, and stdout is
+    where Gemini reports a zero-exit turn's fault (the runner reads stdout only
+    for an engine that reports there, so keeping it changes nothing for the
+    others). Only a back-test lane uses it; every other caller keeps the
+    runner's default.
     """
 
     def run(argv: Sequence[str], env: Mapping[str, str]) -> CommandResult:
-        try:
-            proc = subprocess.Popen(
-                list(argv),
-                env=dict(env),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                errors="replace",
-            )
-        except FileNotFoundError as exc:
-            raise EngineUnavailable(str(argv[0])) from exc
-        assert proc.stdout is not None and proc.stderr is not None  # both piped above
-        captured: list[str] = []
-        pumps = [
-            threading.Thread(
-                target=_pump, args=(proc.stdout, sys.stdout, label, None), daemon=True
-            ),
-            threading.Thread(
-                target=_pump, args=(proc.stderr, sys.stderr, label, captured), daemon=True
-            ),
-        ]
-        for pump in pumps:
-            pump.start()
-        returncode = proc.wait()
-        # Bounded: a process the engine left behind can hold a pipe open past
-        # the engine's own exit, and an unbounded join would stall the lane —
-        # and with it the report — until the job's cap. Daemon pumps, so one
-        # still attached to such a process never holds the command open either.
-        # The cost, in that case only: stderr still unread when the bound runs
-        # out is missing from what the fault classifier reads, so a late quota
-        # message could classify as a plain engine failure.
-        for pump in pumps:
-            pump.join(timeout=_PUMP_DRAIN_SECONDS)
-        return CommandResult(returncode=returncode, stderr="".join(list(captured)))
+        return run_piped(argv, env, prefix=f"[{label}] ", lock=_LOG_LOCK)
 
     return run
 

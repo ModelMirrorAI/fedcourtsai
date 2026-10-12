@@ -2048,8 +2048,9 @@ confirmation is the exception.
 
 Such a campaign accounts for its losses rather than ending on one, so a report
 always lands. An engine whose CLI binary is missing drops that predictor whole.
-A cell whose engine exited non-zero, and a cell that left no readable
-`prediction.json` where the runner reads it, are each a loss for that
+A cell whose engine failed — a non-zero exit, or a zero-exit Gemini turn
+whose result reported a fault and left no output — and a cell that left no
+readable `prediction.json` where the runner reads it, are each a loss for that
 (petition, predictor) pair alone. An engine that reports its own allowance
 exhausted — a fault the runner classifies as terminal rather than retrying it
 through the backoff budget — has its remaining cells recorded as lost without
@@ -2845,6 +2846,26 @@ or `quota` when the whole engine produced nothing); the job stays green, as
 collect needs it to. The
 claude and codex steps have no equivalent: they are pinned actions, which a
 step cannot loop, and each of those CLIs retries transient API faults itself.
+The back-test's own Gemini runner (`GeminiRunner`, which `run-backtest` drives
+with a real engine) meets the same fault under the same rules, in Python. The
+lane's executor keeps each turn's stdout as well as its stderr while writing
+both, lane-prefixed, to the log live; the runner classifies every attempt with
+the same classifier, retries only a `transient` one under its own attempt cap
+(the `runner:` section of `config/tracking.yaml`), and resets the cell's
+output root to its pre-attempt snapshot before each retry, never past a
+written judgment artifact or `flags.json`. The reset covers only that root:
+scratch an attempt wrote elsewhere under the work root survives a retry, as it
+does in the cells' in-place retry. These rules hold for a non-zero exit too,
+so unlike claude and codex — which retry a transient non-zero exit in place,
+without a reset — a Gemini cell that already wrote its judgment is not
+retried. A zero-exit turn that is not retried keeps whatever it produced; one
+that produced nothing is a classified failure — an `engine-failed` lost cell,
+or a spent quota that finishes the engine for the campaign — rather than a
+cell that silently wrote nothing. Two things differ from the cell step: the
+wait before a retry is the runner's exponential backoff (2 seconds doubling,
+capped at 30, under full jitter), shorter than the step's 15 seconds per
+attempt so far, and there is no deadline floor, since a back-test cell runs
+under the job's cap rather than a per-step engine deadline.
 
 Agent steps need more than that bound, because a step can stay `in_progress`
 straight through its own timeout until the *job* cap cancels the runner — and a
