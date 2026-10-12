@@ -64,8 +64,8 @@ jobs:
       # The App token, not the ambient GITHUB_TOKEN: a PR opened with
       # GITHUB_TOKEN triggers no `pull_request` workflows, so its required
       # checks would never report and it could never merge. The same reason
-      # `promote` leaves the promotion PR to the maintainer — here an App
-      # installation supplies an identity whose PR does trigger them.
+      # `promotion-prep` opens its draft promotion PR with the dev App too —
+      # an App installation supplies an identity whose PR does trigger them.
       #
       # The DEV App, deliberately, not the data App: the data App is a bypass
       # actor on `main: require PR`, and a scheduled unattended job must not

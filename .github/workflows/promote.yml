@@ -151,7 +151,7 @@ jobs:
                 echo "## Promotion gates green at \`${sha}\`"
               fi
               echo
-              echo "Open (or refresh) the promotion PR — required checks run under your identity:"
+              echo "Use the draft promotion PR \`promotion-prep\` keeps open (\`gh pr list --base main --head staging\`): mark it ready, then edit its body once to re-run \`promotion-gate\`. Only with no draft open, open one by hand — required checks run under your identity:"
               echo
               echo '```'
               echo "gh pr create --base main --head staging --title \"chore: promote staging to main\" --body \"Promotion batch; gates green at ${sha}.\""

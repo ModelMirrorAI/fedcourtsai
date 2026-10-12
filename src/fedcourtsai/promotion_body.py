@@ -34,6 +34,18 @@ _FOOTER = re.compile(r"^(?:🤖 Generated with|https://claude\.ai/code/|_Body ed
 # A fence opener or closer. Inside a fence a `#` line is a shell comment, not a
 # heading, so neither headings nor the footer are read there.
 _FENCE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+# An inline code span, which a mention escape must leave alone: an entity
+# inside backticks renders literally.
+_CODE_SPAN = re.compile(r"(`+)(?:(?!\1).)+?\1")
+# A mention: `@` opening a login, not inside a word (an email address).
+_MENTION = re.compile(r"(?<![\w@])@(?=[A-Za-z0-9])")
+# A digit run in a gate verdict line, which varies between refreshes (run
+# counts, run ids) without the batch changing.
+_DIGITS = re.compile(r"\d+")
+
+# GitHub refuses a PR body over 65,536 characters. The block keeps well under
+# that, so prose the maintainer adds outside it still fits.
+BLOCK_BUDGET = 50_000
 
 
 class BatchPR(BaseModel):
@@ -59,6 +71,12 @@ class Batch(BaseModel):
     main_sha: str
     prs: list[BatchPR]
     sync_prs: list[int] = []
+    # `main`→`staging` sync PRs still open (and so possibly armed to
+    # auto-merge) when the job read the batch.
+    open_sync_prs: list[int] = []
+    # First-parent staging commits no merged PR names: a direct push (the
+    # admin escape hatch), whose change no feature PR's note covers.
+    unmapped_commits: list[str] = []
     gate: list[GateCheck] = []
     owed_fills: list[str] = []
 
@@ -134,6 +152,33 @@ def _unmark(text: str) -> str:
     )
 
 
+def _quote_note(text: str) -> str:
+    """A handover note as a blockquote, with mentions outside code escaped.
+
+    The quote is a container, so an unclosed `<!--` in a note ends with it
+    rather than hiding the rest of the block. A mention outside code would
+    notify its target on every refresh; inside a fence or a code span it is a
+    command's `@` and is kept verbatim, since that is what a reader copies.
+    """
+    fence = _Fence()
+    out = []
+    for raw in text.split("\n"):
+        line = raw if fence.step(raw) or fence.open else _escape_mentions(raw)
+        out.append(f"> {line}" if line else ">")
+    return "\n".join(out)
+
+
+def _escape_mentions(line: str) -> str:
+    parts = []
+    last = 0
+    for span in _CODE_SPAN.finditer(line):
+        parts.append(_MENTION.sub("&#64;", line[last : span.start()]))
+        parts.append(span.group(0))
+        last = span.end()
+    parts.append(_MENTION.sub("&#64;", line[last:]))
+    return "".join(parts)
+
+
 def _title(title: str) -> str:
     """A PR title for the block: markers defused and `@` escaped, since a
     mention in a heading or list item would notify on every refresh."""
@@ -161,15 +206,26 @@ def _next_step(batch: Batch) -> list[str]:
     if not batch.gate:
         return []
     failing = {check.name for check in batch.gate if not check.ok}
+    syncs = ", ".join(f"#{n}" for n in batch.open_sync_prs)
+    sync_line = (
+        [
+            f"- let the open sync PR {syncs} land (or close it) first: marking ready stops a new",
+            "  sync, not one already armed, and its merge would move the head.",
+        ]
+        if batch.open_sync_prs
+        else []
+    )
     if not failing:
         return [
             "**Next:** the gate reads clean at this head. If this PR is still a draft, mark",
-            "it ready (which stops syncs moving the head), edit the body once to re-run",
-            "`promotion-gate`, and merge with a **merge commit**.",
+            "it ready (which stops new syncs moving the head), then:",
+            *sync_line,
+            "- edit the body once to re-run `promotion-gate`, and merge with a **merge commit**.",
         ]
     lines = [
         "**Next:** mark this PR ready for review first (that stops `sync-staging`",
-        "moving the head under the evidence), then:",
+        "opening a new sync under the evidence), then:",
+        *sync_line,
     ]
     if "quiescence" in failing:
         lines.append("- let the running predict/evaluate/back-test rounds finish (or reject")
@@ -193,7 +249,8 @@ def render(batch: Batch, *, drafted_at: str) -> str:
         f"_Drafted by `promotion-prep` at {drafted_at} for staging "
         f"`{batch.staging_sha[:9]}` over main `{batch.main_sha[:9]}`. The block between "
         "the markers is regenerated while this PR is a draft; write anything else outside "
-        "it._",
+        "it. Once the PR is ready for review it is no longer refreshed, so the gate "
+        "status and next step below are as of this stamp._",
         "",
         f"**Gate status** (staging `{batch.staging_sha[:9]}`):",
         *_gate_lines(batch),
@@ -209,16 +266,40 @@ def render(batch: Batch, *, drafted_at: str) -> str:
         out.append("- no feature PR found between main and staging")
     if batch.sync_prs:
         out.append("- Sync: " + ", ".join(f"#{n}" for n in batch.sync_prs))
+    if batch.unmapped_commits:
+        out.append(
+            "- Pushed to staging with no PR (no handover note covers it): "
+            + ", ".join(f"`{sha[:9]}`" for sha in batch.unmapped_commits)
+        )
     out += ["", "## Effect checks", ""]
     missing = []
+    deferred: list[BatchPR] = []
+    used = sum(len(line) + 1 for line in out)
     for pr in batch.prs:
         check = extract_effect_check(pr.body)
         if check is None:
             missing.append(pr)
             continue
-        out += [f"### #{pr.number}: {_title(pr.title)}", "", check, ""]
+        section = [f"### #{pr.number}: {_title(pr.title)}", "", _quote_note(check), ""]
+        size = sum(len(line) + 1 for line in section)
+        if deferred or used + size > BLOCK_BUDGET:
+            deferred.append(pr)
+            continue
+        out += section
+        used += size
+    if deferred:
+        out.append(
+            f"…{len(deferred)} more effect-check note(s), too long to copy here; read them on "
+            + ", ".join(f"#{pr.number}" for pr in deferred)
+            + "."
+        )
+        out.append("")
     if missing:
-        out.append("**No effect-check note found** (write one here, or say why none applies):")
+        out.append(
+            "**No effect-check note found.** Add one to the feature PR's description (the "
+            "next refresh picks it up) or write it below the end marker, or say there why "
+            "none applies:"
+        )
         out.extend(f"- #{pr.number}: {_title(pr.title)}" for pr in missing)
         out.append("")
     out += [
@@ -253,8 +334,12 @@ def splice(existing: str, block: str) -> str:
     return (existing[:start] + block + existing[end + len(END) :]).rstrip()
 
 
+_GATE_LINE = re.compile(r"^- (?:quiescence|freshness): \*\*")
+
+
 def same_body(left: str, right: str) -> bool:
-    """Whether two bodies differ only in the drafted-at stamp or trailing space.
+    """Whether two bodies differ only in the drafted-at stamp, a gate line's
+    counts, or trailing space.
 
     Every body edit re-runs CI on the PR, so a refresh that would change nothing
     else is not written.
@@ -262,7 +347,9 @@ def same_body(left: str, right: str) -> bool:
 
     def norm(body: str) -> list[str]:
         return [
-            line.rstrip()
+            # A gate verdict line's digits (run counts, run ids) change between
+            # reads of an unchanged batch; the verdict itself does not.
+            _DIGITS.sub("N", line.rstrip()) if _GATE_LINE.match(line) else line.rstrip()
             for line in body.replace("\r\n", "\n").rstrip().split("\n")
             if not line.startswith("_Drafted by `promotion-prep`")
         ]

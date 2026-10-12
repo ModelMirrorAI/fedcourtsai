@@ -125,8 +125,8 @@ def test_the_block_carries_the_batch_checks_gate_and_owed_fills() -> None:
     block = render(_batch(), drafted_at="2026-10-11T12:00Z")
     assert block.startswith(BEGIN) and block.endswith(END)
     assert "- #1: feat: one" in block and "- Sync: #3" in block
-    assert "### #1: feat: one\n\n- `cmd` prints 3" in block
-    assert "**No effect-check note found**" in block and "- #2: docs: two" in block
+    assert "### #1: feat: one\n\n> - `cmd` prints 3" in block
+    assert "**No effect-check note found.**" in block and "- #2: docs: two" in block
     assert "- freshness: **not yet** — missing gate run" in block
     assert "integration-test.yml --ref staging -f scenario=gate" in block
     assert "`<FILL: promotion tag>`" in block
@@ -273,3 +273,64 @@ def test_the_command_refuses_a_malformed_batch(tmp_path: Path) -> None:
         app, ["promotion-body", "--batch-file", str(batch), "--drafted-at", "now"]
     )
     assert result.exit_code == 1
+
+
+# --- review follow-ups --------------------------------------------------------
+
+
+def test_a_missing_note_is_never_asked_for_inside_the_block() -> None:
+    # Text written inside the markers is lost at the next refresh, so the block
+    # points at the feature PR or below the end marker, never "here".
+    block = render(_batch(), drafted_at="t")
+    assert "write one here" not in block
+    assert "feature PR's description" in block and "below the end marker" in block
+
+
+def test_an_open_sync_pr_is_named_before_the_dispatch() -> None:
+    block = render(_batch(open_sync_prs=[77]), drafted_at="t")
+    assert block.index("mark this PR ready") < block.index("#77") < block.index("scenario=gate")
+    clean = render(
+        _batch(
+            open_sync_prs=[77],
+            gate=[GateCheck(name="quiescence", ok=True), GateCheck(name="freshness", ok=True)],
+        ),
+        drafted_at="t",
+    )
+    assert "#77 land (or close it)" in clean
+    assert "#77" not in render(_batch(), drafted_at="t")
+
+
+def test_a_commit_pushed_without_a_pr_is_listed() -> None:
+    block = render(_batch(unmapped_commits=["c" * 40]), drafted_at="t")
+    assert "Pushed to staging with no PR" in block and "`ccccccccc`" in block
+
+
+def test_a_note_is_quoted_so_a_comment_cannot_hide_the_block() -> None:
+    body = "## Effect check\n\n- see <!-- unclosed\n- thanks @someone, run `jq '@csv'`\n"
+    block = render(_batch(prs=[BatchPR(number=5, title="x", body=body)]), drafted_at="t")
+    assert "> - see <!-- unclosed" in block
+    assert "&#64;someone" in block and "`jq '@csv'`" in block
+    # The rest of the block follows the quote, outside it.
+    assert "\n## After the merge" in block
+
+
+def test_an_oversized_batch_defers_notes_instead_of_overflowing() -> None:
+    long_note = "## Effect check\n\n" + ("- line\n" * 3000)
+    prs = [BatchPR(number=n, title=f"feat {n}", body=long_note) for n in range(10, 20)]
+    block = render(_batch(prs=prs), drafted_at="t")
+    assert len(block) < 65_536
+    assert "more effect-check note(s)" in block and "#19" in block
+
+
+def test_a_gate_count_change_alone_is_not_a_change() -> None:
+    first = render(
+        _batch(gate=[GateCheck(name="quiescence", ok=False, detail="2 run(s) in flight")]),
+        drafted_at="t1",
+    )
+    second = render(
+        _batch(gate=[GateCheck(name="quiescence", ok=False, detail="3 run(s) in flight")]),
+        drafted_at="t2",
+    )
+    assert same_body(first, second)
+    flipped = render(_batch(gate=[GateCheck(name="quiescence", ok=True)]), drafted_at="t3")
+    assert not same_body(first, flipped)

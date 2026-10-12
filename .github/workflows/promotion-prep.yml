@@ -24,7 +24,14 @@ name: promotion-prep
 #
 # Its own workflow rather than a step of `promote`: `promote` is the
 # maintainer's read-only pre-flight and is pinned to stay that way
-# (tests/test_workflow_promote.py), while this lane holds a write token.
+# (tests/test_workflow_promote.py), while this lane holds a write token. Nor a
+# job on `sync-staging`, though it shares that lane's trigger class, environment
+# and App: `sync-staging` writes a PR that auto-merges into `staging`, while
+# this one writes a draft that never merges on its own, a lower risk class
+# kept in its own permission scope (pull-requests write, no contents write).
+# The daily offset after `sync-staging`'s window stands in for ordering; a run
+# that reads mid-sync names the open sync PR in the block and is corrected at
+# the next refresh.
 on:
   schedule:
     # Daily, after `sync-staging`'s 03:13 window has had time to land its PR,
@@ -80,12 +87,27 @@ jobs:
             exit 0
           fi
           : > prs.ndjson
+          : > unmapped.txt
           for sha in $(git rev-list --first-parent origin/main..origin/staging); do
-            gh api "repos/${REPO}/commits/${sha}/pulls" \
-              --jq '.[] | select(.base.ref == "staging" and .merged_at != null) | {number, title, body: (.body // "")}' \
-              >> prs.ndjson \
-              || echo "::warning::could not read the PR that merged ${sha}; the batch list may be short"
+            if ! found=$(gh api "repos/${REPO}/commits/${sha}/pulls" \
+              --jq '.[] | select(.base.ref == "staging" and .merged_at != null) | {number, title, body: (.body // "")}'); then
+              echo "::warning::could not read the PR that merged ${sha}; the batch list may be short"
+              continue
+            fi
+            if [ -z "$found" ]; then
+              # A direct push to `staging` (the admin escape hatch) has no PR,
+              # so no handover note covers it; the block lists it.
+              echo "::warning::${sha} reached staging with no merged PR"
+              echo "$sha" >> unmapped.txt
+              continue
+            fi
+            printf '%s\n' "$found" >> prs.ndjson
           done
+          # A main→staging sync PR already open is armed to auto-merge, and
+          # marking the promotion ready does not stop it; the block names it.
+          gh pr list --repo "$REPO" --base staging --head main --state open \
+            --json number,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository | not) | .number]' > open_syncs.json
           gate_line() {
             # The stage's verdict and its first error lines, without the
             # workflow-command prefix the script prints for annotations.
@@ -102,7 +124,10 @@ jobs:
             | sort -u > fills.txt
           jq -n --arg staging "$staging_sha" --arg main "$main_sha" \
             --slurpfile prs prs.ndjson --slurpfile gate gate.ndjson --rawfile fills fills.txt \
+            --slurpfile syncs open_syncs.json --rawfile unmapped unmapped.txt \
             '{staging_sha: $staging, main_sha: $main, prs: $prs, gate: $gate,
+              open_sync_prs: $syncs[0],
+              unmapped_commits: ($unmapped | split("\n") | map(select(length > 0))),
               owed_fills: ($fills | split("\n") | map(select(length > 0)))}' > batch.json
           echo "has_batch=true" >> "$GITHUB_OUTPUT"
           echo "## promotion-prep: staging is ${ahead} first-parent commit(s) ahead of main" >> "$GITHUB_STEP_SUMMARY"
@@ -115,6 +140,9 @@ jobs:
           client-id: ${{ vars.DEV_APP_CLIENT_ID }}
           private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
           permission-pull-requests: write
+          # Read only: `gh pr create` resolves the head and base refs, and a
+          # token with no contents scope cannot read them on a private repo.
+          permission-contents: read
 
       # Open the draft, or refresh the generated block of the open one. A
       # promotion PR that is already ready for review is the maintainer's, and
@@ -156,5 +184,14 @@ jobs:
             exit 0
           fi
           [ "$status" -eq 0 ] || exit "$status"
+          # Re-read just before writing: the render above takes a while, and a
+          # maintainer who marked the PR ready or edited its body meanwhile now
+          # owns it. Skip rather than overwrite.
+          now=$(gh pr view "$number" --repo "$REPO" --json isDraft,body)
+          if [ "$(jq -r '.isDraft' <<<"$now")" != "true" ] \
+            || [ "$(jq -r '.body // ""' <<<"$now")" != "$(cat existing.md)" ]; then
+            echo "Promotion PR #${number} changed while this run rendered; left untouched." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           gh pr edit "$number" --repo "$REPO" --body-file body.md
           echo "Refreshed draft promotion PR #${number}." >> "$GITHUB_STEP_SUMMARY"

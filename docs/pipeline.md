@@ -544,7 +544,7 @@ promotion carrying the fix. `offline-gate` is the dispatch **default**, so an
 unqualified dispatch runs every required scenario but the six engine legs and
 spends nothing; `gate`
 is reached only by typing it, which is what a promotion-bound suite does once
-per batch (step 3 of the operator's path below), and `all` is what a
+per batch (step 4 of the operator's path below), and `all` is what a
 maintainer types to find out whether everything the workflow offers still
 runs — before a batch that bumps an action the labeler or the repro leg
 uses, say.
@@ -1575,11 +1575,16 @@ The mechanics:
 - **The draft.** `promotion-prep` runs daily (and on dispatch) and keeps a
   **draft** staging→main PR in step with `staging`: the batch's feature PRs
   and syncs, each feature PR's effect-check handover note gathered from its
-  description (`fedcourts promotion-body`), the gate's quiescence and freshness
-  at staging's head with the next step they imply, and the freeze-record
-  `<FILL:>` placeholders the batch adds. It writes only between two markers in
-  the body and only while the PR is a draft, so prose added around the block
-  survives, and once the PR is ready for review it is left alone. It opens the
+  description (`fedcourts promotion-body`) and quoted, the gate's quiescence
+  and freshness at staging's head with the next step they imply, any open
+  `main`→`staging` sync PR (armed to auto-merge, and so to move the head) and
+  any commit pushed to `staging` with no PR, and the freeze-record `<FILL:>`
+  placeholders the batch adds. It writes only between two markers in the body
+  and only while the PR is a draft, re-reading the PR just before it writes and
+  skipping the write if it was marked ready or edited meanwhile, so prose added
+  around the block survives, and once the PR is ready for review it is left
+  alone. A refresh that would change only the stamp or a gate line's counts
+  writes nothing, since every body edit re-runs CI. It opens the
   PR with the dev App's token, because a PR a workflow opens with its own
   token triggers no `pull_request` checks; the App bypasses nothing, so the
   draft merges through the same required checks as a hand-opened PR.
@@ -1600,7 +1605,18 @@ The full path of a change, operator's view:
    sync — dispatch `sync-staging` and let its PR land, or, if that PR
    conflicts, run the printed commands (your admin-bypass push) — then
    re-dispatch.
-3. Dispatch the required integration scenarios at staging's post-sync head —
+3. **Mark the promotion PR ready before any integration dispatch.** Open
+   `promotion-prep`'s draft (or, with none open, open one by hand:
+   `gh pr create --base main --head staging --draft …`) and mark it **ready
+   for review**. That stops the daily refresh and, more to the point, the
+   syncs, which would otherwise move the head under the per-SHA evidence the
+   next step pays for. Marking ready stops a *new* sync only: a sync PR that
+   is already open and armed still auto-merges when its checks pass, so let
+   any open `main`→`staging` sync PR land (or close it) first — the draft's
+   generated block names one when it sees it. Marking it ready does not re-run
+   `promotion-gate` (ci.yml does not trigger on `ready_for_review`); step 5
+   re-fires it.
+4. Dispatch the required integration scenarios at staging's post-sync head —
    one `gh workflow run integration-test.yml --ref staging -f scenario=gate`
    covers the whole suite, or per-scenario runs add up to it (the summary
    prints both forms) — then re-dispatch `promote`. An `all` run is not
@@ -1621,7 +1637,7 @@ The full path of a change, operator's view:
    runbook in [security.md](security.md) says which cases the slice holds.
    On a cell-inert batch, `promote -f skip_engine_smoke=true` first: it prints
    the `offline-gate` form and tells you whether anything *else* is missing
-   before you pay for the engine legs, which step 4 still needs.
+   before you pay for the engine legs, which step 5 still needs.
 
    **When the head moves after a green `gate`.** The gate's rule is
    mechanical and does not read the delta: the green `gate` run sits at the
@@ -1639,23 +1655,19 @@ The full path of a change, operator's view:
    engine CLIs, engine actions or the invocation path, re-dispatch `gate`:
    that is precisely the evidence the skip trades away, and an action version
    bump is the class it breaks silently (*The engine-smoke skip* above).
-4. Open `promotion-prep`'s draft (or, with none open, run the `gh pr create`
-   a green `promote` hands you); its `promotion-gate` check re-verifies
-   quiescence + freshness. The draft already lists the batch's **stated
+5. On the promotion PR, now ready, its `promotion-gate` check re-verifies
+   quiescence + freshness. The body already lists the batch's **stated
    effect checks** — what should be true once it is live and the command that
    shows it — gathered from the feature PRs' handover notes (AGENTS.md asks
-   each for one), and names any PR that left none; write the missing ones and
-   any narrative outside the generated block. Best practice is to mark it
-   **ready for review** before the integration dispatch above: that stops the
-   daily refresh and, more to the point, the syncs, which would otherwise move
-   the head under the per-SHA evidence. Marking it ready does not re-run
-   `promotion-gate` (ci.yml does not trigger on `ready_for_review`), so edit the
-   body once afterwards to re-fire it. Re-run the
+   each for one), and names any PR that left none; write the missing ones,
+   and any narrative, outside the generated block (or on the feature PR,
+   before marking ready, for the next refresh to pick up). Edit the body once
+   after the integration run is green to re-fire `promotion-gate`. Re-run the
    check right before merging, and merge with a **merge commit**; tag the
    merge commit `promotion/<YYYY-MM-DD>` (annotated preferred, lightweight
    acceptable; `-2` for a same-day second batch — the *Tags* subsection
    below). Live on the next workflow run.
-5. Run that stated effect check and record what it printed. A promotion
+6. Run that stated effect check and record what it printed. A promotion
    changes code, not state, so until something executes the check a batch that
    changed nothing is indistinguishable from one that worked. Mind the timing:
    an effect visible only in produced output cannot be checked until the next
