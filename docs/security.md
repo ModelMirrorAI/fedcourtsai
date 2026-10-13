@@ -75,7 +75,7 @@ two client ids as variables, the two keys as secrets). Each workflow mints a tok
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
 | `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
-| `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
+| `run-seed` | data | contents (walker steps; the order-vote sweep's writer); none at all on the order-vote sweep's projection and parse jobs; ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
 | `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record and opinion-record jobs); none at all on the selector-validation, `handoff-projection` and `handoff-parse` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Four of the passes that fetch and parse the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`) run as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill and opinion-record writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for either role `prod` is trusted by — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only and minted on Claude cells alone; the workflow commits. The engine watchdog that brackets every engine step holds no token: it reports only on the runner, through the cell's own tail |
 | `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
@@ -990,6 +990,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-repair` — `handoff-projection` job | read-only | the credential split's first job, for the vote, application back-fill and opinion-record passes: a full index `corpus-pull`, then the pass's public projection (docket numbers, stored serials, recorded listing keys) as a one-day artifact; it fetches nothing from the Court |
 | `run-repair` — `handoff-parse` job | none | every fetch from supremecourt.gov and every parse of what it served: no environment, no `id-token: write`, no secret, and a step asserts the AWS and OIDC variables are absent first; its only output is the dry-run ledger and, on an apply, the plan artifact |
 | `run-repair` — votes writer | none | on an apply only: re-validates the plan against the ledger and stamps `outcome.json`; no corpus, no role, no `id-token` — the data App token pushes the commit |
+| `run-seed` — `order-votes-projection`, `order-votes-parse`, `order-votes` jobs | read-only, none, none | the order-list vote sweep: the same three-job split as run-repair's `order-votes` pass on the daily window — a projection job with the read-only role (a full index `corpus-pull`, then each population case's docket number), a parse job holding no credential (no environment, no `id-token`, no secret, and the same AWS/OIDC guard), and a writer holding only the data App token, minted after the planned stamps are applied |
 | `run-repair` — application back-fill and opinion-record writers | read-write | on an apply only, under the `corpus-write` lock: a fresh `corpus-pull`, the plan re-validated and applied, `corpus-push`, then the pointer commit — no fetch, no PDF parse |
 | `run-repair` — decision-record job | read-only (pull and dry run), read-write on an apply | the dry run pulls the index and reads each candidate's stored snapshot from the content store; the apply re-assumes the read-write role for the step that fills two index columns and pushes the blob. One job, not the split: it fetches nothing, and the private snapshots it parses may not cross a public artifact |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |
@@ -1231,6 +1232,10 @@ rehearsal, the only place those summaries go.
 
 `run-repair`'s credential split adds two run artifacts to the same public
 channel, each one day and named per run, handing one file between its jobs.
+run-seed's order-vote sweep runs the same split and passes the vote passes'
+same two files under its own names, `order-votes-projection-<run_id>` and
+`order-votes-plan-<run_id>`; the plan crosses on every run there, since the
+sweep always applies.
 Neither carries a corpus row, a snapshot or a stored document: each is a
 pydantic model (`extra="forbid"`, a literal format name and version) whose
 docstring states why its fields are public — the application back-fill's
@@ -1286,7 +1291,14 @@ compromised parse could still hand over rows an honest parse could have
 produced but that the Court never printed — an invented vote record, opinion
 row, or application docket JSON that matches its Term and serial — up to the
 bound. The bound itself is read off a separate dry-run dispatch's parse, so
-one compromised parse in the apply run cannot also choose it. The plan is the
+one compromised parse in the apply run cannot also choose it. run-seed's
+order-vote sweep has no separate dry run and no maintainer's bound: the
+window's cap (`historical.sweep_caps.order_votes`, 200 records a window) and
+ceiling (`order_votes_ceiling`, 1500) stand in for it, so a compromised parse
+there could land up to the cap of invented order-list records each window.
+That is accepted because the orders source's records are banked, never
+scored — vote scoring reads only a complete merits record — and each is a
+committed, reviewable `outcome.json` change. The plan is the
 Court's word only as far as the parse job can be trusted; what the split
 removes is that job's reach to any credential. The parse job's steps run as
 one user on one runner, so a parse that
@@ -1306,7 +1318,9 @@ so that is any job on any branch, in any workflow — would restore what it wrot
 is where that path is closed: every job passes `restore-cache: "false"` to
 `setup-python-env`, which turns the uv cache off for the job entirely (no
 restore of any key, no save) so it installs from the index as the lockfile
-pins, unless `tests/test_workflow_cache_restore.py` allows it to restore. The
+pins, unless `tests/test_workflow_cache_restore.py` allows it to restore —
+run-seed's scheduled order-vote sweep included, whose parse runs on the default
+branch every 02:31 window. The
 allow-list is short and pinned rather than the opt-out list, because a job can
 be worth poisoning for reasons its credentials do not show: `ci.yml`'s `gate`,
 `paths` and `cleanup-paths` hold no credential, but their verdicts are required

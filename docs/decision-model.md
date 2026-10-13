@@ -577,7 +577,8 @@ published on the order list and are the obvious candidate — changes nothing
 about what is scored. That channel exists: the Court's orders are registered
 as a second vote source for the cert and interim stages only, and the vote
 writer's `order-votes` pass stamps their records onto committed cert and
-interim outcomes ([data-sources.md](data-sources.md)). Its vote lists are
+interim outcomes, by dispatch and as a daily standing sweep once each order
+settles ([data-sources.md](data-sources.md)). Its vote lists are
 partial by construction and `validate` refuses one claiming `complete`, so
 each is shut out twice — by the stage gate and by the completeness gate.
 What it adds beside the partial list is `Outcome.writing_roles`: every

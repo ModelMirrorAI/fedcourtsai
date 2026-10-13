@@ -1113,6 +1113,312 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
+  # The order-list vote sweep: stamps the Court's per-Justice notations onto
+  # committed cert and interim outcomes once their order is 7 days settled, so
+  # each week's order lists are banked without a dispatch. It is run-repair's
+  # `order-votes` pass run as a standing sweep, and it keeps that pass's
+  # credential split, for its reason: the step that fetches and parses the
+  # Court's PDFs holds no credential of any kind, and the jobs on either side
+  # of it talk to it only through two small validated JSON files.
+  #
+  #   order-votes-projection  read-only role; writes each population case's
+  #                           docket number (public), fetching nothing
+  #   order-votes-parse       no environment, no `id-token`, no secret; reads
+  #                           the order documents and writes the plan
+  #   order-votes             the writer: re-validates the plan whole as
+  #                           untrusted input, stamps at most the window's cap,
+  #                           and only then mints the App token to push the
+  #                           `data/` commit
+  #
+  # Why here and not inside `seed`: that job holds the read-write corpus role,
+  # and a parse there would run beside it. Why not on run-repair: that
+  # workflow is dispatch-only by design, a maintainer reading a ledger before
+  # each apply; this is the converging half, which the walker's daily window
+  # owns. The dispatched pass stays the route for a whole-class apply under a
+  # maintainer's bound, and the only route for `replace-differing`.
+  #
+  # Standing-sweep posture, as for the fill sweeps inside `seed`: every job is
+  # continue-on-error, so a fetch hiccup converges next window rather than
+  # reddening a walk nobody is watching, and the writer slices at
+  # `historical.sweep_caps.order_votes` and refuses only a whole class above
+  # `order_votes_ceiling` — the refusal still prints an error annotation and
+  # the ledger line. The run-level `corpus-write` lock covers the writer's
+  # push like every other commit this workflow makes; the projection and the
+  # parse run beside the walk, so the plan is ready when it ends. Each job
+  # hands the next a step output rather than relying on its result, which
+  # continue-on-error would read as a success.
+  order-votes-projection:
+    if: ${{ !cancelled() && (github.event_name != 'schedule' || github.event.schedule == '31 2 * * *') }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    # Setup and the read-only corpus pull (about a gigabyte); the projection
+    # is one local query.
+    timeout-minutes: 20
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    outputs:
+      projection: ${{ steps.projection.outputs.projection }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # The projection is keyed on the committed outcomes, which arrive by
+        # the writers' own commits. The repo is public, so this read-only fetch
+        # needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+
+      - name: Write the vote projection
+        id: projection
+        env:
+          HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
+        run: |
+          set -euo pipefail
+          uv run fedcourts stamp-order-votes --emit-corpus-projection "${HANDOFF_PROJECTION}"
+          echo "projection=written" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the projection
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: order-votes-projection-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff/projection.json
+          if-no-files-found: error
+          overwrite: true
+          # Public Court identifiers only — case ids and the Court's own docket
+          # numbers; one day, because it exists to hand one file to the next job.
+          retention-days: 1
+
+  # The parse: every fetch from the Court's site and every parse of what it
+  # served happens here and nowhere else in the sweep. No `environment:`, no
+  # `id-token`, no App token, and the guard asserts the absence, as on
+  # run-repair's handoff-parse, whose residual — a hostile parse could alter
+  # this job's own later steps, which hold only this run's artifact and cache
+  # token — is the same and is stated in docs/security.md.
+  order-votes-parse:
+    needs: [order-votes-projection]
+    if: ${{ !cancelled() && needs.order-votes-projection.outputs.projection == 'written' }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    # The read step's cap plus setup.
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # The parse reads the committed outcomes it plans stamps for. The repo
+        # is public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      # Restores the uv cache but never saves one: a cache written after a
+      # parse ran would be built on a runner that parse could have altered.
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+          save-cache: "false"
+
+      - name: Assert no credential reaches the parse
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables reached the parse job"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the parse job"
+            exit 1
+          fi
+          echo "no cloud credential in the parse job"
+
+      - name: Download the projection
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: order-votes-projection-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff
+
+      # Read each settled outcome's record off the Court's documents. Never
+      # `--replace-differing`: a differing record is held back and reported,
+      # for a maintainer's dispatched pass. A listing that cannot be read
+      # fails the step, and the next window reads it again.
+      - name: Read the vote records
+        id: plan
+        timeout-minutes: 30
+        env:
+          HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
+        run: |
+          set -euo pipefail
+          uv run fedcourts stamp-order-votes --projection "${HANDOFF_PROJECTION}" \
+            --plan-out "${HANDOFF_PLAN}" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "plan=written" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the plan
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: order-votes-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff/plan.json
+          if-no-files-found: error
+          overwrite: true
+          # The Court's own public record only; one day, because it exists to
+          # hand one file to the writer.
+          retention-days: 1
+
+  # The writer. No AWS role and no `id-token`: the stamps land in committed
+  # `outcome.json` files, so the only credential in the job is the App token
+  # that pushes the `data/` commit, minted after the stamp step has exited.
+  # It waits for the walk, so its push follows the walk's commits under the
+  # run's lock, and re-validates the plan against the ledger as it stands then.
+  order-votes:
+    needs: [seed, order-votes-parse]
+    if: ${{ !cancelled() && needs.order-votes-parse.outputs.plan == 'written' }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    # Setup, a local re-validation and write per planned stamp, and the push.
+    timeout-minutes: 20
+    environment: prod
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # After the walk: the outcomes being stamped arrive by the writers' own
+        # commits. The repo is public, so this read-only fetch needs no
+        # credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Download the plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: order-votes-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff
+
+      # The artifact was uploaded by a job that ran a parse, so what it unpacked
+      # is checked before anything reads it: exactly one regular file, the plan,
+      # and nothing in the checkout changed.
+      - name: Check the downloaded plan
+        run: |
+          set -euo pipefail
+          found="$(find "${RUNNER_TEMP}/handoff" -mindepth 1 -printf '%y %P\n')"
+          if [ "${found}" != "f plan.json" ]; then
+            echo "::error::the plan artifact holds something other than one plan.json file"
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::the plan artifact changed the checkout"
+            exit 1
+          fi
+
+      # Re-validate every planned record against the ledger as it stands and
+      # stamp at most the window's cap, oldest order date first. The plan is
+      # untrusted input: a row naming no outcome in the population, a record of
+      # the wrong source or shape, or one the ledger's own vote check refuses
+      # refuses the whole plan before anything is written. No credential
+      # exists yet.
+      - name: Stamp the planned vote records
+        env:
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
+        run: |
+          set -euo pipefail
+          # The ledger echoes text the plan carries, so workflow commands are
+          # suspended for the run under a token nothing in the plan can know.
+          # That suspends the command's own annotations too (a ceiling
+          # refusal's among them), so a failure is announced after the resume.
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
+          uv run fedcourts stamp-order-votes --from-plan "${HANDOFF_PLAN}" --sweep --apply 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+          echo "::${stop_token}::"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::stamp-order-votes --sweep wrote nothing (exit ${status}): a refused plan, an unreadable listing, or a class above order_votes_ceiling — the run summary has the ledger line and the reason."
+          fi
+          exit "$status"
+
+      # Fail closed before any write credential exists: the stamp step may have
+      # changed committed outcome files and nothing else. A path in any other
+      # shape — an untracked file, a renamed or quoted path — refuses the run.
+      - name: Check the stamp wrote only outcome files
+        run: |
+          set -euo pipefail
+          stray="$(git status --porcelain --untracked-files=all \
+            | grep -cvE '^ M data/cases/[^/]+/[^/]+/events/[^/]+/outcome\.json$' || true)"
+          if [ "${stray}" != "0" ]; then
+            echo "::error::the stamp step changed ${stray} path(s) other than committed outcome.json files"
+            exit 1
+          fi
+
+      # The write credential exists only from here on, after the plan has been
+      # re-validated and applied.
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # The only step holding a credential that can write: it stages what the
+      # stamp step wrote, commits it and pushes.
+      - name: Commit the stamped outcomes
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git # persist-credentials is false on checkout
+          # The stamped outcomes only, never a blanket `git add data/`: the
+          # sweep writes nothing but `outcome.json`.
+          git add -- ':(glob)data/cases/*/*/events/*/outcome.json'
+          if git diff --cached --quiet; then
+            echo "Every settled outcome already carries its record; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: stamp settled order-list votes"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "order-vote ledger"
+
   # Safety net for the walker. Its own summary step cannot run when the job is
   # cancelled — the hard timeout-minutes kill, an OOM, or a setup step that hangs
   # until the budget is gone — so a cancelled or failed run would otherwise pass

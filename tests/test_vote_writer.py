@@ -936,3 +936,254 @@ def test_an_annotated_stored_number_is_left_out_of_the_projection(tmp_path: Path
         conn, data_root, source="supremecourt-orders", terms=(2025,)
     )
     assert projection.numbers == {"scotus/1": "25-885"} and projection.unprojected == 1
+
+
+# --- the standing sweep ------------------------------------------------------------
+
+
+def test_the_orders_pass_reads_from_its_floor_through_the_current_term() -> None:
+    """The current Term is in reach as soon as it opens, so its orders settle into stamps."""
+    assert vote_writer.order_vote_terms(date(2026, 9, 30)) == (2024, 2025)
+    assert vote_writer.order_vote_terms(date(2026, 10, 1)) == (2024, 2025, 2026)
+    assert vote_writer.order_vote_terms(date(2026, 10, 13)) == (2024, 2025, 2026)
+
+
+def _orders_record() -> vote_writer.VoteRecord:
+    return vote_writer.VoteRecord(
+        votes=(),
+        provenance=VoteProvenance(
+            source="supremecourt-orders",
+            documents=["https://www.supremecourt.gov/orders/courtorders/x.pdf"],
+            grammars=[GrammarStamp(grammar="scotus-order-notations", version=1)],
+            participating=9,
+            complete=False,
+        ),
+        writing_roles=None,
+    )
+
+
+def _target(data_root: Path, docket: int, resolved_at: date) -> vote_writer.OutcomeTarget:
+    path = _outcome(data_root, docket, resolved_at=resolved_at)
+    return vote_writer.OutcomeTarget(
+        path=path,
+        case_id=f"scotus/{docket}",
+        event_id="evt-petition-disposition",
+        stage="cert",
+        outcome=read_model(path, Outcome),
+    )
+
+
+def test_a_sweep_takes_the_oldest_order_date_first(tmp_path: Path) -> None:
+    """The slice is keyed on the order date before the outcome, so an older order is
+    never starved behind newer ones that happen to sort first by case id."""
+    data_root = tmp_path / "data"
+    later = _target(data_root, 1, date(2026, 6, 29))
+    earlier = _target(data_root, 2, date(2026, 6, 22))
+    result = VoteWriteResult(
+        source="supremecourt-orders",
+        stamps=[
+            vote_writer.VoteStamp(target=later, record=_orders_record()),
+            vote_writer.VoteStamp(target=earlier, record=_orders_record()),
+        ],
+    )
+    sliced = vote_writer._finish(
+        result, apply=False, max_stamps=None, sweep=vote_writer.SweepSlice(cap=1, ceiling=5)
+    )
+    assert [s.target.case_id for s in sliced.stamps] == ["scotus/2"]
+    assert sliced.deferred == 1
+
+
+def _sweep_plan(data_root: Path, plan_file: Path, sweep: vote_writer.SweepSlice) -> VoteWriteResult:
+    return vote_writer.apply_vote_plan(
+        read_handoff(plan_file, vote_writer.VoteStampPlan),
+        data_root,
+        source="supremecourt-orders",
+        today=LATER,
+        terms=(2025,),
+        apply=True,
+        sweep=sweep,
+    )
+
+
+def test_a_sweep_slices_at_its_cap_and_successive_windows_converge(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The cap is a slice, not a refusal: the rest waits for the next window, and a
+    window over a converged ledger stamps nothing."""
+    _stub_extraction(monkeypatch, order_lineups)
+    data_root, conn = _cert_ledger(tmp_path)
+    plan_file = _orders_plan(data_root, conn, tmp_path)
+    sweep = vote_writer.SweepSlice(cap=2, ceiling=10)
+
+    first = _sweep_plan(data_root, plan_file, sweep)
+    assert first.applied and not first.refused
+    assert [s.target.case_id for s in first.stamps] == ["scotus/1", "scotus/2"]
+    assert first.deferred == 1
+
+    second = _sweep_plan(data_root, plan_file, sweep)
+    assert [s.target.case_id for s in second.stamps] == ["scotus/3"]
+    assert (second.deferred, len(second.unchanged)) == (0, 2)
+
+    third = _sweep_plan(data_root, plan_file, sweep)
+    assert (third.stamps, third.deferred, len(third.unchanged)) == ([], 0, 3)
+    assert _votes_hold(data_root) == []
+
+    # The windows together wrote exactly what one bounded apply writes.
+    one_root, one_conn = _cert_ledger(tmp_path / "one")
+    _stamp_orders(one_root, one_conn, [], apply=True, max_stamps=3)
+    assert _outcomes(data_root) == _outcomes(one_root)
+
+
+def test_a_sweep_above_its_ceiling_writes_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A class past the ceiling is a widened population: refused whole, not drained."""
+    _stub_extraction(monkeypatch, order_lineups)
+    data_root, conn = _cert_ledger(tmp_path)
+    plan_file = _orders_plan(data_root, conn, tmp_path)
+    before = _outcomes(data_root)
+    result = _sweep_plan(data_root, plan_file, vote_writer.SweepSlice(cap=1, ceiling=2))
+    assert result.refused and not result.applied
+    assert (result.stamps, result.deferred) == ([], 3)
+    assert _outcomes(data_root) == before
+
+
+def test_a_sweep_never_replaces_a_record(tmp_path: Path) -> None:
+    data_root, _ = _cert_ledger(tmp_path)
+    path = CasePaths(data_root, "scotus", 1).event("evt-petition-disposition").outcome
+    before = path.read_text()
+    target = vote_writer.OutcomeTarget(
+        path=path,
+        case_id="scotus/1",
+        event_id="evt-petition-disposition",
+        stage="cert",
+        outcome=read_model(path, Outcome),
+    )
+    record = vote_writer.VoteRecord(
+        votes=(),
+        provenance=VoteProvenance(
+            source="supremecourt-orders",
+            documents=["https://www.supremecourt.gov/orders/courtorders/x.pdf"],
+            grammars=[GrammarStamp(grammar="scotus-order-notations", version=1)],
+            participating=9,
+            complete=False,
+        ),
+        writing_roles=None,
+    )
+    result = VoteWriteResult(
+        source="supremecourt-orders",
+        stamps=[vote_writer.VoteStamp(target=target, record=record, replaces=True)],
+    )
+    with pytest.raises(ValueError, match="never replaces"):
+        vote_writer._finish(
+            result, apply=True, max_stamps=None, sweep=vote_writer.SweepSlice(cap=5, ceiling=5)
+        )
+    assert path.read_text() == before
+
+
+def test_a_sweep_slice_needs_a_cap_within_its_ceiling() -> None:
+    for cap, ceiling in ((0, 5), (6, 5)):
+        with pytest.raises(ValueError, match="cap <= ceiling"):
+            vote_writer.SweepSlice(cap=cap, ceiling=ceiling)
+
+
+def test_the_sweep_command_stamps_the_plan_and_reports_its_ledger_line(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The writer job's argv end to end: no bound, the configured cap, and a re-run
+    that finds nothing to fill."""
+    _stub_extraction(monkeypatch, order_lineups)
+    data_root, conn = _cert_ledger(tmp_path)
+    plan_file = _orders_plan(data_root, conn, tmp_path)
+    env = {
+        "FEDCOURTS_DATA_ROOT": str(data_root),
+        "FEDCOURTS_CORPUS_ROOT": str(tmp_path / "nowhere"),
+    }
+    argv = ["stamp-order-votes", "--from-plan", str(plan_file), "--sweep", "--apply"]
+    runner = CliRunner()
+    first = runner.invoke(app, argv, env=env)
+    assert first.exit_code == 0, first.output
+    assert "sweep ledger — stamp-order-votes: would fill 3; filled 3; remaining 0" in first.output
+    assert _votes_hold(data_root) == []
+    again = runner.invoke(app, argv, env=env)
+    assert again.exit_code == 0, again.output
+    assert "sweep ledger — stamp-order-votes: would fill 0; filled 0; remaining 0" in again.output
+    assert "3 already carry the same record" in again.output
+
+
+@pytest.mark.parametrize("extra", [["--max-stamps", "5"], ["--replace-differing"]])
+def test_the_sweep_refuses_a_bound_or_a_replacement(extra: list[str], tmp_path: Path) -> None:
+    plan = tmp_path / "plan.json"
+    write_handoff(
+        plan,
+        vote_writer.VoteStampPlan(
+            source="supremecourt-orders", population=0, failures=[], stamps=[]
+        ),
+    )
+    result = CliRunner().invoke(
+        app, ["stamp-order-votes", "--from-plan", str(plan), "--sweep", "--apply", *extra]
+    )
+    assert result.exit_code == 2, result.output
+
+
+def test_the_read_only_split_modes_take_no_sweep(tmp_path: Path) -> None:
+    runner = CliRunner()
+    for args in (
+        ["--emit-corpus-projection", str(tmp_path / "p.json")],
+        ["--projection", str(tmp_path / "p.json"), "--plan-out", str(tmp_path / "plan.json")],
+    ):
+        result = runner.invoke(app, ["stamp-order-votes", *args, "--sweep"])
+        assert result.exit_code == 2, (args, result.output)
+        assert "take no --sweep" in " ".join(result.output.split())
+
+
+def _tight_caps(tmp_path: Path) -> Path:
+    """A config root whose vote sweep takes one record a window and refuses above two."""
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    (config_root / "tracking.yaml").write_text(
+        "historical:\n  sweep_caps:\n    order_votes: 1\n    order_votes_ceiling: 2\n"
+    )
+    return config_root
+
+
+def test_the_sweep_command_refuses_a_class_above_its_ceiling(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _stub_extraction(monkeypatch, order_lineups)
+    data_root, conn = _cert_ledger(tmp_path)
+    plan_file = _orders_plan(data_root, conn, tmp_path)
+    before = _outcomes(data_root)
+    env = {
+        "FEDCOURTS_DATA_ROOT": str(data_root),
+        "FEDCOURTS_CORPUS_ROOT": str(tmp_path / "nowhere"),
+        "FEDCOURTS_CONFIG_ROOT": str(_tight_caps(tmp_path)),
+    }
+    result = CliRunner().invoke(
+        app, ["stamp-order-votes", "--from-plan", str(plan_file), "--sweep", "--apply"], env=env
+    )
+    output = " ".join(result.output.split())
+    assert result.exit_code == 1, result.output
+    assert "::error::stamp-order-votes --sweep: refusing to apply" in output
+    assert "sweep ledger — stamp-order-votes: would fill 3; filled 0; remaining 3 (cap 1)" in output
+    assert _outcomes(data_root) == before
+
+
+def test_a_dry_run_sweep_warns_above_its_ceiling_and_exits_clean(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _stub_extraction(monkeypatch, order_lineups)
+    data_root, conn = _cert_ledger(tmp_path)
+    plan_file = _orders_plan(data_root, conn, tmp_path)
+    env = {
+        "FEDCOURTS_DATA_ROOT": str(data_root),
+        "FEDCOURTS_CORPUS_ROOT": str(tmp_path / "nowhere"),
+        "FEDCOURTS_CONFIG_ROOT": str(_tight_caps(tmp_path)),
+    }
+    result = CliRunner().invoke(
+        app, ["stamp-order-votes", "--from-plan", str(plan_file), "--sweep"], env=env
+    )
+    output = " ".join(result.output.split())
+    assert result.exit_code == 0, result.output
+    assert "::warning::stamp-order-votes --sweep: the class holds 3 rows" in output
+    assert "would fill 3; filled 0; remaining 3 (cap 1)" in output
