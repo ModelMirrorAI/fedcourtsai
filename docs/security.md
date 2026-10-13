@@ -1291,7 +1291,14 @@ compromised parse could still hand over rows an honest parse could have
 produced but that the Court never printed — an invented vote record, opinion
 row, or application docket JSON that matches its Term and serial — up to the
 bound. The bound itself is read off a separate dry-run dispatch's parse, so
-one compromised parse in the apply run cannot also choose it. The plan is the
+one compromised parse in the apply run cannot also choose it. run-seed's
+order-vote sweep has no separate dry run and no maintainer's bound: the
+window's cap (`historical.sweep_caps.order_votes`, 200 records a window) and
+ceiling (`order_votes_ceiling`, 1500) stand in for it, so a compromised parse
+there could land up to the cap of invented order-list records each window.
+That is accepted because the orders source's records are banked, never
+scored — vote scoring reads only a complete merits record — and each is a
+committed, reviewable `outcome.json` change. The plan is the
 Court's word only as far as the parse job can be trusted; what the split
 removes is that job's reach to any credential. The parse job's steps run as
 one user on one runner, so a parse that
@@ -1308,7 +1315,11 @@ visible on `staging` — and any job that later restores a cache under such a ke
 dispatched on the default branch, whose cache scope every branch restores from,
 so that is any job on any branch, in any workflow — would restore what it wrote (`uv sync
 --locked` does not re-hash an archive already in the cache). That
-cache-poisoning path is the split's remaining residual. The same reach, with
+cache-poisoning path is the split's remaining residual, and run-seed's
+order-vote sweep makes it scheduled rather than dispatch-bound: its parse job
+runs on the default branch every 02:31 window, and the walk's `seed` job and
+the sweep's writer both restore the uv cache, the first holding the read-write
+corpus role and the second the data App token. The same reach, with
 every credential besides, belongs to the two passes that parse fetched
 PDFs inside the corpus job: `ocr-recovery` and `document-backfill` are not
 split. And in every job that holds `id-token: write` — the projection,

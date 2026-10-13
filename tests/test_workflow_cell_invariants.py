@@ -4469,6 +4469,34 @@ def test_the_opinion_record_steps_suspend_workflow_commands_around_fetched_text(
         assert "--cache-dir" not in run, name
 
 
+@pytest.mark.parametrize(
+    ("workflow", "job"), [("run-repair.yml", "votes"), ("run-seed.yml", "order-votes")]
+)
+def test_the_vote_writers_hold_the_plan_and_their_writes_to_one_shape(
+    workflow: str, job: str
+) -> None:
+    """Both vote writers — the dispatched pass and the daily sweep — check the
+    downloaded artifact is the one plan file, suspend workflow commands around
+    the ledger that echoes the plan's text, and refuse anything but changed
+    committed `outcome.json` files before the App token exists."""
+    steps = _load(workflow)["jobs"][job]["steps"]
+    names = _step_names(steps)
+    check = str(steps[names.index("Check the downloaded plan")]["run"])
+    assert '"f plan.json"' in check and "git status --porcelain" in check
+    stamp = names.index("Stamp the planned vote records")
+    run = str(steps[stamp]["run"])
+    invocation = run.index("uv run fedcourts stamp-")
+    assert run.index('echo "::stop-commands::${stop_token}"') < invocation, workflow
+    assert run.index('echo "::${stop_token}::"') > invocation, workflow
+    only = names.index("Check the stamp wrote only outcome files")
+    assert names.index("Check the downloaded plan") < stamp < only < names.index("Mint app token")
+    guard = str(steps[only]["run"])
+    assert "git status --porcelain --untracked-files=all" in guard
+    assert r"'^ M data/cases/[^/]+/[^/]+/events/[^/]+/outcome\.json$'" in guard
+    assert "exit 1" in guard
+    assert "steps.app-token" not in yaml.safe_dump(steps[only])
+
+
 def _guards_oidc(step: dict[str, Any]) -> bool:
     return "ACTIONS_ID_TOKEN_REQUEST" in str(step.get("run", ""))
 

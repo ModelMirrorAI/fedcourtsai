@@ -118,10 +118,12 @@ def order_vote_terms(today: date) -> tuple[int, ...]:
 
     The current Term is included so that its orders are stamped as they settle,
     which is what the standing sweep is for. A Term whose orders the reader has
-    not yet seen is protected the way every reading is: a document the grammar
-    cannot read is a problem, and a docket with a problem is held back rather than
-    stamped, so a grammar change shows as a held-back count, never as a wrong
-    record. Nothing scores these records either way.
+    not yet seen is protected the way every reading is: the notation grammar
+    makes a name off the bench, an object it does not read and any leftover
+    sentence shaped like a Justice's act a problem, and a docket with a problem
+    is held back rather than stamped, so a new phrasing shows as a held-back
+    count rather than a wrong record. A notation that names no Justice's act at
+    all is beyond that guard and reads as none. Nothing scores these records.
     """
     return tuple(range(ORDER_VOTE_TERM_FLOOR, october_term_year(today) + 1))
 

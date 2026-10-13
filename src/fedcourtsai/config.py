@@ -392,7 +392,7 @@ def load_live_config(config_root: Path) -> LiveConfig:
 
 
 class SweepCapsConfig(BaseModel):
-    """The ``historical.sweep_caps`` block — per-window caps on run-seed's fill sweeps.
+    """The ``historical.sweep_caps`` block — per-window caps on run-seed's standing sweeps.
 
     Three standing sweeps on the walker's daily window converge index columns no
     channel revisits, each reading only the pulled blob and the content store the
@@ -402,8 +402,9 @@ class SweepCapsConfig(BaseModel):
     committed outcomes in the same window's split jobs (it fetches the Court's
     orders, so it runs beside the walk rather than inside it).
     A cap is a **slice**, not a refusal: a window writes at most this many rows of
-    its class, in ``case_id`` order, and leaves the rest as ``remaining`` on its
-    ledger line for the next window. Beside it a **ceiling** refuses: a class
+    its class — the index sweeps in ``case_id`` order, the vote sweep oldest order
+    date first — and leaves the rest as ``remaining`` on its ledger line for the
+    next window. Beside it a **ceiling** refuses: a class
     found larger than it is written not at all, and the step fails, so a widened
     predicate stops rather than draining at the cap's pace. The dispatched passes
     on run-repair carry their blast-radius bounds, which refuse on the count a

@@ -198,11 +198,13 @@ historical:
   document_floor_term: 21
   # Per-document cap on extracted text stored in the corpus (see `live:`).
   document_text_cap: 150000
-  # Per-window caps on the daily (02:31) window's three fill sweeps — standing
-  # sweeps that converge index columns no channel revisits, reading only the
-  # pulled blob and the content-store snapshots the window already holds
-  # credentials for. A cap is a slice, not a refusal: a window writes at most
-  # this many rows of its class, in case_id order, and the ledger line it tees
+  # Per-window caps on the daily (02:31) window's standing sweeps: the three
+  # fill sweeps, which converge index columns no channel revisits, reading only
+  # the pulled blob and the content-store snapshots the window already holds
+  # credentials for, and the order-list vote sweep, which stamps committed
+  # outcomes from its own split jobs. A cap is a slice, not a refusal: a window
+  # writes at most this many rows of its class (the fill sweeps in case_id
+  # order, the vote sweep oldest order date first), and the ledger line it tees
   # to the run summary (`sweep ledger — <cmd>: would fill N; filled M;
   # remaining R (cap C)`) carries the rest to the next window. Two classes only fill NULL columns; the marking sweep
   # rewrites docket_number, selected by the marking's exact words and neutral

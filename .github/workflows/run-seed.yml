@@ -1351,6 +1351,8 @@ jobs:
           set -euo pipefail
           # The ledger echoes text the plan carries, so workflow commands are
           # suspended for the run under a token nothing in the plan can know.
+          # That suspends the command's own annotations too (a ceiling
+          # refusal's among them), so a failure is announced after the resume.
           stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
           echo "::stop-commands::${stop_token}"
           status=0
@@ -1358,9 +1360,22 @@ jobs:
             | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
           echo "::${stop_token}::"
           if [ "$status" -ne 0 ]; then
-            echo "::error::stamp-order-votes --sweep exited ${status}; the run summary has its ledger."
+            echo "::error::stamp-order-votes --sweep wrote nothing (exit ${status}): a refused plan, an unreadable listing, or a class above order_votes_ceiling — the run summary has the ledger line and the reason."
           fi
           exit "$status"
+
+      # Fail closed before any write credential exists: the stamp step may have
+      # changed committed outcome files and nothing else. A path in any other
+      # shape — an untracked file, a renamed or quoted path — refuses the run.
+      - name: Check the stamp wrote only outcome files
+        run: |
+          set -euo pipefail
+          stray="$(git status --porcelain --untracked-files=all \
+            | grep -cvE '^ M data/cases/[^/]+/[^/]+/events/[^/]+/outcome\.json$' || true)"
+          if [ "${stray}" != "0" ]; then
+            echo "::error::the stamp step changed ${stray} path(s) other than committed outcome.json files"
+            exit 1
+          fi
 
       # The write credential exists only from here on, after the plan has been
       # re-validated and applied.

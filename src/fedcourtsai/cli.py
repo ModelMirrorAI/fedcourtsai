@@ -10472,6 +10472,13 @@ def _vote_pass(  # noqa: PLR0913 - one shared body for the two commands' identic
     _report_vote_write(command, result, max_stamps, sweep=sweep is not None)
     if sweep is not None:
         found = len(result.stamps) + result.deferred
+        if not apply and found > sweep.ceiling:
+            # A dry run refuses nothing, so say what the apply would do.
+            typer.echo(
+                f"::warning::{command} --sweep: the class holds {found} rows, above its ceiling "
+                f"of {sweep.ceiling} (historical.sweep_caps); an apply would write none of it.",
+                err=True,
+            )
         _echo_sweep_ledger(
             command,
             written=result.applied and not result.refused,

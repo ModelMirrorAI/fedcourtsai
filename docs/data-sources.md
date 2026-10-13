@@ -412,11 +412,14 @@ record:
   Term. OT2024 and OT2025 sat the same bench, both grammars were checked
   against real orders of OT2025, and every interim outcome in the ledger (as
   of 2026-09-30) is among them; the current Term is in reach as soon as it
-  opens, so its orders are stamped as they settle. A document the grammar
-  cannot read is a problem, and a docket with a problem is held back, so a
-  grammar change in a new Term shows as a held-back count rather than a wrong
-  record. A docket with no noted vote and writings not complete has nothing to
-  stamp.
+  opens, so its orders are stamped as they settle. The notation grammar
+  refuses rather than guesses: a name off the bench, an object it does not
+  read, and any leftover sentence shaped like a Justice's act that no rule
+  read are problems, and a docket with a problem is held back, so a new
+  phrasing in a new Term shows as a held-back count rather than a wrong
+  record. What that guard cannot see is a notation that does not name a
+  Justice's act at all, which reads as no notation. A docket with no noted
+  vote and writings not complete has nothing to stamp.
 
 An outcome already carrying the same record is left alone, so a re-run is a
 no-op; one carrying a different record is held back unless the dispatch
