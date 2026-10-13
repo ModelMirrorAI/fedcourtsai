@@ -266,6 +266,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - uses: ./.github/actions/corpus-readonly
         with:
@@ -448,6 +450,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The real-engine replay shells out to the agent CLIs through the tested
       # runner seam — the same binaries the devcontainer ships. Installed only
@@ -632,7 +636,7 @@ jobs:
           # content store the same base derives.
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
           # A cell's `uv run fedcourts …` tooling needs a cache it can write.
-          # setup-uv's cache sits under $RUNNER_TEMP, which codex's
+          # uv's default cache sits in the runner user's cache dir, which codex's
           # workspace-write sandbox cannot reach (its writable roots are the
           # checkout cwd, /tmp and $TMPDIR), so a codex cell either burns turns
           # on a read-only cache or loses its corpus tooling. A cold cache under

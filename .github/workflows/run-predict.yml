@@ -141,6 +141,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The backlog derivation is a whole-court read shape — one pass over every
       # open event plus a row per candidate case, tens of thousands of them —
@@ -594,6 +596,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # Read-only corpus access (OIDC role; no static keys — a compromised
       # predict runner cannot write or delete corpus objects). No pull: corpus
@@ -1854,6 +1858,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - name: Configure git identity
         uses: ./.github/actions/configure-git-identity
@@ -2031,6 +2037,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - name: Mint the dispatch token
         id: app-token

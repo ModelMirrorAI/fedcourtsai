@@ -214,6 +214,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The base-rates read the corpus (the real rows), so it must be on disk.
       # No contents:write, no App token: this job cannot touch git or the corpus.
@@ -305,6 +307,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The census counts real snapshots, so the corpus must be on disk. No
       # contents:write, no App token: this job cannot touch git or the corpus.
@@ -481,6 +485,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The coverage counts stored documents, so the corpus must be on disk. No
       # contents:write, no App token: this job cannot touch git or the corpus.
@@ -594,6 +600,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The refresh PR is opened with the dev App token. The dev App is not a
       # branch-protection bypass actor, so the PR still faces the required `gate`
@@ -801,6 +809,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - name: Regenerate the big-case board
         id: regenerate
@@ -974,6 +984,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The extract reads the stored document text, so the corpus must be on
       # disk. No contents:write, no App token: this job cannot touch git.
@@ -1146,6 +1158,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # Recorded before the agent runs, because `setup-uv` installs into a
       # runner-user-writable directory and `$GITHUB_PATH` is appendable from

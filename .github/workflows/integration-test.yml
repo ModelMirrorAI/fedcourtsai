@@ -488,6 +488,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
         if: ${{ env.RESOLVE_CASE == 'true' }}
 
       - name: Configure AWS credentials (read-only)
@@ -654,6 +656,8 @@ jobs:
         run: rm -rf data/qp-topics
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # --- ranged-reads: the fixed read set against the blob in place --------
 
@@ -2427,6 +2431,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # Three production-shaped cells over the deterministic fixture corpus —
       # two ready (claude, codex) and one salvage (gemini: valid output, agent
@@ -2854,6 +2860,8 @@ jobs:
         run: rm -rf data/qp-topics
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The labeling job's own tripwire, verbatim: this job assumes no role
       # and grants no id-token, and the assertion keeps that true even if a
