@@ -117,6 +117,58 @@
       "title": "BoundaryCount",
       "type": "object"
     },
+    "CommonRecordEngine": {
+      "additionalProperties": false,
+      "description": "One engine's figure over the common-record paired events.",
+      "properties": {
+        "forward": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeaderboardStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This engine's forward aggregate over its paired gradings on the common-record events, carrying that subset's own `always_deny_accuracy` and `in_sample_grant_rate` to be read against; null while there are none"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "predictor_id"
+      ],
+      "title": "CommonRecordEngine",
+      "type": "object"
+    },
+    "CommonRecordReading": {
+      "additionalProperties": false,
+      "description": "The paired figure over the events no engine's log shows a filing fetch on.\n\nAn event enters only where every engine's cell on it has a legible log with\nno filing fetch and no fetch-tool row naming no address\n(:class:`SelfProvisioningCount`): the paired events on which no engine's log\nshows a legible fetch of a court filing outside the provisioned set. It\nsays nothing about other retrieval, which a forward cell may do without\nrestriction.\n\nA **selected** subset, and not neutrally: a cell reaches past the record\nwhere the record is short and the case contested, so the selection runs on\nbehaviour that tracks the outcome and the forecast's uncertainty \u2014 on\ngranted and close petitions \u2014 and it drops an event for one engine's reach\nwhatever the others did. Read each engine's figure against this subset's own\nalways-deny floor and in-sample grant rate, never the full paired set's;\nnever rank it, and never difference it against the paired figure.",
+      "properties": {
+        "entries": {
+          "description": "Per engine, in the paired figure's order",
+          "items": {
+            "$ref": "#/$defs/CommonRecordEngine"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "events": {
+          "description": "Paired events on which no engine's log shows a legible fetch of a court filing outside the provisioned set, and every engine's log was read and names every fetch's target",
+          "minimum": 0,
+          "title": "Events",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "title": "CommonRecordReading",
+      "type": "object"
+    },
     "CountingWindow": {
       "additionalProperties": false,
       "description": "One blessing of one predictor digest: the span its cells count in.\n\nThe counting rule's unit (:data:`fedcourtsai.process_version.COUNTING_WINDOWS`).\nA window opens at the counting instant of the label that blessed the digest\nand closes at the counting instant of the successor that stops blessing it,\neach as its ``prereg/`` tag records it. A **closed** window's cells keep\ncounting; a **revoked** one's are de-counted, which only a dated\nfreeze-record entry stating a defect licenses. A digest carried forward\nbyte-identical keeps one unbroken window; a digest blessed again after its\nwindow closed opens a new one.",
@@ -464,6 +516,18 @@
           "default": null,
           "description": "Events already resolved when the prediction was committed: measures calibration and label-mapping fit, not forecasting skill; null when this predictor has no scored retrospective cell."
         },
+        "self_provisioning": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SelfProvisioningCount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This figure's cells by whether their logs show a fetch of a court filing outside the provisioned document set (see SelfProvisioningCount). Descriptive only: no rank key, headline figure or filter reads it. Omitted while no retrieval-log reading was supplied. On a pooled entry, over its `forward` stratum's cells, the stratum its figures beside it read; never on a cut entry"
+        },
         "windows": {
           "description": "The windows this figure pools, each with its `n` in gradings, ordered by opening. Listed whenever the figure is a frozen-scope pool, a single window included; empty on an all-versions build, whose cells carry no window",
           "items": {
@@ -646,6 +710,18 @@
           ],
           "default": null,
           "description": "This stage's retrospective cells; null when this predictor has none in the stage."
+        },
+        "self_provisioning": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SelfProvisioningCount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This figure's cells by whether their logs show a fetch of a court filing outside the provisioned document set (see SelfProvisioningCount). Descriptive only: no rank key, headline figure or filter reads it. Omitted while no retrieval-log reading was supplied. On a pooled entry, over its `forward` stratum's cells, the stratum its figures beside it read; never on a cut entry"
         },
         "windows": {
           "description": "The windows this figure pools, each with its `n` in gradings, ordered by opening. Listed whenever the figure is a frozen-scope pool, a single window included; empty on an all-versions build, whose cells carry no window",
@@ -1075,6 +1151,18 @@
           "description": "1-based standing over the paired events; 1 is best. Forward accuracy (highest first), then forward mean Brier (lowest first), then `predictor_id`. Null on an unranked block, and on every engine while the paired set is empty",
           "title": "Rank"
         },
+        "self_provisioning": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SelfProvisioningCount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This figure's cells by whether their logs show a fetch of a court filing outside the provisioned document set (see SelfProvisioningCount). Descriptive only: no rank key, headline figure or filter reads it. Omitted while no retrieval-log reading was supplied. Over this engine's cells on the paired events"
+        },
         "unpaired_events": {
           "description": "This engine's qualifying events that are not paired, because some other engine in the set holds no qualifying cell on them: its pairing loss",
           "minimum": 0,
@@ -1115,6 +1203,18 @@
           "description": "The paired events per band key, each assigned the band of its earliest counted qualifying cell by harness clock. Cert populations only; omitted while empty",
           "title": "By Band",
           "type": "object"
+        },
+        "common_record": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CommonRecordReading"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The paired figure restricted to the paired events on which no engine's log shows a legible fetch of a court filing outside the provisioned set (see CommonRecordReading). A selected subset \u2014 the selection tracks outcome and uncertainty \u2014 read against its own always-deny floor, never ranked and never differenced against the paired figure; omitted while no retrieval-log reading was supplied"
         },
         "entries": {
           "description": "Per engine, its standing over the paired events: in rank order on the ranked board, by `predictor_id` on an unranked block",
@@ -1234,6 +1334,44 @@
         "n"
       ],
       "title": "RubricReading",
+      "type": "object"
+    },
+    "SelfProvisioningCount": {
+      "additionalProperties": false,
+      "description": "A figure's cells by whether their logs show a fetch of a court filing.\n\nDescriptive, never a filter and never a rank key. The provisioned\n`record/documents/` set is every predictor's guaranteed-common input; a cell\nwhose log shows a legible fetch of a court filing outside it may have run on\na different information set from a cell whose log does not. The reading is\nabout filings only: other retrieval a forward cell may do without\nrestriction is not counted. Counted in cells, one per (case, event,\npredictor), over the figure's cells, each read off its scored prediction's\nown retrieval log.",
+      "properties": {
+        "cells": {
+          "description": "Cells behind this figure",
+          "minimum": 0,
+          "title": "Cells",
+          "type": "integer"
+        },
+        "reached": {
+          "description": "Cells whose log holds at least one filing fetch (`self_provisioned_fetches` > 0): a reach, not an acquisition \u2014 a refused fetch counts \u2014 and not proof the record lacked the filing",
+          "minimum": 0,
+          "title": "Reached",
+          "type": "integer"
+        },
+        "target_blind": {
+          "description": "Cells that did not reach legibly but hold a fetch-tool row whose slice names no web address, so a filing fetch could be hidden there. ENGINE-ASYMMETRIC: on a log captured before the URL-first slice rule every prompted fetch is such a row, so a cell of an engine whose fetch tool takes a prompt reads here whatever it fetched, while another engine's cell leaves `none` only on a legible filing fetch. Until such cells are gone, that engine's `reached` is a floor",
+          "minimum": 0,
+          "title": "Target Blind",
+          "type": "integer"
+        },
+        "unlogged": {
+          "description": "Cells whose scored prediction or retrieval log could not be read, so nothing is known about what they fetched",
+          "minimum": 0,
+          "title": "Unlogged",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cells",
+        "reached",
+        "target_blind",
+        "unlogged"
+      ],
+      "title": "SelfProvisioningCount",
       "type": "object"
     },
     "SignatureReading": {

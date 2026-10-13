@@ -1246,8 +1246,9 @@ def render_self_provisioned_note(rollup: SelfProvisionedRollup | None) -> str:
     restriction, and a predictor that recovers a brief the pipeline failed to
     provision is doing the work well. What it costs is comparability, and only
     against the cells beside it — so the note names the actors, gives each its
-    own denominator, and stops at the observation. No score, board or metric
-    reads any of this; stratifying one on it is separate, registered work.
+    own denominator, and stops at the observation. No score or rank reads any
+    of this; the leaderboard's own self-provisioning counts are read off each
+    scored cell's log, not off this note.
 
     Every caveat it carries is inside the note rather than in a doc it links
     to, because the note is the quotable unit: its headline is what an excerpt

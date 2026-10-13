@@ -8018,3 +8018,103 @@ freeze commit is recorded here.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit
   `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+- **The scored boards count each figure's cells by whether their logs show a
+  fetch of a court filing, and read a paired figure over the paired events on
+  which no engine's log shows one, 2026-10-12.** A **reading-rule** entry that
+  registers the first board use of the self-provisioning record. It moves no
+  digest, no constant, no window and no membership: `uv run fedcourts
+  process-digest --all` prints the same `proc-v9` digests, and
+  `COUNTING_WINDOWS` is unchanged. **No rank key, headline figure or score
+  reads it, and no cell leaves a headline or ranked figure because of it**;
+  its one exclusion is `common_record`'s own event filter, and the committed
+  leaderboard is unchanged apart from the two new fields.
+
+  **The rule.**
+
+  - **A cell's reading.** Each scored cell is read off the
+    `retrieval_log.json` in its **scored** run's directory (the run the
+    grading resolves to, the join every board uses), recomputed from the calls
+    rather than read off the log's baked count, so a log captured before the
+    count existed reads by the same predicate. `reached`: at least one
+    `self_provisioned_fetches` row. `target_blind`: none legible, but a
+    fetch-tool row (`WebFetch`, `web_fetch`) whose query slice names no
+    `http(s)://` address, so a filing fetch could be hidden there. `unlogged`:
+    no resolvable scored prediction or no readable log. `none`: otherwise. A
+    cell whose gradings read differently takes the least vouched-for reading,
+    in the order `reached`, `target_blind`, `unlogged`, `none`.
+  - **The reading is about filings only.** Other retrieval, which a forward
+    cell may do without restriction, is neither counted nor excluded on.
+  - **`self_provisioning`**, on each pooled entry over its `forward` stratum's
+    cells (the stratum its headline figures read), and on each engine in
+    `paired` over its paired cells: the cells by reading. Cells, one per
+    (case, event, predictor).
+  - **`paired.common_record`**: the paired figure restricted to the paired
+    events on which every engine's every paired grading reads `none` — the
+    paired events on which no engine's log shows a legible fetch of a court
+    filing outside the provisioned set. A reach, a target-blind fetch, an
+    unread log or a grading missing from the reading on any engine drops the
+    event. Each engine's figure is the paired aggregate over its paired
+    gradings on those events. Never ranked; the rank stays on the full paired
+    figure.
+
+  **How it is read.** `common_record` is a **selected** subset, and the
+  selection is not neutral. A cell reaches past the record where the record is
+  short and the case contested, so the selection runs on behaviour that tracks
+  the outcome and the forecast's uncertainty: it drops grants and close
+  petitions first, and it drops an event for one engine's reach whatever the
+  others did. Each engine's common-record figure is read against that subset's
+  own `always_deny_accuracy` and `in_sample_grant_rate`, never the full paired
+  set's, and is never differenced against the paired figure or ranked.
+
+  **The exclusion is engine-asymmetric.** On a log captured before the
+  URL-first slice rule (the 2026-10-12 capture entry above), every claude
+  `WebFetch` row kept its prompt alone, so `target_blind` drops every event on
+  which claude fetched anything at all, while a codex or gemini cell drops an
+  event only on a legible filing fetch. That asymmetry is kept rather than
+  relaxed: reading a prompt-only fetch as `none` would admit events whose
+  information set nothing vouches for. Claude cells captured before that
+  rule's carrying merge keep reading `target_blind`, so the `proc-v9` window
+  holds claude cells under both regimes, and `reached` is a floor for claude
+  until its target-blind cells are gone.
+
+  **What was seen, and in what order.** The proc-v8 common-record figures
+  below were computed while the reading was being designed, from builds of
+  this code over the committed ledger; nothing in git records the order of
+  those builds and the text of this rule, so no claim is made that the rule
+  preceded them. Over the committed `proc-v8` ledger (`staging` at
+  `8af758f44`), the cert board's paired set is 97 events with 3 grants:
+  `claude-baseline` 4 cells reached and 16 target-blind, `codex-baseline` 15
+  reached, `gemini-baseline` none, no cell unlogged. 24 events are excluded,
+  9 of them by claude's `target_blind` alone. The 73 common-record events hold
+  **1** grant: the selection removed 2 of the paired set's 3, one where both
+  claude and codex reached and one where claude's fetch is target-blind. On
+  them every engine's accuracy is 0.986, which **equals the always-deny floor**
+  of that subset (lift 0), and mean Brier is 0.0118, 0.0129 and 0.0209
+  (claude, codex, gemini) over one realized grant.
+
+  **What the date proves, and what it does not.** Under the pooled rule a
+  predictor's counted cells stay in every later figure, so the `proc-v8`
+  events seen above stay inside every later common-record figure; this entry
+  is blind only for events first counted after its carrying merge. At
+  `origin/main` `a14b36a1e` (`2026-10-12T21:55:06Z`) no committed evaluation
+  carries any of the three `proc-v9` evaluator digests (`167b7d71…`,
+  `18a76b93…`, `22558044…`; `git grep` over `data/` prints nothing), so
+  nothing had been graded since the `proc-v9` cutover. Four committed
+  predictions carry `claude-baseline`'s `proc-v9` digest (`605201bd…`), the
+  four the rubric-signature entry above lists. The `codex-baseline` and
+  `gemini-baseline` `proc-v9` digests (`70fee158…`, `a9033e56…`) are their
+  `proc-v8` digests carried forward, so 256 and 253 committed predictions
+  carry them, every one predating the cutover's first grading.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`). At the carrying merge,
+  committed evaluations on `origin/main` carrying any of the three `proc-v9`
+  evaluator digests: `<FILL: proc-v9 judge-digest evaluations at the carrying merge>`.
+
+  The runnable effect check once it is live: on `main`, after the next
+  metrics refresh, `jq '[.entries[] | {predictor_id, self_provisioning}],
+  .paired.common_record.events' metrics/leaderboard.json` prints each
+  predictor's forward cells by reading and the common-record event count, and
+  the ranks and `paired.entries[].forward` figures equal those of a board
+  built without the reading.

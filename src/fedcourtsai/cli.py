@@ -177,6 +177,7 @@ from .leaderboard import (
     boundary_sides,
     build_leaderboard,
     cell_facts,
+    cell_provisioning,
     coverage_shortfalls,
     entry_name,
     evaluator_agreement,
@@ -5465,6 +5466,10 @@ def leaderboard(
         boundaries=(
             boundary_sides(cells, settings.data_root, repo=Path.cwd()) if frozen_only else None
         ),
+        # Each cell's self-provisioning reading off its own retrieval log: the
+        # entries' and paired engines' counts and the common-record reading,
+        # descriptive only and never a rank key.
+        provisioning=cell_provisioning(cells, settings.data_root),
     )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
