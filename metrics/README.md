@@ -3266,8 +3266,8 @@ names no web address, so the leaderboard counts its cell `target_blind` (read
 the count off each figure's `self_provisioning`) and keeps its event out of
 `common_record` rather than reading it as `none`; `reached` is a floor for an
 engine until its target-blind cells are gone. The other three are not
-measurable from the rows, and of those the third (a bare-URL hosted search)
-cuts against one engine; the fourth, shown as `target_blind`, cuts against
+measurable from the rows; the third of them (a bare-URL hosted search) cuts
+against one engine. The fourth, shown as `target_blind`, cuts against
 claude's logs captured before the rule.
 
 And the floor is **engine-shaped**, which is adjacent to the throttle

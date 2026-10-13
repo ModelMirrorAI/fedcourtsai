@@ -8025,9 +8025,10 @@ freeze commit is recorded here.
   registers the first board use of the self-provisioning record. It moves no
   digest, no constant, no window and no membership: `uv run fedcourts
   process-digest --all` prints the same `proc-v9` digests, and
-  `COUNTING_WINDOWS` is unchanged. **No rank key, headline figure, exclusion
-  or score reads it**, and the committed leaderboard is unchanged apart from
-  the two new fields.
+  `COUNTING_WINDOWS` is unchanged. **No rank key, headline figure or score
+  reads it, and no cell leaves a headline or ranked figure because of it**;
+  its one exclusion is `common_record`'s own event filter, and the committed
+  leaderboard is unchanged apart from the two new fields.
 
   **The rule.**
 
