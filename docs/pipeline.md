@@ -681,6 +681,20 @@ judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
 any other corpus write.
 
+The same daily window runs one sweep outside the `seed` job: the **order-list
+vote sweep** (`fedcourts stamp-order-votes`), which stamps the Court's
+per-Justice notations onto committed cert and interim outcomes once their order
+is seven days settled. It fetches and parses the Court's order documents, so it
+runs as run-repair's `order-votes` credential split — a read-only projection
+job, a parse job holding no credential of any kind, and a writer — in three
+jobs of its own beside the walk rather than inside the job holding the
+read-write corpus role. The writer waits for the walk, applies the plan with
+`--from-plan --sweep --apply` (at most `historical.sweep_caps.order_votes` new
+records, oldest order date first, a class above `order_votes_ceiling` refused
+whole, one ledger line to the run summary), and only then mints the App token
+that pushes its `outcome.json` commit. All three jobs are continue-on-error, so
+a fetch hiccup converges next window; the sweep never replaces a record.
+
 Two further writer steps sit **ahead of the loop** on a dispatch-only footing —
 the `refresh_terms` cursor reset and the `refresh_dockets` targeted re-serve —
 where they precede the walk they change. With `refresh_streams` beside them,
@@ -968,7 +982,11 @@ Each run fetches from supremecourt.gov, so an apply dispatch does not lead with
 a dry run; the bound is read off the previous dry-run dispatch, and a
 re-dispatched dry run after the apply is the control.
 An outcome carrying a different record is held back unless `replace-differing`
-is set. The order-list records are banked, never scored.
+is set. The order-list records are banked, never scored. The orders writer also
+runs on a schedule: run-seed's daily window carries the same split as a
+standing sweep that stamps each settled order list without a dispatch (above),
+so this pass is for a whole-class apply under a bound and for
+`replace-differing`.
 
 `application-backfill` lands one closed Term's interim applications that the
 live channel never polled (`fedcourts backfill-applications`). OT2024 below

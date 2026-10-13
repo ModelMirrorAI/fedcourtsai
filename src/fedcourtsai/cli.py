@@ -465,6 +465,7 @@ from .validate import (
     validate_ledger,
 )
 from .vote_writer import (
+    SweepSlice,
     VoteDocketNumbers,
     VoteSourceName,
     VoteStampPlan,
@@ -10352,9 +10353,10 @@ def _vote_write_preflight(
     cache_dir: Path | None,
     throttle: float,
     needs_corpus: bool,
+    sweep: bool = False,
 ) -> Path:
     """Refuse a malformed invocation, and return the corpus path to read."""
-    if apply and max_stamps is None:
+    if apply and max_stamps is None and not sweep:
         typer.echo(
             f"{command}: --apply requires an explicit --max-stamps. "
             "Read the dry run first and pass the count you are approving.",
@@ -10396,11 +10398,13 @@ def _vote_pass(  # noqa: PLR0913 - one shared body for the two commands' identic
     projection: Path | None,
     plan_out: Path | None,
     from_plan: Path | None,
+    sweep: SweepSlice | None = None,
 ) -> None:
     """One vote pass in whichever of its modes the flags select.
 
     ``run(numbers, client)`` performs the fetch-and-read against ``numbers`` —
-    the open corpus or the projection's map.
+    the open corpus or the projection's map. ``sweep`` is the standing sweep's
+    slice, which replaces ``max_stamps`` on a write.
     """
     _handoff_preflight(
         command,
@@ -10418,13 +10422,15 @@ def _vote_pass(  # noqa: PLR0913 - one shared body for the two commands' identic
         cache_dir=cache_dir,
         throttle=throttle,
         needs_corpus=projection is None and from_plan is None,
+        sweep=sweep is not None,
     )
     settings = get_settings()
+    today = datetime.now(UTC).date()
     if emit_projection is not None:
         # The projection reads two columns every blob carries, so it opens the
         # blob as packed and never pays for a migrated read copy.
         with corpus.connect_readonly(db_path, migrate=False) as conn:
-            numbers = vote_docket_numbers(conn, settings.data_root, source=source)
+            numbers = vote_docket_numbers(conn, settings.data_root, source=source, today=today)
         write_handoff(emit_projection, numbers)
         typer.echo(
             f"{command}: wrote the docket-number projection ({len(numbers.numbers)} case(s), "
@@ -10439,10 +10445,11 @@ def _vote_pass(  # noqa: PLR0913 - one shared body for the two commands' identic
                 plan,
                 settings.data_root,
                 source=source,
-                today=datetime.now(UTC).date(),
+                today=today,
                 apply=apply,
                 max_stamps=max_stamps,
                 replace_differing=replace_differing,
+                sweep=sweep,
             )
         except HandoffRefused as exc:
             typer.echo(f"{command}: refusing the plan whole — {exc}", err=True)
@@ -10462,7 +10469,22 @@ def _vote_pass(  # noqa: PLR0913 - one shared body for the two commands' identic
                     result = run(conn, client)
         if plan_out is not None:
             write_handoff(plan_out, vote_plan(result))
-    _report_vote_write(command, result, max_stamps)
+    _report_vote_write(command, result, max_stamps, sweep=sweep is not None)
+    if sweep is not None:
+        found = len(result.stamps) + result.deferred
+        _echo_sweep_ledger(
+            command,
+            written=result.applied and not result.refused,
+            planned=len(result.stamps),
+            deferred=result.deferred,
+            cap=sweep.cap,
+        )
+        _refuse_sweep_above_ceiling(
+            command,
+            refused=result.refused and not result.failures,
+            found=found,
+            ceiling=sweep.ceiling,
+        )
     if result.refused or result.failures:
         raise typer.Exit(code=1)
 
@@ -10483,15 +10505,20 @@ _FROM_PLAN_HELP = (
 )
 
 
-def _report_vote_write(command: str, result: VoteWriteResult, max_stamps: int | None) -> None:
-    """Print a pass's ledger — the reading an apply's bound is taken from."""
+def _report_vote_write(
+    command: str, result: VoteWriteResult, max_stamps: int | None, *, sweep: bool = False
+) -> None:
+    """Print a pass's ledger — the reading an apply's bound is taken from.
+
+    On a sweep the ceiling's refusal is printed by the sweep ledger instead.
+    """
     if result.refused and result.failures:
         typer.echo(
             f"{command}: refusing to apply — the pass could not read everything it "
             "needs: " + "; ".join(result.failures),
             err=True,
         )
-    elif result.refused:
+    elif result.refused and not sweep:
         typer.echo(
             f"{command}: refusing to apply {len(result.stamps)} stamp(s) "
             f"(--max-stamps {max_stamps}). Read a fresh dry run before raising the bound.",
@@ -10662,6 +10689,7 @@ def _run_order_votes(
     apply: bool,
     max_stamps: int | None,
     replace_differing: bool,
+    sweep: SweepSlice | None,
 ) -> VoteWriteResult:
     return stamp_order_votes(
         numbers,
@@ -10671,7 +10699,45 @@ def _run_order_votes(
         apply=apply,
         max_stamps=max_stamps,
         replace_differing=replace_differing,
+        sweep=sweep,
     )
+
+
+def _order_votes_sweep(
+    *,
+    sweep: bool,
+    max_stamps: int | None,
+    replace_differing: bool,
+    emit_projection: Path | None,
+    projection: Path | None,
+) -> SweepSlice | None:
+    """The standing sweep's slice, after refusing the flags it does not combine with.
+
+    A sweep writes: it applies a plan (``--from-plan``) or runs in one process
+    over a pulled corpus, so the two read-only split modes take no ``--sweep``.
+    It never replaces a record — ``--replace-differing`` is a maintainer's call
+    on a dispatched pass — and its cap stands in for ``--max-stamps``.
+    """
+    if not sweep:
+        return None
+    command = "stamp-order-votes"
+    _refuse_bound_with_sweep(command, "--max-stamps", max_stamps)
+    if replace_differing:
+        typer.echo(
+            f"{command}: --sweep never replaces a record; --replace-differing belongs on the "
+            "dispatched order-votes pass, read and bounded by a maintainer.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if emit_projection is not None or projection is not None:
+        typer.echo(
+            f"{command}: --sweep slices a write; the projection and the parse write nothing, "
+            "so they take no --sweep.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    caps = load_historical_config(get_settings().config_root).sweep_caps
+    return SweepSlice(cap=caps.order_votes, ceiling=caps.order_votes_ceiling)
 
 
 @app.command("stamp-order-votes")
@@ -10712,11 +10778,13 @@ def stamp_order_votes_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
     projection: Annotated[Path | None, typer.Option("--projection", help=_PROJECTION_HELP)] = None,
     plan_out: Annotated[Path | None, typer.Option("--plan-out", help=_PLAN_OUT_HELP)] = None,
     from_plan: Annotated[Path | None, typer.Option("--from-plan", help=_FROM_PLAN_HELP)] = None,
+    sweep: Annotated[bool, typer.Option("--sweep", help=_SWEEP_HELP)] = False,
 ) -> None:
     """Stamp cert and interim outcomes with their disposing order's per-Justice notations.
 
     The `supremecourt-orders` writer. Its population is every committed cert-
-    and interim-stage outcome resolved in October Terms 2024 and 2025. For
+    and interim-stage outcome resolved from October Term 2024 through the
+    current Term. For
     each resolution date it reads every order list, miscellaneous order and
     opinion relating to orders the Court lists for that date
     (`order-notations`), and stamps each outcome with its docket's reading:
@@ -10744,7 +10812,20 @@ def stamp_order_votes_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
     every planned record against the ledger as it stands and, with `--apply
     --max-stamps N`, stamps it — opening no corpus and making no request. A
     plan with a malformed or unknown row is refused whole.
+
+    run-seed's daily window runs the same split as a standing sweep, the writer
+    with `--from-plan --sweep --apply`: in place of a bound it stamps at most
+    `historical.sweep_caps.order_votes` new records, oldest order date first,
+    leaves the rest for the next window, and refuses a whole class above
+    `order_votes_ceiling`. A sweep never replaces a record.
     """
+    slice_ = _order_votes_sweep(
+        sweep=sweep,
+        max_stamps=max_stamps,
+        replace_differing=replace_differing,
+        emit_projection=emit_corpus_projection,
+        projection=projection,
+    )
     _vote_pass(
         "stamp-order-votes",
         "supremecourt-orders",
@@ -10755,6 +10836,7 @@ def stamp_order_votes_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
             apply=apply,
             max_stamps=max_stamps,
             replace_differing=replace_differing,
+            sweep=slice_,
         ),
         apply=apply,
         max_stamps=max_stamps,
@@ -10765,6 +10847,7 @@ def stamp_order_votes_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
         projection=projection,
         plan_out=plan_out,
         from_plan=from_plan,
+        sweep=slice_,
     )
 
 

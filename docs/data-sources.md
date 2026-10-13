@@ -394,9 +394,11 @@ says `complete`, which this source's never does
 `outcome.json`. It reads the corpus for one column — each case's docket
 number, which is how a ledger case is found in the Court's documents — and
 writes nothing but committed `outcome.json` files: `votes`,
-`vote_provenance` and `writing_roles`. It runs only as two `run-repair`
-passes, dry run first ([data-pipeline.md](data-pipeline.md), *Maintenance
-passes*):
+`vote_provenance` and `writing_roles`. It runs as two `run-repair` passes,
+dry run first ([data-pipeline.md](data-pipeline.md), *Maintenance passes*),
+and the orders pass also as a standing sweep on run-seed's daily window, which
+stamps each settled order list under a per-window cap and never replaces a
+record:
 
 - `opinion-votes` (`fedcourts stamp-opinion-votes`) stamps merits-stage
   outcomes resolved in OT2020 or later — the Terms whose listing links a PDF
@@ -406,11 +408,15 @@ passes*):
   & Noted list agrees with, onto an outcome resolved on the date the opinion
   is dated.
 - `order-votes` (`fedcourts stamp-order-votes`) stamps cert- and
-  interim-stage outcomes resolved in OT2024 or OT2025, the two most recent
-  complete Terms: both sat the same bench, both grammars were checked against
-  real orders of the later one, and every interim outcome in the ledger (as
-  of 2026-09-30) is among them. A docket with no noted vote and writings not complete has
-  nothing to stamp.
+  interim-stage outcomes resolved from OT2024 through the current October
+  Term. OT2024 and OT2025 sat the same bench, both grammars were checked
+  against real orders of OT2025, and every interim outcome in the ledger (as
+  of 2026-09-30) is among them; the current Term is in reach as soon as it
+  opens, so its orders are stamped as they settle. A document the grammar
+  cannot read is a problem, and a docket with a problem is held back, so a
+  grammar change in a new Term shows as a held-back count rather than a wrong
+  record. A docket with no noted vote and writings not complete has nothing to
+  stamp.
 
 An outcome already carrying the same record is left alone, so a re-run is a
 no-op; one carrying a different record is held back unless the dispatch

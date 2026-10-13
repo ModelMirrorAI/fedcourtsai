@@ -222,6 +222,12 @@ historical:
     # `backfill-decision-record --sweep`: granted rows gaining merits_argued
     # and/or merits_decision_method from their newest stored live snapshot.
     decision_fills: 50
+    # `stamp-order-votes --sweep` (the split jobs beside the daily window):
+    # cert and interim outcomes gaining their disposing order's vote record
+    # once the order is 7 days settled. A week's order lists resolve tens of
+    # ledger outcomes; a long-conference list a few hundred, drained in a
+    # couple of windows at this cap.
+    order_votes: 200
     # Ceilings, each well above the fill class a converged corpus holds. Upper
     # bounds on that class, on the index blob of 2026-10-02 (sha 2b356dbd):
     # 0 marked rows, 179 response candidates, 54 decision-record candidates.
@@ -230,6 +236,11 @@ historical:
     docket_markings_ceiling: 500
     response_fills_ceiling: 500
     decision_fills_ceiling: 500
+    # Above a whole Term's cert and interim ledger outcomes (about 1,150 a
+    # Term at the 2026-10-11 stamp): a class that size is a widened population,
+    # such as a Term newly in reach, which the dispatched `order-votes` pass
+    # applies under a maintainer's bound.
+    order_votes_ceiling: 1500
 
 predict:
   # Prediction-scope gate (docs/data-pipeline.md "Scope"). Restricts only the agentic
