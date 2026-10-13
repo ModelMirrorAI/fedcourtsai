@@ -7866,11 +7866,11 @@ freeze commit is recorded here.
   `proc-v9` rubric existed, and no reading this rule governs had an outcome
   under the new rubrics.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`). At the carrying merge,
+  Carried to `main` by `promotion/2026-10-13` (merge commit
+  `43933a6382d731bb6f96b269e60cb6f6afeee7a5`, merged `2026-10-13T17:54:17Z`). At the carrying merge,
   committed evaluations on `origin/main` carrying any of the three `proc-v9`
   evaluator digests (`167b7d71…`, `18a76b93…`, `22558044…`; `git grep` over
-  `data/`): `<FILL: proc-v9 judge-digest evaluations at the carrying merge>`.
+  `data/`): `0`.
 
   The runnable effect check once it is live: on `main`, after the next
   metrics refresh, `jq '[.entries[].big_case.by_signature | length],
@@ -7914,8 +7914,8 @@ freeze commit is recorded here.
   `metrics/cert-backtest.json` records no lost cell for any engine
   (`events_scored` 10 each), so no published figure moves.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-13` (merge commit
+  `43933a6382d731bb6f96b269e60cb6f6afeee7a5`, merged `2026-10-13T17:54:17Z`).
 
 - **A prompted fetch's retrieval-log row carries its URL ahead of the
   prompt, 2026-10-12.** A **capture** change of the masking-surface class: no
@@ -7971,8 +7971,8 @@ freeze commit is recorded here.
   the carrying merge is a floor on claude's fetch channel in particular, and a
   comparison across that boundary compares two capture regimes.
 
-  **Carrying merge.** <FILL: promotion tag>, merge <FILL: merge SHA> at
-  <FILL: merged time UTC>.
+  **Carrying merge.** promotion/2026-10-13, merge 43933a6382d731bb6f96b269e60cb6f6afeee7a5 at
+  2026-10-13T17:54:17Z.
 
   **Effect check.** On `main`, once a run-predict round after the carrying
   merge has landed a claude cell that used `WebFetch`, `jq -r '.calls[] |
@@ -8016,8 +8016,8 @@ freeze commit is recorded here.
   `run-backtest` with the gemini lane lands its gemini cells with no file-tool
   refusal for a path outside the workspace in the engine log.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-13` (merge commit
+  `43933a6382d731bb6f96b269e60cb6f6afeee7a5`, merged `2026-10-13T17:54:17Z`).
 
 - **The scored boards count each figure's cells by whether their logs show a
   fetch of a court filing, and read a paired figure over the paired events on
@@ -8107,10 +8107,10 @@ freeze commit is recorded here.
   `proc-v8` digests carried forward, so 256 and 253 committed predictions
   carry them, every one predating the cutover's first grading.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`). At the carrying merge,
+  Carried to `main` by `promotion/2026-10-13` (merge commit
+  `43933a6382d731bb6f96b269e60cb6f6afeee7a5`, merged `2026-10-13T17:54:17Z`). At the carrying merge,
   committed evaluations on `origin/main` carrying any of the three `proc-v9`
-  evaluator digests: `<FILL: proc-v9 judge-digest evaluations at the carrying merge>`.
+  evaluator digests: `0`.
 
   The runnable effect check once it is live: on `main`, after the next
   metrics refresh, `jq '[.entries[] | {predictor_id, self_provisioning}],
@@ -8242,10 +8242,10 @@ freeze commit is recorded here.
   application rows only. Nothing is written by this change itself; the pass
   runs only as a dispatched `run-repair` apply.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`). Applied by run
-  `<FILL: apply run id>` on `<FILL: apply date>`, landing
-  `<FILL: rows landed>` rows. The first statpack refreshed after it, at commit
+  Carried to `main` by `promotion/2026-10-13` (merge commit
+  `43933a6382d731bb6f96b269e60cb6f6afeee7a5`, merged `2026-10-13T17:54:17Z`). Applied by run
+  `38445409277` on `2026-10-13`, landing
+  `1177` rows. The first statpack refreshed after it, at commit
   `<FILL: statpack refresh commit>`, reads the OT2026 pool as
   `<FILL: OT2026 pool granted/resolved>` (from
   `<FILL: OT2026 pool before, granted/resolved>`), the OT2025 pool as
