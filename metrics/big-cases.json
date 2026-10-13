@@ -1,10 +1,10 @@
 {
-  "cases": 286,
+  "cases": 289,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
     {
-      "cases": 255,
+      "cases": 258,
       "n": 3
     },
     {
@@ -16,8 +16,8 @@
       "n": 1
     }
   ],
-  "current_reads": 854,
-  "declared_no_view": 15,
+  "current_reads": 865,
+  "declared_no_view": 17,
   "frozen_process": {
     "digests": [
       "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
@@ -88,111 +88,6 @@
     "version_scope": "`process_scope: \"all\"` \u2014 **version-blind, and that is the default**: every committed run is eligible as a current read, shakedown, pre-freeze, de-counted-digest and unstamped cells included, because the board is a census of what the panel said rather than a measurement of how well it said it, and a stakes read resolves against nothing for a partition to protect. `--process-scope frozen` rebuilds it as the **comparison build**, admitting only runs that are their predictor's counted forecast of their event \u2014 a harness stamp inside a counting window (the predicate the performance boards scope on; the record it keys on is published in `frozen_process` on every build, this one included). That build is not this board with fewer rows: it holds out a systematically different population \u2014 see *Population*, the `population` field. `process_label` is what a prediction minted today would stamp and is a filter on nothing here; `process_scope` is the filter. **No count, mean, rate or spread statistic is differenced across a scope change.** A row's own mean and `n` move when a predictor's read falls outside the scope, and every denominator moves at once, so a coverage rate that rises at `frozen` rises by construction \u2014 the older cells the rate's numerator was missing are the cells the scope removed \u2014 and is never the pre-registered coverage rise `docs/freeze-record.md` describes."
   },
   "rows": [
-    {
-      "asking_declined": "short_form",
-      "asking_party": null,
-      "caption": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al.",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000239",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "The legality of Proclamation 10,888's suspension of entry and asylum access at the southern border \u2014 the administration's flagship immigration policy \u2014 plus 1252(f)(1) classwide-relief and Rule 23 questions; a blockbuster whatever the Court does.",
-          "big_case_score": 0.97,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260824T231410Z"
-        },
-        {
-          "big_case_rationale": "The case tests presidential control of the southern border, access to asylum, and nationwide class relief affecting a central federal policy.",
-          "big_case_score": 0.98,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260824T231410Z"
-        },
-        {
-          "big_case_rationale": "Major challenge to a presidential proclamation suspending immigration and asylum access.",
-          "big_case_score": 1.0,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260825T052918Z"
-        }
-      ],
-      "docket_id": 9026000239,
-      "docket_number": "26-239",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-239.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "The legality of Proclamation 10,888's suspension of entry and asylum access at the southern border \u2014 the administration's flagship immigration policy \u2014 plus 1252(f)(1) classwide-relief and Rule 23 questions; a blockbuster whatever the Court does.",
-              "big_case_score": 0.97,
-              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260824T231410Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260824T231410Z",
-              "confidence": 0.85,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.92,
-              "run_id": "20260824T231410Z"
-            },
-            {
-              "big_case_rationale": "The case tests presidential control of the southern border, access to asylum, and nationwide class relief affecting a central federal policy.",
-              "big_case_score": 0.98,
-              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260824T231410Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260824T231410Z",
-              "confidence": 0.82,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.92,
-              "run_id": "20260824T231410Z"
-            },
-            {
-              "big_case_rationale": "Major challenge to a presidential proclamation suspending immigration and asylum access.",
-              "big_case_score": 1.0,
-              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260825T052918Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260825T052918Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.98,
-              "run_id": "20260825T052918Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.9833,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-08-24",
-      "n": 3,
-      "other_party": null,
-      "outcome_lines": null,
-      "score_max": 1.0,
-      "score_min": 0.97,
-      "score_range": 0.03,
-      "short_caption": null,
-      "status": "pending"
-    },
     {
       "asking_declined": null,
       "asking_party": "Grant",
@@ -997,6 +892,161 @@
       "score_min": 0.9,
       "score_range": 0.07,
       "short_caption": "Khalid Shaikh Mohammad v. United States",
+      "status": "pending"
+    },
+    {
+      "asking_declined": "short_form",
+      "asking_party": null,
+      "caption": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000239",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Lawfulness of a presidential proclamation suspending entry and cutting off asylum access at the southern border, with universal classwide relief: a cornerstone immigration policy and a major 1182(f)/asylum-statute question.",
+          "big_case_score": 0.92,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261013T143156Z"
+        },
+        {
+          "big_case_rationale": "Nationwide access to asylum, the limits of presidential immigration authority, and classwide remedies make this exceptionally consequential independent of the likelihood of review.",
+          "big_case_score": 0.94,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261013T143156Z"
+        },
+        {
+          "big_case_rationale": "Challenges a major Presidential Proclamation on asylum, involves classwide relief, and is petitioned by the Solicitor General.",
+          "big_case_score": 0.95,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261013T143156Z"
+        }
+      ],
+      "docket_id": 9026000239,
+      "docket_number": "26-239",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-239.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The legality of Proclamation 10,888's suspension of entry and asylum access at the southern border \u2014 the administration's flagship immigration policy \u2014 plus 1252(f)(1) classwide-relief and Rule 23 questions; a blockbuster whatever the Court does.",
+              "big_case_score": 0.97,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260824T231410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260824T231410Z",
+              "confidence": 0.85,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.92,
+              "run_id": "20260824T231410Z"
+            },
+            {
+              "big_case_rationale": "The case tests presidential control of the southern border, access to asylum, and nationwide class relief affecting a central federal policy.",
+              "big_case_score": 0.98,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260824T231410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260824T231410Z",
+              "confidence": 0.82,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.92,
+              "run_id": "20260824T231410Z"
+            },
+            {
+              "big_case_rationale": "Major challenge to a presidential proclamation suspending immigration and asylum access.",
+              "big_case_score": 1.0,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260825T052918Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260825T052918Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.98,
+              "run_id": "20260825T052918Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Lawfulness of a presidential proclamation suspending entry and cutting off asylum access at the southern border, with universal classwide relief: a cornerstone immigration policy and a major 1182(f)/asylum-statute question.",
+              "big_case_score": 0.92,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/claude-baseline/20261013T143156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/claude-baseline/20261013T143156Z",
+              "confidence": 0.75,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.86,
+              "run_id": "20261013T143156Z"
+            },
+            {
+              "big_case_rationale": "Nationwide access to asylum, the limits of presidential immigration authority, and classwide remedies make this exceptionally consequential independent of the likelihood of review.",
+              "big_case_score": 0.94,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/codex-baseline/20261013T143156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/codex-baseline/20261013T143156Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20261013T143156Z"
+            },
+            {
+              "big_case_rationale": "Challenges a major Presidential Proclamation on asylum, involves classwide relief, and is petitioned by the Solicitor General.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/gemini-baseline/20261013T143156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/gemini-baseline/20261013T143156Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.95,
+              "run_id": "20261013T143156Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.9367,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-08-24",
+      "n": 3,
+      "other_party": null,
+      "outcome_lines": null,
+      "score_max": 0.95,
+      "score_min": 0.92,
+      "score_range": 0.03,
+      "short_caption": null,
       "status": "pending"
     },
     {
@@ -3674,6 +3724,122 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "StandWithUs Center for Legal Justice",
+      "caption": "StandWithUs Center for Legal Justice, et al. v. Massachusetts Institute of Technology",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73514289",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Title VI hostile-environment standard and its First Amendment limits for campus antisemitism after October 7: nationally salient, recurring across many pending university suits, heavy amicus support including two U.S. Senators.",
+          "big_case_score": 0.75,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261013T174813Z"
+        },
+        {
+          "big_case_rationale": "The questions concern nationwide university obligations toward Jewish students, the proof of discriminatory harassment, and the boundary between Title VI and protected political speech. Those stakes are substantial even if independent grounds prevent review in this vehicle.",
+          "big_case_score": 0.82,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261013T174813Z"
+        },
+        {
+          "big_case_rationale": "Highly salient case concerning Title VI liability for campus antisemitism and First Amendment protections for protesters, with numerous high-profile amici.",
+          "big_case_score": 0.9,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261013T174813Z"
+        }
+      ],
+      "docket_id": 73514289,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Title VI hostile-environment standard and its First Amendment limits for campus antisemitism after October 7: nationally salient, recurring across many pending university suits, heavy amicus support including two U.S. Senators.",
+              "big_case_score": 0.75,
+              "cell_path": "data/cases/scotus/73514289/events/evt-petition-disposition/predictions/claude-baseline/20261013T174813Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73514289/events/evt-petition-disposition/predictions/claude-baseline/20261013T174813Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.3,
+              "run_id": "20261013T174813Z"
+            },
+            {
+              "big_case_rationale": "The questions concern nationwide university obligations toward Jewish students, the proof of discriminatory harassment, and the boundary between Title VI and protected political speech. Those stakes are substantial even if independent grounds prevent review in this vehicle.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/73514289/events/evt-petition-disposition/predictions/codex-baseline/20261013T174813Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73514289/events/evt-petition-disposition/predictions/codex-baseline/20261013T174813Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.32,
+              "run_id": "20261013T174813Z"
+            },
+            {
+              "big_case_rationale": "Highly salient case concerning Title VI liability for campus antisemitism and First Amendment protections for protesters, with numerous high-profile amici.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/73514289/events/evt-petition-disposition/predictions/gemini-baseline/20261013T174813Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73514289/events/evt-petition-disposition/predictions/gemini-baseline/20261013T174813Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.45,
+              "run_id": "20261013T174813Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "StandWithUs Center for Legal Justice, et al. v. Massachusetts Institute of Technology"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.8233,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-06-22",
+      "n": 3,
+      "other_party": "Massachusetts Institute of Technology",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up StandWithUs Center for Legal Justice's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "StandWithUs Center for Legal Justice's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.9,
+      "score_min": 0.75,
+      "score_range": 0.15,
+      "short_caption": "StandWithUs Center for Legal Justice v. Massachusetts Institute of Technology",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Gator's Custom Guns",
       "caption": "Gator's Custom Guns, Inc., et al. v. Washington",
       "caption_event_id": "evt-petition-disposition",
@@ -4018,122 +4184,6 @@
       "score_min": 0.8,
       "score_range": 0.04,
       "short_caption": "Trump v. Badar Khan Suri",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "U.S. Doge Service",
-      "caption": "U.S. Doge Service, et al. v. United States District Court for the District of Columbia, et al.",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/73281386",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Separation-of-powers limits on discovery against Executive Office advisory bodies, and whether FOIA reaches DOGE; a discovery-posture dispute, but one the Court has already intervened in once and that governs future FOIA suits against presidential advisers.",
-          "big_case_score": 0.62,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260916T170237Z"
-        },
-        {
-          "big_case_rationale": "Discovery into a presidential advisory body's independent authority implicates executive confidentiality, FOIA accountability, and oversight of government-wide DOGE activity; the immediate dispute is narrower than a final ruling on FOIA coverage.",
-          "big_case_score": 0.86,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260916T170237Z"
-        },
-        {
-          "big_case_rationale": "High-profile separation of powers dispute involving the Executive Office of the President and Elon Musk, concerning FOIA discovery.",
-          "big_case_score": 0.95,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260916T170237Z"
-        }
-      ],
-      "docket_id": 73281386,
-      "docket_number": "25-1103",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1103.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Separation-of-powers limits on discovery against Executive Office advisory bodies, and whether FOIA reaches DOGE; a discovery-posture dispute, but one the Court has already intervened in once and that governs future FOIA suits against presidential advisers.",
-              "big_case_score": 0.62,
-              "cell_path": "data/cases/scotus/73281386/events/evt-petition-disposition/predictions/claude-baseline/20260916T170237Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281386/events/evt-petition-disposition/predictions/claude-baseline/20260916T170237Z",
-              "confidence": 0.55,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "claude-baseline",
-              "probability": 0.6,
-              "run_id": "20260916T170237Z"
-            },
-            {
-              "big_case_rationale": "Discovery into a presidential advisory body's independent authority implicates executive confidentiality, FOIA accountability, and oversight of government-wide DOGE activity; the immediate dispute is narrower than a final ruling on FOIA coverage.",
-              "big_case_score": 0.86,
-              "cell_path": "data/cases/scotus/73281386/events/evt-petition-disposition/predictions/codex-baseline/20260916T170237Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281386/events/evt-petition-disposition/predictions/codex-baseline/20260916T170237Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "codex-baseline",
-              "probability": 0.72,
-              "run_id": "20260916T170237Z"
-            },
-            {
-              "big_case_rationale": "High-profile separation of powers dispute involving the Executive Office of the President and Elon Musk, concerning FOIA discovery.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/73281386/events/evt-petition-disposition/predictions/gemini-baseline/20260916T170237Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281386/events/evt-petition-disposition/predictions/gemini-baseline/20260916T170237Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "summary-reversal",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.95,
-              "run_id": "20260916T170237Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "U.S. Doge Service, et al. v. United States District Court for the District of Columbia, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.81,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-03-20",
-      "n": 3,
-      "other_party": "United States District Court",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up the U.S. Doge Service's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "The U.S. Doge Service's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.95,
-      "score_min": 0.62,
-      "score_range": 0.33,
-      "short_caption": "U.S. Doge Service v. United States District Court",
       "status": "pending"
     },
     {
@@ -6113,6 +6163,177 @@
       "score_range": 0.15,
       "short_caption": "Johnson v. Fleming",
       "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "U.S. DOGE Service",
+      "caption": "U.S. DOGE Service, et al. v. United States District Court for the District of Columbia, et al.",
+      "caption_event_id": "evt-order-judgment",
+      "case_id": "scotus/73281386",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Executive-privilege / separation-of-powers limits on discovery against an EOP advisory body, and the FOIA 'agency' test for presidential units; high-profile entity (DOGE), but the posture is an interlocutory mandamus over discovery scope, not a FOIA merits ruling.",
+          "big_case_score": 0.6,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261013T174813Z"
+        },
+        {
+          "big_case_rationale": "The dispute concerns public access to DOGE records and judicial discovery into presidential advisory bodies. Its separation-of-powers and FOIA implications reach beyond these litigants, although the immediate judgment concerns discovery and mandamus rather than a final ruling on disclosure.",
+          "big_case_score": 0.82,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261013T174813Z"
+        },
+        {
+          "big_case_rationale": "High-stakes separation of powers case involving a prominent new Executive Office advisory body (DOGE) and FOIA.",
+          "big_case_score": 0.9,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261013T174813Z"
+        }
+      ],
+      "docket_id": 73281386,
+      "docket_number": "25-1103",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1103.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Executive-privilege / separation-of-powers limits on discovery against an EOP advisory body, and the FOIA 'agency' test for presidential units; high-profile entity (DOGE), but the posture is an interlocutory mandamus over discovery scope, not a FOIA merits ruling.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73281386/events/evt-order-judgment/predictions/claude-baseline/20261013T174813Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281386/events/evt-order-judgment/predictions/claude-baseline/20261013T174813Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.84,
+              "run_id": "20261013T174813Z"
+            },
+            {
+              "big_case_rationale": "The dispute concerns public access to DOGE records and judicial discovery into presidential advisory bodies. Its separation-of-powers and FOIA implications reach beyond these litigants, although the immediate judgment concerns discovery and mandamus rather than a final ruling on disclosure.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/73281386/events/evt-order-judgment/predictions/codex-baseline/20261013T174813Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281386/events/evt-order-judgment/predictions/codex-baseline/20261013T174813Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.84,
+              "run_id": "20261013T174813Z"
+            },
+            {
+              "big_case_rationale": "High-stakes separation of powers case involving a prominent new Executive Office advisory body (DOGE) and FOIA.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/73281386/events/evt-order-judgment/predictions/gemini-baseline/20261013T174813Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281386/events/evt-order-judgment/predictions/gemini-baseline/20261013T174813Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261013T174813Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "U.S. DOGE Service, et al. v. United States District Court for the District of Columbia, et al."
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Separation-of-powers limits on discovery against Executive Office advisory bodies, and whether FOIA reaches DOGE; a discovery-posture dispute, but one the Court has already intervened in once and that governs future FOIA suits against presidential advisers.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/73281386/events/evt-petition-disposition/predictions/claude-baseline/20260916T170237Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281386/events/evt-petition-disposition/predictions/claude-baseline/20260916T170237Z",
+              "confidence": 0.55,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.6,
+              "run_id": "20260916T170237Z"
+            },
+            {
+              "big_case_rationale": "Discovery into a presidential advisory body's independent authority implicates executive confidentiality, FOIA accountability, and oversight of government-wide DOGE activity; the immediate dispute is narrower than a final ruling on FOIA coverage.",
+              "big_case_score": 0.86,
+              "cell_path": "data/cases/scotus/73281386/events/evt-petition-disposition/predictions/codex-baseline/20260916T170237Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281386/events/evt-petition-disposition/predictions/codex-baseline/20260916T170237Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.72,
+              "run_id": "20260916T170237Z"
+            },
+            {
+              "big_case_rationale": "High-profile separation of powers dispute involving the Executive Office of the President and Elon Musk, concerning FOIA discovery.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/73281386/events/evt-petition-disposition/predictions/gemini-baseline/20260916T170237Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281386/events/evt-petition-disposition/predictions/gemini-baseline/20260916T170237Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "summary-reversal",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.95,
+              "run_id": "20260916T170237Z"
+            }
+          ],
+          "resolved_at": "2026-10-13",
+          "title": "U.S. DOGE Service, et al. v. United States District Court for the District of Columbia, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7733,
+      "moment": "evt-order-judgment",
+      "moment_opened_at": "2026-10-13",
+      "n": 3,
+      "other_party": "United States District Court",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "The U.S. DOGE Service wins in the Court; the lower court's decision is overturned, and any remaining issues go back to it.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "The United States District Court wins in the Court; the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to it, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "score_max": 0.9,
+      "score_min": 0.6,
+      "score_range": 0.3,
+      "short_caption": "U.S. DOGE Service v. United States District Court",
+      "status": "partly_resolved"
     },
     {
       "asking_declined": null,
@@ -12914,6 +13135,227 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Jouppi",
+      "caption": "Kenneth J. Jouppi v. Alaska",
+      "caption_event_id": "evt-brief-judgment",
+      "case_id": "scotus/73275187",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "First merits look at how Bajakajian's gravity prong is measured since Timbs incorporated the Clause; reaches every mandatory instrumentality forfeiture, with a broad cross-ideological amicus field, but the posture is a single misdemeanor forfeiture.",
+          "big_case_score": 0.55,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261012T143556Z"
+        },
+        {
+          "big_case_rationale": "The treatment of individualized culpability in punitive forfeiture could affect property owners nationwide, although the immediate dispute concerns one aircraft and a specialized alcohol-importation law.",
+          "big_case_score": 0.66,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261012T143556Z"
+        },
+        {
+          "big_case_rationale": null,
+          "big_case_score": 0.65,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261013T143156Z"
+        }
+      ],
+      "docket_id": 73275187,
+      "docket_number": "25-246",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-246.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "First merits look at how Bajakajian's gravity prong is measured since Timbs incorporated the Clause; reaches every mandatory instrumentality forfeiture, with a broad cross-ideological amicus field, but the posture is a single misdemeanor forfeiture.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73275187/events/evt-brief-judgment/predictions/claude-baseline/20261012T143556Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-brief-judgment/predictions/claude-baseline/20261012T143556Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.8,
+              "run_id": "20261012T143556Z"
+            },
+            {
+              "big_case_rationale": "The treatment of individualized culpability in punitive forfeiture could affect property owners nationwide, although the immediate dispute concerns one aircraft and a specialized alcohol-importation law.",
+              "big_case_score": 0.66,
+              "cell_path": "data/cases/scotus/73275187/events/evt-brief-judgment/predictions/codex-baseline/20261012T143556Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-brief-judgment/predictions/codex-baseline/20261012T143556Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.8,
+              "run_id": "20261012T143556Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/73275187/events/evt-brief-judgment/predictions/gemini-baseline/20261013T143156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-brief-judgment/predictions/gemini-baseline/20261013T143156Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261013T143156Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kenneth J. Jouppi v. Alaska"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "First merits examination of the Excessive Fines Clause excessiveness standard since Bajakajian (1998); governs fines and forfeitures nationwide amid heavy state/local revenue reliance; vivid facts ($95,000 plane forfeited over a six-pack) with broad press coverage and an Institute for Justice litigation campaign behind it.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73275187/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The case can set a nationwide rule for how courts measure offense gravity under the Excessive Fines Clause, with consequences for punitive forfeitures beyond this unusual airplane seizure.",
+              "big_case_score": 0.76,
+              "cell_path": "data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.72,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "Clarifies the standard of review for Excessive Fines Clause proportionality but largely reaffirms principles from Timbs and Bajakajian without sweeping doctrinal shifts.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73275187/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kenneth J. Jouppi v. Alaska"
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "An IJ-litigated vehicle to set the nationwide Excessive Fines Clause excessiveness standard (open since Bajakajian, 1998), with vivid plane-for-a-six-pack facts and broad fines/forfeiture-policy stakes, though the QP itself is methodological and fairly narrow.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73275187/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": null,
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.35,
+              "run_id": "20260717T180352Z"
+            },
+            {
+              "big_case_rationale": "The petition presents a nationally important Excessive Fines rule with substantial forfeiture consequences, though in a factually unusual criminal-aircraft setting.",
+              "big_case_score": 0.67,
+              "cell_path": "data/cases/scotus/73275187/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
+              "confidence": 0.64,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": null,
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.29,
+              "run_id": "20260717T214313Z"
+            },
+            {
+              "big_case_rationale": "Notable Excessive Fines civil forfeiture case attracting high-profile amici (including Cato and Tyson Timbs) challenging the level of abstraction for evaluating offense gravity.",
+              "big_case_score": 0.75,
+              "cell_path": "data/cases/scotus/73275187/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": null,
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.15,
+              "run_id": "20260717T180352Z"
+            }
+          ],
+          "resolved_at": "2026-07-20",
+          "title": "Kenneth J. Jouppi v. Alaska"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.62,
+      "moment": "evt-brief-judgment",
+      "moment_opened_at": "2026-10-05",
+      "n": 3,
+      "other_party": "Alaska",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Jouppi wins in the Court; the lower court's decision is overturned, and any remaining issues go back to it.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Alaska wins in the Court; the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to it, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "score_max": 0.66,
+      "score_min": 0.55,
+      "score_range": 0.11,
+      "short_caption": "Jouppi v. Alaska",
+      "status": "partly_resolved"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Pena",
       "caption": "Carlos Pena v. City of Los Angeles, California",
       "caption_event_id": "evt-petition-disposition",
@@ -13687,204 +14129,6 @@
       "status": "pending"
     },
     {
-      "asking_declined": null,
-      "asking_party": "Jouppi",
-      "caption": "Kenneth J. Jouppi v. Alaska",
-      "caption_event_id": "evt-brief-judgment",
-      "case_id": "scotus/73275187",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "First merits look at how Bajakajian's gravity prong is measured since Timbs incorporated the Clause; reaches every mandatory instrumentality forfeiture, with a broad cross-ideological amicus field, but the posture is a single misdemeanor forfeiture.",
-          "big_case_score": 0.55,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261012T143556Z"
-        },
-        {
-          "big_case_rationale": "The treatment of individualized culpability in punitive forfeiture could affect property owners nationwide, although the immediate dispute concerns one aircraft and a specialized alcohol-importation law.",
-          "big_case_score": 0.66,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261012T143556Z"
-        }
-      ],
-      "docket_id": 73275187,
-      "docket_number": "25-246",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-246.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "First merits look at how Bajakajian's gravity prong is measured since Timbs incorporated the Clause; reaches every mandatory instrumentality forfeiture, with a broad cross-ideological amicus field, but the posture is a single misdemeanor forfeiture.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/73275187/events/evt-brief-judgment/predictions/claude-baseline/20261012T143556Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-brief-judgment/predictions/claude-baseline/20261012T143556Z",
-              "confidence": 0.6,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.8,
-              "run_id": "20261012T143556Z"
-            },
-            {
-              "big_case_rationale": "The treatment of individualized culpability in punitive forfeiture could affect property owners nationwide, although the immediate dispute concerns one aircraft and a specialized alcohol-importation law.",
-              "big_case_score": 0.66,
-              "cell_path": "data/cases/scotus/73275187/events/evt-brief-judgment/predictions/codex-baseline/20261012T143556Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-brief-judgment/predictions/codex-baseline/20261012T143556Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.8,
-              "run_id": "20261012T143556Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Kenneth J. Jouppi v. Alaska"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "First merits examination of the Excessive Fines Clause excessiveness standard since Bajakajian (1998); governs fines and forfeitures nationwide amid heavy state/local revenue reliance; vivid facts ($95,000 plane forfeited over a six-pack) with broad press coverage and an Institute for Justice litigation campaign behind it.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73275187/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.6,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The case can set a nationwide rule for how courts measure offense gravity under the Excessive Fines Clause, with consequences for punitive forfeitures beyond this unusual airplane seizure.",
-              "big_case_score": 0.76,
-              "cell_path": "data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.72,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "Clarifies the standard of review for Excessive Fines Clause proportionality but largely reaffirms principles from Timbs and Bajakajian without sweeping doctrinal shifts.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73275187/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Kenneth J. Jouppi v. Alaska"
-        },
-        {
-          "actual_disposition": "granted",
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "An IJ-litigated vehicle to set the nationwide Excessive Fines Clause excessiveness standard (open since Bajakajian, 1998), with vivid plane-for-a-six-pack facts and broad fines/forfeiture-policy stakes, though the QP itself is methodological and fairly narrow.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73275187/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.35,
-              "run_id": "20260717T180352Z"
-            },
-            {
-              "big_case_rationale": "The petition presents a nationally important Excessive Fines rule with substantial forfeiture consequences, though in a factually unusual criminal-aircraft setting.",
-              "big_case_score": 0.67,
-              "cell_path": "data/cases/scotus/73275187/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
-              "confidence": 0.64,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.29,
-              "run_id": "20260717T214313Z"
-            },
-            {
-              "big_case_rationale": "Notable Excessive Fines civil forfeiture case attracting high-profile amici (including Cato and Tyson Timbs) challenging the level of abstraction for evaluating offense gravity.",
-              "big_case_score": 0.75,
-              "cell_path": "data/cases/scotus/73275187/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.15,
-              "run_id": "20260717T180352Z"
-            }
-          ],
-          "resolved_at": "2026-07-20",
-          "title": "Kenneth J. Jouppi v. Alaska"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.605,
-      "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-10-05",
-      "n": 2,
-      "other_party": "Alaska",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Jouppi wins in the Court; the lower court's decision is overturned, and any remaining issues go back to it.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "Alaska wins in the Court; the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to it, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "score_max": 0.66,
-      "score_min": 0.55,
-      "score_range": 0.11,
-      "short_caption": "Jouppi v. Alaska",
-      "status": "partly_resolved"
-    },
-    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "The Coalition for Fairness in SoHo and NoHo, Inc., et al. v. City of New York, New York, et al.",
@@ -13926,7 +14170,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1187.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -13972,7 +14216,7 @@
               "run_id": "20260918T174135Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "The Coalition for Fairness in SoHo and NoHo, Inc., et al. v. City of New York, New York, et al."
         }
       ],
@@ -13987,7 +14231,7 @@
       "score_min": 0.55,
       "score_range": 0.1,
       "short_caption": null,
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -14771,7 +15015,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-882.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -14817,7 +15061,7 @@
               "run_id": "20260916T170237Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Andrew D. Parker, et al. v. Bill Gates, as a Member of the Maricopa County Board of Supervisors, et al."
         }
       ],
@@ -14843,7 +15087,7 @@
       "score_min": 0.4,
       "score_range": 0.3,
       "short_caption": "Parker v. Gates",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -15854,7 +16098,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-45.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -15900,7 +16144,7 @@
               "run_id": "20261004T180949Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Jeffrey Moats v. National Credit Union Administration Board, a Federal Administrative Agency, et al."
         }
       ],
@@ -15926,7 +16170,7 @@
       "score_min": 0.45,
       "score_range": 0.23,
       "short_caption": "Moats v. National Credit Union Administration Board",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -17249,6 +17493,122 @@
       "score_range": 0.3,
       "short_caption": "Nexstar Media Group v. DirecTV",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Moore",
+      "caption": "Donovan Moore, et al. v. Ashly Romero, as Personal Representative for the Estate of Stephen Romero, Deceased, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73369985",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A fact-bound qualified-immunity / deadly-force case at the pleading stage; meaningful for police-use-of-force doctrine after Barnes v. Felix and for the video-at-12(b)(6) question, but unlikely to produce a broad new rule.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261013T174813Z"
+        },
+        {
+          "big_case_rationale": "A fatal police shooting with potential nationwide implications for qualified immunity at the pleading stage when body-camera evidence exists. Important to police accountability and officer litigation exposure, but a narrow, fact-specific disposition is more likely than a wholesale doctrinal change.",
+          "big_case_score": 0.57,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261013T174813Z"
+        },
+        {
+          "big_case_rationale": "High stakes due to the frequent issue of police use-of-force, qualified immunity, and body camera evidence, especially post-Barnes v. Felix.",
+          "big_case_score": 0.7,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261013T174813Z"
+        }
+      ],
+      "docket_id": 73369985,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A fact-bound qualified-immunity / deadly-force case at the pleading stage; meaningful for police-use-of-force doctrine after Barnes v. Felix and for the video-at-12(b)(6) question, but unlikely to produce a broad new rule.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73369985/events/evt-petition-disposition/predictions/claude-baseline/20261013T174813Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73369985/events/evt-petition-disposition/predictions/claude-baseline/20261013T174813Z",
+              "confidence": 0.45,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "summary-reversal",
+              "predictor_id": "claude-baseline",
+              "probability": 0.5,
+              "run_id": "20261013T174813Z"
+            },
+            {
+              "big_case_rationale": "A fatal police shooting with potential nationwide implications for qualified immunity at the pleading stage when body-camera evidence exists. Important to police accountability and officer litigation exposure, but a narrow, fact-specific disposition is more likely than a wholesale doctrinal change.",
+              "big_case_score": 0.57,
+              "cell_path": "data/cases/scotus/73369985/events/evt-petition-disposition/predictions/codex-baseline/20261013T174813Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73369985/events/evt-petition-disposition/predictions/codex-baseline/20261013T174813Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "summary-reversal",
+              "predictor_id": "codex-baseline",
+              "probability": 0.58,
+              "run_id": "20261013T174813Z"
+            },
+            {
+              "big_case_rationale": "High stakes due to the frequent issue of police use-of-force, qualified immunity, and body camera evidence, especially post-Barnes v. Felix.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/73369985/events/evt-petition-disposition/predictions/gemini-baseline/20261013T174813Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73369985/events/evt-petition-disposition/predictions/gemini-baseline/20261013T174813Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.45,
+              "run_id": "20261013T174813Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Donovan Moore, et al. v. Ashly Romero, as Personal Representative for the Estate of Stephen Romero, Deceased, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.54,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-05-20",
+      "n": 3,
+      "other_party": "Romero",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Moore's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Moore's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.7,
+      "score_min": 0.35,
+      "score_range": 0.35,
+      "short_caption": "Moore v. Romero",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -19275,7 +19635,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-590.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-order-cvsg-disposition",
           "reads": [
             {
@@ -19321,11 +19681,11 @@
               "run_id": "20260918T195102Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Jerry Aldridge, et al. v. Regions Bank"
         },
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -19371,7 +19731,7 @@
               "run_id": "20260918T195102Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Jerry Aldridge, et al. v. Regions Bank"
         }
       ],
@@ -19397,7 +19757,7 @@
       "score_min": 0.35,
       "score_range": 0.23,
       "short_caption": "Aldridge v. Regions Bank",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -22340,6 +22700,122 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Hanaway",
+      "caption": "Catherine L. Hanaway, in Her Official Capacity as Attorney General of Missouri, et al. v. Thomas L. Sanderson",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000034",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A narrow Halloween sign mandate with little practical reach, but a grant would be the Court's vehicle for the compelled-speech line between factual disclosures and Wooley-type messages, and 17 States are pressing it.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261013T174813Z"
+        },
+        {
+          "big_case_rationale": "A salient compelled-speech dispute over Halloween notices at sex offenders' homes, with multistate support and potential implications for factual-disclosure rules, but a narrow challenged provision and substantial distinctions from ordinary registries.",
+          "big_case_score": 0.5,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261013T174813Z"
+        },
+        {
+          "big_case_rationale": null,
+          "big_case_score": 0.4,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261013T174813Z"
+        }
+      ],
+      "docket_id": 9026000034,
+      "docket_number": "26-34",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-34.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A narrow Halloween sign mandate with little practical reach, but a grant would be the Court's vehicle for the compelled-speech line between factual disclosures and Wooley-type messages, and 17 States are pressing it.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000034/events/evt-petition-disposition/predictions/claude-baseline/20261013T174813Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000034/events/evt-petition-disposition/predictions/claude-baseline/20261013T174813Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.25,
+              "run_id": "20261013T174813Z"
+            },
+            {
+              "big_case_rationale": "A salient compelled-speech dispute over Halloween notices at sex offenders' homes, with multistate support and potential implications for factual-disclosure rules, but a narrow challenged provision and substantial distinctions from ordinary registries.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/9026000034/events/evt-petition-disposition/predictions/codex-baseline/20261013T174813Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000034/events/evt-petition-disposition/predictions/codex-baseline/20261013T174813Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261013T174813Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/9026000034/events/evt-petition-disposition/predictions/gemini-baseline/20261013T174813Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000034/events/evt-petition-disposition/predictions/gemini-baseline/20261013T174813Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.45,
+              "run_id": "20261013T174813Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Catherine L. Hanaway, in Her Official Capacity as Attorney General of Missouri, et al. v. Thomas L. Sanderson"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-08",
+      "n": 3,
+      "other_party": "Sanderson",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Hanaway's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Hanaway's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.5,
+      "score_min": 0.3,
+      "score_range": 0.2,
+      "short_caption": "Hanaway v. Sanderson",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Birks",
       "caption": "Donna Birks v. Clemente Javier Aguirre-Jarquin",
       "caption_event_id": "evt-petition-disposition",
@@ -22728,7 +23204,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1062.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -22774,7 +23250,7 @@
               "run_id": "20260916T170237Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Jessica Pitts, Officer, et al. v. Taylor Burke, as Special Administrator of the Estate of Thomas Gay, Deceased"
         }
       ],
@@ -22800,7 +23276,7 @@
       "score_min": 0.3,
       "score_range": 0.16,
       "short_caption": "Pitts v. Burke",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": "short_form",
@@ -25494,122 +25970,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Rahdar",
-      "caption": "Fred Rahdar, et al. v. City of Friendswood, Texas, et al.",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000241",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Colorful First Amendment retaliation facts (billboard critic of a police chief, five arrests), but the QP is a narrow application question about Gonzalez v. Trevino's objective-evidence standard from an unpublished opinion; modest stakes beyond the parties unless granted.",
-          "big_case_score": 0.15,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260825T172743Z"
-        },
-        {
-          "big_case_rationale": "A ruling could clarify evidence for retaliatory-arrest claims nationally, but this petition presents the issue through a narrow, fact-heavy dispute.",
-          "big_case_score": 0.48,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260825T172743Z"
-        },
-        {
-          "big_case_rationale": "First Amendment retaliatory arrest case applying a recently decided Supreme Court standard.",
-          "big_case_score": 0.3,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260825T172743Z"
-        }
-      ],
-      "docket_id": 9026000241,
-      "docket_number": "26-241",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-241.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Colorful First Amendment retaliation facts (billboard critic of a police chief, five arrests), but the QP is a narrow application question about Gonzalez v. Trevino's objective-evidence standard from an unpublished opinion; modest stakes beyond the parties unless granted.",
-              "big_case_score": 0.15,
-              "cell_path": "data/cases/scotus/9026000241/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260825T172743Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000241/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260825T172743Z",
-              "confidence": 0.6,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.025,
-              "run_id": "20260825T172743Z"
-            },
-            {
-              "big_case_rationale": "A ruling could clarify evidence for retaliatory-arrest claims nationally, but this petition presents the issue through a narrow, fact-heavy dispute.",
-              "big_case_score": 0.48,
-              "cell_path": "data/cases/scotus/9026000241/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260825T172743Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000241/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260825T172743Z",
-              "confidence": 0.78,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.018,
-              "run_id": "20260825T172743Z"
-            },
-            {
-              "big_case_rationale": "First Amendment retaliatory arrest case applying a recently decided Supreme Court standard.",
-              "big_case_score": 0.3,
-              "cell_path": "data/cases/scotus/9026000241/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260825T172743Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000241/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260825T172743Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.065,
-              "run_id": "20260825T172743Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Fred Rahdar, et al. v. City of Friendswood, Texas, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.31,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-08-25",
-      "n": 3,
-      "other_party": "City of Friendswood",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Rahdar's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Rahdar's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.48,
-      "score_min": 0.15,
-      "score_range": 0.33,
-      "short_caption": "Rahdar v. City of Friendswood",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Donnie Ray Pearson",
       "caption": "Donnie Ray Pearson v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division",
       "caption_event_id": "evt-petition-disposition",
@@ -25766,7 +26126,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-221.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-arrival-disposition",
           "reads": [
             {
@@ -25812,11 +26172,11 @@
               "run_id": "20260820T231432Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Mara Nathan, Individually and on Behalf of Her Minor Child, M. N., et al. v. Alamo Heights Independent School District, et al."
         },
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -25862,7 +26222,7 @@
               "run_id": "20261005T153213Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Theodore James Purdy v. Kansas"
         }
       ],
@@ -25888,7 +26248,7 @@
       "score_min": 0.2,
       "score_range": 0.22,
       "short_caption": "Theodore James Purdy v. Kansas",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -26048,7 +26408,7 @@
       "docket_url": null,
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -26094,7 +26454,7 @@
               "run_id": "20261003T200236Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Abrahim Mohamed Fofana v. Markwayne Mullin, Secretary, Department of Homeland Security, et al."
         }
       ],
@@ -26120,7 +26480,7 @@
       "score_min": 0.1,
       "score_range": 0.35,
       "short_caption": "Abrahim Mohamed Fofana v. Mullin",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -26164,7 +26524,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-139.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "gvr",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -26210,7 +26570,7 @@
               "run_id": "20260927T182226Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Monsanto Company v. Mike Dennis"
         }
       ],
@@ -26236,7 +26596,7 @@
       "score_min": 0.1,
       "score_range": 0.38,
       "short_caption": "Monsanto v. Dennis",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -28119,6 +28479,172 @@
       "score_min": 0.15,
       "score_range": 0.25,
       "short_caption": "Mike Singh Sethi v. United States Court of Appeals",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Rahdar",
+      "caption": "Fred Rahdar, et al. v. City of Friendswood, Texas, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000241",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Fact-bound, unpublished Fifth Circuit section 1983 retaliatory-arrest dispute decided on forfeiture; the Nieves/Gonzalez question is recurring but this case does not present it cleanly.",
+          "big_case_score": 0.08,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261013T143156Z"
+        },
+        {
+          "big_case_rationale": "The boundary of First Amendment retaliatory-arrest liability has national civil-rights significance, but this unpublished, fact-intensive dispute has substantial preservation obstacles and principally seeks application of existing precedent.",
+          "big_case_score": 0.38,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261013T143156Z"
+        },
+        {
+          "big_case_rationale": "Routine retaliatory arrest case with no major national implications.",
+          "big_case_score": null,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261013T143156Z"
+        }
+      ],
+      "docket_id": 9026000241,
+      "docket_number": "26-241",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-241.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Colorful First Amendment retaliation facts (billboard critic of a police chief, five arrests), but the QP is a narrow application question about Gonzalez v. Trevino's objective-evidence standard from an unpublished opinion; modest stakes beyond the parties unless granted.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000241/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260825T172743Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000241/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260825T172743Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.025,
+              "run_id": "20260825T172743Z"
+            },
+            {
+              "big_case_rationale": "A ruling could clarify evidence for retaliatory-arrest claims nationally, but this petition presents the issue through a narrow, fact-heavy dispute.",
+              "big_case_score": 0.48,
+              "cell_path": "data/cases/scotus/9026000241/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260825T172743Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000241/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260825T172743Z",
+              "confidence": 0.78,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.018,
+              "run_id": "20260825T172743Z"
+            },
+            {
+              "big_case_rationale": "First Amendment retaliatory arrest case applying a recently decided Supreme Court standard.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000241/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260825T172743Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000241/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260825T172743Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.065,
+              "run_id": "20260825T172743Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Fred Rahdar, et al. v. City of Friendswood, Texas, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fact-bound, unpublished Fifth Circuit section 1983 retaliatory-arrest dispute decided on forfeiture; the Nieves/Gonzalez question is recurring but this case does not present it cleanly.",
+              "big_case_score": 0.08,
+              "cell_path": "data/cases/scotus/9026000241/events/evt-petition-disposition/predictions/claude-baseline/20261013T143156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000241/events/evt-petition-disposition/predictions/claude-baseline/20261013T143156Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.005,
+              "run_id": "20261013T143156Z"
+            },
+            {
+              "big_case_rationale": "The boundary of First Amendment retaliatory-arrest liability has national civil-rights significance, but this unpublished, fact-intensive dispute has substantial preservation obstacles and principally seeks application of existing precedent.",
+              "big_case_score": 0.38,
+              "cell_path": "data/cases/scotus/9026000241/events/evt-petition-disposition/predictions/codex-baseline/20261013T143156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000241/events/evt-petition-disposition/predictions/codex-baseline/20261013T143156Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.012,
+              "run_id": "20261013T143156Z"
+            },
+            {
+              "big_case_rationale": "Routine retaliatory arrest case with no major national implications.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9026000241/events/evt-petition-disposition/predictions/gemini-baseline/20261013T143156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000241/events/evt-petition-disposition/predictions/gemini-baseline/20261013T143156Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.001,
+              "run_id": "20261013T143156Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Fred Rahdar, et al. v. City of Friendswood, Texas, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.23,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-08-25",
+      "n": 2,
+      "other_party": "City of Friendswood",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Rahdar's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Rahdar's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.38,
+      "score_min": 0.08,
+      "score_range": 0.3,
+      "short_caption": "Rahdar v. City of Friendswood",
       "status": "pending"
     },
     {
@@ -30588,7 +31114,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-337.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-arrival-disposition",
           "reads": [
             {
@@ -30634,11 +31160,11 @@
               "run_id": "20260927T182226Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Denise J. Child v. Unum Life Insurance Company of America"
         },
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -30684,7 +31210,7 @@
               "run_id": "20260927T182226Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Denise J. Child v. Unum Life Insurance Company of America"
         }
       ],
@@ -30710,7 +31236,7 @@
       "score_min": 0.05,
       "score_range": 0.27,
       "short_caption": "Child v. Unum Life Insurance Company of America",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -31135,6 +31661,15 @@
           "predictor_id": "codex-baseline",
           "process_window": null,
           "run_id": "20261012T143556Z"
+        },
+        {
+          "big_case_rationale": "Routine discovery sanction dispute in a private civil case; no broader public significance.",
+          "big_case_score": null,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261013T143156Z"
         }
       ],
       "docket_id": 9026000087,
@@ -31173,6 +31708,20 @@
               "predictor_id": "codex-baseline",
               "probability": 0.008,
               "run_id": "20261012T143556Z"
+            },
+            {
+              "big_case_rationale": "Routine discovery sanction dispute in a private civil case; no broader public significance.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9026000087/events/evt-petition-disposition/predictions/gemini-baseline/20261013T143156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000087/events/evt-petition-disposition/predictions/gemini-baseline/20261013T143156Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.012,
+              "run_id": "20261013T143156Z"
             }
           ],
           "resolved_at": null,
@@ -31245,7 +31794,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-6.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -31291,7 +31840,7 @@
               "run_id": "20261004T180949Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Jerry Merritt v. Texas Farm Bureau, et al."
         }
       ],
@@ -31317,7 +31866,7 @@
       "score_min": 0.05,
       "score_range": 0.25,
       "short_caption": "Merritt v. Texas Farm Bureau",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -32908,7 +33457,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-27.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -32954,7 +33503,7 @@
               "run_id": "20261004T180949Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Rachel E. Goodley v. Supreme Rice, L.L.C., et al."
         }
       ],
@@ -32980,7 +33529,7 @@
       "score_min": 0.05,
       "score_range": 0.15,
       "short_caption": "Goodley v. Supreme Rice",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -35030,7 +35579,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-152.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -35076,7 +35625,7 @@
               "run_id": "20261004T180949Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-13",
           "title": "Dora L. Adkins v. Rosslyn Syndicate, LC"
         }
       ],
@@ -35102,7 +35651,7 @@
       "score_min": 0.01,
       "score_range": 0.12,
       "short_caption": "Adkins v. Syndicate",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -36234,5 +36783,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.2",
-  "scored_reads": 825
+  "scored_reads": 834
 }
