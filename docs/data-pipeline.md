@@ -1163,6 +1163,13 @@ or network.
   widened predicate rather than a backlog. Each
   is gated on the dedupe's success, the prerequisite run-repair holds the same
   passes to, so each reads merged rows rather than one half of a twin pair.
+  Beside the walk, in three jobs of its own, the same window runs the
+  **order-list vote sweep** (`fedcourts stamp-order-votes --from-plan --sweep
+  --apply` in its writer), the `order-votes` pass's credential split run on a
+  schedule: it fetches the Court's orders, so it stays out of the job holding
+  the read-write role, and it stamps settled orders onto committed outcomes
+  under the `historical.sweep_caps.order_votes` cap and ceiling (see
+  *[Maintenance passes](#maintenance-passes)*).
   Dedupe
   first, so the latch pass weighs deduped rows; the event mint immediately
   after the judgment backfill, so pendency is judged on judgment columns as
@@ -1350,6 +1357,16 @@ at a per-window cap and refused only above a class ceiling rather than above a
 maintainer's bound (*[Historical — the Term walker](#historical--the-term-walker)*). The
 pass here is the route for a maintainer-read apply of a whole class in one
 dispatch, under the refusing bound.
+
+A fourth is both too, and differs in where it runs: `order-votes` fetches and
+parses the Court's order documents and writes committed `outcome.json` files,
+not the index, and the Court issues orders every week, so its class never stays
+drained. run-seed's daily window runs it beside the walk as the same
+three-job credential split this workflow uses (below), with the writer in
+`--sweep` mode: at most `historical.sweep_caps.order_votes` new records a
+window, oldest order date first, and a class above `order_votes_ceiling`
+refused whole. The sweep never replaces a record; `replace-differing` stays a
+maintainer's call on this pass.
 
 **One pass per dispatch, dry-run first.** `repair` is a single choice, so no
 two passes can arm each other, which makes the documented procedure structural
@@ -1859,7 +1876,9 @@ gh workflow run run-repair.yml --ref main \
 # Re-dispatching in `dry-run` after the apply is the control: every stamped
 # outcome must count as already carrying its record, and `would stamp` may
 # name only outcomes committed since the apply or, on `order-votes`, order
-# dates that crossed the 7-day settling window since. `replace-differing` (in repair_options) is only for an outcome whose
+# dates that crossed the 7-day settling window since — and run-seed's daily
+# sweep stamps those on its own, so a later control can read 0 with no apply
+# between. `replace-differing` (in repair_options) is only for an outcome whose
 # existing record the ledger lists as held back and the maintainer has read.
 gh workflow run run-repair.yml --ref main \
   -f repair=order-votes -f repair_mode=dry-run

@@ -139,12 +139,19 @@ def test_the_fill_sweeps_run_after_the_dedupe_and_before_the_verdict() -> None:
         assert dedupe < names.index(name) < verdict, name
 
 
+#: The caps read outside the `seed` job: the order-list vote sweep fetches the
+#: Court's documents, so it runs as its own credential-split jobs beside the walk
+#: (pinned in `tests/test_workflow_seed_order_votes.py`).
+SPLIT_SWEEP_CAPS = frozenset({"order_votes"})
+
+
 def test_every_configured_cap_has_exactly_one_sweep() -> None:
     """A cap with no step reading it is a knob that does nothing; a step whose
     cap is missing would fail every window on a config load."""
     fields = set(SweepCapsConfig.model_fields)
     caps = {f for f in fields if not f.endswith("_ceiling")}
-    assert {cap for _, _, cap in FILL_SWEEPS} == caps
+    assert {cap for _, _, cap in FILL_SWEEPS} | SPLIT_SWEEP_CAPS == caps
+    assert not {cap for _, _, cap in FILL_SWEEPS} & SPLIT_SWEEP_CAPS
     # And every cap has the refusing ceiling beside it.
     assert {f"{cap}_ceiling" for cap in caps} == fields - caps
 
