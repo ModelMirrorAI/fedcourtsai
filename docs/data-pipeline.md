@@ -1733,23 +1733,23 @@ interim-docket series back to OT2017, and it runs one Term per dispatch.
   `--max-run-seconds` deadline), before its first write. So a cut-off reading
   lands nothing rather than half a Term.
 
-**The apply waits until after the long-conference release.** Its plan
-crosses from the parse job to the writer under the PII carve-out in
-[data-sources.md](data-sources.md) (*PII stance*). The statpack's
-interim section counts every application row and pools the parsed substantive
-ones into the interim base rate that interim cells anchor to and are scored
-against. A stub row counts as `unparsed`, so an apply moves OT2024's rows into
-the pool and moves the rate. The OT2024 move is pre-registered in
-`docs/freeze-record.md`. Only the dry run is dispatched before the release.
+**An apply moves a scored anchor.** Its plan crosses from the parse job to
+the writer under the PII carve-out in [data-sources.md](data-sources.md)
+(*PII stance*). The statpack's interim section counts every application row
+and pools the parsed substantive ones into the interim base rate that interim
+cells anchor to and are scored against. A stub row counts as `unparsed`, so an
+apply moves the Term's rows into the pool and moves the rate for every
+application Term whose lookback reaches it.
 
-**Each further Term is its own registration.** Every Term inside the
-base-rate lookback sits in the pool, and each earlier Term holds a thousand or
-more unparsed stubs, so each Term's apply moves the rate by its own amount. The
+**Each Term is its own registration.** Every Term inside the base-rate
+lookback sits in the pool, and each earlier Term holds a thousand or more
+unparsed stubs, so each Term's apply moves the rate by its own amount. The
 command therefore refuses an apply for any Term outside
 `REGISTERED_APPLY_TERMS` (`pipeline/application_backfill.py`), which holds
-OT2024 alone. A further Term joins that set in the same change that appends its
-own freeze-record entry, with a projection read off its dry run. Its dry run
-needs no registration, since reading moves nothing.
+OT2023 and OT2024, each pre-registered in `docs/freeze-record.md`. A further
+Term joins that set in the same change that appends its own freeze-record
+entry, with a projection read off its dry run. Its dry run needs no
+registration, since reading moves nothing.
 
 **Dispatching.** Dispatch on `main`, in a dead zone between the scheduled
 windows (`run-pull` at `:17` and `:47`, `run-seed` at `:31`). A *queued* repair
