@@ -1,0 +1,8 @@
+P(grant) 0.45. This case falls into the `high` salience band, which has an unconditional base rate (resolved) of approximately 35% for cases that reach this band, based on the pooled data from Terms 2017-2024. The case has already been distributed 3 times (2 relists). Petitions with 2 relists have a grant/GVR rate of roughly 41%. 
+
+Several case-specific factors suggest an even higher likelihood of Court intervention:
+1. Four amicus briefs were filed at the cert stage, which is a strong signal of broader impact and interest, significantly higher than the baseline for paid petitions.
+2. The case involves qualified immunity for law enforcement officers in an excessive force context (involving bodycam footage). This is a frequent area of summary reversal by the Supreme Court. The 6th Circuit apparently denied the officers' motion to dismiss, and the petitioners are directly asking the Court to address the standard of review at the pleading stage with video evidence.
+3. The petition also asks for clarification on the application of the very recent `Barnes v. Felix (2025)` decision regarding multiple instances of force. 
+
+While the 6th Circuit majority reportedly applied `Barnes` (making a GVR less likely), the Court may still be interested in either summarizing the application of `Barnes` or correcting the 6th Circuit's interpretation of qualified immunity. I adjust the grant probability up from the 35% base rate to 0.45, reflecting the high amicus interest and 2 relists, though I stop short of >0.5 because the Court denies the vast majority of petitions even with these signals.

@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000034",
+  "run_id": "20261013T174813Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and document text",
+    "committed statpack markdown and JSON",
+    "fedcourts paths",
+    "CourtListener MCP opinion citation search",
+    "web.run historical-precedent searches and PDF open attempt"
+  ],
+  "helpful": [
+    "The opposition and reply expose the disputed circuit split and alternative-ground vehicle issue.",
+    "The petition appendix retains the relevant lower-court rulings despite truncation of later material.",
+    "Exact state-band reached denominators in statpack JSON permit correct prior-Term pooling."
+  ],
+  "gaps": [
+    "Web calls returned no usable content in this run.",
+    "Published terminal relist/CVSG cuts do not provide conditional transition rates from the frozen state."
+  ],
+  "notes": "The default CLI cache directory was read-only; a temporary writable cache resolved it. The CourtListener search verified a historical precedent's metadata only. No current-case docket or disposition retrieval was attempted. The committed statpack's artifact vintage is stated separately from unverified underlying corpus freshness."
+}

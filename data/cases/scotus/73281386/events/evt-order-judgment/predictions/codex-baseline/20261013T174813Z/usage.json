@@ -1,0 +1,17 @@
+{
+  "actor_id": "codex-baseline",
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 2413622,
+  "case_id": "scotus/73281386",
+  "created_at": "2026-10-13T17:48:13Z",
+  "engine": "codex",
+  "estimated_cost_usd": 3.896252,
+  "event_id": "evt-order-judgment",
+  "input_tokens": 105383,
+  "model": "gpt-6-astra",
+  "output_tokens": 8576,
+  "pipeline_sha": "55479d1cf8f85007e3ba928c5cf799c606e854ed",
+  "role": "predictor",
+  "run_id": "20261013T174813Z",
+  "schema_version": "1.0"
+}

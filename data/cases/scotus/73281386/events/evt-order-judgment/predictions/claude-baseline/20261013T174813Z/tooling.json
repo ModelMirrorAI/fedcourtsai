@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/73281386",
+  "run_id": "20261013T174813Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md (merits docket section)",
+    "provisioned record/documents"
+  ],
+  "helpful": [
+    "Provisioned petition, BIO, and cert reply text",
+    "Merits-docket per-Term disturbed-rate table with excluded counts"
+  ],
+  "gaps": [
+    "No conditioned merits base rate (e.g. by petitioner class: SG-as-petitioner reversal rate) in the statpack"
+  ],
+  "notes": "Did not use fedcourts query or CourtListener MCP; the record and the statpack were sufficient for a grant-moment merits call."
+}

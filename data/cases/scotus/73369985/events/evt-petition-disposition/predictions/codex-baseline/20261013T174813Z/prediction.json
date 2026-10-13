@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "A fatal police shooting with potential nationwide implications for qualified immunity at the pleading stage when body-camera evidence exists. Important to police accountability and officer litigation exposure, but a narrow, fact-specific disposition is more likely than a wholesale doctrinal change.",
+  "big_case_score": 0.57,
+  "case_id": "scotus/73369985",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.58
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.62
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.015
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.8
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.25
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-13",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-13T17:56:57Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-10-13.json",
+  "judgment": null,
+  "model": "gpt-6-astra",
+  "predicted_disposition": "summary-reversal",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.58,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v9",
+    "pipeline_sha": "55479d1cf8f85007e3ba928c5cf799c606e854ed",
+    "stamped_at": "2026-10-13T18:00:19.096662Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261013T174813Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

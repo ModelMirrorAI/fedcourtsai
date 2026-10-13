@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73369985",
+  "gaps": [
+    "The appendix cap omits later rehearing dissents; separate complete opinion sections would help.",
+    "No body-camera video was reviewed, although competing interpretations of it are central.",
+    "Web calls returned no usable content; the MCP precedent path worked."
+  ],
+  "helpful": [
+    "Provisioned petition, BIO, reply, and panel opinion enabled an adversarial assessment of the cert vehicle.",
+    "Frozen sal-v4 high band and JSON reached denominators permitted exact prior-Term pooling.",
+    "CourtListener provided targeted general precedent without retrieving this case's outcome."
+  ],
+  "notes": "No corpus query was necessary. The default uv cache was read-only; a temporary writable cache allowed the required commands. Relist, CVSG, and denial-writing probabilities are judgmental because the statpack does not supply forward hazards for this exact state.",
+  "role": "predictor",
+  "run_id": "20261013T174813Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "fedcourts paths",
+    "CourtListener search",
+    "CourtListener read_document",
+    "CourtListener search_document",
+    "web.run",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

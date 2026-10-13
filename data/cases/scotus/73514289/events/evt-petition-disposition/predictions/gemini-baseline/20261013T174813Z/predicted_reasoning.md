@@ -1,0 +1,5 @@
+Distributed 3 times so far; expect one further relist before a decision on the petition. No CVSG is expected, as the Court has already considered the petition at 3 conferences without calling for the Solicitor General's views, and the issue is likely to be resolved based on the current record. 
+
+If granted, the Court would likely take both Questions Presented as written to address the intersection of Title VI hostile environment claims and the First Amendment, setting a clear standard for university liability regarding student protests. A summary disposition (GVR) is unlikely given the complexity of the First Amendment issues and the lack of a clear intervening decision, though not impossible if the Court chooses to remand for reconsideration of the "deliberate indifference" prong. 
+
+Should the Court deny review (the slightly more likely outcome due to vehicle problems), expect a strong dissent from denial by Justices Alito and/or Thomas, emphasizing the need for the Court to resolve the widespread circuit split and address the pressing issue of campus antisemitism.

@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73514289",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition is marked truncated and its first explicit appendix omission begins partway through page 37a of the lower-court opinion, removing the end of the alternative deliberate-indifference analysis central to vehicle quality. I used the retained pages and both parties' untruncated briefs, identified their competing accounts, and did not treat the omitted pages as independently reviewed. Preserving the complete appealed opinion ahead of other appendix items would help.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261013T174813Z",
+  "schema_version": "1.0"
+}
