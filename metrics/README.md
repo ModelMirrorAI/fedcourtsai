@@ -125,7 +125,13 @@ On the leaderboard and each of its stage blocks:
   `proc-v8` board the eight dated inside its cells all read 91 before and 6
   after for every engine, which is one split, not eight, and it coincides with
   when the cells were made (the six are the post-conference first forecasts),
-  so it separates no change's effect from prediction timing.
+  so it separates no change's effect from prediction timing;
+- each pooled entry (over its forward cells), and each engine in `paired`,
+  lists as `self_provisioning` its cells by whether their logs show a fetch of
+  a court filing outside the provisioned document set, and each paired figure
+  carries `common_record`, the paired events on which no engine's log shows
+  one (*What may be claimed from `self_provisioned_fetches`* below). Neither is
+  a rank key.
 
 **Units.**
 
@@ -139,6 +145,9 @@ On the leaderboard and each of its stage blocks:
   `windows` counts only the cells or reads that entered a pair or point.
 - **Boundaries.** A boundary's `before`, `after` and `unstamped` count cells,
   one per (case, event) per engine.
+- **Self-provisioning.** `self_provisioning` counts cells, one per (case,
+  event, predictor); a `common_record` engine's `forward.evaluations` counts
+  gradings, like the paired figure's.
 
 **Judge-dependent figures list their rubrics, and the leaderboard's carry
 per-rubric readings.** These figures list `rubrics`, the (evaluator, evaluate
@@ -3188,22 +3197,50 @@ that made no manifest call, so a ledger-wide cut pools stretches with
 categorically different coverage. Read a per-engine throttle number as scoped
 to the logs that could express one.
 
-**What may be claimed from `self_provisioned_fetches`: a comparison drawn by
-hand over the cells the run names, never a published number.** The log's third
-summary counts the calls through which a cell **reached outside** the
-provisioned `record/documents/` set for a court filing
+**What may be claimed from `self_provisioned_fetches`: a described share and a
+common-record comparison on the leaderboard, never a rank, a headline figure or
+an exclusion.** The log's third summary counts the calls through which a cell
+**reached outside** the provisioned `record/documents/` set for a court filing
 ([predicted-artifacts.md](../docs/predicted-artifacts.md)), and the run PR's
-per-run note names those cells. Both are a **record** placed ahead of any use
-of it. No figure on any board reads the field: no stratum keys on it, no score
-is adjusted by it, and no cell is excluded or caveated because of it. That is
-deliberate rather than an omission: caveating or stratifying a scored board on
-self-provisioning changes what the boards claim, so it is pre-registered work —
-a dated entry in [freeze-record.md](../docs/freeze-record.md) before any figure
-moves — and the record exists first so that decision is made against evidence
-rather than an intuition. The one claim the counts support is *these cells
-**reached for** filing text the fan-out did not guarantee every cell*, which
-qualifies a comparison a reader draws by hand and no published number, because
-none is defined to depend on it. Four limits bind even that reading.
+per-run note names those cells. The leaderboard reads it two ways, both
+registered in [freeze-record.md](../docs/freeze-record.md) and both
+descriptive:
+
+- **`self_provisioning`**, on each pooled entry (cert and stage blocks), over
+  its `forward` stratum's cells — the stratum its headline figures read — and
+  on each engine in `paired`, over its paired cells: those cells by reading off
+  each scored prediction's own log — `reached` (a filing fetch),
+  `target_blind` (no legible filing fetch, but a fetch-tool row naming no web
+  address, so one could be hidden there), `unlogged` (no readable scored
+  prediction or log), out of `cells`. Cells, one per (case, event, predictor).
+  Where `reached` or `target_blind` is non-zero, the figure beside it may span
+  more than one information set.
+- **`paired.common_record`**: the paired figure restricted to the paired
+  events on which no engine's log shows a legible fetch of a court filing
+  outside the provisioned set — every engine's cell reads `none`, so a reach,
+  a target-blind fetch or an unread log on any engine drops the event. It says
+  nothing about other retrieval, which a forward cell may do without
+  restriction. It is a **selected** subset, and not neutrally: a cell reaches
+  past the record where the record is short and the case contested, so the
+  selection runs on behaviour that tracks the outcome and the forecast's
+  uncertainty, and it drops grants and close petitions first. Read each
+  engine's common-record figure against that subset's own
+  `always_deny_accuracy` and `in_sample_grant_rate`, never the full paired
+  set's: an accuracy equal to the always-deny floor there says the subset holds
+  little to call, not that every engine called it well. It is never ranked,
+  and never differenced against the paired figure.
+- **The exclusion is engine-asymmetric** before the URL-first slice rule. On a
+  log captured before it, every claude `WebFetch` is a prompt-only row, so
+  `target_blind` drops every event on which claude fetched anything at all,
+  while another engine's cell drops an event only on a legible filing fetch.
+  `common_record` therefore excludes more of the events claude engaged with,
+  for a reason about capture rather than behaviour. A claude cell captured
+  before that rule's carrying merge keeps reading `target_blind`, so the
+  `proc-v9` window holds cells under both regimes.
+
+No rank key, headline figure or exclusion reads either, and no score is
+adjusted. Four limits bind both readings, and every claim from the counts beside
+them.
 
 It is a **reach, not an acquisition**. The row is the call; whether anything
 came back is `result_status`'s business, and on a shell row that is the
@@ -3224,9 +3261,14 @@ fetch-target slice rule the freeze record dates — a fetch tool called with a
 prompt beside its URL, whose slice there kept the prompt alone and so leaves
 nothing to match. The fourth applies only to such logs: a log captured under
 that rule carries the URL ahead of the prompt, and its prompted fetches are
-matched like any other.
-None of them is measurable from the rows, so the residual cannot be signed:
-the third hole cuts against one engine and the fourth against another.
+matched like any other. The fourth is the one hole a row shows: such a fetch
+names no web address, so the leaderboard counts its cell `target_blind` (read
+the count off each figure's `self_provisioning`) and keeps its event out of
+`common_record` rather than reading it as `none`; `reached` is a floor for an
+engine until its target-blind cells are gone. The other three are not
+measurable from the rows; the third of them (a bare-URL hosted search) cuts
+against one engine. The fourth, shown as `target_blind`, cuts against
+claude's logs captured before the rule.
 
 And the floor is **engine-shaped**, which is adjacent to the throttle
 denominator's unevenness rather than the same thing — and the difference

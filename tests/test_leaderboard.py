@@ -27,11 +27,13 @@ from fedcourtsai.leaderboard import (
     CellFacts,
     CellSides,
     CellSkill,
+    Provisioning,
     _evaluation_key,
     _scored_prediction,
     big_case_agreement,
     build_leaderboard,
     cell_facts,
+    cell_provisioning,
     evaluator_agreement,
     kendall_tau_b,
     signature_readings,
@@ -71,11 +73,15 @@ from fedcourtsai.schemas import (
     Prediction,
     PredictionContext,
     ProcessVersion,
+    RetrievalCall,
+    RetrievalLog,
+    SelfProvisioningCount,
     Stage,
     StatPack,
     StatPackTerm,
     StatPackTermSegment,
     Stratum,
+    UsageRole,
     VoteProvenance,
     VoteValue,
 )
@@ -3370,6 +3376,182 @@ def test_a_pooled_entry_and_a_paired_engine_list_the_boundaries_inside_their_cel
     # The paired figure lists over each engine's paired cells: only evt-a pairs.
     assert board.paired is not None
     assert all(engine.boundaries == [] for engine in board.paired.entries)
+
+
+def _write_log(data_root: Path, ev: Evaluation, calls: Sequence[tuple[str, str]]) -> None:
+    """A predict retrieval log in the ``p1`` run directory ``_write_cell`` writes."""
+    write_json(
+        CasePaths(data_root, "ca9", 123)
+        .event(ev.event_id)
+        .prediction_retrieval_log(ev.predictor_id, "p1"),
+        RetrievalLog(
+            case_id=ev.case_id,
+            run_id="p1",
+            role=UsageRole.predictor,
+            actor_id=ev.predictor_id,
+            engine=Engine.claude_code,
+            calls=[RetrievalCall(tool=tool, query=query) for tool, query in calls],
+        ),
+    )
+
+
+def test_each_cell_reads_its_self_provisioning_off_its_own_scored_log(tmp_path: Path) -> None:
+    """A filing fetch reads `reached`; a fetch-tool row naming no address
+    `target_blind`; a log with neither `none`; a missing or invalid log, or a
+    grading with no scored prediction, `unlogged`. The log is the one in the
+    scored run's directory, whatever run the prediction document names."""
+    filing = "https://www.supremecourt.gov/DocketPDF/25/25-901/1/20251001_bio.pdf"
+    queries: dict[str, list[tuple[str, str]] | None] = {
+        "alpha": [("WebFetch", f"{filing}\nSummarize the opposition")],
+        "beta": [("WebFetch", "Summarize the opposition")],
+        "gamma": [("Bash", "ls record/documents")],
+        "delta": None,
+        "epsilon": None,
+    }
+    cells = []
+    for pid, calls in queries.items():
+        ev = _evaluation(pid)
+        _write_cell(tmp_path, ev)
+        if calls is not None:
+            _write_log(tmp_path, ev, calls)
+        cells.append(_forward(ev))
+    event = CasePaths(tmp_path, "ca9", 123).event("evt-motion-stay")
+    # An unreadable log is as unknown as a missing one.
+    event.prediction_retrieval_log("epsilon", "p1").write_text("{not json", encoding="utf-8")
+    # alpha's prediction document names a run other than the directory it sits
+    # in: the log is still read from the scored run's directory.
+    path = event.prediction("alpha", "p1")
+    write_json(path, read_model(path, Prediction).model_copy(update={"run_id": "elsewhere"}))
+    # A grading whose predictor wrote no prediction at all.
+    orphan = _evaluation("zeta")
+    _write(tmp_path, orphan)
+    cells.append(_forward(orphan))
+    readings = cell_provisioning(cells, tmp_path)
+    assert {key[2]: reading for key, reading in readings.items()} == {
+        "alpha": "reached",
+        "beta": "target_blind",
+        "gamma": "none",
+        "delta": "unlogged",
+        "epsilon": "unlogged",
+        "zeta": "unlogged",
+    }
+
+
+def _provisioned(
+    cells: Sequence[Evaluation], reading: dict[tuple[str, str], Provisioning | None]
+) -> dict[Any, Provisioning]:
+    """Every cell ``none`` but those ``reading`` names; a ``None`` there leaves it out."""
+    out: dict[Any, Provisioning] = {}
+    for ev in cells:
+        value = reading.get((ev.predictor_id, ev.event_id), "none")
+        if value is not None:
+            out[_evaluation_key(ev)] = value
+    return out
+
+
+def _two_engine_cells() -> list[Evaluation]:
+    """Two engines on events a, b and c, two judges each; only evt-a is called wrong."""
+    return [
+        _evaluation(pid, event_id=f"evt-{n}", evaluator_id=judge, correct=int(n != "a"))
+        for pid in ("alpha", "beta")
+        for n in ("a", "b", "c")
+        for judge in ("e1", "e2")
+    ]
+
+
+def test_self_provisioning_is_counted_and_the_common_record_read_without_moving_a_rank() -> None:
+    """Entries and paired engines count their cells by reading (cells, not
+    gradings, forward only on an entry); the common-record reading keeps only
+    the paired events every engine's log reads `none` on; ranks and paired
+    figures are the ones the board carries without the reading."""
+    cells = _two_engine_cells()
+    retro = _evaluation("alpha", event_id="evt-r")
+    provisioning = _provisioned(
+        [*cells, retro],
+        {
+            ("alpha", "evt-a"): "reached",
+            ("beta", "evt-c"): "target_blind",
+            ("alpha", "evt-r"): "reached",
+        },
+    )
+    strata = [*(_forward(ev) for ev in cells), _retro(retro)]
+    plain = build_leaderboard(strata)
+    board = build_leaderboard(strata, provisioning=provisioning)
+    alpha = next(e for e in board.entries if e.predictor_id == "alpha")
+    beta = next(e for e in board.entries if e.predictor_id == "beta")
+    # The retrospective reach is not counted: the entry's count is its forward cells'.
+    assert alpha.self_provisioning == SelfProvisioningCount(
+        cells=3, reached=1, target_blind=0, unlogged=0
+    )
+    assert beta.self_provisioning == SelfProvisioningCount(
+        cells=3, reached=0, target_blind=1, unlogged=0
+    )
+    assert board.paired is not None and plain.paired is not None
+    common = board.paired.common_record
+    assert common is not None
+    # evt-a: alpha reached; evt-c: beta's fetch target is unknown. Only evt-b
+    # is left, and both engines called it right.
+    assert common.events == 1
+    assert [
+        (e.predictor_id, e.forward and (e.forward.evaluations, e.forward.accuracy))
+        for e in common.entries
+    ] == [("alpha", (2, 1.0)), ("beta", (2, 1.0))]
+    # Descriptive only: the ranks and every paired figure are unchanged.
+    assert [(e.predictor_id, e.rank, e.forward) for e in board.paired.entries] == [
+        (e.predictor_id, e.rank, e.forward) for e in plain.paired.entries
+    ]
+    assert [(e.predictor_id, e.rank) for e in board.entries] == [
+        (e.predictor_id, e.rank) for e in plain.entries
+    ]
+    # Unsupplied, nothing is listed.
+    dumped = plain.model_dump(mode="json")
+    assert "common_record" not in dumped["paired"]
+    assert all("self_provisioning" not in e for e in dumped["entries"])
+
+
+def test_an_unread_or_unmapped_cell_keeps_its_event_out_of_the_common_record() -> None:
+    """`unlogged`, and a grading the reading does not cover at all, drop the
+    event like a reach; with every event dropped the reading is empty."""
+    cells = _two_engine_cells()
+    partial = build_leaderboard(
+        [_forward(ev) for ev in cells],
+        provisioning=_provisioned(cells, {("alpha", "evt-a"): "unlogged", ("beta", "evt-c"): None}),
+    )
+    assert partial.paired is not None and partial.paired.common_record is not None
+    assert partial.paired.common_record.events == 1
+    beta = next(e for e in partial.entries if e.predictor_id == "beta")
+    # A grading missing from the reading counts its cell unlogged.
+    assert beta.self_provisioning == SelfProvisioningCount(
+        cells=3, reached=0, target_blind=0, unlogged=1
+    )
+    empty = build_leaderboard(
+        [_forward(ev) for ev in cells],
+        provisioning=_provisioned(cells, {("alpha", f"evt-{n}"): "reached" for n in "abc"}),
+    )
+    assert empty.paired is not None and empty.paired.common_record is not None
+    assert empty.paired.common_record.events == 0
+    assert all(e.forward is None for e in empty.paired.common_record.entries)
+
+
+def test_a_stage_block_carries_the_self_provisioning_reading() -> None:
+    """A non-cert stage's entries and paired figure carry the reading too."""
+    cells = [
+        _evaluation(pid, event_id=f"evt-{n}", evaluator_id="e1")
+        for pid in ("alpha", "beta")
+        for n in ("a", "b")
+    ]
+    board = build_leaderboard(
+        [_forward(ev, stage=Stage.interim) for ev in cells],
+        provisioning=_provisioned(cells, {("alpha", "evt-a"): "reached"}),
+    )
+    (stage,) = board.stages.values()
+    alpha = next(e for e in stage.entries if e.predictor_id == "alpha")
+    assert alpha.self_provisioning == SelfProvisioningCount(
+        cells=2, reached=1, target_blind=0, unlogged=0
+    )
+    assert stage.paired is not None and stage.paired.common_record is not None
+    assert stage.paired.common_record.events == 1
+    assert all(e.self_provisioning is not None for e in stage.paired.entries)
 
 
 def test_a_replay_boundary_admits_replay_cells_of_its_predictors_alone() -> None:

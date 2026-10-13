@@ -35,6 +35,7 @@ from fedcourtsai.schemas import (
     normalize_call,
     observed_mcp_conditions,
     self_provisioned_fetches,
+    target_blind_fetches,
 )
 from tests.conftest import FixtureCorpus
 
@@ -2268,6 +2269,25 @@ def test_a_filing_fetch_counts_and_a_search_for_the_same_filing_does_not() -> No
     # URL in its params is a fetch.
     pulled = _row("mcp__courtlistener__read_document", f'{{"url": "{_BIO_PDF}"}}')
     assert self_provisioned_fetches([pulled]) == [pulled]
+
+
+def test_a_fetch_whose_slice_names_no_address_is_target_blind() -> None:
+    # A prompted fetch captured before the URL-first slice rule kept its prompt
+    # alone, so what it fetched cannot be read off the row; any fetch-tool row
+    # naming no address is in that class, while one naming any address — a
+    # filing or not — has a legible target.
+    blind = [
+        _row("WebFetch", "Summarize the brief in opposition's main arguments"),
+        RetrievalCall(tool="web_fetch"),
+    ]
+    legible = [
+        _row("WebFetch", f"{_BIO_PDF}\nSummarize the brief in opposition"),
+        _row("web_fetch", "Read https://www.supremecourt.gov/orders/courtorders/x.pdf"),
+        # Not a dedicated fetch tool, so never in this class whatever it names.
+        _row("Bash", "ls record/documents"),
+        _row("WebSearch", "brief in opposition 25-901"),
+    ]
+    assert target_blind_fetches([*blind, *legible]) == blind
 
 
 def test_a_fetch_off_the_filing_trees_is_not_a_self_provisioned_filing() -> None:
