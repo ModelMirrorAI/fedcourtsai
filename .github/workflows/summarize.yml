@@ -95,6 +95,8 @@ jobs:
           # branch against the merge base with this checkout.
           fetch-depth: 0
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # A summary run does not start planning while a predict or evaluate round
       # is executing (`in_progress`). A round parked on its own review hold
@@ -265,6 +267,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
       - name: Download the plan
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -346,6 +350,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The credential split's tripwire, copied from the qp-topic labeler: this
       # job holds the environment's Anthropic key, so it must hold no cloud credential and

@@ -266,6 +266,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - uses: ./.github/actions/corpus-readonly
         with:

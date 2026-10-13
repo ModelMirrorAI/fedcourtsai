@@ -1,4 +1,4 @@
-"""A job holding a write-scoped credential never restores the uv cache.
+"""A job holding a credential or a secret never restores the uv cache.
 
 The cache is repository-wide: any job can save an entry under a key nothing has
 claimed yet, and any later job restoring that key runs whatever it holds. A job
@@ -7,17 +7,21 @@ nobody wrote the input for, so its own save is off (`save-cache: "false"`), but
 that closes only the save its own action makes; a hostile parse holding the
 job's runtime token can still write an entry directly. Only the restore side
 closes the path, so every job carrying a credential that can change the
-repository, the corpus or another run installs from the index under the
-lockfile's hashes with the cache off entirely (`restore-cache: "false"` on
-`setup-python-env`).
+repository, the corpus or another run — or a secret a poisoned entry could
+exfiltrate — installs from the index under the lockfile's hashes with the cache
+off entirely (`restore-cache: "false"` on `setup-python-env`).
 
-The credentialed set is derived from the YAML rather than listed, so a new
-credentialed job fails here until it opts out: a job is write-credentialed if it
-mints an App token with any `write` permission, assumes an AWS role that is not
-a read-only one, or grants its own token any `write` scope other than
-`id-token` (which only exchanges for a role, and that role is checked itself).
+The set is derived from the YAML rather than listed, so a new job of either kind
+fails here until it opts out. A job counts if it mints an App token with any
+`write` permission, assumes an AWS role that is not a read-only one, grants its
+own token any `write` scope other than `id-token` (which only exchanges for a
+role, and that role is checked itself), references any secret other than the
+runtime `GITHUB_TOKEN` (in its own steps or env, or its workflow's env), or binds
+a deployment environment — an environment can expose secrets the YAML does not
+name, so any binding counts.
 """
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -29,12 +33,16 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 SETUP = "./.github/actions/setup-python-env"
 
 
-def _jobs() -> list[tuple[str, str, dict[Any, Any]]]:
+SECRET = re.compile(r"secrets\.([A-Za-z0-9_]+)")
+
+
+def _jobs() -> list[tuple[str, str, dict[Any, Any], dict[Any, Any]]]:
+    """Every job with its workflow-level ``env``, which every job inherits."""
     jobs = []
     for path in sorted(WORKFLOWS.glob("*.yml")):
         data = yaml.safe_load(path.read_text())
         for name, job in (data.get("jobs") or {}).items():
-            jobs.append((path.name, name, job))
+            jobs.append((path.name, name, job, data.get("env") or {}))
     return jobs
 
 
@@ -42,9 +50,20 @@ def _steps(job: dict[Any, Any]) -> list[dict[Any, Any]]:
     return [step for step in job.get("steps") or [] if isinstance(step, dict)]
 
 
-def _write_scoped(job: dict[Any, Any]) -> list[str]:
-    """Why ``job`` holds a write-scoped credential; empty when it holds none."""
+def _credentialed(job: dict[Any, Any], workflow_env: dict[Any, Any] | None = None) -> list[str]:
+    """Why ``job`` holds a credential or a secret; empty when it holds neither."""
     reasons = []
+    if job.get("environment"):
+        reasons.append(f"environment {job['environment']}")
+    secrets = sorted(
+        {
+            name
+            for name in SECRET.findall(yaml.safe_dump(job) + yaml.safe_dump(workflow_env or {}))
+            if name != "GITHUB_TOKEN"
+        }
+    )
+    if secrets:
+        reasons.append(f"{len(secrets)} secret(s)")
     for step in _steps(job):
         uses = str(step.get("uses", ""))
         with_ = step.get("with") or {}
@@ -76,42 +95,49 @@ def _setup_steps(job: dict[Any, Any]) -> list[dict[Any, Any]]:
 
 
 CREDENTIALED = [
-    pytest.param(workflow, name, job, id=f"{workflow}:{name}")
-    for workflow, name, job in _jobs()
-    if _write_scoped(job) and _setup_steps(job)
+    pytest.param(workflow, name, job, env, id=f"{workflow}:{name}")
+    for workflow, name, job, env in _jobs()
+    if _credentialed(job, env) and _setup_steps(job)
 ]
 
 
 def test_the_credentialed_set_is_not_empty() -> None:
     # The derivation must keep seeing the writers it exists for; an empty set
     # would pass every parametrized case below vacuously.
-    names = {f"{workflow}:{name}" for workflow, name, _ in (p.values for p in CREDENTIALED)}
-    assert {"run-seed.yml:seed", "run-pull.yml:pull", "run-repair.yml:votes"} <= names
+    names = {f"{p.values[0]}:{p.values[1]}" for p in CREDENTIALED}
+    assert {
+        "run-seed.yml:seed",
+        "run-pull.yml:pull",
+        "run-repair.yml:votes",
+        "integration-test.yml:scenario",
+        "summarize.yml:generate",
+    } <= names
 
 
-@pytest.mark.parametrize(("workflow", "name", "job"), CREDENTIALED)
-def test_a_write_credentialed_job_installs_without_the_uv_cache(
-    workflow: str, name: str, job: dict[Any, Any]
+@pytest.mark.parametrize(("workflow", "name", "job", "workflow_env"), CREDENTIALED)
+def test_a_credentialed_job_installs_without_the_uv_cache(
+    workflow: str, name: str, job: dict[Any, Any], workflow_env: dict[Any, Any]
 ) -> None:
     for step in _setup_steps(job):
         with_ = step.get("with") or {}
         assert str(with_.get("restore-cache")) == "false", (
-            f"{workflow}:{name} holds {'; '.join(_write_scoped(job))} and restores the uv cache — "
-            + 'pass `restore-cache: "false"` to setup-python-env'
+            f"{workflow}:{name} holds {'; '.join(_credentialed(job, workflow_env))} "
+            + 'and restores the uv cache — pass `restore-cache: "false"` to setup-python-env'
         )
 
 
-def test_a_read_only_role_never_counts_as_write_scoped() -> None:
+def test_a_read_only_role_and_the_runtime_token_never_count() -> None:
     job = {
         "permissions": {"contents": "read", "id-token": "write"},
         "steps": [
             {
                 "uses": "aws-actions/configure-aws-credentials@x",
                 "with": {"role-to-assume": "${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}"},
-            }
+            },
+            {"run": "gh pr list", "env": {"GH_TOKEN": "${{ secrets.GITHUB_TOKEN }}"}},
         ],
     }
-    assert _write_scoped(job) == []
+    assert _credentialed(job) == []
 
 
 @pytest.mark.parametrize(
@@ -144,10 +170,20 @@ def test_a_read_only_role_never_counts_as_write_scoped() -> None:
             "job token with issues",
         ),
         ({"permissions": "write-all", "steps": []}, "permissions: write-all"),
+        (
+            {"steps": [{"run": "x", "env": {"KEY": "${{ secrets.MODEL_KEY }}"}}]},
+            "1 secret(s)",
+        ),
+        ({"env": {"KEY": "${{ secrets.MODEL_KEY }}"}, "steps": []}, "1 secret(s)"),
+        ({"environment": "prod", "steps": []}, "environment prod"),
     ],
 )
-def test_each_write_credential_kind_is_seen(job: dict[Any, Any], expected: str) -> None:
-    assert _write_scoped(job) == [expected]
+def test_each_credential_kind_is_seen(job: dict[Any, Any], expected: str) -> None:
+    assert _credentialed(job) == [expected]
+
+
+def test_a_secret_in_the_workflow_env_counts_for_every_job() -> None:
+    assert _credentialed({"steps": []}, {"KEY": "${{ secrets.MODEL_KEY }}"}) == ["1 secret(s)"]
 
 
 def test_the_opt_out_turns_the_cache_off_entirely() -> None:

@@ -214,6 +214,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The base-rates read the corpus (the real rows), so it must be on disk.
       # No contents:write, no App token: this job cannot touch git or the corpus.
@@ -305,6 +307,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The census counts real snapshots, so the corpus must be on disk. No
       # contents:write, no App token: this job cannot touch git or the corpus.
@@ -481,6 +485,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The coverage counts stored documents, so the corpus must be on disk. No
       # contents:write, no App token: this job cannot touch git or the corpus.
@@ -978,6 +984,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The extract reads the stored document text, so the corpus must be on
       # disk. No contents:write, no App token: this job cannot touch git.

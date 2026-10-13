@@ -141,6 +141,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The backlog derivation is a whole-court read shape — one pass over every
       # open event plus a row per candidate case, tens of thousands of them —
