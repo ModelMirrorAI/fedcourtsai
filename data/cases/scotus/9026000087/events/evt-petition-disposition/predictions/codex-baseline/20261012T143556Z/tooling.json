@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000087",
+  "run_id": "20261012T143556Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned document text", "committed statpack", "local pooled-rate calculation", "fedcourts paths", "CourtListener MCP search", "web search/open attempts"],
+  "helpful": ["Appendix supplies the actual appellate opinion for comparison with both parties' characterizations", "Nonempty petition and opposition permit assessment of preservation and vehicle objections", "Matched sal-v4 reached-band table provides a prior-Term anchor"],
+  "gaps": ["Complete appellate briefs would help assess preservation", "Targeted CourtListener search returned no result", "Web search and open attempts returned no usable text"],
+  "notes": "Prediction relies on the provisioned materials and committed statpack. A writable temporary cache resolved the initial uv cache-permission failure. No current docket or outcome lookup was made."
+}

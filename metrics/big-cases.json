@@ -1,14 +1,14 @@
 {
-  "cases": 284,
+  "cases": 286,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
     {
-      "cases": 254,
+      "cases": 255,
       "n": 3
     },
     {
-      "cases": 28,
+      "cases": 29,
       "n": 2
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 850,
+  "current_reads": 854,
   "declared_no_view": 15,
   "frozen_process": {
     "digests": [
@@ -34,6 +34,7 @@
         "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
+        "predictor_id": "claude-baseline",
         "revoked_at": null
       },
       {
@@ -41,6 +42,7 @@
         "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
+        "predictor_id": "codex-baseline",
         "revoked_at": null
       },
       {
@@ -48,6 +50,7 @@
         "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
+        "predictor_id": "gemini-baseline",
         "revoked_at": null
       },
       {
@@ -55,13 +58,14 @@
         "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
         "label": "proc-v9",
         "opens": "2026-10-11T12:00:00Z",
+        "predictor_id": "claude-baseline",
         "revoked_at": null
       }
     ]
   },
   "median_adjacent_gap": 0.0033,
   "median_score_range": 0.2,
-  "missing_reads": 15,
+  "missing_reads": 14,
   "predictors": [
     "claude-baseline",
     "codex-baseline",
@@ -10673,177 +10677,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Jouppi",
-      "caption": "Kenneth J. Jouppi v. Alaska",
-      "caption_event_id": "evt-order-judgment",
-      "case_id": "scotus/73275187",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "First merits examination of the Excessive Fines Clause excessiveness standard since Bajakajian (1998); governs fines and forfeitures nationwide amid heavy state/local revenue reliance; vivid facts ($95,000 plane forfeited over a six-pack) with broad press coverage and an Institute for Justice litigation campaign behind it.",
-          "big_case_score": 0.6,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": "The case can set a nationwide rule for how courts measure offense gravity under the Excessive Fines Clause, with consequences for punitive forfeitures beyond this unusual airplane seizure.",
-          "big_case_score": 0.76,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": "Clarifies the standard of review for Excessive Fines Clause proportionality but largely reaffirms principles from Timbs and Bajakajian without sweeping doctrinal shifts.",
-          "big_case_score": 0.6,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        }
-      ],
-      "docket_id": 73275187,
-      "docket_number": "25-246",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-246.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "First merits examination of the Excessive Fines Clause excessiveness standard since Bajakajian (1998); governs fines and forfeitures nationwide amid heavy state/local revenue reliance; vivid facts ($95,000 plane forfeited over a six-pack) with broad press coverage and an Institute for Justice litigation campaign behind it.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73275187/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.6,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The case can set a nationwide rule for how courts measure offense gravity under the Excessive Fines Clause, with consequences for punitive forfeitures beyond this unusual airplane seizure.",
-              "big_case_score": 0.76,
-              "cell_path": "data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.72,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "Clarifies the standard of review for Excessive Fines Clause proportionality but largely reaffirms principles from Timbs and Bajakajian without sweeping doctrinal shifts.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73275187/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Kenneth J. Jouppi v. Alaska"
-        },
-        {
-          "actual_disposition": "granted",
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "An IJ-litigated vehicle to set the nationwide Excessive Fines Clause excessiveness standard (open since Bajakajian, 1998), with vivid plane-for-a-six-pack facts and broad fines/forfeiture-policy stakes, though the QP itself is methodological and fairly narrow.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73275187/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.35,
-              "run_id": "20260717T180352Z"
-            },
-            {
-              "big_case_rationale": "The petition presents a nationally important Excessive Fines rule with substantial forfeiture consequences, though in a factually unusual criminal-aircraft setting.",
-              "big_case_score": 0.67,
-              "cell_path": "data/cases/scotus/73275187/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
-              "confidence": 0.64,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.29,
-              "run_id": "20260717T214313Z"
-            },
-            {
-              "big_case_rationale": "Notable Excessive Fines civil forfeiture case attracting high-profile amici (including Cato and Tyson Timbs) challenging the level of abstraction for evaluating offense gravity.",
-              "big_case_score": 0.75,
-              "cell_path": "data/cases/scotus/73275187/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.15,
-              "run_id": "20260717T180352Z"
-            }
-          ],
-          "resolved_at": "2026-07-20",
-          "title": "Kenneth J. Jouppi v. Alaska"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.6533,
-      "moment": "evt-order-judgment",
-      "moment_opened_at": "2026-07-20",
-      "n": 3,
-      "other_party": "Alaska",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Jouppi wins in the Court; the lower court's decision is overturned, and any remaining issues go back to it.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "Alaska wins in the Court; the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to it, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "score_max": 0.76,
-      "score_min": 0.6,
-      "score_range": 0.16,
-      "short_caption": "Jouppi v. Alaska",
-      "status": "partly_resolved"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Rio Grande Foundation",
       "caption": "Rio Grande Foundation v. Maggie Toulouse Oliver, in Her Official Capacity as Secretary of State of New Mexico",
       "caption_event_id": "evt-petition-disposition",
@@ -10957,6 +10790,122 @@
       "score_range": 0.15,
       "short_caption": "Rio Grande Foundation v. Maggie Toulouse Oliver",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "GEO Group",
+      "caption": "The GEO Group, Inc., a Florida Corporation v. Bob Ferguson, Governor of Washington, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000071",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Supremacy Clause intergovernmental-immunity question about state regulation of federal immigration-detention contractors; the SG calls the issue exceptionally important and similar laws are pending in several states, but the posture is interlocutory and confined to one facility.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261011T142504Z"
+        },
+        {
+          "big_case_rationale": "The boundary between state health-and-safety regulation and federal immigration operations carried out by contractors has substantial national federalism and detention-policy consequences, although this petition concerns one facility and an interlocutory ruling.",
+          "big_case_score": 0.75,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261011T142504Z"
+        },
+        {
+          "big_case_rationale": "Involves state regulation of federal immigration contractors, implicating the Supremacy Clause and federalism.",
+          "big_case_score": 0.65,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261011T142504Z"
+        }
+      ],
+      "docket_id": 9026000071,
+      "docket_number": "26-71",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-71.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Supremacy Clause intergovernmental-immunity question about state regulation of federal immigration-detention contractors; the SG calls the issue exceptionally important and similar laws are pending in several states, but the posture is interlocutory and confined to one facility.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000071/events/evt-petition-disposition/predictions/claude-baseline/20261011T142504Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000071/events/evt-petition-disposition/predictions/claude-baseline/20261011T142504Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.27,
+              "run_id": "20261011T142504Z"
+            },
+            {
+              "big_case_rationale": "The boundary between state health-and-safety regulation and federal immigration operations carried out by contractors has substantial national federalism and detention-policy consequences, although this petition concerns one facility and an interlocutory ruling.",
+              "big_case_score": 0.75,
+              "cell_path": "data/cases/scotus/9026000071/events/evt-petition-disposition/predictions/codex-baseline/20261011T142504Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000071/events/evt-petition-disposition/predictions/codex-baseline/20261011T142504Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.46,
+              "run_id": "20261011T142504Z"
+            },
+            {
+              "big_case_rationale": "Involves state regulation of federal immigration contractors, implicating the Supremacy Clause and federalism.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9026000071/events/evt-petition-disposition/predictions/gemini-baseline/20261011T142504Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000071/events/evt-petition-disposition/predictions/gemini-baseline/20261011T142504Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.45,
+              "run_id": "20261011T142504Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "The GEO Group, Inc., a Florida Corporation v. Bob Ferguson, Governor of Washington, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.65,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-16",
+      "n": 3,
+      "other_party": "Ferguson",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up GEO Group's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "GEO Group's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.75,
+      "score_min": 0.55,
+      "score_range": 0.2,
+      "short_caption": "GEO Group v. Ferguson",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -13736,6 +13685,204 @@
       "score_range": 0.25,
       "short_caption": "Calce v. City of New York",
       "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Jouppi",
+      "caption": "Kenneth J. Jouppi v. Alaska",
+      "caption_event_id": "evt-brief-judgment",
+      "case_id": "scotus/73275187",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "First merits look at how Bajakajian's gravity prong is measured since Timbs incorporated the Clause; reaches every mandatory instrumentality forfeiture, with a broad cross-ideological amicus field, but the posture is a single misdemeanor forfeiture.",
+          "big_case_score": 0.55,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261012T143556Z"
+        },
+        {
+          "big_case_rationale": "The treatment of individualized culpability in punitive forfeiture could affect property owners nationwide, although the immediate dispute concerns one aircraft and a specialized alcohol-importation law.",
+          "big_case_score": 0.66,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261012T143556Z"
+        }
+      ],
+      "docket_id": 73275187,
+      "docket_number": "25-246",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-246.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "First merits look at how Bajakajian's gravity prong is measured since Timbs incorporated the Clause; reaches every mandatory instrumentality forfeiture, with a broad cross-ideological amicus field, but the posture is a single misdemeanor forfeiture.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73275187/events/evt-brief-judgment/predictions/claude-baseline/20261012T143556Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-brief-judgment/predictions/claude-baseline/20261012T143556Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.8,
+              "run_id": "20261012T143556Z"
+            },
+            {
+              "big_case_rationale": "The treatment of individualized culpability in punitive forfeiture could affect property owners nationwide, although the immediate dispute concerns one aircraft and a specialized alcohol-importation law.",
+              "big_case_score": 0.66,
+              "cell_path": "data/cases/scotus/73275187/events/evt-brief-judgment/predictions/codex-baseline/20261012T143556Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-brief-judgment/predictions/codex-baseline/20261012T143556Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.8,
+              "run_id": "20261012T143556Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kenneth J. Jouppi v. Alaska"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "First merits examination of the Excessive Fines Clause excessiveness standard since Bajakajian (1998); governs fines and forfeitures nationwide amid heavy state/local revenue reliance; vivid facts ($95,000 plane forfeited over a six-pack) with broad press coverage and an Institute for Justice litigation campaign behind it.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73275187/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The case can set a nationwide rule for how courts measure offense gravity under the Excessive Fines Clause, with consequences for punitive forfeitures beyond this unusual airplane seizure.",
+              "big_case_score": 0.76,
+              "cell_path": "data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.72,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "Clarifies the standard of review for Excessive Fines Clause proportionality but largely reaffirms principles from Timbs and Bajakajian without sweeping doctrinal shifts.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73275187/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kenneth J. Jouppi v. Alaska"
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "An IJ-litigated vehicle to set the nationwide Excessive Fines Clause excessiveness standard (open since Bajakajian, 1998), with vivid plane-for-a-six-pack facts and broad fines/forfeiture-policy stakes, though the QP itself is methodological and fairly narrow.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73275187/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": null,
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.35,
+              "run_id": "20260717T180352Z"
+            },
+            {
+              "big_case_rationale": "The petition presents a nationally important Excessive Fines rule with substantial forfeiture consequences, though in a factually unusual criminal-aircraft setting.",
+              "big_case_score": 0.67,
+              "cell_path": "data/cases/scotus/73275187/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
+              "confidence": 0.64,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": null,
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.29,
+              "run_id": "20260717T214313Z"
+            },
+            {
+              "big_case_rationale": "Notable Excessive Fines civil forfeiture case attracting high-profile amici (including Cato and Tyson Timbs) challenging the level of abstraction for evaluating offense gravity.",
+              "big_case_score": 0.75,
+              "cell_path": "data/cases/scotus/73275187/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73275187/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": null,
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.15,
+              "run_id": "20260717T180352Z"
+            }
+          ],
+          "resolved_at": "2026-07-20",
+          "title": "Kenneth J. Jouppi v. Alaska"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.605,
+      "moment": "evt-brief-judgment",
+      "moment_opened_at": "2026-10-05",
+      "n": 2,
+      "other_party": "Alaska",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Jouppi wins in the Court; the lower court's decision is overturned, and any remaining issues go back to it.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Alaska wins in the Court; the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to it, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "score_max": 0.66,
+      "score_min": 0.55,
+      "score_range": 0.11,
+      "short_caption": "Jouppi v. Alaska",
+      "status": "partly_resolved"
     },
     {
       "asking_declined": "short_form",
@@ -17326,127 +17473,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Wassily",
-      "caption": "Tamer S. Wassily, et al. v. Todd Blanche, Acting Attorney General",
-      "caption_event_id": "evt-order-judgment",
-      "case_id": "scotus/73280343",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A clean statutory circuit split with real stakes for terminated asylees and their derivative spouses and children, sharpened by the current wave of asylum terminations, but technical adjustment-of-status doctrine rather than a headline constitutional or structural question.",
-          "big_case_score": 0.45,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "A nationwide immigration-eligibility rule affecting former asylees is consequential, though the case presents a technical statutory question rather than a constitutional one.",
-          "big_case_score": 0.62,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": null,
-          "big_case_score": null,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        }
-      ],
-      "docket_id": 73280343,
-      "docket_number": "25-842",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-842.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "A clean statutory circuit split with real stakes for terminated asylees and their derivative spouses and children, sharpened by the current wave of asylum terminations, but technical adjustment-of-status doctrine rather than a headline constitutional or structural question.",
-              "big_case_score": 0.45,
-              "cell_path": "data/cases/scotus/73280343/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280343/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.74,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "A nationwide immigration-eligibility rule affecting former asylees is consequential, though the case presents a technical statutory question rather than a constitutional one.",
-              "big_case_score": 0.62,
-              "cell_path": "data/cases/scotus/73280343/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280343/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.61,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.67,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": null,
-              "cell_path": "data/cases/scotus/73280343/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280343/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.7,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Tamer S. Wassily, et al. v. Todd Blanche, Acting Attorney General"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.535,
-      "moment": "evt-order-judgment",
-      "moment_opened_at": "2026-06-29",
-      "n": 2,
-      "other_party": "Blanche",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Wassily wins in the Court; the lower court's decision is overturned, and any remaining issues go back to it.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "Blanche wins in the Court; the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to it, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "score_max": 0.62,
-      "score_min": 0.45,
-      "score_range": 0.17,
-      "short_caption": "Wassily v. Blanche",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Williams",
       "caption": "Scott R. Williams v. Pennsylvania",
       "caption_event_id": "evt-petition-disposition",
@@ -18697,6 +18723,177 @@
       "score_min": 0.45,
       "score_range": 0.1,
       "short_caption": "Johnson v. United States Congress",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Wassily",
+      "caption": "Tamer S. Wassily, et al. v. Todd Blanche, Attorney General",
+      "caption_event_id": "evt-brief-judgment",
+      "case_id": "scotus/73280343",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A clean statutory split on a recurring but narrow immigration-adjustment question affecting former asylees with terminated status; consequential for that class, low public salience.",
+          "big_case_score": 0.3,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261012T143556Z"
+        },
+        {
+          "big_case_rationale": "A nationally applicable rule governing permanent-residence eligibility after asylum termination, with serious consequences for affected refugees and potentially derivative asylees, but a bounded statutory question rather than a wholesale redesign of asylum law.",
+          "big_case_score": 0.58,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261012T143556Z"
+        },
+        {
+          "big_case_rationale": "Resolves a circuit split on the eligibility of former asylees to adjust status, impacting a defined but important class of noncitizens.",
+          "big_case_score": 0.6,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261012T143556Z"
+        }
+      ],
+      "docket_id": 73280343,
+      "docket_number": "25-842",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-842.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A clean statutory split on a recurring but narrow immigration-adjustment question affecting former asylees with terminated status; consequential for that class, low public salience.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/73280343/events/evt-brief-judgment/predictions/claude-baseline/20261012T143556Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280343/events/evt-brief-judgment/predictions/claude-baseline/20261012T143556Z",
+              "confidence": 0.45,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.42,
+              "run_id": "20261012T143556Z"
+            },
+            {
+              "big_case_rationale": "A nationally applicable rule governing permanent-residence eligibility after asylum termination, with serious consequences for affected refugees and potentially derivative asylees, but a bounded statutory question rather than a wholesale redesign of asylum law.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/73280343/events/evt-brief-judgment/predictions/codex-baseline/20261012T143556Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280343/events/evt-brief-judgment/predictions/codex-baseline/20261012T143556Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.57,
+              "run_id": "20261012T143556Z"
+            },
+            {
+              "big_case_rationale": "Resolves a circuit split on the eligibility of former asylees to adjust status, impacting a defined but important class of noncitizens.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73280343/events/evt-brief-judgment/predictions/gemini-baseline/20261012T143556Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280343/events/evt-brief-judgment/predictions/gemini-baseline/20261012T143556Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.7,
+              "run_id": "20261012T143556Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Tamer S. Wassily, et al. v. Todd Blanche, Attorney General"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A clean statutory circuit split with real stakes for terminated asylees and their derivative spouses and children, sharpened by the current wave of asylum terminations, but technical adjustment-of-status doctrine rather than a headline constitutional or structural question.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/73280343/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280343/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.74,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "A nationwide immigration-eligibility rule affecting former asylees is consequential, though the case presents a technical statutory question rather than a constitutional one.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/73280343/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280343/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "confidence": 0.61,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.67,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73280343/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280343/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.7,
+              "run_id": "20260816T111104Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Tamer S. Wassily, et al. v. Todd Blanche, Acting Attorney General"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4933,
+      "moment": "evt-brief-judgment",
+      "moment_opened_at": "2026-10-02",
+      "n": 3,
+      "other_party": "Blanche",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Wassily wins in the Court; the lower court's decision is overturned, and any remaining issues go back to it.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Blanche wins in the Court; the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to it, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "score_max": 0.6,
+      "score_min": 0.3,
+      "score_range": 0.3,
+      "short_caption": "Wassily v. Blanche",
       "status": "pending"
     },
     {
@@ -30915,6 +31112,99 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Stevens-Reynolds",
+      "caption": "Diana Stevens-Reynolds v. Wilshire Insurance Company, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000087",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Fact-bound pro se challenge to an expert-exclusion discovery sanction in a single hurricane-insurance dispute; no reach beyond the parties.",
+          "big_case_score": 0.04,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261012T143556Z"
+        },
+        {
+          "big_case_rationale": "A rule governing case-ending expert exclusions could affect civil litigation nationally, but this petition arises from an individual insurance dispute and presents substantial preservation and record-specific vehicle problems.",
+          "big_case_score": 0.25,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261012T143556Z"
+        }
+      ],
+      "docket_id": 9026000087,
+      "docket_number": "26-87",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-87.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fact-bound pro se challenge to an expert-exclusion discovery sanction in a single hurricane-insurance dispute; no reach beyond the parties.",
+              "big_case_score": 0.04,
+              "cell_path": "data/cases/scotus/9026000087/events/evt-petition-disposition/predictions/claude-baseline/20261012T143556Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000087/events/evt-petition-disposition/predictions/claude-baseline/20261012T143556Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261012T143556Z"
+            },
+            {
+              "big_case_rationale": "A rule governing case-ending expert exclusions could affect civil litigation nationally, but this petition arises from an individual insurance dispute and presents substantial preservation and record-specific vehicle problems.",
+              "big_case_score": 0.25,
+              "cell_path": "data/cases/scotus/9026000087/events/evt-petition-disposition/predictions/codex-baseline/20261012T143556Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000087/events/evt-petition-disposition/predictions/codex-baseline/20261012T143556Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.008,
+              "run_id": "20261012T143556Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Diana Stevens-Reynolds v. Wilshire Insurance Company, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.145,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-21",
+      "n": 2,
+      "other_party": "Wilshire Insurance",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Stevens-Reynolds' case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Stevens-Reynolds' petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.25,
+      "score_min": 0.04,
+      "score_range": 0.21,
+      "short_caption": "Stevens-Reynolds v. Wilshire Insurance",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Merritt",
       "caption": "Jerry Merritt v. Texas Farm Bureau, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -35944,5 +36234,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.2",
-  "scored_reads": 820
+  "scored_reads": 825
 }
