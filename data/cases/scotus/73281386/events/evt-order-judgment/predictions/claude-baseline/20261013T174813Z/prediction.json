@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "Executive-privilege / separation-of-powers limits on discovery against an EOP advisory body, and the FOIA 'agency' test for presidential units; high-profile entity (DOGE), but the posture is an interlocutory mandamus over discovery scope, not a FOIA merits ruling.",
+  "big_case_score": 0.6,
+  "case_id": "scotus/73281386",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.84
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-14",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-13",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-13T17:53:00Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-13.json",
+  "judgment": "reversed",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.84,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+    "label": "proc-v9",
+    "pipeline_sha": "55479d1cf8f85007e3ba928c5cf799c606e854ed",
+    "stamped_at": "2026-10-13T17:53:56.334298Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261013T174813Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that the D.C. Circuit failed to carry out this Court's June 2025 remand and the Cheney v. U.S. District Court framework: discovery directed at an Executive Office of the President unit that advises the President must be justified as necessary and precisely tailored before it proceeds, and because the Court already held that a unit's FOIA 'agency' status cannot turn on its ability to persuade, the remaining requests (internal directives, data-access plans, personnel details, and a deposition of the USDS Administrator) are not tailored to the substantial-independent-authority question and the denial of mandamus was error."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The ground is narrow: the Court decides on the Cheney / remand-compliance question (QP1) as applied to this discovery order and does not adopt a categorical rule that discovery is never available to determine whether an EOP entity is a FOIA agency (QP2), leaving the Soucie/Meyer substantial-independent-authority test itself undisturbed and remanding for the lower courts to confine any discovery accordingly."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

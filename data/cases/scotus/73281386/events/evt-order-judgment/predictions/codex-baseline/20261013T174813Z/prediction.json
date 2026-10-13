@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "The dispute concerns public access to DOGE records and judicial discovery into presidential advisory bodies. Its separation-of-powers and FOIA implications reach beyond these litigants, although the immediate judgment concerns discovery and mandamus rather than a final ruling on disclosure.",
+  "big_case_score": 0.82,
+  "case_id": "scotus/73281386",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.84
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-14",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-13",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-13T17:55:26Z",
+  "engine": "codex",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-13.json",
+  "judgment": "vacated",
+  "model": "gpt-6-astra",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.84,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v9",
+    "pipeline_sha": "55479d1cf8f85007e3ba928c5cf799c606e854ed",
+    "stamped_at": "2026-10-13T17:58:12.756777Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261013T174813Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that Cheney's separation-of-powers principles required the D.C. Circuit to reassess the necessity and tailoring of the remaining discovery into USDS, rather than treating withdrawal of requests for recommendations as sufficient and leaving other objections to ordinary privilege litigation."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will require further narrowing of this discovery order while leaving room for targeted discovery into an Executive Office entity's independent authority, rather than categorically prohibiting all discovery to establish FOIA agency status."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}
