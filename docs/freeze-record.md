@@ -8246,12 +8246,12 @@ freeze commit is recorded here.
   `43933a6382d731bb6f96b269e60cb6f6afeee7a5`, merged `2026-10-13T17:54:17Z`). Applied by run
   `38445409277` on `2026-10-13`, landing
   `1177` rows. The first statpack refreshed after it, at commit
-  `<FILL: statpack refresh commit>`, reads the OT2026 pool as
-  `<FILL: OT2026 pool granted/resolved>` (from
-  `<FILL: OT2026 pool before, granted/resolved>`), the OT2025 pool as
-  `<FILL: OT2025 pool granted/resolved>` (from
-  `<FILL: OT2025 pool before, granted/resolved>`) and the OT2024 pool as
-  `<FILL: OT2024 pool granted/resolved>`.
+  `cf9ae960e0a992ca4a051ace24307cf15b9bfb12`, reads the OT2026 pool as
+  `53/549` (from
+  `35/422`), the OT2025 pool as
+  `36/323` (from
+  `18/196`) and the OT2024 pool as
+  `18/127`.
 
   The runnable effect check once it is live:
   - `uv run fedcourts backfill-applications --term 23 --limit 20` (a dev
