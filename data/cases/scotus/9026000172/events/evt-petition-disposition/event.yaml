@@ -1,0 +1,12 @@
+case_id: scotus/9026000172
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-08-06'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Val French v. City of Shawnee, Kansas, et al.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2026-01-22'
-resolved: false
+resolved: true
 schema_version: '1.0'
+stage: cert
 title: Andrew D. Parker, et al. v. Bill Gates, as a Member of the Maricopa County
   Board of Supervisors, et al.

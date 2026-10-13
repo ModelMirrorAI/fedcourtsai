@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000241",
+  "run_id": "20261013T143156Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "provisioned record documents"],
+  "helpful": ["Appendix text carried the CA5 opinion, which revealed the forfeiture holding — the decisive vehicle fact."],
+  "gaps": ["No base-rate cut conditioned on response-waived-and-not-requested, which is the dominant signal for paid petitions at first conference."],
+  "notes": "Waived-response first-conference petition; provisioned inputs were sufficient."
+}

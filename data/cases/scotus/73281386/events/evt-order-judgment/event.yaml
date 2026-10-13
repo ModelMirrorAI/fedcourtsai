@@ -1,0 +1,13 @@
+case_id: scotus/73281386
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2026-10-13'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: U.S. DOGE Service, et al. v. United States District Court for the District
+  of Columbia, et al.

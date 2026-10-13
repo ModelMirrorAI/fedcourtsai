@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2026-03-20'
-resolved: false
+resolved: true
 schema_version: '1.0'
-title: U.S. Doge Service, et al. v. United States District Court for the District
+stage: cert
+title: U.S. DOGE Service, et al. v. United States District Court for the District
   of Columbia, et al.
