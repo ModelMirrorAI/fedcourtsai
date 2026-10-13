@@ -2431,6 +2431,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # Three production-shaped cells over the deterministic fixture corpus —
       # two ready (claude, codex) and one salvage (gemini: valid output, agent

@@ -1,4 +1,4 @@
-"""A job holding a credential or a secret never restores the uv cache.
+"""Only a job holding nothing worth taking may restore the uv cache.
 
 The cache is repository-wide: any job can save an entry under a key nothing has
 claimed yet, and any later job restoring that key runs whatever it holds. A job
@@ -6,19 +6,23 @@ that parses third-party content — an order list, a filing PDF — runs code pa
 nobody wrote the input for, so its own save is off (`save-cache: "false"`), but
 that closes only the save its own action makes; a hostile parse holding the
 job's runtime token can still write an entry directly. Only the restore side
-closes the path, so every job carrying a credential that can change the
-repository, the corpus or another run — or a secret a poisoned entry could
-exfiltrate — installs from the index under the lockfile's hashes with the cache
-off entirely (`restore-cache: "false"` on `setup-python-env`).
+closes the path, so every job turns the uv cache off (`restore-cache: "false"`
+on `setup-python-env`) and installs from the index as the lockfile pins, unless
+this file allows it to restore.
 
-The set is derived from the YAML rather than listed, so a new job of either kind
-fails here until it opts out. A job counts if it mints an App token with any
-`write` permission, assumes an AWS role that is not a read-only one, grants its
-own token any `write` scope other than `id-token` (which only exchanges for a
-role, and that role is checked itself), references any secret other than the
-runtime `GITHUB_TOKEN` (in its own steps or env, or its workflow's env), or binds
-a deployment environment — an environment can expose secrets the YAML does not
-name, so any binding counts.
+The allow-list is short and pinned, rather than the opt-out list, because a job
+can be worth poisoning for reasons the YAML does not show: `ci.yml`'s jobs hold
+no credential, but their verdicts are required checks — the path jail that
+gates every data PR's auto-merge to `main` among them — and a poisoned cache
+could forge a passing one. So a new job must opt out until someone adds it here
+with the reason it is safe, and each allowed job is also checked to hold no
+credential or secret: no App token with a `write` permission, no AWS role but a
+read-only one, no `write` grant on its own token (its own `permissions:`, or
+the workflow's when it sets none) beyond `id-token` for a role this file can
+read, no secret but the runtime `GITHUB_TOKEN` (in its steps, its env or its
+workflow's env, however spelled), no deployment environment (which can expose
+secrets the YAML does not name), and no reusable-workflow call (whose jobs this
+file cannot see).
 """
 
 import re
@@ -32,38 +36,61 @@ ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
 SETUP = "./.github/actions/setup-python-env"
 
+# The jobs allowed to restore the uv cache, each with why that is safe. A job
+# here holds no credential and no secret (checked below), and its result is
+# neither a required status check nor evidence a gate reads.
+ALLOWED_TO_RESTORE: dict[tuple[str, str], str] = {
+    ("run-repair.yml", "handoff-parse"): (
+        "the parse of third-party documents itself: it holds no credential by "
+        + "design, and its plan is re-validated by the writer it hands to"
+    ),
+    ("run-analytics.yml", "tool-usage"): (
+        "a read-only report over committed retrieval logs, opening no PR and " + "feeding no check"
+    ),
+}
 
-SECRET = re.compile(r"secrets\.([A-Za-z0-9_]+)")
+SECRET_NAME = re.compile(r"secrets\.([A-Za-z0-9_]+)")
+# A secret reached any other way — by index or by dumping the whole context —
+# cannot be told apart from a real one, so it always counts.
+SECRET_OTHER = re.compile(r"secrets\s*\[|toJSON\(\s*secrets\b")
+
+
+def _workflows() -> list[tuple[str, dict[Any, Any]]]:
+    paths = sorted(WORKFLOWS.glob("*.y*ml"))
+    return [(path.name, yaml.safe_load(path.read_text())) for path in paths]
 
 
 def _jobs() -> list[tuple[str, str, dict[Any, Any], dict[Any, Any]]]:
-    """Every job with its workflow-level ``env``, which every job inherits."""
-    jobs = []
-    for path in sorted(WORKFLOWS.glob("*.yml")):
-        data = yaml.safe_load(path.read_text())
-        for name, job in (data.get("jobs") or {}).items():
-            jobs.append((path.name, name, job, data.get("env") or {}))
-    return jobs
+    return [
+        (name, job_name, job, wf)
+        for name, wf in _workflows()
+        for job_name, job in (wf.get("jobs") or {}).items()
+    ]
 
 
 def _steps(job: dict[Any, Any]) -> list[dict[Any, Any]]:
     return [step for step in job.get("steps") or [] if isinstance(step, dict)]
 
 
-def _credentialed(job: dict[Any, Any], workflow_env: dict[Any, Any] | None = None) -> list[str]:
+def _setup_steps(job: dict[Any, Any]) -> list[dict[Any, Any]]:
+    return [step for step in _steps(job) if str(step.get("uses", "")) == SETUP]
+
+
+def _credentialed(job: dict[Any, Any], workflow: dict[Any, Any] | None = None) -> list[str]:
     """Why ``job`` holds a credential or a secret; empty when it holds neither."""
+    workflow = workflow or {}
     reasons = []
+    if "uses" in job:
+        reasons.append("reusable workflow call")
     if job.get("environment"):
         reasons.append(f"environment {job['environment']}")
-    secrets = sorted(
-        {
-            name
-            for name in SECRET.findall(yaml.safe_dump(job) + yaml.safe_dump(workflow_env or {}))
-            if name != "GITHUB_TOKEN"
-        }
-    )
+    text = yaml.safe_dump(job) + yaml.safe_dump(workflow.get("env") or {})
+    secrets = sorted({name for name in SECRET_NAME.findall(text) if name != "GITHUB_TOKEN"})
     if secrets:
         reasons.append(f"{len(secrets)} secret(s)")
+    if SECRET_OTHER.search(text):
+        reasons.append("secrets reached by index or toJSON")
+    roles = []
     for step in _steps(job):
         uses = str(step.get("uses", ""))
         with_ = step.get("with") or {}
@@ -76,54 +103,78 @@ def _credentialed(job: dict[Any, Any], workflow_env: dict[Any, Any] | None = Non
             if writes:
                 reasons.append(f"App token with {', '.join(writes)}")
         role = with_.get("role-to-assume")
-        if role is not None and "READONLY" not in str(role):
-            reasons.append(f"role {role}")
-    permissions = job.get("permissions")
+        if role is not None:
+            roles.append(str(role))
+            if "READONLY" not in str(role):
+                reasons.append(f"role {role}")
+    # A job without its own `permissions:` inherits the workflow's.
+    permissions = job["permissions"] if "permissions" in job else workflow.get("permissions")
+    return reasons + _token_reasons(permissions, has_role=bool(roles))
+
+
+def _token_reasons(permissions: Any, *, has_role: bool) -> list[str]:
+    """Why a job's own token grant counts; ``id-token`` counts only with no role to check."""
     if permissions == "write-all":
-        reasons.append("permissions: write-all")
-    elif isinstance(permissions, dict):
-        writes = sorted(
-            key for key, value in permissions.items() if str(value) == "write" and key != "id-token"
-        )
-        if writes:
-            reasons.append(f"job token with {', '.join(writes)}")
+        return ["permissions: write-all"]
+    if not isinstance(permissions, dict):
+        return []
+    reasons = []
+    writes = sorted(
+        key for key, value in permissions.items() if str(value) == "write" and key != "id-token"
+    )
+    if writes:
+        reasons.append(f"job token with {', '.join(writes)}")
+    if str(permissions.get("id-token")) == "write" and not has_role:
+        reasons.append("id-token: write with no role this file can read")
     return reasons
 
 
-def _setup_steps(job: dict[Any, Any]) -> list[dict[Any, Any]]:
-    return [step for step in _steps(job) if str(step.get("uses", "")) == SETUP]
-
-
-CREDENTIALED = [
-    pytest.param(workflow, name, job, env, id=f"{workflow}:{name}")
-    for workflow, name, job, env in _jobs()
-    if _credentialed(job, env) and _setup_steps(job)
+SETUP_JOBS = [
+    pytest.param(workflow, name, job, wf, id=f"{workflow}:{name}")
+    for workflow, name, job, wf in _jobs()
+    if _setup_steps(job)
 ]
 
 
-def test_the_credentialed_set_is_not_empty() -> None:
-    # The derivation must keep seeing the writers it exists for; an empty set
-    # would pass every parametrized case below vacuously.
-    names = {f"{p.values[0]}:{p.values[1]}" for p in CREDENTIALED}
+@pytest.mark.parametrize(("workflow", "name", "job", "wf"), SETUP_JOBS)
+def test_every_job_but_the_allowed_installs_without_the_uv_cache(
+    workflow: str, name: str, job: dict[Any, Any], wf: dict[Any, Any]
+) -> None:
+    if (workflow, name) in ALLOWED_TO_RESTORE:
+        return
+    held = "; ".join(_credentialed(job, wf)) or "no credential, but it is not allowed to restore"
+    for step in _setup_steps(job):
+        with_ = step.get("with") or {}
+        assert str(with_.get("restore-cache")) == "false", (
+            f"{workflow}:{name} ({held}) restores the uv cache — "
+            + 'pass `restore-cache: "false"` to setup-python-env, or allow it here with a reason'
+        )
+
+
+@pytest.mark.parametrize(("workflow", "name"), sorted(ALLOWED_TO_RESTORE))
+def test_an_allowed_job_holds_nothing_and_still_restores(workflow: str, name: str) -> None:
+    found = [(job, wf) for w, n, job, wf in _jobs() if (w, n) == (workflow, name)]
+    assert found, f"{workflow}:{name} is allowed to restore but no longer exists"
+    job, wf = found[0]
+    assert _credentialed(job, wf) == [], f"{workflow}:{name} is allowed to restore but holds one"
+    setups = _setup_steps(job)
+    assert setups, f"{workflow}:{name} no longer runs setup-python-env"
+    assert all(str((s.get("with") or {}).get("restore-cache", "true")) == "true" for s in setups), (
+        f"{workflow}:{name} opted out — drop it from the allow-list"
+    )
+
+
+def test_the_writers_are_seen_and_opted_out() -> None:
+    # The derivation must keep seeing the jobs it exists for; an empty
+    # parametrization would pass vacuously.
+    names = {f"{p.values[0]}:{p.values[1]}" for p in SETUP_JOBS}
     assert {
         "run-seed.yml:seed",
         "run-pull.yml:pull",
         "run-repair.yml:votes",
+        "ci.yml:paths",
         "integration-test.yml:scenario",
-        "summarize.yml:generate",
     } <= names
-
-
-@pytest.mark.parametrize(("workflow", "name", "job", "workflow_env"), CREDENTIALED)
-def test_a_credentialed_job_installs_without_the_uv_cache(
-    workflow: str, name: str, job: dict[Any, Any], workflow_env: dict[Any, Any]
-) -> None:
-    for step in _setup_steps(job):
-        with_ = step.get("with") or {}
-        assert str(with_.get("restore-cache")) == "false", (
-            f"{workflow}:{name} holds {'; '.join(_credentialed(job, workflow_env))} "
-            + 'and restores the uv cache — pass `restore-cache: "false"` to setup-python-env'
-        )
 
 
 def test_a_read_only_role_and_the_runtime_token_never_count() -> None:
@@ -141,7 +192,7 @@ def test_a_read_only_role_and_the_runtime_token_never_count() -> None:
 
 
 @pytest.mark.parametrize(
-    ("job", "expected"),
+    ("job", "workflow", "expected"),
     [
         (
             {
@@ -152,6 +203,7 @@ def test_a_read_only_role_and_the_runtime_token_never_count() -> None:
                     }
                 ]
             },
+            {},
             "App token with permission-contents",
         ),
         (
@@ -163,30 +215,58 @@ def test_a_read_only_role_and_the_runtime_token_never_count() -> None:
                     }
                 ]
             },
+            {},
             "role ${{ vars.RW }}",
         ),
         (
             {"permissions": {"contents": "read", "issues": "write"}, "steps": []},
+            {},
             "job token with issues",
         ),
-        ({"permissions": "write-all", "steps": []}, "permissions: write-all"),
+        ({"permissions": "write-all", "steps": []}, {}, "permissions: write-all"),
+        (
+            {"steps": []},
+            {"permissions": {"contents": "write"}},
+            "job token with contents",
+        ),
         (
             {"steps": [{"run": "x", "env": {"KEY": "${{ secrets.MODEL_KEY }}"}}]},
+            {},
             "1 secret(s)",
         ),
-        ({"env": {"KEY": "${{ secrets.MODEL_KEY }}"}, "steps": []}, "1 secret(s)"),
-        ({"environment": "prod", "steps": []}, "environment prod"),
+        ({"env": {"KEY": "${{ secrets.MODEL_KEY }}"}, "steps": []}, {}, "1 secret(s)"),
+        ({"steps": []}, {"env": {"KEY": "${{ secrets.MODEL_KEY }}"}}, "1 secret(s)"),
+        (
+            {"steps": [{"run": "x", "env": {"K": "${{ secrets[format('K{0}', 1)] }}"}}]},
+            {},
+            "secrets reached by index or toJSON",
+        ),
+        (
+            {"steps": [{"run": "x", "env": {"ALL": "${{ toJSON(secrets) }}"}}]},
+            {},
+            "secrets reached by index or toJSON",
+        ),
+        ({"environment": "prod", "steps": []}, {}, "environment prod"),
+        ({"uses": "./.github/workflows/other.yml"}, {}, "reusable workflow call"),
+        (
+            {"permissions": {"id-token": "write"}, "steps": []},
+            {},
+            "id-token: write with no role this file can read",
+        ),
     ],
 )
-def test_each_credential_kind_is_seen(job: dict[Any, Any], expected: str) -> None:
-    assert _credentialed(job) == [expected]
+def test_each_credential_kind_is_seen(
+    job: dict[Any, Any], workflow: dict[Any, Any], expected: str
+) -> None:
+    assert _credentialed(job, workflow) == [expected]
 
 
-def test_a_secret_in_the_workflow_env_counts_for_every_job() -> None:
-    assert _credentialed({"steps": []}, {"KEY": "${{ secrets.MODEL_KEY }}"}) == ["1 secret(s)"]
+def test_a_job_with_its_own_permissions_does_not_inherit_the_workflows() -> None:
+    job = {"permissions": {"contents": "read"}, "steps": []}
+    assert _credentialed(job, {"permissions": {"contents": "write"}}) == []
 
 
-def test_the_opt_out_turns_the_cache_off_entirely() -> None:
+def test_the_opt_out_turns_the_cache_off_and_fails_closed() -> None:
     action = yaml.safe_load(
         (ROOT / ".github" / "actions" / "setup-python-env" / "action.yml").read_text()
     )
@@ -199,9 +279,11 @@ def test_the_opt_out_turns_the_cache_off_entirely() -> None:
     assert installs, "setup-python-env no longer installs uv through setup-uv"
     for step in installs:
         with_ = step["with"]
-        # Off means neither half runs: no restore of any key, and no save a
-        # later job could restore.
-        assert with_["enable-cache"] == "${{ inputs.restore-cache != 'false' }}"
-        assert with_["restore-cache"] == "${{ inputs.restore-cache }}"
-        assert "inputs.restore-cache != 'false'" in str(with_["save-cache"])
+        # Only an explicit "true" turns either half on; any other value — a
+        # typo, an empty string — leaves the cache off.
+        assert with_["enable-cache"] == "${{ inputs.restore-cache == 'true' }}"
+        assert with_["restore-cache"] == "${{ inputs.restore-cache == 'true' }}"
+        assert with_["save-cache"] == (
+            "${{ inputs.restore-cache == 'true' && inputs.save-cache == 'true' }}"
+        )
         assert str(with_.get("cache-python", "false")) == "false"

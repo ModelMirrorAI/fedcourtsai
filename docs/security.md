@@ -1303,23 +1303,27 @@ visible on `staging` — and any job that later restores a cache under such a ke
 dispatched on the default branch, whose cache scope every branch restores from,
 so that is any job on any branch, in any workflow — would restore what it wrote (`uv sync
 --locked` does not re-hash an archive already in the cache). The restore side
-is where that path is closed: every job holding a credential or a secret
-passes `restore-cache: "false"` to `setup-python-env`, which turns the uv cache
-off for the job entirely (no restore of any key, no save) so it installs from
-the index as the lockfile pins. That is any job that mints an App token with a
-`write` permission, assumes a read-write corpus role, grants its own token a
-`write` scope, references any secret but the runtime token, or binds a
-deployment environment (an environment can expose secrets the YAML does not
-name, so every binding counts, the read-only plan and projection jobs
-included). The set is derived from the workflow YAML rather than listed
-(`tests/test_workflow_cache_restore.py`), so a new job of either kind fails the
-suite until it opts out. What still restores the cache is uncredentialed,
-secret-free jobs only — `ci.yml`'s `gate`, `paths` and `cleanup-paths`,
-`run-repair`'s `handoff-parse`, `run-analytics`'s `tool-usage` and
-`integration-test`'s `collect-scenario` — and a poisoned entry there runs
-beside nothing worth taking: no write
-credential, no model key, no corpus role and no environment, only the job's own
-read-scoped runtime token, which the attacker already held to save the entry. The same reach, with
+is where that path is closed: every job passes `restore-cache: "false"` to
+`setup-python-env`, which turns the uv cache off for the job entirely (no
+restore of any key, no save) so it installs from the index as the lockfile
+pins, unless `tests/test_workflow_cache_restore.py` allows it to restore. The
+allow-list is short and pinned rather than the opt-out list, because a job can
+be worth poisoning for reasons its credentials do not show: `ci.yml`'s `gate`,
+`paths` and `cleanup-paths` hold no credential, but their verdicts are required
+checks — the path jail among them gates every data PR's auto-merge to `main` —
+and `integration-test`'s `collect-scenario` produces the freshness evidence the
+promotion gate reads, so a poisoned cache in any of them could forge a passing
+result. So a new job opts out until someone allows it with the reason it is
+safe, and each allowed job is checked to hold no credential or secret: no
+write-permission App token, no role but a read-only one, no write grant on its
+own token or inherited from its workflow, no secret but the runtime token, no
+deployment environment and no reusable-workflow call. Two jobs restore:
+`run-repair`'s `handoff-parse`, the parse of third-party documents itself,
+which holds no credential by design and hands a plan its writer re-validates;
+and `run-analytics`'s `tool-usage`, a read-only report over committed
+retrieval logs that opens no PR and feeds no check. A poisoned entry there runs
+beside nothing worth taking: the job's own read-scoped runtime token, which the
+attacker already held to save the entry, and an output nothing trusts. The same reach, with
 every credential besides, belongs to the two passes that parse fetched
 PDFs inside the corpus job: `ocr-recovery` and `document-backfill` are not
 split. And in every job that holds `id-token: write` — the projection,
