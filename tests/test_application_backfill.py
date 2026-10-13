@@ -260,7 +260,7 @@ def test_the_fetch_limit_and_the_dev_cache(tmp_path: Path) -> None:
         (["--apply"], "requires an explicit --max-rows"),
         (["--apply", "--max-rows", "1", "--cache-dir", "c"], "--cache-dir"),
         (["--term", "99"], "out of reach"),
-        (["--term", "23", "--apply", "--max-rows", "1"], "no pre-registered apply"),
+        (["--term", "22", "--apply", "--max-rows", "1"], "no pre-registered apply"),
         (["--term", "16"], "out of reach"),
         (["--limit", "0"], "must be positive"),
     ],
