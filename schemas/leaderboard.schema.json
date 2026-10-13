@@ -119,7 +119,7 @@
     },
     "CommonRecordEngine": {
       "additionalProperties": false,
-      "description": "One engine's figure over the paired events every engine ran on the record alone.",
+      "description": "One engine's figure over the common-record paired events.",
       "properties": {
         "forward": {
           "anyOf": [
@@ -131,7 +131,7 @@
             }
           ],
           "default": null,
-          "description": "This engine's forward aggregate over its paired gradings on the common-record events; null while there are none"
+          "description": "This engine's forward aggregate over its paired gradings on the common-record events, carrying that subset's own `always_deny_accuracy` and `in_sample_grant_rate` to be read against; null while there are none"
         },
         "predictor_id": {
           "title": "Predictor Id",
@@ -146,7 +146,7 @@
     },
     "CommonRecordReading": {
       "additionalProperties": false,
-      "description": "The paired figure restricted to events no engine reached past the record on.\n\nThe engine comparison over one information set: a paired event enters only\nwhere every engine's cell on it has a legible log with no filing fetch and\nno target-blind fetch row (:class:`SelfProvisioningCount`), so every engine\nforecast it from the provisioned snapshot alone as far as the logs can show.\nA **selected** subset of the paired events \u2014 events whose record was short\nare the ones a cell reaches past it on, so these skew toward\nfully-provisioned events \u2014 and never ranked: the rank stays on the full\npaired figure.",
+      "description": "The paired figure over the events no engine's log shows a filing fetch on.\n\nAn event enters only where every engine's cell on it has a legible log with\nno filing fetch and no fetch-tool row naming no address\n(:class:`SelfProvisioningCount`): the paired events on which no engine's log\nshows a legible fetch of a court filing outside the provisioned set. It\nsays nothing about other retrieval, which a forward cell may do without\nrestriction.\n\nA **selected** subset, and not neutrally: a cell reaches past the record\nwhere the record is short and the case contested, so the selection runs on\nbehaviour that tracks the outcome and the forecast's uncertainty \u2014 on\ngranted and close petitions \u2014 and it drops an event for one engine's reach\nwhatever the others did. Read each engine's figure against this subset's own\nalways-deny floor and in-sample grant rate, never the full paired set's;\nnever rank it, and never difference it against the paired figure.",
       "properties": {
         "entries": {
           "description": "Per engine, in the paired figure's order",
@@ -157,7 +157,7 @@
           "type": "array"
         },
         "events": {
-          "description": "Paired events on which every engine's cell reached past nothing, legibly",
+          "description": "Paired events on which no engine's log shows a legible fetch of a court filing outside the provisioned set, and every engine's log was read and names every fetch's target",
           "minimum": 0,
           "title": "Events",
           "type": "integer"
@@ -526,7 +526,7 @@
             }
           ],
           "default": null,
-          "description": "This figure's cells by whether they reached past the provisioned document set for a court filing (see SelfProvisioningCount). Descriptive only: no rank key, headline figure or filter reads it. Omitted while no retrieval-log reading was supplied. On a pooled entry, over every stratum's cells; never on a cut entry"
+          "description": "This figure's cells by whether their logs show a fetch of a court filing outside the provisioned document set (see SelfProvisioningCount). Descriptive only: no rank key, headline figure or filter reads it. Omitted while no retrieval-log reading was supplied. On a pooled entry, over its `forward` stratum's cells, the stratum its figures beside it read; never on a cut entry"
         },
         "windows": {
           "description": "The windows this figure pools, each with its `n` in gradings, ordered by opening. Listed whenever the figure is a frozen-scope pool, a single window included; empty on an all-versions build, whose cells carry no window",
@@ -721,7 +721,7 @@
             }
           ],
           "default": null,
-          "description": "This figure's cells by whether they reached past the provisioned document set for a court filing (see SelfProvisioningCount). Descriptive only: no rank key, headline figure or filter reads it. Omitted while no retrieval-log reading was supplied. On a pooled entry, over every stratum's cells; never on a cut entry"
+          "description": "This figure's cells by whether their logs show a fetch of a court filing outside the provisioned document set (see SelfProvisioningCount). Descriptive only: no rank key, headline figure or filter reads it. Omitted while no retrieval-log reading was supplied. On a pooled entry, over its `forward` stratum's cells, the stratum its figures beside it read; never on a cut entry"
         },
         "windows": {
           "description": "The windows this figure pools, each with its `n` in gradings, ordered by opening. Listed whenever the figure is a frozen-scope pool, a single window included; empty on an all-versions build, whose cells carry no window",
@@ -1161,7 +1161,7 @@
             }
           ],
           "default": null,
-          "description": "This figure's cells by whether they reached past the provisioned document set for a court filing (see SelfProvisioningCount). Descriptive only: no rank key, headline figure or filter reads it. Omitted while no retrieval-log reading was supplied. Over this engine's cells on the paired events"
+          "description": "This figure's cells by whether their logs show a fetch of a court filing outside the provisioned document set (see SelfProvisioningCount). Descriptive only: no rank key, headline figure or filter reads it. Omitted while no retrieval-log reading was supplied. Over this engine's cells on the paired events"
         },
         "unpaired_events": {
           "description": "This engine's qualifying events that are not paired, because some other engine in the set holds no qualifying cell on them: its pairing loss",
@@ -1214,7 +1214,7 @@
             }
           ],
           "default": null,
-          "description": "The paired figure restricted to the events on which no engine's cell reached past the provisioned record (see CommonRecordReading): the engine comparison over one information set. A selected subset, never ranked; omitted while no retrieval-log reading was supplied"
+          "description": "The paired figure restricted to the paired events on which no engine's log shows a legible fetch of a court filing outside the provisioned set (see CommonRecordReading). A selected subset \u2014 the selection tracks outcome and uncertainty \u2014 read against its own always-deny floor, never ranked and never differenced against the paired figure; omitted while no retrieval-log reading was supplied"
         },
         "entries": {
           "description": "Per engine, its standing over the paired events: in rank order on the ranked board, by `predictor_id` on an unranked block",
@@ -1338,7 +1338,7 @@
     },
     "SelfProvisioningCount": {
       "additionalProperties": false,
-      "description": "A figure's cells by whether they reached past the provisioned record for a filing.\n\nDescriptive, never a filter and never a rank key. The provisioned\n`record/documents/` set is every predictor's guaranteed-common input; a cell\nthat fetched a filing outside it ran on a different information set from a\ncell that did not, so a figure over both is a comparison across information\nsets wherever the counts below are non-zero. Counted in cells \u2014 one per\n(case, event) \u2014 over the figure's cells, each read off its scored\nprediction's own retrieval log.",
+      "description": "A figure's cells by whether their logs show a fetch of a court filing.\n\nDescriptive, never a filter and never a rank key. The provisioned\n`record/documents/` set is every predictor's guaranteed-common input; a cell\nwhose log shows a legible fetch of a court filing outside it may have run on\na different information set from a cell whose log does not. The reading is\nabout filings only: other retrieval a forward cell may do without\nrestriction is not counted. Counted in cells, one per (case, event,\npredictor), over the figure's cells, each read off its scored prediction's\nown retrieval log.",
       "properties": {
         "cells": {
           "description": "Cells behind this figure",
@@ -1353,13 +1353,13 @@
           "type": "integer"
         },
         "target_blind": {
-          "description": "Cells that did not reach legibly but hold a dedicated-fetch row whose slice names no web address, so a filing fetch could be hidden there. On a log captured before the URL-first slice rule this is every prompted fetch, so before that rule's carrying merge `reached` is a floor for an engine whose fetch tool takes a prompt",
+          "description": "Cells that did not reach legibly but hold a fetch-tool row whose slice names no web address, so a filing fetch could be hidden there. ENGINE-ASYMMETRIC: on a log captured before the URL-first slice rule every prompted fetch is such a row, so a cell of an engine whose fetch tool takes a prompt reads here whatever it fetched, while another engine's cell leaves `none` only on a legible filing fetch. Until such cells are gone, that engine's `reached` is a floor",
           "minimum": 0,
           "title": "Target Blind",
           "type": "integer"
         },
         "unlogged": {
-          "description": "Cells whose scored prediction has no readable retrieval log, so nothing is known about what they fetched",
+          "description": "Cells whose scored prediction or retrieval log could not be read, so nothing is known about what they fetched",
           "minimum": 0,
           "title": "Unlogged",
           "type": "integer"

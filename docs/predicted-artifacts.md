@@ -585,8 +585,9 @@ directory without knowing which part is which invites trusting the wrong half.
   reasoned from one information set — and nothing else records the split, since
   the fetch marks the log and not the prediction. **Descriptive only**: no
   score, rank key or exclusion reads it; the leaderboard counts each figure's
-  cells by it and reads a paired figure over the events no engine reached past
-  the record on ([metrics/README.md](../metrics/README.md)). It is a **reach, not an acquisition** — the row is
+  cells by it and reads a paired figure over the events on which no engine's
+  log shows such a fetch ([metrics/README.md](../metrics/README.md)). It is a
+  **reach, not an acquisition** — the row is
   the call, and whether anything came back is `result_status`'s business, which
   on a shell row is the engine's own failure marker rather than a read of the
   payload, so a refused fetch counts and moved no information set. It does not

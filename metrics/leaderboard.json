@@ -4432,7 +4432,7 @@
             "vote_cells_scored": 0
           },
           "self_provisioning": {
-            "cells": 8,
+            "cells": 4,
             "reached": 0,
             "target_blind": 3,
             "unlogged": 0
@@ -4600,7 +4600,7 @@
             "vote_cells_scored": 0
           },
           "self_provisioning": {
-            "cells": 8,
+            "cells": 4,
             "reached": 0,
             "target_blind": 0,
             "unlogged": 0
@@ -4768,7 +4768,7 @@
             "vote_cells_scored": 0
           },
           "self_provisioning": {
-            "cells": 7,
+            "cells": 4,
             "reached": 0,
             "target_blind": 0,
             "unlogged": 0
@@ -5817,7 +5817,7 @@
             "vote_cells_scored": 0
           },
           "self_provisioning": {
-            "cells": 2,
+            "cells": 1,
             "reached": 0,
             "target_blind": 1,
             "unlogged": 0
@@ -5969,8 +5969,8 @@
             "vote_cells_scored": 0
           },
           "self_provisioning": {
-            "cells": 2,
-            "reached": 1,
+            "cells": 1,
+            "reached": 0,
             "target_blind": 0,
             "unlogged": 0
           },
@@ -6121,7 +6121,7 @@
             "vote_cells_scored": 0
           },
           "self_provisioning": {
-            "cells": 2,
+            "cells": 1,
             "reached": 0,
             "target_blind": 0,
             "unlogged": 0

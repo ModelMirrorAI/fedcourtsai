@@ -100,7 +100,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal
 
 from .integrity import (
     FORWARD,
@@ -110,7 +110,6 @@ from .integrity import (
     cell_clock,
     latest_evaluations,
 )
-from .paths import EventPaths
 from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statpack_digest
 from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
 from .pipeline.moments import first_moment, scores_votes
@@ -175,7 +174,13 @@ from .schemas import (
     target_blind_fetches,
 )
 from .serialize import read_model
-from .store import EvaluationKey, evaluation_key, prediction_counts, scored_prediction
+from .store import (
+    EvaluationKey,
+    evaluation_key,
+    prediction_counts,
+    scored_prediction,
+    scored_prediction_cell,
+)
 
 #: A big-case agreement's key: the predictor and the label of the counting
 #: window its reads come from — ``None`` on the pooled default, which spans
@@ -796,7 +801,7 @@ def _common_record(
     vote_scores: Mapping[EvaluationKey, float] | None,
     provisioning: Mapping[EvaluationKey, Provisioning] | None,
 ) -> CommonRecordReading | None:
-    """The paired figure over the events every engine forecast from the record alone.
+    """The paired figure over the events no engine's log shows a filing fetch on.
 
     An event enters only where every engine's every paired grading on it reads
     ``none`` (:func:`cell_provisioning`): a reach, a target-blind fetch, an
@@ -1524,27 +1529,33 @@ def cell_provisioning(
 ) -> dict[EvaluationKey, Provisioning]:
     """Each scored cell's self-provisioning reading, off its scored prediction's log.
 
-    Read off the **scored** prediction's own ``retrieval_log.json`` — the run the
-    evaluation names, as every board reads it — and recomputed from its calls
-    with :func:`fedcourtsai.schemas.self_provisioned_fetches` and
+    Read off the ``retrieval_log.json`` in the **scored** run's own directory —
+    the run :func:`fedcourtsai.store.scored_prediction_cell` resolves the
+    grading to, the join every board uses, never the prediction document's own
+    ``run_id`` — and recomputed from its calls with
+    :func:`fedcourtsai.schemas.self_provisioned_fetches` and
     :func:`fedcourtsai.schemas.target_blind_fetches` rather than read off the
     log's baked count, so a log captured before the count existed reads by the
-    same rule. A cell with no readable scored prediction is left out; one whose
-    prediction has no readable log is ``unlogged``.
+    same rule. A cell whose scored prediction cannot be resolved, or whose log
+    is missing or unreadable, is ``unlogged``: nothing is known about what it
+    fetched.
     """
     cases_dir = data_root / "cases"
     readings: dict[EvaluationKey, Provisioning] = {}
     for evaluation, _stratum, _stage, _moment in cells:
-        scored = _scored_prediction(cases_dir, evaluation)
-        if scored is None:
+        key = _evaluation_key(evaluation)
+        graded = scored_prediction_cell(
+            cases_dir / evaluation.case_id / "events" / evaluation.event_id,
+            evaluation.predictor_id,
+            evaluation.prediction_run_id,
+        )
+        if graded is None:
+            readings[key] = "unlogged"
             continue
-        log_path = EventPaths(
-            cases_dir / evaluation.case_id / "events" / evaluation.event_id
-        ).prediction_retrieval_log(evaluation.predictor_id, scored.run_id)
         try:
-            log = read_model(log_path, RetrievalLog)
+            log = read_model(graded[0] / "retrieval_log.json", RetrievalLog)
         except (OSError, ValueError):
-            readings[_evaluation_key(evaluation)] = "unlogged"
+            readings[key] = "unlogged"
             continue
         if self_provisioned_fetches(log.calls):
             reading: Provisioning = "reached"
@@ -1552,8 +1563,20 @@ def cell_provisioning(
             reading = "target_blind"
         else:
             reading = "none"
-        readings[_evaluation_key(evaluation)] = reading
+        readings[key] = reading
     return readings
+
+
+#: Which reading a cell takes where its gradings resolve to logs that disagree
+#: — two judges grading different runs of one predictor's event. The least
+#: vouched-for wins, so a cell never reads ``none`` while any
+#: of its gradings says otherwise.
+_PROVISIONING_PRECEDENCE: Final[dict[Provisioning, int]] = {
+    "reached": 3,
+    "target_blind": 2,
+    "unlogged": 1,
+    "none": 0,
+}
 
 
 def _provisioning_count(
@@ -1562,14 +1585,20 @@ def _provisioning_count(
     """A figure's cells by self-provisioning reading, or ``None`` when none was supplied.
 
     Counted in cells — one per (case, event, predictor), whatever its panel
-    depth — so a three-judge cell counts once, as a boundary count does.
+    depth — so a three-judge cell counts once, as a boundary count does. A
+    grading missing from the reading counts its cell ``unlogged``, and where a
+    cell's gradings read differently it takes the least vouched-for
+    (:data:`_PROVISIONING_PRECEDENCE`).
     """
     if provisioning is None:
         return None
     per_cell: dict[tuple[str, str, str], Provisioning] = {}
     for ev in evals:
-        if (reading := provisioning.get(_evaluation_key(ev))) is not None:
-            per_cell.setdefault((ev.case_id, ev.event_id, ev.predictor_id), reading)
+        reading = provisioning.get(_evaluation_key(ev), "unlogged")
+        cell = (ev.case_id, ev.event_id, ev.predictor_id)
+        held = per_cell.get(cell)
+        if held is None or _PROVISIONING_PRECEDENCE[reading] > _PROVISIONING_PRECEDENCE[held]:
+            per_cell[cell] = reading
     if not per_cell:
         return None
     readings = list(per_cell.values())
@@ -1868,7 +1897,9 @@ def _stage_entry(  # noqa: PLR0913 - one argument per per-cell reading the entry
             else []
         ),
         boundaries=_boundary_counts(evals, sides) if window is None else [],
-        self_provisioning=_provisioning_count(evals, provisioning) if window is None else None,
+        self_provisioning=(
+            _provisioning_count(strata[FORWARD], provisioning) if window is None else None
+        ),
         evaluators=len({ev.evaluator_id for ev in evals}),
         events_scored=_events_scored(evals),
         forward=_aggregate(strata[FORWARD], skills, facts, vote_scores=vote_scores),
@@ -2110,7 +2141,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
             ),
             boundaries=_boundary_counts(evals, boundaries) if window is None else [],
             self_provisioning=(
-                _provisioning_count(evals, provisioning) if window is None else None
+                _provisioning_count(strata[FORWARD], provisioning) if window is None else None
             ),
             rank=rank,
             paired_events=paired.events if rank is not None and paired is not None else None,

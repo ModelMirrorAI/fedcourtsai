@@ -2692,8 +2692,9 @@ def self_provisioned_fetches(calls: Sequence[RetrievalCall]) -> list[RetrievalCa
     that: the fetch leaves a row in the cell's log and no mark on the
     prediction. This is the predicate that finds those rows. No score or rank
     reads it; the leaderboard only describes with it — each figure's cells by
-    reading, and a paired reading over the events no engine reached past the
-    record on (:func:`fedcourtsai.leaderboard.cell_provisioning`). It records a
+    reading, and a paired reading over the events on which no engine's log
+    shows such a fetch (:func:`fedcourtsai.leaderboard.cell_provisioning`). It
+    records a
     *reach*, not an acquisition: the row is the call, and whether anything came
     back is ``result_status``'s business, so a refused fetch counts here and
     moved no information set.
@@ -2894,8 +2895,8 @@ class RetrievalLog(_Strict):
         "fetch and a cell that cannot are not running on one information set, and nothing "
         "else records the difference: the call marks the log and not the prediction. "
         "DESCRIPTIVE ONLY — no score, rank key or exclusion reads it; the leaderboard "
-        "counts each figure's cells by it and reads a paired figure over the events no "
-        "engine reached past the record on, both registered in the freeze record. "
+        "counts each figure's cells by it and reads a paired figure over the events on which "
+        "no engine's log shows such a fetch, both registered in the freeze record. "
         "A REACH, NOT AN ACQUISITION: the row is the call, and "
         "whether anything came back is `result_status`'s business — on a shell row the "
         "engine's own failure marker rather than a read of the payload — so a refused or "
@@ -3649,15 +3650,16 @@ _BOUNDARIES_DESCRIPTION = (
 
 
 class SelfProvisioningCount(_Strict):
-    """A figure's cells by whether they reached past the provisioned record for a filing.
+    """A figure's cells by whether their logs show a fetch of a court filing.
 
     Descriptive, never a filter and never a rank key. The provisioned
     `record/documents/` set is every predictor's guaranteed-common input; a cell
-    that fetched a filing outside it ran on a different information set from a
-    cell that did not, so a figure over both is a comparison across information
-    sets wherever the counts below are non-zero. Counted in cells — one per
-    (case, event) — over the figure's cells, each read off its scored
-    prediction's own retrieval log.
+    whose log shows a legible fetch of a court filing outside it may have run on
+    a different information set from a cell whose log does not. The reading is
+    about filings only: other retrieval a forward cell may do without
+    restriction is not counted. Counted in cells, one per (case, event,
+    predictor), over the figure's cells, each read off its scored prediction's
+    own retrieval log.
     """
 
     cells: int = Field(ge=0, description="Cells behind this figure")
@@ -3669,53 +3671,63 @@ class SelfProvisioningCount(_Strict):
     )
     target_blind: int = Field(
         ge=0,
-        description="Cells that did not reach legibly but hold a dedicated-fetch row whose "
-        "slice names no web address, so a filing fetch could be hidden there. On a log "
-        "captured before the URL-first slice rule this is every prompted fetch, so before "
-        "that rule's carrying merge `reached` is a floor for an engine whose fetch tool "
-        "takes a prompt",
+        description="Cells that did not reach legibly but hold a fetch-tool row whose slice "
+        "names no web address, so a filing fetch could be hidden there. ENGINE-ASYMMETRIC: on "
+        "a log captured before the URL-first slice rule every prompted fetch is such a row, "
+        "so a cell of an engine whose fetch tool takes a prompt reads here whatever it "
+        "fetched, while another engine's cell leaves `none` only on a legible filing fetch. "
+        "Until such cells are gone, that engine's `reached` is a floor",
     )
     unlogged: int = Field(
         ge=0,
-        description="Cells whose scored prediction has no readable retrieval log, so "
+        description="Cells whose scored prediction or retrieval log could not be read, so "
         "nothing is known about what they fetched",
     )
 
 
 _SELF_PROVISIONING_DESCRIPTION = (
-    "This figure's cells by whether they reached past the provisioned document set for a "
-    "court filing (see SelfProvisioningCount). Descriptive only: no rank key, headline "
-    "figure or filter reads it. Omitted while no retrieval-log reading was supplied"
+    "This figure's cells by whether their logs show a fetch of a court filing outside the "
+    "provisioned document set (see SelfProvisioningCount). Descriptive only: no rank key, "
+    "headline figure or filter reads it. Omitted while no retrieval-log reading was supplied"
 )
 
 
 class CommonRecordEngine(_Strict):
-    """One engine's figure over the paired events every engine ran on the record alone."""
+    """One engine's figure over the common-record paired events."""
 
     predictor_id: str
     forward: LeaderboardStratum | None = Field(
         default=None,
         description="This engine's forward aggregate over its paired gradings on the "
-        "common-record events; null while there are none",
+        "common-record events, carrying that subset's own `always_deny_accuracy` and "
+        "`in_sample_grant_rate` to be read against; null while there are none",
     )
 
 
 class CommonRecordReading(_Strict):
-    """The paired figure restricted to events no engine reached past the record on.
+    """The paired figure over the events no engine's log shows a filing fetch on.
 
-    The engine comparison over one information set: a paired event enters only
-    where every engine's cell on it has a legible log with no filing fetch and
-    no target-blind fetch row (:class:`SelfProvisioningCount`), so every engine
-    forecast it from the provisioned snapshot alone as far as the logs can show.
-    A **selected** subset of the paired events — events whose record was short
-    are the ones a cell reaches past it on, so these skew toward
-    fully-provisioned events — and never ranked: the rank stays on the full
-    paired figure.
+    An event enters only where every engine's cell on it has a legible log with
+    no filing fetch and no fetch-tool row naming no address
+    (:class:`SelfProvisioningCount`): the paired events on which no engine's log
+    shows a legible fetch of a court filing outside the provisioned set. It
+    says nothing about other retrieval, which a forward cell may do without
+    restriction.
+
+    A **selected** subset, and not neutrally: a cell reaches past the record
+    where the record is short and the case contested, so the selection runs on
+    behaviour that tracks the outcome and the forecast's uncertainty — on
+    granted and close petitions — and it drops an event for one engine's reach
+    whatever the others did. Read each engine's figure against this subset's own
+    always-deny floor and in-sample grant rate, never the full paired set's;
+    never rank it, and never difference it against the paired figure.
     """
 
     events: int = Field(
         ge=0,
-        description="Paired events on which every engine's cell reached past nothing, legibly",
+        description="Paired events on which no engine's log shows a legible fetch of a "
+        "court filing outside the provisioned set, and every engine's log was read and "
+        "names every fetch's target",
     )
     entries: list[CommonRecordEngine] = Field(
         default_factory=list,
@@ -3833,10 +3845,12 @@ class PairedEvents(_Strict):
     )
     common_record: CommonRecordReading | None = Field(
         default=None,
-        description="The paired figure restricted to the events on which no engine's cell "
-        "reached past the provisioned record (see CommonRecordReading): the engine "
-        "comparison over one information set. A selected subset, never ranked; omitted "
-        "while no retrieval-log reading was supplied",
+        description="The paired figure restricted to the paired events on which no "
+        "engine's log shows a legible fetch of a court filing outside the provisioned set "
+        "(see CommonRecordReading). A selected subset — the selection tracks outcome and "
+        "uncertainty — read against its own always-deny floor, never ranked and never "
+        "differenced against the paired figure; omitted while no retrieval-log reading was "
+        "supplied",
     )
 
     @model_serializer(mode="wrap")
@@ -3908,8 +3922,9 @@ class LeaderboardEntry(_Strict):
     )
     self_provisioning: SelfProvisioningCount | None = Field(
         default=None,
-        description=_SELF_PROVISIONING_DESCRIPTION + ". On a pooled entry, over every "
-        "stratum's cells; never on a cut entry",
+        description=_SELF_PROVISIONING_DESCRIPTION + ". On a pooled entry, over its "
+        "`forward` stratum's cells, the stratum its figures beside it read; never on a cut "
+        "entry",
     )
     rank: int | None = Field(
         default=None,
@@ -4010,8 +4025,9 @@ class LeaderboardStageEntry(_Strict):
     )
     self_provisioning: SelfProvisioningCount | None = Field(
         default=None,
-        description=_SELF_PROVISIONING_DESCRIPTION + ". On a pooled entry, over every "
-        "stratum's cells; never on a cut entry",
+        description=_SELF_PROVISIONING_DESCRIPTION + ". On a pooled entry, over its "
+        "`forward` stratum's cells, the stratum its figures beside it read; never on a cut "
+        "entry",
     )
     evaluators: int = Field(
         ge=0, description="Distinct evaluators that scored this predictor in this stage"
