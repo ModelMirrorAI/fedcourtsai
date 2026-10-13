@@ -65,6 +65,8 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # Read-only: what `staging` carries over `main`, which PR brought each
       # commit, what the gate says at staging's head, and which freeze-record

@@ -94,6 +94,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - name: Collect recent workflow runs
         env:
@@ -295,6 +297,8 @@ jobs:
           persist-credentials: false # this job pushes nothing
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - name: Open the daily prediction-reading digest
         env:

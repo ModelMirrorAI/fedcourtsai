@@ -594,6 +594,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The refresh PR is opened with the dev App token. The dev App is not a
       # branch-protection bypass actor, so the PR still faces the required `gate`
@@ -801,6 +803,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - name: Regenerate the big-case board
         id: regenerate
@@ -1146,6 +1150,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # Recorded before the agent runs, because `setup-uv` installs into a
       # runner-user-writable directory and `$GITHUB_PATH` is appendable from

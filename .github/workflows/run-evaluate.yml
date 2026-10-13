@@ -330,6 +330,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # Read-only corpus access (OIDC role; no static keys — a compromised
       # evaluate runner cannot write or delete corpus objects). No pull: corpus
@@ -1470,6 +1472,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - name: Configure git identity
         uses: ./.github/actions/configure-git-identity

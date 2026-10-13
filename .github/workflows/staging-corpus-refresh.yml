@@ -142,6 +142,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The staging read-write role: read on the production stores, read-write
       # on the staging pair alone, and an OIDC trust naming ONLY this

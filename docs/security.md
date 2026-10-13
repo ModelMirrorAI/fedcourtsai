@@ -1302,8 +1302,20 @@ yet — including one it can predict, such as the uv key of a lockfile already
 visible on `staging` — and any job that later restores a cache under such a key — and run-repair is
 dispatched on the default branch, whose cache scope every branch restores from,
 so that is any job on any branch, in any workflow — would restore what it wrote (`uv sync
---locked` does not re-hash an archive already in the cache). That
-cache-poisoning path is the split's remaining residual. The same reach, with
+--locked` does not re-hash an archive already in the cache). The restore side
+is where that path is closed: every job holding a write-scoped credential — an
+App token with any `write` permission, a read-write corpus role, or a `write`
+grant on its own token — passes `restore-cache: "false"` to
+`setup-python-env`, which turns the uv cache off for the job entirely (no
+restore of any key, no save) so it installs from the index as the lockfile
+pins. The set is derived from the workflow YAML rather than listed
+(`tests/test_workflow_cache_restore.py`), so a new credentialed job fails the
+suite until it opts out. What still restores the cache is the uncredentialed
+remainder: jobs with read-only corpus access, and three that hold secrets —
+`integration-test`'s `scenario` and `qp-labeler-smoke` and `summarize`'s
+`generate`, which hold model keys and the CourtListener token. A poisoned entry
+there runs hostile code beside a read credential or a spend credential, not
+beside anything that can change the repository, the corpus or another run. The same reach, with
 every credential besides, belongs to the two passes that parse fetched
 PDFs inside the corpus job: `ocr-recovery` and `document-backfill` are not
 split. And in every job that holds `id-token: write` — the projection,

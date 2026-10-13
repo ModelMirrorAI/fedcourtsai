@@ -185,6 +185,8 @@ jobs:
           git reset --hard FETCH_HEAD
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # Assume the read-write (append-only) IAM role via GitHub OIDC so pull can
       # push fresh forward facts into the corpus on the S3 remote. The role
@@ -515,6 +517,8 @@ jobs:
           git reset --hard FETCH_HEAD
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # Same read-write (append-only) role as `pull`: the live poller adds
       # snapshots and rows to the corpus blob but can never wipe remote objects.
@@ -776,6 +780,8 @@ jobs:
           git reset --hard FETCH_HEAD
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - name: Configure AWS credentials (corpus S3 remote, read-write)
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
@@ -872,6 +878,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - name: Mint the dispatch token
         id: app-token
