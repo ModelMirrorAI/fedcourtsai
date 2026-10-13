@@ -33,7 +33,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-pull`       | daily schedules (pull + live jobs), manual dispatch (+ dispatch-only `enrich-opinions` mode) | script (no agent)    |
 | `run-seed`       | daily schedules (4 dead-zone windows), manual | script (no agent)    |
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
-| `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less manual dispatch | Claude Code + Codex + Gemini |
+| `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
 | `run-evaluate`   | daily schedule (15:39 UTC), input-less manual dispatch | Claude Code + Codex + Gemini |
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
@@ -43,6 +43,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
+| `promotion-prep` | daily schedule + manual dispatch    | script (no agent)    |
 
 † No workflow carries an actor gate of its own, and none is missing: there is no
 trigger for one to judge. `tests/test_workflow_auth_gate.py` locks that shape in
@@ -543,7 +544,7 @@ promotion carrying the fix. `offline-gate` is the dispatch **default**, so an
 unqualified dispatch runs every required scenario but the six engine legs and
 spends nothing; `gate`
 is reached only by typing it, which is what a promotion-bound suite does once
-per batch (step 3 of the operator's path below), and `all` is what a
+per batch (step 4 of the operator's path below), and `all` is what a
 maintainer types to find out whether everything the workflow offers still
 runs — before a batch that bumps an action the labeler or the repro leg
 uses, say.
@@ -983,10 +984,10 @@ run fetches from supremecourt.gov, so an apply does not lead with a dry run,
 and a re-dispatched dry run after the apply is the control. Its plan carries
 the served dockets' party contact details to the writer under the narrow
 carve-out in [data-sources.md](data-sources.md) (*PII stance*): one artifact,
-one day, never committed or printed. **The apply is post-release**: it moves OT2024's unparsed rows into the
-population the pooled interim base rate is computed over, so it waits until
-after the long-conference release and is pre-registered in
-[freeze-record.md](freeze-record.md). That registration covers OT2024 only: an
+one day, never committed or printed. **Each Term's apply is pre-registered**:
+it moves that Term's unparsed rows into the population the pooled interim base
+rate is computed over, so it has its own entry in
+[freeze-record.md](freeze-record.md). OT2023 and OT2024 are registered: an
 apply for any other Term is refused until that Term has its own freeze-record
 entry and a place in `REGISTERED_APPLY_TERMS`.
 
@@ -1121,11 +1122,32 @@ checkpoint.
 
 ## Cascade
 
-Every arrow below is a **schedule**, not a handoff. No stage tells the next one
-what to do; each reads committed state and derives what it owes. That is what
-makes the whole cascade level-triggered: a window that failed, a round that was
-declined, a cron GitHub silently dropped — each is re-derived next cycle, and
-nothing has to be re-filed for it.
+Every arrow below is a **schedule**, and two are also a **dispatch**; none is a
+handoff. No stage tells the next one what to do; each reads committed state and
+derives what it owes. That is what makes the whole cascade level-triggered: a
+window that failed, a round that was declined, a cron GitHub silently dropped —
+each is re-derived next cycle, and nothing has to be re-filed for it.
+
+The two dispatches only move *when* a predict round derives, never what it
+works on. A `run-pull` window whose commit added or changed an event record,
+or moved the scope manifest (`fedcourts window-forecast-relevance`), starts a
+round (`chain-predict`), so a newly opened moment is planned within the hour
+rather than at the next fixed slot — and forecast then too when the round
+auto-releases, or once a maintainer releases its hold. Every window commits a
+corpus pointer, so a window that moved only that, or recorded outcomes,
+starts nothing; a change the relevance read misses waits for the schedule. A round
+that a cap stopped short of the backlog starts the next one once its own
+collect PR has merged (`chain`, which waits up to 40 minutes and gives up
+quietly on a draft, an unmerged close or no PR at all), so a backlog drains in
+consecutive rounds instead of one per slot. Both are the same input-less
+dispatch a maintainer would send, on `main`, with the dispatch App
+([security.md](security.md)); both stand down while a promotion PR is ready
+(`fedcourts chain-step`, since the promotion gate's quiescence check fails on
+any queued, running or waiting predict round); both are off until the
+repository-level `DISPATCH_CHAIN_ENABLED` variable is `true`; and
+`run-predict`'s schedule stays as the backstop for a dispatch that never
+arrives. `run-evaluate` is not chained: a grading round needs the predictions
+it grades to have merged, and its daily slot already follows predict's.
 
 ```
 daily ×4 → run-seed → walk Terms newest-first, ingest every decided petition
@@ -1491,7 +1513,9 @@ The mechanics:
   ruleset itself requires a pull request plus the status checks that can report
   on a staging-targeted PR — `gate` and `paths`; `main`'s other two,
   `promotion-gate` and `main-base`, key on a base of `main` and are always
-  `skipped` here — with the **repository admin
+  `skipped` here — and a code owner's review, with approval of the most
+  recent push, on a PR touching a path `.github/CODEOWNERS` names, with the
+  **repository admin
   role as its sole bypass actor** — a
   required-checks rule blocks direct pushes of commits that carry no passing
   check runs, so the admin role is the only identity that can land the sync
@@ -1512,8 +1536,10 @@ The mechanics:
   `promote` still checks the ancestry, and still prints the manual
   merge-and-push commands for the maintainer's admin bypass — the escape
   hatch for a conflicting sync the schedule could not land on its own. The
-  sync defers itself while a promotion PR is open, so it never moves the head
-  a batch in flight is being tested against. **Ordering:** `schedule` and
+  sync defers itself while a promotion PR is open and ready for review, so it
+  never moves the head a batch in flight is being tested against; a draft is
+  `promotion-prep`'s running record of the batch, not a promotion in flight,
+  and syncs continue under it. **Ordering:** `schedule` and
   `workflow_dispatch` both read the file from `main`, and the `prod`
   environment is `main`-only, so an edit to `sync-staging` takes effect only
   once it promotes.
@@ -1569,12 +1595,27 @@ The mechanics:
   in its log, and the check annotates the PR and writes what was traded away
   into its run summary — so a batch that merged without real-engine evidence
   is legible as such from the promotion's own record.
+- **The draft.** `promotion-prep` runs daily (and on dispatch) and keeps a
+  **draft** staging→main PR in step with `staging`: the batch's feature PRs
+  and syncs, each feature PR's effect-check handover note gathered from its
+  description (`fedcourts promotion-body`) and quoted, the gate's quiescence
+  and freshness at staging's head with the next step they imply, any open
+  `main`→`staging` sync PR (armed to auto-merge, and so to move the head) and
+  any commit pushed to `staging` with no PR, and the freeze-record `<FILL:>`
+  placeholders the batch adds. It writes only between two markers in the body
+  and only while the PR is a draft, re-reading the PR just before it writes and
+  skipping the write if it was marked ready or edited meanwhile, so prose added
+  around the block survives, and once the PR is ready for review it is left
+  alone. A refresh that would change only the stamp or a gate line's counts
+  writes nothing, since every body edit re-runs CI. It opens the
+  PR with the dev App's token, because a PR a workflow opens with its own
+  token triggers no `pull_request` checks; the App bypasses nothing, so the
+  draft merges through the same required checks as a hand-opened PR.
 - **The loop.** Dispatch `promote`; it gates and prints exactly what is still
   needed — the sync commands when staging is behind, the scenario dispatch
   commands when freshness is unmet, or, when green, the `gh pr create` command
-  for the promotion PR. The workflow performs no write itself: a PR created with a
-  workflow's own token triggers no `pull_request` checks, so the maintainer
-  creating it is what makes the required checks real. Merge promotions with a
+  for the promotion PR, for a batch with no draft open. The workflow performs no
+  write itself. Merge promotions with a
   **merge commit**, never squash — `staging` and `main` must share history or
   every later sync re-merges rewritten commits.
 
@@ -1587,7 +1628,18 @@ The full path of a change, operator's view:
    sync — dispatch `sync-staging` and let its PR land, or, if that PR
    conflicts, run the printed commands (your admin-bypass push) — then
    re-dispatch.
-3. Dispatch the required integration scenarios at staging's post-sync head —
+3. **Mark the promotion PR ready before any integration dispatch.** Open
+   `promotion-prep`'s draft (or, with none open, open one by hand:
+   `gh pr create --base main --head staging --draft …`) and mark it **ready
+   for review**. That stops the daily refresh and, more to the point, the
+   syncs, which would otherwise move the head under the per-SHA evidence the
+   next step pays for. Marking ready stops a *new* sync only: a sync PR that
+   is already open and armed still auto-merges when its checks pass, so let
+   any open `main`→`staging` sync PR land (or close it) first — the draft's
+   generated block names one when it sees it. Marking it ready does not re-run
+   `promotion-gate` (ci.yml does not trigger on `ready_for_review`); step 5
+   re-fires it.
+4. Dispatch the required integration scenarios at staging's post-sync head —
    one `gh workflow run integration-test.yml --ref staging -f scenario=gate`
    covers the whole suite, or per-scenario runs add up to it (the summary
    prints both forms) — then re-dispatch `promote`. An `all` run is not
@@ -1608,7 +1660,15 @@ The full path of a change, operator's view:
    runbook in [security.md](security.md) says which cases the slice holds.
    On a cell-inert batch, `promote -f skip_engine_smoke=true` first: it prints
    the `offline-gate` form and tells you whether anything *else* is missing
-   before you pay for the engine legs, which step 4 still needs.
+   before you pay for the engine legs, which step 5 still needs.
+
+   **Quiet the dispatch chain first.** Quiescence fails on any queued,
+   running or waiting `run-predict`, and a chained round can start at any
+   pull window. Both chain jobs dispatch nothing while a ready, same-repo
+   `staging` → `main` PR is open, so open the promotion PR (or mark its draft
+   ready) before this step, and let any round already running finish. For a
+   longer quiet window, set the `DISPATCH_CHAIN_ENABLED` variable to `false`
+   and restore it after the merge.
 
    **When the head moves after a green `gate`.** The gate's rule is
    mechanical and does not read the delta: the green `gate` run sits at the
@@ -1626,17 +1686,19 @@ The full path of a change, operator's view:
    engine CLIs, engine actions or the invocation path, re-dispatch `gate`:
    that is precisely the evidence the skip trades away, and an action version
    bump is the class it breaks silently (*The engine-smoke skip* above).
-4. Green promote hands you the `gh pr create` for the staging→main PR; its
-   `promotion-gate` check re-verifies quiescence + freshness. Add the batch's
-   **stated effect check** to that PR body — what should be true once it is
-   live and the command that shows it, collected from the feature PRs'
-   handover notes (AGENTS.md asks each for one); the workflow's own body is
-   fixed, so this is a hand edit. Re-run the
+5. On the promotion PR, now ready, its `promotion-gate` check re-verifies
+   quiescence + freshness. The body already lists the batch's **stated
+   effect checks** — what should be true once it is live and the command that
+   shows it — gathered from the feature PRs' handover notes (AGENTS.md asks
+   each for one), and names any PR that left none; write the missing ones,
+   and any narrative, outside the generated block (or on the feature PR,
+   before marking ready, for the next refresh to pick up). Edit the body once
+   after the integration run is green to re-fire `promotion-gate`. Re-run the
    check right before merging, and merge with a **merge commit**; tag the
    merge commit `promotion/<YYYY-MM-DD>` (annotated preferred, lightweight
    acceptable; `-2` for a same-day second batch — the *Tags* subsection
    below). Live on the next workflow run.
-5. Run that stated effect check and record what it printed. A promotion
+6. Run that stated effect check and record what it printed. A promotion
    changes code, not state, so until something executes the check a batch that
    changed nothing is indistinguishable from one that worked. Mind the timing:
    an effect visible only in produced output cannot be checked until the next
@@ -1646,6 +1708,7 @@ The full path of a change, operator's view:
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
 checks that can report on a staging-targeted PR (`gate` and `paths`),
+require review from code owners and dismiss stale approvals on new commits,
 **repository admin role as the only bypass actor** (docs/security.md
 inventories it); and add `promotion-gate` — and, once the *Adding a required
 status check* procedure below clears it, `main-base` — to `main`'s required
@@ -1679,8 +1742,9 @@ procedure writes the pre-registration record into the tag message
   itself, and `prereg/proc-v8` sits on the step-4 correction commit, because
   that label has two freeze commits and neither one's tree states the blessed
   digests and the instant together. The namespace blocks moving either.
-- **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit; a
-  `-2` suffix distinguishes a same-day second batch.
+- **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit,
+  named by the merge's **UTC** date; a `-2` suffix distinguishes a second
+  batch merged on the same UTC date.
 - **`results/<term>-<milestone>`** — a `main` commit whose tree carries a
   published metrics refresh and the write-ups quoting it, e.g.
   `results/ot2026-longconf`.
@@ -1873,8 +1937,39 @@ was minted, so a long
 hold un-anchors them — two simultaneously held plans over overlapping
 events were each minted before the other spent, and releasing both
 double-spends the overlap. The two plan reports make the overlap visible
-before either release, each on its own run's step summary; a mechanical post-release re-check
-belongs to the auto-release follow-up, where no human reads the reports. A
+before either release, each on its own run's step summary.
+
+**Auto-release.** A predict round can skip the wait. Its plan job runs `fedcourts
+hold-decision` over the plan document the report renders and the matrix the
+round minted. A round auto-releases, binding the reviewer-less `review-auto`
+environment instead of `review`, when three things hold:
+- the matrix holds exactly the plan's would-mint cells, so the price is the
+  price of what runs;
+- the larger of the plan's estimate and the matrix's own cells at the planning
+  rates is within `auto_release_usd_per_round` (`config/review-hold.yaml`);
+- fewer than `auto_release_rounds_per_day` rounds were auto-released in the
+  trailing 24 hours.
+
+The daily count is the larger of two records: the round's deployment to
+`review-auto`, and its ready collect commit on `main`, which collect marks
+`[auto-released]`. A write holder could prune the first or edit an unmerged
+collect PR, but not `main`'s history. The `spend` backstop, read from the
+committed ledger, stays behind both. It is an ex-post bound that lags the
+ledger, so the two caps' product, which bounds *estimated* spend, is the only
+bound that applies before a round spends. Both caps start at 0, which disables
+it, and the decision fails closed: an unreadable count, a missing or mismatched
+matrix, or a plan with no estimate keeps the hold. The caps, the planning rates
+and the decision code are maintainer-owned. Lowering a cap rides a promotion,
+so the emergency stop is a required reviewer on the `review-auto` environment:
+it takes effect at the next round, without a commit, and every round then waits
+as if held. The `DISPATCH_CHAIN_ENABLED` variable is no substitute, because
+`false` stops only the chaining and a scheduled round still auto-releases. The staleness rule above does not bite on
+this path, because the plan is released minutes after it is minted; what keeps
+a following round from re-planning this one's cells is the stranded-run guard,
+and the `chain` job's wait for the collect PR to merge. The plan report and a
+*Hold and drain* line on the run's summary record what was released and why,
+so an auto-released round reads like a held one afterwards. Evaluate and the
+back-test have no auto-release; every round of theirs waits on the hold. A
 rejected hold is an unsatisfied-gate report, not an incident — but unlike
 `promote`, whose failures the ops report annotates as gate reports, the
 report cannot distinguish a rejected hold from a real fan-out failure,
@@ -1953,8 +2048,9 @@ confirmation is the exception.
 
 Such a campaign accounts for its losses rather than ending on one, so a report
 always lands. An engine whose CLI binary is missing drops that predictor whole.
-A cell whose engine exited non-zero, and a cell that left no readable
-`prediction.json` where the runner reads it, are each a loss for that
+A cell whose engine failed — a non-zero exit, or a zero-exit Gemini turn
+whose result reported a fault and left no output — and a cell that left no
+readable `prediction.json` where the runner reads it, are each a loss for that
 (petition, predictor) pair alone. An engine that reports its own allowance
 exhausted — a fault the runner classifies as terminal rather than retrying it
 through the backoff budget — has its remaining cells recorded as lost without
@@ -2409,12 +2505,12 @@ fetched, and unlike them it stays off the facts-only PR of a wholesale-failed ru
 predictions for a comparability record to qualify. Read the counts as an
 **engine-shaped floor** with four known holes: a call that left no row, a filing
 URL past a row's query cut, a hosted web search carrying a bare URL (not counted,
-since a search is not a fetch), and a fetch tool called with a prompt beside its
-URL, whose query slice keeps the prompt and so leaves the whole channel
-unmatchable. An engine that reaches through its shell is legible where one
-reaching through a prompted fetch tool is not, the holes do not share a sign, and
-the split between actors is therefore not a behavioural difference between
-engines. A log of this run that could not be parsed at all is carried as its own
+since a search is not a fetch), and, on a log captured before the slice rule
+the freeze record dates, a fetch tool called with a prompt beside its URL, whose
+slice there holds the prompt alone. The fourth applies only to such logs: under
+the rule a call carrying both a `url` and a `prompt` keeps the URL ahead of the
+prompt. The holes do not share a sign, so the split between actors is not a
+behavioural difference between engines. A log of this run that could not be parsed at all is carried as its own
 count rather than read as a cell that reached for nothing
 (`self_provisioned_fetches` in [predicted-artifacts.md](predicted-artifacts.md)).
 
@@ -2750,6 +2846,26 @@ or `quota` when the whole engine produced nothing); the job stays green, as
 collect needs it to. The
 claude and codex steps have no equivalent: they are pinned actions, which a
 step cannot loop, and each of those CLIs retries transient API faults itself.
+The back-test's own Gemini runner (`GeminiRunner`, which `run-backtest` drives
+with a real engine) meets the same fault under the same rules, in Python. The
+lane's executor keeps each turn's stdout as well as its stderr while writing
+both, lane-prefixed, to the log live; the runner classifies every attempt with
+the same classifier, retries only a `transient` one under its own attempt cap
+(the `runner:` section of `config/tracking.yaml`), and resets the cell's
+output root to its pre-attempt snapshot before each retry, never past a
+written judgment artifact or `flags.json`. The reset covers only that root:
+scratch an attempt wrote elsewhere under the work root survives a retry, as it
+does in the cells' in-place retry. These rules hold for a non-zero exit too,
+so unlike claude and codex — which retry a transient non-zero exit in place,
+without a reset — a Gemini cell that already wrote its judgment is not
+retried. A zero-exit turn that is not retried keeps whatever it produced; one
+that produced nothing is a classified failure — an `engine-failed` lost cell,
+or a spent quota that finishes the engine for the campaign — rather than a
+cell that silently wrote nothing. Two things differ from the cell step: the
+wait before a retry is the runner's exponential backoff (2 seconds doubling,
+capped at 30, under full jitter), shorter than the step's 15 seconds per
+attempt so far, and there is no deadline floor, since a back-test cell runs
+under the job's cap rather than a per-step engine deadline.
 
 Agent steps need more than that bound, because a step can stay `in_progress`
 straight through its own timeout until the *job* cap cancels the runner — and a
@@ -3145,8 +3261,9 @@ backfill:
 
 **The hold, not the enable, is the spend gate.** A resuming round starts
 at the plan job, which renders a fresh plan report, and the matrix waits behind
-the approval job on the `review` environment's required reviewers. So a recovery
-cannot leak spend past the hold, and the fresh plan re-anchors the
+the approval job on the `review` environment's required reviewers — or, for a
+predict round within the auto-release caps, binds `review-auto` at once. So a
+recovery cannot leak spend past the hold or those caps, and the fresh plan re-anchors the
 already-predicted gate and the stranded-run guard exactly as the review-hold
 rules above require. Two outcomes of that first round back are the machinery
 working, not the recovery failing: with cells sitting in an uncollected run's

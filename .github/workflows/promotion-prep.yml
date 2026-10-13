@@ -1,0 +1,197 @@
+name: promotion-prep
+
+# Keeps a draft staging→main promotion PR in step with `staging`, so the
+# mechanical half of a promotion is done before the maintainer looks: the batch
+# listed, each feature PR's effect-check handover note gathered, the gate's
+# state read, and the freeze-record placeholders the merge will owe named. The
+# maintainer's half is unchanged, in this order — mark the PR ready (which stops
+# `sync-staging` moving the head), run the integration gate at that head, merge
+# with a merge commit, tag it.
+#
+# It writes one thing: the draft PR and its body. It merges nothing, dispatches
+# nothing and moves no branch. It never edits a PR that is not a draft — once
+# the maintainer marks the promotion ready, its body is theirs. The block it
+# writes sits between two markers (`fedcourts promotion-body`), so prose the
+# maintainer adds to the draft outside them survives every refresh.
+#
+# The PR is opened with the dev App's token rather than this workflow's own:
+# a PR a workflow opens with its GITHUB_TOKEN triggers no `pull_request`
+# workflows, so its required checks would never report. The dev App is not a
+# bypass actor on `main`, so the PR merges through the same required checks as
+# a hand-opened one, `promotion-gate` among them. `sync-staging` defers to a
+# promotion PR only once it is ready for review, so a standing draft does not
+# hold `staging` behind `main`.
+#
+# Its own workflow rather than a step of `promote`: `promote` is the
+# maintainer's read-only pre-flight and is pinned to stay that way
+# (tests/test_workflow_promote.py), while this lane holds a write token. Nor a
+# job on `sync-staging`, though it shares that lane's trigger class, environment
+# and App: `sync-staging` writes a PR that auto-merges into `staging`, while
+# this one writes a draft that never merges on its own, a lower risk class
+# kept in its own permission scope (pull-requests write, no contents write).
+# The daily offset after `sync-staging`'s window stands in for ordering; a run
+# that reads mid-sync names the open sync PR in the block and is corrected at
+# the next refresh.
+on:
+  schedule:
+    # Daily, after `sync-staging`'s 03:13 window has had time to land its PR,
+    # and on a minute no other schedule uses.
+    - cron: "9 5 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: promotion-prep
+  cancel-in-progress: false
+
+jobs:
+  prep:
+    runs-on: ubuntu-24.04
+    # A few dozen API reads, the gate script and one PR write.
+    timeout-minutes: 15
+    # The dev App's credentials live on `prod`, which admits `main` only, so
+    # only maintainer-promoted code can mint them.
+    environment: prod
+    permissions:
+      contents: read
+      # promotion-gate.sh's quiescence and freshness stages read run history.
+      actions: read
+      # Map staging's commits back to the PRs that merged them.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-python-env
+
+      # Read-only: what `staging` carries over `main`, which PR brought each
+      # commit, what the gate says at staging's head, and which freeze-record
+      # placeholders the batch adds. First-parent only, so each commit is one
+      # squash or merge into `staging` and maps to the PR that made it.
+      - name: Read the batch and the gate
+        id: batch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags -q origin main staging
+          main_sha=$(git rev-parse origin/main)
+          staging_sha=$(git rev-parse origin/staging)
+          ahead=$(git rev-list --count origin/main..origin/staging)
+          if [ "$ahead" -eq 0 ]; then
+            echo "has_batch=false" >> "$GITHUB_OUTPUT"
+            echo "## promotion-prep: staging carries nothing over main; no promotion to draft." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          : > prs.ndjson
+          : > unmapped.txt
+          for sha in $(git rev-list --first-parent origin/main..origin/staging); do
+            if ! found=$(gh api "repos/${REPO}/commits/${sha}/pulls" \
+              --jq '.[] | select(.base.ref == "staging" and .merged_at != null) | {number, title, body: (.body // "")}'); then
+              echo "::warning::could not read the PR that merged ${sha}; the batch list may be short"
+              continue
+            fi
+            if [ -z "$found" ]; then
+              # A direct push to `staging` (the admin escape hatch) has no PR,
+              # so no handover note covers it; the block lists it.
+              echo "::warning::${sha} reached staging with no merged PR"
+              echo "$sha" >> unmapped.txt
+              continue
+            fi
+            printf '%s\n' "$found" >> prs.ndjson
+          done
+          # A main→staging sync PR already open is armed to auto-merge, and
+          # marking the promotion ready does not stop it; the block names it.
+          gh pr list --repo "$REPO" --base staging --head main --state open \
+            --json number,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository | not) | .number]' > open_syncs.json
+          gate_line() {
+            # The stage's verdict and its first error lines, without the
+            # workflow-command prefix the script prints for annotations.
+            local name=$1 ok=$2 log=$3
+            jq -n --arg name "$name" --argjson ok "$ok" \
+              --arg detail "$(grep -E '::error::' "$log" | sed 's/^::error:://' | head -n 3 | paste -sd ';' -)" \
+              '{name: $name, ok: $ok, detail: $detail}'
+          }
+          if scripts/promotion-gate.sh quiesce > quiesce.log 2>&1; then q=true; else q=false; fi
+          if scripts/promotion-gate.sh freshness "$staging_sha" > fresh.log 2>&1; then f=true; else f=false; fi
+          { gate_line quiescence "$q" quiesce.log; gate_line freshness "$f" fresh.log; } > gate.ndjson
+          git diff origin/main origin/staging -- docs/freeze-record.md > freeze.diff
+          { grep -E '^\+' freeze.diff || true; } | { grep -oE '<FILL:[^>]*>' || true; } \
+            | sort -u > fills.txt
+          jq -n --arg staging "$staging_sha" --arg main "$main_sha" \
+            --slurpfile prs prs.ndjson --slurpfile gate gate.ndjson --rawfile fills fills.txt \
+            --slurpfile syncs open_syncs.json --rawfile unmapped unmapped.txt \
+            '{staging_sha: $staging, main_sha: $main, prs: $prs, gate: $gate,
+              open_sync_prs: $syncs[0],
+              unmapped_commits: ($unmapped | split("\n") | map(select(length > 0))),
+              owed_fills: ($fills | split("\n") | map(select(length > 0)))}' > batch.json
+          echo "has_batch=true" >> "$GITHUB_OUTPUT"
+          echo "## promotion-prep: staging is ${ahead} first-parent commit(s) ahead of main" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Mint the dev App token
+        if: ${{ steps.batch.outputs.has_batch == 'true' }}
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-pull-requests: write
+          # Read only: `gh pr create` resolves the head and base refs, and a
+          # token with no contents scope cannot read them on a private repo.
+          permission-contents: read
+
+      # Open the draft, or refresh the generated block of the open one. A
+      # promotion PR that is already ready for review is the maintainer's, and
+      # is left exactly as it is.
+      - name: Open or refresh the draft promotion PR
+        if: ${{ steps.batch.outputs.has_batch == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          drafted_at=$(date -u +%Y-%m-%dT%H:%MZ)
+          # Same-repo only: `--head staging` also matches a fork's branch of
+          # that name, whose PR this job must neither write into nor mistake
+          # for the promotion.
+          open=$(gh pr list --repo "$REPO" --base main --head staging --state open \
+            --json number,isDraft,body,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository | not)][0] // empty')
+          if [ -z "$open" ]; then
+            uv run fedcourts promotion-body --batch-file batch.json --drafted-at "$drafted_at" > body.md
+            gh pr create --repo "$REPO" --base main --head staging --draft \
+              --title "promote: staging → main ($(date -u +%Y-%m-%d)) — draft" --body-file body.md
+            echo "Opened a draft promotion PR." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          number=$(jq -r '.number' <<<"$open")
+          if [ "$(jq -r '.isDraft' <<<"$open")" != "true" ]; then
+            echo "Promotion PR #${number} is ready for review; left untouched." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          jq -r '.body // ""' <<<"$open" > existing.md
+          # Exit 3 means only the drafted-at stamp would change: every body
+          # edit re-fires ci.yml (`edited`), so an unchanged batch writes nothing.
+          status=0
+          uv run fedcourts promotion-body --batch-file batch.json --drafted-at "$drafted_at" \
+            --existing-body-file existing.md --exit-unchanged > body.md || status=$?
+          if [ "$status" -eq 3 ]; then
+            echo "Draft promotion PR #${number} is current." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          [ "$status" -eq 0 ] || exit "$status"
+          # Re-read just before writing: the render above takes a while, and a
+          # maintainer who marked the PR ready or edited its body meanwhile now
+          # owns it. Skip rather than overwrite.
+          now=$(gh pr view "$number" --repo "$REPO" --json isDraft,body)
+          if [ "$(jq -r '.isDraft' <<<"$now")" != "true" ] \
+            || [ "$(jq -r '.body // ""' <<<"$now")" != "$(cat existing.md)" ]; then
+            echo "Promotion PR #${number} changed while this run rendered; left untouched." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh pr edit "$number" --repo "$REPO" --body-file body.md
+          echo "Refreshed draft promotion PR #${number}." >> "$GITHUB_STEP_SUMMARY"

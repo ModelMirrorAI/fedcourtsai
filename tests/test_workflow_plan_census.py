@@ -66,6 +66,9 @@ def test_the_plan_job_can_read_run_metadata_and_nothing_more() -> None:
         # read whether this lane's collect PR has merged — metadata only, and
         # no write: the plan job opens, comments on and reviews nothing.
         "pull-requests": "read",
+        # count the rounds auto-released in the trailing day (deployments to
+        # `review-auto`) for the hold decision — read only.
+        "deployments": "read",
     }
 
 

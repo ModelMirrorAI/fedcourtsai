@@ -16,9 +16,10 @@ start CI. The inverse is the rule for every issue write in this repository —
 the run-log and data-validation alarms, the digests, flag latching — which must
 trigger nothing and so rides the ambient token instead.
 
-The token comes from one of **two Apps in use, matched to the lane's trust**:
-the data/dev split mirrors the two S3 roles (a third App is installed but
-referenced by no workflow, below). The split is what makes "data
+The token comes from one of **three Apps in use, matched to the lane's
+trust**: the data/dev split mirrors the two S3 roles, and the **dispatch App**
+starts workflows and does nothing else. A fourth is installed but referenced by
+no workflow (below). The split is what makes "data
 writes land directly, everything agentic
 lands via a PR" an *identity*-enforced invariant rather than a policy the
 agent is merely instructed to follow (that the PR is *reviewed* is a
@@ -34,12 +35,35 @@ convention `AGENTS.md` carries, not something identity enforces):
   `run-analytics`'s metrics-refresh and qp-topic-label jobs, and
   `summarize`'s publish job),
   `run-analytics`'s big-cases job (the one PR opener here that auto-merges),
-  and `sync-staging`.
+  `sync-staging`, and `promotion-prep`.
   Its client id
   is the `DEV_APP_CLIENT_ID`
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
   **not** a bypass actor, so nothing it holds can reach `main` except through a
   PR that satisfies the required checks.
+- **dispatch App** — used only by the two drain-chain jobs, `run-pull`'s
+  `chain-predict` and `run-predict`'s `chain`, each of which starts an
+  input-less `run-predict` round on `main`. Its client id is the
+  `DISPATCH_APP_CLIENT_ID` variable and its private key the
+  `DISPATCH_APP_PRIVATE_KEY` secret, both on `prod`; it must be named
+  `fedcourtsai-dispatch`, because `run-predict`'s agent steps allow its bot
+  login (`fedcourtsai-dispatch[bot]`) past their actor checks — a chained
+  round's actor. It is its own App rather
+  than a scope added to the dev App because the dev App's key sits in jobs that
+  run agent cells' collect step and open PRs; a dispatch-capable token there
+  would let any of those jobs start any workflow. It is an App rather than
+  the job's own token because a token's dispatch is attributed to the job's
+  actor and can start only what that token's workflow may, whereas the
+  separate key gives a chained round a distinct, allow-listed bot login and
+  keeps the dispatch grant out of every job but the two that need it. The two
+  chain jobs run no agent, corpus or PR-head code (they check out `main`, for
+  the tested `fedcourts chain-step`, and mint the token only after that), and
+  hold nothing else; `tests/test_workflow_dispatch_chain.py` pins the minters,
+  their grants, their action order, their read-only API calls and their one
+  dispatch, and refuses `toJSON(secrets)` or `secrets: inherit` in any
+  workflow. Both jobs are skipped unless the **repository-level**
+  `DISPATCH_CHAIN_ENABLED` variable is `true`: a job's `if:` is read before the
+  job binds its environment, so the switch cannot live on `prod`.
 - **staging App** (`fedcourtsai-staging`) — referenced by no workflow. Its
   pair (the `STAGING_APP_CLIENT_ID` variable and the `STAGING_APP_PRIVATE_KEY`
   secret, on the **staging** environment) is read by nothing, so an admin can
@@ -59,6 +83,8 @@ two client ids as variables, the two keys as secrets). Each workflow mints a tok
 | `run-analytics` (big-cases job only) | dev | contents, pull-requests | open the **auto-merging** big-case-board PR — the one PR opener in this repo that is not reviewed by a human, which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
 | `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — and on `main`-branch (prod-bound) runs only, so a rehearsal that reaches the labeler runs the full agent posture and the gate with no App token in the job at all — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
+| `promotion-prep` | dev | pull-requests | open the **draft** staging→main promotion PR and refresh the generated block of its body while it stays a draft. It merges, dispatches and pushes nothing; the PR merges through `main`'s required checks like a hand-opened one, and the maintainer marks it ready and merges it |
+| `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read (`chain` only) | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
@@ -71,6 +97,9 @@ the App level the union of what its workflows mint:
 - **dev App**: Contents, Issues, and Pull requests — all *read and write*. (No
   workflow mints a Workflows scope from it; dropping that grant at the App level
   is a safe tightening.)
+- **dispatch App**: Actions — *read and write*, and Pull requests — *read* (the
+  `chain` job waits on its round's collect PR before it dispatches). Nothing
+  else.
 - **staging App**: none needed — no workflow mints from it.
 
 After changing an App permission, **re-approve the installation** on the repo — a
@@ -272,7 +301,27 @@ pre-registration record's commit ids.
   staging-targeted PR: `gate` and `paths`. (`main`'s other two,
   `promotion-gate` and `main-base`, are structurally always-`skipped` here —
   each keys on a base of `main` — so requiring them would add no
-  signal.) **Bypass: the repository
+  signal.) It also requires **review from a code owner**, and **dismisses
+  stale approvals when new commits are pushed**: it binds only on a PR whose
+  diff touches a path `.github/CODEOWNERS` names (the maintainer owns all of
+  them), and a push after the approval dismisses it, so an approved PR cannot
+  be extended and merged on the old approval. Every other PR still merges on
+  the checks alone, at zero approving reviews. GitHub reads `CODEOWNERS` from the PR's base, so
+  the rule binds on `staging` once the file is there. It binds the dev App and
+  any other identity without the admin role; it does **not** bind an
+  interactive agent session, which acts as the maintainer's own account — the
+  owner, and an admin. A session's own owned-path PR can merge only through
+  the bypass, which is visible afterwards as a bypassed merge. A session can
+  also *approve* an owned-path PR it did not open (a Dependabot workflow bump,
+  a collaborator's PR), and that approval satisfies the rule with no bypass
+  and leaves nothing to tell it from the maintainer's own review. Holding back
+  from both is `AGENTS.md`'s discipline, not a rule this ruleset can
+  enforce. The sync PR is not held by it in practice: its diff
+  against `staging` is the `main` commits `staging` lacks, which are writer
+  data commits, since code reaches `main` only from `staging`; a commit to an
+  owned path reaching `main` any other way would stall the sync's auto-merge
+  until the maintainer approves it or lands the sync through the bypass.
+  **Bypass: the repository
   admin role only**, the escape hatch for a main→staging sync when the ordinary
   PR path is unavailable; its content is by construction already-gated `main`
   history merged with already-gated `staging` history.
@@ -431,8 +480,35 @@ run-evaluate, run-backtest and summarize declare
 It carries no secrets, no variables and no role, and its deployment branches
 are `main` and `staging` — `staging` so that summarize's staging rehearsal
 (the one held lane whose jobs resolve their environment from the ref) passes
-the same hold its production run does;
-each job it gates runs one echo under `permissions: {}`, so the
+the same hold its production run does. A `run-predict` round its own plan
+auto-released binds **`review-auto`** instead: no required reviewers, on
+purpose — adding one would only make it a second `review` — no secrets, no
+variables, no role, and deployment branches restricted to `main`, so only a
+`main` run adds to the deployment count the next round's plan reads against
+the daily cap. Create it that way before setting the caps: GitHub would
+otherwise create it on first reference with no branch policy, and the
+promotion gate's `contexts` stage refuses a `main` that binds it unless it is
+restricted to `main` and carries no secrets or variables. The deployment count
+is only as good as the deployment record, which any write holder could prune,
+and that includes an interactive agent session, since it acts as the
+maintainer's account. So the daily cap reads a second record beside it, the
+auto-released collect commits on `main` (collect marks a released round's
+ready commit, and `main`'s history cannot be rewritten), and takes the larger
+count; an unreadable record keeps the hold. A write holder could still edit an
+unmerged collect PR's commit, so the committed count bounds what has landed,
+not what is in flight. The `spend` backstop, read from the committed ledger,
+is the bound that rests on neither, though it is ex post: it lags the ledger
+and stops the next round, never the current one. So the two caps' product,
+which bounds *estimated* spend, is the only bound that applies before a round
+spends, and actual spend can exceed an estimate. The caps change only by
+promotion, so the immediate stop for auto-release is the environment itself:
+adding a required reviewer to `review-auto` makes every round that binds it
+wait like a held one, from the next round on, with no commit. The promotion
+gate checks only `review-auto`'s branch policy and that it holds no secrets or
+variables, so the added reviewer does not block a promotion. Setting the
+`DISPATCH_CHAIN_ENABLED` variable to `false` stops only the chaining; a
+scheduled round still auto-releases within the caps. In either
+environment, each job it gates runs one echo under `permissions: {}`, so the
 environment grants nothing and merely withholds the spend behind it — a
 fan-out's matrix, the back-test's fortnightly replay, or a case-summary
 run — until
@@ -441,7 +517,8 @@ rather than each minting its own. It must be
 created **with required reviewers configured before the gate promotes**:
 GitHub auto-creates a referenced environment unprotected, and an unprotected
 `review` environment is no gate at all. Leave **prevent self-review off**: the run's actor is the
-maintainer on every `workflow_dispatch`, and in a
+maintainer on every manual `workflow_dispatch` (a chained one runs as the
+dispatch App), and in a
 single-maintainer org blocking self-approval would strand exactly those runs
 in *Waiting* until the thirty-day expiry — the hold is a deliberateness gate
 here, not two-person control, a call to revisit if a second maintainer
@@ -543,11 +620,15 @@ diff.
 
 A per-run approval is the stronger control against a *second* write-access
 human, who could otherwise merge to `staging` (the ruleset requires zero
-approving reviews) and reach the environment without the maintainer. It is
+approving reviews off the code-owned paths) and reach the environment without
+the maintainer; the code-owner rule already stops such a collaborator changing
+the workflows themselves. It is
 redundant against the arrangement that exists: no workflow declares
-`actions: write`, no App is granted an Actions scope, and the repo-scoped
-token agents hold is refused on `workflow_dispatch` — so dispatching is already
-a maintainer-only act, and with `prevent_self_review` off the approval is a
+`actions: write`, the one App granted an Actions scope (the dispatch App) is
+minted only by the two chain jobs, whose code starts nothing but `run-predict`
+on `main`, and the repo-scoped token agents hold is refused on
+`workflow_dispatch` — so dispatching anything that binds `staging` is still a
+maintainer-only act in practice, and with `prevent_self_review` off the approval is a
 second click on the same decision by the same person. **Revisit the moment any
 premise changes**: a second write-access collaborator; the first *token* that
 can dispatch, whether a workflow declaring `actions: write` or any App
@@ -556,7 +637,14 @@ granted an Actions scope; the first workflow that binds `staging` on a
 would bind the environment on the merge itself, and agents merge their own PRs
 to `staging`, which since the environment carries the staging write role's
 trust would hand *write* reach on the fixture, not just read and spend, at an
-agent's own merge. One premise **has** fired, and this paragraph answers the
+agent's own merge. The second premise **has** fired with the dispatch App, and
+is answered by where its key lives rather than by what its token can do: the
+token could start any workflow on any ref, but the key is a `prod` secret, so
+only jobs on `main` — maintainer-promoted code — can mint it, and the only
+such jobs are the two chain jobs, which hold no agent, corpus or PR-head code.
+A change that adds a minter, or a chain job that dispatches anything but
+`run-predict` on `main`, reopens it. Another premise **has** fired, and this
+paragraph answers the
 question it was holding: the `staging` environment is repointed at the
 staging corpus (the runbook's step 5), so the promotion gate's freshness
 evidence is now produced against a corpus the staging write role can reach.
@@ -567,7 +655,7 @@ evidence-bearing run — begin with a maintainer-only dispatch; the
 re-seed-before-evidence practice below resets the slice, so a poisoned
 fixture cannot persist into a promotion's evidence; and the permission
 surface that could quietly widen a staging job waits for the maintainer even
-into `staging` (the convention recorded below). A per-run reviewer rule is
+into `staging` (the code-owner rule recorded below). A per-run reviewer rule is
 the escalation if any dispatch-side premise above breaks. No workflow
 filters on a staging ref today; every branch filter names `main`.
 
@@ -575,10 +663,23 @@ What neither shape covers: the `staging` ruleset requires no workflow linter, so
 a workflow change that reads a secret is caught by no *required* check.
 `lint-actions` still runs zizmor and actionlint on any PR touching `.github/**`,
 non-blockingly, and the branch policy forces such a change to become a PR diff
-at all. The real control is `AGENTS.md`'s rule that `.github/workflows/**` and
+at all. The real control is that `.github/workflows/**` and
 `.github/actions/**` — the permission surface, composites included, since a
 composite runs inside the job and reads the same secrets — wait for the
-maintainer even into `staging`. Convention, not ruleset, and recorded as such.
+maintainer even into `staging`. The `staging` ruleset enforces it for every
+identity without the admin role: it requires a code owner's review, and
+`.github/CODEOWNERS` names the maintainer as owner of those directories, of
+this document and `SECURITY.md`, of the promotion gate and lane machinery, of
+the authorization check (`src/fedcourtsai/authz.py` and its tests), of the
+agent configs, and of the CODEOWNERS file itself. The admin role is the
+exception, and two kinds of change use it: the maintainer's own PR to an owned
+path, since GitHub does not let an author approve their own PR, and any PR an
+interactive agent session opens, since such a session acts as the
+maintainer's account. A session acting as that account could also approve an
+owned-path PR someone else opened, and its approval would read as the
+maintainer's. For all of these it remains `AGENTS.md`'s convention, recorded
+as such; separating the agent's identity from the maintainer's is what would
+make it a rule.
 
 Blast radius is bounded on **integrity of production**, not on confidentiality
 or spend: staging's engine keys are separate and independently revocable, and

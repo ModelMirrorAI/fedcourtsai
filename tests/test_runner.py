@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import io
+import json
 import os
+import signal
+import sys
 import tempfile
-from collections.abc import Mapping, Sequence
+import time
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import date
 from itertools import pairwise
@@ -15,7 +20,9 @@ from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths, EventPaths
+from fedcourtsai.pipeline import runner as runner_module
 from fedcourtsai.pipeline.runner import (
+    DRAIN_CUTOFF_NOTICE,
     AttemptClass,
     ClaudeCodeRunner,
     CodexRunner,
@@ -30,10 +37,13 @@ from fedcourtsai.pipeline.runner import (
     _failure_is_terminal_quota,
     _failure_is_transient,
     _input_snapshot,
+    _pump,
     _run_subprocess,
+    _run_subprocess_capturing,
     classify_engine_attempt,
     engine_result_error,
     get_runner,
+    run_piped,
 )
 from fedcourtsai.process_version import ENGINE_RETRIEVAL
 from fedcourtsai.schemas import (
@@ -449,16 +459,18 @@ def test_a_ledger_gemini_cell_carries_no_workspace_flag(
     ]
 
 
-def test_a_scratch_root_gemini_cell_admits_its_work_root(
+def test_a_scratch_root_gemini_cell_admits_its_own_case_tree(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Off the ledger, the scratch root is passed as an extra workspace directory.
+    """Off the ledger, the cell's case tree is passed as an extra workspace directory.
 
     A replay cell writes under the back-test's work root, which is outside both
     the launch directory and the CLI's per-project temp dir, so every
     `write_file` there is refused and the cell can only land through the shell
-    tool. `--include-directories` takes the root absolutely, on the same
-    condition the kickoff names it absolutely on.
+    tool. `--include-directories` takes the cell's own case tree absolutely, on
+    the same condition the kickoff names its output directory absolutely on —
+    never the work root, whose other cases' files would otherwise be
+    `GEMINI.md` discovery roots for this cell.
     """
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "ledger"))
     work_root = tmp_path / "backtest-cells"
@@ -468,6 +480,7 @@ def test_a_scratch_root_gemini_cell_admits_its_work_root(
     runner = GeminiRunner(command_runner=recorder)
     runner.run(request)
     kickoff = recorder.argv[recorder.argv.index("--prompt") + 1]
+    case_tree = CasePaths(work_root.resolve(), COURT, DOCKET).base.as_posix()
     # Pinned whole, symmetric with the ledger test: the flag is additive and
     # nothing else about the call moves.
     assert recorder.argv == [
@@ -476,7 +489,7 @@ def test_a_scratch_root_gemini_cell_admits_its_work_root(
         "--model",
         runner.model,
         "--include-directories",
-        work_root.resolve().as_posix(),
+        case_tree,
         "--prompt",
         kickoff,
         "--output-format",
@@ -488,10 +501,7 @@ def test_a_scratch_root_gemini_cell_admits_its_work_root(
     # the tree, not the role.
     evaluate = _Recorder()
     GeminiRunner(command_runner=evaluate).run(_evaluate_request(work_root))
-    assert (
-        evaluate.argv[evaluate.argv.index("--include-directories") + 1]
-        == work_root.resolve().as_posix()
-    )
+    assert evaluate.argv[evaluate.argv.index("--include-directories") + 1] == case_tree
 
     # The other two engines reach the work root under their own rules and gain
     # no flag from this.
@@ -501,6 +511,33 @@ def test_a_scratch_root_gemini_cell_admits_its_work_root(
     claude = _Recorder()
     ClaudeCodeRunner(command_runner=claude).run(request)
     assert "--include-directories" not in claude.argv
+
+
+def test_a_gemini_cell_s_admission_holds_no_other_case_or_the_work_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The admitted directory is the cell's case tree and nothing above or beside it.
+
+    Admission makes a directory a `GEMINI.md` discovery root, and the CLI's
+    just-in-time discovery walks upward from a touched path only as far as that
+    root. A context file planted at the work root, or in another case's tree,
+    must therefore sit outside what this cell's CLI ever reads as instructions.
+    """
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "ledger"))
+    work_root = tmp_path / "backtest-cells" / "gemini"
+    recorder = _Recorder()
+    request = _predict_request(work_root)
+    StubRunner().run(request)
+    GeminiRunner(command_runner=recorder).run(request)
+    admitted = Path(recorder.argv[recorder.argv.index("--include-directories") + 1])
+    assert recorder.argv.count("--include-directories") == 1
+    assert admitted == CasePaths(work_root.resolve(), COURT, DOCKET).base
+    other_case = CasePaths(work_root.resolve(), COURT, DOCKET + 1).base
+    for outside in (work_root.resolve(), work_root.resolve() / "cases", other_case):
+        assert not outside.is_relative_to(admitted)
+    # The cell's own output directory still sits inside what is admitted.
+    target = CasePaths(work_root.resolve(), COURT, DOCKET).event(EVENT)
+    assert target.prediction_dir(PREDICTOR, request.run_id).is_relative_to(admitted)
 
 
 def test_nonzero_exit_raises_engine_failed(tmp_path: Path) -> None:
@@ -882,6 +919,340 @@ def test_backoff_delay_prefers_a_capped_retry_after() -> None:
         3, CommandResult(1, "429"), base=2.0, cap=30.0, jitter=_identity_jitter
     )
     assert computed == 8.0
+
+
+# --- a fault inside the result: gemini's zero-exit INVALID_STREAM ---------------
+#
+# gemini-cli ends a turn whose stream went bad with exit 0 and the fault inside
+# the JSON result it prints. The Gemini runner reads that result, so such a turn
+# retries like any transient fault, from an output root reset to what it held
+# before the first attempt; the claude and codex runners never read stdout.
+
+_INVALID_STREAM = json.dumps(
+    {
+        "error": {
+            "type": "INVALID_STREAM",
+            "message": "The model returned an empty response or malformed tool call",
+        }
+    }
+)
+
+
+class _AttemptRunner:
+    """A `command_runner` whose attempts each run a side effect, then return a result."""
+
+    def __init__(self, attempts: list[tuple[Callable[[], object], CommandResult]]) -> None:
+        self._attempts = list(attempts)
+        self.calls = 0
+
+    def __call__(self, argv: Sequence[str], env: Mapping[str, str]) -> CommandResult:
+        self.calls += 1
+        effect, result = self._attempts.pop(0)
+        effect()
+        return result
+
+
+def _nothing() -> None:
+    return None
+
+
+def _gemini(seq: _AttemptRunner, sleeps: list[float]) -> GeminiRunner:
+    return GeminiRunner(command_runner=seq, sleep=sleeps.append, jitter=_identity_jitter)
+
+
+def test_a_zero_exit_invalid_stream_retries_from_a_reset_root(tmp_path: Path) -> None:
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    half = events.prediction_dir(PREDICTOR, RUN) / "reasoning.md"
+
+    def half_written() -> None:
+        half.parent.mkdir(parents=True, exist_ok=True)
+        half.write_text("half a turn\n")
+
+    seq = _AttemptRunner(
+        [
+            (half_written, CommandResult(0, stdout=_INVALID_STREAM)),
+            (lambda: StubRunner().run(request), CommandResult(0, stdout="{}")),
+        ]
+    )
+    sleeps: list[float] = []
+
+    written = _gemini(seq, sleeps).run(request)
+
+    assert seq.calls == 2
+    assert len(sleeps) == 1
+    assert written == _predict_artifacts(events)
+    # The retry's own reasoning, not the failed turn's half-written one.
+    assert half.read_text() != "half a turn\n"
+
+
+def test_the_reset_removes_what_a_failed_attempt_added(tmp_path: Path) -> None:
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    stray = events.prediction_dir(PREDICTOR, RUN) / "scratch.md"
+
+    def leave_stray() -> None:
+        stray.parent.mkdir(parents=True, exist_ok=True)
+        stray.write_text("draft\n")
+
+    seq = _AttemptRunner(
+        [
+            (leave_stray, CommandResult(0, stdout=_INVALID_STREAM)),
+            (lambda: StubRunner().run(request), CommandResult(0)),
+        ]
+    )
+
+    _gemini(seq, []).run(request)
+
+    assert not stray.exists()
+
+
+def test_a_persistent_invalid_stream_fails_at_the_attempt_cap(tmp_path: Path) -> None:
+    seq = _AttemptRunner([(_nothing, CommandResult(0, stdout=_INVALID_STREAM))] * 3)
+    sleeps: list[float] = []
+
+    with pytest.raises(EngineFailed, match="retry budget exhausted") as raised:
+        _gemini(seq, sleeps).run(_predict_request(tmp_path / "data"))
+
+    assert seq.calls == 3
+    assert len(sleeps) == 2
+    assert "INVALID_STREAM" in str(raised.value)
+
+
+def test_a_failure_message_names_only_a_screened_fault_type(tmp_path: Path) -> None:
+    # The message reaches a back-test report; the result's free text never does,
+    # and a type that is not a bare identifier is dropped whole.
+    for fault, named in (("INVALID_STREAM", "(INVALID_STREAM)"), ("x y\n::error::z", None)):
+        result = json.dumps({"error": {"type": fault, "message": "secret-looking free text"}})
+        seq = _AttemptRunner([(_nothing, CommandResult(0, stdout=result))] * 3)
+
+        with pytest.raises(EngineFailed) as raised:
+            _gemini(seq, []).run(_predict_request(tmp_path / "data"))
+
+        message = str(raised.value)
+        assert "free text" not in message
+        assert "::error::" not in message
+        if named is not None:
+            assert named in message
+
+
+def test_a_clean_gemini_turn_is_not_retried(tmp_path: Path) -> None:
+    request = _predict_request(tmp_path / "data")
+    seq = _AttemptRunner(
+        [(lambda: StubRunner().run(request), CommandResult(0, stdout='{"response": "ok"}'))]
+    )
+    sleeps: list[float] = []
+
+    written = _gemini(seq, sleeps).run(request)
+
+    assert seq.calls == 1
+    assert sleeps == []
+    assert written == _predict_artifacts(CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT))
+
+
+def test_a_zero_exit_permanent_fault_with_no_output_fails_without_a_retry(
+    tmp_path: Path,
+) -> None:
+    result = json.dumps({"error": {"type": "FatalInputError", "message": "prompt too long"}})
+    seq = _AttemptRunner([(_nothing, CommandResult(0, stdout=result))])
+    sleeps: list[float] = []
+
+    with pytest.raises(EngineFailed, match="exited 0") as raised:
+        _gemini(seq, sleeps).run(_predict_request(tmp_path / "data"))
+
+    assert seq.calls == 1
+    assert sleeps == []
+    assert not isinstance(raised.value, EngineQuotaExhausted)
+
+
+def test_an_attempt_that_produced_the_judgment_keeps_it(tmp_path: Path) -> None:
+    # A retry would wipe a prediction the turn already wrote, so the turn stands.
+    request = _predict_request(tmp_path / "data")
+    seq = _AttemptRunner(
+        [(lambda: StubRunner().run(request), CommandResult(0, stdout=_INVALID_STREAM))]
+    )
+
+    written = _gemini(seq, []).run(request)
+
+    assert seq.calls == 1
+    assert written == _predict_artifacts(CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT))
+
+
+def test_an_attempt_that_wrote_its_flags_is_not_retried(tmp_path: Path) -> None:
+    # A flags.json is a disclosure; a fresh session would know nothing of it.
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    flags = events.prediction_flags(PREDICTOR, RUN)
+
+    def flag() -> None:
+        flags.parent.mkdir(parents=True, exist_ok=True)
+        flags.write_text("{}\n")
+
+    seq = _AttemptRunner([(flag, CommandResult(0, stdout=_INVALID_STREAM))])
+
+    with pytest.raises(EngineFailed, match=r"flags\.json"):
+        _gemini(seq, []).run(request)
+
+    assert seq.calls == 1
+    assert flags.is_file()
+
+
+def test_a_zero_exit_spent_quota_stops_the_engine(tmp_path: Path) -> None:
+    result = json.dumps(
+        {
+            "error": {
+                "type": "TerminalQuotaError",
+                "message": "You have exhausted your daily quota on this model",
+            }
+        }
+    )
+    assert classify_engine_attempt(0, result, "") is AttemptClass.terminal_quota
+    seq = _AttemptRunner([(_nothing, CommandResult(0, stdout=result))])
+
+    with pytest.raises(EngineQuotaExhausted):
+        _gemini(seq, []).run(_predict_request(tmp_path / "data"))
+
+    assert seq.calls == 1
+
+
+def test_an_evaluate_retry_keeps_the_evaluator_s_earlier_work(tmp_path: Path) -> None:
+    # An evaluate cell's root is the whole evaluator directory, which may hold
+    # earlier runs' committed work; the reset removes only what the failed
+    # attempt added.
+    request = _evaluate_request(tmp_path / "data")
+    evaluator = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT).evaluator_dir(EVALUATOR)
+    earlier = evaluator / "other-predictor" / "20260101T000000Z" / "evaluation.md"
+    earlier.parent.mkdir(parents=True)
+    earlier.write_text("an earlier run's grade\n")
+    added = evaluator / "scratch.md"
+
+    def half_written() -> None:
+        added.write_text("half a turn\n")
+
+    seq = _AttemptRunner(
+        [
+            (half_written, CommandResult(0, stdout=_INVALID_STREAM)),
+            (_nothing, CommandResult(0)),
+        ]
+    )
+
+    _gemini(seq, []).run(request)
+
+    assert seq.calls == 2
+    assert earlier.read_text() == "an earlier run's grade\n"
+    assert not added.exists()
+
+
+def test_a_gemini_transient_nonzero_exit_retries_from_a_reset_root(tmp_path: Path) -> None:
+    request = _predict_request(tmp_path / "data")
+    events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
+    stray = events.prediction_dir(PREDICTOR, RUN) / "scratch.md"
+
+    def leave_stray() -> None:
+        stray.parent.mkdir(parents=True, exist_ok=True)
+        stray.write_text("draft\n")
+
+    seq = _AttemptRunner(
+        [
+            (leave_stray, CommandResult(1, "503 Service Unavailable")),
+            (lambda: StubRunner().run(request), CommandResult(0)),
+        ]
+    )
+
+    written = _gemini(seq, []).run(request)
+
+    assert seq.calls == 2
+    assert not stray.exists()
+    assert written == _predict_artifacts(events)
+
+
+def test_a_gemini_nonzero_exit_after_writing_its_judgment_is_not_retried(
+    tmp_path: Path,
+) -> None:
+    # Unlike claude and codex, a Gemini turn that already wrote its prediction
+    # is not retried over it: a non-zero exit then is a failed cell.
+    request = _predict_request(tmp_path / "data")
+    seq = _AttemptRunner(
+        [(lambda: StubRunner().run(request), CommandResult(1, "503 Service Unavailable"))] * 3
+    )
+
+    with pytest.raises(EngineFailed, match="produced the cell's output"):
+        _gemini(seq, []).run(request)
+
+    assert seq.calls == 1
+
+
+def test_claude_and_codex_never_read_stdout(tmp_path: Path) -> None:
+    # Their stdout is not captured; a result-shaped fault there changes nothing.
+    request = _predict_request(tmp_path / "data")
+    StubRunner().run(request)
+    claude = _SequenceRunner([CommandResult(0, stdout=_INVALID_STREAM)])
+    ClaudeCodeRunner(command_runner=claude).run(request)
+    codex = _SequenceRunner([CommandResult(0, stdout=_INVALID_STREAM)])
+    CodexRunner(command_runner=codex).run(request)
+    assert (claude.calls, codex.calls) == (1, 1)
+
+
+def test_the_capturing_executor_tees_and_keeps_both_streams() -> None:
+    result = _run_subprocess_capturing(
+        [sys.executable, "-c", "import sys; print('{}'); sys.stderr.write('warn\\n')"], {}
+    )
+
+    assert result.returncode == 0
+    assert result.stdout == "{}\n"
+    assert result.stderr == "warn\n"
+
+
+def test_a_leftover_child_holding_the_pipe_does_not_stall_the_executor(
+    monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+) -> None:
+    # The engine exits but leaves a process attached to its pipes: the wait for
+    # the readers ends at the drain bound, what arrived before is kept, and the
+    # cut-off is named on stderr in fixed text.
+    monkeypatch.setattr(runner_module, "PIPE_DRAIN_SECONDS", 0.5)
+    script = (
+        "import subprocess, sys; child = subprocess.Popen(['sleep', '20']); "
+        + "print(child.pid); print('before exit'); sys.stdout.flush()"
+    )
+    started = time.monotonic()
+    result = run_piped([sys.executable, "-c", script], {"PATH": os.environ.get("PATH", "")})
+    elapsed = time.monotonic() - started
+    pid_line, kept = result.stdout.splitlines()[:2]
+    os.kill(int(pid_line), signal.SIGKILL)
+
+    assert elapsed < 10
+    assert kept == "before exit"
+    assert DRAIN_CUTOFF_NOTICE in capfd.readouterr().err
+
+
+def test_a_clean_exit_writes_no_cutoff_notice(capfd: pytest.CaptureFixture[str]) -> None:
+    run_piped([sys.executable, "-c", "print('ok')"], {})
+    assert DRAIN_CUTOFF_NOTICE not in capfd.readouterr().err
+
+
+def test_a_failing_log_write_still_keeps_every_line() -> None:
+    # A reader that stopped on a failed write would leave the engine blocked on
+    # a full pipe, and lose the lines the classifier reads.
+    class BrokenSink(io.StringIO):
+        def write(self, text: str) -> int:
+            raise OSError("log gone")
+
+    kept: list[str] = []
+    _pump(io.StringIO("first\nsecond\n"), BrokenSink(), "", kept, None)
+    assert kept == ["first\n", "second\n"]
+
+
+def test_undecodable_engine_output_is_replaced_not_fatal() -> None:
+    result = run_piped(
+        [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xff ok\\n')"], {}
+    )
+    assert result.returncode == 0
+    assert result.stdout == "� ok\n"
+
+
+def test_the_capturing_executor_maps_a_missing_binary() -> None:
+    with pytest.raises(EngineUnavailable, match="not on PATH"):
+        _run_subprocess_capturing(["fedcourts-no-such-binary-xyz"], {})
 
 
 # --- predict -------------------------------------------------------------------

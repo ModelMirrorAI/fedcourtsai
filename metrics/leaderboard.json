@@ -2,6 +2,32 @@
   "by_protocol": [
     {
       "big_case": {
+        "by_signature": [
+          {
+            "cases": 105,
+            "labels": [
+              "proc-v8"
+            ],
+            "rank_agreement": 0.8454662597385398,
+            "signature": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "n": 110
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "n": 91
+              }
+            ]
+          }
+        ],
         "cases": 105,
         "rank_agreement": 0.8454662597385398,
         "rubrics": [
@@ -48,6 +74,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": 0.015801903848240206,
           "realized_term_skill_scored": 201,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8661194029850746,
+              "n": 67
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.7943283582089552,
+              "n": 67
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9195522388059701,
+              "n": 67
+            }
+          ],
           "skill_scored": 201,
           "vote_cells_scored": 0
         },
@@ -76,6 +131,35 @@
           "population_in_sample_skill_score": 0.30364807692307694,
           "population_realized_term_skill_score": 0.33864340297637074,
           "realized_term_skill_scored": 81,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8385714285714286,
+              "n": 28
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8307142857142856,
+              "n": 28
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9071428571428571,
+              "n": 28
+            }
+          ],
           "skill_scored": 84,
           "vote_cells_scored": 0
         },
@@ -104,6 +188,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": null,
           "realized_term_skill_scored": 0,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9,
+              "n": 1
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.88,
+              "n": 1
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.98,
+              "n": 1
+            }
+          ],
           "skill_scored": 3,
           "vote_cells_scored": 0
         },
@@ -132,6 +245,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": 0.5135831689677843,
           "realized_term_skill_scored": 3,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.84,
+              "n": 1
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9,
+              "n": 1
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.85,
+              "n": 1
+            }
+          ],
           "skill_scored": 3,
           "vote_cells_scored": 0
         }
@@ -163,6 +305,35 @@
         "population_in_sample_skill_score": 0.4684596063829788,
         "population_realized_term_skill_score": 0.35084263983574027,
         "realized_term_skill_scored": 285,
+        "reasoning_quality_rubrics": [
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.8582474226804123,
+            "n": 97
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.8068041237113402,
+            "n": 97
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.9158762886597939,
+            "n": 97
+          }
+        ],
         "skill_scored": 291,
         "vote_cells_scored": 0
       },
@@ -175,6 +346,32 @@
     },
     {
       "big_case": {
+        "by_signature": [
+          {
+            "cases": 100,
+            "labels": [
+              "proc-v8"
+            ],
+            "rank_agreement": 0.7638466435418407,
+            "signature": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "n": 105
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "n": 3
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "n": 86
+              }
+            ]
+          }
+        ],
         "cases": 100,
         "rank_agreement": 0.7638466435418407,
         "rubrics": [
@@ -221,6 +418,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": -0.7425492709068835,
           "realized_term_skill_scored": 201,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8207462686567164,
+              "n": 67
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9144776119402985,
+              "n": 67
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8965671641791045,
+              "n": 67
+            }
+          ],
           "skill_scored": 201,
           "vote_cells_scored": 0
         },
@@ -249,6 +475,35 @@
           "population_in_sample_skill_score": -0.0052134615384615834,
           "population_realized_term_skill_score": 0.04540038354136522,
           "realized_term_skill_scored": 81,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.7842857142857144,
+              "n": 28
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9046428571428572,
+              "n": 28
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8839285714285714,
+              "n": 28
+            }
+          ],
           "skill_scored": 84,
           "vote_cells_scored": 0
         },
@@ -277,6 +532,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": null,
           "realized_term_skill_scored": 0,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.7,
+              "n": 1
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.92,
+              "n": 1
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.95,
+              "n": 1
+            }
+          ],
           "skill_scored": 3,
           "vote_cells_scored": 0
         },
@@ -305,6 +589,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": 0.9221733070348455,
           "realized_term_skill_scored": 3,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.86,
+              "n": 1
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.88,
+              "n": 1
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9,
+              "n": 1
+            }
+          ],
           "skill_scored": 3,
           "vote_cells_scored": 0
         }
@@ -336,6 +649,35 @@
         "population_in_sample_skill_score": 0.28482243971631216,
         "population_realized_term_skill_score": 0.13752751298608135,
         "realized_term_skill_scored": 285,
+        "reasoning_quality_rubrics": [
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.8093814432989691,
+            "n": 97
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.9113402061855671,
+            "n": 97
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.8935051546391752,
+            "n": 97
+          }
+        ],
         "skill_scored": 291,
         "vote_cells_scored": 0
       },
@@ -348,6 +690,32 @@
     },
     {
       "big_case": {
+        "by_signature": [
+          {
+            "cases": 102,
+            "labels": [
+              "proc-v8"
+            ],
+            "rank_agreement": 0.773893115492283,
+            "signature": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "n": 106
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "n": 87
+              }
+            ]
+          }
+        ],
         "cases": 102,
         "rank_agreement": 0.773893115492283,
         "rubrics": [
@@ -394,6 +762,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": -1.6340942461437624,
           "realized_term_skill_scored": 201,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.5105970149253731,
+              "n": 67
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.5762686567164179,
+              "n": 67
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.7679104477611941,
+              "n": 67
+            }
+          ],
           "skill_scored": 201,
           "vote_cells_scored": 0
         },
@@ -422,6 +819,35 @@
           "population_in_sample_skill_score": -0.8404211538461537,
           "population_realized_term_skill_score": -0.747951370992161,
           "realized_term_skill_scored": 81,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.46785714285714286,
+              "n": 28
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.5671428571428572,
+              "n": 28
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.7285714285714285,
+              "n": 28
+            }
+          ],
           "skill_scored": 84,
           "vote_cells_scored": 0
         },
@@ -450,6 +876,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": null,
           "realized_term_skill_scored": 0,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.6,
+              "n": 1
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.62,
+              "n": 1
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.95,
+              "n": 1
+            }
+          ],
           "skill_scored": 3,
           "vote_cells_scored": 0
         },
@@ -478,6 +933,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": -1.1964760026298489,
           "realized_term_skill_scored": 3,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.3,
+              "n": 1
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.5,
+              "n": 1
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.4,
+              "n": 1
+            }
+          ],
           "skill_scored": 3,
           "vote_cells_scored": 0
         }
@@ -509,6 +993,35 @@
         "population_in_sample_skill_score": -0.505304819148936,
         "population_realized_term_skill_score": -0.8432059063504844,
         "realized_term_skill_scored": 285,
+        "reasoning_quality_rubrics": [
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.49701030927835055,
+            "n": 97
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.5732989690721649,
+            "n": 97
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.7546391752577319,
+            "n": 97
+          }
+        ],
         "skill_scored": 291,
         "vote_cells_scored": 0
       },
@@ -523,6 +1036,32 @@
   "entries": [
     {
       "big_case": {
+        "by_signature": [
+          {
+            "cases": 105,
+            "labels": [
+              "proc-v8"
+            ],
+            "rank_agreement": 0.8454662597385398,
+            "signature": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "n": 110
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "n": 91
+              }
+            ]
+          }
+        ],
         "cases": 105,
         "rank_agreement": 0.8454662597385398,
         "rubrics": [
@@ -643,6 +1182,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": 0.015801903848240206,
           "realized_term_skill_scored": 201,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8661194029850746,
+              "n": 67
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.7943283582089552,
+              "n": 67
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9195522388059701,
+              "n": 67
+            }
+          ],
           "skill_scored": 201,
           "vote_cells_scored": 0
         },
@@ -671,6 +1239,35 @@
           "population_in_sample_skill_score": 0.30364807692307694,
           "population_realized_term_skill_score": 0.33864340297637074,
           "realized_term_skill_scored": 81,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8385714285714286,
+              "n": 28
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8307142857142856,
+              "n": 28
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9071428571428571,
+              "n": 28
+            }
+          ],
           "skill_scored": 84,
           "vote_cells_scored": 0
         },
@@ -699,6 +1296,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": null,
           "realized_term_skill_scored": 0,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9,
+              "n": 1
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.88,
+              "n": 1
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.98,
+              "n": 1
+            }
+          ],
           "skill_scored": 3,
           "vote_cells_scored": 0
         },
@@ -727,6 +1353,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": 0.5135831689677843,
           "realized_term_skill_scored": 3,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.84,
+              "n": 1
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9,
+              "n": 1
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.85,
+              "n": 1
+            }
+          ],
           "skill_scored": 3,
           "vote_cells_scored": 0
         }
@@ -758,6 +1413,35 @@
         "population_in_sample_skill_score": 0.4684596063829788,
         "population_realized_term_skill_score": 0.35084263983574027,
         "realized_term_skill_scored": 285,
+        "reasoning_quality_rubrics": [
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.8582474226804123,
+            "n": 97
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.8068041237113402,
+            "n": 97
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.9158762886597939,
+            "n": 97
+          }
+        ],
         "skill_scored": 291,
         "vote_cells_scored": 0
       },
@@ -767,6 +1451,12 @@
       "process_window": null,
       "rank": 1,
       "retrospective": null,
+      "self_provisioning": {
+        "cells": 97,
+        "reached": 4,
+        "target_blind": 16,
+        "unlogged": 0
+      },
       "windows": [
         {
           "n": 291,
@@ -777,6 +1467,32 @@
     },
     {
       "big_case": {
+        "by_signature": [
+          {
+            "cases": 100,
+            "labels": [
+              "proc-v8"
+            ],
+            "rank_agreement": 0.7638466435418407,
+            "signature": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "n": 105
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "n": 3
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "n": 86
+              }
+            ]
+          }
+        ],
         "cases": 100,
         "rank_agreement": 0.7638466435418407,
         "rubrics": [
@@ -897,6 +1613,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": -0.7425492709068835,
           "realized_term_skill_scored": 201,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8207462686567164,
+              "n": 67
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9144776119402985,
+              "n": 67
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8965671641791045,
+              "n": 67
+            }
+          ],
           "skill_scored": 201,
           "vote_cells_scored": 0
         },
@@ -925,6 +1670,35 @@
           "population_in_sample_skill_score": -0.0052134615384615834,
           "population_realized_term_skill_score": 0.04540038354136522,
           "realized_term_skill_scored": 81,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.7842857142857144,
+              "n": 28
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9046428571428572,
+              "n": 28
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8839285714285714,
+              "n": 28
+            }
+          ],
           "skill_scored": 84,
           "vote_cells_scored": 0
         },
@@ -953,6 +1727,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": null,
           "realized_term_skill_scored": 0,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.7,
+              "n": 1
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.92,
+              "n": 1
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.95,
+              "n": 1
+            }
+          ],
           "skill_scored": 3,
           "vote_cells_scored": 0
         },
@@ -981,6 +1784,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": 0.9221733070348455,
           "realized_term_skill_scored": 3,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.86,
+              "n": 1
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.88,
+              "n": 1
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9,
+              "n": 1
+            }
+          ],
           "skill_scored": 3,
           "vote_cells_scored": 0
         }
@@ -1012,6 +1844,35 @@
         "population_in_sample_skill_score": 0.28482243971631216,
         "population_realized_term_skill_score": 0.13752751298608135,
         "realized_term_skill_scored": 285,
+        "reasoning_quality_rubrics": [
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.8093814432989691,
+            "n": 97
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.9113402061855671,
+            "n": 97
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.8935051546391752,
+            "n": 97
+          }
+        ],
         "skill_scored": 291,
         "vote_cells_scored": 0
       },
@@ -1021,6 +1882,12 @@
       "process_window": null,
       "rank": 2,
       "retrospective": null,
+      "self_provisioning": {
+        "cells": 97,
+        "reached": 15,
+        "target_blind": 0,
+        "unlogged": 0
+      },
       "windows": [
         {
           "n": 291,
@@ -1031,6 +1898,32 @@
     },
     {
       "big_case": {
+        "by_signature": [
+          {
+            "cases": 102,
+            "labels": [
+              "proc-v8"
+            ],
+            "rank_agreement": 0.773893115492283,
+            "signature": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "n": 106
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "n": 87
+              }
+            ]
+          }
+        ],
         "cases": 102,
         "rank_agreement": 0.773893115492283,
         "rubrics": [
@@ -1151,6 +2044,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": -1.6340942461437624,
           "realized_term_skill_scored": 201,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.5105970149253731,
+              "n": 67
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.5762686567164179,
+              "n": 67
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.7679104477611941,
+              "n": 67
+            }
+          ],
           "skill_scored": 201,
           "vote_cells_scored": 0
         },
@@ -1179,6 +2101,35 @@
           "population_in_sample_skill_score": -0.8404211538461537,
           "population_realized_term_skill_score": -0.747951370992161,
           "realized_term_skill_scored": 81,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.46785714285714286,
+              "n": 28
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.5671428571428572,
+              "n": 28
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.7285714285714285,
+              "n": 28
+            }
+          ],
           "skill_scored": 84,
           "vote_cells_scored": 0
         },
@@ -1207,6 +2158,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": null,
           "realized_term_skill_scored": 0,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.6,
+              "n": 1
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.62,
+              "n": 1
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.95,
+              "n": 1
+            }
+          ],
           "skill_scored": 3,
           "vote_cells_scored": 0
         },
@@ -1235,6 +2215,35 @@
           "population_in_sample_skill_score": null,
           "population_realized_term_skill_score": -1.1964760026298489,
           "realized_term_skill_scored": 3,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.3,
+              "n": 1
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.5,
+              "n": 1
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.4,
+              "n": 1
+            }
+          ],
           "skill_scored": 3,
           "vote_cells_scored": 0
         }
@@ -1266,6 +2275,35 @@
         "population_in_sample_skill_score": -0.505304819148936,
         "population_realized_term_skill_score": -0.8432059063504844,
         "realized_term_skill_scored": 285,
+        "reasoning_quality_rubrics": [
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.49701030927835055,
+            "n": 97
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.5732989690721649,
+            "n": 97
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "labels": [
+              "proc-v8"
+            ],
+            "mean_reasoning_quality": 0.7546391752577319,
+            "n": 97
+          }
+        ],
         "skill_scored": 291,
         "vote_cells_scored": 0
       },
@@ -1275,6 +2313,12 @@
       "process_window": null,
       "rank": 3,
       "retrospective": null,
+      "self_provisioning": {
+        "cells": 97,
+        "reached": 0,
+        "target_blind": 0,
+        "unlogged": 0
+      },
       "windows": [
         {
           "n": 291,
@@ -1287,6 +2331,32 @@
   "evaluations_total": 873,
   "evaluator_agreement": {
     "claude-judge": {
+      "by_signature": [
+        {
+          "cases": 91,
+          "labels": [
+            "proc-v8"
+          ],
+          "rank_agreement": 0.814403294166735,
+          "signature": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "n": 284
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "n": 12
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "n": 271
+            }
+          ]
+        }
+      ],
       "events": 91,
       "rank_agreement": 0.814403294166735,
       "rubrics": [
@@ -1325,6 +2395,32 @@
       ]
     },
     "codex-judge": {
+      "by_signature": [
+        {
+          "cases": 4,
+          "labels": [
+            "proc-v8"
+          ],
+          "rank_agreement": 1.0,
+          "signature": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "n": 12
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "n": 12
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "n": 6
+            }
+          ]
+        }
+      ],
       "events": 4,
       "rank_agreement": 1.0,
       "rubrics": [
@@ -1363,6 +2459,32 @@
       ]
     },
     "gemini-judge": {
+      "by_signature": [
+        {
+          "cases": 89,
+          "labels": [
+            "proc-v8"
+          ],
+          "rank_agreement": 0.8226172265978622,
+          "signature": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "n": 278
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "n": 6
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "n": 271
+            }
+          ]
+        }
+      ],
       "events": 89,
       "rank_agreement": 0.8226172265978622,
       "rubrics": [
@@ -1469,6 +2591,191 @@
       "sal-v4/federal": 1,
       "sal-v4/high": 1
     },
+    "common_record": {
+      "entries": [
+        {
+          "forward": {
+            "accuracy": 0.9863013698630136,
+            "accuracy_events_scored": 73,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 219,
+            "always_deny_accuracy": 0.9863013698630136,
+            "evaluations": 219,
+            "event_accuracy": 0.9863013698630136,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 0.9863013698630136,
+            "events_scored": 73,
+            "grants_expected": 5.908942805752559,
+            "grants_expected_scored": 73,
+            "grants_realized": 1,
+            "grants_realized_expected_scored": 1,
+            "in_sample_events_scored": 73,
+            "in_sample_grant_rate": 0.0136986301369863,
+            "in_sample_skill_scored": 219,
+            "mean_brier_score": 0.01178286301369863,
+            "mean_reasoning_quality": 0.8578082191780821,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.35448012460514444,
+            "population_in_sample_skill_score": 0.12790448611111105,
+            "population_realized_term_skill_score": 0.2262988746115835,
+            "realized_term_skill_scored": 216,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8608219178082192,
+                "n": 73
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7964383561643835,
+                "n": 73
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9161643835616438,
+                "n": 73
+              }
+            ],
+            "skill_scored": 219,
+            "vote_cells_scored": 0
+          },
+          "predictor_id": "claude-baseline"
+        },
+        {
+          "forward": {
+            "accuracy": 0.9863013698630136,
+            "accuracy_events_scored": 73,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 219,
+            "always_deny_accuracy": 0.9863013698630136,
+            "evaluations": 219,
+            "event_accuracy": 0.9863013698630136,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 0.9863013698630136,
+            "events_scored": 73,
+            "grants_expected": 5.908942805752559,
+            "grants_expected_scored": 73,
+            "grants_realized": 1,
+            "grants_realized_expected_scored": 1,
+            "in_sample_events_scored": 73,
+            "in_sample_grant_rate": 0.0136986301369863,
+            "in_sample_skill_scored": 219,
+            "mean_brier_score": 0.012894273972602741,
+            "mean_reasoning_quality": 0.8773059360730593,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": 0.2935918784403395,
+            "population_in_sample_skill_score": 0.04564463888888881,
+            "population_realized_term_skill_score": 0.1534977980446458,
+            "realized_term_skill_scored": 216,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8224657534246576,
+                "n": 73
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9146575342465753,
+                "n": 73
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8947945205479451,
+                "n": 73
+              }
+            ],
+            "skill_scored": 219,
+            "vote_cells_scored": 0
+          },
+          "predictor_id": "codex-baseline"
+        },
+        {
+          "forward": {
+            "accuracy": 0.9863013698630136,
+            "accuracy_events_scored": 73,
+            "accuracy_lift": 0.0,
+            "accuracy_scored": 219,
+            "always_deny_accuracy": 0.9863013698630136,
+            "evaluations": 219,
+            "event_accuracy": 0.9863013698630136,
+            "event_accuracy_lift": 0.0,
+            "event_always_deny_accuracy": 0.9863013698630136,
+            "events_scored": 73,
+            "grants_expected": 5.908942805752559,
+            "grants_expected_scored": 73,
+            "grants_realized": 1,
+            "grants_realized_expected_scored": 1,
+            "in_sample_events_scored": 73,
+            "in_sample_grant_rate": 0.0136986301369863,
+            "in_sample_skill_scored": 219,
+            "mean_brier_score": 0.02091564383561644,
+            "mean_reasoning_quality": 0.6250228310502283,
+            "mean_vote_accuracy": null,
+            "population_brier_skill_score": -0.14585595936010165,
+            "population_in_sample_skill_score": -0.5480481388888889,
+            "population_realized_term_skill_score": -0.37340666132111866,
+            "realized_term_skill_scored": 216,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.5138356164383562,
+                "n": 73
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.5858904109589042,
+                "n": 73
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7753424657534247,
+                "n": 73
+              }
+            ],
+            "skill_scored": 219,
+            "vote_cells_scored": 0
+          },
+          "predictor_id": "gemini-baseline"
+        }
+      ],
+      "events": 73
+    },
     "entries": [
       {
         "boundaries": [
@@ -1564,6 +2871,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": 0.015801903848240206,
             "realized_term_skill_scored": 201,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8661194029850746,
+                "n": 67
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7943283582089552,
+                "n": 67
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9195522388059701,
+                "n": 67
+              }
+            ],
             "skill_scored": 201,
             "vote_cells_scored": 0
           },
@@ -1592,6 +2928,35 @@
             "population_in_sample_skill_score": 0.30364807692307694,
             "population_realized_term_skill_score": 0.33864340297637074,
             "realized_term_skill_scored": 81,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8385714285714286,
+                "n": 28
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8307142857142856,
+                "n": 28
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9071428571428571,
+                "n": 28
+              }
+            ],
             "skill_scored": 84,
             "vote_cells_scored": 0
           },
@@ -1620,6 +2985,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.88,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.98,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           },
@@ -1648,6 +3042,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": 0.5135831689677843,
             "realized_term_skill_scored": 3,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.84,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.85,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           }
@@ -1677,11 +3100,46 @@
           "population_in_sample_skill_score": 0.4684596063829788,
           "population_realized_term_skill_score": 0.35084263983574027,
           "realized_term_skill_scored": 285,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8582474226804123,
+              "n": 97
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8068041237113402,
+              "n": 97
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9158762886597939,
+              "n": 97
+            }
+          ],
           "skill_scored": 291,
           "vote_cells_scored": 0
         },
         "predictor_id": "claude-baseline",
         "rank": 1,
+        "self_provisioning": {
+          "cells": 97,
+          "reached": 4,
+          "target_blind": 16,
+          "unlogged": 0
+        },
         "unpaired_events": 0,
         "windows": [
           {
@@ -1785,6 +3243,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": -0.7425492709068835,
             "realized_term_skill_scored": 201,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8207462686567164,
+                "n": 67
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9144776119402985,
+                "n": 67
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8965671641791045,
+                "n": 67
+              }
+            ],
             "skill_scored": 201,
             "vote_cells_scored": 0
           },
@@ -1813,6 +3300,35 @@
             "population_in_sample_skill_score": -0.0052134615384615834,
             "population_realized_term_skill_score": 0.04540038354136522,
             "realized_term_skill_scored": 81,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7842857142857144,
+                "n": 28
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9046428571428572,
+                "n": 28
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8839285714285714,
+                "n": 28
+              }
+            ],
             "skill_scored": 84,
             "vote_cells_scored": 0
           },
@@ -1841,6 +3357,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.92,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.95,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           },
@@ -1869,6 +3414,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": 0.9221733070348455,
             "realized_term_skill_scored": 3,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.86,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.88,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           }
@@ -1898,11 +3472,46 @@
           "population_in_sample_skill_score": 0.28482243971631216,
           "population_realized_term_skill_score": 0.13752751298608135,
           "realized_term_skill_scored": 285,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8093814432989691,
+              "n": 97
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.9113402061855671,
+              "n": 97
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.8935051546391752,
+              "n": 97
+            }
+          ],
           "skill_scored": 291,
           "vote_cells_scored": 0
         },
         "predictor_id": "codex-baseline",
         "rank": 2,
+        "self_provisioning": {
+          "cells": 97,
+          "reached": 15,
+          "target_blind": 0,
+          "unlogged": 0
+        },
         "unpaired_events": 0,
         "windows": [
           {
@@ -2006,6 +3615,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": -1.6340942461437624,
             "realized_term_skill_scored": 201,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.5105970149253731,
+                "n": 67
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.5762686567164179,
+                "n": 67
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7679104477611941,
+                "n": 67
+              }
+            ],
             "skill_scored": 201,
             "vote_cells_scored": 0
           },
@@ -2034,6 +3672,35 @@
             "population_in_sample_skill_score": -0.8404211538461537,
             "population_realized_term_skill_score": -0.747951370992161,
             "realized_term_skill_scored": 81,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.46785714285714286,
+                "n": 28
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.5671428571428572,
+                "n": 28
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7285714285714285,
+                "n": 28
+              }
+            ],
             "skill_scored": 84,
             "vote_cells_scored": 0
           },
@@ -2062,6 +3729,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.6,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.62,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.95,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           },
@@ -2090,6 +3786,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": -1.1964760026298489,
             "realized_term_skill_scored": 3,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.3,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.5,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.4,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           }
@@ -2119,11 +3844,46 @@
           "population_in_sample_skill_score": -0.505304819148936,
           "population_realized_term_skill_score": -0.8432059063504844,
           "realized_term_skill_scored": 285,
+          "reasoning_quality_rubrics": [
+            {
+              "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.49701030927835055,
+              "n": 97
+            },
+            {
+              "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.5732989690721649,
+              "n": 97
+            },
+            {
+              "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v8"
+              ],
+              "mean_reasoning_quality": 0.7546391752577319,
+              "n": 97
+            }
+          ],
           "skill_scored": 291,
           "vote_cells_scored": 0
         },
         "predictor_id": "gemini-baseline",
         "rank": 3,
+        "self_provisioning": {
+          "cells": 97,
+          "reached": 0,
+          "target_blind": 0,
+          "unlogged": 0
+        },
         "unpaired_events": 0,
         "windows": [
           {
@@ -2180,6 +3940,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8275,
+                "n": 4
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.765,
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9375,
+                "n": 4
+              }
+            ],
             "skill_scored": 12,
             "vote_cells_scored": 0
           },
@@ -2211,6 +4000,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8574999999999999,
+                "n": 4
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7225,
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9375,
+                "n": 4
+              }
+            ],
             "skill_scored": 12,
             "vote_cells_scored": 0
           }
@@ -2243,6 +4061,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.6975,
+                "n": 4
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.875,
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8375,
+                "n": 4
+              }
+            ],
             "skill_scored": 12,
             "vote_cells_scored": 0
           },
@@ -2274,6 +4121,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.735,
+                "n": 4
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.895,
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 4
+              }
+            ],
             "skill_scored": 12,
             "vote_cells_scored": 0
           }
@@ -2306,6 +4182,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.3625,
+                "n": 4
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.4325,
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8250000000000001,
+                "n": 4
+              }
+            ],
             "skill_scored": 12,
             "vote_cells_scored": 0
           },
@@ -2337,6 +4242,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.55,
+                "n": 3
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.68,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 3
+              }
+            ],
             "skill_scored": 7,
             "vote_cells_scored": 0
           }
@@ -2405,6 +4339,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8275,
+                "n": 4
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.765,
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9375,
+                "n": 4
+              }
+            ],
             "skill_scored": 12,
             "vote_cells_scored": 0
           },
@@ -2436,8 +4399,43 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8574999999999999,
+                "n": 4
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7225,
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9375,
+                "n": 4
+              }
+            ],
             "skill_scored": 12,
             "vote_cells_scored": 0
+          },
+          "self_provisioning": {
+            "cells": 4,
+            "reached": 0,
+            "target_blind": 3,
+            "unlogged": 0
           },
           "windows": [
             {
@@ -2509,6 +4507,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.6975,
+                "n": 4
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.875,
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8375,
+                "n": 4
+              }
+            ],
             "skill_scored": 12,
             "vote_cells_scored": 0
           },
@@ -2540,8 +4567,43 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.735,
+                "n": 4
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.895,
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 4
+              }
+            ],
             "skill_scored": 12,
             "vote_cells_scored": 0
+          },
+          "self_provisioning": {
+            "cells": 4,
+            "reached": 0,
+            "target_blind": 0,
+            "unlogged": 0
           },
           "windows": [
             {
@@ -2613,6 +4675,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.3625,
+                "n": 4
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.4325,
+                "n": 4
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8250000000000001,
+                "n": 4
+              }
+            ],
             "skill_scored": 12,
             "vote_cells_scored": 0
           },
@@ -2644,8 +4735,43 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.55,
+                "n": 3
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.68,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 3
+              }
+            ],
             "skill_scored": 7,
             "vote_cells_scored": 0
+          },
+          "self_provisioning": {
+            "cells": 4,
+            "reached": 0,
+            "target_blind": 0,
+            "unlogged": 0
           },
           "windows": [
             {
@@ -2661,6 +4787,191 @@
       "forward_evaluations": 36,
       "paired": {
         "band_mismatches": 0,
+        "common_record": {
+          "entries": [
+            {
+              "forward": {
+                "accuracy": 1.0,
+                "accuracy_events_scored": 1,
+                "accuracy_lift": null,
+                "accuracy_scored": 3,
+                "always_deny_accuracy": null,
+                "evaluations": 3,
+                "event_accuracy": 1.0,
+                "event_accuracy_lift": null,
+                "event_always_deny_accuracy": null,
+                "events_scored": 1,
+                "grants_expected": null,
+                "grants_expected_scored": null,
+                "grants_realized": null,
+                "grants_realized_expected_scored": null,
+                "in_sample_events_scored": 0,
+                "in_sample_grant_rate": null,
+                "in_sample_skill_scored": 0,
+                "mean_brier_score": 0.0001,
+                "mean_reasoning_quality": 0.7633333333333333,
+                "mean_vote_accuracy": null,
+                "population_brier_skill_score": 0.9908828303850156,
+                "population_in_sample_skill_score": null,
+                "population_realized_term_skill_score": null,
+                "realized_term_skill_scored": 0,
+                "reasoning_quality_rubrics": [
+                  {
+                    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.78,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.56,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.95,
+                    "n": 1
+                  }
+                ],
+                "skill_scored": 3,
+                "vote_cells_scored": 0
+              },
+              "predictor_id": "claude-baseline"
+            },
+            {
+              "forward": {
+                "accuracy": 1.0,
+                "accuracy_events_scored": 1,
+                "accuracy_lift": null,
+                "accuracy_scored": 3,
+                "always_deny_accuracy": null,
+                "evaluations": 3,
+                "event_accuracy": 1.0,
+                "event_accuracy_lift": null,
+                "event_always_deny_accuracy": null,
+                "events_scored": 1,
+                "grants_expected": null,
+                "grants_expected_scored": null,
+                "grants_realized": null,
+                "grants_realized_expected_scored": null,
+                "in_sample_events_scored": 0,
+                "in_sample_grant_rate": null,
+                "in_sample_skill_scored": 0,
+                "mean_brier_score": 0.0036000000000000003,
+                "mean_reasoning_quality": 0.7000000000000001,
+                "mean_vote_accuracy": null,
+                "population_brier_skill_score": 0.671781893860562,
+                "population_in_sample_skill_score": null,
+                "population_realized_term_skill_score": null,
+                "realized_term_skill_scored": 0,
+                "reasoning_quality_rubrics": [
+                  {
+                    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.62,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.88,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.6,
+                    "n": 1
+                  }
+                ],
+                "skill_scored": 3,
+                "vote_cells_scored": 0
+              },
+              "predictor_id": "codex-baseline"
+            },
+            {
+              "forward": {
+                "accuracy": 1.0,
+                "accuracy_events_scored": 1,
+                "accuracy_lift": null,
+                "accuracy_scored": 3,
+                "always_deny_accuracy": null,
+                "evaluations": 3,
+                "event_accuracy": 1.0,
+                "event_accuracy_lift": null,
+                "event_always_deny_accuracy": null,
+                "events_scored": 1,
+                "grants_expected": null,
+                "grants_expected_scored": null,
+                "grants_realized": null,
+                "grants_realized_expected_scored": null,
+                "in_sample_events_scored": 0,
+                "in_sample_grant_rate": null,
+                "in_sample_skill_scored": 0,
+                "mean_brier_score": 1e-06,
+                "mean_reasoning_quality": 0.5833333333333334,
+                "mean_vote_accuracy": null,
+                "population_brier_skill_score": 0.9999088283038502,
+                "population_in_sample_skill_score": null,
+                "population_realized_term_skill_score": null,
+                "realized_term_skill_scored": 0,
+                "reasoning_quality_rubrics": [
+                  {
+                    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.45,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.4,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.9,
+                    "n": 1
+                  }
+                ],
+                "skill_scored": 3,
+                "vote_cells_scored": 0
+              },
+              "predictor_id": "gemini-baseline"
+            }
+          ],
+          "events": 1
+        },
         "entries": [
           {
             "boundaries": [
@@ -2722,11 +5033,46 @@
               "population_in_sample_skill_score": null,
               "population_realized_term_skill_score": null,
               "realized_term_skill_scored": 0,
+              "reasoning_quality_rubrics": [
+                {
+                  "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                  "evaluator_id": "claude-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.8275,
+                  "n": 4
+                },
+                {
+                  "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                  "evaluator_id": "codex-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.765,
+                  "n": 4
+                },
+                {
+                  "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                  "evaluator_id": "gemini-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.9375,
+                  "n": 4
+                }
+              ],
               "skill_scored": 12,
               "vote_cells_scored": 0
             },
             "predictor_id": "claude-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 4,
+              "reached": 0,
+              "target_blind": 3,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -2796,11 +5142,46 @@
               "population_in_sample_skill_score": null,
               "population_realized_term_skill_score": null,
               "realized_term_skill_scored": 0,
+              "reasoning_quality_rubrics": [
+                {
+                  "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                  "evaluator_id": "claude-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.6975,
+                  "n": 4
+                },
+                {
+                  "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                  "evaluator_id": "codex-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.875,
+                  "n": 4
+                },
+                {
+                  "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                  "evaluator_id": "gemini-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.8375,
+                  "n": 4
+                }
+              ],
               "skill_scored": 12,
               "vote_cells_scored": 0
             },
             "predictor_id": "codex-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 4,
+              "reached": 0,
+              "target_blind": 0,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -2870,11 +5251,46 @@
               "population_in_sample_skill_score": null,
               "population_realized_term_skill_score": null,
               "realized_term_skill_scored": 0,
+              "reasoning_quality_rubrics": [
+                {
+                  "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                  "evaluator_id": "claude-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.3625,
+                  "n": 4
+                },
+                {
+                  "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                  "evaluator_id": "codex-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.4325,
+                  "n": 4
+                },
+                {
+                  "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                  "evaluator_id": "gemini-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.8250000000000001,
+                  "n": 4
+                }
+              ],
               "skill_scored": 12,
               "vote_cells_scored": 0
             },
             "predictor_id": "gemini-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 4,
+              "reached": 0,
+              "target_blind": 0,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -2925,6 +5341,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           },
@@ -2956,6 +5401,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.87,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.81,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           }
@@ -2988,6 +5462,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.55,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.86,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           },
@@ -3019,6 +5522,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.85,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.91,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           }
@@ -3051,6 +5583,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.25,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.4,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.6,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           },
@@ -3082,6 +5643,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.6,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.64,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.85,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           }
@@ -3134,6 +5724,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           },
@@ -3165,8 +5784,43 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.87,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.81,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
+          },
+          "self_provisioning": {
+            "cells": 1,
+            "reached": 0,
+            "target_blind": 1,
+            "unlogged": 0
           },
           "windows": [
             {
@@ -3222,6 +5876,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.55,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.86,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           },
@@ -3253,8 +5936,43 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.85,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.91,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.9,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
+          },
+          "self_provisioning": {
+            "cells": 1,
+            "reached": 0,
+            "target_blind": 0,
+            "unlogged": 0
           },
           "windows": [
             {
@@ -3310,6 +6028,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.25,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.4,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.6,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
           },
@@ -3341,8 +6088,43 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.6,
+                "n": 1
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.64,
+                "n": 1
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.85,
+                "n": 1
+              }
+            ],
             "skill_scored": 3,
             "vote_cells_scored": 0
+          },
+          "self_provisioning": {
+            "cells": 1,
+            "reached": 0,
+            "target_blind": 0,
+            "unlogged": 0
           },
           "windows": [
             {
@@ -3358,6 +6140,23 @@
       "forward_evaluations": 9,
       "paired": {
         "band_mismatches": 0,
+        "common_record": {
+          "entries": [
+            {
+              "forward": null,
+              "predictor_id": "claude-baseline"
+            },
+            {
+              "forward": null,
+              "predictor_id": "codex-baseline"
+            },
+            {
+              "forward": null,
+              "predictor_id": "gemini-baseline"
+            }
+          ],
+          "events": 0
+        },
         "entries": [
           {
             "forward": {
@@ -3385,11 +6184,46 @@
               "population_in_sample_skill_score": null,
               "population_realized_term_skill_score": null,
               "realized_term_skill_scored": 0,
+              "reasoning_quality_rubrics": [
+                {
+                  "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                  "evaluator_id": "claude-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.8,
+                  "n": 1
+                },
+                {
+                  "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                  "evaluator_id": "codex-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.8,
+                  "n": 1
+                },
+                {
+                  "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                  "evaluator_id": "gemini-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.9,
+                  "n": 1
+                }
+              ],
               "skill_scored": 3,
               "vote_cells_scored": 0
             },
             "predictor_id": "claude-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 1,
+              "reached": 0,
+              "target_blind": 1,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -3425,11 +6259,46 @@
               "population_in_sample_skill_score": null,
               "population_realized_term_skill_score": null,
               "realized_term_skill_scored": 0,
+              "reasoning_quality_rubrics": [
+                {
+                  "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                  "evaluator_id": "claude-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.55,
+                  "n": 1
+                },
+                {
+                  "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                  "evaluator_id": "codex-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.86,
+                  "n": 1
+                },
+                {
+                  "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                  "evaluator_id": "gemini-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.8,
+                  "n": 1
+                }
+              ],
               "skill_scored": 3,
               "vote_cells_scored": 0
             },
             "predictor_id": "codex-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 1,
+              "reached": 0,
+              "target_blind": 0,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -3465,11 +6334,46 @@
               "population_in_sample_skill_score": null,
               "population_realized_term_skill_score": null,
               "realized_term_skill_scored": 0,
+              "reasoning_quality_rubrics": [
+                {
+                  "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                  "evaluator_id": "claude-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.25,
+                  "n": 1
+                },
+                {
+                  "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                  "evaluator_id": "codex-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.4,
+                  "n": 1
+                },
+                {
+                  "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                  "evaluator_id": "gemini-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.6,
+                  "n": 1
+                }
+              ],
               "skill_scored": 3,
               "vote_cells_scored": 0
             },
             "predictor_id": "gemini-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 1,
+              "reached": 0,
+              "target_blind": 0,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -3520,6 +6424,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8766666666666666,
+                "n": 3
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.84,
+                "n": 3
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8833333333333333,
+                "n": 3
+              }
+            ],
             "skill_scored": 9,
             "vote_cells_scored": 0
           },
@@ -3556,6 +6489,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.6833333333333332,
+                "n": 3
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8833333333333333,
+                "n": 3
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.85,
+                "n": 3
+              }
+            ],
             "skill_scored": 9,
             "vote_cells_scored": 0
           },
@@ -3592,6 +6554,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.43333333333333335,
+                "n": 3
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.5533333333333333,
+                "n": 3
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7666666666666666,
+                "n": 3
+              }
+            ],
             "skill_scored": 9,
             "vote_cells_scored": 0
           },
@@ -3630,6 +6621,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8766666666666666,
+                "n": 3
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.84,
+                "n": 3
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8833333333333333,
+                "n": 3
+              }
+            ],
             "skill_scored": 9,
             "vote_cells_scored": 0
           },
@@ -3637,6 +6657,12 @@
           "procedural": null,
           "process_window": null,
           "retrospective": null,
+          "self_provisioning": {
+            "cells": 3,
+            "reached": 0,
+            "target_blind": 2,
+            "unlogged": 0
+          },
           "windows": [
             {
               "n": 9,
@@ -3673,6 +6699,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.6833333333333332,
+                "n": 3
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.8833333333333333,
+                "n": 3
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.85,
+                "n": 3
+              }
+            ],
             "skill_scored": 9,
             "vote_cells_scored": 0
           },
@@ -3680,6 +6735,12 @@
           "procedural": null,
           "process_window": null,
           "retrospective": null,
+          "self_provisioning": {
+            "cells": 3,
+            "reached": 0,
+            "target_blind": 0,
+            "unlogged": 0
+          },
           "windows": [
             {
               "n": 9,
@@ -3716,6 +6777,35 @@
             "population_in_sample_skill_score": null,
             "population_realized_term_skill_score": null,
             "realized_term_skill_scored": 0,
+            "reasoning_quality_rubrics": [
+              {
+                "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                "evaluator_id": "claude-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.43333333333333335,
+                "n": 3
+              },
+              {
+                "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                "evaluator_id": "codex-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.5533333333333333,
+                "n": 3
+              },
+              {
+                "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                "evaluator_id": "gemini-judge",
+                "labels": [
+                  "proc-v8"
+                ],
+                "mean_reasoning_quality": 0.7666666666666666,
+                "n": 3
+              }
+            ],
             "skill_scored": 9,
             "vote_cells_scored": 0
           },
@@ -3723,6 +6813,12 @@
           "procedural": null,
           "process_window": null,
           "retrospective": null,
+          "self_provisioning": {
+            "cells": 3,
+            "reached": 0,
+            "target_blind": 0,
+            "unlogged": 0
+          },
           "windows": [
             {
               "n": 9,
@@ -3737,6 +6833,191 @@
       "forward_evaluations": 27,
       "paired": {
         "band_mismatches": 0,
+        "common_record": {
+          "entries": [
+            {
+              "forward": {
+                "accuracy": 1.0,
+                "accuracy_events_scored": 1,
+                "accuracy_lift": null,
+                "accuracy_scored": 3,
+                "always_deny_accuracy": null,
+                "evaluations": 3,
+                "event_accuracy": 1.0,
+                "event_accuracy_lift": null,
+                "event_always_deny_accuracy": null,
+                "events_scored": 1,
+                "grants_expected": null,
+                "grants_expected_scored": null,
+                "grants_realized": null,
+                "grants_realized_expected_scored": null,
+                "in_sample_events_scored": 0,
+                "in_sample_grant_rate": null,
+                "in_sample_skill_scored": 0,
+                "mean_brier_score": 0.03999999999999998,
+                "mean_reasoning_quality": 0.8833333333333333,
+                "mean_vote_accuracy": null,
+                "population_brier_skill_score": 0.950094126023496,
+                "population_in_sample_skill_score": null,
+                "population_realized_term_skill_score": null,
+                "realized_term_skill_scored": 0,
+                "reasoning_quality_rubrics": [
+                  {
+                    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.9,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.85,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.9,
+                    "n": 1
+                  }
+                ],
+                "skill_scored": 3,
+                "vote_cells_scored": 0
+              },
+              "predictor_id": "claude-baseline"
+            },
+            {
+              "forward": {
+                "accuracy": 1.0,
+                "accuracy_events_scored": 1,
+                "accuracy_lift": null,
+                "accuracy_scored": 3,
+                "always_deny_accuracy": null,
+                "evaluations": 3,
+                "event_accuracy": 1.0,
+                "event_accuracy_lift": null,
+                "event_always_deny_accuracy": null,
+                "events_scored": 1,
+                "grants_expected": null,
+                "grants_expected_scored": null,
+                "grants_realized": null,
+                "grants_realized_expected_scored": null,
+                "in_sample_events_scored": 0,
+                "in_sample_grant_rate": null,
+                "in_sample_skill_scored": 0,
+                "mean_brier_score": 0.02560000000000001,
+                "mean_reasoning_quality": 0.8766666666666666,
+                "mean_vote_accuracy": null,
+                "population_brier_skill_score": 0.9680602406550374,
+                "population_in_sample_skill_score": null,
+                "population_realized_term_skill_score": null,
+                "realized_term_skill_scored": 0,
+                "reasoning_quality_rubrics": [
+                  {
+                    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.85,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.93,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.85,
+                    "n": 1
+                  }
+                ],
+                "skill_scored": 3,
+                "vote_cells_scored": 0
+              },
+              "predictor_id": "codex-baseline"
+            },
+            {
+              "forward": {
+                "accuracy": 1.0,
+                "accuracy_events_scored": 1,
+                "accuracy_lift": null,
+                "accuracy_scored": 3,
+                "always_deny_accuracy": null,
+                "evaluations": 3,
+                "event_accuracy": 1.0,
+                "event_accuracy_lift": null,
+                "event_always_deny_accuracy": null,
+                "events_scored": 1,
+                "grants_expected": null,
+                "grants_expected_scored": null,
+                "grants_realized": null,
+                "grants_realized_expected_scored": null,
+                "in_sample_events_scored": 0,
+                "in_sample_grant_rate": null,
+                "in_sample_skill_scored": 0,
+                "mean_brier_score": 0.009999999999999995,
+                "mean_reasoning_quality": 0.6,
+                "mean_vote_accuracy": null,
+                "population_brier_skill_score": 0.987523531505874,
+                "population_in_sample_skill_score": null,
+                "population_realized_term_skill_score": null,
+                "realized_term_skill_scored": 0,
+                "reasoning_quality_rubrics": [
+                  {
+                    "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                    "evaluator_id": "claude-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.5,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                    "evaluator_id": "codex-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.55,
+                    "n": 1
+                  },
+                  {
+                    "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                    "evaluator_id": "gemini-judge",
+                    "labels": [
+                      "proc-v8"
+                    ],
+                    "mean_reasoning_quality": 0.75,
+                    "n": 1
+                  }
+                ],
+                "skill_scored": 3,
+                "vote_cells_scored": 0
+              },
+              "predictor_id": "gemini-baseline"
+            }
+          ],
+          "events": 1
+        },
         "entries": [
           {
             "forward": {
@@ -3764,11 +7045,46 @@
               "population_in_sample_skill_score": null,
               "population_realized_term_skill_score": null,
               "realized_term_skill_scored": 0,
+              "reasoning_quality_rubrics": [
+                {
+                  "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                  "evaluator_id": "claude-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.8766666666666666,
+                  "n": 3
+                },
+                {
+                  "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                  "evaluator_id": "codex-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.84,
+                  "n": 3
+                },
+                {
+                  "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                  "evaluator_id": "gemini-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.8833333333333333,
+                  "n": 3
+                }
+              ],
               "skill_scored": 9,
               "vote_cells_scored": 0
             },
             "predictor_id": "claude-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 3,
+              "reached": 0,
+              "target_blind": 2,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -3804,11 +7120,46 @@
               "population_in_sample_skill_score": null,
               "population_realized_term_skill_score": null,
               "realized_term_skill_scored": 0,
+              "reasoning_quality_rubrics": [
+                {
+                  "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                  "evaluator_id": "claude-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.6833333333333332,
+                  "n": 3
+                },
+                {
+                  "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                  "evaluator_id": "codex-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.8833333333333333,
+                  "n": 3
+                },
+                {
+                  "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                  "evaluator_id": "gemini-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.85,
+                  "n": 3
+                }
+              ],
               "skill_scored": 9,
               "vote_cells_scored": 0
             },
             "predictor_id": "codex-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 3,
+              "reached": 0,
+              "target_blind": 0,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {
@@ -3844,11 +7195,46 @@
               "population_in_sample_skill_score": null,
               "population_realized_term_skill_score": null,
               "realized_term_skill_scored": 0,
+              "reasoning_quality_rubrics": [
+                {
+                  "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+                  "evaluator_id": "claude-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.43333333333333335,
+                  "n": 3
+                },
+                {
+                  "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+                  "evaluator_id": "codex-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.5533333333333333,
+                  "n": 3
+                },
+                {
+                  "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+                  "evaluator_id": "gemini-judge",
+                  "labels": [
+                    "proc-v8"
+                  ],
+                  "mean_reasoning_quality": 0.7666666666666666,
+                  "n": 3
+                }
+              ],
               "skill_scored": 9,
               "vote_cells_scored": 0
             },
             "predictor_id": "gemini-baseline",
             "rank": null,
+            "self_provisioning": {
+              "cells": 3,
+              "reached": 0,
+              "target_blind": 0,
+              "unlogged": 0
+            },
             "unpaired_events": 0,
             "windows": [
               {

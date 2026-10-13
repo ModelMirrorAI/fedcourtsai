@@ -69,8 +69,9 @@ No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
 - every figure computed from an evaluator's judgment — `mean_reasoning_quality`,
   the `big_case` and judge-validation tau-b, `evaluator_agreement`, the
   semantic grades — lists each evaluator digest it spans with its `n`; its
-  per-rubric reading is the claimable figure, and a value pooled across
-  rubrics is coverage;
+  per-rubric reading (on the board, `reasoning_quality_rubrics` and
+  `by_signature`) is the claimable figure, and a value pooled across rubrics
+  is coverage;
 - pooling windows licenses **no other pooling**: stratum, stage and moment,
   salience band and version, scoring baseline, claim-set version and every
   other registered boundary still cut the pooled figure;
@@ -78,7 +79,8 @@ No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
 - `release-sensitivity` and `semantic-summary` pool with the breakdown rather
   than refuse.
 
-**The surfaces are built to that rule; the per-rubric readings are not yet.**
+**Every frozen-scope surface is built to that rule, and the leaderboard's
+per-rubric readings are too.**
 On the leaderboard and each of its stage blocks:
 
 - each entry is the predictor's pooled record, with its composition as
@@ -123,7 +125,13 @@ On the leaderboard and each of its stage blocks:
   `proc-v8` board the eight dated inside its cells all read 91 before and 6
   after for every engine, which is one split, not eight, and it coincides with
   when the cells were made (the six are the post-conference first forecasts),
-  so it separates no change's effect from prediction timing.
+  so it separates no change's effect from prediction timing;
+- each pooled entry (over its forward cells), and each engine in `paired`,
+  lists as `self_provisioning` its cells by whether their logs show a fetch of
+  a court filing outside the provisioned document set, and each paired figure
+  carries `common_record`, the paired events on which no engine's log shows
+  one (*What may be claimed from `self_provisioned_fetches`* below). Neither is
+  a rank key.
 
 **Units.**
 
@@ -137,10 +145,13 @@ On the leaderboard and each of its stage blocks:
   `windows` counts only the cells or reads that entered a pair or point.
 - **Boundaries.** A boundary's `before`, `after` and `unstamped` count cells,
   one per (case, event) per engine.
+- **Self-provisioning.** `self_provisioning` counts cells, one per (case,
+  event, predictor); a `common_record` engine's `forward.evaluations` counts
+  gradings, like the paired figure's.
 
-**Judge-dependent figures are coverage until the per-rubric reading is
-built.** These figures list `rubrics`, the (evaluator, evaluate digest) pairs
-they draw on, each with its `n`:
+**Judge-dependent figures list their rubrics, and the leaderboard's carry
+per-rubric readings.** These figures list `rubrics`, the (evaluator, evaluate
+digest) pairs they draw on, each with its `n`:
 
 - a pooled `big_case`, over the reads its panel means use;
 - `evaluator_agreement`, over every read behind an evaluator's leave-one-out
@@ -150,13 +161,46 @@ they draw on, each with its `n`:
   taken over;
 - a semantic census, over its block-carrying gradings.
 
-`mean_reasoning_quality` on the board lists none yet.
+On the leaderboard the readings ride beside the pooled value:
 
-Every judge's evaluate digest moved at `proc-v9`, `claude-judge`'s with its
-model. So any of these figures, `mean_reasoning_quality` included, that pools
-more than one digest of one evaluator mixes judge rubrics. It is coverage,
-never a claimable figure or a comparison, until the per-rubric-signature
-readings land. A `rubrics` list naming one evaluator twice is the sign.
+- **`mean_reasoning_quality`**, a per-judge figure, is read per (evaluator,
+  digest) in each stratum's `reasoning_quality_rubrics`: each rubric with its
+  `n` in graded gradings, the evaluate label that blessed its digest as
+  `labels`, and the mean over that rubric's grades alone. Judges grade on
+  different scales, so the pooled cross-judge mean compares across predictors
+  only while their per-rubric `n` match, as they do while every judge grades
+  every cell.
+- **`big_case` and `evaluator_agreement`**, panel figures, are read per rubric
+  signature in `by_signature`. A point's pairs are the (evaluator, digest)
+  pairs of every read behind it: for `big_case`, every panel read across the
+  case's moments; for a leave-one-out point, the judge's reads and its peers'
+  on the case. The signatures read are the maximal sets those pairs form,
+  one digest per evaluator, each named by the evaluate labels that blessed its
+  digests, and a point joins every signature holding all of its pairs. So a
+  case only part of a panel read stays with the panel it was read under.
+- **Overlapping readings are not independent.** A point read only under
+  digests two signatures share sits in both readings, so two readings may
+  share points: never difference them as independent figures, and do not
+  expect their `cases` to sum to the pooled count. Check each pair's `n`
+  before quoting a reading, since a single case read under a new digest can
+  form a maximal signature whose distinguishing pair has `n` 1.
+- **Set-aside points are not a random loss.** A point holding one evaluator
+  under two digests joins no reading; it is counted in
+  `mixed_signature_points` and stays in the pooled value. Such points
+  concentrate in cases read at several moments, which are the granted ones,
+  so after a digest move a reading covers a population short of exactly the
+  higher-stakes cases. Read each reading's `cases` against the figure's own
+  count.
+
+The per-rubric reading is the claimable figure. Every judge's evaluate digest
+moved at `proc-v9`, `claude-judge`'s with its model, so a pooled value spanning
+more than one digest of one evaluator mixes judge rubrics: it is coverage,
+never a claimable figure or a comparison. A `rubrics` list naming one evaluator
+twice is the sign. The claim judge-validation tau-b, the ops reasoning-quality
+quantiles and the semantic per-grader agreement list their rubrics but carry
+no per-rubric reading yet, so there a pooled value spanning two digests of an
+evaluator has no claimable form. The signature rule is registered in
+`docs/freeze-record.md` (2026-10-12).
 
 **The other surfaces take the same shape.**
 
@@ -1690,7 +1734,8 @@ the rendered table) and
   counterpart: a (petition, predictor) cell that produced no score, with its
   reason — `missing`, `invalid`, `wrote-outside-work-root` (the cell ran and
   what came back was absent, malformed, or written outside the work root),
-  `engine-failed` (the engine exited non-zero for that cell),
+  `engine-failed` (the engine failed for that cell — a non-zero exit, or a
+  zero-exit turn whose result reported a fault — and wrote nothing to read),
   `quota-exhausted` (the engine's own quota was spent, so that cell failed and
   the engine's remaining cells were recorded lost without being attempted,
   every further invocation being a paid-for certainty of the same failure — so
@@ -3152,22 +3197,50 @@ that made no manifest call, so a ledger-wide cut pools stretches with
 categorically different coverage. Read a per-engine throttle number as scoped
 to the logs that could express one.
 
-**What may be claimed from `self_provisioned_fetches`: a comparison drawn by
-hand over the cells the run names, never a published number.** The log's third
-summary counts the calls through which a cell **reached outside** the
-provisioned `record/documents/` set for a court filing
+**What may be claimed from `self_provisioned_fetches`: a described share and a
+common-record comparison on the leaderboard, never a rank, a headline figure or
+an exclusion.** The log's third summary counts the calls through which a cell
+**reached outside** the provisioned `record/documents/` set for a court filing
 ([predicted-artifacts.md](../docs/predicted-artifacts.md)), and the run PR's
-per-run note names those cells. Both are a **record** placed ahead of any use
-of it. No figure on any board reads the field: no stratum keys on it, no score
-is adjusted by it, and no cell is excluded or caveated because of it. That is
-deliberate rather than an omission: caveating or stratifying a scored board on
-self-provisioning changes what the boards claim, so it is pre-registered work —
-a dated entry in [freeze-record.md](../docs/freeze-record.md) before any figure
-moves — and the record exists first so that decision is made against evidence
-rather than an intuition. The one claim the counts support is *these cells
-**reached for** filing text the fan-out did not guarantee every cell*, which
-qualifies a comparison a reader draws by hand and no published number, because
-none is defined to depend on it. Four limits bind even that reading.
+per-run note names those cells. The leaderboard reads it two ways, both
+registered in [freeze-record.md](../docs/freeze-record.md) and both
+descriptive:
+
+- **`self_provisioning`**, on each pooled entry (cert and stage blocks), over
+  its `forward` stratum's cells — the stratum its headline figures read — and
+  on each engine in `paired`, over its paired cells: those cells by reading off
+  each scored prediction's own log — `reached` (a filing fetch),
+  `target_blind` (no legible filing fetch, but a fetch-tool row naming no web
+  address, so one could be hidden there), `unlogged` (no readable scored
+  prediction or log), out of `cells`. Cells, one per (case, event, predictor).
+  Where `reached` or `target_blind` is non-zero, the figure beside it may span
+  more than one information set.
+- **`paired.common_record`**: the paired figure restricted to the paired
+  events on which no engine's log shows a legible fetch of a court filing
+  outside the provisioned set — every engine's cell reads `none`, so a reach,
+  a target-blind fetch or an unread log on any engine drops the event. It says
+  nothing about other retrieval, which a forward cell may do without
+  restriction. It is a **selected** subset, and not neutrally: a cell reaches
+  past the record where the record is short and the case contested, so the
+  selection runs on behaviour that tracks the outcome and the forecast's
+  uncertainty, and it drops grants and close petitions first. Read each
+  engine's common-record figure against that subset's own
+  `always_deny_accuracy` and `in_sample_grant_rate`, never the full paired
+  set's: an accuracy equal to the always-deny floor there says the subset holds
+  little to call, not that every engine called it well. It is never ranked,
+  and never differenced against the paired figure.
+- **The exclusion is engine-asymmetric** before the URL-first slice rule. On a
+  log captured before it, every claude `WebFetch` is a prompt-only row, so
+  `target_blind` drops every event on which claude fetched anything at all,
+  while another engine's cell drops an event only on a legible filing fetch.
+  `common_record` therefore excludes more of the events claude engaged with,
+  for a reason about capture rather than behaviour. A claude cell captured
+  before that rule's carrying merge keeps reading `target_blind`, so the
+  `proc-v9` window holds cells under both regimes.
+
+No rank key, headline figure or exclusion reads either, and no score is
+adjusted. Four limits bind both readings, and every claim from the counts beside
+them.
 
 It is a **reach, not an acquisition**. The row is the call; whether anything
 came back is `result_status`'s business, and on a shell row that is the
@@ -3183,10 +3256,19 @@ re-fetch alike.
 It is a floor with **four** known holes, not one: a call that left no row, a
 URL past the row's 500-character query cut, a hosted web search carrying a bare
 filing URL (deliberately excluded, since a search is not a fetch and such a row
-captures no result either way), and a fetch tool called with a prompt beside
-its URL, whose query slice keeps the prompt and so leaves nothing to match.
-None of them is measurable from the rows, so the residual cannot be signed:
-the third hole cuts against one engine and the fourth against another.
+captures no result either way), and — on a log captured before the
+fetch-target slice rule the freeze record dates — a fetch tool called with a
+prompt beside its URL, whose slice there kept the prompt alone and so leaves
+nothing to match. The fourth applies only to such logs: a log captured under
+that rule carries the URL ahead of the prompt, and its prompted fetches are
+matched like any other. The fourth is the one hole a row shows: such a fetch
+names no web address, so the leaderboard counts its cell `target_blind` (read
+the count off each figure's `self_provisioning`) and keeps its event out of
+`common_record` rather than reading it as `none`; `reached` is a floor for an
+engine until its target-blind cells are gone. The other three are not
+measurable from the rows; the third of them (a bare-URL hosted search) cuts
+against one engine. The fourth, shown as `target_blind`, cuts against
+claude's logs captured before the rule.
 
 And the floor is **engine-shaped**, which is adjacent to the throttle
 denominator's unevenness rather than the same thing — and the difference

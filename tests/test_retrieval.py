@@ -35,6 +35,7 @@ from fedcourtsai.schemas import (
     normalize_call,
     observed_mcp_conditions,
     self_provisioned_fetches,
+    target_blind_fetches,
 )
 from tests.conftest import FixtureCorpus
 
@@ -2270,6 +2271,25 @@ def test_a_filing_fetch_counts_and_a_search_for_the_same_filing_does_not() -> No
     assert self_provisioned_fetches([pulled]) == [pulled]
 
 
+def test_a_fetch_whose_slice_names_no_address_is_target_blind() -> None:
+    # A prompted fetch captured before the URL-first slice rule kept its prompt
+    # alone, so what it fetched cannot be read off the row; any fetch-tool row
+    # naming no address is in that class, while one naming any address — a
+    # filing or not — has a legible target.
+    blind = [
+        _row("WebFetch", "Summarize the brief in opposition's main arguments"),
+        RetrievalCall(tool="web_fetch"),
+    ]
+    legible = [
+        _row("WebFetch", f"{_BIO_PDF}\nSummarize the brief in opposition"),
+        _row("web_fetch", "Read https://www.supremecourt.gov/orders/courtorders/x.pdf"),
+        # Not a dedicated fetch tool, so never in this class whatever it names.
+        _row("Bash", "ls record/documents"),
+        _row("WebSearch", "brief in opposition 25-901"),
+    ]
+    assert target_blind_fetches([*blind, *legible]) == blind
+
+
 def test_a_fetch_off_the_filing_trees_is_not_a_self_provisioned_filing() -> None:
     # The Court serves more than the parties' filings, and none of the rest is
     # a document the provisioned set was short of: an opinion and an order are
@@ -2791,3 +2811,99 @@ def test_record_retrieval_strict_refuses_another_engines_log(
     result = runner.invoke(app, args)
     assert result.exit_code == 1
     assert "no codex log was named" in result.output
+
+
+def _webfetch_transcript(tool_input: dict[str, object]) -> list[dict[str, object]]:
+    return [
+        {
+            "type": "assistant",
+            "timestamp": "2026-07-10T12:00:01Z",
+            "message": {
+                "content": [
+                    {"type": "tool_use", "id": "toolu_1", "name": "WebFetch", "input": tool_input}
+                ]
+            },
+        }
+    ]
+
+
+def test_a_prompted_fetch_keeps_its_url_ahead_of_the_prompt(tmp_path: Path) -> None:
+    # A fetch tool asked a prompt beside its URL keeps both, URL first: the URL
+    # is what says what the call reached for, and every URL-keyed read of the
+    # log — the self-provisioning record among them — needs it on the row.
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(
+        json.dumps(
+            _webfetch_transcript(
+                {"url": _BIO_PDF, "prompt": "Summarize the State's brief in opposition."}
+            )
+        )
+    )
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query == f"{_BIO_PDF}\nSummarize the State's brief in opposition."
+    assert self_provisioned_fetches([call]) == [call]
+
+
+def test_the_cap_trims_a_long_prompt_and_never_the_fetch_target(tmp_path: Path) -> None:
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(
+        json.dumps(_webfetch_transcript({"url": _BIO_PDF, "prompt": "Quote the QP. " * 80}))
+    )
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query is not None
+    assert len(call.query) == 500
+    assert call.query.startswith(f"{_BIO_PDF}\nQuote the QP.")
+
+
+def test_a_credential_in_a_fetched_url_is_redacted_in_the_composed_slice(tmp_path: Path) -> None:
+    # Redaction runs over the composed candidate, so a key carried in the URL a
+    # fetch reached for leaves the harness unusable while its host and path stay
+    # legible.
+    token = "Q9fQ2xLm7Vb3Np8Rt4Kz6Wc1Hd5Yj0Ae"
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(
+        json.dumps(
+            _webfetch_transcript(
+                {
+                    "url": f"https://api.example.org/v1/doc?api_key={token}",
+                    "prompt": "Summarize it.",
+                }
+            )
+        )
+    )
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query is not None
+    assert call.query.startswith("https://api.example.org/v1/doc?api_key=")
+    assert "[redacted:" in call.query
+    assert token not in call.query
+    assert call.query.endswith("\nSummarize it.")
+
+
+@pytest.mark.parametrize(
+    ("tool_input", "expected"),
+    [
+        # Only one of the two keys: the key-order pick, unchanged.
+        ({"url": _BIO_PDF}, _BIO_PDF),
+        ({"prompt": f"Fetch {_BIO_PDF} and summarize it."}, f"Fetch {_BIO_PDF} and summarize it."),
+        # A blank prompt is no prompt.
+        ({"url": _BIO_PDF, "prompt": "  "}, _BIO_PDF),
+        # A key ranked ahead of `prompt` outranks the fetch rule, exactly as before.
+        ({"query": "brief in opposition", "url": _BIO_PDF}, "brief in opposition"),
+        (
+            {"query": "brief in opposition", "url": _BIO_PDF, "prompt": "Summarize it."},
+            "brief in opposition",
+        ),
+        # No `url`: `prompt` still outranks `command`, as it always did.
+        ({"command": "curl -sL x", "prompt": "why"}, "why"),
+        # A non-string `url` or `prompt` is not one: the key-order pick.
+        ({"url": ["a"], "prompt": "p"}, "p"),
+        ({"url": "https://example.org/u", "prompt": 3}, "https://example.org/u"),
+    ],
+)
+def test_a_call_without_both_url_and_prompt_keeps_its_key_order_slice(
+    tmp_path: Path, tool_input: dict[str, object], expected: str
+) -> None:
+    execution_file = tmp_path / "execution.json"
+    execution_file.write_text(json.dumps(_webfetch_transcript(tool_input)))
+    (call,) = parse_claude_retrieval(execution_file)
+    assert call.query == expected

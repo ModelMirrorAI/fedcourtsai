@@ -659,12 +659,14 @@ jobs:
           # there could not. claude, unsandboxed, writes anywhere it is told.
           # gemini does not: its file tools are bounded to the launch directory
           # (the checkout) and its own per-project temp dir, so the runner
-          # passes the cell's root to the CLI as an extra workspace directory
-          # (`GeminiRunner.build_command`, `--include-directories`; re-check on
-          # any gemini-cli bump) and a gemini cell reaches it with write_file
-          # rather than only the shell. Each engine's lane runs under its own
-          # sub-root of this one (`<work_dir>/<engine>/`), provisioned with the
-          # same inputs, so the root gemini is given holds gemini's cells alone.
+          # passes the cell's own case tree under its root to the CLI as an
+          # extra workspace directory (`GeminiRunner.build_command`,
+          # `--include-directories`; re-check on any gemini-cli bump) and a
+          # gemini cell reaches it with write_file rather than only the shell.
+          # Each engine's lane runs under its own sub-root of this one
+          # (`<work_dir>/<engine>/`), provisioned with the same inputs, so the
+          # case tree gemini is given, inside its own sub-root, holds gemini's
+          # cells alone.
           # A fresh mktemp directory keeps the path
           # unpredictable and unshared across runs on a non-ephemeral runner;
           # run_id is inside every cell path anyway, so a stale cell could never
@@ -674,14 +676,16 @@ jobs:
           # sub-roots are placement, not isolation: they are siblings, claude
           # reads anywhere and codex's sandbox bounds writes rather than reads,
           # so an engine that looks outside its own lane can still read another
-          # engine's cells. For gemini the admitted sub-root is a `GEMINI.md`
+          # engine's cells. For gemini the admitted case tree is a `GEMINI.md`
           # context-file discovery root too (read at startup, and again whenever
-          # a file tool touches a path under it), so a gemini cell that planted
-          # one would be instructing the gemini cells after it in its lane:
-          # accepted on the same terms as the shared tree itself and as the
-          # checkout, which is a discovery root for every gemini cell already —
-          # the back-test's cross-engine integrity rests on the first-party
-          # engine configs and the committed prompts.
+          # a file tool touches a path under it), which is why only the cell's
+          # own case tree is admitted: a context file planted elsewhere in the
+          # lane is outside every other case's root. Gemini cells for other
+          # events of the same case share that tree, and the checkout is a
+          # discovery root for every gemini cell already — accepted on the same
+          # terms as the shared tree itself: the back-test's cross-engine
+          # integrity rests on the first-party engine configs and the committed
+          # prompts.
           work_dir="$(mktemp -d /tmp/fedcourts-backtest-cells.XXXXXXXX)"
           uv run fedcourts cert-backtest \
             --engine "$BT_ENGINE" --limit "$BT_LIMIT" --skip-engines "$BT_SKIP_ENGINES" \

@@ -4,11 +4,26 @@
       "additionalProperties": false,
       "description": "A predictor's big-case-score agreement with the evaluator panel's stakes reads.\n\nA *second* skill dimension, orthogonal to the grant/deny ranking (a model can\nread a case's significance well while calling grant/deny only modestly, or the\nreverse). Bigness is comparative, so the agreement is a **rank** correlation \u2014\nKendall's tau-b between the predictor's ``big_case_score`` ordering and the\npanel's (the mean of the evaluators' own reads), across the scored\n**cases** both sides rated. A case carrying several forecast moments\ncontributes one point, both sides averaged over its moments: bigness is a\nproperty of the case, so a case's moments are not independent observations\nand a correlation that assumed they were would overstate its own evidence.\nNever enters the leaderboard ranking; reported alongside it.",
       "properties": {
+        "by_signature": {
+          "description": "The figure read per rubric signature: one reading per maximal set of (evaluator, evaluate digest) pairs some point's reads carry, over every point whose own pairs it holds. A point may sit in two readings, so readings sharing points are not independent and are never differenced as if they were, and their `cases` need not sum to the pooled count. Check each pair's `n` before quoting a reading: a single point read under a new digest can form a maximal signature whose distinguishing pair has n=1. The per-rubric reading is the claimable figure; the pooled value is coverage wherever it spans more than one digest of one evaluator. A case's point's reads are every panel read across its moments. Each reading's `cases` compares to this figure's `cases`",
+          "items": {
+            "$ref": "#/$defs/SignatureReading"
+          },
+          "title": "By Signature",
+          "type": "array"
+        },
         "cases": {
           "default": 0,
           "description": "Cases with both a predictor big_case_score and at least one evaluator big-case read \u2014 cases, not events: a case's forecast moments are averaged into one point",
           "minimum": 0,
           "title": "Cases",
+          "type": "integer"
+        },
+        "mixed_signature_points": {
+          "default": 0,
+          "description": "Points whose reads carry one evaluator under two digests, so they span two signatures and enter no reading in `by_signature`; they still count in the pooled value. Such points concentrate in cases read at several moments, the granted ones, so after a digest move a reading covers a population short of exactly the higher-stakes cases; compare each reading's `cases` with the figure's own count. Omitted at zero",
+          "minimum": 0,
+          "title": "Mixed Signature Points",
           "type": "integer"
         },
         "rank_agreement": {
@@ -27,7 +42,7 @@
           "title": "Rank Agreement"
         },
         "rubrics": {
-          "description": "The (evaluator, evaluate digest) pairs whose reads the panel mean draws on, each with its `n` in reads. A correlation whose panel spans more than one digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable figure, until the per-rubric reading is built",
+          "description": "The (evaluator, evaluate digest) pairs whose reads the panel mean draws on, each with its `n` in reads. A figure spanning more than one digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable figure; `by_signature` carries the claimable per-rubric readings",
           "items": {
             "$ref": "#/$defs/RubricCount"
           },
@@ -100,6 +115,58 @@
         "after"
       ],
       "title": "BoundaryCount",
+      "type": "object"
+    },
+    "CommonRecordEngine": {
+      "additionalProperties": false,
+      "description": "One engine's figure over the common-record paired events.",
+      "properties": {
+        "forward": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LeaderboardStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This engine's forward aggregate over its paired gradings on the common-record events, carrying that subset's own `always_deny_accuracy` and `in_sample_grant_rate` to be read against; null while there are none"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "predictor_id"
+      ],
+      "title": "CommonRecordEngine",
+      "type": "object"
+    },
+    "CommonRecordReading": {
+      "additionalProperties": false,
+      "description": "The paired figure over the events no engine's log shows a filing fetch on.\n\nAn event enters only where every engine's cell on it has a legible log with\nno filing fetch and no fetch-tool row naming no address\n(:class:`SelfProvisioningCount`): the paired events on which no engine's log\nshows a legible fetch of a court filing outside the provisioned set. It\nsays nothing about other retrieval, which a forward cell may do without\nrestriction.\n\nA **selected** subset, and not neutrally: a cell reaches past the record\nwhere the record is short and the case contested, so the selection runs on\nbehaviour that tracks the outcome and the forecast's uncertainty \u2014 on\ngranted and close petitions \u2014 and it drops an event for one engine's reach\nwhatever the others did. Read each engine's figure against this subset's own\nalways-deny floor and in-sample grant rate, never the full paired set's;\nnever rank it, and never difference it against the paired figure.",
+      "properties": {
+        "entries": {
+          "description": "Per engine, in the paired figure's order",
+          "items": {
+            "$ref": "#/$defs/CommonRecordEngine"
+          },
+          "title": "Entries",
+          "type": "array"
+        },
+        "events": {
+          "description": "Paired events on which no engine's log shows a legible fetch of a court filing outside the provisioned set, and every engine's log was read and names every fetch's target",
+          "minimum": 0,
+          "title": "Events",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "events"
+      ],
+      "title": "CommonRecordReading",
       "type": "object"
     },
     "CountingWindow": {
@@ -176,11 +243,26 @@
       "additionalProperties": false,
       "description": "How far one evaluator's big-case reads track the rest of the panel's.\n\nThe check on grader latitude. An evaluator with room to judge can be\nsystematically generous or strict, and nothing in a per-predictor score would\nshow it \u2014 the distortion is spread evenly across everyone that evaluator\nscored. Comparing each grader against its peers is what makes it visible.\n\nComputed **leave-one-out**: the evaluator's ordering against the mean of the\n*other* evaluators' reads on the events they share. Including the evaluator in\nthe panel it is scored against would correlate it partly with itself, and with\na three-judge panel that self-term is a third of the comparison.\n\nA rank correlation for the same reason the predictor-side agreement is one:\nbigness is comparative, so what matters is whether two graders order cases the\nsame way, not whether they pick the same numbers. Read it with ``events``\nbeside it \u2014 with a panel this small and few shared events, tau-b is noisy, and\na single disagreement moves it far.",
       "properties": {
+        "by_signature": {
+          "description": "The figure read per rubric signature: one reading per maximal set of (evaluator, evaluate digest) pairs some point's reads carry, over every point whose own pairs it holds. A point may sit in two readings, so readings sharing points are not independent and are never differenced as if they were, and their `cases` need not sum to the pooled count. Check each pair's `n` before quoting a reading: a single point read under a new digest can form a maximal signature whose distinguishing pair has n=1. The per-rubric reading is the claimable figure; the pooled value is coverage wherever it spans more than one digest of one evaluator. A leave-one-out point's reads are the evaluator's and its peers' on the case. Each reading's `cases` compares to this figure's `events`, its pooled count of cases",
+          "items": {
+            "$ref": "#/$defs/SignatureReading"
+          },
+          "title": "By Signature",
+          "type": "array"
+        },
         "events": {
           "default": 0,
-          "description": "Events this evaluator and at least one peer both read \u2014 the sample the correlation rests on, and small enough to matter",
+          "description": "Cases this evaluator and at least one peer both read, one leave-one-out point per case (its moments averaged) despite the name \u2014 the sample the correlation rests on, and small enough to matter",
           "minimum": 0,
           "title": "Events",
+          "type": "integer"
+        },
+        "mixed_signature_points": {
+          "default": 0,
+          "description": "Points whose reads carry one evaluator under two digests, so they span two signatures and enter no reading in `by_signature`; they still count in the pooled value. Such points concentrate in cases read at several moments, the granted ones, so after a digest move a reading covers a population short of exactly the higher-stakes cases; compare each reading's `cases` with the figure's own count. Omitted at zero",
+          "minimum": 0,
+          "title": "Mixed Signature Points",
           "type": "integer"
         },
         "rank_agreement": {
@@ -199,7 +281,7 @@
           "title": "Rank Agreement"
         },
         "rubrics": {
-          "description": "The (evaluator, evaluate digest) pairs of every read behind this evaluator's points \u2014 its own and its peers', since a leave-one-out point compares the two \u2014 each with its `n` in reads. A figure spanning more than one digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable figure, until the per-rubric reading is built",
+          "description": "The (evaluator, evaluate digest) pairs of every read behind this evaluator's points \u2014 its own and its peers', since a leave-one-out point compares the two \u2014 each with its `n` in reads. A figure spanning more than one digest of one evaluator mixes judge rubrics, so it is coverage, never a claimable figure; `by_signature` carries the claimable per-rubric readings",
           "items": {
             "$ref": "#/$defs/RubricCount"
           },
@@ -434,6 +516,18 @@
           "default": null,
           "description": "Events already resolved when the prediction was committed: measures calibration and label-mapping fit, not forecasting skill; null when this predictor has no scored retrospective cell."
         },
+        "self_provisioning": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SelfProvisioningCount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This figure's cells by whether their logs show a fetch of a court filing outside the provisioned document set (see SelfProvisioningCount). Descriptive only: no rank key, headline figure or filter reads it. Omitted while no retrieval-log reading was supplied. On a pooled entry, over its `forward` stratum's cells, the stratum its figures beside it read; never on a cut entry"
+        },
         "windows": {
           "description": "The windows this figure pools, each with its `n` in gradings, ordered by opening. Listed whenever the figure is a frozen-scope pool, a single window included; empty on an all-versions build, whose cells carry no window",
           "items": {
@@ -616,6 +710,18 @@
           ],
           "default": null,
           "description": "This stage's retrospective cells; null when this predictor has none in the stage."
+        },
+        "self_provisioning": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SelfProvisioningCount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This figure's cells by whether their logs show a fetch of a court filing outside the provisioned document set (see SelfProvisioningCount). Descriptive only: no rank key, headline figure or filter reads it. Omitted while no retrieval-log reading was supplied. On a pooled entry, over its `forward` stratum's cells, the stratum its figures beside it read; never on a cut entry"
         },
         "windows": {
           "description": "The windows this figure pools, each with its `n` in gradings, ordered by opening. Listed whenever the figure is a frozen-scope pool, a single window included; empty on an all-versions build, whose cells carry no window",
@@ -866,7 +972,7 @@
             }
           ],
           "default": null,
-          "description": "Mean evaluator reasoning-quality score",
+          "description": "Mean evaluator reasoning-quality score, pooled over every judge rubric in `reasoning_quality_rubrics`. Spanning more than one digest of one evaluator, it is coverage; the per-rubric reading is the claimable figure",
           "title": "Mean Reasoning Quality"
         },
         "mean_vote_accuracy": {
@@ -932,6 +1038,14 @@
           "minimum": 0,
           "title": "Realized Term Skill Scored",
           "type": "integer"
+        },
+        "reasoning_quality_rubrics": {
+          "description": "`mean_reasoning_quality` read per (evaluator, evaluate digest): each rubric the mean draws on, with its `n` in graded gradings and the mean over those alone. Omitted while no grading carries a grade",
+          "items": {
+            "$ref": "#/$defs/RubricReading"
+          },
+          "title": "Reasoning Quality Rubrics",
+          "type": "array"
         },
         "skill_scored": {
           "default": 0,
@@ -1037,6 +1151,18 @@
           "description": "1-based standing over the paired events; 1 is best. Forward accuracy (highest first), then forward mean Brier (lowest first), then `predictor_id`. Null on an unranked block, and on every engine while the paired set is empty",
           "title": "Rank"
         },
+        "self_provisioning": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SelfProvisioningCount"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This figure's cells by whether their logs show a fetch of a court filing outside the provisioned document set (see SelfProvisioningCount). Descriptive only: no rank key, headline figure or filter reads it. Omitted while no retrieval-log reading was supplied. Over this engine's cells on the paired events"
+        },
         "unpaired_events": {
           "description": "This engine's qualifying events that are not paired, because some other engine in the set holds no qualifying cell on them: its pairing loss",
           "minimum": 0,
@@ -1077,6 +1203,18 @@
           "description": "The paired events per band key, each assigned the band of its earliest counted qualifying cell by harness clock. Cert populations only; omitted while empty",
           "title": "By Band",
           "type": "object"
+        },
+        "common_record": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CommonRecordReading"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The paired figure restricted to the paired events on which no engine's log shows a legible fetch of a court filing outside the provisioned set (see CommonRecordReading). A selected subset \u2014 the selection tracks outcome and uncertainty \u2014 read against its own always-deny floor, never ranked and never differenced against the paired figure; omitted while no retrieval-log reading was supplied"
         },
         "entries": {
           "description": "Per engine, its standing over the paired events: in rank order on the ranked board, by `predictor_id` on an unranked block",
@@ -1138,6 +1276,151 @@
         "n"
       ],
       "title": "RubricCount",
+      "type": "object"
+    },
+    "RubricReading": {
+      "additionalProperties": false,
+      "description": "A per-judge figure read over one judge rubric's gradings alone.\n\nA per-judge figure averages one evaluator's grades, so a pool across\nevaluator digests mixes judge rubrics. Its per-rubric reading \u2014 the figure\nover the gradings of one (evaluator, digest) pair \u2014 is the claimable figure,\nand the pooled value beside it is coverage wherever it spans more than one\ndigest of one evaluator.",
+      "properties": {
+        "digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The evaluate process digest on the gradings' harness stamps; null for unstamped gradings",
+          "title": "Digest"
+        },
+        "evaluator_id": {
+          "title": "Evaluator Id",
+          "type": "string"
+        },
+        "labels": {
+          "description": "The evaluate labels that blessed these digests, sorted, from the registry (`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest names none. A name only; a label never partitions a reading",
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "mean_reasoning_quality": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean reasoning-quality grade over this rubric's gradings alone",
+          "title": "Mean Reasoning Quality"
+        },
+        "n": {
+          "description": "Gradings under this rubric that carry a grade",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "evaluator_id",
+        "digest",
+        "n"
+      ],
+      "title": "RubricReading",
+      "type": "object"
+    },
+    "SelfProvisioningCount": {
+      "additionalProperties": false,
+      "description": "A figure's cells by whether their logs show a fetch of a court filing.\n\nDescriptive, never a filter and never a rank key. The provisioned\n`record/documents/` set is every predictor's guaranteed-common input; a cell\nwhose log shows a legible fetch of a court filing outside it may have run on\na different information set from a cell whose log does not. The reading is\nabout filings only: other retrieval a forward cell may do without\nrestriction is not counted. Counted in cells, one per (case, event,\npredictor), over the figure's cells, each read off its scored prediction's\nown retrieval log.",
+      "properties": {
+        "cells": {
+          "description": "Cells behind this figure",
+          "minimum": 0,
+          "title": "Cells",
+          "type": "integer"
+        },
+        "reached": {
+          "description": "Cells whose log holds at least one filing fetch (`self_provisioned_fetches` > 0): a reach, not an acquisition \u2014 a refused fetch counts \u2014 and not proof the record lacked the filing",
+          "minimum": 0,
+          "title": "Reached",
+          "type": "integer"
+        },
+        "target_blind": {
+          "description": "Cells that did not reach legibly but hold a fetch-tool row whose slice names no web address, so a filing fetch could be hidden there. ENGINE-ASYMMETRIC: on a log captured before the URL-first slice rule every prompted fetch is such a row, so a cell of an engine whose fetch tool takes a prompt reads here whatever it fetched, while another engine's cell leaves `none` only on a legible filing fetch. Until such cells are gone, that engine's `reached` is a floor",
+          "minimum": 0,
+          "title": "Target Blind",
+          "type": "integer"
+        },
+        "unlogged": {
+          "description": "Cells whose scored prediction or retrieval log could not be read, so nothing is known about what they fetched",
+          "minimum": 0,
+          "title": "Unlogged",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cells",
+        "reached",
+        "target_blind",
+        "unlogged"
+      ],
+      "title": "SelfProvisioningCount",
+      "type": "object"
+    },
+    "SignatureReading": {
+      "additionalProperties": false,
+      "description": "A panel figure read over the points of one rubric signature.\n\nA panel figure combines several judges' reads, so its rubric is a\n*signature*: a sorted set of (evaluator, digest) pairs, one digest per\nevaluator. The signatures read are the maximal sets the points' own pairs\nform, so a case only part of a panel read is not split off from the panel\nit was read under. A point belongs to every signature holding all of its\npairs; one whose reads hold an evaluator under two digests belongs to none.\nThe correlation over one signature's points is the claimable figure.",
+      "properties": {
+        "cases": {
+          "description": "Cases the reading rests on, one point each; against the figure's pooled count (`cases` on a big-case figure, `events` on an evaluator agreement) it shows how many points this signature leaves out",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "labels": {
+          "description": "The evaluate labels that blessed these digests, sorted, from the registry (`process_version.EVALUATE_BLESSING_LABELS`); an unstamped or never-blessed digest names none. A name only; a label never partitions a reading",
+          "items": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "rank_agreement": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Kendall's tau-b over this signature's points alone; null with fewer than 2 points or when every pair ties on one side",
+          "title": "Rank Agreement"
+        },
+        "signature": {
+          "description": "The signature's (evaluator, evaluate digest) pairs, each with its `n` in reads behind this reading's points",
+          "items": {
+            "$ref": "#/$defs/RubricCount"
+          },
+          "title": "Signature",
+          "type": "array"
+        }
+      },
+      "required": [
+        "signature",
+        "cases"
+      ],
+      "title": "SignatureReading",
       "type": "object"
     },
     "WindowCount": {

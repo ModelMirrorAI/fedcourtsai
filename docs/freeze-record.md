@@ -6103,13 +6103,13 @@ freeze commit is recorded here.
 
   Carried to `main` by `promotion/2026-10-01` (merge commit
   `b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b`, merged `2026-10-01T16:15:45Z`). Applied by run
-  `<FILL: apply run id>` on `<FILL: apply date>`, landing
-  `<FILL: rows landed>` rows. The first statpack refreshed after it, at commit
-  `<FILL: statpack refresh commit>`, reads the OT2026 pool as
-  `<FILL: OT2026 pool granted/resolved>` (from
-  `<FILL: OT2026 pool before, granted/resolved>`) and the OT2025 pool as
-  `<FILL: OT2025 pool granted/resolved>` (from
-  `<FILL: OT2025 pool before, granted/resolved>`).
+  `38299640074` on `2026-10-12`, landing
+  `939` rows. The first statpack refreshed after it, at commit
+  `ea0a1e70a6f66e8508b649c88f12103f130d195c`, reads the OT2026 pool as
+  `35/422` (from
+  `31/301`) and the OT2025 pool as
+  `18/196` (from
+  `14/75`).
 
   The runnable effect check once it is live:
   - `uv run fedcourts backfill-applications --term 24 --limit 20` (a dev
@@ -7591,15 +7591,15 @@ freeze commit is recorded here.
   over it, as stated under *The paired events and the rank*.
 
   At the carrying merge, the census of `proc-v9` `claude-baseline` cells on
-  `main` reads `<FILL: proc-v9 claude-baseline predictions on main at the
-  carrying merge, how many sit on an event with a committed outcome, and how
-  many are graded; where any is graded, each listed with its event and
-  outcome>`. Where any is graded, this entry governs those gradings as choices
+  `main` reads **1** prediction, `scotus/9026000071` `evt-petition-disposition`
+  run `20261011T142504Z`, on an event with no committed outcome, and **0**
+  graded (`git grep` for the `605201bd…` digest over `data/` at the carrying
+  merge `c432a95a9`). Where any is graded, this entry governs those gradings as choices
   made with their outcomes visible, under the same disclosure as the `proc-v8`
   slice.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-11-2` (merge commit
+  `c432a95a9`, merged `2026-10-11T23:41:22Z`).
 
   The runnable effect check once it is live: on `main`, `uv run fedcourts
   process-digest --all` prints the same digests as before the promotion, and
@@ -7778,8 +7778,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-11-2` (merge commit
+  `c432a95a9`, merged `2026-10-11T23:41:22Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_merits_signals.py -k partial_support` is green;
@@ -7789,3 +7789,482 @@ freeze commit is recorded here.
     python -c "from fedcourtsai.process_version
     import HARNESS_BOUNDARIES as H; print([b.name for b in H][-1])"` prints
     `merits-brief-partial-support`.
+
+- **A panel figure's rubric signatures are the maximal one-digest-per-judge
+  pair sets its points form, 2026-10-12.** A **reading-rule** entry that
+  settles how the 2026-10-11 implementation-choices entry's *rubric
+  signature* is read, before any `proc-v9` grading exists. It moves no digest,
+  no constant, no window and no membership: `uv run fedcourts process-digest
+  --all` prints the same `proc-v9` digests, and `COUNTING_WINDOWS` is
+  unchanged. It governs the leaderboard's `by_signature` readings on `big_case`
+  and `evaluator_agreement`, and any panel figure that later gains a
+  per-signature reading.
+
+  **The rule.**
+
+  - **Which signatures are read.** A point's pairs are the (evaluator, digest)
+    pairs of every read behind it: for `big_case`, every panel read across the
+    case's moments; for a leave-one-out point, the judge's reads and its
+    peers' on the case. Of the pair sets that hold one digest per evaluator,
+    the signatures read are the **maximal** ones, those no other point's set
+    strictly contains. They are derived from the data, not declared.
+  - **Membership is by subset.** A point joins the reading of every signature
+    that contains all of its pairs. A case only part of a panel read stays
+    with the panel it was read under. A point read only under digests two
+    signatures share sits in both readings, so readings sharing points are not
+    independent and are never differenced as if they were.
+  - **A mixed point joins no reading.** A point holding one evaluator under
+    two digests sits in no signature's reading. It is counted as
+    `mixed_signature_points` and stays in the pooled value, which is coverage.
+  - **The minimum clause is read as implied.** The earlier entry requires a
+    point to meet the pooled figure's own minimum within a signature. Under
+    subset membership every read of a member point carries one of the
+    signature's pairs, so a member meets it exactly as it meets the pooled
+    one. A point is never re-formed from only its in-signature reads to make
+    it a member.
+  - **Names.** A reading is named by the union, over its signature's
+    digests, of every evaluate label that blessed each digest, from
+    `process_version.EVALUATE_BLESSING_LABELS`, never by the labels on the
+    stamps. That map is append-only and keeps each digest's labels in blessing
+    order: a label that newly blesses a judge digest adds it, and a label that
+    carries one forward byte-identical appends itself to that digest's labels,
+    so no published reading is ever renamed. The label never partitions
+    anything.
+
+  **The alternative not chosen.** A data-independent definition would take
+  each label's blessed evaluator digests from the registry as the signatures:
+  the `proc-v8` trio and the `proc-v9` trio. It is not chosen because a panel
+  need not match a label's set. An evaluator-only re-bless, or a label that
+  re-blesses some judges and carries the others forward, puts reads under
+  digests from two labels into one point. A label-set rule would then leave
+  that point in no reading, or read it by label, which the rule forbids. Under
+  either definition, a panel blessed by one label gets one reading.
+
+  **What the choice was made after seeing.** The implementation first grouped
+  points by their exact pair set. Over the `proc-v8` resolved slice on
+  `staging` that split each predictor's single `proc-v8` panel into fragments
+  by which judges happened to give a big-case read, 14, 2, 2 and 87 points for
+  `claude-baseline`, every fragment under the same three digests. The output
+  that showed the fragmentation also printed each fragment's tau-b (0.809, 1,
+  1 and 0.863 for `claude-baseline`), so those values were seen. The choice
+  rests on the structure, fragments differing in panel membership and not in
+  rubric, and not on the values. On that slice every maximal-signature reading
+  equals its pooled value: one reading per figure, the same tau-b over the same
+  cases. So the choice moves no published figure.
+
+  **What the date proves.** At `origin/main` `dff75f659`
+  (`2026-10-12T15:53:56Z`), four committed predictions carry
+  `claude-baseline`'s `proc-v9` digest (`605201bd…`):
+  - `scotus/9026000071` `evt-petition-disposition`, run `20261011T142504Z`;
+  - `scotus/9026000087` `evt-petition-disposition`, run `20261012T143556Z`;
+  - `scotus/73275187` `evt-brief-judgment`, run `20261012T143556Z`;
+  - `scotus/73280343` `evt-brief-judgment`, run `20261012T143556Z`.
+
+  No committed evaluation carries any of the three `proc-v9` evaluator digests
+  (`167b7d71…`, `18a76b93…`, `22558044…`), and none is stamped `proc-v9`.
+  `git grep` over `data/` prints nothing for either. So no panel point under a
+  `proc-v9` rubric existed, and no reading this rule governs had an outcome
+  under the new rubrics.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`). At the carrying merge,
+  committed evaluations on `origin/main` carrying any of the three `proc-v9`
+  evaluator digests (`167b7d71…`, `18a76b93…`, `22558044…`; `git grep` over
+  `data/`): `<FILL: proc-v9 judge-digest evaluations at the carrying merge>`.
+
+  The runnable effect check once it is live: on `main`, after the next
+  metrics refresh, `jq '[.entries[].big_case.by_signature | length],
+  [.by_protocol[].big_case.by_signature | length], [.evaluator_agreement[] |
+  .by_signature | length]' metrics/leaderboard.json` prints all 1s until a
+  `proc-v9` grading lands, and `uv run fedcourts process-digest --all` prints
+  the same digests as before the promotion.
+
+- **The cert back-test's Gemini runner retries a zero-exit transient fault;
+  recorded 2026-10-12.** A **back-test harness** entry, in the shape of the
+  cells' own in-place retry, which the `proc-v9` entry lists among the
+  harness changes under unchanged digests. gemini-cli ends a turn whose stream
+  went bad (`INVALID_STREAM`) with a zero exit and the fault inside its JSON
+  result. Before this change the back-test's Gemini lane read only a non-zero
+  exit (its executor did not keep stdout), so such a turn was neither retried
+  nor classified: the cell surfaced as a `missing` loss, its fault unnamed.
+  From the carrying commit the lane keeps each turn's stdout, and the runner
+  classifies every attempt on its result object as well, retries a transient
+  one under the runner's own backoff and three-attempt cap from an output root
+  reset to its pre-attempt state, and records a zero-exit turn that produced
+  nothing as an `engine-failed` loss, or as a spent quota that finishes the
+  engine for the campaign. The change also runs the other way, on Gemini's
+  non-zero exits: before it, a transient non-zero exit was retried in place
+  with no reset whatever the turn had written, as claude's and codex's still
+  are; after it, a Gemini turn that already wrote its `prediction.json` or
+  `flags.json` is not retried, so a cell that wrote a judgment and then exited
+  non-zero on a transient fault, retryable and possibly scored before, is an
+  `engine-failed` loss after. No process digest moves, no forward cell runs
+  through this runner (the local cascade aside), and no replay cell's
+  information set changes; claude and codex are untouched.
+
+  **The reading rule.** A Gemini row in a cert back-test report on either side
+  of the carrying commit covers a different share of its campaign's cells
+  wherever the engine hit a transient fault: a zero-exit cell lost before may
+  be scored after, by a second or third turn, and a non-zero-exit cell that
+  had written its judgment may be lost after where a retry scored it before.
+  A coverage or loss-rate comparison across the boundary says so, and a
+  reason-by-reason comparison of Gemini's `lost_cells` across it reads
+  `missing` and `engine-failed` together; a score over the cells both reports
+  scored, drawn under the same rule, is unaffected. The committed
+  `metrics/cert-backtest.json` records no lost cell for any engine
+  (`events_scored` 10 each), so no published figure moves.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+- **A prompted fetch's retrieval-log row carries its URL ahead of the
+  prompt, 2026-10-12.** A **capture** change of the masking-surface class: no
+  digest, no constant, no window and no membership moves, and `uv run
+  fedcourts process-digest --all` prints the same `proc-v9` digests. Any call
+  whose arguments carry both a `url` and a `prompt`, and no key ranked ahead
+  of `prompt` in capture's key order (`q`, `query`, `search`, `citation`),
+  keeps both in its 500-character query slice: the URL first and the prompt
+  after a newline, so a long prompt loses its tail and never the target. The
+  rule keys on the arguments, not the tool name; claude's `WebFetch` is the
+  call that has that shape. Every other call keeps the first query key capture
+  finds. The slice passes `mask_retrieval_log` unrespelled, so this changes
+  what every evaluator reads on the leakage grading's required reading path —
+  the URL a fetch reached for, beside the prompt it already saw — under
+  unchanged evaluator digests, and it changes what the self-provisioning
+  record and any other URL-keyed read of the log can match.
+
+  **What it costs.** The URL takes its length plus one character of the cap
+  from the prompt. On `staging` at `ed97094b2` the committed predict logs hold
+  415 `WebFetch` rows in 111 claude cells. At a filing URL of about 100
+  characters, 76 of them (about 1 in 6) would lose prompt tail, 5,512
+  characters in all; at 60 characters, 60 rows and 2,826 characters. The
+  median row's slice is 282 characters, and 37 rows already reach the cap.
+
+  **What it reaches.** No number is computed from the slice, but the
+  `leakage_suspected` bit graders form from the staged log gates which cells
+  every rank key and scored aggregate counts, and the leaderboard publishes the
+  result as `leakage_exclusion` (2 of 987 assessed, both gemini-baseline, on
+  the committed board). A claude cell captured after the carrying merge
+  exposes its fetch targets to that bit and one captured before does not, so
+  `leakage_exclusion`'s claude count, and any per-engine comparison of it,
+  spans two capture regimes in the middle of the `proc-v9` window under
+  unchanged evaluator digests. The change is engine-asymmetric: codex's shell
+  fetches and gemini's prompt-embedded fetches were already legible, and only
+  claude's prompted fetch moves. Forward cells, where the bit rarely fires,
+  are the scored population, which bounds the reach.
+
+  **Why no label bump and no harness-boundary row.** A row minted under the
+  rule begins with the URL and a newline, and a row minted before it holds the
+  prompt alone; an older prompt that itself opens with a URL reads the same,
+  so a row's look is a strong hint and the exact test is `pipeline_sha`
+  ancestry against the carrying merge. No predict cell reads anything
+  different — capture runs after the engine, on its own log — so it is not a
+  `process_version.HARNESS_BOUNDARIES` change, which registers changes to what
+  a predict cell reads.
+
+  **What stays blind.** Rows captured before the carrying merge are
+  fetch-target-blind on this channel and stay so: their rollouts are gone, so
+  no re-capture can restore the URL. Of the 415 committed `WebFetch` rows, 1
+  carries `supremecourt.gov` in its slice. The 19 gemini `web_fetch` rows are
+  unchanged, since that tool takes its URLs inside the prompt. A
+  self-provisioning count, and any URL-keyed audit, over cells minted before
+  the carrying merge is a floor on claude's fetch channel in particular, and a
+  comparison across that boundary compares two capture regimes.
+
+  **Carrying merge.** <FILL: promotion tag>, merge <FILL: merge SHA> at
+  <FILL: merged time UTC>.
+
+  **Effect check.** On `main`, once a run-predict round after the carrying
+  merge has landed a claude cell that used `WebFetch`, `jq -r '.calls[] |
+  select(.tool=="WebFetch") | .query | split("\n")[0]'` over that cell's
+  `retrieval_log.json` prints URLs, one per fetch.
+
+- **The cert back-test's Gemini cells are admitted their own case tree, not
+  their lane's work root; recorded 2026-10-12.** A **back-test harness**
+  entry. gemini-cli's file tools are bounded to the launch directory, so an
+  off-ledger cell's output root is passed to the CLI as an extra workspace
+  directory, and admission also makes that directory a `GEMINI.md`
+  context-file discovery root (read at startup, and again whenever a file
+  tool touches a path under it). Before this change the whole lane root,
+  `<work_dir>/gemini/`, was admitted, so a context file one gemini cell left
+  anywhere in the lane would have been read as instructions by every gemini
+  cell after it. From the carrying commit the runner admits only the cell's
+  own case tree, `<root>/cases/<court>/<docket>/`, which holds everything the
+  back-test provisions for the cell and everything its kickoff names. Gemini
+  cells for other events of the same case still share that tree, and the
+  checkout stays a discovery root for every gemini cell, as before. No
+  process digest moves (the admission is runner argv, which no digest
+  folds), no forward cell runs through it (a ledger cell is admitted
+  nothing, and its command line is unchanged), and claude and codex are
+  untouched.
+
+  **The reading rule.** A gemini cell's information set narrows only in
+  which context files can reach it. A cell that reached for a provisioned
+  input through its file tools reads the same files, and one that reached
+  outside its case tree through them falls back to the shell, as an
+  off-workspace path always has. A cert back-test before and after the
+  carrying commit is compared as before. No published figure moves. In
+  today's cert back-test each case tree holds exactly one gemini cell (one
+  event per case, one gemini predictor), so the shared-tree residual is
+  currently empty; a transient retry of the same cell reuses its tree, so the
+  only context file it could meet there is its own.
+
+  The runnable effect check once it is live: on `main`, `uv run pytest
+  tests/test_runner.py -k "admits_its_own_case_tree or
+  admission_holds_no_other_case"` passes (the runner does not log its argv,
+  so the tests are where the admitted path is read); and the next
+  `run-backtest` with the gemini lane lands its gemini cells with no file-tool
+  refusal for a path outside the workspace in the engine log.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+- **The scored boards count each figure's cells by whether their logs show a
+  fetch of a court filing, and read a paired figure over the paired events on
+  which no engine's log shows one, 2026-10-12.** A **reading-rule** entry that
+  registers the first board use of the self-provisioning record. It moves no
+  digest, no constant, no window and no membership: `uv run fedcourts
+  process-digest --all` prints the same `proc-v9` digests, and
+  `COUNTING_WINDOWS` is unchanged. **No rank key, headline figure or score
+  reads it, and no cell leaves a headline or ranked figure because of it**;
+  its one exclusion is `common_record`'s own event filter, and the committed
+  leaderboard is unchanged apart from the two new fields.
+
+  **The rule.**
+
+  - **A cell's reading.** Each scored cell is read off the
+    `retrieval_log.json` in its **scored** run's directory (the run the
+    grading resolves to, the join every board uses), recomputed from the calls
+    rather than read off the log's baked count, so a log captured before the
+    count existed reads by the same predicate. `reached`: at least one
+    `self_provisioned_fetches` row. `target_blind`: none legible, but a
+    fetch-tool row (`WebFetch`, `web_fetch`) whose query slice names no
+    `http(s)://` address, so a filing fetch could be hidden there. `unlogged`:
+    no resolvable scored prediction or no readable log. `none`: otherwise. A
+    cell whose gradings read differently takes the least vouched-for reading,
+    in the order `reached`, `target_blind`, `unlogged`, `none`.
+  - **The reading is about filings only.** Other retrieval, which a forward
+    cell may do without restriction, is neither counted nor excluded on.
+  - **`self_provisioning`**, on each pooled entry over its `forward` stratum's
+    cells (the stratum its headline figures read), and on each engine in
+    `paired` over its paired cells: the cells by reading. Cells, one per
+    (case, event, predictor).
+  - **`paired.common_record`**: the paired figure restricted to the paired
+    events on which every engine's every paired grading reads `none` — the
+    paired events on which no engine's log shows a legible fetch of a court
+    filing outside the provisioned set. A reach, a target-blind fetch, an
+    unread log or a grading missing from the reading on any engine drops the
+    event. Each engine's figure is the paired aggregate over its paired
+    gradings on those events. Never ranked; the rank stays on the full paired
+    figure.
+
+  **How it is read.** `common_record` is a **selected** subset, and the
+  selection is not neutral. A cell reaches past the record where the record is
+  short and the case contested, so the selection runs on behaviour that tracks
+  the outcome and the forecast's uncertainty: it drops grants and close
+  petitions first, and it drops an event for one engine's reach whatever the
+  others did. Each engine's common-record figure is read against that subset's
+  own `always_deny_accuracy` and `in_sample_grant_rate`, never the full paired
+  set's, and is never differenced against the paired figure or ranked.
+
+  **The exclusion is engine-asymmetric.** On a log captured before the
+  URL-first slice rule (the 2026-10-12 capture entry above), every claude
+  `WebFetch` row kept its prompt alone, so `target_blind` drops every event on
+  which claude fetched anything at all, while a codex or gemini cell drops an
+  event only on a legible filing fetch. That asymmetry is kept rather than
+  relaxed: reading a prompt-only fetch as `none` would admit events whose
+  information set nothing vouches for. Claude cells captured before that
+  rule's carrying merge keep reading `target_blind`, so the `proc-v9` window
+  holds claude cells under both regimes, and `reached` is a floor for claude
+  until its target-blind cells are gone.
+
+  **What was seen, and in what order.** The proc-v8 common-record figures
+  below were computed while the reading was being designed, from builds of
+  this code over the committed ledger; nothing in git records the order of
+  those builds and the text of this rule, so no claim is made that the rule
+  preceded them. Over the committed `proc-v8` ledger (`staging` at
+  `8af758f44`), the cert board's paired set is 97 events with 3 grants:
+  `claude-baseline` 4 cells reached and 16 target-blind, `codex-baseline` 15
+  reached, `gemini-baseline` none, no cell unlogged. 24 events are excluded,
+  9 of them by claude's `target_blind` alone. The 73 common-record events hold
+  **1** grant: the selection removed 2 of the paired set's 3, one where both
+  claude and codex reached and one where claude's fetch is target-blind. On
+  them every engine's accuracy is 0.986, which **equals the always-deny floor**
+  of that subset (lift 0), and mean Brier is 0.0118, 0.0129 and 0.0209
+  (claude, codex, gemini) over one realized grant.
+
+  **What the date proves, and what it does not.** Under the pooled rule a
+  predictor's counted cells stay in every later figure, so the `proc-v8`
+  events seen above stay inside every later common-record figure; this entry
+  is blind only for events first counted after its carrying merge. At
+  `origin/main` `a14b36a1e` (`2026-10-12T21:55:06Z`) no committed evaluation
+  carries any of the three `proc-v9` evaluator digests (`167b7d71…`,
+  `18a76b93…`, `22558044…`; `git grep` over `data/` prints nothing), so
+  nothing had been graded since the `proc-v9` cutover. Four committed
+  predictions carry `claude-baseline`'s `proc-v9` digest (`605201bd…`), the
+  four the rubric-signature entry above lists. The `codex-baseline` and
+  `gemini-baseline` `proc-v9` digests (`70fee158…`, `a9033e56…`) are their
+  `proc-v8` digests carried forward, so 256 and 253 committed predictions
+  carry them, every one predating the cutover's first grading.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`). At the carrying merge,
+  committed evaluations on `origin/main` carrying any of the three `proc-v9`
+  evaluator digests: `<FILL: proc-v9 judge-digest evaluations at the carrying merge>`.
+
+  The runnable effect check once it is live: on `main`, after the next
+  metrics refresh, `jq '[.entries[] | {predictor_id, self_provisioning}],
+  .paired.common_record.events' metrics/leaderboard.json` prints each
+  predictor's forward cells by reading and the common-record event count, and
+  the ranks and `paired.entries[].forward` figures equal those of a board
+  built without the reading.
+
+- **OT2023's applications are back-filled into the interim docket, moving the
+  population the pooled interim base rate is computed over, 2026-10-12.** A
+  **scoring-baseline** entry, and a **conditioning** one through the same
+  number. It registers the move before the apply that makes it: the
+  `application-backfill` run-repair pass (`fedcourts backfill-applications`),
+  with OT2023 joining `REGISTERED_APPLY_TERMS` in the same change. No prompt
+  byte, registry field or stamp moves, so no digest moves:
+  `uv run fedcourts process-digest --all` prints `proc-v9` and the same six
+  blessed digests before and after the change.
+
+  **What moves, and why.** The live channel never polled OT2023: the corpus
+  holds a CourtListener stub for every one of its 1,177 application numbers,
+  with no ask and no disposition, and the statpack counts all 1,177 as
+  `unparsed`. So OT2023 contributes nothing to the substantive pool today,
+  although it already sits inside the registered window: an interim cell's
+  pool is every Term strictly before its own application Term within
+  `salience.base_rate_lookback_terms` (10), so OT2023 is in the window of
+  every OT2024, OT2025 and OT2026 cell. **This completes data under the
+  existing rule; it is not a rule change**, and the window itself does not
+  move (its config comment forbids moving it part-way through a Term). The
+  pass lands each stub through the live channel's own ingest seam, so it
+  arrives parsed and joins the pool. The provisioned statpack's interim
+  section is what interim cells anchor on, and its pooled rate is the baseline
+  their harness skill is stamped against, so both move for every interim cell
+  provisioned or stamped after the next statpack refresh that follows the
+  apply. **This entry registers OT2023 alone**; every earlier Term is still
+  its own registration.
+
+  **The dry run, read 2026-10-12** (run-repair run `38319837499`, against
+  the corpus `main` pointed at that day, after the OT2024 apply), with every
+  OT2023 serial fetched from supremecourt.gov. It would land **1,177** rows,
+  an upper bound since the parse reads no corpus (`unresolved=1177`). The
+  Term's end read at `23A1177` (10 consecutive misses after it), with no
+  serial live-owned, none withheld, no held row and no failure. The statpack
+  counts 1,177 OT2023 rows against 1,177 served numbers, so no duplicated
+  number shows at this count, unlike OT2024's four; the apply's onboard and
+  enrich split is the record.
+  - By kind: 996 extension, 127 substantive, 54 unknown. Capital: 95 (29 of
+    them substantive). Referred to the Court: 107. One pending, an extension.
+  - The 127 substantive rows are all machine-readably resolved: 18 granted,
+    107 denied, 1 withdrawn and 1 dismissed. Withdrawn and dismissed count as
+    ungranted, as `docs/salience.md` registers.
+  - **The pool for OT2026 application cells** (OT2023 to OT2025) moves from
+    **35/422 = 8.3%** to **53/549 = 9.7%**.
+  - **The pool for OT2025 application cells** (OT2023 and OT2024) moves from
+    **18/196 = 9.2%** to **36/323 = 11.1%**.
+  - **OT2024 application cells** gain a pool for the first time: OT2023 alone,
+    **18/127 = 14.2%**, above the 50-resolved floor. Before the apply they
+    have no baseline at all. No committed interim cell has an OT2024
+    application Term, so no stamped cell meets it today.
+  - These are the counts the statpack will print, which count rows. OT2024's
+    two duplicated substantive grants (`24A910`, `24A931`, named in the
+    OT2024 entry) sit inside both after-pools, so counted by application the
+    projections are **51/547 = 9.3%** (OT2026 cells) and **34/321 = 10.6%**
+    (OT2025 cells). The OT2024-cell pool is OT2023 alone and is unaffected.
+  - The "before" pools are those of the statpack at `ea0a1e70a`, the first
+    refresh after the OT2024 apply. OT2023's parsed substantive slice grants
+    at **18/127 = 14.2%**, above OT2024's whole Term (18/196 = 9.2% by row,
+    16/194 = 8.2% by application) and OT2025's (17/226 = 7.5%), so the pooled
+    rates move **up**, against the direction of the OT2024 apply.
+  - **The unread asks.** 54 rows (11 granted, 43 denied) carry an `unknown`
+    ask and land outside the substantive pool, as every `unknown` row does.
+    The share is not OT2023's own: 4.6% of the Term against 4.8% for OT2024
+    and 4.0% for OT2025. The 11 grants look administrative: none is referred
+    or capital, and where dated each was decided one or two days after
+    filing. All 18 referred `unknown` rows are denied. Counted as substantive
+    they would move OT2023 to between **12.4%** (18/145, the referred
+    `unknown` rows folded in) and **16.0%** (29/181, all folded in), and the
+    OT2026-cell pool to between **9.3%** (53/567) and **10.6%** (64/603). The
+    registered pool reads `substantive` alone; these bounds say how much the
+    unread asks could matter, not what is scored.
+
+  **When the apply runs.** Only after this entry and the registration reach
+  `main` in a promotion; only the dry run runs before it. The maintainer may
+  hold it further while the interim pool's lookback is reviewed: two
+  back-filled Terms in a week move live anchors twice, and a shorter
+  registered window would change which Terms any apply reaches. If the
+  window changes before the apply, its own entry re-projects these pools
+  rather than this one being read as current. The pooled figures above are a
+  projection from the dry-run ledger; the apply's own ledger and the next
+  statpack are the record.
+
+  **The straddling cohort, and how interim skill is read.** A stamp reads the
+  statpack current at stamp time, so a cell provisioned before a refresh and
+  stamped after it anchored on one pool and is scored against the other.
+  Interim baselines already drift at every refresh, with no apply behind
+  them: the stamped interim evaluations on `main` carry 0.1333, 0.1322 and
+  0.1047, and the OT2026-cell pool moved from 31/296 to 31/301 at `b3d916018`
+  through live resolution alone. So interim skill is read **keyed on the
+  stamped `segment_base_rate` value**, never pooled across values. The two
+  back-fill refreshes are the large registered breaks in that series:
+  `ea0a1e70a` for OT2024 (≈0.103 to ≈0.083 for OT2026 cells) and the refresh
+  named below for OT2023 (≈0.083 to ≈0.097, at the dry-run counts). The stamp
+  records only the scoring side. The anchoring side is read from the cell's
+  provisioning run id against the refresh commit's time.
+
+  The straddling cohort exists now. About 30 interim predictions on `main`,
+  from runs provisioned 2026-08-20 to 2026-10-09, have no evaluation yet
+  (counting a cell graded once any evaluation exists). They anchored on the
+  31/296 pool and will be scored against ≈0.083 or ≈0.097 depending on when
+  they are stamped against this apply. For scale: a forecast of 0.10 on a
+  denial has Brier skill **−0.45** against 0.083, **−0.06** against 0.097 and
+  **+0.09** against 0.1047. Under the pooled reading declared on 2026-10-11,
+  the apply is a dated, digest-silent boundary inside `proc-v9`, so a pooled
+  `proc-v9` interim figure carries its `n` on each side of it.
+
+  **What else moves in the provisioned statpack.** The OT2023 interim row
+  fills from all-`unparsed` to parsed counts, with its escalation columns
+  (`referred_to_court` 107, and whatever `response_requested` and
+  `with_amicus` the ingest parses, all at their terminal state). The
+  pack-level interim totals move, as do the live-slice coverage counts, by
+  1,177, and the pack's court, era and resolved-disposition totals, with about
+  1,050 extension and unknown rows newly resolved. Those are conditioning too,
+  since the pack is provisioned. The newly resolved rows also become reachable
+  to similar-case priors retrieval, which filters by court, topic and
+  disposition; a replay cell's retrieval stays masked by its event date.
+
+  **What does not move.** No committed `evaluation.json` is rewritten: a
+  stamped harness skill keeps the base rate it was stamped with, and a
+  re-grade is a separate dispatch. No cert rate moves: the pass writes
+  application rows only. Nothing is written by this change itself; the pass
+  runs only as a dispatched `run-repair` apply.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`). Applied by run
+  `<FILL: apply run id>` on `<FILL: apply date>`, landing
+  `<FILL: rows landed>` rows. The first statpack refreshed after it, at commit
+  `<FILL: statpack refresh commit>`, reads the OT2026 pool as
+  `<FILL: OT2026 pool granted/resolved>` (from
+  `<FILL: OT2026 pool before, granted/resolved>`), the OT2025 pool as
+  `<FILL: OT2025 pool granted/resolved>` (from
+  `<FILL: OT2025 pool before, granted/resolved>`) and the OT2024 pool as
+  `<FILL: OT2024 pool granted/resolved>`.
+
+  The runnable effect check once it is live:
+  - `uv run fedcourts backfill-applications --term 23 --limit 20` (a dev
+    checkout over a pulled corpus) prints a ledger and writes nothing;
+  - the apply, `gh workflow run run-repair.yml --ref main -f
+    repair=application-backfill -f repair_mode=apply -f repair_target=23 -f
+    repair_bound=1177`, lands at most 1,177 rows, and the control dry run
+    after it reports `would land 0 row(s)`;
+  - after the apply and a statpack refresh, the statpack's interim section
+    reports OT2023 with `unparsed` **0**, `applications` **1177**,
+    `substantive` **127**, `substantive_resolved` **127**,
+    `substantive_granted` **18** and `unknown` **54**. An `applications`
+    count above 1177 means the apply onboarded a row beside an existing one,
+    a duplicated number. Any residue is named here rather than rounded away.
+    `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    same six digests.

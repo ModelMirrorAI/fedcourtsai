@@ -538,6 +538,12 @@ def parse_cell_artifact_name(role: FinalizeRole, name: str) -> ExpectedCell | No
     return cell if cell_artifact_name(role, cell) == name else None
 
 
+#: The mark a review-hold auto-released predict round's ready commit carries in
+#: its subject (:func:`collect_plan`), and what
+#: :func:`fedcourtsai.review_hold.count_auto_released` counts on ``main``.
+AUTO_RELEASED_MARKER = "[auto-released]"
+
+
 @dataclass(frozen=True)
 class PrPlan:
     """One PR the collect job should open: ready or partial."""
@@ -1240,8 +1246,9 @@ def render_self_provisioned_note(rollup: SelfProvisionedRollup | None) -> str:
     restriction, and a predictor that recovers a brief the pipeline failed to
     provision is doing the work well. What it costs is comparability, and only
     against the cells beside it — so the note names the actors, gives each its
-    own denominator, and stops at the observation. No score, board or metric
-    reads any of this; stratifying one on it is separate, registered work.
+    own denominator, and stops at the observation. No score or rank reads any
+    of this; the leaderboard's own self-provisioning counts are read off each
+    scored cell's log, not off this note.
 
     Every caveat it carries is inside the note rather than in a doc it links
     to, because the note is the quotable unit: its headline is what an excerpt
@@ -1286,10 +1293,10 @@ def render_self_provisioned_note(rollup: SelfProvisionedRollup | None) -> str:
         f"re-fetched a filing it had been given counts the same, because the manifest "
         f"that would separate them is thrown away with the runner. A floor besides, and "
         f"an **engine-shaped** one: a filing URL past a row's 500-character query cut is "
-        f"unseen, a hosted web search carrying a bare URL is not counted, and a fetch "
-        f"tool called with a prompt beside its URL keeps the prompt in its query slice, "
-        f"so its whole channel leaves nothing to match. An engine that reaches through "
-        f"its shell is legible where one reaching through a prompted fetch tool is not — "
+        f"unseen, a hosted web search carrying a bare URL is not counted, and a call "
+        f"that left no row is absent. A prompted fetch tool's row carries its URL ahead "
+        f"of the prompt, but how much of a reach any channel leaves on its row still "
+        f"depends on how an engine spells its tools — "
         f"so read an absent or low actor as *no reach was legible*, never as *none "
         f"happened*, and do not read the split as a behavioural difference between "
         f"engines. Nothing scores or stratifies on any of it."
@@ -1490,6 +1497,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     prior_availability: PriorAvailabilityRollup | None = None,
     self_provisioned: SelfProvisionedRollup | None = None,
     stakes_reads: StakesReadRollup | None = None,
+    auto_released: bool = False,
 ) -> CollectPlan:
     """Partition a run's cells into one ready PR, one draft PR, and the skipped.
 
@@ -1647,10 +1655,15 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
             if issue is not None and not salvage and not dead_actors and not lost and not uncovered
             else ""
         )
+        # A round the review hold auto-released says so in the ready commit's
+        # subject and in the PR title, so `main` keeps it whichever of the two
+        # the squash merge takes: that committed history is what `hold-decision`
+        # counts the daily cap from, beside the `review-auto` deployment record.
+        released = f" {AUTO_RELEASED_MARKER}" if auto_released else ""
         ready_plan = PrPlan(
             branch=run_branch(role, run_id),
-            commit_message=f"{role.value}(run {run_id}): {len(ready)} {noun}(s)",
-            title=f"{role.value}: {len(ready)} {noun}(s) (run {run_id})",
+            commit_message=f"{role.value}(run {run_id}): {len(ready)} {noun}(s){released}",
+            title=f"{role.value}: {len(ready)} {noun}(s) (run {run_id}){released}",
             body=(
                 f"Automated {noun}s for run `{run_id}`."
                 f"\n\n{_table(ready, with_reason=False)}{note}{closes}"
