@@ -8069,12 +8069,27 @@ freeze commit is recorded here.
     **18/127 = 14.2%**, above the 50-resolved floor. Before the apply they
     have no baseline at all. No committed interim cell has an OT2024
     application Term, so no stamped cell meets it today.
+  - These are the counts the statpack will print, which count rows. OT2024's
+    two duplicated substantive grants (`24A910`, `24A931`, named in the
+    OT2024 entry) sit inside both after-pools, so counted by application the
+    projections are **51/547 = 9.3%** (OT2026 cells) and **34/321 = 10.6%**
+    (OT2025 cells). The OT2024-cell pool is OT2023 alone and is unaffected.
   - The "before" pools are those of the statpack at `ea0a1e70a`, the first
-    refresh after the OT2024 apply. OT2023's stubs grant at 14.2%, above
-    OT2024's whole-Term 9.2% and OT2025's 7.5%, so the pooled rates move
-    **up**, against the direction of the OT2024 apply.
-  - Eleven OT2023 rows granted with an `unknown` ask land outside the
-    substantive pool, as every `unknown` row does.
+    refresh after the OT2024 apply. OT2023's parsed substantive slice grants
+    at **18/127 = 14.2%**, above OT2024's whole Term (18/196 = 9.2% by row,
+    16/194 = 8.2% by application) and OT2025's (17/226 = 7.5%), so the pooled
+    rates move **up**, against the direction of the OT2024 apply.
+  - **The unread asks.** 54 rows (11 granted, 43 denied) carry an `unknown`
+    ask and land outside the substantive pool, as every `unknown` row does.
+    The share is not OT2023's own: 4.6% of the Term against 4.8% for OT2024
+    and 4.0% for OT2025. The 11 grants look administrative: none is referred
+    or capital, and where dated each was decided one or two days after
+    filing. All 18 referred `unknown` rows are denied. Counted as substantive
+    they would move OT2023 to between **12.4%** (18/145, the referred
+    `unknown` rows folded in) and **16.0%** (29/181, all folded in), and the
+    OT2026-cell pool to between **9.3%** (53/567) and **10.6%** (64/603). The
+    registered pool reads `substantive` alone; these bounds say how much the
+    unread asks could matter, not what is scored.
 
   **When the apply runs.** Only after this entry and the registration reach
   `main` in a promotion; only the dry run runs before it. The maintainer may
@@ -8086,14 +8101,29 @@ freeze commit is recorded here.
   projection from the dry-run ledger; the apply's own ledger and the next
   statpack are the record.
 
-  **The straddling cohort, and how interim skill is read.** As for OT2024: a
-  stamp reads the statpack current at stamp time, so a cell provisioned before
-  the refresh and stamped after it anchored on one pool and is scored against
-  the other. The boundary is the statpack refresh commit named below, and a
-  stamped `segment_base_rate` marks which side a cell sits on (≈0.083 before
-  and ≈0.097 after for OT2026 cells, at the dry-run counts). With the OT2024
-  apply's refresh at `ea0a1e70a`, interim skill is read in three segments, split
-  at each refresh commit and never pooled across either.
+  **The straddling cohort, and how interim skill is read.** A stamp reads the
+  statpack current at stamp time, so a cell provisioned before a refresh and
+  stamped after it anchored on one pool and is scored against the other.
+  Interim baselines already drift at every refresh, with no apply behind
+  them: the stamped interim evaluations on `main` carry 0.1333, 0.1322 and
+  0.1047, and the OT2026-cell pool moved from 31/296 to 31/301 at `b3d916018`
+  through live resolution alone. So interim skill is read **keyed on the
+  stamped `segment_base_rate` value**, never pooled across values. The two
+  back-fill refreshes are the large registered breaks in that series:
+  `ea0a1e70a` for OT2024 (≈0.103 to ≈0.083 for OT2026 cells) and the refresh
+  named below for OT2023 (≈0.083 to ≈0.097, at the dry-run counts). The stamp
+  records only the scoring side. The anchoring side is read from the cell's
+  provisioning run id against the refresh commit's time.
+
+  The straddling cohort exists now. About 30 interim predictions on `main`,
+  from runs provisioned 2026-08-20 to 2026-10-09, have no evaluation yet
+  (counting a cell graded once any evaluation exists). They anchored on the
+  31/296 pool and will be scored against ≈0.083 or ≈0.097 depending on when
+  they are stamped against this apply. For scale: a forecast of 0.10 on a
+  denial has Brier skill **−0.45** against 0.083, **−0.06** against 0.097 and
+  **+0.09** against 0.1047. Under the pooled reading declared on 2026-10-11,
+  the apply is a dated, digest-silent boundary inside `proc-v9`, so a pooled
+  `proc-v9` interim figure carries its `n` on each side of it.
 
   **What else moves in the provisioned statpack.** The OT2023 interim row
   fills from all-`unparsed` to parsed counts, with its escalation columns
@@ -8131,7 +8161,10 @@ freeze commit is recorded here.
     repair_bound=1177`, lands at most 1,177 rows, and the control dry run
     after it reports `would land 0 row(s)`;
   - after the apply and a statpack refresh, the statpack's interim section
-    reports OT2023 with `unparsed` **0** and `applications` **1177**; any
-    residue is named here rather than rounded away.
+    reports OT2023 with `unparsed` **0**, `applications` **1177**,
+    `substantive` **127**, `substantive_resolved` **127**,
+    `substantive_granted` **18** and `unknown` **54**. An `applications`
+    count above 1177 means the apply onboarded a row beside an existing one,
+    a duplicated number. Any residue is named here rather than rounded away.
     `uv run fedcourts process-digest --all` still prints `proc-v9` and the
     same six digests.

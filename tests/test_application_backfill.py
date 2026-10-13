@@ -734,3 +734,24 @@ def test_the_parse_writes_no_plan_the_writer_would_refuse(
     assert "NotADocketKey" in planned.output and "refusing" in planned.output
     assert "would land 3 row(s)" in planned.output  # the dry run's ledger still prints
     assert not plan.exists()
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+# A freeze-record entry opens with a top-level bullet whose bold head names the
+# Term and the back-fill it registers; the entry's own continuation lines are
+# indented, so each entry is read from its head to the next head.
+_BACKFILL_ENTRY_HEAD = re.compile(
+    r"^- \*\*OT20(?P<term>\d{2})'s (?:unpolled )?applications are back-filled"
+    + r" into the interim docket",
+    re.MULTILINE,
+)
+
+
+@pytest.mark.reads_docs
+def test_every_registered_apply_term_has_its_freeze_record_entry() -> None:
+    """A Term joins the registered set only beside the entry that projects its move."""
+    record = (_REPO_ROOT / "docs" / "freeze-record.md").read_text(encoding="utf-8")
+    entered = {int(match.group("term")) for match in _BACKFILL_ENTRY_HEAD.finditer(record)}
+    registered = backfill_module.REGISTERED_APPLY_TERMS
+    assert entered >= {23, 24}
+    assert registered <= entered, sorted(registered - entered)
