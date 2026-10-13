@@ -1,0 +1,17 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000087",
+  "gaps": [],
+  "helpful": [
+    "base rate metrics in statpack.md"
+  ],
+  "role": "predictor",
+  "run_id": "20261013T143156Z",
+  "tools_used": [
+    "cat",
+    "grep",
+    "list_directory"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

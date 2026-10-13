@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000241",
+  "gaps": [
+    "Corpus vintage reporting is unavailable through the service-only corpus-info path.",
+    "Web calls returned no usable content; MCP supplied the needed general legal context."
+  ],
+  "helpful": [
+    "Appendix exposed the preservation ruling missing from the petition's account.",
+    "Exact reached-band counts allowed a strictly prior-Term anchor.",
+    "MCP passage retrieval clarified the asserted circuit conflict without querying this petition."
+  ],
+  "notes": "No corpus prior query was needed after the provisioned appendix and two targeted precedent reads. The default uv cache was read-only; a temporary writable cache allowed CLI use. No opposition brief was provisioned, consistent with the docketed response waiver. No flags file is needed: the cell has usable inputs and no observed outcome leakage.",
+  "role": "predictor",
+  "run_id": "20261013T143156Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned document text",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "CourtListener MCP search_document",
+    "fedcourts paths",
+    "fedcourts corpus-info (unsuccessful)",
+    "web search/open (no usable results)",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
