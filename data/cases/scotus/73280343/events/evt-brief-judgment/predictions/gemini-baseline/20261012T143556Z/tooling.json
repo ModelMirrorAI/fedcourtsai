@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73280343",
+  "run_id": "20261012T143556Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "grep_search",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "read_file for statpack.md and provisioned briefs"
+  ],
+  "gaps": [
+    "fedcourts corpus query blocked by permissions"
+  ],
+  "notes": "Relied heavily on statpack.md for base rates. Read early sections of both merits briefs."
+}

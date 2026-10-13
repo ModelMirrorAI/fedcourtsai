@@ -71,8 +71,9 @@ of them while every gate stays green:
   labeling step killed at its cap writes no execution log and the count is
   then the only record of how far it got;
 * the **gemini context-file surface** — every directory admitted to a gemini
-  cell's workspace (the checkout it launches in, and the back-test work root
-  `GeminiRunner.build_command` adds) is also a `GEMINI.md` discovery root, read
+  cell's workspace (the checkout it launches in, and the cell's own case tree
+  under the back-test work root, which `GeminiRunner.build_command` adds) is
+  also a `GEMINI.md` discovery root, read
   at startup and again whenever a file tool touches a path beneath it, so a
   context file anywhere in the tree would be standing instructions to every
   gemini cell that no prompt, config or schema records;
@@ -917,7 +918,7 @@ def test_no_file_in_the_checkout_is_a_gemini_context_file() -> None:
     """The checkout is a context-file discovery root for every gemini cell.
 
     A gemini cell launches in the checkout, and the back-test additionally
-    admits its work root, so anything named like a context file inside either
+    admits each cell's case tree, so anything named like a context file inside either
     tree is read into the model's context before the prompt contract is —
     instructions with none of a prompt's review, no process-digest input, and
     no artifact. Nothing in this repository is meant to be one; the pin is that

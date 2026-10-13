@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000087",
+  "run_id": "20261012T143556Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned snapshot dates the petition filing September 6, 2025, but gives docketing July 21, 2026, a Term 2026 docket, July 2026 petition-link timestamps, and an August 2026 response deadline; the event also opens July 21, 2026. Lower-court decision and rehearing dates are in 2025. Please review date provenance. The forecast retains authoritative Term 2026 and the frozen one-distribution baseline, and does not infer untimeliness or a jurisdictional defect from this inconsistency. No outcome was retrieved."
+    }
+  ]
+}
