@@ -1,0 +1,6 @@
+P(grant) 0.95. This is a petition filed by the Solicitor General seeking review of a D.C. Circuit decision that upheld (or left in place) a classwide injunction against a major Presidential Proclamation (No. 10,888) concerning asylum. Cases brought by the federal government (the `federal` salience band) have historically high grant rates (e.g., 50-89% in recent terms as per the statpack). This case is particularly salient as it involves core executive powers over immigration and challenges a nationwide/classwide injunction. The Court routinely grants review when lower courts enjoin significant federal policies. I assign a very high probability of grant. 
+
+The probability of a relist (relist-increment) is 0.40, as the Court may grant it at the first conference or relist it once to allow time to draft a dissent from denial (if denied) or simply as part of its normal process for major grants. 
+The CVSG probability is near zero since the Solicitor General is already the petitioner. 
+A summary disposition is unlikely (0.05) because the issues (statutory authority for the proclamation, 1252(f)(1) jurisdiction, and Rule 23 class certification) require plenary review. 
+If denied, a dissent from denial is highly likely (0.60) given the ideological stakes and the Solicitor General's involvement.
