@@ -918,7 +918,7 @@ jobs:
         # which ride to the collect job as an artifact, and that job (its own
         # token) does the commit/PR, so a prompt injection in docket text cannot
         # push code here.
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.DEV_APP_CLIENT_ID }}
           private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
@@ -1841,7 +1841,7 @@ jobs:
       # bound by the required `gate` + `paths` checks rather than skipping them.
       - name: Mint app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.DEV_APP_CLIENT_ID }}
           private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
@@ -2034,7 +2034,7 @@ jobs:
 
       - name: Mint the dispatch token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.DISPATCH_APP_CLIENT_ID }}
           private-key: ${{ secrets.DISPATCH_APP_PRIVATE_KEY }}

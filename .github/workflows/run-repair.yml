@@ -393,7 +393,7 @@ jobs:
       # step summary, not an issue, so no issues:write is needed.
       - name: Mint app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -956,7 +956,7 @@ jobs:
       - name: Mint app token (OCR pass)
         if: ${{ inputs.repair == 'ocr-recovery' && steps.dedupe-live-rows.outcome == 'success' }}
         id: app-token-ocr
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -2477,7 +2477,7 @@ jobs:
       # by the commit step, none of which parses anything.
       - name: Mint app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -2668,7 +2668,7 @@ jobs:
 
       - name: Mint app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -2855,7 +2855,7 @@ jobs:
       - name: Mint app token
         if: ${{ inputs.repair_mode == 'apply' }}
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -3037,7 +3037,7 @@ jobs:
 
       - name: Mint app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -3104,7 +3104,7 @@ jobs:
     steps:
       - name: Mint app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
