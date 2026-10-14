@@ -636,9 +636,16 @@ stamp that never landed is caught. The gate's `registry` stage runs the same
 check against `origin/main` on every promotion, so a batch cannot promote
 over a stamp that never landed.
 
-Nothing stamps until a writer that runs these on a promotion merge lands.
-Until then the cutover procedure below is how a label is frozen, with its
-instants set by hand.
+The writer is `.github/workflows/promotion-record.yml`. On every push to
+`main` it asks whether the pushed commit is a staging→main promotion merge,
+and on one it tags the merge, fills the placeholders the merge added and
+pushes the jailed record commit; its plumbing is
+`.github/actions/promotion-record/write.sh`, and
+`tests/test_workflow_promotion_record.py` holds it to the list below. It
+stamps nothing until `main` declares merge-stamped instants (the plan refuses
+a stamp otherwise, and `register-process` refuses to write a pending row), so
+until that declaration lands the cutover procedure below is how a label is
+frozen, with its instants set by hand.
 
 #### Writer requirements
 
