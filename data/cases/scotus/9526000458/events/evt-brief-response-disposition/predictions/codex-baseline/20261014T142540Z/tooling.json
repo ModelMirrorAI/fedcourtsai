@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000458",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot and filed-document text", "fedcourts paths", "committed statpack", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document", "CourtListener MCP get_endpoint_item", "web search/open/find attempts", "fedcourts validate"],
+  "helpful": ["Frozen interim ladder state and document truncation metadata", "Adversarial application and first response", "Per-Term substantive counts supporting an exact prior-Term baseline"],
+  "gaps": ["Only the first of three docketed responses is provisioned", "The truncated application appendix does not expose the complete appellate order", "CourtListener document text helpers reported no text for B. P. J. although the opinion endpoint carried plain_text", "Web calls returned no usable output"],
+  "notes": "Forecast completed from the provisioned record and limited general-precedent retrieval. Redirecting the uv cache to a writable temporary location resolved the CLI startup failure. No credentials or direct CourtListener REST fallback were used. A plain_text fallback inside the MCP document helper would make available opinions easier to inspect without oversized endpoint output."
+}

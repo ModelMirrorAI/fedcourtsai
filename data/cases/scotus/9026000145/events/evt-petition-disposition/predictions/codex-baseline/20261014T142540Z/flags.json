@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000145",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The sal-v4 context freezes band=baseline, but the provisioned petition expressly identifies the Solicitor General as petitioning for federal officials including the Attorney General and DHS officials. This appears inconsistent with a federal-petitioner classification. I retained the frozen band, calculated its prior-Term reached benchmark, and treated government-party status as substantive evidence rather than rewriting context. Please review classification of warden-led captions.",
+      "severity": "warning"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "Decisive companion-case information is already in the provisioned petition at pages 5-6: it reports a June 29, 2026 cert grant in Montoya Palacios v. Liggins, No. 25-1223, and expressly requests a hold. I used that pre-snapshot representation to forecast a hold and likely GVR, without retrieving the companion's current status or merits outcome. This reveals no disposition of the target petition.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261014T142540Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "Nationally consequential eligibility for EAJA fees in immigration-detention habeas litigation affects access to counsel and federal litigation costs. The question is narrower than detention authority or the merits of removal, and the underlying individual fee award is modest.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/9026000146",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.8
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.96
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.08
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.18
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "state",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-14",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-14T14:40:44Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-10-14.json",
+  "judgment": null,
+  "model": "gpt-6-astra",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.8,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T14:43:53.181727Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261014T142540Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

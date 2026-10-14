@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000146",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "Frozen context assigns sal-v4 band state, but the snapshot identifies the United States Solicitor General as petitioners' counsel and the matched lower-court opinion concerns federal immigration officials. I preserved the frozen conditioning and anchored on its prior-Term reached rate, then adjusted for federal sponsorship and the circuit conflict. Please review the caption classification; I made no change to context or source data."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "No petition, questions-presented extract, BIO, or document manifest was provisioned. I reconstructed the legal issue from the matched November 3, 2025 Tenth Circuit opinion and checked the contrary Fifth Circuit holding. The forecast does not claim to quote the petition or to have assessed opposition arguments. The snapshot records paper-only filing and a response deadline extended to November 23, 2026."
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9526000477",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "info", "event_id": "evt-brief-response-disposition",
+     "message": "Snapshot 2026-10-11 shows no administrative-stay entry, but the provisioned response (filed in Nos. 26A476 & 26A477) asks the Court to lift an existing administrative stay; the companion United States application 26A476 is not linked in RelatedCaseNumber. Disposition may be entered jointly across both dockets."}
+  ]
+}
