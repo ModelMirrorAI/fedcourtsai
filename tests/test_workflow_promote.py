@@ -134,7 +134,7 @@ def test_both_call_sites_run_the_registry_stage_with_the_refs_it_reads() -> None
     order = [all_stage.index(stage) for stage in ("quiesce", "freshness ", 'registry "$2"')]
     assert order == sorted(order)
     assert "uv run fedcourts registry-gate --at" in script
-    assert "git rev-parse --verify -q origin/main^{commit}" in script
+    assert 'git rev-parse --verify -q "origin/main^{commit}"' in script
 
     gate = _promotion_gate_job()
     assert 'scripts/promotion-gate.sh all "$HEAD_SHA"' in _steps_text(gate)

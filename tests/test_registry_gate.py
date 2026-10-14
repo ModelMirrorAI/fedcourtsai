@@ -26,6 +26,7 @@ from fedcourtsai import process_version
 from fedcourtsai.cli import app
 from fedcourtsai.process_registration import LiveActor, register_boundary
 from fedcourtsai.promotion_record import (
+    DECLARATION_HEADING,
     FREEZE_RECORD_PATH,
     REGISTRY_PATH,
     PromotionRecordError,
@@ -37,6 +38,7 @@ from fedcourtsai.registry_gate import live_actors_at, registry_gate
 from tests.test_promotion_record import (
     COMMITTED,
     DECLARED,
+    DECLARED_ON,
     NEW_CLAUDE,
     NEW_LABEL,
     PENDING,
@@ -53,6 +55,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MAIN_AT = datetime(2026, 10, 12, tzinfo=UTC)
 STAGING_AT = datetime(2026, 10, 12, 12, tzinfo=UTC)
 RECORD = "# Freeze record\n"
+#: Main's record once the merge-stamping rule is declared, as DECLARED names it.
+DECLARED_RECORD = f"{RECORD}\n- **{DECLARATION_HEADING}, {DECLARED_ON}.** Declared.\n"
 
 
 def _history(
@@ -61,17 +65,18 @@ def _history(
     main_registry: dict[str, Any] | None = DECLARED,
     staging_registry: dict[str, Any] | None = None,
     main_digest: str = "sha256:" + "c" * 64,
+    main_record: str = DECLARED_RECORD,
 ) -> tuple[Path, str]:
     """``main`` with ``main_registry`` and one prediction; ``staging`` registering proc-v10."""
     repo = _init(tmp_path)
     if main_registry is not None:
         _write(repo, REGISTRY_PATH, dump_registry(main_registry))
-    _write(repo, FREEZE_RECORD_PATH, RECORD)
+    _write(repo, FREEZE_RECORD_PATH, main_record)
     _artifact(repo, "predictions", 1, main_digest)
     _commit(repo, "main", MAIN_AT)
     _git(repo, "switch", "-q", "-c", "staging")
     _write(repo, REGISTRY_PATH, dump_registry(staging_registry or _registered()))
-    _write(repo, FREEZE_RECORD_PATH, RECORD + "- staging\n")
+    _write(repo, FREEZE_RECORD_PATH, main_record + "- staging\n")
     return repo, _commit(repo, "register proc-v10", STAGING_AT)
 
 
@@ -111,7 +116,30 @@ def test_a_new_window_that_leaves_its_predecessor_open_is_refused(tmp_path: Path
             window["closes"] = None
     repo, at = _history(tmp_path, staging_registry=registry)
     problems = _problems(repo, at)
-    assert any("stays open" in p and "claude-baseline" in p for p in problems)
+    assert any("claude-baseline has 2 open windows" in p for p in problems)
+
+
+def test_two_pending_windows_for_one_predictor_are_refused(tmp_path: Path) -> None:
+    registry = _registered()
+    twin = copy.deepcopy(registry["windows"][-1])
+    twin["digest"] = "sha256:" + "f" * 64
+    registry["windows"].append(twin)
+    blessing = next(b for b in registry["blessings"] if b["digest"] == NEW_CLAUDE)
+    registry["blessings"].append({**blessing, "digest": twin["digest"]})
+    repo, at = _history(tmp_path, staging_registry=registry)
+    problems = _problems(repo, at)
+    assert any("claude-baseline has 2 open windows" in p for p in problems), problems
+
+
+def test_a_revoked_earlier_window_leaves_one_open(tmp_path: Path) -> None:
+    """The invariant counts unrevoked windows only: a revoked predecessor is not open."""
+    registry = _registered()
+    for window in registry["windows"]:
+        if window["closes"] == PENDING:
+            window["closes"] = None
+            window["revoked_at"] = "2026-10-12T06:00:00Z"
+    repo, at = _history(tmp_path, staging_registry=registry)
+    assert not any("open windows" in p for p in _problems(repo, at))
 
 
 def test_a_new_labels_prereg_tag_already_minted_is_refused(tmp_path: Path) -> None:
@@ -155,8 +183,68 @@ def test_a_main_without_a_registry_holds_every_label_the_record_moved_in(
         _git(repo, "tag", "-a", f"prereg/{entry['label']}", "-m", "hand freeze", "main")
     fleet = [LiveActor(b["role"], b["actor_id"], b["digest"]) for b in COMMITTED["blessings"]]
     assert registry_gate(repo, at, "main", fleet).problems == []
-    assert labels_new_to(COMMITTED, {}) == []
+    assert labels_new_to(COMMITTED, None) == []
     assert labels_new_to(_registered(), DECLARED) == [NEW_LABEL]
+
+
+def test_pending_rows_on_an_undeclared_main_are_refused(tmp_path: Path) -> None:
+    """A batch carrying a pending boundary while main has not declared the rule:
+    no merge would stamp it, so the declaration has to land first."""
+    staging = register_boundary(DECLARED, "early", predictors=None, reach="all", gradual=False)
+    repo, at = _history(
+        tmp_path, main_registry=COMMITTED, staging_registry=staging, main_record=RECORD
+    )
+    problems = _problems(repo, at)
+    assert any(
+        "1 pending registration(s)" in p and "merge_stamping_declared" in p for p in problems
+    )
+
+
+def test_pending_rows_on_a_registry_less_main_are_refused(tmp_path: Path) -> None:
+    staging = register_boundary(DECLARED, "early", predictors=None, reach="all", gradual=False)
+    repo, at = _history(tmp_path, main_registry=None, staging_registry=staging, main_record=RECORD)
+    assert any("pending registration(s)" in p for p in _problems(repo, at))
+
+
+def test_a_declared_registry_without_its_entry_is_refused(tmp_path: Path) -> None:
+    staging = register_boundary(DECLARED, "early", predictors=None, reach="all", gradual=False)
+    repo, at = _history(
+        tmp_path, main_registry=DECLARED, staging_registry=staging, main_record=RECORD
+    )
+    assert any("holds no entry headed" in p for p in _problems(repo, at))
+
+
+def test_a_schema_invalid_registry_is_refused_before_any_field_is_read(tmp_path: Path) -> None:
+    registry = _registered()
+    del registry["windows"][0]["closes"]
+    repo, at = _history(tmp_path, staging_registry=registry)
+    result = registry_gate(repo, at, "main", _live_fleet())
+    assert result.pending == 0
+    assert len(result.problems) == 1 and "does not load" in result.problems[0]
+
+
+def test_a_batch_without_a_registry_is_refused_first(tmp_path: Path) -> None:
+    repo = _init(tmp_path)
+    _write(repo, FREEZE_RECORD_PATH, RECORD)
+    at = _commit(repo, "no registry", MAIN_AT)
+    result = registry_gate(repo, at, "main", _live_fleet())
+    assert result.problems == [f"no {REGISTRY_PATH} at {at}"]
+
+
+def test_a_batch_carrying_two_new_labels_is_refused(tmp_path: Path) -> None:
+    main = copy.deepcopy(DECLARED)
+    main["labels"] = main["labels"][:-1]
+    repo, at = _history(tmp_path, main_registry=main)
+    problems = _problems(repo, at)
+    assert any("2 labels new to main" in p and "one label per promotion" in p for p in problems)
+
+
+def test_an_empty_registry_file_bootstraps_nothing() -> None:
+    """Only an absent registry file predates the record; a present empty one
+    holds no label, so every label is new to it."""
+    labels = [entry["label"] for entry in COMMITTED["labels"]]
+    assert labels_new_to(COMMITTED, {}) == labels
+    assert labels_new_to(COMMITTED, None) == []
 
 
 # --- the live digests --------------------------------------------------------
@@ -238,4 +326,8 @@ def test_the_committed_registry_is_clean_against_itself() -> None:
         ("evaluator", enabled_evaluators(config / "evaluators.yaml")),
     ):
         for entry in entries:
-            assert process_version.digest_for_actor(ROOT, config, role, entry.id) in registered
+            digest = process_version.digest_for_actor(ROOT, config, role, entry.id)
+            assert digest in registered, (
+                f"{role} {entry.id} computes {digest}, which process_registry.json does not "
+                "register: run `fedcourts register-process` in the PR that moved it"
+            )

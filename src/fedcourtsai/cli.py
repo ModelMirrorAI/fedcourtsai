@@ -8906,7 +8906,9 @@ def register_boundary_cmd(
     Appends the boundary to ``process_registry.json`` with ``merge`` and ``at``
     null. Until a merge stamps it, no cell has a side of it, so every cell
     reads as it did before; the merge that carries the PR to ``main`` stamps
-    it with its SHA and committer time (``promotion-record``).
+    it with its SHA and committer time (``promotion-record``). Refuses, like
+    ``register-process``, while the registry's ``merge_stamping_declared`` is
+    unset: nothing would stamp the boundary.
     """
     registry_path = Path.cwd() / promotion_record.REGISTRY_PATH
     named = [p.strip() for p in predictors.split(",") if p.strip()] or None
@@ -9042,12 +9044,14 @@ def registry_gate_cmd(
 
     Reads the registry, config and prompts at ``--at`` and the ledger, registry
     and tags of ``--main-ref``, from git alone, whatever tree is checked out.
-    Refuses where a pending digest already stamps a committed cell on main,
-    an enabled actor's digest is not registered, a newly opened window leaves
-    its predictor's earlier window open, a new label's ``prereg/`` tag already
-    exists, a boundary name repeats, a pending row already sits on main, or
-    the registry does not load. Tags are read locally, so the caller fetches
-    them first.
+    Refuses first a batch with no registry or one that does not load; then
+    pending registrations on a main that does not declare merge-stamped
+    instants, a pending digest that already stamps a committed cell on main,
+    an unregistered enabled actor, a predictor with more than one open window,
+    more than one label new to main or one whose ``prereg/`` tag already
+    exists, a repeated boundary name, and a pending row already on main. Tags
+    are read locally, so the caller fetches them first
+    (``git fetch origin --tags``).
     """
     repo = Path.cwd()
     try:

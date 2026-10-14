@@ -297,14 +297,16 @@ def pending_registrations(registry: Mapping[str, Any]) -> list[Stamp]:
     return found
 
 
-def labels_new_to(registry: Mapping[str, Any], base: Mapping[str, Any]) -> list[str]:
+def labels_new_to(registry: Mapping[str, Any], base: Mapping[str, Any] | None) -> list[str]:
     """The labels ``registry`` holds that ``base`` does not, in document order.
 
-    A ``base`` with no registry at all predates the record: the labels the
-    record moved in from code were frozen by hand, their ``prereg/`` tags made
-    then, so none of them is new to it.
+    ``base`` is ``None`` where its commit holds no registry **file** at all: a
+    ``main`` that predates the record, whose labels the record moved in from
+    code were frozen by hand, their ``prereg/`` tags made then, so none of them
+    is new to it. A registry file that is present but empty bootstraps nothing:
+    every label is new to it.
     """
-    if not base:
+    if base is None:
         return []
     known = {entry["label"] for entry in base.get("labels", [])}
     return [entry["label"] for entry in registry.get("labels", []) if entry["label"] not in known]
@@ -719,7 +721,8 @@ def plan_promotion_record(
             fills.append(item)
 
     registry_after = _registry(show_at(repo, merge, REGISTRY_PATH), merge)
-    registry_before = _registry(show_at(repo, parent, REGISTRY_PATH), parent)
+    registry_before_text = show_at(repo, parent, REGISTRY_PATH)
+    registry_before = _registry(registry_before_text, parent)
     latest = max(_stamped_instants(registry_after), default=None)
     if latest is not None and merged_at < latest:
         raise PromotionRecordError(
@@ -735,7 +738,9 @@ def plan_promotion_record(
         raise PromotionRecordError(f"{merge} carries pending registrations, but {refusal}")
 
     prereg: TagPlan | None = None
-    new_labels = labels_new_to(registry_after, registry_before)
+    new_labels = labels_new_to(
+        registry_after, registry_before if registry_before_text is not None else None
+    )
     if new_labels:
         label = new_labels[-1]
         name = f"prereg/{label}"

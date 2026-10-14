@@ -535,14 +535,24 @@ after it. `fedcourts register-boundary` appends a pending boundary.
 
 Step 0 is the promotion gate's, on every batch: `scripts/promotion-gate.sh
 registry <sha>` (in `all`, so the required `promotion-gate` check runs it)
-refuses a batch whose registrations its merge could not stamp honestly — a
-pending digest that already stamps a committed cell on `main`, an enabled
-actor whose digest at the head is not registered, a window opened while its
-predictor's earlier window stays open, a label new to `main` whose `prereg/`
-tag already exists, a repeated boundary name, a pending row already sitting on
-`main`, or a registry that does not load. A `main` with no registry yet holds
-every label the record moved in from code, whose `prereg/` tags were made by
-hand.
+refuses a batch whose registrations its merge could not stamp honestly:
+- a head with no registry, or one that does not load (then reporting only
+  that and `main`'s own pending rows, since the other checks read its fields);
+- a pending registration on a `main` that does not yet declare merge-stamped
+  instants (`merge_stamping_declared` and its freeze-record entry), which no
+  merge would stamp;
+- a pending digest that already stamps a committed cell on `main`;
+- an enabled actor whose digest at the head is not registered;
+- a predictor with more than one open window (unrevoked, no close; a pending
+  close counts as a close);
+- more than one label new to `main` (one label per promotion), or such a
+  label whose `prereg/` tag already exists;
+- a repeated boundary name, or a pending row already sitting on `main`.
+
+A `main` with no registry **file** yet holds every label the record moved in
+from code, whose `prereg/` tags were made by hand; a registry file that is
+present but empty holds none. `register-boundary`, like `register-process`,
+refuses while `merge_stamping_declared` is unset.
 
 `fedcourts promotion-record --merge <sha> --main-ref <ref> --staging-ref <ref>`
 says what a promotion merge owes `main`, from git alone; a caller fetches tags

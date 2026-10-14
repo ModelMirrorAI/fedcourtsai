@@ -76,11 +76,7 @@ def register_process(
     whose digests have not moved.
     """
     document: dict[str, Any] = copy.deepcopy(dict(registry))
-    if document.get("merge_stamping_declared") is None:
-        raise RegistrationError(
-            "no freeze-record entry declares merge-stamped instants "
-            "(merge_stamping_declared is unset); register the label by hand"
-        )
+    _refuse_undeclared(document, "label")
     _refuse_label(document, label)
     carried = {blessing["digest"]: blessing for blessing in document["blessings"]}
     blessings: list[dict[str, Any]] = []
@@ -117,6 +113,15 @@ def register_process(
     document["labels"].append({"label": label, "since": since})
     document["blessings"] = blessings
     return document
+
+
+def _refuse_undeclared(document: Mapping[str, Any], what: str) -> None:
+    """Refuse a pending registration before merge-stamped instants are declared."""
+    if document.get("merge_stamping_declared") is None:
+        raise RegistrationError(
+            "no freeze-record entry declares merge-stamped instants "
+            f"(merge_stamping_declared is unset); register the {what} by hand"
+        )
 
 
 def _refuse_label(document: Mapping[str, Any], label: str) -> None:
@@ -171,8 +176,14 @@ def register_boundary(
     reach: str,
     gradual: bool,
 ) -> dict[str, Any]:
-    """``registry`` with a pending harness boundary appended; refuses a reused name."""
+    """``registry`` with a pending harness boundary appended; refuses a reused name.
+
+    Refuses, like :func:`register_process`, a registry whose freeze record has
+    not declared merge-stamped instants: nothing would stamp the boundary, so
+    no cell would ever have a side of it.
+    """
     document: dict[str, Any] = copy.deepcopy(dict(registry))
+    _refuse_undeclared(document, "boundary")
     if any(boundary["name"] == name for boundary in document["harness_boundaries"]):
         raise RegistrationError(f"a boundary named {name!r} is already registered")
     if reach not in _BOUNDARY_REACH:

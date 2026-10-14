@@ -49,16 +49,19 @@
 #
 #   scripts/promotion-gate.sh registry <sha>
 #       Step 0 of a process move, checked on every batch: the process registry
-#       at <sha> must be stampable by the merge that carries it to `main`. No
-#       digest it holds pending may already stamp a committed cell on
-#       `origin/main`; every enabled actor's digest at <sha> must be
-#       registered; a window it opens must close its predictor's earlier one;
-#       a label new to `main` must have no `prereg/` tag yet; no boundary
-#       name may repeat; and nothing may already sit pending on `origin/main`.
+#       at <sha> must exist, load, and be stampable by the merge that carries
+#       it to `main`. A batch carrying anything pending needs `origin/main` to
+#       declare merge-stamped instants; no digest it holds pending may already
+#       stamp a committed cell on `origin/main`; every enabled actor's digest
+#       at <sha> must be registered; each predictor keeps at most one open
+#       window (a pending close counts as a close); the batch carries at most
+#       one label new to `main`, with no `prereg/` tag yet; no boundary name
+#       may repeat; and nothing may already sit pending on `origin/main`.
 #       The logic is tested Python (`fedcourts registry-gate`,
 #       src/fedcourtsai/registry_gate.py); it reads git alone — <sha>'s tree,
 #       `origin/main` and the local tags — so the caller fetches `main` and
-#       the tags first (CI's checkout does, with full history).
+#       the tags first (`git fetch origin --tags`; CI's checkout already holds
+#       them, with full history).
 #
 #   scripts/promotion-gate.sh all <sha>
 #       The quiesce, freshness and registry stages, in order.
@@ -402,10 +405,12 @@ contexts() {
 
 registry() {
   local sha="$1" main
-  # Refuse rather than read a stale or missing `main`: the stage compares the
-  # batch against main's ledger, registry and tags, and a ref that is not there
-  # would read as a registry-less main with an empty ledger.
-  if ! main="$(git rev-parse --verify -q origin/main^{commit})"; then
+  # Refuse rather than read a missing `main`: the stage compares the batch
+  # against main's ledger, registry and tags, and a ref that is not there
+  # would read as a registry-less main with an empty ledger. The stage does
+  # not fetch — CI's checkout already holds every branch and tag — so a local
+  # run fetches first: `git fetch origin --tags`.
+  if ! main="$(git rev-parse --verify -q "origin/main^{commit}")"; then
     echo "::error::registry: origin/main is not fetched — fetch main and the tags first"
     fail=1
     return
