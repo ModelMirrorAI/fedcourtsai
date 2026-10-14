@@ -1001,8 +1001,8 @@ revoked window's record from `fedcourts revoked-window-board`, so nothing a
 close or a revocation owes is derived by hand; a test fails the suite if one of
 `proc-v8`'s predictor digests leaves the registry without a close.
 
-**Revoking a window** is the one route by which counted cells are de-counted,
-and it is for a defect that invalidates the window's forecasts, never a better
+**Revoking a window** is the one route by which a window's counted cells are
+de-counted, and it is for a defect that invalidates the window's forecasts, never a better
 process. It sets `revoked_at` on the window — only on a window a successor has
 already closed, since revoking an open one would leave its digest blessed and
 the backlog would re-mint the re-owed events under the very process found
@@ -1024,6 +1024,43 @@ were de-counted by the shape that preceded windows — replacing the predictor
 digests outright, licensed by a shakedown declaration dated before the
 de-counted claim window's outcomes — and the freeze record carries each of
 those declarations.
+
+**Voiding an event** is the one route by which a single event's gradings are
+de-counted, and its ground is narrow. An event is voided when, and only when,
+**its committed outcome records a different petition than the one the event
+was opened on** — the Court re-docketed or renumbered the docket after the
+event opened, or the ingest attached another docket's disposition to it. The
+void is registered in `src/fedcourtsai/voided_events.json` (a closed `ground`
+vocabulary, today `redocketed`, and a `detection` of `outcome-triggered` or
+`scan`), a code-owned file a void reaches only through a maintainer-merged PR,
+beside a dated freeze-record entry, and every reader asks the one predicate in
+`src/fedcourtsai/voids.py`; `store.stratify` then drops the event's gradings
+from every scored figure, the agreement views and the usefulness join drop its
+reads, no evaluate cell is minted for it on any route, and the export and the
+big-case board null its outcome.
+A void is admissible only when:
+
+- **the ground is the sole one** above — the outcome describes another case;
+- **it is shown outcome-blind,** from the stored docket payloads alone (the
+  docketed date, the parties, the lower-court number), without reference to
+  the outcome's value or to any grading;
+- **it is none of these, which are never a ground:** a bad forecast, a
+  mis-grade, a wrong outcome for the right case (that is a corrected outcome,
+  `stamp-cell --regrade`), an ambiguous resolution, a provisioning defect on
+  the right case, or leakage (the leakage bit's own rule);
+- **the entry states how the defect was detected** — triggered by a grading or
+  flag on the resolved event, or found by a systematic scan of stored docket
+  identities — **and publishes the voided gradings' scores**, so a void is seen
+  to remove hits and misses alike;
+- **and, once the docket-identity detector exists, every event it flags is
+  voided whatever its gradings scored,** so a void is never a choice made after
+  seeing the scores.
+
+The better remedy for such an event would be to re-resolve it against its own
+subject's outcome under that petition's new number. Nothing relocates an event
+between dockets today, so the entry instead records the subject's new number
+and commits to recording that petition's disposition beside the void once it
+lands.
 
 **What a de-count leaves the predict backlog owing.** A cell that counts
 nowhere — unstamped, under a de-counted pre-`proc-v8` digest, stamped before

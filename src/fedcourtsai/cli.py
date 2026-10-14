@@ -419,6 +419,7 @@ from .schemas import (
     Stratum,
     SummaryPlan,
     UsageRole,
+    VoidedEventsRecord,
     observed_mcp_conditions,
     self_provisioned_fetches,
 )
@@ -5454,6 +5455,7 @@ def leaderboard(
         skills=skill_components(cells, settings.data_root, statpack),
         forward_claim=_forward_claim_from(run),
         leakage_exclusion=_leakage_exclusion_from(run),
+        voided_events=_voided_events_from(run),
         superseded_gradings=run.superseded,
         # Each cert cell's frozen band and realized outcome: the forward
         # stratum's per-band cut and the realized always-deny floor beside
@@ -5572,6 +5574,7 @@ def claim_scores_command(
         process_scope=scope,
         forward_claim=_forward_claim_from(run),
         leakage_exclusion=_leakage_exclusion_from(run),
+        voided_events=_voided_events_from(run),
         cell_windows=run.cell_windows,
     )
     destination = out if out is not None else settings.metrics_root / "claim-scores.json"
@@ -9732,6 +9735,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         process_scope=scope,
         forward_claim=_forward_claim_from(stratified_run),
         leakage_exclusion=_leakage_exclusion_from(stratified_run),
+        voided_events=_voided_events_from(stratified_run),
         cell_windows=stratified_run.cell_windows,
     )
     report = build_ops_report(
@@ -15866,6 +15870,36 @@ def _forward_claim_from(run: StratifiedRun) -> ForwardClaimRecord:
     )
 
 
+def _voided_events_from(run: StratifiedRun) -> VoidedEventsRecord | None:
+    """The same pass's voided-event record, or ``None`` where it dropped nothing.
+
+    Carries what the dropped gradings had scored, per predictor, so a void is
+    seen to remove a predictor's hits and misses alike rather than only one kind.
+    """
+    if not run.voided:
+        return None
+    count: dict[str, int] = {}
+    correct: dict[str, int] = {}
+    briers: dict[str, list[float]] = {}
+    for cell in run.voided:
+        evaluation = cell.evaluation
+        pid = evaluation.predictor_id
+        count[pid] = count.get(pid, 0) + 1
+        correct[pid] = correct.get(pid, 0) + (1 if evaluation.correct == 1 else 0)
+        if evaluation.brier_score is not None:
+            briers.setdefault(pid, []).append(evaluation.brier_score)
+    events = sorted(
+        {f"{cell.evaluation.case_id} {cell.evaluation.event_id}" for cell in run.voided}
+    )
+    return VoidedEventsRecord(
+        excluded=len(run.voided),
+        events=events,
+        by_predictor=dict(sorted(count.items())),
+        correct_by_predictor=dict(sorted(correct.items())),
+        mean_brier_by_predictor={pid: sum(v) / len(v) for pid, v in sorted(briers.items())},
+    )
+
+
 def _leakage_exclusion_from(run: StratifiedRun) -> LeakageExclusionRecord:
     """The same pass's leakage-exclusion record — count, denominator, and split."""
     return leakage_record(
@@ -15927,7 +15961,11 @@ def _report_exclusions(run: StratifiedRun) -> None:
     rules caught is named twice — once per reason, which is what the two counts
     on the boards say too.
     """
-    for label, dropped in (("forward-claim", run.excluded), ("leakage", run.leaked)):
+    for label, dropped in (
+        ("voided-event", run.voided),
+        ("forward-claim", run.excluded),
+        ("leakage", run.leaked),
+    ):
         for cell in dropped:
             ev = cell.evaluation
             typer.echo(

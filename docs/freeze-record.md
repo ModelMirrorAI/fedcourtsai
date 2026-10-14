@@ -8268,3 +8268,121 @@ freeze commit is recorded here.
     a duplicated number. Any residue is named here rather than rounded away.
     `uv run fedcourts process-digest --all` still prints `proc-v9` and the
     same six digests.
+
+- **An event whose docket number the Court re-docketed is voided, and its
+  gradings leave every scored surface: `scotus/9026000221`
+  `evt-petition-arrival-disposition`, 2026-10-14.** A **de-count for a stated
+  defect**, at event grain. It moves no digest, no constant, no window and no
+  label: `uv run fedcourts process-digest --all` prints the same `proc-v9`
+  digests. It narrows the 2026-10-11 statement that revocation is the only
+  de-count: revocation stays the only de-count of a **window's** cells, and a
+  **void** is the only de-count of a **single event's**, each on its own dated
+  entry stating the defect, under the admissibility rule `docs/process-version.md`
+  states in *Voiding an event*. A void is registered in
+  `src/fedcourtsai/voided_events.json`, a code-owned file, so every void is
+  maintainer-merged.
+
+  **The defect, and the ground.** The event's committed outcome records a
+  different petition than the one the event was opened on — the rule's one
+  ground, `redocketed`. On 2026-08-20 the live channel onboarded the Court's
+  No. 26-221 as *Mara Nathan et al. v. Alamo Heights Independent School
+  District* (Fifth Circuit No. 25-50695, docketed August 20, 2026), opened
+  this arrival event under that caption, and predict run `20260820T231432Z`
+  forecast it: claude-baseline 0.72, codex-baseline 0.72, gemini-baseline
+  0.90, each a forecast of Nathan. The Court then re-docketed: No. 26-221
+  became *Theodore James Purdy v. Kansas* (Court of Appeals of Kansas No.
+  126,981, docketed August 21, 2026), and Nathan appears to sit at No. 26-257.
+  The event's `outcome.json` records Purdy's denial on 2026-10-13, and
+  evaluate run `20261014T154957Z` graded the three Nathan forecasts against it.
+
+  **Shown outcome-blind, from stored payloads alone.** The content store's
+  dated snapshots of `scotus/9026000221` are the Court's own docket JSON for
+  `CaseNumber 26-221`: the 2026-08-20 snapshot names Nathan, the Fifth Circuit
+  number and a docketed date of August 20; every snapshot from 2026-10-05 on
+  names Purdy, the Kansas number and a docketed date of August 21. The case has
+  no snapshot between those dates, so the re-docketing fell between polls. The
+  ingest recorded what the Court served; what failed is that nothing compares
+  a stored docket's identity across snapshots.
+
+  **How it was detected: outcome-triggered.** codex-judge flagged a blocker
+  and claude-judge a warning on the graded event, and the agent-feedback
+  triage of 2026-10-14 surfaced them. The defect was then confirmed from the
+  payloads above, without reference to the outcome's value or the scores. No
+  systematic scan has been run, so **the voids so far may be incomplete**:
+  unchecked pending detection are the single-event graded live cases
+  `scotus/9026000006`, `9026000027`, `9026000045`, `9026000139`,
+  `9026000152` and `9026000173`, and the 168 SCOTUS cases on `main` at
+  `5643cbbee` holding a committed prediction on an event not yet resolved.
+
+  **What is removed, and what it scored.** The six gradings of the three
+  forecasts: claude-judge and codex-judge, each over claude-baseline,
+  codex-baseline and gemini-baseline, all under the `proc-v9` judge digests
+  (`167b7d71…`, `18a76b93…`). **All six were misses** (`correct: 0`), with
+  Brier 0.5184 (claude-baseline), 0.5184 (codex-baseline) and 0.81
+  (gemini-baseline) under each judge. gemini-judge has no grading on the
+  event. `store.stratify` drops the gradings after the run collapse and before
+  any stratum, window composition, forward-claim or leakage denominator counts
+  them; the agreement views and the tool-usefulness join drop the event's
+  reads; no evaluate cell is minted for it on any route, so gemini-judge's
+  missing grading is never owed; the big-case board shows its outcome as none;
+  and the export carries the three predictions with `voided` true and null
+  outcome columns. Every reader asks the one predicate in
+  `src/fedcourtsai/voids.py`, which is code-owned with the registry. No
+  committed file is edited: the predictions, the gradings and the outcome stay
+  in `data/` as written.
+
+  **Why the sibling event is not voided.** The same case's
+  `evt-petition-disposition` was opened on 2026-08-21 under Purdy's caption,
+  predicted in run `20261005T153213Z` from Purdy's 2026-10-05 snapshot, its
+  documents name neither Nathan nor Alamo Heights, and its outcome is Purdy's
+  own denial: event and outcome describe one petition.
+
+  **Why a void, and not a revocation or a corrected outcome.** A window's
+  revocation de-counts a whole protocol, and these cells' window is not
+  defective. A corrected outcome (`stamp-cell --regrade`) re-scores an event
+  against its true outcome, which this event has none of at this docket
+  number. The better remedy would re-resolve the event against Nathan's own
+  outcome; nothing relocates an event between dockets today, so this entry
+  instead commits to recording Nathan's eventual disposition under No. 26-257
+  beside this void once it lands.
+
+  **The effect on published figures**, rebuilt before and after over `main`
+  at `5643cbbee`:
+  - **Frozen boards: none.** The three predictions are stamped `proc-v3`, a
+    de-counted label, so no frozen-scope figure ever counted them; the frozen
+    leaderboard and claim scores rebuild byte-identical, the `voided_events`
+    block omitted where nothing in scope is voided.
+  - **All-versions leaderboard,** `stages["cert@arrival"]` alone: per
+    predictor the forward population Brier skill flips from about −100 to
+    about +0.9 (claude-baseline −103.0 → +0.91, codex-baseline −103.1 →
+    +0.75, gemini-baseline −161.5 → +0.91) on **n = 2** skill-scored cells
+    per predictor (from 4); accuracy 0.92 → 1.00; the always-deny floor
+    0.88 → 0.87; and the `sal-v3/baseline` band's accuracy 0.90 → 1.00
+    (20 → 18 evaluations, 7 → 6 events). Beside it `forward_claim.claimed_forward`
+    moves 1374 → 1368 and `leakage_exclusion.assessed` 1410 → 1404, and the
+    `voided_events` block names the event: six gradings, two per predictor,
+    none correct. Nothing outside that stage block moves.
+  - **All-versions claim scores:** the same two denominators and the same
+    block.
+  - **Dataset export:** the six grading rows carry `counted: false` and
+    `excluded_reason: voided`.
+
+  **Owed elsewhere.**
+  - Detection: a stored docket whose `DocketedDate` or petitioner identity
+    changes between snapshots is a re-docketing. Once it runs, every event it
+    flags is voided whatever its gradings scored, and its scan settles the
+    unchecked cases above.
+  - Nathan's disposition under No. 26-257, recorded beside this void once it
+    lands, and Nathan provisioned there as a new case.
+  - The plain-language summary
+    `data/cases/scotus/9026000221/summaries/2026-08-20.md` describes Nathan
+    under Purdy's case id. The summary lane owes its withdrawal or
+    relocation; it is not edited here.
+
+  The runnable effect check once it is live: on `main`, `uv run fedcourts
+  leaderboard --all-versions --out /tmp/lb.json` prints
+  `::warning::voided-event exclusion: scotus/9026000221
+  evt-petition-arrival-disposition` six times, and `jq .voided_events
+  /tmp/lb.json` shows `excluded: 6`, `correct_by_predictor` zero for each
+  predictor, and the event named; the frozen `metrics/leaderboard.json` after
+  the next metrics refresh is unchanged and carries no `voided_events` key.

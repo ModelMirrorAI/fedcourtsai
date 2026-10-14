@@ -170,6 +170,7 @@ from .schemas import (
     Stage,
     StatPack,
     Stratum,
+    VoidedEventsRecord,
     self_provisioned_fetches,
     target_blind_fetches,
 )
@@ -181,6 +182,7 @@ from .store import (
     scored_prediction,
     scored_prediction_cell,
 )
+from .voids import voided_reason
 
 #: A big-case agreement's key: the predictor and the label of the counting
 #: window its reads come from — ``None`` on the pooled default, which spans
@@ -994,11 +996,16 @@ def _scoped_evaluations(
     reach. ``metrics/README.md`` registers the carve-out, and a count here that
     differs from a board count is two populations rather than an error in
     either.
+
+    A **voided** event (``voids.VOIDED_EVENTS``) is the exception, and it is
+    dropped here as well: its outcome describes another petition, so a judge's
+    stakes read of it was taken across two cases filed under one id, and pooling
+    it into the case's panel would mix their reads rather than shrink the panel.
     """
     scoped: list[Evaluation] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
         evaluation = read_model(path, Evaluation)
-        if in_scope(evaluation):
+        if voided_reason(evaluation) is None and in_scope(evaluation):
             scoped.append(evaluation)
     return latest_evaluations(scoped)
 
@@ -2002,6 +2009,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
     skills: Mapping[EvaluationKey, CellSkill] | None = None,
     forward_claim: ForwardClaimRecord | None = None,
     leakage_exclusion: LeakageExclusionRecord | None = None,
+    voided_events: VoidedEventsRecord | None = None,
     superseded_gradings: int = 0,
     facts: Mapping[EvaluationKey, CellFacts] | None = None,
     vote_scores: Mapping[EvaluationKey, float] | None = None,
@@ -2051,6 +2059,10 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         two exclusion records, carried verbatim. They are independent rules over
         one population — a cell both caught appears in both counts — so they are
         published side by side and never summed into an exclusion total.
+
+    ``voided_events`` is the same pass's voided-event record (``None`` where it
+        dropped nothing): gradings of an event whose outcome records another
+        petition, dropped before any stratum (:mod:`fedcourtsai.voids`).
 
     ``superseded_gradings`` is likewise the caller's to supply
         (``store.StratifiedRun.superseded``): ``cells`` holds only survivors of the
@@ -2173,6 +2185,9 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         # The same pass's leakage exclusion. An independent rule, so it rides
         # as its own block rather than folding into the count above.
         leakage_exclusion=leakage_exclusion,
+        # The same pass's voided events: gradings of an event whose outcome
+        # describes another petition, dropped before any stratum.
+        voided_events=voided_events,
         # The same pass's run-collapse count. The cells below are survivors, so
         # this is the only surface on which a re-grade is visible at all.
         superseded_gradings=superseded_gradings,

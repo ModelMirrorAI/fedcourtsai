@@ -46,6 +46,11 @@
 /tests/test_registry_gate.py @modelmirror
 /tests/test_promotion_record.py @modelmirror
 /tests/test_process_registry.py @modelmirror
+# The voided-events registry: each row de-counts a single event's gradings
+# on a dated freeze-record entry, so a void is a pre-registration change.
+/src/fedcourtsai/voided_events.json @modelmirror
+/src/fedcourtsai/voids.py @modelmirror
+/tests/test_voided_events.py @modelmirror
 
 # What agents are and what they may reach.
 /config/predictors.yaml @modelmirror

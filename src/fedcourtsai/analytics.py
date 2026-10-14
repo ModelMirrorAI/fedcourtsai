@@ -117,6 +117,7 @@ from .supremecourt import (
     parse_scotus_docket_number,
     reserved_docket_number,
 )
+from .voids import is_voided
 
 if TYPE_CHECKING:
     import sqlite3
@@ -3534,7 +3535,9 @@ def _big_case_events(
 
     The outcome is read from the event's own ``outcome.json`` rather than from
     the corpus: the board is ledger-only by contract, and a committed outcome is
-    the resolution the ledger itself records.
+    the resolution the ledger itself records. A **voided** event's outcome
+    records another petition, so it is shown as none rather than beside reads
+    of the event's own subject (:mod:`fedcourtsai.voids`).
     """
     by_event: dict[str, dict[str, list[LedgerPrediction]]] = defaultdict(lambda: defaultdict(list))
     for row in rows:
@@ -3544,7 +3547,9 @@ def _big_case_events(
         event_paths = CasePaths(data_root, rows[0].court_id, rows[0].docket_id).event(event_id)
         definition = definitions[event_id]
         outcome = (
-            read_model(event_paths.outcome, Outcome) if event_paths.outcome.is_file() else None
+            read_model(event_paths.outcome, Outcome)
+            if event_paths.outcome.is_file() and not is_voided(rows[0].case_id, event_id)
+            else None
         )
         events.append(
             BigCaseEvent(
