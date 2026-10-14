@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:1d7fbb9fce0582c4e5a8b7dbbb54fb504532c2bdd7ef8b9946c8145115860bde",
+  "big_case": {
+    "evaluator_score": 0.22,
+    "notes": "The provisioned question concerns guaranteed-issue long-term-care coverage and claim-time health inquiry, with substantial personal consequences and possible relevance to similar insurance rules. The record presents an Iowa-law coverage vehicle and an asserted Erie methodology issue, not a demonstrated nationwide conflict. The bare denial supplies no national merits holding."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9598941758233784,
+  "case_id": "scotus/9026000337",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.04993399083637493,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.0023934034408471757
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3536723163841808,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0023934034408471757,
+    "total": 0.0023934034408471757
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T17:53:41Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 30 logged calls are unobserved, so null dates/digests do not establish empty or clean results. The September 27 call queries include the case caption, an opinion ID described in retrieval.md as the lower-court decision, and general corpus queries. These precede the supplied October 13, 2026 denial. The prose does not presuppose this petition's disposition, and no visible query seeks that result. No affirmative outcome exposure or forward mis-provisioning is shown; assessment is limited to query intent, chronology, and prose.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T17:54:13.911407Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.04993399083637493,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

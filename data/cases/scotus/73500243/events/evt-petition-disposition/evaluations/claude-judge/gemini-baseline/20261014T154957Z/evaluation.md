@@ -1,0 +1,13 @@
+# Evaluation: gemini-baseline
+
+**Cell:** scotus/73500243 (No. 25-1341, *Birks v. Aguirre-Jarquin*). Event `evt-petition-disposition`. Stage **cert**, mode **forward**. Outcome: **denied** on 2026-10-13 (`actual_granted` 0), with no noted dissent and two distributions. The Court called for a response on July 31, and it never added a distribution beyond the two already on the docket when the predictions ran.
+
+**Base rate:** the prediction froze `context.band` = `elevated` (sal-v4, Term 2025), so the harness stamps the segment base rate and skill from the risk-set anchor. I left `segment_base_rate`, `brier_skill_score` and `base_rate_basis` null, and any comparison here refers to "the stamped segment base rate". No votes are scored at the cert stage, `claim_scores` is the harness's, and no semantic set is declared for this cell, so I wrote no `semantic_grades`.
+
+**Scores:** predicted `denied`, so `correct` = 1. P(grant) = 0.25, so Brier = 0.0625.
+
+**Reasoning quality: 0.50.** The direction is right and the anchor is right: the elevated band's reached rate, read from the statpack. It also reads the procedural posture correctly: the call for a response came after a waiver, so the second distribution was a post-response redistribution, not a relist. But it raises the estimate well above the band anchor, mainly because of the call for a response. That signal is a large part of why the petition sits in the elevated band to begin with, so the adjustment largely counts the same evidence twice. It cites the Court's habit of summary reversals in qualified-immunity cases without testing whether this vehicle fits: an interlocutory summary-judgment posture, a lead causation question the panel never decided, and a petition that concedes its claimed split does not change the result. It read neither the brief in opposition nor the reply, though the snapshot listed both as filed. It acknowledged that gap but did not account for it in its confidence. The analysis is thin, and the number came out more confident in a grant than the record supported.
+
+**Leakage:** forward, `not_applicable`. The log is entirely `unobserved` (capture coverage 0.0), so I graded it on its queries. They covered the provisioned inputs, the statpack, the Eleventh Circuit opinion below, and a corpus query for the docket below. None asked about this petition's disposition, and none read under data/qp-topics. Its retrieval.md does not list the corpus query. That is a minor disclosure gap, not outcome material.
+
+**Big case:** my own read is 0.30. It is a fact-bound qualified-immunity vehicle, and the denial left no national rule.

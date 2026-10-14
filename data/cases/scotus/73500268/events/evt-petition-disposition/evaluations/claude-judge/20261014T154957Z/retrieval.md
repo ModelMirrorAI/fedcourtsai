@@ -1,0 +1,1 @@
+No corpus queries, CourtListener lookups or web searches. Beyond the provisioned inputs (event.yaml, outcome.json, record/context.json, record/blinded/*), I ran one `grep` over committed `metrics/statpack.md` to locate the salience-band table header. I took no figures from it, since all three candidates froze a band and the harness stamps the base rate.

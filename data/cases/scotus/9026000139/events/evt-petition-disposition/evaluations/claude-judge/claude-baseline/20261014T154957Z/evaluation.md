@@ -1,0 +1,9 @@
+# Evaluation — claude-baseline
+
+**Cell.** Cert stage, forward mode. Outcome: `gvr` (resolved 2026-10-13, two distributions, no CVSG); `actual_granted` = 1. The prediction froze `context.band` = `elevated` under sal-v4, so the segment base rate, skill score, and basis are left to the harness stamp; the comparison anchor is the stamped segment base rate. Votes are not scored on a cert cell. No semantic set is declared on a cert cell, so there is no `semantic_grades` block.
+
+**Score.** Predicted `gvr` at P(grant) = 0.94 → correct = 1, Brier = 0.0036.
+
+**Reasoning quality: 0.90.** This is the strongest analysis of the three. It reads the full posture: waiver, distribution, response request, a non-opposing response, redistribution. It notes that the jury found only failure to warn. It checks the Court of Appeal's preemption section in the appendix, which rests on the *Bates* parallel-requirements theory that *Durnell* rejected. It reads *Durnell*'s syllabus directly instead of relying on the petition. It also confirms in the corpus three same-wave GVRs (Salas, Johnson, Anderson), two of them from state intermediate courts. It decomposes the residual explicitly into denial on a non-label theory and a Rule 46 settlement dismissal. It also flags correctly that the relist-count anchor mixes redistributions with true relists. The residual (about 6%) is arguably a little generous given a conceded response and three identical GVRs, which is why its Brier trails the others slightly. But the reasoning is sound and honestly bounded.
+
+**Leakage.** None. The prediction is dated 2026-09-27, before the resolution. Its corpus and CourtListener calls reached only material from before that date (the June 30 GVRs and the June 25 *Durnell* opinion). It made no query for this docket's disposition. That is legitimate forward signal, and it disclosed it.

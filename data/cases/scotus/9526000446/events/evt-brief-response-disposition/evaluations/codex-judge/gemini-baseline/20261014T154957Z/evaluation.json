@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.45,
+    "notes": "The record presents consequential pretrial-liberty interests and a recurring appellate-review question, with politically salient speech allegations. The resolved event is nevertheless an individual stay application; its unexplained denial does not resolve the underlying review-standard dispute."
+  },
+  "brier_score": 0.0625,
+  "brier_skill_score": -5.706145425418298,
+  "case_id": "scotus/9526000446",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.0965391621129326,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": -0.05318019017853292
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.7,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.05318019017853292,
+    "total": -0.05318019017853292
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T17:54:59Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 32 logged calls occurred October 9, before the October 13 denial. Result-capture coverage is 0.0, so I assess queries and prose, not purportedly empty results. The caption and application-docket searches are legitimate forward queries. The retrieval note reports lower-court results and no application match, but those result claims are not independently observable. No visible reasoning or query indicates the eventual Supreme Court denial was known.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261009T143059Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T17:57:37.352286Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0965391621129326,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

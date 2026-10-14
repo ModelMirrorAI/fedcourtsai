@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000337",
+  "gaps": [
+    "Unobserved results limit the retrieval audit; captured digests do not expose full result bodies"
+  ],
+  "helpful": [
+    "Blinded prediction and rationale staging",
+    "Per-call capture markers and forward-mode provenance",
+    "Provisioned petition with lower-court appendix",
+    "Separate outcome and frozen prediction context"
+  ],
+  "notes": "Scored all three supplied aliases without external retrieval or candidate identification. Read the forecast documents for context only. No current statpack was needed because every candidate froze a cert band and baseline stamping belongs to the harness. Capture limitations are described in the corresponding evaluations, not treated as tooling defects or leakage findings.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "local JSON Schema validation",
+    "fedcourtsai.paths",
+    "fedcourtsai.serialize"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

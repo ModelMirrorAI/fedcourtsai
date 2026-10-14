@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000139",
+  "gaps": [
+    "One candidate has no captured results; two general searches for another candidate are unobserved."
+  ],
+  "helpful": [
+    "Blinded rationales and forecasts alongside structured outcomes.",
+    "Per-call capture markers distinguish unseen results from empty results."
+  ],
+  "notes": "Used provisioned inputs only for scoring. Did not fetch case facts or recompute a frozen-band baseline. Capture gaps are assessment limits, not findings of leakage. The initial environment lacks jsonschema; validation also uses the installed Pydantic models.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local file reads",
+    "blinded retrieval-log inspection",
+    "schema validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

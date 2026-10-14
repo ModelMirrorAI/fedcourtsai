@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:1d7fbb9fce0582c4e5a8b7dbbb54fb504532c2bdd7ef8b9946c8145115860bde",
+  "big_case": {
+    "evaluator_score": 0.6,
+    "notes": "SG petition on the scope of the INA terrorism material-support bar (whether coerced, de minimis support such as cooking for captors is 'material'), from a published 2-1 Fourth Circuit decision rejecting the BIA's Matter of A-C-M- reading and en banc denied. Recurring across many asylum/withholding cases with a post-Loper Bright agency-deference angle; the Court granted plenary review. Significant within immigration law, not a headline constitutional case."
+  },
+  "brier_score": 0.022500000000000006,
+  "brier_skill_score": 0.6929935443565179,
+  "case_id": "scotus/73500246",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7292817679558011,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": 0.05078836116113669
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 0.12268035122457727
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.17346871238571396,
+    "total": 0.17346871238571396
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T16:51:31Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (prediction 2026-10-03; resolution 2026-10-13). Log result_capture_coverage 0.0 (every row unobserved, engine's standing shape): reads of provisioned inputs and statpack plus one web search for the Fourth Circuit case (\"Izuchukwu Ozurumba\" \"Fourth Circuit\" 24-2070), graded on its query \u2014 aimed at the lower-court issue, not the cert outcome, which did not yet exist. No qp-topics access.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261003T200236Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T16:52:25.214992Z"
+  },
+  "reasoning_quality": 0.5,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7292817679558011,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

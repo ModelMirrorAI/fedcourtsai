@@ -1,0 +1,134 @@
+{
+  "actor_id": "claude-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "72f8742634ae41b4",
+      "query": "cat .github/prompts/evaluate.md; D=data/cases/scotus/9026000045/events/evt-petition-disposition; ls -R $D",
+      "result_capture": "captured",
+      "result_digest": "6023acca46bb993e",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T17:14:16.533Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4ec9f2955115bb88",
+      "query": "{\"file_path\": \"/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/28bc064b-6e22-4e1b-a8fb-44f41eeb4acb/tool-results/b4hjtjvp1.txt\"}",
+      "result_capture": "captured",
+      "result_digest": "02f0bf98ea2a15c3",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T17:14:20.706Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "aafc2b00db31797f",
+      "query": "D=data/cases/scotus/9026000045; cat $D/events/evt-petition-disposition/event.yaml $D/events/evt-petition-disposition/outcome.json; ls -R $D/record; cat $D/record/context.json",
+      "result_capture": "captured",
+      "result_digest": "515e67a1c3a37323",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T17:14:24.708Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "78faf34cdeb24686",
+      "query": "B=data/cases/scotus/9026000045/record/blinded; for c in a b c; do echo \"=== $c\"; cat $B/candidate-$c/prediction.json; echo; cat $B/candidate-$c/reasoning.md; echo \"--- retrieval.md\"; cat $B/candidate-$c/retrieval.md; done",
+      "result_capture": "captured",
+      "result_digest": "1e86727a3c5487a6",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T17:14:27.372Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "9e9059cf11840f7b",
+      "query": "B=data/cases/scotus/9026000045/record/blinded; for c in a b c; do echo \"=== $c\"; python3 -c \"\nimport json,sys\nd=json.load(open('$B/candidate-$c/retrieval_log.json'))\nprint({k:v for k,v in d.items() if k!='calls'})\nfor x in d.get('calls',[]):\n  print(x.get('tool'),'|',str(x.get('query'))[:150],'|',x.get('retrieved_doc_date'),x.get('result_capture'))\n\"; done; grep -n \"qp-topics\" $B/*/retrieval_log.json | head",
+      "result_capture": "captured",
+      "result_digest": "5c60a32191554698",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T17:14:32.092Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ff482223f2ecc808",
+      "query": "grep -n -A25 \"Segment base rate by salience band (sal-v4)\" metrics/statpack.md | head -45; date -u +%Y-%m-%dT%H:%M:%SZ",
+      "result_capture": "captured",
+      "result_digest": "bd7bd085f3485ed9",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T17:14:37.872Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "3903ec520572503d",
+      "query": "cat > /tmp/w.py <<'PY'\nimport json, os\nbase=\"data/cases/scotus/9026000045/events/evt-petition-disposition/evaluations/claude-judge\"\nRUN=\"20261014T154957Z\"; now=\"2026-10-14T17:15:00Z\"\nlk_common=\"Forward cell, predicted 2026-10-04 (snapshot 2026-10-04) against a disposition resolved 2026-10-13. \"\nC={\n \"a\":(0.01,0.55,\"Log shows only provisioned-input reads (event, context, snapshot, QP, petition, BIO), a grep of metrics/statpack.json, and its own writes; no web or MCP retrieval; every result unobse",
+      "result_capture": "captured",
+      "result_digest": "5701537d43a1a5a4",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T17:14:55.879Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "14f4485ad5015c50",
+      "query": "B=data/cases/scotus/9026000045/events/evt-petition-disposition/evaluations/claude-judge; R=20261014T154957Z\nCOMMON='**Cell.** Cert stage, forward mode. The Court denied the petition on 2026-10-13 (`actual_disposition` denied, `actual_granted` 0), with one distribution, no CVSG, no relist and no noted dissent. All three candidates predicted `denied`, so `correct` = 1 for each. The prediction froze `band: baseline` under `sal-v4`, so this is a frozen-band cert cell: the harness stamps the segment ",
+      "result_capture": "captured",
+      "result_digest": "2b96ac13200161bf",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T17:15:20.780Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "1129c33199574ee5",
+      "query": "B=data/cases/scotus/9026000045/events/evt-petition-disposition/evaluations/claude-judge/20261014T154957Z; mkdir -p $B\ncat > $B/retrieval.md <<'EOF'\nNo retrieval beyond the provisioned inputs. Read the committed `metrics/statpack.md` (*Segment base rate by salience band (sal-v4)*) only to check a candidate's anchor claim; no corpus query, MCP, or web lookups.\nEOF\ncat > $B/tooling.json <<'EOF'\n{\n  \"case_id\": \"scotus/9026000045\",\n  \"run_id\": \"20261014T154957Z\",\n  \"role\": \"evaluator\",\n  \"actor_id\": ",
+      "result_capture": "captured",
+      "result_digest": "c48b5b1a9776c846",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T17:15:28.333Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000045",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}
