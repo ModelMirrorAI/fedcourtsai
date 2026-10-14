@@ -498,8 +498,10 @@ Every reader treats a pending row in the safe direction until a merge stamps
 it:
 
 - a **pending blessing** has no bless moment, so it is not in
-  `FROZEN_PROCESS_DIGESTS`: a board counts no cell stamped with its digest.
-  The digest is still **registered** (`REGISTERED_PROCESS_DIGESTS`, every
+  `FROZEN_PROCESS_DIGESTS`: a board counts no prediction stamped with a
+  pending predictor digest. An evaluator digest records and never partitions,
+  so gradings under a pending one count on timing alone. The digest is still
+  **registered** (`REGISTERED_PROCESS_DIGESTS`, every
   blessing, carried or pending), and the fleet tripwires read the registered
   set, so the PR that moves a digest registers it in the same commit;
 - a cell stamped with a pending digest is **pending, not de-counted**
@@ -531,9 +533,15 @@ stamp a label's instants only under a rule a dated freeze-record entry
 already declares on `main`, so that entry lands first and the registration
 after it. `fedcourts register-boundary` appends a pending boundary.
 
-`fedcourts promotion-record --merge <sha>` says what a promotion merge owes
-`main`, from git alone; a caller fetches tags first, since a tag missing
-locally reads as a free name. The plan names:
+`fedcourts promotion-record --merge <sha> --main-ref <ref> --staging-ref <ref>`
+says what a promotion merge owes `main`, from git alone; a caller fetches tags
+first, since a tag missing locally reads as a free name. Only a merge on
+`main`'s first-parent chain whose second parent `staging` reaches is a
+promotion merge, so a data PR merged with a merge commit is refused. It
+stamps only where the merge's first parent already declares merge-stamped
+instants — a `merge_stamping_declared` date and a freeze-record entry dated
+it — so one batch cannot declare the rule and register under it together.
+The plan names:
 
 - its annotated `promotion/<UTC date>` tag (`-2`, `-3` … past a date another
   merge holds; an existing tag on the merge is adopted);
@@ -551,21 +559,32 @@ locally reads as a free name. The plan names:
 A placeholder is `<FILL:` to the next `>` with no backtick or `<` inside, not
 crossing a blank line, and naming a word, so an unclosed marker or a prose
 mention of the marker is never filled. Only what the merge **added** is filled
-or stamped. A pending row or placeholder its first parent already held, or a
-placeholder on a line the merge only edited, was carried by an earlier merge:
-it is reported as stale and never stamped with a later time. The plan refuses
-a merge committed before its first parent, in the future, or before an
-instant the registry already holds. `--apply` renders both files first and
-writes nothing unless both render and the stamped registry loads.
+or stamped. A pending row or placeholder its first parent already held was
+carried by an earlier merge and is reported as stale, never stamped with a
+later time. So is a placeholder on a line the merge only edited or renamed in
+place, and one inside a landed entry the merge moved. The record is
+append-only, so an entry is known by its heading: an entry whose heading the
+first parent already held adds nothing, while a new entry that copies an old
+one's placeholder lines under its own heading adds them. The plan refuses a merge committed
+before either parent, in the future, or before an instant the registry
+already holds; those catch a clock error, and the `main` ruleset, under which
+GitHub makes the merge, is the guard on its date. `--apply` renders both
+files first and writes nothing unless both render and the stamped registry
+loads; it writes byte-exact through a temporary file.
 
-`fedcourts assert-promotion-record-diff --merge <sha> --base <ref>` is the
-jail. It re-renders the merge's plan onto the base's copies and requires the
-change's registry and freeze record to equal that rendering byte for byte, so
-every stamp carries the merge's own SHA and time and no free-text or stale
-placeholder moves. It also checks structurally that nothing else changed.
-`fedcourts promotion-record --check-main <ref>` names every pending row a merge
-on the ref's first-parent chain already carried, so a stamp that never landed
-is caught.
+The writer works in this order: it creates the `promotion/` and `prereg/`
+tags on the merge, then applies, commits, and jails the commit before pushing
+it. `fedcourts assert-promotion-record-diff --merge <sha> --base <ref> --head
+<commit> --main-ref <ref> --staging-ref <ref>` is that jail. It jails a
+commit, never a working tree. It re-renders the merge's plan onto the base's
+copies and requires the commit's registry and freeze record to equal that
+rendering byte for byte, with no newline translation, so every stamp carries
+the merge's own SHA and time and no free-text or stale placeholder moves. It
+requires the planned tags to already name the merge. It also checks
+structurally that only the two record paths changed, each still a regular
+`100644` file. `fedcourts promotion-record --check-main <ref>` names every
+pending row on the ref, with the merge that carried it where one is found
+within its walk, so a stamp that never landed is caught.
 
 Nothing stamps until a writer that runs these on a promotion merge lands.
 Until then the cutover procedure below is how a label is frozen, with its

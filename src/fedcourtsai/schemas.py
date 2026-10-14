@@ -4322,8 +4322,10 @@ class RegistryInstant(_Strict):
         "promotion merge that made the blessed bytes immutable on `main` — and so the "
         "commit the instant is audited against: a bless moment equals its committer time, "
         "a counting instant is at or after it. Not the merge that carried a later "
-        "correction of the instant. Null, with `at`, marks a registration no merge has "
-        "carried yet",
+        "correction of the instant. A label that holds its predecessor's counting "
+        "instant (an evaluator-only label) copies that instant whole, so its `merge` names "
+        "the predecessor's carrying merge, not its own. Null, with `at`, marks a "
+        "registration no merge has carried yet",
     )
     source: Literal["hand", "merge"] = Field(
         description="`merge` where `at` equals `merge`'s committer time, so git re-derives "

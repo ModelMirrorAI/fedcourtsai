@@ -60,7 +60,8 @@ from tests.test_counting_windows import CLOSED, SUCCESSOR, T2, _pv, _seed
 ROOT = Path(__file__).resolve().parents[1]
 COMMITTED = json.loads((ROOT / REGISTRY_PATH).read_text(encoding="utf-8"))
 #: The committed registry once the merge-stamping rule is declared.
-DECLARED = {**COMMITTED, "merge_stamping_declared": "2026-11-01"}
+DECLARED_ON = "2026-10-12"
+DECLARED = {**COMMITTED, "merge_stamping_declared": DECLARED_ON}
 NEW_CLAUDE = "sha256:" + "a" * 64
 NEW_JUDGE = "sha256:" + "d" * 64
 NEW_LABEL = "proc-v10"
@@ -269,18 +270,36 @@ def test_a_mention_and_an_unclosed_marker_are_not_placeholders() -> None:
     assert [key for key, *_ in placeholders(text)] == ["apply run id"]
 
 
+def test_an_evaluator_digest_leaving_with_nothing_new_registers_a_holding_label() -> None:
+    """Retiring a judge moves the fleet with no new digest: a label that holds the instant."""
+    judge = next(b for b in COMMITTED["blessings"] if b["role"] == "evaluator")
+    fleet = [
+        actor for actor in _live_fleet(claude=_carried_claude()) if actor.digest != judge["digest"]
+    ]
+    document = register_process(DECLARED, NEW_LABEL, fleet)
+    assert judge["digest"] not in {b["digest"] for b in document["blessings"]}
+    assert document["labels"][-1]["since"] == COMMITTED["labels"][-1]["since"]
+    assert document["windows"] == COMMITTED["windows"]
+    load_process_registry(dump_registry(document), current_label=NEW_LABEL)
+
+
 # --- the synthetic promotion -------------------------------------------------
 
+#: The declaring entry the merge-stamping rule needs on the merge's first parent.
+_DECLARATION = f"- **Merge-stamped instants are declared, {DECLARED_ON}.** The rule.\n"
 _ENTRY_BEFORE = (
-    "# Freeze record\n\n- **An earlier entry.** Owes `<FILL: promotion tag>` still.\n"
-    "  Its census, `<FILL: merge hash>`, was landed before.\n"
+    "# Freeze record\n\n"
+    + _DECLARATION
+    + "\n- **An earlier entry.** Owes `<FILL: promotion tag>` still.\n"
+    + "  Its census, `<FILL: merge hash>`, was landed before.\n"
 )
 _ENTRY_ADDED = (
-    "\n- **A new entry, 2026-11-01.** Carried to `main` by `<FILL: promotion tag>` (merge\n"
+    "\n- **A new entry, 2026-10-12.** Carried to `main` by `<FILL: promotion tag>` (merge\n"
     "  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`). Predictions under the new\n"
     "  digest at the merge: `<FILL:census predictions\n  digest=aaaaaaaa>`. Applied by run\n"
     "  `<FILL: apply run id>`.\n"
 )
+REFS = {"main_ref": "main", "staging_ref": "staging"}
 
 
 def _git(repo: Path, *args: str, when: datetime | None = None) -> str:
@@ -297,11 +316,11 @@ def _git(repo: Path, *args: str, when: datetime | None = None) -> str:
 def _write(repo: Path, path: str, text: str) -> None:
     target = repo / path
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(text, encoding="utf-8")
+    target.write_bytes(text.encode("utf-8"))
 
 
 def _read(repo: Path, path: str) -> str:
-    return (repo / path).read_text(encoding="utf-8")
+    return (repo / path).read_bytes().decode("utf-8")
 
 
 def _artifact(repo: Path, kind: str, docket: int, digest: str) -> None:
@@ -322,21 +341,37 @@ def _commit(repo: Path, message: str, when: datetime) -> str:
     return _git(repo, "rev-parse", "HEAD")
 
 
-@pytest.fixture
-def promotion(tmp_path: Path) -> tuple[Path, str]:
-    """``main`` with the committed registry, ``staging`` registering proc-v10, merged."""
+def _init(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
-    repo.mkdir()
+    repo.mkdir(parents=True)
     _git(repo, "init", "-q", "-b", "main")
     _git(repo, "config", "user.email", "test@users.noreply.github.com")
     _git(repo, "config", "user.name", "test")
-    _write(repo, REGISTRY_PATH, dump_registry(DECLARED))
-    _write(repo, FREEZE_RECORD_PATH, _ENTRY_BEFORE)
+    _git(repo, "config", "core.autocrlf", "false")
+    return repo
+
+
+def _promote(
+    tmp_path: Path,
+    *,
+    before: str = _ENTRY_BEFORE,
+    staging_record: str | None = None,
+    main_registry: dict[str, Any] = DECLARED,
+    staging_registry: dict[str, Any] | None = None,
+) -> tuple[Path, str]:
+    """``main`` at ``before``; ``staging`` registering (by default) proc-v10; the merge."""
+    repo = _init(tmp_path)
+    _write(repo, REGISTRY_PATH, dump_registry(main_registry))
+    _write(repo, FREEZE_RECORD_PATH, before)
     _artifact(repo, "predictions", 1, "sha256:" + "c" * 64)
     _commit(repo, "main", datetime(2026, 10, 12, tzinfo=UTC))
     _git(repo, "switch", "-q", "-c", "staging")
-    _write(repo, REGISTRY_PATH, dump_registry(_registered()))
-    _write(repo, FREEZE_RECORD_PATH, _ENTRY_BEFORE + _ENTRY_ADDED)
+    _write(repo, REGISTRY_PATH, dump_registry(staging_registry or _registered()))
+    _write(
+        repo,
+        FREEZE_RECORD_PATH,
+        staging_record if staging_record is not None else before + _ENTRY_ADDED,
+    )
     _artifact(repo, "predictions", 2, NEW_CLAUDE)
     _artifact(repo, "predictions", 3, NEW_CLAUDE)
     _artifact(repo, "evaluations", 2, NEW_CLAUDE)
@@ -344,6 +379,15 @@ def promotion(tmp_path: Path) -> tuple[Path, str]:
     _git(repo, "switch", "-q", "main")
     _git(repo, "merge", "-q", "--no-ff", "staging", "-m", "promote", when=MERGED_AT)
     return repo, _git(repo, "rev-parse", "HEAD")
+
+
+@pytest.fixture
+def promotion(tmp_path: Path) -> tuple[Path, str]:
+    return _promote(tmp_path)
+
+
+def _plan(repo: Path, merge: str) -> Any:
+    return plan_promotion_record(repo, merge, **REFS)
 
 
 def _old_claude_window() -> str:
@@ -356,7 +400,7 @@ def _old_claude_window() -> str:
 
 def test_the_plan_names_the_tag_the_fills_and_the_stamps(promotion: tuple[Path, str]) -> None:
     repo, merge = promotion
-    plan = plan_promotion_record(repo, merge)
+    plan = _plan(repo, merge)
     assert plan.merged_at == "2026-10-13T15:04:05Z"
     assert (plan.promotion_tag.name, plan.promotion_tag.adopt) == ("promotion/2026-10-13", False)
     assert {(fill.key, fill.value) for fill in plan.fills} == {
@@ -379,44 +423,113 @@ def test_the_plan_names_the_tag_the_fills_and_the_stamps(promotion: tuple[Path, 
     assert NEW_CLAUDE in plan.prereg_tag.message
 
 
-def test_a_typo_fix_on_a_landed_placeholder_line_is_stale(tmp_path: Path) -> None:
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _git(repo, "init", "-q", "-b", "main")
-    _git(repo, "config", "user.email", "test@users.noreply.github.com")
-    _git(repo, "config", "user.name", "test")
-    _write(repo, REGISTRY_PATH, dump_registry(DECLARED))
-    _write(repo, FREEZE_RECORD_PATH, "- **An entyr.** Owes `<FILL: merge hash>`.\n")
-    _commit(repo, "main", datetime(2026, 10, 12, tzinfo=UTC))
-    _git(repo, "switch", "-q", "-c", "staging")
-    _write(repo, FREEZE_RECORD_PATH, "- **An entry.** Owes `<FILL: merge hash>`.\n")
-    _commit(repo, "typo", datetime(2026, 10, 12, 12, tzinfo=UTC))
-    _git(repo, "switch", "-q", "main")
-    _git(repo, "merge", "-q", "--no-ff", "staging", "-m", "promote", when=MERGED_AT)
-    plan = plan_promotion_record(repo, _git(repo, "rev-parse", "HEAD"))
-    assert plan.fills == [] and [f.key for f in plan.stale_placeholders] == ["merge hash"]
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        # A typo fixed on a landed line.
+        (
+            "- **An entyr.** Owes `<FILL: merge hash>`.\n",
+            "- **An entry.** Owes `<FILL: merge hash>`.\n",
+        ),
+        # A placeholder renamed in place.
+        ("- **A.** Merge `<FILL: merge hash>`.\n", "- **A.** Merge `<FILL: merge sha>`.\n"),
+        # A landed entry moved below another.
+        (
+            "# R\n\n- **A (2026-09-01).** Merge `<FILL: merge hash>`.\n\n- **B.** Prose.\n",
+            "# R\n\n- **B.** Prose.\n\n- **A (2026-09-01).** Merge `<FILL: merge hash>`.\n",
+        ),
+        # The same move, past a longer entry.
+        (
+            "# R\n\n- **A.** Merge `<FILL: merge hash>`.\n\n- **B.** l1\n  l2\n  l3\n  l4\n",
+            "# R\n\n- **B.** l1\n  l2\n  l3\n  l4\n\n- **A.** Merge `<FILL: merge hash>`.\n",
+        ),
+    ],
+    ids=["typo", "rename", "moved", "moved-far"],
+)
+def test_an_edited_or_moved_landed_placeholder_is_stale(
+    tmp_path: Path, before: str, after: str
+) -> None:
+    repo, merge = _promote(tmp_path, before=before, staging_record=after, staging_registry=DECLARED)
+    plan = _plan(repo, merge)
+    assert plan.fills == [] and len(plan.stale_placeholders) == 1
+
+
+def test_a_new_entry_copying_a_filled_entrys_lines_is_still_added(tmp_path: Path) -> None:
+    """The batch fills an old entry and appends a new one built from the same template."""
+    template = "  Carried by `<FILL: promotion tag>` (merge `<FILL: merge hash>`).\n"
+    before = "# R\n\n- **Old, 2026-10-01.** Applied.\n" + template
+    after = (
+        "# R\n\n- **Old, 2026-10-01.** Applied.\n  Carried by `promotion/x` (merge `abc`).\n"
+        "\n- **New, 2026-10-12.** Applied.\n" + template
+    )
+    repo, merge = _promote(tmp_path, before=before, staging_record=after, staging_registry=DECLARED)
+    plan = _plan(repo, merge)
+    assert sorted(fill.key for fill in plan.fills) == ["merge hash", "promotion tag"]
+    assert plan.stale_placeholders == []
 
 
 def test_an_evaluator_only_label_is_tagged_on_its_merge(tmp_path: Path) -> None:
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _git(repo, "init", "-q", "-b", "main")
-    _git(repo, "config", "user.email", "test@users.noreply.github.com")
-    _git(repo, "config", "user.name", "test")
-    _write(repo, REGISTRY_PATH, dump_registry(DECLARED))
-    _write(repo, FREEZE_RECORD_PATH, "# Freeze record\n")
-    _commit(repo, "main", datetime(2026, 10, 12, tzinfo=UTC))
-    _git(repo, "switch", "-q", "-c", "staging")
     judge_only = register_process(
         DECLARED, NEW_LABEL, _live_fleet(claude=_carried_claude(), judge=NEW_JUDGE)
     )
-    _write(repo, REGISTRY_PATH, dump_registry(judge_only))
-    _commit(repo, "register", datetime(2026, 10, 12, 12, tzinfo=UTC))
-    _git(repo, "switch", "-q", "main")
-    _git(repo, "merge", "-q", "--no-ff", "staging", "-m", "promote", when=MERGED_AT)
-    plan = plan_promotion_record(repo, _git(repo, "rev-parse", "HEAD"))
+    repo, merge = _promote(tmp_path, staging_record=_ENTRY_BEFORE, staging_registry=judge_only)
+    plan = _plan(repo, merge)
     assert plan.stamps == [Stamp("blessing", NEW_JUDGE)]
     assert plan.prereg_tag is not None and "holds the counting instant" in plan.prereg_tag.message
+
+
+def test_stamps_need_the_declaration_on_the_first_parent(tmp_path: Path) -> None:
+    undeclared = {k: v for k, v in DECLARED.items() if k != "merge_stamping_declared"}
+    repo, merge = _promote(tmp_path, main_registry=undeclared)
+    with pytest.raises(PromotionRecordError, match="declares no merge-stamped"):
+        _plan(repo, merge)
+    repo2, merge2 = _promote(tmp_path / "b", before="# Freeze record\n")
+    with pytest.raises(PromotionRecordError, match="no entry dated"):
+        _plan(repo2, merge2)
+
+
+def test_only_a_promotion_merge_is_planned(tmp_path: Path) -> None:
+    """A merge into staging, and a data branch merged into main, are not promotions."""
+    repo = _init(tmp_path)
+    _write(repo, REGISTRY_PATH, dump_registry(DECLARED))
+    _write(repo, FREEZE_RECORD_PATH, _ENTRY_BEFORE)
+    _commit(repo, "main", datetime(2026, 10, 12, tzinfo=UTC))
+    _git(repo, "switch", "-q", "-c", "staging")
+    _write(repo, "x", "1")
+    _commit(repo, "s", datetime(2026, 10, 12, 1, tzinfo=UTC))
+    _git(repo, "switch", "-q", "-c", "feature")
+    _write(repo, REGISTRY_PATH, dump_registry(_registered()))
+    _commit(repo, "reg", datetime(2026, 10, 12, 2, tzinfo=UTC))
+    _git(repo, "switch", "-q", "staging")
+    _git(
+        repo,
+        "merge",
+        "-q",
+        "--no-ff",
+        "feature",
+        "-m",
+        "f",
+        when=datetime(2026, 10, 12, 3, tzinfo=UTC),
+    )
+    with pytest.raises(PromotionRecordError, match="first-parent chain"):
+        _plan(repo, _git(repo, "rev-parse", "HEAD"))
+    _git(repo, "switch", "-q", "main")
+    _git(repo, "switch", "-q", "-c", "data")
+    _write(repo, "data/cases/note.txt", "x")
+    _commit(repo, "data", datetime(2026, 10, 12, 4, tzinfo=UTC))
+    _git(repo, "switch", "-q", "main")
+    _git(
+        repo,
+        "merge",
+        "-q",
+        "--no-ff",
+        "data",
+        "-m",
+        "d",
+        when=datetime(2026, 10, 12, 5, tzinfo=UTC),
+    )
+    with pytest.raises(PromotionRecordError, match="not a promotion merge"):
+        _plan(repo, _git(repo, "rev-parse", "HEAD"))
 
 
 def test_a_taken_date_takes_the_next_suffix_and_an_existing_tag_is_adopted(
@@ -424,15 +537,16 @@ def test_a_taken_date_takes_the_next_suffix_and_an_existing_tag_is_adopted(
 ) -> None:
     repo, merge = promotion
     _git(repo, "tag", "-a", "promotion/2026-10-13", "-m", "another", f"{merge}^1")
-    assert plan_promotion_record(repo, merge).promotion_tag.name == "promotion/2026-10-13-2"
+    assert _plan(repo, merge).promotion_tag.name == "promotion/2026-10-13-2"
     _git(repo, "tag", "-a", "promotion/2026-10-13-2", "-m", "this one", merge)
-    tag = plan_promotion_record(repo, merge).promotion_tag
+    _git(repo, "tag", "-a", "nested", "-m", "a tag of a tag", "promotion/2026-10-13-2")
+    tag = _plan(repo, merge).promotion_tag
     assert (tag.name, tag.adopt) == ("promotion/2026-10-13-2", True)
 
 
 def test_apply_fills_and_stamps_once_and_loads(promotion: tuple[Path, str]) -> None:
     repo, merge = promotion
-    plan = plan_promotion_record(repo, merge)
+    plan = _plan(repo, merge)
     assert sorted(apply_promotion_record(repo, repo, plan)) == sorted(RECORD_PATHS)
     record = _read(repo, FREEZE_RECORD_PATH)
     assert f"`{merge}`" in record and "`2`" in record and "<FILL: apply run id>" in record
@@ -444,7 +558,7 @@ def test_apply_fills_and_stamps_once_and_loads(promotion: tuple[Path, str]) -> N
     assert any(
         w.digest == NEW_CLAUDE and w.opens == MERGED_AT for w in registered_windows(registry)
     )
-    assert apply_promotion_record(repo, repo, plan_promotion_record(repo, merge)) == []
+    assert apply_promotion_record(repo, repo, _plan(repo, merge)) == []
 
 
 def test_apply_writes_nothing_when_the_registry_is_refused(promotion: tuple[Path, str]) -> None:
@@ -455,16 +569,14 @@ def test_apply_writes_nothing_when_the_registry_is_refused(promotion: tuple[Path
         raise ValueError("refused")
 
     with pytest.raises(PromotionRecordError, match="refused"):
-        apply_promotion_record(
-            repo, repo, plan_promotion_record(repo, merge), check_registry=refuse
-        )
+        apply_promotion_record(repo, repo, _plan(repo, merge), check_registry=refuse)
     assert {path: _read(repo, path) for path in RECORD_PATHS} == before
 
 
 def test_apply_carries_onto_a_tip_that_moved_on(promotion: tuple[Path, str]) -> None:
     repo, merge = promotion
     _write(repo, FREEZE_RECORD_PATH, _read(repo, FREEZE_RECORD_PATH) + "\n- **A later entry.**\n")
-    apply_promotion_record(repo, repo, plan_promotion_record(repo, merge))
+    apply_promotion_record(repo, repo, _plan(repo, merge))
     record = _read(repo, FREEZE_RECORD_PATH)
     assert "A later entry." in record and f"`{merge}`" in record
 
@@ -473,17 +585,16 @@ def test_a_registration_the_parent_already_held_is_stale_not_stamped(
     promotion: tuple[Path, str],
 ) -> None:
     repo, _ = promotion
-    _git(repo, "switch", "-q", "-c", "late")
+    _git(repo, "switch", "-q", "staging")
     _write(repo, "data/note.txt", "x")
     _commit(repo, "late", MERGED_AT)
     _git(repo, "switch", "-q", "main")
     later = MERGED_AT + timedelta(hours=1)
-    _git(repo, "merge", "-q", "--no-ff", "late", "-m", "second promotion", when=later)
+    _git(repo, "merge", "-q", "--no-ff", "staging", "-m", "second promotion", when=later)
     second = _git(repo, "rev-parse", "HEAD")
-    plan = plan_promotion_record(repo, second)
+    plan = _plan(repo, second)
     assert plan.stamps == [] and plan.fills == []
     assert Stamp("label", NEW_LABEL) in plan.stale_pending
-    # Rendering the second merge's plan stamps nothing, so a stamp of the stale row is refused.
     before = {path: _read(repo, path) for path in RECORD_PATHS}
     forged = json.loads(before[REGISTRY_PATH])
     forged["labels"][-1]["since"] = {
@@ -500,34 +611,29 @@ def test_a_registration_the_parent_already_held_is_stale_not_stamped(
 def test_a_commit_that_is_not_a_merge_is_refused(promotion: tuple[Path, str]) -> None:
     repo, merge = promotion
     with pytest.raises(PromotionRecordError, match="two-parent"):
-        plan_promotion_record(repo, f"{merge}^1")
+        _plan(repo, f"{merge}^1")
 
 
-def test_a_merge_committed_before_its_parent_is_refused(tmp_path: Path) -> None:
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _git(repo, "init", "-q", "-b", "main")
-    _git(repo, "config", "user.email", "test@users.noreply.github.com")
-    _git(repo, "config", "user.name", "test")
+def test_a_merge_committed_before_a_parent_is_refused(tmp_path: Path) -> None:
+    repo = _init(tmp_path)
     _write(repo, "a.txt", "a")
     _commit(repo, "main", MERGED_AT)
-    _git(repo, "switch", "-q", "-c", "side")
+    _git(repo, "switch", "-q", "-c", "staging")
     _write(repo, "b.txt", "b")
-    _commit(repo, "side", MERGED_AT)
+    _commit(repo, "side", MERGED_AT + timedelta(hours=1))
     _git(repo, "switch", "-q", "main")
-    _git(repo, "merge", "-q", "--no-ff", "side", "-m", "m", when=MERGED_AT - timedelta(days=1))
-    with pytest.raises(PromotionRecordError, match="before its first parent"):
-        plan_promotion_record(repo, _git(repo, "rev-parse", "HEAD"))
+    _git(
+        repo, "merge", "-q", "--no-ff", "staging", "-m", "m", when=MERGED_AT + timedelta(minutes=1)
+    )
+    with pytest.raises(PromotionRecordError, match="before one of its parents"):
+        _plan(repo, _git(repo, "rev-parse", "HEAD"))
 
 
 def test_a_merge_before_a_registered_instant_is_refused(tmp_path: Path) -> None:
     """Stamping with a time before the instants already registered would close a window early."""
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _git(repo, "init", "-q", "-b", "main")
-    _git(repo, "config", "user.email", "test@users.noreply.github.com")
-    _git(repo, "config", "user.name", "test")
+    repo = _init(tmp_path)
     _write(repo, REGISTRY_PATH, dump_registry(DECLARED))
+    _write(repo, FREEZE_RECORD_PATH, _ENTRY_BEFORE)
     _commit(repo, "main", datetime(2026, 10, 1, tzinfo=UTC))
     _git(repo, "switch", "-q", "-c", "staging")
     _write(repo, REGISTRY_PATH, dump_registry(_registered()))
@@ -537,7 +643,7 @@ def test_a_merge_before_a_registered_instant_is_refused(tmp_path: Path) -> None:
         repo, "merge", "-q", "--no-ff", "staging", "-m", "m", when=datetime(2026, 10, 2, tzinfo=UTC)
     )
     with pytest.raises(PromotionRecordError, match="before the registered instant"):
-        plan_promotion_record(repo, _git(repo, "rev-parse", "HEAD"))
+        _plan(repo, _git(repo, "rev-parse", "HEAD"))
 
 
 def test_the_census_reads_stamps_on_the_merge_tree(promotion: tuple[Path, str]) -> None:
@@ -557,9 +663,40 @@ def test_main_holding_a_carried_pending_row_is_named_until_stamped(
     repo, merge = promotion
     problems = pending_carried_problems(repo, "HEAD")
     assert any(f"label {NEW_LABEL}: carried by {merge}" in problem for problem in problems)
-    apply_promotion_record(repo, repo, plan_promotion_record(repo, merge))
+    apply_promotion_record(repo, repo, _plan(repo, merge))
     _commit(repo, "promotion record", MERGED_AT + timedelta(minutes=1))
     assert pending_carried_problems(repo, "HEAD") == []
+
+
+def test_a_pending_row_on_main_without_a_carrying_merge_is_named(tmp_path: Path) -> None:
+    repo = _init(tmp_path)
+    _write(repo, REGISTRY_PATH, dump_registry(DECLARED))
+    _commit(repo, "main", datetime(2026, 10, 12, tzinfo=UTC))
+    _write(repo, REGISTRY_PATH, dump_registry(_registered()))
+    _commit(repo, "a direct commit", datetime(2026, 10, 12, 1, tzinfo=UTC))
+    problems = pending_carried_problems(repo, "HEAD")
+    assert any("no carrying merge found" in problem for problem in problems)
+
+
+def test_a_carrying_merge_past_the_walk_is_still_named(promotion: tuple[Path, str]) -> None:
+    repo, _ = promotion
+    for index in range(3):
+        _git(repo, "switch", "-q", "-c", f"b{index}")
+        _write(repo, f"f{index}", "x")
+        _commit(repo, "c", MERGED_AT + timedelta(minutes=index))
+        _git(repo, "switch", "-q", "main")
+        _git(
+            repo,
+            "merge",
+            "-q",
+            "--no-ff",
+            f"b{index}",
+            "-m",
+            "m",
+            when=MERGED_AT + timedelta(minutes=index, seconds=30),
+        )
+    problems = pending_carried_problems(repo, "HEAD", depth=2)
+    assert problems and all("within 2" in problem for problem in problems)
 
 
 # --- the jail ----------------------------------------------------------------
@@ -568,49 +705,121 @@ def test_main_holding_a_carried_pending_row_is_named_until_stamped(
 def _texts(repo: Path, rev: str) -> dict[str, str | None]:
     return {
         path: subprocess.run(
-            ["git", "-C", str(repo), "show", f"{rev}:{path}"],
+            ["git", "-C", str(repo), "cat-file", "blob", f"{rev}:{path}"],
             capture_output=True,
-            text=True,
             check=True,
-        ).stdout
+        ).stdout.decode("utf-8")
         for path in RECORD_PATHS
     }
 
 
-def _jail(repo: Path, merge: str, after: dict[str, str | None], changed: list[str]) -> list[str]:
-    before = _texts(repo, merge)
-    expected = render_promotion_record(repo, plan_promotion_record(repo, merge), before)
-    return promotion_record_diff_problems(changed, before, after, expected=expected)
+def _record_commit(repo: Path, merge: str, mutate: Any = None, *, tag: bool = True) -> str:
+    """The writer's sequence: tag the merge, apply, (tamper,) commit; returns the record commit."""
+    plan = _plan(repo, merge)
+    if tag:
+        _git(repo, "tag", "-a", plan.promotion_tag.name, "-m", plan.promotion_tag.message, merge)
+        if plan.prereg_tag is not None:
+            _git(repo, "tag", "-a", plan.prereg_tag.name, "-m", plan.prereg_tag.message, merge)
+    apply_promotion_record(repo, repo, plan)
+    if mutate is not None:
+        mutate(repo)
+    return _commit(repo, "promotion record", MERGED_AT + timedelta(minutes=5))
 
 
-def _applied(repo: Path, merge: str) -> dict[str, str | None]:
-    apply_promotion_record(repo, repo, plan_promotion_record(repo, merge))
-    return {path: _read(repo, path) for path in RECORD_PATHS}
+def _cli_jail(repo: Path, merge: str, head: str, monkeypatch: pytest.MonkeyPatch) -> Any:
+    monkeypatch.chdir(repo)
+    return CliRunner().invoke(
+        app,
+        [
+            "assert-promotion-record-diff",
+            "--merge",
+            merge,
+            "--base",
+            merge,
+            "--head",
+            head,
+            "--main-ref",
+            "main",
+            "--staging-ref",
+            "staging",
+        ],
+    )
 
 
-def test_the_jail_passes_exactly_the_plan(promotion: tuple[Path, str]) -> None:
+def test_the_jail_passes_exactly_the_plan(
+    promotion: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     repo, merge = promotion
-    assert _jail(repo, merge, _applied(repo, merge), list(RECORD_PATHS)) == []
+    result = _cli_jail(repo, merge, _record_commit(repo, merge), monkeypatch)
+    assert result.exit_code == 0, result.output
 
 
-def test_the_jail_refuses_a_forged_stamp(promotion: tuple[Path, str]) -> None:
+def test_the_jail_needs_the_tags_first(
+    promotion: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     repo, merge = promotion
-    after = _applied(repo, merge)
-    text = after[REGISTRY_PATH]
-    assert text is not None
-    forged = text.replace("2026-10-13T15:04:05Z", "2026-10-13T15:04:06Z", 1)
-    problems = _jail(repo, merge, {**after, REGISTRY_PATH: forged}, [REGISTRY_PATH])
-    assert any("differs from the plan" in problem for problem in problems)
+    result = _cli_jail(repo, merge, _record_commit(repo, merge, tag=False), monkeypatch)
+    assert result.exit_code == 1 and "does not yet name" in result.output
 
 
-def test_the_jail_refuses_markdown_in_a_stale_placeholder(promotion: tuple[Path, str]) -> None:
+def _swap(path: str, old: bytes, new: bytes) -> Any:
+    def mutate(repo: Path) -> None:
+        target = repo / path
+        target.write_bytes(target.read_bytes().replace(old, new))
+
+    return mutate
+
+
+def _chmod(path: str) -> Any:
+    def mutate(repo: Path) -> None:
+        os.chmod(repo / path, 0o755)
+
+    return mutate
+
+
+def _symlink(path: str) -> Any:
+    def mutate(repo: Path) -> None:
+        outside = repo.parent / "outside.md"
+        outside.write_bytes((repo / path).read_bytes())
+        (repo / path).unlink()
+        (repo / path).symlink_to(outside)
+
+    return mutate
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        _swap(FREEZE_RECORD_PATH, b"\n", b"\r\n"),
+        _swap(FREEZE_RECORD_PATH, b"\n", b"\r"),
+        _swap(REGISTRY_PATH, b"\n", b"\r\n"),
+        _swap(FREEZE_RECORD_PATH, b"# Freeze", "﻿# Freeze".encode()),
+        _swap(REGISTRY_PATH, b"15:04:05Z", b"15:04:06Z"),
+        _swap(FREEZE_RECORD_PATH, b"<FILL: promotion tag>", b"**retracted**"),
+        _chmod(FREEZE_RECORD_PATH),
+        _symlink(FREEZE_RECORD_PATH),
+    ],
+    ids=["crlf", "cr", "crlf-registry", "bom", "forged-time", "stale-injected", "mode", "symlink"],
+)
+def test_the_jail_refuses_a_tampered_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mutate: Any
+) -> None:
+    repo, merge = _promote(tmp_path)
+    result = _cli_jail(repo, merge, _record_commit(repo, merge, mutate), monkeypatch)
+    assert result.exit_code == 1, result.output
+
+
+def test_the_jail_refuses_any_other_path_even_with_a_space(
+    promotion: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     repo, merge = promotion
-    after = _applied(repo, merge)
-    text = after[FREEZE_RECORD_PATH]
-    assert text is not None
-    injected = text.replace("<FILL: promotion tag>", "**retracted**", 1)
-    problems = _jail(repo, merge, {**after, FREEZE_RECORD_PATH: injected}, [FREEZE_RECORD_PATH])
-    assert any("differs from the plan" in problem for problem in problems)
+
+    def stray(repo: Path) -> None:
+        _write(repo, "data/a b.txt", "x")
+
+    result = _cli_jail(repo, merge, _record_commit(repo, merge, stray), monkeypatch)
+    assert result.exit_code == 1
+    assert "data/a b.txt: a promotion record writes only" in result.output
 
 
 def test_the_jail_refuses_an_unclosed_marker_swallowing_an_entry(
@@ -632,27 +841,22 @@ def test_the_jail_refuses_an_unclosed_marker_swallowing_an_entry(
 
 def test_the_jail_refuses_a_registry_edit_beyond_stamps(promotion: tuple[Path, str]) -> None:
     repo, merge = promotion
-    after = _applied(repo, merge)
-    document = json.loads(after[REGISTRY_PATH] or "{}")
+    before = _texts(repo, merge)
+    plan = _plan(repo, merge)
+    expected = render_promotion_record(repo, plan, before)
+    document = json.loads(expected[REGISTRY_PATH] or "{}")
     document["blessings"][0]["actor_id"] = "someone-else"
-    problems = _jail(
-        repo, merge, {**after, REGISTRY_PATH: dump_registry(document)}, [REGISTRY_PATH]
-    )
+    after = {**expected, REGISTRY_PATH: dump_registry(document)}
+    problems = promotion_record_diff_problems([REGISTRY_PATH], before, after, expected=expected)
     assert any("other than pending stamps" in problem for problem in problems)
 
 
 def test_the_jail_reports_a_registry_that_is_not_json(promotion: tuple[Path, str]) -> None:
     repo, merge = promotion
-    after = {**_applied(repo, merge), REGISTRY_PATH: "{not json"}
-    problems = _jail(repo, merge, after, [REGISTRY_PATH])
+    before = _texts(repo, merge)
+    after = {**before, REGISTRY_PATH: "{not json"}
+    problems = promotion_record_diff_problems([REGISTRY_PATH], before, after)
     assert any("not JSON" in problem or "invalid" in problem for problem in problems)
-
-
-def test_the_jail_refuses_any_other_path(promotion: tuple[Path, str]) -> None:
-    repo, merge = promotion
-    texts = _texts(repo, merge)
-    problems = promotion_record_diff_problems(["src/fedcourtsai/cli.py"], texts, texts)
-    assert problems and "writes only" in problems[0]
 
 
 # --- the commands ------------------------------------------------------------
@@ -664,28 +868,28 @@ def test_the_commands_plan_apply_and_check(
     repo, merge = promotion
     monkeypatch.chdir(repo)
     runner = CliRunner()
-    planned = runner.invoke(app, ["promotion-record", "--merge", merge, "--check"])
+    refs = ["--main-ref", "main", "--staging-ref", "staging"]
+    planned = runner.invoke(app, ["promotion-record", "--merge", merge, "--check", *refs])
     assert planned.exit_code == 0, planned.output
     assert json.loads(planned.stdout)["promotion_tag"]["name"] == "promotion/2026-10-13"
+    assert runner.invoke(app, ["promotion-record", "--merge", merge]).exit_code == 2
     assert runner.invoke(app, ["promotion-record", "--check-main", "HEAD"]).exit_code == 1
-    applied = runner.invoke(app, ["promotion-record", "--merge", merge, "--apply"])
+    applied = runner.invoke(app, ["promotion-record", "--merge", merge, "--apply", *refs])
     assert applied.exit_code == 0, applied.output
-    jail = runner.invoke(app, ["assert-promotion-record-diff", "--merge", merge, "--base", merge])
-    assert jail.exit_code == 0, jail.output
     census = runner.invoke(
         app, ["digest-census", "--at", merge, "--kind", "predictions", "--digest", "aaaaaaaa"]
     )
     assert census.exit_code == 0 and census.stdout.strip() == "2"
-    _write(repo, "data/a b.txt", "x")
-    refused = runner.invoke(
-        app, ["assert-promotion-record-diff", "--merge", merge, "--base", merge]
-    )
-    assert refused.exit_code == 1
-    assert "data/a b.txt: a promotion record writes only" in refused.output
 
 
 def test_the_live_registry_has_no_pending_row() -> None:
-    """The committed registry carries nothing pending: every registration was stamped."""
+    """Nothing is registered pending before the writer that stamps it lands.
+
+    Until then a pending row on ``main`` could never be stamped, so the
+    committed registry holds none. Once the writer lands, ``promotion-record
+    --check-main`` takes over: a pending row on ``main`` is then a stamp that
+    did not land.
+    """
     carried = frozenset(process_version.FROZEN_PROCESS_DIGESTS)
     assert carried == process_version.REGISTERED_PROCESS_DIGESTS
     assert process_version.PENDING_REGISTRATIONS == ()
