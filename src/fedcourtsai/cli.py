@@ -59,7 +59,9 @@ from . import (
     integration_check,
     mcp,
     metrics_refresh,
+    process_registration,
     process_version,
+    promotion_record,
     provision,
     repo_gate,
     retrieval,
@@ -8816,6 +8818,299 @@ def process_digest_cmd(
             Path.cwd(), settings.config_root, actor_role, actor_id
         )
         typer.echo(f"{process_version.CURRENT_PROCESS_LABEL}  {actor_role}  {actor_id}  {digest}")
+
+
+#: The source file whose ``CURRENT_PROCESS_LABEL`` names the label cells stamp.
+_PROCESS_VERSION_SOURCE = "src/fedcourtsai/process_version.py"
+
+
+@app.command("register-process")
+def register_process_cmd(
+    label: Annotated[str, typer.Option(help="The label to register (`proc-vN`), named by hand.")],
+) -> None:
+    """Register a moved process as a pending label, in the PR that moves it.
+
+    Reads every enabled actor's digest off this tree, as ``process-digest
+    --all`` prints it, and writes ``process_registry.json``: the label with a
+    pending counting instant, a pending blessing for each digest that moved
+    (a digest that did not is carried forward with its bless moment), a
+    pending window for each newly blessed predictor digest, a pending close on
+    each window no live predictor computes, and the label in each live
+    evaluator digest's blessing labels. Sets ``CURRENT_PROCESS_LABEL`` to the
+    label. The merge that carries the PR to ``main`` stamps every pending
+    instant with its SHA and committer time (``promotion-record``).
+    """
+    settings = get_settings()
+    repo = Path.cwd()
+    actors = [
+        process_registration.LiveActor(
+            role,
+            actor_id,
+            process_version.digest_for_actor(repo, settings.config_root, role, actor_id),
+        )
+        for role, actor_id in [
+            ("predictor", p.id)
+            for p in enabled_predictors(settings.config_root / "predictors.yaml")
+        ]
+        + [
+            ("evaluator", e.id)
+            for e in enabled_evaluators(settings.config_root / "evaluators.yaml")
+        ]
+    ]
+    registry_path = repo / promotion_record.REGISTRY_PATH
+    source_path = repo / _PROCESS_VERSION_SOURCE
+    try:
+        document = process_registration.register_process(
+            json.loads(registry_path.read_text(encoding="utf-8")), label, actors
+        )
+        text = promotion_record.dump_registry(document)
+        process_version.load_process_registry(text, current_label=label)
+        source = process_registration.set_current_label(
+            source_path.read_text(encoding="utf-8"), label
+        )
+    except ValueError as exc:
+        typer.echo(f"register-process: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    registry_path.write_text(text, encoding="utf-8")
+    source_path.write_text(source, encoding="utf-8")
+    moved = [b for b in document["blessings"] if b["label"] == label]
+    typer.echo(f"registered {label}, pending: {len(moved)} digest(s) moved")
+    for blessing in moved:
+        typer.echo(f"  {blessing['role']}  {blessing['actor_id']}  {blessing['digest']}")
+
+
+@app.command("register-boundary")
+def register_boundary_cmd(
+    name: Annotated[str, typer.Option(help="The boundary's stable name.")],
+    reach: Annotated[
+        str,
+        typer.Option(
+            help="The cells the change can reach: self-represented dockets, granted dockets, "
+            "all, or replay cells."
+        ),
+    ],
+    predictors: Annotated[
+        str,
+        typer.Option(
+            help="Comma-separated predictor ids the boundary splits; empty for every one."
+        ),
+    ] = "",
+    gradual: Annotated[
+        bool,
+        typer.Option("--gradual", help="The change reaches the corpus through a back-fill pass."),
+    ] = False,
+) -> None:
+    """Register a harness boundary as pending, in the PR that makes the change.
+
+    Appends the boundary to ``process_registry.json`` with ``merge`` and ``at``
+    null. Until a merge stamps it, no cell has a side of it, so every cell
+    reads as it did before; the merge that carries the PR to ``main`` stamps
+    it with its SHA and committer time (``promotion-record``).
+    """
+    registry_path = Path.cwd() / promotion_record.REGISTRY_PATH
+    named = [p.strip() for p in predictors.split(",") if p.strip()] or None
+    try:
+        document = process_registration.register_boundary(
+            json.loads(registry_path.read_text(encoding="utf-8")),
+            name,
+            predictors=named,
+            reach=reach,
+            gradual=gradual,
+        )
+        text = promotion_record.dump_registry(document)
+        process_version.load_process_registry(text)
+    except ValueError as exc:
+        typer.echo(f"register-boundary: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    registry_path.write_text(text, encoding="utf-8")
+    typer.echo(f"registered boundary {name}, pending")
+
+
+def _check_stamped_registry(text: str) -> object:
+    """Load a rendered registry under its own last label, refusing what the loader refuses."""
+    labels = json.loads(text).get("labels") or [{}]
+    current = labels[-1].get("label") or process_version.CURRENT_PROCESS_LABEL
+    return process_version.load_process_registry(text, current_label=current)
+
+
+@app.command("promotion-record")
+def promotion_record_cmd(
+    merge: Annotated[
+        str, typer.Option(help="The staging→main promotion merge commit to plan.")
+    ] = "",
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the fills and stamps into the working tree's copies."),
+    ] = False,
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help="Exit 1 where the merge holds a pending registration an earlier merge "
+            "already carried.",
+        ),
+    ] = False,
+    check_main: Annotated[
+        str,
+        typer.Option(
+            "--check-main",
+            help="Instead of planning, exit 1 where this ref (e.g. origin/main) holds any "
+            "pending registration, naming the merge that carried each where it finds one.",
+        ),
+    ] = "",
+    main_ref: Annotated[
+        str, typer.Option("--main-ref", help="The ref whose first-parent chain holds the merge.")
+    ] = "",
+    staging_ref: Annotated[
+        str,
+        typer.Option("--staging-ref", help="The ref that must reach the merge's second parent."),
+    ] = "",
+) -> None:
+    """Print what a promotion merge owes ``main``: tags, placeholder fills, stamps.
+
+    Pure: reads only the merge, its first parent and the repository's tags,
+    which the caller fetches first — a tag missing locally reads as a free
+    name. The plan names the ``promotion/<UTC date>`` tag (adopting one that
+    already names the merge), a ``prereg/<label>`` tag on the merge where it
+    added a label, each ``<FILL:>`` placeholder the merge added with its value
+    where the closed key set has one (tag, merge SHA, merge time, digest
+    census) and the free-text ones a maintainer completes, and each pending
+    registration the merge added, to stamp with its SHA and committer time.
+    ``--main-ref`` and ``--staging-ref`` are required with ``--merge``: only a
+    merge on main's first-parent chain whose second parent staging reaches is
+    a promotion merge, so a data PR merged with a merge commit is refused.
+    ``--apply`` renders both files first and writes nothing unless both
+    render and the stamped registry loads; it creates no tag and no commit,
+    and its caller commits the result and then jails that commit
+    (``assert-promotion-record-diff --head``). ``--check-main`` names every
+    pending row on the ref, so a stamp that never landed cannot go unnoticed.
+    """
+    repo = Path.cwd()
+    if check_main:
+        try:
+            problems = promotion_record.pending_carried_problems(repo, check_main)
+        except promotion_record.PromotionRecordError as exc:
+            typer.echo(f"promotion-record: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        for problem in problems:
+            typer.echo(f"::error::{problem}", err=True)
+        if problems:
+            raise typer.Exit(code=1)
+        typer.echo(f"{check_main}: no pending registration a merge already carried")
+        return
+    if not (merge and main_ref and staging_ref):
+        typer.echo(
+            "promotion-record: pass --merge with --main-ref and --staging-ref, or --check-main",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    try:
+        plan = promotion_record.plan_promotion_record(
+            repo, merge, main_ref=main_ref, staging_ref=staging_ref
+        )
+        changed = (
+            promotion_record.apply_promotion_record(
+                repo, repo, plan, check_registry=_check_stamped_registry
+            )
+            if apply
+            else []
+        )
+    except promotion_record.PromotionRecordError as exc:
+        typer.echo(f"promotion-record: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    payload = plan.to_json()
+    payload["applied"] = changed
+    typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
+    if check and plan.stale_pending:
+        typer.echo(
+            "promotion-record: pending registrations an earlier merge carried: "
+            + ", ".join(f"{s.kind} {s.ident}" for s in plan.stale_pending),
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command("digest-census")
+def digest_census_cmd(
+    at: Annotated[str, typer.Option("--at", help="The commit whose tree is counted.")],
+    kind: Annotated[str, typer.Option(help="predictions | evaluations.")],
+    digest: Annotated[
+        str, typer.Option(help="Comma-separated digest hex prefixes (8+ characters).")
+    ],
+) -> None:
+    """Print how many committed artifacts of a kind carry any of the given digests at a commit.
+
+    The census a ``<FILL:census …>`` placeholder is filled with: every
+    ``prediction.json`` (or ``evaluation.json``) under ``data/cases`` on the
+    commit's tree whose stamped ``process_version.digest`` starts with one of
+    the prefixes.
+    """
+    try:
+        count = promotion_record.digest_census(
+            Path.cwd(), at, kind, [d.strip() for d in digest.split(",") if d.strip()]
+        )
+    except promotion_record.PromotionRecordError as exc:
+        typer.echo(f"digest-census: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(str(count))
+
+
+@app.command("assert-promotion-record-diff")
+def assert_promotion_record_diff_cmd(
+    merge: Annotated[str, typer.Option(help="The promotion merge the record is written for.")],
+    base: Annotated[str, typer.Option(help="The commit the promotion record is written on.")],
+    head: Annotated[str, typer.Option(help="The record commit to check — the one pushed.")],
+    main_ref: Annotated[
+        str, typer.Option("--main-ref", help="The ref whose first-parent chain holds the merge.")
+    ],
+    staging_ref: Annotated[
+        str,
+        typer.Option("--staging-ref", help="The ref that must reach the merge's second parent."),
+    ],
+) -> None:
+    """Refuse a promotion-record commit that is not exactly the merge's plan.
+
+    Jails the commit the writer pushes, never a working tree. ``base`` must be
+    ``--main-ref``'s tip, ``head`` must have exactly that one parent, and the
+    merge must be an ancestor of ``base``. Recomputes ``promotion-record
+    --merge``'s plan, renders it onto ``base``'s copies (the stamped registry
+    loading as the loader requires), and requires ``head``'s
+    ``process_registry.json`` and ``docs/freeze-record.md`` to equal that
+    rendering byte for byte — so every stamp carries the merge's own SHA and
+    committer time and no free-text or stale placeholder moves. Requires the
+    plan's ``promotion/`` and ``prereg/`` tags to already name the merge as
+    annotated tags carrying the plan's messages, since the writer tags first
+    and commits the record after. Checks structurally besides: only those two
+    paths, each still a regular ``100644`` file, no submodule anywhere, the
+    registry only by stamping pending rows, the freeze record only by
+    replacing placeholders with one-line values. Exit 1 naming every excess.
+    """
+    repo = Path.cwd()
+    paths = promotion_record.RECORD_PATHS
+    try:
+        problems = promotion_record.topology_problems(repo, merge, base, head, main_ref)
+        changed, mode_problems = promotion_record.changed_between(repo, base, head)
+        problems += mode_problems
+        after = {path: promotion_record.show_at(repo, head, path) for path in paths}
+        before = {path: promotion_record.show_at(repo, base, path) for path in paths}
+        plan = promotion_record.plan_promotion_record(
+            repo, merge, main_ref=main_ref, staging_ref=staging_ref
+        )
+        expected = promotion_record.render_promotion_record(
+            repo, plan, before, check_registry=_check_stamped_registry
+        )
+    except promotion_record.PromotionRecordError as exc:
+        typer.echo(f"::error::assert-promotion-record-diff: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    problems += promotion_record.tag_problems(repo, plan)
+    problems += promotion_record.promotion_record_diff_problems(
+        changed, before, after, expected=expected
+    )
+    for problem in problems:
+        typer.echo(f"::error::{problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"promotion record diff ok: {', '.join(changed) or 'no change'}")
 
 
 @app.command("record-retrieval")

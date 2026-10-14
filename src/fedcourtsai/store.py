@@ -39,6 +39,7 @@ from .process_version import (
     counted_on_event,
     freeze_in_force,
     graded_in_window,
+    is_pending,
     refuse_shared_labels,
     resolvable_runs,
     window_of,
@@ -807,6 +808,12 @@ def predictor_holds_no_counted_prediction(
     * **No freeze is in force.** There is then one process scope, every
       committed prediction is in it, and the partition this rule repairs does
       not exist.
+    * **A cell is pending** (:func:`fedcourtsai.process_version.is_pending`):
+      its digest is registered but its registration's carrying merge has not
+      stamped it yet. It counts nowhere today, but it is not de-counted — the
+      stamp opens its window — so re-owing the event would buy a second
+      forecast of a moment the engine has already forecast under the process
+      about to count.
 
     What this reading deliberately does **not** repair: a predictor holding a
     counted cell at an older run and a de-counted one at its latest.
@@ -822,6 +829,8 @@ def predictor_holds_no_counted_prediction(
     predictions_root = CasePaths(data_root, court_id, docket_id).event(event_id).predictions_dir
     pattern = f"{predictor_id}/*/prediction.json"
     runs = [read_model(path, Prediction) for path in predictions_root.glob(pattern)]
+    if any(is_pending(run.process_version) for run in runs):
+        return False
     return bool(runs) and not any(_counted_among(run, runs) for run in runs)
 
 

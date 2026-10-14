@@ -225,10 +225,19 @@ def test_the_boundary_reach_vocabulary_is_one_vocabulary() -> None:
     assert get_args(BoundaryReach.__value__) == get_args(RegistryBoundaryReach)
 
 
-def test_a_registration_no_merge_carried_is_refused() -> None:
+def test_a_half_pending_instant_is_refused() -> None:
+    """An instant is pending only with both `at` and `merge` null; one alone is refused."""
     raw = json.loads(_REGISTRY_FILE.read_text(encoding="utf-8"))
     raw["labels"][-1]["since"]["merge"] = None
-    with pytest.raises(ValueError, match="carries no merge"):
+    with pytest.raises(ValueError, match="together, or neither"):
+        load_process_registry(json.dumps(raw))
+
+
+def test_a_carried_label_cannot_go_back_to_pending() -> None:
+    """Only the label a PR registers may be pending; a carried one keeps its stamp."""
+    raw = json.loads(_REGISTRY_FILE.read_text(encoding="utf-8"))
+    raw["labels"][0]["since"] = {"at": None, "merge": None, "source": "merge"}
+    with pytest.raises(ValueError, match="may be pending"):
         load_process_registry(json.dumps(raw))
 
 
@@ -352,6 +361,8 @@ def _registered_instants() -> list[tuple[str, Any]]:
 )
 def test_every_instant_is_audited_against_its_merge(instant: Any) -> None:
     """A ``merge`` instant is its merge's committer time; a ``hand`` one is at or after it."""
+    if instant.pending:
+        pytest.skip("pending: no merge has carried it yet, so there is nothing to audit")
     committed = _committed_at(instant.merge)
     if instant.source == "merge":
         assert instant.at == committed

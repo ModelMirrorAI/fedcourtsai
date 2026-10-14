@@ -155,6 +155,14 @@
           "title": "Digests",
           "type": "array"
         },
+        "pending": {
+          "description": "Each registration the build's registry held as pending \u2014 written by the PR that registers it, not yet stamped by the merge that carries it \u2014 as `<kind> <ident>` (`label proc-vN`, `blessing <digest>`, `window-opens <label> <digest>`, `window-closes <label> <digest>`, `boundary <name>`). Nothing pending counts, opens, closes or splits, so a board built while any is pending reads them here. Omitted while empty",
+          "items": {
+            "type": "string"
+          },
+          "title": "Pending",
+          "type": "array"
+        },
         "since": {
           "anyOf": [
             {
