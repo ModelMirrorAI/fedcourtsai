@@ -29,7 +29,18 @@ import pytest
 import yaml
 
 from fedcourtsai.promotion_record import FREEZE_RECORD_PATH, REGISTRY_PATH, tag_message
-from tests.test_promotion_record import MERGED_AT, _git, _promote
+from tests.test_promotion_record import MERGED_AT, _promote
+
+#: The identity every helper git call commits and tags under. A CI runner has
+#: no global git identity, so the tests supply one rather than lean on the
+#: developer's; the writer's own calls instead read the identity its checkout
+#: is configured with, as the workflow's identity step provides it.
+IDENTITY = {
+    "GIT_AUTHOR_NAME": "test",
+    "GIT_AUTHOR_EMAIL": "test@users.noreply.github.com",
+    "GIT_COMMITTER_NAME": "test",
+    "GIT_COMMITTER_EMAIL": "test@users.noreply.github.com",
+}
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "promotion-record.yml"
@@ -52,6 +63,21 @@ def _step(job: str, name: str) -> dict[str, Any]:
 
 def _index(job: str, predicate: Any) -> int:
     return next(i for i, step in enumerate(_steps(job)) if predicate(step))
+
+
+@pytest.fixture(autouse=True)
+def _identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key, value in IDENTITY.items():
+        monkeypatch.setenv(key, value)
+
+
+def _git(repo: Path, *args: str) -> str:
+    """Run git in ``repo``; a failure names the command and git's own message."""
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, f"git {' '.join(args)}: {result.stderr.strip()}"
+    return result.stdout.strip()
 
 
 # --- the workflow's shape ----------------------------------------------------
@@ -265,17 +291,17 @@ def _setup(tmp_path: Path) -> tuple[Path, Path, str, dict[str, str]]:
     """A synthetic promotion pushed to a bare remote, and a fresh checkout of it."""
     repo, merge = _promote(tmp_path)
     remote = tmp_path / "remote.git"
-    _git(tmp_path, "init", "-q", "--bare", str(remote))
+    _git(tmp_path, "init", "-q", "--bare", "--initial-branch=main", str(remote))
     _git(repo, "push", "-q", str(remote), "main", "staging")
     work = tmp_path / "work"
-    _git(tmp_path, "clone", "-q", str(remote), str(work))
+    _git(tmp_path, "clone", "-q", "--branch", "main", str(remote), str(work))
     _git(work, "config", "user.email", "writer@users.noreply.github.com")
     _git(work, "config", "user.name", "writer")
     _git(work, "config", "core.autocrlf", "false")
     runner_temp = tmp_path / "runner"
     runner_temp.mkdir()
     env = {
-        **os.environ,
+        **{key: value for key, value in os.environ.items() if key not in IDENTITY},
         "PATH": f"{_shim(tmp_path)}{os.pathsep}{os.environ['PATH']}",
         "GITHUB_REPOSITORY": "owner/repo",
         "RUNNER_TEMP": str(runner_temp),
@@ -368,7 +394,7 @@ def test_a_second_run_adopts_the_tags_and_commits_nothing(tmp_path: Path) -> Non
 def _advance_main(tmp_path: Path, remote: Path) -> str:
     """A data commit lands on main from elsewhere; returns the new tip."""
     other = tmp_path / "other"
-    _git(tmp_path, "clone", "-q", str(remote), str(other))
+    _git(tmp_path, "clone", "-q", "--branch", "main", str(remote), str(other))
     _git(other, "config", "user.email", "data@users.noreply.github.com")
     _git(other, "config", "user.name", "data")
     (other / "data.txt").write_text("a data commit\n", encoding="utf-8")
