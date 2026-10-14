@@ -36,6 +36,16 @@
 # the jail lives in it.
 /src/fedcourtsai/required_checks.py @modelmirror
 /src/fedcourtsai/collect.py @modelmirror
+# The process registry: the record a registration edits (a pre-registration),
+# the Step 0 checks `promotion-gate.sh registry` runs on it, and the plan and
+# jail deciding what a promotion merge may stamp and push to `main`.
+/src/fedcourtsai/process_registry.json @modelmirror
+/src/fedcourtsai/registry_gate.py @modelmirror
+/src/fedcourtsai/promotion_record.py @modelmirror
+/src/fedcourtsai/process_registration.py @modelmirror
+/tests/test_registry_gate.py @modelmirror
+/tests/test_promotion_record.py @modelmirror
+/tests/test_process_registry.py @modelmirror
 
 # What agents are and what they may reach.
 /config/predictors.yaml @modelmirror

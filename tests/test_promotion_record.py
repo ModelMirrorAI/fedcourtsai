@@ -159,7 +159,7 @@ def test_pending_rows_read_in_the_safe_direction() -> None:
 
 def test_a_pending_boundary_is_registered_but_splits_nothing() -> None:
     document = register_boundary(
-        COMMITTED, "test-change", predictors=None, reach="all", gradual=False
+        DECLARED, "test-change", predictors=None, reach="all", gradual=False
     )
     registry = load_process_registry(dump_registry(document))
     assert registry.harness_boundaries[-1].pending
@@ -177,6 +177,11 @@ def test_a_pending_boundary_does_not_block_a_label() -> None:
 def test_no_label_is_registered_before_the_rule_is_declared() -> None:
     with pytest.raises(RegistrationError, match="merge_stamping_declared"):
         register_process(COMMITTED, NEW_LABEL, _live_fleet())
+
+
+def test_no_boundary_is_registered_before_the_rule_is_declared() -> None:
+    with pytest.raises(RegistrationError, match="merge_stamping_declared"):
+        register_boundary(COMMITTED, "early", predictors=None, reach="all", gradual=False)
 
 
 @pytest.mark.parametrize(
@@ -203,7 +208,7 @@ def test_a_second_registration_waits_for_the_first_merge() -> None:
 def test_a_reused_boundary_name_is_refused() -> None:
     name = COMMITTED["harness_boundaries"][0]["name"]
     with pytest.raises(RegistrationError, match="already registered"):
-        register_boundary(COMMITTED, name, predictors=None, reach="all", gradual=False)
+        register_boundary(DECLARED, name, predictors=None, reach="all", gradual=False)
 
 
 def test_the_label_line_is_set_once() -> None:
@@ -402,6 +407,25 @@ def _old_claude_window() -> str:
         for w in COMMITTED["windows"]
         if w["predictor_id"] == "claude-baseline" and w["closes"] is None
     )
+
+
+def test_the_first_promotion_carrying_the_record_mints_no_prereg_tag(tmp_path: Path) -> None:
+    """``main`` before the record holds no registry file; its labels were frozen
+    by hand and their prereg/ tags made then. The promotion that carries the
+    record in adds no label, so it mints no tag and refuses none."""
+    repo = _init(tmp_path)
+    _write(repo, FREEZE_RECORD_PATH, _ENTRY_BEFORE)
+    _commit(repo, "main", datetime(2026, 10, 12, tzinfo=UTC))
+    for entry in COMMITTED["labels"]:
+        _git(repo, "tag", "-a", f"prereg/{entry['label']}", "-m", "hand freeze", "main")
+    _git(repo, "switch", "-q", "-c", "staging")
+    _write(repo, REGISTRY_PATH, dump_registry(COMMITTED))
+    _commit(repo, "the record", datetime(2026, 10, 12, 12, tzinfo=UTC))
+    _git(repo, "switch", "-q", "main")
+    _git(repo, "merge", "-q", "--no-ff", "staging", "-m", "promote", when=MERGED_AT)
+    plan = _plan(repo, _git(repo, "rev-parse", "HEAD"))
+    assert plan.prereg_tag is None
+    assert plan.stamps == []
 
 
 def test_the_plan_names_the_tag_the_fills_and_the_stamps(promotion: tuple[Path, str]) -> None:

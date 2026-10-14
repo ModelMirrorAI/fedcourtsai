@@ -32,7 +32,14 @@ name: promote
 #      carries code/config only; main is the pre-registration record. When it
 #      does not, the summary prints the merge-and-push commands (run them,
 #      resolving any conflict in the merge commit) and the run fails.
-#   3. Freshness gate at the staging head: every required integration
+#   3. Process registry gate (Step 0) at the staging head: every pending
+#      registration the batch carries must be stampable by its merge — main
+#      declares merge-stamped instants, no pending digest already in main's
+#      ledger, every live digest registered, one open window per predictor,
+#      at most one new label and its prereg tag not yet made, no repeated
+#      boundary, nothing pending already on main (scripts/promotion-gate.sh
+#      `registry`; the full list is in its header).
+#   4. Freshness gate at the staging head: every required integration
 #      scenario green at exactly that sha. After a sync moved staging this
 #      fails by construction — the summary prints the scenario dispatch
 #      commands (each runs from the staging branch, which is the gate), and
@@ -113,6 +120,24 @@ jobs:
               echo '```'
             } >>"$GITHUB_STEP_SUMMARY"
             echo "::error::staging does not contain main — run the sync commands in the step summary, then re-dispatch"
+            exit 1
+          fi
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+      - name: Process registry gate at the staging head
+        # Before freshness: it reads git alone and needs no dispatch, so a batch
+        # whose registrations cannot be stamped is refused before anyone pays
+        # for an integration run at its head.
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse origin/staging)
+          if ! scripts/promotion-gate.sh registry "$sha"; then
+            {
+              echo "## Process registry refused at \`${sha}\`"
+              echo
+              echo "Step 0 of a process move is the gate's: the annotations above name each refusal. Fix the registration on staging (\`fedcourts register-process\` / \`register-boundary\` in a PR), then re-dispatch this workflow."
+            } >>"$GITHUB_STEP_SUMMARY"
             exit 1
           fi
       - name: Freshness gate at the staging head

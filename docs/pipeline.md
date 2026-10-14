@@ -1568,9 +1568,20 @@ The mechanics:
   required integration scenario green at exactly the staging head being
   promoted — one green `scenario=gate` run, which succeeds only when every
   matrix leg and its collect job does, satisfies all twelve required runs at
-  once, engine-smoke and engine-actions-smoke counted once per engine each).
+  once, engine-smoke and engine-actions-smoke counted once per engine each),
+  and the *process registry* (Step 0 of a process move, on every batch: the
+  head's registry must exist and load; a batch carrying anything pending
+  needs `main` to declare merge-stamped instants; no digest the batch holds
+  pending may already stamp a committed cell on `main`; every enabled actor's
+  digest at the head must be registered; each predictor keeps at most one
+  open window, a pending close counting as a close; the batch carries at most
+  one label new to `main`, with no `prereg/` tag yet; no boundary name may
+  repeat; and nothing may already sit pending on `main` — `fedcourts
+  registry-gate`, read from git alone, so both call sites check out full
+  history with tags).
   The `promote` dispatch runs
-  it as pre-flight; ci.yml's `promotion-gate` job runs it as a required
+  it as pre-flight, the registry stage before freshness since it needs no
+  dispatch; ci.yml's `promotion-gate` job runs it as a required
   check on the promotion PR.
   Re-run that check right before merging — quiescence is point-in-time.
 - **The engine-smoke skip, and how far it reaches.** Waiving the six

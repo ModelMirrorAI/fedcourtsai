@@ -533,6 +533,27 @@ stamp a label's instants only under a rule a dated freeze-record entry
 already declares on `main`, so that entry lands first and the registration
 after it. `fedcourts register-boundary` appends a pending boundary.
 
+Step 0 is the promotion gate's, on every batch: `scripts/promotion-gate.sh
+registry <sha>` (in `all`, so the required `promotion-gate` check runs it)
+refuses a batch whose registrations its merge could not stamp honestly:
+- a head with no registry, or one that does not load (then reporting only
+  that and `main`'s own pending rows, since the other checks read its fields);
+- a pending registration on a `main` that does not yet declare merge-stamped
+  instants (`merge_stamping_declared` and its freeze-record entry), which no
+  merge would stamp;
+- a pending digest that already stamps a committed cell on `main`;
+- an enabled actor whose digest at the head is not registered;
+- a predictor with more than one open window (unrevoked, no close; a pending
+  close counts as a close);
+- more than one label new to `main` (one label per promotion), or such a
+  label whose `prereg/` tag already exists;
+- a repeated boundary name, or a pending row already sitting on `main`.
+
+A `main` with no registry **file** yet holds every label the record moved in
+from code, whose `prereg/` tags were made by hand; a registry file that is
+present but empty holds none. `register-boundary`, like `register-process`,
+refuses while `merge_stamping_declared` is unset.
+
 `fedcourts promotion-record --merge <sha> --main-ref <ref> --staging-ref <ref>`
 says what a promotion merge owes `main`, from git alone; a caller fetches tags
 first, since a tag missing locally reads as a free name. Only a merge on
@@ -611,7 +632,9 @@ commit, never a working tree, and checks:
 
 `fedcourts promotion-record --check-main <ref>` names every pending row on the
 ref, with the merge that carried it where one is found within its walk, so a
-stamp that never landed is caught.
+stamp that never landed is caught. The gate's `registry` stage runs the same
+check against `origin/main` on every promotion, so a batch cannot promote
+over a stamp that never landed.
 
 Nothing stamps until a writer that runs these on a promotion merge lands.
 Until then the cutover procedure below is how a label is frozen, with its
@@ -765,8 +788,11 @@ land; recording and tagging that commit complete the procedure:
    the same way, so both halves are preconditions the suite enforces — at
    the promotion PR, whose merge-preview checkout holds `main`'s ledger; a
    staging run walks a ledger that lags it, which is why the grep targets
-   `origin/main`. Record what the grep found in the freeze record either way,
-   and **re-run it at promotion time**, since cells land continuously and the
+   `origin/main`. Record what the grep found in the freeze record either way.
+   The re-run at promotion time is the promotion gate's: its `registry` stage
+   (`fedcourts registry-gate`, on every batch) refuses a promotion where any
+   digest the batch holds pending already stamps a committed prediction or
+   evaluation on `origin/main`, since cells land continuously and the
    authoring-time check can go stale.
 1. Read the current digests: `fedcourts process-digest --all` prints the label,
    role, id, and digest of every enabled predictor and evaluator.

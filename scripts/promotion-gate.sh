@@ -47,11 +47,28 @@
 #       administration read, which `GITHUB_TOKEN` cannot hold at all — hence
 #       not part of `promotion-gate.sh all`, and the maintainer's to run.
 #
+#   scripts/promotion-gate.sh registry <sha>
+#       Step 0 of a process move, checked on every batch: the process registry
+#       at <sha> must exist, load, and be stampable by the merge that carries
+#       it to `main`. A batch carrying anything pending needs `origin/main` to
+#       declare merge-stamped instants; no digest it holds pending may already
+#       stamp a committed cell on `origin/main`; every enabled actor's digest
+#       at <sha> must be registered; each predictor keeps at most one open
+#       window (a pending close counts as a close); the batch carries at most
+#       one label new to `main`, with no `prereg/` tag yet; no boundary name
+#       may repeat; and nothing may already sit pending on `origin/main`.
+#       The logic is tested Python (`fedcourts registry-gate`,
+#       src/fedcourtsai/registry_gate.py); it reads git alone — <sha>'s tree,
+#       `origin/main` and the local tags — so the caller fetches `main` and
+#       the tags first (`git fetch origin --tags`; CI's checkout already holds
+#       them, with full history).
+#
 #   scripts/promotion-gate.sh all <sha>
-#       The quiesce and freshness stages, in order.
+#       The quiesce, freshness and registry stages, in order.
 #
 # quiesce and freshness need `gh` with Actions read (GH_TOKEN in CI); contexts
-# additionally needs repository administration read (see above).
+# additionally needs repository administration read (see above); registry
+# needs `uv` and the fetched refs, and no token.
 #
 # Two environment variables move the required set, and they are not peers:
 #
@@ -386,6 +403,26 @@ contexts() {
   esac
 }
 
+registry() {
+  local sha="$1" main
+  # Refuse rather than read a missing `main`: the stage compares the batch
+  # against main's ledger, registry and tags, and a ref that is not there
+  # would read as a registry-less main with an empty ledger. The stage does
+  # not fetch — CI's checkout already holds every branch and tag — so a local
+  # run fetches first: `git fetch origin --tags`.
+  if ! main="$(git rev-parse --verify -q "origin/main^{commit}")"; then
+    echo "::error::registry: origin/main is not fetched — fetch main and the tags first"
+    fail=1
+    return
+  fi
+  echo "registry: checking ${sha} against origin/main at ${main}"
+  # The checks are tested Python (tests/test_registry_gate.py); this only
+  # names what it compares.
+  if ! uv run fedcourts registry-gate --at "$sha" --main-ref origin/main; then
+    fail=1
+  fi
+}
+
 case "${1:-}" in
   quiesce)
     quiesce
@@ -396,12 +433,16 @@ case "${1:-}" in
   contexts)
     contexts "${@:2}"
     ;;
+  registry)
+    registry "${2:?usage: promotion-gate.sh registry <sha>}"
+    ;;
   all)
     quiesce
     freshness "${2:?usage: promotion-gate.sh all <sha>}"
+    registry "$2"
     ;;
   *)
-    echo "usage: scripts/promotion-gate.sh {quiesce|freshness <sha>|contexts [candidate...]|all <sha>}" >&2
+    echo "usage: scripts/promotion-gate.sh {quiesce|freshness <sha>|contexts [candidate...]|registry <sha>|all <sha>}" >&2
     exit 2
     ;;
 esac

@@ -63,6 +63,7 @@ from . import (
     process_version,
     promotion_record,
     provision,
+    registry_gate,
     repo_gate,
     retrieval,
     scope_manifest,
@@ -8905,7 +8906,9 @@ def register_boundary_cmd(
     Appends the boundary to ``process_registry.json`` with ``merge`` and ``at``
     null. Until a merge stamps it, no cell has a side of it, so every cell
     reads as it did before; the merge that carries the PR to ``main`` stamps
-    it with its SHA and committer time (``promotion-record``).
+    it with its SHA and committer time (``promotion-record``). Refuses, like
+    ``register-process``, while the registry's ``merge_stamping_declared`` is
+    unset: nothing would stamp the boundary.
     """
     registry_path = Path.cwd() / promotion_record.REGISTRY_PATH
     named = [p.strip() for p in predictors.split(",") if p.strip()] or None
@@ -9028,6 +9031,40 @@ def promotion_record_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
+
+
+@app.command("registry-gate")
+def registry_gate_cmd(
+    at: Annotated[str, typer.Option("--at", help="The batch's head: the commit to promote.")],
+    main_ref: Annotated[
+        str, typer.Option("--main-ref", help="The ref holding main's ledger and registry.")
+    ],
+) -> None:
+    """The promotion gate's Step 0: refuse a batch whose process registrations cannot be stamped.
+
+    Reads the registry, config and prompts at ``--at`` and the ledger, registry
+    and tags of ``--main-ref``, from git alone, whatever tree is checked out.
+    Refuses first a batch with no registry or one that does not load; then
+    pending registrations on a main that does not declare merge-stamped
+    instants, a pending digest that already stamps a committed cell on main,
+    an unregistered enabled actor, a predictor with more than one open window,
+    more than one label new to main or one whose ``prereg/`` tag already
+    exists, a repeated boundary name, and a pending row already on main. Tags
+    are read locally, so the caller fetches them first
+    (``git fetch origin --tags``).
+    """
+    repo = Path.cwd()
+    try:
+        actors = registry_gate.live_actors_at(repo, at)
+        result = registry_gate.registry_gate(repo, at, main_ref, actors)
+    except (promotion_record.PromotionRecordError, KeyError, OSError, ValueError) as exc:
+        typer.echo(f"::error::registry-gate: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    for problem in result.problems:
+        typer.echo(f"::error::registry: {problem}", err=True)
+    if result.problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"registry: {result.pending} pending, step 0 clean")
 
 
 @app.command("digest-census")
