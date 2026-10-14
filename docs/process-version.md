@@ -576,6 +576,15 @@ placeholders, while a landed one adds nothing:
   insertion (the comparison is bounded and fails closed);
 - not where the entry is moved, since its heading is not new.
 
+Every placeholder the first parent's record holds must also reach the merge's
+record on its own line, verbatim or filled: the same line with each
+placeholder replaced by a one-line value holding no `<`, `>` or backtick. A
+landed placeholder whose line was reworded, rewrapped, joined onto its
+heading or deleted makes the plan **refuse**, naming it, rather than guess
+which placeholder became which. A promotion that carries a hand-written fill
+which rewraps its lines is therefore refused and handled by hand. Fills of
+landed placeholders reach `main` directly rather than riding a promotion.
+
 The plan refuses a merge committed
 before either parent, in the future, or before an instant the registry
 already holds; those catch a clock error, and the `main` ruleset, under which

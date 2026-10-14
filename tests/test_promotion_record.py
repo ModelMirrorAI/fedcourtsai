@@ -432,13 +432,6 @@ def test_the_plan_names_the_tag_the_fills_and_the_stamps(promotion: tuple[Path, 
 @pytest.mark.parametrize(
     ("before", "after"),
     [
-        # A typo fixed on a landed line.
-        (
-            "- **An entyr.** Owes `<FILL: merge hash>`.\n",
-            "- **An entry.** Owes `<FILL: merge hash>`.\n",
-        ),
-        # A placeholder renamed in place.
-        ("- **A.** Merge `<FILL: merge hash>`.\n", "- **A.** Merge `<FILL: merge sha>`.\n"),
         # A landed entry moved below another.
         (
             "# R\n\n- **A (2026-09-01).** Merge `<FILL: merge hash>`.\n\n- **B.** Prose.\n",
@@ -450,14 +443,51 @@ def test_the_plan_names_the_tag_the_fills_and_the_stamps(promotion: tuple[Path, 
             "# R\n\n- **B.** l1\n  l2\n  l3\n  l4\n\n- **A.** Merge `<FILL: merge hash>`.\n",
         ),
     ],
-    ids=["typo", "rename", "moved", "moved-far"],
+    ids=["moved", "moved-far"],
 )
-def test_an_edited_or_moved_landed_placeholder_is_stale(
-    tmp_path: Path, before: str, after: str
-) -> None:
+def test_a_moved_landed_placeholder_is_stale(tmp_path: Path, before: str, after: str) -> None:
     repo, merge = _promote(tmp_path, before=before, staging_record=after, staging_registry=DECLARED)
     plan = _plan(repo, merge)
     assert plan.fills == [] and len(plan.stale_placeholders) == 1
+
+
+_LANDED = (
+    "# Freeze record\n\n- **Landed entry (2026-09-01).** Text.\n"
+    "  Merge `<FILL: merge hash>` owed by an earlier merge.\n"
+)
+
+
+@pytest.mark.parametrize(
+    "after",
+    [
+        # A typo fixed on a landed line.
+        _LANDED.replace("owed by", "owed bye"),
+        # A placeholder renamed in place.
+        _LANDED.replace("merge hash", "merge sha"),
+        # H8: the placeholder line joined onto its heading.
+        _LANDED.replace("Text.\n  Merge", "Text. Merge"),
+        # H3: the heading's date edited and the placeholder line reworded.
+        _LANDED.replace("2026-09-01", "2026-09-02").replace(
+            "Merge `<FILL: merge hash>` owed by an earlier merge.",
+            "Carried as `<FILL: merge hash>`.",
+        ),
+        # H4: a heading inserted and the placeholder line reworded under it.
+        _LANDED.replace(
+            "  Merge `<FILL: merge hash>` owed by an earlier merge.",
+            "- **Brand new.**\n  Carried as `<FILL: merge hash>`.",
+        ),
+        # The placeholder deleted.
+        _LANDED.replace("Merge `<FILL: merge hash>` owed", "Merge owed"),
+    ],
+    ids=["typo", "rename", "H8-join", "H3-reword", "H4-heading-reword", "deleted"],
+)
+def test_a_rewritten_landed_placeholder_refuses_the_plan(tmp_path: Path, after: str) -> None:
+    """A landed placeholder survives verbatim or filled, on its own line; else the plan refuses."""
+    before = _LANDED.replace("# Freeze record\n\n", "# Freeze record\n\n" + _DECLARATION + "\n")
+    after = after.replace("# Freeze record\n\n", "# Freeze record\n\n" + _DECLARATION + "\n")
+    repo, merge = _promote(tmp_path, before=before, staging_record=after)
+    with pytest.raises(PromotionRecordError, match="rewrites landed placeholders"):
+        _plan(repo, merge)
 
 
 def test_a_new_entry_copying_a_filled_entrys_lines_is_still_added(tmp_path: Path) -> None:
@@ -573,11 +603,18 @@ def test_a_taken_date_takes_the_next_suffix_and_an_existing_tag_is_adopted(
     repo, merge = promotion
     _git(repo, "tag", "-a", "promotion/2026-10-13", "-m", "another", f"{merge}^1")
     assert _plan(repo, merge).promotion_tag.name == "promotion/2026-10-13-2"
-    # A tag of a tag still peels to the merge.
-    _git(repo, "tag", "-a", "inner", "-m", "inner", merge)
-    _git(repo, "tag", "-a", "promotion/2026-10-13-2", "-m", "this one", "inner")
+    _git(repo, "tag", "-a", "promotion/2026-10-13-2", "-m", "this one", merge)
     tag = _plan(repo, merge).promotion_tag
     assert (tag.name, tag.adopt) == ("promotion/2026-10-13-2", True)
+
+
+def test_a_tag_of_a_tag_is_not_adopted(tmp_path: Path) -> None:
+    """b1d: a tag that only peels to the merge through another tag object is refused."""
+    repo, merge = _promote(tmp_path)
+    _git(repo, "tag", "-a", "inner", "-m", "inner", merge)
+    _git(repo, "tag", "-a", "promotion/2026-10-13", "-m", "outer", "inner")
+    with pytest.raises(PromotionRecordError, match="does not tag the merge commit directly"):
+        _plan(repo, merge)
 
 
 def test_a_stray_or_lightweight_tag_on_the_merge_is_refused(tmp_path: Path) -> None:

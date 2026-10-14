@@ -241,14 +241,28 @@ def promotion_tag_name(repo: Path, merge: str, merged_at: datetime) -> tuple[str
             f"{merge} carries {', '.join(strays)}, not its canonical {name}; investigate"
         )
     adopt = name in tags
-    if adopt and not _annotated(repo, name):
-        raise PromotionRecordError(f"{name} is a lightweight tag; investigate")
+    if adopt:
+        _require_direct_tag(repo, name, merge)
     return name, adopt
 
 
 def _annotated(repo: Path, name: str) -> bool:
     """Whether ``refs/tags/<name>`` points at an annotated tag object."""
     return git(repo, "cat-file", "-t", f"refs/tags/{name}").strip() == "tag"
+
+
+def _require_direct_tag(repo: Path, name: str, merge: str) -> None:
+    """Refuse ``name`` unless it is an annotated tag object naming the merge commit itself.
+
+    The tag object's header must read ``object <merge>`` and ``type commit``:
+    a lightweight tag, or a tag of a tag that only peels to the merge, is not
+    the tag the writer creates, and is left for an operator to investigate.
+    """
+    if not _annotated(repo, name):
+        raise PromotionRecordError(f"{name} is a lightweight tag; investigate")
+    header = git(repo, "cat-file", "tag", f"refs/tags/{name}").split("\n", 2)[:2]
+    if header != [f"object {merge}", "type commit"]:
+        raise PromotionRecordError(f"{name} does not tag the merge commit directly; investigate")
 
 
 def tag_message(repo: Path, name: str) -> str | None:
@@ -417,6 +431,56 @@ def _inserted_lines(before: str, after: str) -> set[int]:
 
 #: The most line pairs one replaced run is compared over before it fails closed.
 _EDIT_COMPARISONS = 400
+
+
+def landed_placeholder_problems(before: str, after: str) -> list[str]:
+    """Each landed placeholder the change edited, reflowed or deleted; empty when none.
+
+    A placeholder the first parent's record holds must reach the merge's record
+    on its own line(s), either **verbatim** or **filled**: the same line(s)
+    with each placeholder replaced by a one-line value holding no ``<``, ``>``
+    or backtick, as a fill PR writes them. Anything else — a line reworded
+    around it, joined onto its heading, split, or the placeholder deleted — is
+    named, and the plan refuses rather than guess which placeholder became
+    which. Each landed unit is matched to a distinct place in ``after``.
+    """
+    units: list[tuple[str, int, int]] = []
+    seen: set[int] = set()
+    for key, _line, start, end in placeholders(before):
+        unit_start = before.rfind("\n", 0, start) + 1
+        unit_end = before.find("\n", end)
+        unit_end = len(before) if unit_end < 0 else unit_end
+        if unit_start in seen:
+            continue  # one unit per line, however many placeholders it holds
+        seen.add(unit_start)
+        units.append((key, unit_start, unit_end))
+    taken: set[int] = set()
+    problems: list[str] = []
+    for key, unit_start, unit_end in units:
+        unit = before[unit_start:unit_end]
+        pattern = _filled_form(unit)
+        found = next(
+            (match.start() for match in pattern.finditer(after) if match.start() not in taken),
+            None,
+        )
+        if found is None:
+            line = before.count("\n", 0, unit_start) + 1
+            problems.append(f"line {line} ({key}) was edited, reflowed or deleted")
+        else:
+            taken.add(found)
+    return problems
+
+
+def _filled_form(unit: str) -> re.Pattern[str]:
+    """A whole-line pattern for ``unit`` as written or with its placeholders filled."""
+    parts: list[str] = []
+    cursor = 0
+    for _key, _line, start, end in placeholders(unit):
+        parts.append(re.escape(unit[cursor:start]))
+        parts.append(f"(?:{re.escape(unit[start:end])}|[^<>`\\n]+)")
+        cursor = end
+    parts.append(re.escape(unit[cursor:]))
+    return re.compile("^" + "".join(parts) + "$", re.MULTILINE)
 
 
 def _added_placeholders(before: str, after: str) -> set[int]:
@@ -624,6 +688,9 @@ def plan_promotion_record(
 
     record_after = show_at(repo, merge, FREEZE_RECORD_PATH) or ""
     record_before = show_at(repo, parent, FREEZE_RECORD_PATH) or ""
+    lost = landed_placeholder_problems(record_before, record_after)
+    if lost:
+        raise PromotionRecordError(f"{merge} rewrites landed placeholders: {'; '.join(lost)}")
     added = _added_placeholders(record_before, record_after)
     fills: list[Fill] = []
     free: list[Fill] = []
@@ -665,8 +732,8 @@ def plan_promotion_record(
         existing = _tags(repo, "prereg/").get(name)
         if existing is not None and existing != merge:
             raise PromotionRecordError(f"{name} already names {existing}, not {merge}")
-        if existing is not None and not _annotated(repo, name):
-            raise PromotionRecordError(f"{name} is a lightweight tag; investigate")
+        if existing is not None:
+            _require_direct_tag(repo, name, merge)
         prereg = TagPlan(
             name,
             existing == merge,
