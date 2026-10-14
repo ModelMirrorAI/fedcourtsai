@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Final, Literal, get_args
 
@@ -4270,6 +4270,141 @@ class FrozenProcessRecord(_Strict):
         if isinstance(payload, dict) and not self.windows:
             payload.pop("windows", None)
         return payload
+
+
+#: A full 40-hex commit SHA.
+_FULL_SHA = r"^[0-9a-f]{40}$"
+
+#: Which cells a harness boundary's change can reach; see
+#: :class:`fedcourtsai.process_version.HarnessBoundary`.
+RegistryBoundaryReach = Literal[
+    "self-represented dockets", "granted dockets", "all", "replay cells"
+]
+
+
+class RegistryInstant(_Strict):
+    """One registered instant of the process registry, with where it came from.
+
+    Every counting instant, bless moment and window edge is one of these, so a
+    reader can tell an instant set by hand from one a carrying merge stamped,
+    and audit either against git.
+    """
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
+
+    at: datetime = Field(description="The instant, in UTC (`YYYY-MM-DDTHH:MM:SSZ`)")
+    merge: str | None = Field(
+        pattern=_FULL_SHA,
+        description="The full SHA of the promotion merge that carried this instant's "
+        "registration to `main`; the commit an auditor re-derives the instant against. "
+        "Null marks a registration no merge has carried yet",
+    )
+    source: Literal["hand", "merge"] = Field(
+        description="`hand` where a maintainer set the instant (a counting instant forecast "
+        "at the freeze commit and verified against the merge), `merge` where it is the "
+        "carrying merge's committer time"
+    )
+
+    @model_validator(mode="after")
+    def _utc(self) -> RegistryInstant:
+        """An instant is timezone-aware UTC, so every comparison reads one clock."""
+        if self.at.tzinfo is None or self.at.utcoffset() != timedelta(0):
+            raise ValueError("a registry instant is UTC")
+        return self
+
+
+class RegistryLabel(_Strict):
+    """A process label and the counting instant from which its cells count."""
+
+    label: str = Field(description="The process label (`proc-vN`)")
+    since: RegistryInstant = Field(
+        description="The label's counting instant: it opens every window the label newly "
+        "blesses and closes every window it stops blessing"
+    )
+
+
+class RegistryBlessing(_Strict):
+    """One digest the current process blesses, with its bless moment."""
+
+    digest: str = Field(description="The blessed process digest (`sha256:<hex>`)")
+    role: Literal["predictor", "evaluator"] = Field(description="The actor's role")
+    actor_id: str = Field(description="The predictor or evaluator the digest is the process of")
+    label: str = Field(
+        description="The label that first blessed the digest; a digest carried forward "
+        "byte-identical keeps it"
+    )
+    blessed: RegistryInstant = Field(
+        description="The bless moment: when the digest's bytes became immutable on `main`, "
+        "the retroactivity boundary no counted cell may predate"
+    )
+
+
+class RegistryWindow(_Strict):
+    """One counting window: a blessing of one predictor digest and its span."""
+
+    label: str = Field(description="The label whose blessing opened the window")
+    digest: str = Field(description="The blessed predictor process digest (`sha256:<hex>`)")
+    predictor_id: str | None = Field(description="The predictor whose process the digest is")
+    opens: RegistryInstant = Field(description="The counting instant that opened the window")
+    closes: RegistryInstant | None = Field(
+        description="The successor's counting instant that closed the window; null while open"
+    )
+    revoked_at: datetime | None = Field(
+        description="When a dated revocation de-counted the window's cells; null for a "
+        "window that counts"
+    )
+
+
+class RegistryBoundary(_Strict):
+    """A dated change to what a predict cell reads under an unchanged predictor digest."""
+
+    name: str = Field(description="The boundary's stable name")
+    merge: str = Field(
+        pattern=_FULL_SHA,
+        description="The full SHA of the commit that carried the change to `main`; a cell's "
+        "side is read by ancestry against it",
+    )
+    at: datetime = Field(description="That commit's committer time; display only")
+    predictors: list[str] | None = Field(
+        description="The predictors the boundary splits; null for every predictor"
+    )
+    reach: RegistryBoundaryReach = Field(description="The cells the change can reach")
+    gradual: bool = Field(
+        description="Whether the change reached the corpus through a back-fill pass, so a "
+        "cell after it may still read the earlier document set"
+    )
+
+
+class ProcessRegistry(_Strict):
+    """``process_registry.json`` — the frozen-process registry, as committed data.
+
+    The single source of the counting partition's definition:
+    :mod:`fedcourtsai.process_version` builds its freeze constants from it at
+    import (``FROZEN_PROCESS_DIGESTS`` from ``blessings``, ``FROZEN_SINCE``
+    from the current label's ``since``, ``COUNTING_WINDOWS`` from
+    ``windows``, ``EVALUATE_BLESSING_LABELS`` and ``HARNESS_BOUNDARIES``), so
+    every reader keeps reading those names. Append-only in the same sense as
+    the freeze record: a successor closes and adds windows, and appends
+    labels, blessing labels and boundaries, but never rewrites a landed
+    instant.
+    """
+
+    schema_version: Literal[1] = Field(description="The registry format's version")
+    labels: list[RegistryLabel] = Field(description="Every label with a counting window, in order")
+    blessings: list[RegistryBlessing] = Field(
+        description="The digests the current process blesses, one per actor, in order"
+    )
+    windows: list[RegistryWindow] = Field(
+        description="Every counting window, in the order the registry opened them"
+    )
+    evaluate_blessing_labels: dict[str, list[str]] = Field(
+        description="Every evaluate label that blessed each evaluator digest, in blessing "
+        "order, kept after those labels are superseded"
+    )
+    harness_boundaries: list[RegistryBoundary] = Field(
+        description="Every harness boundary dated since the earliest window opened, in the "
+        "order their carrying commits reached `main`"
+    )
 
 
 class ForwardClaimRecord(_Strict):
@@ -11071,4 +11206,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "export_grading_row": ExportGradingRow,
     "export_reasoning_record": ExportReasoningRecord,
     "export_manifest": ExportManifest,
+    "process_registry": ProcessRegistry,
 }
