@@ -9735,6 +9735,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         process_scope=scope,
         forward_claim=_forward_claim_from(stratified_run),
         leakage_exclusion=_leakage_exclusion_from(stratified_run),
+        voided_events=_voided_events_from(stratified_run),
         cell_windows=stratified_run.cell_windows,
     )
     report = build_ops_report(
@@ -15870,18 +15871,32 @@ def _forward_claim_from(run: StratifiedRun) -> ForwardClaimRecord:
 
 
 def _voided_events_from(run: StratifiedRun) -> VoidedEventsRecord | None:
-    """The same pass's voided-event record, or ``None`` where it dropped nothing."""
+    """The same pass's voided-event record, or ``None`` where it dropped nothing.
+
+    Carries what the dropped gradings had scored, per predictor, so a void is
+    seen to remove a predictor's hits and misses alike rather than only one kind.
+    """
     if not run.voided:
         return None
-    by_predictor: dict[str, int] = {}
+    count: dict[str, int] = {}
+    correct: dict[str, int] = {}
+    briers: dict[str, list[float]] = {}
     for cell in run.voided:
-        pid = cell.evaluation.predictor_id
-        by_predictor[pid] = by_predictor.get(pid, 0) + 1
+        evaluation = cell.evaluation
+        pid = evaluation.predictor_id
+        count[pid] = count.get(pid, 0) + 1
+        correct[pid] = correct.get(pid, 0) + (1 if evaluation.correct == 1 else 0)
+        if evaluation.brier_score is not None:
+            briers.setdefault(pid, []).append(evaluation.brier_score)
     events = sorted(
         {f"{cell.evaluation.case_id} {cell.evaluation.event_id}" for cell in run.voided}
     )
     return VoidedEventsRecord(
-        excluded=len(run.voided), events=events, by_predictor=dict(sorted(by_predictor.items()))
+        excluded=len(run.voided),
+        events=events,
+        by_predictor=dict(sorted(count.items())),
+        correct_by_predictor=dict(sorted(correct.items())),
+        mean_brier_by_predictor={pid: sum(v) / len(v) for pid, v in sorted(briers.items())},
     )
 
 

@@ -72,6 +72,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime
+from importlib.resources import files
 from types import MappingProxyType
 from typing import Final, Literal
 
@@ -85,6 +86,8 @@ from .schemas import (
     ProcessVersion,
     Stage,
     Stratum,
+    VoidedEvent,
+    VoidedEventsRegistry,
 )
 
 #: What the scoring funnel does with a cell whose forward claim its own record
@@ -376,24 +379,37 @@ def leakage_excluded(evaluation: Evaluation) -> bool:
     return evaluation.leakage_suspected is True
 
 
-#: Events whose committed outcome does not describe the event's own subject, each
-#: de-counted for a defect a dated ``docs/freeze-record.md`` entry states — the
-#: entry's date is the value's second half. The one route a single event leaves
-#: scoring by: a window's revocation de-counts a whole protocol, and a corrected
-#: outcome (``stamp-cell --regrade``) assumes the event *has* a true outcome to
-#: correct to, which an event whose docket number the Court reassigned to
-#: another petition does not. Keyed ``(case_id, event_id)``; append-only, since
-#: a removed row would silently re-count gradings a dated entry withdrew.
-VOIDED_EVENTS: Final[Mapping[tuple[str, str], tuple[str, date]]] = MappingProxyType(
-    {
-        ("scotus/9026000221", "evt-petition-arrival-disposition"): (
-            "the Court renumbered No. 26-221: the event was opened on Nathan v. "
-            + "Alamo Heights ISD, which the number then left, and its outcome "
-            + "records Purdy v. Kansas",
-            date(2026, 10, 14),
-        ),
-    }
-)
+#: The voided-events registry: events whose committed outcome records a different
+#: petition than the one the event was opened on, each voided by a dated
+#: ``docs/freeze-record.md`` entry (``docs/process-version.md``, *Voiding an
+#: event*). Data, not code, so a void is a reviewed, maintainer-merged edit to
+#: one file; append-only, since a removed row would re-count gradings a dated
+#: entry withdrew.
+VOIDED_EVENTS_RESOURCE = "voided_events.json"
+
+
+def load_voided_events(text: str | None = None) -> Mapping[tuple[str, str], VoidedEvent]:
+    """The voided events keyed ``(case_id, event_id)``; ``text`` overrides the packaged file.
+
+    Refuses an event registered twice: one key, one dated void.
+    """
+    raw = (
+        text
+        if text is not None
+        else files("fedcourtsai").joinpath(VOIDED_EVENTS_RESOURCE).read_text(encoding="utf-8")
+    )
+    registry = VoidedEventsRegistry.model_validate_json(raw)
+    voided: dict[tuple[str, str], VoidedEvent] = {}
+    for event in registry.events:
+        key = (event.case_id, event.event_id)
+        if key in voided:
+            raise ValueError(f"voided_events.json registers {key[0]} {key[1]} twice")
+        voided[key] = event
+    return MappingProxyType(voided)
+
+
+#: The registry as loaded at import; :func:`voided_reason` reads it.
+VOIDED_EVENTS: Final[Mapping[tuple[str, str], VoidedEvent]] = load_voided_events()
 
 #: The reason prefix recorded against a cell a voided event drops; the event's
 #: own stated defect follows it.
@@ -412,8 +428,7 @@ def voided_reason(evaluation: Evaluation) -> str | None:
     entry = VOIDED_EVENTS.get((evaluation.case_id, evaluation.event_id))
     if entry is None:
         return None
-    defect, declared = entry
-    return f"{VOIDED_EXCLUSION_REASON} ({defect}; freeze record {declared.isoformat()})"
+    return f"{VOIDED_EXCLUSION_REASON} ({entry.defect}; freeze record {entry.declared.isoformat()})"
 
 
 def leakage_record(

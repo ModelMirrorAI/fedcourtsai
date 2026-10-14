@@ -13,11 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from fedcourtsai import corpus
+from fedcourtsai import corpus, integrity
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.pull import PullQueues, derive_evaluate_backlog, evaluate_backlog
 from fedcourtsai.registry import enabled_evaluators
-from fedcourtsai.schemas import CellFailure, EventKind
+from fedcourtsai.schemas import CellFailure, EventKind, VoidedEvent
 from fedcourtsai.serialize import write_json
 from tests.conftest import seed_evaluation, seed_prediction
 
@@ -101,6 +101,35 @@ def test_only_the_missing_judges_events_are_owed(tmp_path: Path) -> None:
 
     owed = _derive(tmp_path, today=date(2026, 7, 20))
     assert owed.evaluate == [{"court": "scotus", "docket": 1, "events": [event]}]
+
+
+def test_a_voided_event_owes_no_grading(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A voided event's outcome records another petition, so a judge that never
+    graded it is owed nothing: grading it could only score against the wrong case."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    event = "evt-petition-disposition"
+    _resolved_event(db, "scotus", 1)
+    seed_prediction(data, "scotus", 1, event)
+    seed_evaluation(data, "scotus", 1, event, evaluator_id=enabled_evaluators(EVALUATORS)[0].id)
+    assert _derive(tmp_path, today=date(2026, 7, 20)).evaluate != []
+
+    monkeypatch.setattr(
+        integrity,
+        "VOIDED_EVENTS",
+        {
+            ("scotus/1", event): VoidedEvent(
+                case_id="scotus/1",
+                event_id=event,
+                ground="redocketed",
+                detection="outcome-triggered",
+                declared=date(2026, 10, 14),
+                defect="a docket number reassigned in a test",
+            )
+        },
+    )
+
+    assert _derive(tmp_path, today=date(2026, 7, 20)).evaluate == []
 
 
 def test_a_resolved_event_with_no_prediction_is_not_owed(tmp_path: Path) -> None:

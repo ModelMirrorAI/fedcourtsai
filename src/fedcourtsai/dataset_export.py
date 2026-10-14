@@ -50,7 +50,7 @@ from typing import Any, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
-from . import corpus
+from . import corpus, integrity
 from .blinding import latest_prediction_dirs
 from .integrity import FORWARD_CLAIM_POLICY, forward_claim_breach
 from .leaderboard import SKILL_COHERENCE_TOLERANCE
@@ -319,15 +319,24 @@ def build_tables(
                 read_model(event_paths.event_file, PredictableEvent)
                 if event_paths.event_file.is_file()
                 else None,
-                read_model(event_paths.outcome, Outcome) if event_paths.outcome.is_file() else None,
+                # A voided event's outcome records another petition, so it is not
+                # exported beside a forecast of this one: the outcome columns go
+                # null and no forward claim is checked against it.
+                read_model(event_paths.outcome, Outcome)
+                if event_paths.outcome.is_file()
+                and (entry.case_id, entry.event_id) not in integrity.VOIDED_EVENTS
+                else None,
                 latest_prediction_dirs(event_paths),
             )
             event_cache[event_paths.base] = cached
         event, outcome, latest = cached
+        event_voided = (entry.case_id, entry.event_id) in integrity.VOIDED_EVENTS
         prediction = entry.prediction
         key = (entry.case_id, entry.event_id, entry.predictor_id, entry.run_id)
         rows = by_prediction.get(key, [])
-        judged = [r for r in rows if r.excluded_reason not in ("out_of_scope", "superseded")]
+        judged = [
+            r for r in rows if r.excluded_reason not in ("out_of_scope", "superseded", "voided")
+        ]
         flagged = sum(1 for r in judged if r.leakage_suspected is True)
         counted_strata = sorted(
             {
@@ -389,7 +398,8 @@ def build_tables(
                 forward_claim_excluded=breached,
                 gradings_total=len(judged),
                 gradings_leakage_flagged=flagged,
-                set_aside=breached or (bool(judged) and flagged == len(judged)),
+                voided=event_voided,
+                set_aside=event_voided or breached or (bool(judged) and flagged == len(judged)),
             )
         )
         cell_dir = event_paths.prediction_dir(entry.predictor_id, entry.run_id)
@@ -722,6 +732,13 @@ derived from it at the commit `{MANIFEST}` names.
   judge flagged possible leakage. One flagged judge among several does not set
   a prediction aside; that grading alone is left uncounted. An unresolved
   prediction has null outcome columns and is neither scored nor set aside.
+- **Voided events carry no outcome.** Where an event's committed outcome
+  records a different petition than the one the event was opened on (the
+  Court re-docketed its number), a dated freeze-record entry voids the event:
+  its predictions carry `voided` true, `set_aside` true and null outcome
+  columns, and its gradings `counted` false with `excluded_reason` `voided`.
+  Do not re-score such a forecast against the docket's later outcome; it is
+  another case's.
 - **Gradings.** One row per judge's grading of an exported prediction, joined
   to it on `case_id`, `event_id`, `predictor_id` and `prediction_run_id`.
   Superseded re-grades and gradings unstamped or stamped before the freeze

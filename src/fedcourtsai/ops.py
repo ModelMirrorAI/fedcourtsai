@@ -75,6 +75,7 @@ from .schemas import (
     SubstanceDigest,
     ToolingCount,
     ToolingDigest,
+    VoidedEventsRecord,
     WorkflowHealth,
 )
 from .spend import SpendVerdict
@@ -318,6 +319,7 @@ def summarize_substance(  # noqa: PLR0913 - one keyword per stratify-pass input 
     process_scope: Literal["frozen", "all"] = "frozen",
     forward_claim: ForwardClaimRecord | None = None,
     leakage_exclusion: LeakageExclusionRecord | None = None,
+    voided_events: VoidedEventsRecord | None = None,
     cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
 ) -> SubstanceDigest:
     """Roll the committed ledger + metrics artifacts into the substance section.
@@ -420,6 +422,7 @@ def summarize_substance(  # noqa: PLR0913 - one keyword per stratify-pass input 
         predictor_scores_by_protocol=cut,
         forward_claim=forward_claim,
         leakage_exclusion=leakage_exclusion,
+        voided_events=voided_events,
         live_frontier=live_frontier,
         process_scope=process_scope,
     )

@@ -84,6 +84,7 @@ from fedcourtsai.schemas import (
     StatPackTermSegment,
     Stratum,
     UsageRole,
+    VoidedEvent,
     VoteProvenance,
     VoteValue,
 )
@@ -1294,11 +1295,7 @@ def test_the_agreement_views_drop_a_voided_event(
     _write_big_case_cell(data_root, "agree", "scotus/3", pred_score=0.1, eval_scores=[0.2])
     assert _by_predictor(big_case_agreement(data_root, frozen_only=False))["agree"].cases == 3
 
-    monkeypatch.setattr(
-        integrity,
-        "VOIDED_EVENTS",
-        {("scotus/3", "evt-petition-disposition"): ("reassigned", date(2026, 10, 14))},
-    )
+    _void(monkeypatch, ("scotus/3", "evt-petition-disposition"))
 
     assert _by_predictor(big_case_agreement(data_root, frozen_only=False))["agree"].cases == 2
 
@@ -1783,13 +1780,20 @@ def test_the_board_publishes_the_forward_claim_record(tmp_path: Path) -> None:
     assert board.forward_claim.excluded == 1
 
 
+def _voided(case_id: str, event_id: str) -> VoidedEvent:
+    return VoidedEvent(
+        case_id=case_id,
+        event_id=event_id,
+        ground="redocketed",
+        detection="outcome-triggered",
+        declared=date(2026, 10, 14),
+        defect="a docket number reassigned in a test",
+    )
+
+
 def _void(monkeypatch: pytest.MonkeyPatch, *events: tuple[str, str]) -> None:
     """Void ``events`` for one test, as a dated freeze-record entry would."""
-    monkeypatch.setattr(
-        integrity,
-        "VOIDED_EVENTS",
-        {event: ("a docket number reassigned in a test", date(2026, 10, 14)) for event in events},
-    )
+    monkeypatch.setattr(integrity, "VOIDED_EVENTS", {event: _voided(*event) for event in events})
 
 
 def test_a_voided_event_leaves_every_stratum_and_denominator(
@@ -1875,6 +1879,8 @@ def test_both_boards_publish_the_voided_events_and_name_each_dropped_grading(
     assert board.voided_events.excluded == 1
     assert board.voided_events.events == ["ca9/123 evt-a"]
     assert board.voided_events.by_predictor == {"alpha": 1}
+    assert set(board.voided_events.correct_by_predictor) == {"alpha"}
+    assert set(board.voided_events.mean_brier_by_predictor) <= {"alpha"}
     assert [entry.predictor_id for entry in board.entries] == ["beta"]
 
     claims = tmp_path / "claim-scores.json"
@@ -1905,14 +1911,39 @@ def test_a_board_with_nothing_voided_in_scope_omits_the_block(tmp_path: Path) ->
     assert "voided_events" not in json.loads(out.read_text(encoding="utf-8"))
 
 
+#: How a voiding entry's heading opens, so the reverse check below can find
+#: every void the freeze record declares.
+_VOID_HEADING = "- **An event whose docket number the Court re-docketed is voided"
+
+
+def _freeze_entries() -> list[str]:
+    """The freeze record's top-level entries, each with its whitespace collapsed."""
+    text = Path("docs/freeze-record.md").read_text(encoding="utf-8")
+    return [" ".join(("- **" + entry).split()) for entry in text.split("\n- **")[1:]]
+
+
 @pytest.mark.reads_docs
-def test_every_voided_event_is_declared_by_a_dated_freeze_record_entry() -> None:
-    # A void de-counts gradings, so each registry row must point at a landed,
-    # dated entry stating the defect — the same discipline a revocation keeps.
-    record = " ".join(Path("docs/freeze-record.md").read_text(encoding="utf-8").split())
-    for (case_id, event_id), (_defect, declared) in VOIDED_EVENTS.items():
-        assert f"`{case_id}` `{event_id}`" in record, (case_id, event_id)
-        assert f", {declared.isoformat()}.**" in record, declared
+def test_every_voided_event_is_declared_by_its_own_dated_freeze_record_entry() -> None:
+    # A void de-counts gradings, so each registry row must point at a landed
+    # entry that names the event and carries the row's date in its own heading,
+    # not a date found anywhere in the file.
+    entries = _freeze_entries()
+    for (case_id, event_id), event in VOIDED_EVENTS.items():
+        named = [entry for entry in entries if f"`{case_id}` `{event_id}`" in entry]
+        assert named, (case_id, event_id)
+        heading = named[0].split(".**", 1)[0]
+        assert heading.endswith(event.declared.isoformat()), (heading, event.declared)
+
+
+@pytest.mark.reads_docs
+def test_every_void_the_freeze_record_declares_is_still_registered() -> None:
+    # The reverse direction: a voiding entry whose row left the registry would
+    # re-count gradings the dated entry withdrew.
+    registered = {f"`{case_id}` `{event_id}`" for case_id, event_id in VOIDED_EVENTS}
+    voids = [entry for entry in _freeze_entries() if entry.startswith(_VOID_HEADING)]
+    assert voids, "the freeze record declares no void"
+    for entry in voids:
+        assert any(key in entry for key in registered), entry[:200]
 
 
 def test_a_leaked_cell_the_clock_places_forward_is_excluded_by_the_bit(tmp_path: Path) -> None:

@@ -4577,22 +4577,61 @@ class LeakageExclusionRecord(_Strict):
     )
 
 
-class VoidedEventsRecord(_Strict):
-    """The voided events a board's build dropped, and how many gradings they held.
+class VoidedEvent(_Strict):
+    """One voided event: its key, the ground it was voided on, and how it was found.
 
-    An event whose committed outcome describes another petition — a docket number
-    the Court reassigned after the event opened — is voided by a dated
-    freeze-record entry (``integrity.VOIDED_EVENTS``). Its gradings leave every
-    stratum, rank key and composition count, so this block states how many the
-    build dropped and which events, and the de-count is never silent. It changes
-    which cells are counted, never what any cell scored.
+    A void de-counts every grading of one event whose committed outcome records a
+    different petition than the one the event was opened on. The ground is a
+    closed vocabulary, so nothing but that defect can be entered here, and the
+    entry naming it is a dated ``docs/freeze-record.md`` entry that publishes the
+    voided gradings' scores (``docs/process-version.md``, *Voiding an event*).
+    """
+
+    case_id: str = Field(description="The voided event's case id")
+    event_id: str = Field(description="The voided event's id")
+    ground: Literal["redocketed"] = Field(
+        description="Why the event is voided. `redocketed`: its outcome records a "
+        "different petition than the one it was opened on, shown from stored docket "
+        "payloads alone (docketed date, parties, lower-court number)"
+    )
+    detection: Literal["outcome-triggered", "scan"] = Field(
+        description="How the defect was found: `outcome-triggered` (a grading or "
+        "flag on the resolved event surfaced it) or `scan` (a systematic sweep of "
+        "stored docket identities, outcome-blind by construction)"
+    )
+    declared: date = Field(description="The date of the freeze-record entry that voids it")
+    defect: str = Field(description="The defect, as the entry states it")
+
+
+class VoidedEventsRegistry(_Strict):
+    """``src/fedcourtsai/voided_events.json`` — every voided event, append-only.
+
+    Data rather than code, so a void is a reviewed, maintainer-merged edit to one
+    file, and a row is never removed: removing one would re-count gradings a dated
+    entry withdrew.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    events: list[VoidedEvent] = Field(description="The voided events, in the order declared")
+
+
+class VoidedEventsRecord(_Strict):
+    """The voided events a board's build dropped, and what their gradings scored.
+
+    An event whose committed outcome describes another petition is voided by a
+    dated freeze-record entry (``integrity.VOIDED_EVENTS``). Its gradings leave
+    every stratum, rank key and composition count, so this block states how many
+    the shared stratify pass dropped, which events, and what those gradings had
+    scored, and the de-count is never silent. Omitted where nothing in scope is
+    voided. It changes which cells are counted, never what any cell scored.
     """
 
     excluded: int = Field(
         ge=0,
-        description="How many in-scope gradings of voided events this build "
-        "dropped, counted after the run collapse and before any stratum, so it is "
-        "'dropped within this scope' and never subtracted from a total beside it",
+        description="How many in-scope gradings of voided events the shared "
+        "`store.stratify` pass dropped — the pass every scored surface reads, so the "
+        "count is the pass's, not this surface's own — counted after the run "
+        "collapse and before any stratum; never subtracted from a total beside it",
     )
     events: list[str] = Field(
         default_factory=list,
@@ -4602,6 +4641,16 @@ class VoidedEventsRecord(_Strict):
         default_factory=dict,
         description="Dropped gradings keyed by predictor id (only predictors "
         "with a nonzero count appear)",
+    )
+    correct_by_predictor: dict[str, int] = Field(
+        default_factory=dict,
+        description="How many of each predictor's dropped gradings recorded "
+        "`correct: 1`, so a void is seen to remove hits and misses alike",
+    )
+    mean_brier_by_predictor: dict[str, float] = Field(
+        default_factory=dict,
+        description="The mean Brier score of each predictor's dropped gradings "
+        "(predictors whose dropped gradings carry no Brier score are absent)",
     )
 
 
@@ -10689,6 +10738,17 @@ class SubstanceDigest(_Strict):
         "equal and never subtracted from one another; null on a "
         "report built before the record existed",
     )
+    voided_events: VoidedEventsRecord | None = Field(
+        default=None,
+        description="The voided events the shared stratify pass dropped from the "
+        "scored-cell figures, exactly as the boards record them; omitted where "
+        "nothing in scope is voided",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_voided(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``voided_events`` while nothing in scope is voided."""
+        return _omit_empty(handler(self), voided_events=self.voided_events)
 
 
 class OpsReport(_Strict):
@@ -11073,17 +11133,28 @@ class ExportPredictionRow(_Strict):
         "`ledger_commit`; no committer identity is exported beyond this bit"
     )
     resolved_at: date | None = Field(
-        description="When the event resolved, from its `outcome.json`; null while unresolved"
+        description="When the event resolved, from its `outcome.json`; null while "
+        "unresolved, and null on a `voided` row"
     )
     actual_disposition: Disposition | None = Field(
-        description="The realized disposition label; null while unresolved"
+        description="The realized disposition label; null while unresolved, and null on a "
+        "`voided` row"
     )
     actual_granted: int | None = Field(
-        description="The realized binary outcome: 1 positive, 0 not; null while unresolved"
+        description="The realized binary outcome: 1 positive, 0 not; null while "
+        "unresolved, and null on a `voided` row"
     )
     disposition_basis: Literal["standard", "mootness"] | None = Field(
         description="Whether the disposition rests on the ordinary standard or on "
-        "mootness (which routes the cell to the procedural stratum); null while unresolved"
+        "mootness (which routes the cell to the procedural stratum); null while "
+        "unresolved, and null on a `voided` row"
+    )
+    voided: bool = Field(
+        default=False,
+        description="Whether the prediction's event is voided: its committed outcome "
+        "records a different petition than the one the event was opened on, so the "
+        "outcome columns are nulled rather than exported beside a forecast of another case "
+        "(`docs/process-version.md`, *Voiding an event*)",
     )
     stratum: Stratum | None = Field(
         description="The stratum the scored figures place the prediction in (`forward`, "
@@ -11112,7 +11183,8 @@ class ExportPredictionRow(_Strict):
     )
     set_aside: bool = Field(
         description="Whether the prediction is set aside from the scored figures: "
-        "`forward_claim_excluded`, or graded with every in-scope grading leakage-flagged"
+        "`voided`, `forward_claim_excluded`, or graded with every in-scope grading "
+        "leakage-flagged"
     )
 
 
@@ -11336,4 +11408,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "export_reasoning_record": ExportReasoningRecord,
     "export_manifest": ExportManifest,
     "process_registry": ProcessRegistry,
+    "voided_events": VoidedEventsRegistry,
 }

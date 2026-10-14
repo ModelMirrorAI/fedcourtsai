@@ -12,7 +12,7 @@ import pyarrow.parquet as pq
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus, process_version
+from fedcourtsai import corpus, integrity, process_version
 from fedcourtsai.cli import app
 from fedcourtsai.dataset_export import (
     DATA_DICTIONARY,
@@ -44,6 +44,7 @@ from fedcourtsai.schemas import (
     Prediction,
     PredictionContext,
     ProcessVersion,
+    VoidedEvent,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.store import stratify
@@ -261,6 +262,42 @@ def test_counted_and_set_aside_flags(ledger: Path) -> None:
     one_flagged = rows[("scotus/103", "p1")]
     assert (one_flagged.gradings_total, one_flagged.gradings_leakage_flagged) == (3, 1)
     assert (one_flagged.scored, one_flagged.set_aside) == (True, False)
+
+
+def test_a_voided_event_exports_no_outcome_and_marks_its_gradings(
+    ledger: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A voided event's outcome records another petition: the prediction row
+    # carries `voided` and null outcome columns, so nobody re-scores it against
+    # that outcome, and every grading of it is uncounted with reason `voided`.
+    monkeypatch.setattr(
+        integrity,
+        "VOIDED_EVENTS",
+        {
+            ("scotus/100", "evt-petition-disposition"): VoidedEvent(
+                case_id="scotus/100",
+                event_id="evt-petition-disposition",
+                ground="redocketed",
+                detection="outcome-triggered",
+                declared=date(2026, 10, 14),
+                defect="a docket number reassigned in a test",
+            )
+        },
+    )
+    tables = build_tables(ledger)
+    row = _by_case(tables)[("scotus/100", "p1")]
+    assert row.voided is True
+    assert (row.resolved_at, row.actual_disposition, row.actual_granted) == (None, None, None)
+    assert (row.scored, row.set_aside, row.gradings_total) == (False, True, 0)
+    in_scope = [
+        g
+        for g in tables.gradings
+        if g.case_id == "scotus/100" and g.excluded_reason != "out_of_scope"
+    ]
+    assert {g.excluded_reason for g in in_scope} >= {"voided"}
+    assert not any(g.counted for g in tables.gradings if g.case_id == "scotus/100")
+    # The other events are untouched.
+    assert _by_case(tables)[("scotus/103", "p1")].voided is False
 
 
 def test_an_unresolved_frozen_prediction_is_exported_with_a_null_outcome(ledger: Path) -> None:

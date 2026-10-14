@@ -1,0 +1,79 @@
+{
+  "$defs": {
+    "VoidedEvent": {
+      "additionalProperties": false,
+      "description": "One voided event: its key, the ground it was voided on, and how it was found.\n\nA void de-counts every grading of one event whose committed outcome records a\ndifferent petition than the one the event was opened on. The ground is a\nclosed vocabulary, so nothing but that defect can be entered here, and the\nentry naming it is a dated ``docs/freeze-record.md`` entry that publishes the\nvoided gradings' scores (``docs/process-version.md``, *Voiding an event*).",
+      "properties": {
+        "case_id": {
+          "description": "The voided event's case id",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "declared": {
+          "description": "The date of the freeze-record entry that voids it",
+          "format": "date",
+          "title": "Declared",
+          "type": "string"
+        },
+        "defect": {
+          "description": "The defect, as the entry states it",
+          "title": "Defect",
+          "type": "string"
+        },
+        "detection": {
+          "description": "How the defect was found: `outcome-triggered` (a grading or flag on the resolved event surfaced it) or `scan` (a systematic sweep of stored docket identities, outcome-blind by construction)",
+          "enum": [
+            "outcome-triggered",
+            "scan"
+          ],
+          "title": "Detection",
+          "type": "string"
+        },
+        "event_id": {
+          "description": "The voided event's id",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "ground": {
+          "const": "redocketed",
+          "description": "Why the event is voided. `redocketed`: its outcome records a different petition than the one it was opened on, shown from stored docket payloads alone (docketed date, parties, lower-court number)",
+          "title": "Ground",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "event_id",
+        "ground",
+        "detection",
+        "declared",
+        "defect"
+      ],
+      "title": "VoidedEvent",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``src/fedcourtsai/voided_events.json`` \u2014 every voided event, append-only.\n\nData rather than code, so a void is a reviewed, maintainer-merged edit to one\nfile, and a row is never removed: removing one would re-count gradings a dated\nentry withdrew.",
+  "properties": {
+    "events": {
+      "description": "The voided events, in the order declared",
+      "items": {
+        "$ref": "#/$defs/VoidedEvent"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "events"
+  ],
+  "title": "VoidedEventsRegistry",
+  "type": "object"
+}

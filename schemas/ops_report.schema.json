@@ -1334,6 +1334,18 @@
           ],
           "title": "Process Scope",
           "type": "string"
+        },
+        "voided_events": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VoidedEventsRecord"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The voided events the shared stratify pass dropped from the scored-cell figures, exactly as the boards record them; omitted where nothing in scope is voided"
         }
       },
       "required": [
@@ -1437,6 +1449,55 @@
       ],
       "title": "UsageRole",
       "type": "string"
+    },
+    "VoidedEventsRecord": {
+      "additionalProperties": false,
+      "description": "The voided events a board's build dropped, and what their gradings scored.\n\nAn event whose committed outcome describes another petition is voided by a\ndated freeze-record entry (``integrity.VOIDED_EVENTS``). Its gradings leave\nevery stratum, rank key and composition count, so this block states how many\nthe shared stratify pass dropped, which events, and what those gradings had\nscored, and the de-count is never silent. Omitted where nothing in scope is\nvoided. It changes which cells are counted, never what any cell scored.",
+      "properties": {
+        "by_predictor": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Dropped gradings keyed by predictor id (only predictors with a nonzero count appear)",
+          "title": "By Predictor",
+          "type": "object"
+        },
+        "correct_by_predictor": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "How many of each predictor's dropped gradings recorded `correct: 1`, so a void is seen to remove hits and misses alike",
+          "title": "Correct By Predictor",
+          "type": "object"
+        },
+        "events": {
+          "description": "The voided events among those gradings, as '<case_id> <event_id>', sorted",
+          "items": {
+            "type": "string"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "excluded": {
+          "description": "How many in-scope gradings of voided events the shared `store.stratify` pass dropped \u2014 the pass every scored surface reads, so the count is the pass's, not this surface's own \u2014 counted after the run collapse and before any stratum; never subtracted from a total beside it",
+          "minimum": 0,
+          "title": "Excluded",
+          "type": "integer"
+        },
+        "mean_brier_by_predictor": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "The mean Brier score of each predictor's dropped gradings (predictors whose dropped gradings carry no Brier score are absent)",
+          "title": "Mean Brier By Predictor",
+          "type": "object"
+        }
+      },
+      "required": [
+        "excluded"
+      ],
+      "title": "VoidedEventsRecord",
+      "type": "object"
     },
     "WindowCount": {
       "additionalProperties": false,

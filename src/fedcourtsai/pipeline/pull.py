@@ -28,7 +28,7 @@ from typing import Literal
 
 import httpx
 
-from .. import corpus, ids
+from .. import corpus, ids, integrity
 from ..config import PredictScope
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_transient
 from ..matrix import (
@@ -521,11 +521,14 @@ def derive_evaluate_backlog(
         # An (evaluator, event) cell is owed when it is ungraded AND has not hit
         # the per-cell attempt cap. Checking the cap per cell — not per case or
         # per event — is what keeps one poison-pill evaluator from suppressing a
-        # sibling evaluator still owed the same event.
+        # sibling evaluator still owed the same event. A voided event owes no
+        # grading at all: its outcome records another petition, so a grading of
+        # it could only be scored against the wrong case.
         owed = [
             event_id
             for event_id in resolved_by_case[row.case_id]
-            if event_has_predictions(data_root, court, docket, event_id)
+            if (row.case_id, event_id) not in integrity.VOIDED_EVENTS
+            and event_has_predictions(data_root, court, docket, event_id)
             and any(
                 not event_has_evaluations(data_root, court, docket, event_id, evaluator_id=ev)
                 and not _cell_capped(data_root, court, docket, event_id, ev, max_attempts)

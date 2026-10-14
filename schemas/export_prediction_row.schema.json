@@ -74,7 +74,7 @@
           "type": "null"
         }
       ],
-      "description": "The realized disposition label; null while unresolved"
+      "description": "The realized disposition label; null while unresolved, and null on a `voided` row"
     },
     "actual_granted": {
       "anyOf": [
@@ -85,7 +85,7 @@
           "type": "null"
         }
       ],
-      "description": "The realized binary outcome: 1 positive, 0 not; null while unresolved",
+      "description": "The realized binary outcome: 1 positive, 0 not; null while unresolved, and null on a `voided` row",
       "title": "Actual Granted"
     },
     "band": {
@@ -141,7 +141,7 @@
           "type": "null"
         }
       ],
-      "description": "Whether the disposition rests on the ordinary standard or on mootness (which routes the cell to the procedural stratum); null while unresolved",
+      "description": "Whether the disposition rests on the ordinary standard or on mootness (which routes the cell to the procedural stratum); null while unresolved, and null on a `voided` row",
       "title": "Disposition Basis"
     },
     "docket_id": {
@@ -352,7 +352,7 @@
           "type": "null"
         }
       ],
-      "description": "When the event resolved, from its `outcome.json`; null while unresolved",
+      "description": "When the event resolved, from its `outcome.json`; null while unresolved, and null on a `voided` row",
       "title": "Resolved At"
     },
     "run_id": {
@@ -378,7 +378,7 @@
       "type": "boolean"
     },
     "set_aside": {
-      "description": "Whether the prediction is set aside from the scored figures: `forward_claim_excluded`, or graded with every in-scope grading leakage-flagged",
+      "description": "Whether the prediction is set aside from the scored figures: `voided`, `forward_claim_excluded`, or graded with every in-scope grading leakage-flagged",
       "title": "Set Aside",
       "type": "boolean"
     },
@@ -439,6 +439,12 @@
       ],
       "description": "The case's October Term; null where unrecorded",
       "title": "Term"
+    },
+    "voided": {
+      "default": false,
+      "description": "Whether the prediction's event is voided: its committed outcome records a different petition than the one the event was opened on, so the outcome columns are nulled rather than exported beside a forecast of another case (`docs/process-version.md`, *Voiding an event*)",
+      "title": "Voided",
+      "type": "boolean"
     }
   },
   "required": [

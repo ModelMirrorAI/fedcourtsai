@@ -1462,23 +1462,33 @@ are a declared superset
 (below). A figure there that differs from a board figure is two populations
 rather than an error in either.
 
-**The voided-event exclusion.** An event whose committed outcome describes
-another petition — the Court re-docketed its number after the event opened, so
-the outcome it resolved on is a different case's — is **voided**: registered in
-`fedcourtsai.integrity.VOIDED_EVENTS` beside the dated freeze-record entry that
-states its defect, and its gradings leave **every rank key, scored aggregate,
-stratum, window composition and export count**. `store.stratify` drops them
-after the run collapse (so a re-grade of one still counts in
+**The voided-event exclusion.** An event whose committed outcome records a
+different petition than the one it was opened on — the Court re-docketed its
+number, or the ingest attached another docket's disposition — is **voided**:
+registered in `src/fedcourtsai/voided_events.json`, a code-owned file a void
+reaches only through a maintainer-merged PR, beside the dated freeze-record
+entry that states its defect. The admissibility rule is
+[docs/process-version.md](../docs/process-version.md)'s *Voiding an event*: the
+outcome-describes-another-case ground alone, shown from stored docket payloads
+without reference to the outcome or any grading, with the voided gradings'
+scores published and, once the docket-identity detector exists, every flagged
+event voided whatever it scored. Its gradings leave **every rank key, scored
+aggregate, stratum, window composition and export count**: `store.stratify`
+drops them after the run collapse (so a re-grade of one still counts in
 `superseded_gradings`) and before anything else counts them, so they are in
 neither the `forward_claim` nor the `leakage_exclusion` denominator; unlike those
 two rules, the `big_case` and `evaluator_agreement` views drop them too, because
 a stakes read of a voided event was taken across two petitions filed under one
 id. It changes membership, never value: no committed file is edited. Each board
-carries a `voided_events` block — the dropped gradings' count, the events, and
-the per-predictor split — omitted where no in-scope grading sits on a voided
-event, and the export marks each such grading `excluded_reason: voided`.
-A void is not a corrected outcome: `stamp-cell --regrade` re-scores an event
-against its true outcome, and a voided event has none at that docket number.
+and the ops report carry a `voided_events` block — the shared pass's dropped
+count, the events, and per predictor the count, the hits (`correct: 1`) and the
+mean Brier score of what was dropped — omitted where nothing in scope is voided,
+and the export marks each such grading `excluded_reason: voided` and its
+prediction `voided` with the outcome columns null. **The voids so far were
+found from a grading, not by a scan, so the set may be incomplete** until the
+docket-identity detector sweeps the ledger. A void is not a corrected outcome:
+`stamp-cell --regrade` re-scores an event against its true outcome, and a voided
+event has none at that docket number.
 
 **A row-blind `codex-baseline` grading is "not assessed", never "clean".** A
 `codex-baseline` `retrieval_log.json` whose rows all carry a null `call_source`
