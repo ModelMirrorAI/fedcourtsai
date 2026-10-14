@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 15832,
+      "checked": 16044,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 26888,
+      "checked": 26940,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -118,7 +118,7 @@
       "problems": []
     },
     {
-      "checked": 1296,
+      "checked": 1464,
       "detail": "",
       "failures": 0,
       "name": "evaluation_targets_prediction",
@@ -126,7 +126,7 @@
       "problems": []
     },
     {
-      "checked": 897,
+      "checked": 1038,
       "detail": "",
       "failures": 0,
       "name": "base_rate_basis_carries_version",
@@ -134,7 +134,7 @@
       "problems": []
     },
     {
-      "checked": 2494,
+      "checked": 2582,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -142,7 +142,7 @@
       "problems": []
     },
     {
-      "checked": 1042,
+      "checked": 1086,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -150,7 +150,7 @@
       "problems": []
     },
     {
-      "checked": 129,
+      "checked": 132,
       "detail": "",
       "failures": 0,
       "name": "prediction_semantic_claims_conform",
@@ -166,7 +166,7 @@
       "problems": []
     },
     {
-      "checked": 129,
+      "checked": 132,
       "detail": "",
       "failures": 0,
       "name": "merits_predictions_carry_judgment",
@@ -174,7 +174,7 @@
       "problems": []
     },
     {
-      "checked": 1296,
+      "checked": 1464,
       "detail": "",
       "failures": 0,
       "name": "vote_accuracy_only_on_merits_events",
@@ -190,7 +190,7 @@
       "problems": []
     },
     {
-      "checked": 411,
+      "checked": 489,
       "detail": "",
       "failures": 0,
       "name": "evaluation_correct_agrees",
