@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. Read the committed `metrics/statpack.md` (*Segment base rate by salience band (sal-v4)*) only to check a candidate's anchor claim; no corpus query, MCP, or web lookups.

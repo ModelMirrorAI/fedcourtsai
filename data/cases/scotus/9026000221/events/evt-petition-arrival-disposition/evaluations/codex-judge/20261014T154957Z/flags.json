@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000221",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Case identity conflict blocks substantive evaluation of gemini-baseline, claude-baseline, and codex-baseline. event.yaml names Mara Nathan v. Alamo Heights ISD; all three August 20, 2026 forecasts analyze the Texas Ten Commandments/Fifth Circuit dispute. The provisioned record/snapshots/2026-10-13.json instead identifies Theodore James Purdy v. Kansas, No. 26-221, from the Kansas Court of Appeals and records an October 13 denial. Current petition.txt and questions-presented.txt concern Purdy's Confrontation Clause claim; documents.json records an October 5 fetch and 140 pages, whereas candidates describe a 314-page Nathan petition. Original prediction-time snapshots are not staged, so the cause cannot be assigned and Nathan's actual outcome is unknown here. Required correct/Brier fields mechanically compare to the supplied denial (0/0.81 for gemini-baseline, 0/0.5184 for claude-baseline and codex-baseline); these are not reliable matched-case performance. reasoning_quality is null for each, with details in evaluation.md. Reconcile case/event/document/outcome association and reevaluate before treating these cells as scored performance. This is not evidence of leakage, and leakage_suspected was not used as a substitute data-quality exclusion.",
+      "severity": "blocker"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0"
+}

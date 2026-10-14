@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:1d7fbb9fce0582c4e5a8b7dbbb54fb504532c2bdd7ef8b9946c8145115860bde",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "Follow-on GVR applying Monsanto v. Durnell to a ~$28M (remitted) California Roundup failure-to-warn judgment; material to the parties and the mass-tort inventory, but the doctrinal question was already settled in June 2026 and the order is a one-line GVR with no new law."
+  },
+  "brier_score": 0.0009000000000000016,
+  "brier_skill_score": 0.9986986632407492,
+  "case_id": "scotus/9026000139",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.16837716484926235,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": 0.6906965399441509
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3536723163841808,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.995,
+        "score": 0.41771447460819044
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 1.1084110145523414,
+    "total": 1.1084110145523414
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T17:23:13Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; log mode forward. Retrieval: statpack reads, two unobserved general web searches on GVR practice (Lawrence v. Chater) with no case-specific query, and a `find` excluding data/qp-topics (not a read). Prediction dated 2026-09-27, before the 2026-10-13 resolution; no own-case disposition surfaced. Durnell (2026-06-25) is pre-resolution companion signal disclosed in the reasoning.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T17:24:02.586089Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.16837716484926235,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

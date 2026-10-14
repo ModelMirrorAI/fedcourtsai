@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:1d7fbb9fce0582c4e5a8b7dbbb54fb504532c2bdd7ef8b9946c8145115860bde",
+  "big_case": {
+    "evaluator_score": 0.35,
+    "notes": "Acknowledged circuit conflict on whether surcharge is 'appropriate equitable relief' under ERISA 502(a)(3) matters to the benefits bar, but the top-hat plan / rabbi-trust posture and disputed fiduciary status confine it; the Court denied after the SG recommended denial, with no noted dissent. Moderate, specialist significance."
+  },
+  "brier_score": 0.17639999999999997,
+  "brier_skill_score": -0.44275290681163515,
+  "case_id": "scotus/73279035",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.34966592427616927,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.42,
+        "score": -0.054133741400092236
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.054133741400092236,
+    "total": -0.054133741400092236
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T16:03:33Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-cvsg-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (cutoff 2026-04-07, prediction 2026-09-18, resolution 2026-10-13). Retrieval limited to provisioned inputs, statpack, and general precedent (Amara, Montanile via CourtListener; three web attempts on Amara were unobserved and per the candidate returned nothing usable). No query targets this case's later history; nothing postdating resolution.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260918T195102Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T16:04:35.198551Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.34966592427616927,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

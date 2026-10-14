@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73280380",
+  "gaps": [
+    "gemini-baseline has no captured tool results; the leakage assessment necessarily relies on query subjects and prose.",
+    "codex-baseline's three web results are unobserved, so their content cannot be independently checked from the staged log."
+  ],
+  "helpful": [
+    "Blinded prediction, rationale, forecast, and retrieval documents permit candidate-specific grading without identity lookup.",
+    "Frozen prediction contexts distinguish the scored elevated band from the evaluator's terminal high band.",
+    "Per-call capture markers distinguish unobserved results from failed or empty retrieval."
+  ],
+  "notes": "All three candidates were scored from provisioned artifacts. No corpus, CourtListener, or web lookup was needed. The committed statpack was not consulted: frozen-band cert baselines are left to the harness. JSON Schema validation uses the system Python because jsonschema is absent from the project virtual environment. Capture gaps are documented limitations, not inferred leakage or per-cell defects.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "jq",
+    "apply_patch",
+    "python jsonschema"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

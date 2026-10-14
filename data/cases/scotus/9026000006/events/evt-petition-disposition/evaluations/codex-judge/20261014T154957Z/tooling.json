@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000006",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate artifacts preserved a common comparison without predictor identities.",
+    "Captured-call markers distinguished missing telemetry from genuinely captured failures.",
+    "Provisioned petition, opposition, and appended lower-court opinion supported checking the rationales."
+  ],
+  "notes": "No external case retrieval or corpus query was needed. Frozen cert bands leave baseline and skill stamping to the harness. gemini-baseline's zero result-capture coverage is a disclosed evidence limit, not a tooling defect or an inference of leakage.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "functions.update_plan",
+    "apply_patch"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

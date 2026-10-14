@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "A single criminal defendant's application to stay a pretrial detention order. The underlying question (the appellate standard of review for Bail Reform Act detention orders) recurs and has a real circuit division, but it was raised on the companion cert docket, not decided here. The politically charged facts draw attention without raising the legal stakes. A plain denial with no noted dissent leaves no precedent."
+  },
+  "brier_score": 0.0016,
+  "brier_skill_score": 0.8283226771092915,
+  "case_id": "scotus/9526000446",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.0965391621129326,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.007719809821467082
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.007719809821467082,
+    "total": 0.007719809821467082
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T17:53:09Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell, predicted 2026-10-09 before the 2026-10-13 resolution. The log's retrieved_doc_dates (2026-08-12 Sixth Circuit opinion, 2026-10-08 opposition) predate the resolution, and its web search and Court docket fetches reported no disposition. It did not read data/qp-topics. Nothing outcome-revealing was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261009T143059Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T17:54:08.693415Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0965391621129326,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

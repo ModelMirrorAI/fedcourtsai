@@ -1,0 +1,11 @@
+# gemini-baseline — P(grant) 0.35, predicted denied
+
+**Cell:** scotus/73280380 (No. 25-882, *Parker v. Gates*), `evt-petition-disposition`, stage `cert`. **Outcome:** `denied` (`actual_granted` 0), resolved 2026-10-13 after three distributions, no noted dissent from denial, no CVSG.
+
+The prediction froze `context.band` = `elevated` under `sal-v4`, so the segment base rate, `base_rate_basis` and skill score are the harness's to stamp; this write-up refers only to "the stamped segment base rate". (The decided docket's terminal band is `high`, but the frozen band governs.) The forecast document and claims block are not graded here; the harness scores the claims in code. No `semantic_grades` block: this is a cert cell.
+
+**Leakage:** forward cell, predicted 2026-09-16, before the 9/28 long conference and the 10/13 denial. Graded `not_applicable` / `leakage_suspected` false after checking the log: no `retrieved_doc_date` on or after resolution, no query for this petition's disposition, no read of `data/qp-topics/`.
+
+**Scores:** correct 1; Brier (0.35 − 0)² = 0.1225.
+
+**Reasoning quality 0.40.** The document is short (three paragraphs) and moves a long way above the ~18% band anchor it cites. The upward case rests on the Court's response request and the en banc dissent, both legitimate signals. But it treats the response request as stronger than it is, and it does not engage the brief in opposition's main counterarguments: the independent factual grounds for the sanctions, the independent § 1927 basis, and abuse-of-discretion review. It mentions deference to discretionary rulings only in passing. Its main reason for going up is speculation about the majority's ideological sympathy, not anything in the docket or the briefs. It also contains a factual slip: it says the en banc dissent was "authored by Judge Bumatay". Bumatay dissented on the panel, but the provisioned appendix (`record/documents/appendix.txt`) shows the dissent from denial of rehearing en banc was written by Judge VanDyke, with Bumatay joining. The retrieval log shows the petition and brief in opposition were read only through `head -n 50`, which fits the shallow engagement with the opposition. The ex-ante direction was defensible, but the size of the adjustment was not supported.

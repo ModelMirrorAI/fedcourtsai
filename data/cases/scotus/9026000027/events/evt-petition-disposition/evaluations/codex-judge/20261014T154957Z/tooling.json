@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000027",
+  "gaps": [
+    "Unobserved candidate retrieval results limit result-level verification."
+  ],
+  "helpful": [
+    "Blinded candidate artifacts",
+    "Harness retrieval timestamps and capture markers",
+    "Provisioned briefs and resolved outcome"
+  ],
+  "notes": "Evaluated only provisioned case materials and blinded candidates. No external retrieval or statpack lookup was needed; every prediction froze a band, so baseline and skill stamping remain with the harness. Capture gaps were treated as uncertainty, not evidence of empty results.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "local schema validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

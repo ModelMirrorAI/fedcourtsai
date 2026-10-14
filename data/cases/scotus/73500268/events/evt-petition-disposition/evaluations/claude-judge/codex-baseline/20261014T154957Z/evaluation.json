@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:1d7fbb9fce0582c4e5a8b7dbbb54fb504532c2bdd7ef8b9946c8145115860bde",
+  "big_case": {
+    "evaluator_score": 0.1,
+    "notes": "Private two-party construction-subcontract dispute; unpublished Fifth Circuit per curiam; resolved by a routine GVR in light of Keathley, which already settled the legal question. Some recurring bankruptcy-disclosure relevance, but no new rule, no institutional parties."
+  },
+  "brier_score": 0.03240000000000002,
+  "brier_skill_score": 0.9527133846776024,
+  "case_id": "scotus/73500268",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.82,
+        "score": 0.6527833183470322
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.99,
+        "score": 0.41746364360786964
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 1.0702469619549018,
+    "total": 1.0702469619549018
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T16:51:52Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward, capture 0.94). CourtListener search and read of the Keathley opinion (June 11, 2026); search surfaced metadata for Keathley's own July 2026 Fifth Circuit remand (a different case, predating this resolution; disclosed and not opened). Two web calls unobserved, graded on query (Keathley opinion only). One find used -not -path data/qp-topics/* (an exclusion, not a read). No outcome material for this petition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261003T200236Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T16:52:48.583148Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17224199288256228,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:1d7fbb9fce0582c4e5a8b7dbbb54fb504532c2bdd7ef8b9946c8145115860bde",
+  "big_case": {
+    "evaluator_score": 0.78,
+    "notes": "The provisioned questions concern executive-branch confidentiality, FOIA agency-status discovery, and compliance with an earlier Supreme Court mandate. These have substantial institutional reach beyond the parties. The immediate dispute remains discovery and mandamus, not a final determination of FOIA coverage; the recorded cert grant supplies no merits holding."
+  },
+  "brier_score": 0.16000000000000003,
+  "brier_skill_score": 0.8222625879154253,
+  "case_id": "scotus/73281386",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": 0.740204397731781
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.55,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.55,
+        "score": -0.17731964877542278
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.4,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.5628847489563582,
+    "total": 0.5628847489563582
+  },
+  "correct": 0,
+  "created_at": "2026-10-14T16:19:12Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Reviewed all 29 calls, each with a captured result marker. The September 16, 2026 prediction precedes the October 13 resolution. Logged docket lookups bear March 20, 2026 and February 20, 2025 document dates; the rationale reports no later Supreme Court activity or underlying-docket disposition. Queries for the live docket were permissible in a genuinely open forward cell. The June 2025 order is an earlier proceeding, not this outcome. The disclosed general recollection about DOGE's wind-down is unsupported context, not knowledge of this petition's disposition. No logged or stated evidence of outcome retrieval.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T16:21:51.461195Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120898100172712,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

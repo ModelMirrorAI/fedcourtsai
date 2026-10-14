@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281386",
+  "gaps": [
+    "gemini-baseline's log has no observed results; its leakage assessment necessarily relies on queries and prose.",
+    "Captured result digests do not expose full result bodies in the staged logs."
+  ],
+  "helpful": [
+    "Blinded candidate artifacts preserve probability and frozen context without exposing identity.",
+    "Result-capture markers distinguish unavailable telemetry from empty retrieval.",
+    "Provisioned petition appendices and opposition permit checking competing readings of the earlier mandate."
+  ],
+  "notes": "Scored all three aliases against the supplied cert outcome. No corpus, web, or CourtListener retrieval was needed. Did not independently reproduce candidate base-rate calculations; every prediction freezes a band, so the scored baseline belongs to the harness. Validated only cell output schemas and consistency; whole-tree validation is deferred until harness restoration and unblinding.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "apply_patch",
+    "jq",
+    "jsonschema"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

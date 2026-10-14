@@ -1,0 +1,11 @@
+# Evaluation — gemini-baseline, scotus/73521973 evt-petition-disposition
+
+Cert-stage cell (`stage: cert`). The prediction froze `band: baseline` under `sal-v4`, so the segment base rate, skill score and basis are the harness's risk-set stamp; I leave them null and refer only to the stamped segment base rate. `vote_accuracy` omitted (cert stage). No `semantic_grades` (no semantic set on a cert cell). `claim_scores` are computed by the harness.
+
+Predicted **denied**, P(grant) = 0.02. Outcome: denied (2026-10-13), no noted dissent. Correct; Brier 0.0004.
+
+**Reasoning quality 0.55.** The rationale correctly identifies the decisive features: an AEDPA-governed state-prisoner Strickland claim, the BIO's preservation/exhaustion objection to QP 1, and the Court's reluctance to grant fact-bound error correction. It names the band anchor (~5.1%) and the capital marking. But it is thin: it moves from a 5.1% anchor (and acknowledges capital status pushes *up*) to 2% without quantifying or weighing that tension, and it does not engage the split's actual quality (the BIO's pre-AEDPA/de novo critique), the alternative holding, or the en banc dissents, beyond naming its own uncertainty on split depth. The direction proved right and the low number scored best of the three, but the analysis supporting a below-anchor figure is asserted more than shown; the retrieval note also lists fewer calls than the log shows (a generic denied-filtered query is omitted), a minor disclosure gap.
+
+**Leakage.** Forward cell (log mode forward; predicted 2026-10-03, resolved 2026-10-13). Log: local file reads of provisioned record and statpack, two generic fedcourts query calls, one generic CourtListener search on Strickland/jury-hesitation doctrine (unobserved result; query names no case or outcome). No retrieval of this case's disposition; no data/qp-topics read. Graded `not_applicable`, `leakage_suspected: false`.
+
+**Big case.** My own read: 0.30 — Capital AEDPA habeas petition asking whether initial jury hesitation must enter Strickland prejudice analysis; life-or-death stakes for one petitioner and a recurring but narrow doctrinal question, weakened by preservation/alternative-holding vehicle problems. Denied without noted dissent at its first conference, drawing no visible reaction from the Court.

@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000337",
+  "gaps": [
+    "Unobserved results limit retrospective inspection of gemini-baseline retrieval and two codex-baseline web calls"
+  ],
+  "helpful": [
+    "Blinded predictions and separate rationale/forecast documents",
+    "Harness retrieval transcripts with per-call capture markers",
+    "Provisioned petition appendix, question presented, and resolved snapshot"
+  ],
+  "notes": "Scored all three aliases from provisioned inputs without external retrieval. Frozen cert bands leave baseline and skill calculation to the harness; no statpack rate was independently pooled. Unobserved capture was treated as missing visibility, not proof of empty results or a pipeline defect.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell and file reads",
+    "jq",
+    "apply_patch",
+    "local schema validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

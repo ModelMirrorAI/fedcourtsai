@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73279035",
+  "gaps": [],
+  "helpful": [
+    "Blinded rationales preserve candidate-independent grading.",
+    "Capture markers distinguish unobserved results from empty results.",
+    "Frozen context identifies forward timing and harness-owned baseline fields."
+  ],
+  "notes": "No external lookup or statpack consultation. Used the supplied outcome, blinded candidate artifacts, and selected supplied filing passages. Unobserved transcript results were treated as unknown, not failed retrieval. Local schema validation is appropriate before harness un-aliasing; full data validation is deferred to the harness.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "blinded prediction and retrieval-log reads",
+    "local JSON Schema validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}
