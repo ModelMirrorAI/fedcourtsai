@@ -220,23 +220,43 @@ def _tags(repo: Path, prefix: str) -> dict[str, str]:
 
 
 def promotion_tag_name(repo: Path, merge: str, merged_at: datetime) -> tuple[str, bool]:
-    """The merge's ``promotion/<UTC date>`` tag, and whether one already peels to it.
+    """The merge's canonical ``promotion/<UTC date>`` tag, and whether it already exists.
 
-    A tag that already names the merge is adopted, so a re-run never mints a
-    second; otherwise the merge's UTC date, suffixed ``-2``, ``-3`` … past
-    each name another merge already holds.
+    The canonical name is the merge's UTC date, suffixed ``-2``, ``-3`` … past
+    each name another merge already holds. That name is adopted where it
+    already names this merge as an **annotated** tag, so a re-run never mints a
+    second. Anything else on the merge is refused rather than adopted, for an
+    operator to investigate: a ``promotion/`` tag under another name, or a
+    lightweight one under the canonical name.
     """
     tags = _tags(repo, "promotion/")
-    for name, peeled in sorted(tags.items()):
-        if peeled == merge:
-            return name, True
     base = f"promotion/{merged_at.astimezone(UTC):%Y-%m-%d}"
-    if base not in tags:
-        return base, False
-    suffix = 2
-    while f"{base}-{suffix}" in tags:
+    name, suffix = base, 1
+    while name in tags and tags[name] != merge:
         suffix += 1
-    return f"{base}-{suffix}", False
+        name = f"{base}-{suffix}"
+    strays = sorted(other for other, peeled in tags.items() if peeled == merge and other != name)
+    if strays:
+        raise PromotionRecordError(
+            f"{merge} carries {', '.join(strays)}, not its canonical {name}; investigate"
+        )
+    adopt = name in tags
+    if adopt and not _annotated(repo, name):
+        raise PromotionRecordError(f"{name} is a lightweight tag; investigate")
+    return name, adopt
+
+
+def _annotated(repo: Path, name: str) -> bool:
+    """Whether ``refs/tags/<name>`` points at an annotated tag object."""
+    return git(repo, "cat-file", "-t", f"refs/tags/{name}").strip() == "tag"
+
+
+def tag_message(repo: Path, name: str) -> str | None:
+    """The message of the annotated tag ``name``, byte-exact; ``None`` if absent or lightweight."""
+    if name not in _tags(repo, name.split("/", 1)[0] + "/") or not _annotated(repo, name):
+        return None
+    body = git(repo, "cat-file", "tag", f"refs/tags/{name}")
+    return body.split("\n\n", 1)[1] if "\n\n" in body else ""
 
 
 # --- registry stamps ---------------------------------------------------------
@@ -365,41 +385,63 @@ def _edits_one_of(line: str, candidates: list[str]) -> bool:
     return False
 
 
+def _inserted_lines(before: str, after: str) -> set[int]:
+    """The 0-based lines of ``after`` the line diff from ``before`` inserts.
+
+    An inserted line is one in an ``insert`` run, or one in a ``replace`` run
+    that does not read as an edit of a replaced line holding a placeholder — a
+    typo fixed, or a placeholder renamed in place (``merge hash`` to ``merge
+    SHA``), is an edit and so not inserted. Lines in ``equal`` runs never are.
+    The edit comparison is bounded: past :data:`_EDIT_COMPARISONS` line pairs
+    in one run, every placeholder-bearing line of it counts as an edit, so a
+    huge rewrite fails closed rather than slow.
+    """
+    old_lines, new_lines = before.splitlines(keepends=True), after.splitlines(keepends=True)
+    old_held = {line for _key, line, _start, _end in placeholders(before)}
+    new_held = {line for _key, line, _start, _end in placeholders(after)}
+    inserted: set[int] = set()
+    matcher = difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False)
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "insert":
+            inserted.update(range(j1, j2))
+        elif tag == "replace":
+            held = [old_lines[i] for i in range(i1, i2) if i in old_held]
+            bearing = [j for j in range(j1, j2) if j in new_held]
+            within = len(held) * len(bearing) <= _EDIT_COMPARISONS
+            for j in range(j1, j2):
+                plain = j not in new_held or not held
+                if plain or (within and not _edits_one_of(new_lines[j], held)):
+                    inserted.add(j)
+    return inserted
+
+
+#: The most line pairs one replaced run is compared over before it fails closed.
+_EDIT_COMPARISONS = 400
+
+
 def _added_placeholders(before: str, after: str) -> set[int]:
     """The start offsets in ``after`` of the placeholders the change added.
 
-    The record is append-only, so an entry is identified by its heading — its
-    first line, ``- **…`` or ``#`` — and a placeholder is added only where both
-    hold:
-
-    - **its entry is new**: no entry of ``before`` has that heading. A landed
-      entry moved elsewhere in the record, which a line diff reads as a delete
-      and an insert, keeps its heading and adds nothing; a new entry that
-      copies an old one's placeholder lines under its own heading adds them;
-    - **its line is not an edit of a landed placeholder line**: where the line
-      diff replaced lines holding placeholders, a new line that reads as an
-      edit of one of them — a typo fixed, a placeholder renamed in place
-      (``merge hash`` to ``merge SHA``) — adds nothing, even with its heading
-      changed.
-
-    Every other placeholder is stale: never filled.
+    A placeholder is added only where the line diff **inserted** both its own
+    line and its entry's heading — the entry's first line, ``- **…`` or ``#``
+    (:func:`_inserted_lines`) — and that heading is new to the record, which
+    is append-only, so a heading names an entry. A new entry adds its
+    placeholders. A placeholder in a landed entry adds nothing: not where the
+    change inserted a heading line above it (its own line is unchanged), not
+    where it edited the line (an edit is not an insertion), and not where it
+    moved the entry (its heading is not new). Every other placeholder is
+    stale: never filled.
     """
-    old_lines, new_lines = before.splitlines(keepends=True), after.splitlines(keepends=True)
-    old_by_line = {line for _key, line, _start, _end in placeholders(before)}
-    edits: set[int] = set()
-    matcher = difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False)
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "replace":
-            held = [old_lines[i] for i in range(i1, i2) if i in old_by_line]
-            edits.update(j for j in range(j1, j2) if _edits_one_of(new_lines[j], held))
+    inserted = _inserted_lines(before, after)
     old_headings = {_heading(before, start, end) for start, end in _entries(before)}
     spans = _entries(after)
     starts = [span_start for span_start, _end in spans]
     added: set[int] = set()
     for _key, line, start, _end in placeholders(after):
         index = bisect.bisect_right(starts, start) - 1
-        heading = _heading(after, *spans[index])
-        if heading not in old_headings and line not in edits:
+        heading_line = after.count("\n", 0, spans[index][0])
+        new_entry = _heading(after, *spans[index]) not in old_headings
+        if line in inserted and heading_line in inserted and new_entry:
             added.add(start)
     return added
 
@@ -456,15 +498,24 @@ def digest_census(repo: Path, rev: str, kind: str, digests: list[str]) -> int:
     if not prefixes:
         raise PromotionRecordError("a census names at least one digest prefix")
     artifact = _ARTIFACT[kind]
-    listed = git(repo, "ls-tree", "-r", "-z", "--name-only", rev, "--", "data/cases")
-    names = [
-        name for name in listed.split("\0") if name.endswith(f"/{artifact}") and f"/{kind}/" in name
-    ]
-    if not names:
+    listed = git(repo, "ls-tree", "-r", "-z", rev, "--", "data/cases")
+    entries: list[tuple[str, str]] = []
+    for record in filter(None, listed.split("\0")):
+        meta, _, name = record.partition("\t")
+        if not (name.endswith(f"/{artifact}") and f"/{kind}/" in name):
+            continue
+        if "\n" in name:
+            raise PromotionRecordError(f"a census path holds a newline at {rev}: {name!r}")
+        mode, kind_of, oid = meta.split()
+        if kind_of != "blob":
+            raise PromotionRecordError(f"{name} at {rev} is a {kind_of} ({mode}), not a file")
+        entries.append((name, oid))
+    if not entries:
         return 0
+    # Read by blob id: a path never reaches the batch, so no name can split a request.
     result = subprocess.run(
         _git_argv(repo, ("cat-file", "--batch")),
-        input="".join(f"{rev}:{name}\n" for name in names).encode(),
+        input="".join(f"{oid}\n" for _name, oid in entries).encode(),
         capture_output=True,
         check=False,
     )
@@ -473,9 +524,11 @@ def digest_census(repo: Path, rev: str, kind: str, digests: list[str]) -> int:
     batch = result.stdout
     count = 0
     offset = 0
-    for name in names:
-        header_end = batch.index(b"\n", offset)
-        header = batch[offset:header_end].split()
+    for name, oid in entries:
+        header_end = batch.find(b"\n", offset)
+        header = batch[offset:header_end].split() if header_end >= 0 else []
+        if len(header) != 3 or header[0].decode() != oid or header[1] != b"blob":
+            raise PromotionRecordError(f"{name} at {rev} did not read back as its blob")
         size = int(header[2])
         body = batch[header_end + 1 : header_end + 1 + size]
         offset = header_end + 1 + size + 1
@@ -500,11 +553,13 @@ def _merge_and_parent(
 
     Refuses anything that is not a staging→main promotion merge: a commit
     without exactly two parents; one not on ``main_ref``'s first-parent chain
-    (a merge into ``staging``, say); and one whose second parent ``staging_ref``
-    cannot reach (a data PR merged into ``main`` with a merge commit). The
-    committer time must not precede either parent's, nor lie in the future.
-    Those checks catch a clock error, not a forger: a promotion merge is made
-    by GitHub under the ``main`` ruleset, which is the guard on its date.
+    (a merge into ``staging``, say); and one whose second parent is not on
+    ``staging_ref``'s **first-parent** chain — a data PR merged into ``main``
+    with a merge commit, even once a sync has made its head reachable from
+    ``staging``. The committer time must not precede either parent's, nor lie
+    in the future. Those checks catch a clock error, not a forger: a promotion
+    merge is made by GitHub under the ``main`` ruleset, which is the guard on
+    its date.
     """
     merge = git(repo, "rev-parse", "--verify", f"{merge}^{{commit}}").strip()
     parents = git(repo, "rev-list", "--parents", "-n", "1", merge).split()[1:]
@@ -512,14 +567,10 @@ def _merge_and_parent(
         raise PromotionRecordError(f"{merge} is not a two-parent merge")
     if merge not in git(repo, "rev-list", "--first-parent", main_ref).split():
         raise PromotionRecordError(f"{merge} is not on {main_ref}'s first-parent chain")
-    reach = subprocess.run(
-        _git_argv(repo, ("merge-base", "--is-ancestor", parents[1], staging_ref)),
-        capture_output=True,
-        check=False,
-    )
-    if reach.returncode != 0:
+    if parents[1] not in git(repo, "rev-list", "--first-parent", staging_ref).split():
         raise PromotionRecordError(
-            f"{merge} is not a promotion merge: {staging_ref} does not reach its second parent"
+            f"{merge} is not a promotion merge: its second parent is not on "
+            f"{staging_ref}'s first-parent chain"
         )
     merged_at = committer_time(repo, merge)
     if any(merged_at < committer_time(repo, parent) for parent in parents):
@@ -533,17 +584,23 @@ def _declared(registry: Mapping[str, Any], record: str) -> str | None:
     """Why stamps are refused on this parent, or ``None`` where the rule is declared.
 
     The parent's registry must name the declaring entry's date, and the parent's
-    freeze record must hold an entry whose bold heading carries that date — so
-    the declaration reached ``main`` before the merge whose stamps apply it,
-    and one batch cannot declare and register together.
+    freeze record must hold the declaring entry: a bold heading reading
+    :data:`DECLARATION_HEADING` followed by that date — so the declaration
+    reached ``main`` before the merge whose stamps apply it, and one batch
+    cannot declare and register together.
     """
     declared = registry.get("merge_stamping_declared")
     if not declared:
         return "main's registry declares no merge-stamped instants (merge_stamping_declared)"
-    heading = re.compile(r"^- \*\*[^*]*?" + re.escape(str(declared)) + r"[^*]*?\*\*", re.MULTILINE)
-    if not heading.search(record):
-        return f"main's freeze record holds no entry dated {declared}"
+    heading = f"- **{DECLARATION_HEADING}, {declared}.**"
+    if not any(line.startswith(heading) for line in record.splitlines()):
+        return f"main's freeze record holds no entry headed {heading!r}"
     return None
+
+
+#: The heading phrase the declaring freeze-record entry opens with, followed by
+#: its date: ``- **<phrase>, <YYYY-MM-DD>.**``.
+DECLARATION_HEADING = "Counting instants and bless moments are stamped by the carrying merge"
 
 
 def plan_promotion_record(
@@ -608,6 +665,8 @@ def plan_promotion_record(
         existing = _tags(repo, "prereg/").get(name)
         if existing is not None and existing != merge:
             raise PromotionRecordError(f"{name} already names {existing}, not {merge}")
+        if existing is not None and not _annotated(repo, name):
+            raise PromotionRecordError(f"{name} is a lightweight tag; investigate")
         prereg = TagPlan(
             name,
             existing == merge,
@@ -769,18 +828,50 @@ def pending_carried_problems(repo: Path, ref: str, *, depth: int = 200) -> list[
 
 #: The one mode a record path may have on either side: a regular, non-executable file.
 _REGULAR_FILE = "100644"
+#: A submodule entry's mode.
+_GITLINK = "160000"
+
+
+def topology_problems(repo: Path, merge: str, base: str, head: str, main_ref: str) -> list[str]:
+    """Why the record commit does not sit where the writer pushes it; empty when it does.
+
+    ``base`` is ``main_ref``'s tip, the record commit ``head`` has exactly that
+    one parent, and the merge is an ancestor of ``base`` — so the jailed commit
+    is a single fast-forward step on the ``main`` the plan was read against.
+    """
+    problems = []
+    resolved = {
+        name: git(repo, "rev-parse", "--verify", f"{rev}^{{commit}}").strip()
+        for name, rev in (("main", main_ref), ("base", base), ("head", head), ("merge", merge))
+    }
+    if resolved["main"] != resolved["base"]:
+        problems.append(f"--base {base} is not {main_ref}'s tip")
+    parents = git(repo, "rev-list", "--parents", "-n", "1", resolved["head"]).split()[1:]
+    if parents != [resolved["base"]]:
+        problems.append(f"{head} does not have exactly one parent, {base}")
+    ancestry = subprocess.run(
+        _git_argv(repo, ("merge-base", "--is-ancestor", resolved["merge"], resolved["base"])),
+        capture_output=True,
+        check=False,
+    )
+    if ancestry.returncode != 0:
+        problems.append(f"the merge {merge} is not an ancestor of {base}")
+    return problems
 
 
 def changed_between(repo: Path, base: str, head: str) -> tuple[list[str], list[str]]:
     """Every path ``head`` changes from ``base``, and the mode and type problems among them.
 
-    Read from ``git diff --raw -z --no-renames``: NUL-separated, so a path with
-    a space stays whole; renames reported as a delete and an add, so neither
-    half escapes the jail. A record path must stay a regular ``100644`` file on
-    both sides — a symlink, a submodule, an executable bit or a type change
-    is refused.
+    Read from ``git diff --raw -z --no-renames --ignore-submodules=none``:
+    NUL-separated, so a path with a space stays whole; renames reported as a
+    delete and an add, so neither half escapes the jail; submodule changes
+    never hidden by configuration. A gitlink (``160000``) anywhere is refused,
+    and a record path must stay a regular ``100644`` file on both sides — a
+    symlink, an executable bit or a type change is refused.
     """
-    fields = git(repo, "diff", "--raw", "-z", "--no-renames", base, head).split("\0")
+    fields = git(
+        repo, "diff", "--raw", "-z", "--no-renames", "--ignore-submodules=none", base, head
+    ).split("\0")
     paths: list[str] = []
     problems: list[str] = []
     index = 0
@@ -791,7 +882,9 @@ def changed_between(repo: Path, base: str, head: str) -> tuple[list[str], list[s
             continue
         old_mode, new_mode, _old, _new, status = meta[1:].split()[:5]
         paths.append(path)
-        if path in RECORD_PATHS and (
+        if _GITLINK in (old_mode, new_mode):
+            problems.append(f"{path}: a submodule ({_GITLINK}) is never a promotion record")
+        elif path in RECORD_PATHS and (
             status[:1] == "T" or old_mode != _REGULAR_FILE or new_mode != _REGULAR_FILE
         ):
             problems.append(
@@ -801,18 +894,21 @@ def changed_between(repo: Path, base: str, head: str) -> tuple[list[str], list[s
     return paths, problems
 
 
-def tag_problems(plan: PromotionPlan) -> list[str]:
-    """The tags a promotion record must follow: each planned tag already on the merge.
+def tag_problems(repo: Path, plan: PromotionPlan) -> list[str]:
+    """The tags a promotion record must follow: each planned tag on the merge, as planned.
 
     The writer creates the ``promotion/`` and ``prereg/`` tags first and commits
-    the record after, so a record never names a tag that does not exist; the
-    jail refuses a record whose tags do not yet peel to the merge.
+    the record after, so a record never names a tag that does not exist. The
+    jail refuses a record whose tags do not yet name the merge, or whose tag is
+    not an annotated tag carrying the plan's message byte for byte.
     """
     problems = []
-    if not plan.promotion_tag.adopt:
-        problems.append(f"{plan.promotion_tag.name} does not yet name {plan.merge}")
-    if plan.prereg_tag is not None and not plan.prereg_tag.adopt:
-        problems.append(f"{plan.prereg_tag.name} does not yet name {plan.merge}")
+    planned = [plan.promotion_tag] + ([plan.prereg_tag] if plan.prereg_tag is not None else [])
+    for tag in planned:
+        if not tag.adopt:
+            problems.append(f"{tag.name} does not yet name {plan.merge}")
+        elif tag_message(repo, tag.name) != tag.message:
+            problems.append(f"{tag.name} is not the annotated tag the plan writes")
     return problems
 
 

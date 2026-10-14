@@ -38,6 +38,7 @@ from fedcourtsai.process_version import (
     registered_windows,
 )
 from fedcourtsai.promotion_record import (
+    DECLARATION_HEADING,
     FREEZE_RECORD_PATH,
     RECORD_PATHS,
     REGISTRY_PATH,
@@ -286,7 +287,7 @@ def test_an_evaluator_digest_leaving_with_nothing_new_registers_a_holding_label(
 # --- the synthetic promotion -------------------------------------------------
 
 #: The declaring entry the merge-stamping rule needs on the merge's first parent.
-_DECLARATION = f"- **Merge-stamped instants are declared, {DECLARED_ON}.** The rule.\n"
+_DECLARATION = f"- **{DECLARATION_HEADING}, {DECLARED_ON}.** The rule.\n"
 _ENTRY_BEFORE = (
     "# Freeze record\n\n"
     + _DECLARATION
@@ -302,14 +303,19 @@ _ENTRY_ADDED = (
 REFS = {"main_ref": "main", "staging_ref": "staging"}
 
 
-def _git(repo: Path, *args: str, when: datetime | None = None) -> str:
+def _git(repo: Path, *args: str, when: datetime | None = None, stdin: str | None = None) -> str:
     env = dict(os.environ)
     if when is not None:
         stamp = when.strftime("%Y-%m-%dT%H:%M:%SZ")
         env["GIT_COMMITTER_DATE"] = stamp
         env["GIT_AUTHOR_DATE"] = stamp
     return subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, check=True, text=True, env=env
+        ["git", "-C", str(repo), *args],
+        capture_output=True,
+        check=True,
+        text=True,
+        env=env,
+        input=stdin,
     ).stdout.strip()
 
 
@@ -457,15 +463,44 @@ def test_an_edited_or_moved_landed_placeholder_is_stale(
 def test_a_new_entry_copying_a_filled_entrys_lines_is_still_added(tmp_path: Path) -> None:
     """The batch fills an old entry and appends a new one built from the same template."""
     template = "  Carried by `<FILL: promotion tag>` (merge `<FILL: merge hash>`).\n"
-    before = "# R\n\n- **Old, 2026-10-01.** Applied.\n" + template
+    middle = "\n- **Middle, 2026-10-05.** Prose.\n  More prose.\n  And more.\n"
+    before = "# R\n\n- **Old, 2026-10-01.** Applied.\n" + template + middle
     after = (
         "# R\n\n- **Old, 2026-10-01.** Applied.\n  Carried by `promotion/x` (merge `abc`).\n"
-        "\n- **New, 2026-10-12.** Applied.\n" + template
+        + middle
+        + "\n- **New, 2026-10-12.** Applied.\n"
+        + template
     )
     repo, merge = _promote(tmp_path, before=before, staging_record=after, staging_registry=DECLARED)
     plan = _plan(repo, merge)
     assert sorted(fill.key for fill in plan.fills) == ["merge hash", "promotion tag"]
     assert plan.stale_placeholders == []
+
+
+@pytest.mark.parametrize("inserted", ["# note\n", "- **x**\n", "#\n"])
+def test_a_heading_inserted_above_a_landed_placeholder_does_not_add_it(
+    tmp_path: Path, inserted: str
+) -> None:
+    """Inserting a heading line above a landed placeholder never makes the placeholder new."""
+    landed = (
+        "# Freeze record\n\n" + _DECLARATION + "\n- **Landed entry (2026-09-01).** Text.\n"
+        "  Merge `<FILL: merge hash>` owed by an earlier merge.\n"
+    )
+    edited = landed.replace("  Merge `<FILL", inserted + "  Merge `<FILL")
+    repo, merge = _promote(tmp_path, before=landed, staging_record=edited)
+    plan = _plan(repo, merge)
+    assert [fill.key for fill in plan.fills] == []
+    assert [fill.key for fill in plan.stale_placeholders] == ["merge hash"]
+
+
+def test_a_heading_edit_does_not_add_the_entrys_placeholder(tmp_path: Path) -> None:
+    landed = (
+        "# Freeze record\n\n" + _DECLARATION + "\n- **Landed entry (2026-09-01).** Text.\n"
+        "  Merge `<FILL: merge hash>` owed by an earlier merge.\n"
+    )
+    edited = landed.replace("Landed entry", "Landed  entry")
+    repo, merge = _promote(tmp_path, before=landed, staging_record=edited)
+    assert _plan(repo, merge).fills == []
 
 
 def test_an_evaluator_only_label_is_tagged_on_its_merge(tmp_path: Path) -> None:
@@ -484,7 +519,7 @@ def test_stamps_need_the_declaration_on_the_first_parent(tmp_path: Path) -> None
     with pytest.raises(PromotionRecordError, match="declares no merge-stamped"):
         _plan(repo, merge)
     repo2, merge2 = _promote(tmp_path / "b", before="# Freeze record\n")
-    with pytest.raises(PromotionRecordError, match="no entry dated"):
+    with pytest.raises(PromotionRecordError, match="no entry headed"):
         _plan(repo2, merge2)
 
 
@@ -538,10 +573,68 @@ def test_a_taken_date_takes_the_next_suffix_and_an_existing_tag_is_adopted(
     repo, merge = promotion
     _git(repo, "tag", "-a", "promotion/2026-10-13", "-m", "another", f"{merge}^1")
     assert _plan(repo, merge).promotion_tag.name == "promotion/2026-10-13-2"
-    _git(repo, "tag", "-a", "promotion/2026-10-13-2", "-m", "this one", merge)
-    _git(repo, "tag", "-a", "nested", "-m", "a tag of a tag", "promotion/2026-10-13-2")
+    # A tag of a tag still peels to the merge.
+    _git(repo, "tag", "-a", "inner", "-m", "inner", merge)
+    _git(repo, "tag", "-a", "promotion/2026-10-13-2", "-m", "this one", "inner")
     tag = _plan(repo, merge).promotion_tag
     assert (tag.name, tag.adopt) == ("promotion/2026-10-13-2", True)
+
+
+def test_a_stray_or_lightweight_tag_on_the_merge_is_refused(tmp_path: Path) -> None:
+    repo, merge = _promote(tmp_path)
+    _git(repo, "tag", "promotion/0-attacker)](x.example)", merge)
+    with pytest.raises(PromotionRecordError, match="not its canonical"):
+        _plan(repo, merge)
+    repo2, merge2 = _promote(tmp_path / "b")
+    _git(repo2, "tag", "promotion/2026-10-13", merge2)
+    with pytest.raises(PromotionRecordError, match="lightweight"):
+        _plan(repo2, merge2)
+    repo3, merge3 = _promote(tmp_path / "c")
+    _git(repo3, "tag", "prereg/proc-v10", merge3)
+    with pytest.raises(PromotionRecordError, match="lightweight"):
+        _plan(repo3, merge3)
+
+
+def test_a_data_merge_stays_refused_after_a_sync(tmp_path: Path) -> None:
+    """A sync makes a data head reachable from staging, but not on its first-parent chain."""
+    repo, _ = _promote(tmp_path)
+    _git(repo, "switch", "-q", "-c", "data", "main")
+    _write(repo, "data/x.json", "{}\n")
+    _commit(repo, "data", MERGED_AT + timedelta(minutes=1))
+    _git(repo, "switch", "-q", "main")
+    _git(
+        repo,
+        "merge",
+        "-q",
+        "--no-ff",
+        "data",
+        "-m",
+        "data PR",
+        when=MERGED_AT + timedelta(minutes=2),
+    )
+    data_merge = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "switch", "-q", "staging")
+    _git(
+        repo, "merge", "-q", "--no-ff", "main", "-m", "sync", when=MERGED_AT + timedelta(minutes=3)
+    )
+    _git(repo, "switch", "-q", "main")
+    with pytest.raises(PromotionRecordError, match="first-parent chain"):
+        _plan(repo, data_merge)
+
+
+def test_the_census_refuses_a_path_with_a_newline(tmp_path: Path) -> None:
+    repo, _ = _promote(tmp_path)
+    path = (
+        "data/cases/scotus/2/events/evt-x/predictions/claude-baseline/20261101T000000Z/"
+        "prediction.json"
+    )
+    _git(repo, "switch", "-q", "staging")
+    _write(repo, path + "\nHEAD:" + path, "{}\n")
+    _commit(repo, "weird", datetime(2026, 10, 12, 13, tzinfo=UTC))
+    _git(repo, "switch", "-q", "main")
+    _git(repo, "merge", "-q", "--no-ff", "staging", "-m", "p2", when=MERGED_AT + timedelta(hours=1))
+    with pytest.raises(PromotionRecordError, match="newline"):
+        digest_census(repo, _git(repo, "rev-parse", "HEAD"), "predictions", ["aaaaaaaa"])
 
 
 def test_apply_fills_and_stamps_once_and_loads(promotion: tuple[Path, str]) -> None:
@@ -714,16 +807,34 @@ def _texts(repo: Path, rev: str) -> dict[str, str | None]:
 
 
 def _record_commit(repo: Path, merge: str, mutate: Any = None, *, tag: bool = True) -> str:
-    """The writer's sequence: tag the merge, apply, (tamper,) commit; returns the record commit."""
+    """The writer's sequence: tag the merge, apply, (tamper,) commit; returns the record commit.
+
+    The record is committed on a side branch, so ``main`` stays at the merge it
+    was planned against — the writer pushes the jailed commit after the jail.
+    """
     plan = _plan(repo, merge)
     if tag:
-        _git(repo, "tag", "-a", plan.promotion_tag.name, "-m", plan.promotion_tag.message, merge)
-        if plan.prereg_tag is not None:
-            _git(repo, "tag", "-a", plan.prereg_tag.name, "-m", plan.prereg_tag.message, merge)
+        _tag(repo, plan)
+    _git(repo, "switch", "-q", "-c", "record")
     apply_promotion_record(repo, repo, plan)
     if mutate is not None:
         mutate(repo)
     return _commit(repo, "promotion record", MERGED_AT + timedelta(minutes=5))
+
+
+def _tag(repo: Path, plan: Any) -> None:
+    for tag in [plan.promotion_tag] + ([plan.prereg_tag] if plan.prereg_tag else []):
+        _git(
+            repo,
+            "tag",
+            "-a",
+            "--cleanup=verbatim",
+            tag.name,
+            "-F",
+            "-",
+            plan.merge,
+            stdin=tag.message,
+        )
 
 
 def _cli_jail(repo: Path, merge: str, head: str, monkeypatch: pytest.MonkeyPatch) -> Any:
@@ -807,6 +918,88 @@ def test_the_jail_refuses_a_tampered_record(
     repo, merge = _promote(tmp_path)
     result = _cli_jail(repo, merge, _record_commit(repo, merge, mutate), monkeypatch)
     assert result.exit_code == 1, result.output
+
+
+def _jail_at(repo: Path, merge: str, base: str, head: str, monkeypatch: pytest.MonkeyPatch) -> Any:
+    monkeypatch.chdir(repo)
+    args = ["--merge", merge, "--base", base, "--head", head]
+    refs = ["--main-ref", "main", "--staging-ref", "staging"]
+    return CliRunner().invoke(app, ["assert-promotion-record-diff", *args, *refs])
+
+
+def test_the_jail_refuses_a_base_that_is_not_main(
+    promotion: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, merge = promotion
+    _tag(repo, _plan(repo, merge))
+    _git(repo, "switch", "-q", "-c", "side", merge)
+    _write(repo, ".github/workflows/evil.yml", "on: push\n")
+    base = _commit(repo, "evil", MERGED_AT + timedelta(minutes=1))
+    apply_promotion_record(repo, repo, _plan(repo, merge))
+    head = _commit(repo, "record", MERGED_AT + timedelta(minutes=5))
+    result = _jail_at(repo, merge, base, head, monkeypatch)
+    assert result.exit_code == 1 and "is not main's tip" in result.output
+
+
+@pytest.mark.parametrize("shape", ["extra-parent", "unrelated"])
+def test_the_jail_refuses_a_head_that_is_not_one_step_on_base(
+    promotion: tuple[Path, str], monkeypatch: pytest.MonkeyPatch, shape: str
+) -> None:
+    repo, merge = promotion
+    plan = _plan(repo, merge)
+    _tag(repo, plan)
+    _git(repo, "switch", "-q", "--orphan", "junk")
+    _write(repo, "x.txt", "junk\n")
+    junk = _commit(repo, "junk", MERGED_AT)
+    _git(repo, "switch", "-q", "-f", "-c", "record", merge)
+    apply_promotion_record(repo, repo, plan)
+    _git(repo, "add", "-A")
+    tree = _git(repo, "write-tree")
+    parents = ["-p", merge, "-p", junk] if shape == "extra-parent" else ["-p", junk]
+    head = _git(repo, "commit-tree", tree, *parents, "-m", "record")
+    result = _jail_at(repo, merge, merge, head, monkeypatch)
+    assert result.exit_code == 1 and "exactly one parent" in result.output
+
+
+def test_the_jail_refuses_a_submodule(
+    promotion: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, merge = promotion
+    plan = _plan(repo, merge)
+    _tag(repo, plan)
+    _git(repo, "switch", "-q", "-c", "record")
+    apply_promotion_record(repo, repo, plan)
+    _git(repo, "add", "-A")
+    _git(repo, "update-index", "--add", "--cacheinfo", f"160000,{merge},vendor")
+    tree = _git(repo, "write-tree")
+    head = _git(repo, "commit-tree", tree, "-p", merge, "-m", "record and a gitlink")
+    result = _jail_at(repo, merge, merge, head, monkeypatch)
+    assert result.exit_code == 1 and "submodule" in result.output
+
+
+def test_the_jail_refuses_a_tag_whose_message_is_not_the_plans(
+    promotion: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, merge = promotion
+    plan = _plan(repo, merge)
+    _git(repo, "tag", "-a", plan.promotion_tag.name, "-m", "another message", merge)
+    if plan.prereg_tag is not None:
+        _git(
+            repo,
+            "tag",
+            "-a",
+            "--cleanup=verbatim",
+            plan.prereg_tag.name,
+            "-F",
+            "-",
+            merge,
+            stdin=plan.prereg_tag.message,
+        )
+    _git(repo, "switch", "-q", "-c", "record")
+    apply_promotion_record(repo, repo, plan)
+    head = _commit(repo, "record", MERGED_AT + timedelta(minutes=5))
+    result = _jail_at(repo, merge, merge, head, monkeypatch)
+    assert result.exit_code == 1 and "not the annotated tag the plan writes" in result.output
 
 
 def test_the_jail_refuses_any_other_path_even_with_a_space(

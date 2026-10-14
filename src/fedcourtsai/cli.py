@@ -9070,32 +9070,39 @@ def assert_promotion_record_diff_cmd(
 ) -> None:
     """Refuse a promotion-record commit that is not exactly the merge's plan.
 
-    Jails the commit the writer pushes, never a working tree. Recomputes
-    ``promotion-record --merge``'s plan, renders it onto ``base``'s copies,
-    and requires ``head``'s ``process_registry.json`` and
-    ``docs/freeze-record.md`` to equal that rendering byte for byte — so every
-    stamp carries the merge's own SHA and committer time and no free-text or
-    stale placeholder moves. Requires the plan's ``promotion/`` and
-    ``prereg/`` tags to already name the merge, since the writer tags first
+    Jails the commit the writer pushes, never a working tree. ``base`` must be
+    ``--main-ref``'s tip, ``head`` must have exactly that one parent, and the
+    merge must be an ancestor of ``base``. Recomputes ``promotion-record
+    --merge``'s plan, renders it onto ``base``'s copies (the stamped registry
+    loading as the loader requires), and requires ``head``'s
+    ``process_registry.json`` and ``docs/freeze-record.md`` to equal that
+    rendering byte for byte — so every stamp carries the merge's own SHA and
+    committer time and no free-text or stale placeholder moves. Requires the
+    plan's ``promotion/`` and ``prereg/`` tags to already name the merge as
+    annotated tags carrying the plan's messages, since the writer tags first
     and commits the record after. Checks structurally besides: only those two
-    paths, each still a regular ``100644`` file, the registry only by stamping
-    pending rows, the freeze record only by replacing placeholders with
-    one-line values. Exit 1 naming every excess.
+    paths, each still a regular ``100644`` file, no submodule anywhere, the
+    registry only by stamping pending rows, the freeze record only by
+    replacing placeholders with one-line values. Exit 1 naming every excess.
     """
     repo = Path.cwd()
     paths = promotion_record.RECORD_PATHS
     try:
-        changed, problems = promotion_record.changed_between(repo, base, head)
+        problems = promotion_record.topology_problems(repo, merge, base, head, main_ref)
+        changed, mode_problems = promotion_record.changed_between(repo, base, head)
+        problems += mode_problems
         after = {path: promotion_record.show_at(repo, head, path) for path in paths}
         before = {path: promotion_record.show_at(repo, base, path) for path in paths}
         plan = promotion_record.plan_promotion_record(
             repo, merge, main_ref=main_ref, staging_ref=staging_ref
         )
-        expected = promotion_record.render_promotion_record(repo, plan, before)
+        expected = promotion_record.render_promotion_record(
+            repo, plan, before, check_registry=_check_stamped_registry
+        )
     except promotion_record.PromotionRecordError as exc:
         typer.echo(f"::error::assert-promotion-record-diff: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    problems += promotion_record.tag_problems(plan)
+    problems += promotion_record.tag_problems(repo, plan)
     problems += promotion_record.promotion_record_diff_problems(
         changed, before, after, expected=expected
     )
