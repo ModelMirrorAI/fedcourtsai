@@ -1,0 +1,7 @@
+P(grant) 0.08. The provisioned `context.json` shows the petition is in the `baseline` salience band. For the `baseline` band, the historical bracketed `reached` rate over strictly prior terms (OT 2017 to OT 2025) averages roughly 5%.
+
+However, the docket reveals a strong signal: the Court requested a response from CNN on September 30, 2026, after CNN had filed a waiver of its right to respond on September 14. A response request is an affirmative act of attention that raises the probability of a grant above the baseline.
+
+Despite this positive signal, the lower court's decision was a unanimous panel decision that rested firmly on *Milkovich* and standard First Amendment protections, treating the phrase "Big Lie" as rhetorical hyperbole and political opinion rather than a provably false factual accusation of genocide. Given the fact-bound nature of the dispute and the application of settled precedent, a plenary grant remains unlikely. The response was likely requested so that one or more Justices (such as Justice Thomas or Justice Alito, who have shown interest in reconsidering aspects of defamation law) could review the arguments, possibly in preparation for writing a dissent from the denial of certiorari. Consequently, I estimate P(grant) slightly above the baseline at 0.08.
+
+`big_case_score` is rated 0.85 due to the extreme public visibility of the parties and the underlying political controversy, making the case highly salient in the media even if the legal questions are conventional.

@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9526000477",
+  "run_id": "20261014T174020Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "message": "Web search returned news articles summarizing the procedural history of this dispute up to October 8, including the Supreme Court's September 4th stay of the initial Fourth Circuit ruling and the October 8th administrative stay. This provided crucial context for the prediction, but did not reveal the final disposition of the specific stay application being predicted.",
+      "event_id": "evt-brief-response-disposition"
+    }
+  ]
+}

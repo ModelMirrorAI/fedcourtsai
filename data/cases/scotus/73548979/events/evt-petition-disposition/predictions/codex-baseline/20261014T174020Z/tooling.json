@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73548979",
+  "run_id": "20261014T174020Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local provisioned-file reads",
+    "committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "web.run (no usable results)",
+    "httpx and pypdf: official supplemental filing",
+    "CourtListener MCP search, search_document, read_document",
+    "local Python arithmetic",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen sal-v4 band and exact JSON risk-set denominators permit a prior-Term anchor without a live corpus lookup.",
+    "Provisioned BIO and reply expose both the vehicle objections and petitioners' answers.",
+    "The snapshot's dated PDF link permitted safe retrieval of a supplemental filing without opening the current docket."
+  ],
+  "gaps": [
+    "The September 21 supplemental brief was listed in the snapshot but not provisioned; it materially informed the CVSG estimate.",
+    "Petition appendix truncation omitted portions of the appellate opinion relevant to the questions presented.",
+    "Web-tool calls returned no usable content; direct public-PDF extraction was needed."
+  ],
+  "notes": "No case-outcome material was encountered. The default uv cache was read-only; selecting a writable temporary cache resolved the operational issue. The statpack commit date is known, but the underlying corpus pull vintage was not independently checked."
+}

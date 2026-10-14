@@ -1,0 +1,7 @@
+The docket currently shows the application was submitted to the Chief Justice on October 8, with no further action yet recorded. 
+
+Given the extreme time sensitivity—the Fourth Circuit's mandamus order requires the FCC to act by 12:00 PM on October 9—expect the Chief Justice to enter an immediate administrative stay. The application will almost certainly be referred to the full Court, and a response will be requested from the respondents on an expedited basis. 
+
+Ultimately, expect the full Court to grant the requested stay of the Fourth Circuit's judgment and mandate. The Court is likely to view the lower court's grant of mandamus as an improper circumvention of the Supreme Court's September 4, 2026 stay order in *Brown I*. The Court will likely find that the mandamus order inappropriately short-circuits the FCC's ongoing administrative process and open comment period. 
+
+Furthermore, the Court's reasoning will likely lean heavily on equitable principles, including the *Purcell* doctrine, emphasizing that judicial orders disrupting the status quo of election-related rules (such as the lowest-unit-charge rules at issue) in the critical final weeks before an election cause significant confusion and irreparable harm. Because of the highly compressed timeframe, I anticipate few, if any, amicus briefs (0 or 1) unless an administrative stay provides a longer window for third parties to participate.

@@ -1,0 +1,5 @@
+The record shows the application was submitted to the Chief Justice on October 8, 2026, though this event marks the moment a response is requested. 
+
+Given the extreme time sensitivity of a dispute over television ad rates mere weeks before the midterm elections, I expect the application to be referred to the full Court for resolution, as is standard for high-stakes election matters. I expect the Court will grant the requested stay (or leave the administrative stay in place), preventing the Fourth Circuit's mandamus order from forcing the FCC's hand right before the election, citing the Purcell principle against late-stage judicial changes to election rules.
+
+I anticipate a response will be formally requested (if not already recorded in the subsequent docket entry) and we may see a small number of amicus briefs filed by interested political committees or broadcasters given the stakes, though the compressed timeline makes extensive amicus participation difficult. Expect a disposition shortly after the response is filed.
