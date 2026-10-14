@@ -1195,7 +1195,7 @@ jobs:
           echo "projection=written" >> "$GITHUB_OUTPUT"
 
       - name: Upload the projection
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: order-votes-projection-${{ github.run_id }}
           path: ${{ runner.temp }}/handoff/projection.json
@@ -1257,7 +1257,7 @@ jobs:
           echo "no cloud credential in the parse job"
 
       - name: Download the projection
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: order-votes-projection-${{ github.run_id }}
           path: ${{ runner.temp }}/handoff
@@ -1279,7 +1279,7 @@ jobs:
           echo "plan=written" >> "$GITHUB_OUTPUT"
 
       - name: Upload the plan
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: order-votes-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/handoff/plan.json
@@ -1324,7 +1324,7 @@ jobs:
           restore-cache: "false"
 
       - name: Download the plan
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: order-votes-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/handoff
