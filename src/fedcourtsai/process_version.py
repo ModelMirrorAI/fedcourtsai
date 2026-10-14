@@ -108,8 +108,17 @@ REGISTRY_RESOURCE = "process_registry.json"
 def load_process_registry(text: str | None = None) -> ProcessRegistry:
     """The frozen-process registry, validated; ``text`` overrides the packaged file.
 
-    Refuses a registration no merge has carried yet (``merge: null``): this
-    module reads every registered instant as in force.
+    Beyond the schema it refuses a registry the counting rule cannot read as
+    one partition:
+
+    - a registration no merge has carried yet (``merge: null``), since this
+      module reads every registered instant as in force;
+    - no label row for :data:`CURRENT_PROCESS_LABEL`, which leaves the counting
+      instant unregistered;
+    - one digest blessed twice, since the bless map holds one moment per digest;
+    - a blessing or window naming a label with no row;
+    - a window that does not open at its label's counting instant, or that
+      closes anywhere but at some label's counting instant.
     """
     raw = (
         text
@@ -117,6 +126,7 @@ def load_process_registry(text: str | None = None) -> ProcessRegistry:
         else files("fedcourtsai").joinpath(REGISTRY_RESOURCE).read_text(encoding="utf-8")
     )
     registry = ProcessRegistry.model_validate_json(raw)
+    where = REGISTRY_RESOURCE
     instants: list[RegistryInstant] = [entry.since for entry in registry.labels]
     instants += [blessing.blessed for blessing in registry.blessings]
     for window in registry.windows:
@@ -124,7 +134,31 @@ def load_process_registry(text: str | None = None) -> ProcessRegistry:
         if window.closes is not None:
             instants.append(window.closes)
     if any(instant.merge is None for instant in instants):
-        raise ValueError(f"{REGISTRY_RESOURCE}: an instant carries no merge")
+        raise ValueError(f"{where}: an instant carries no merge")
+    since = {entry.label: entry.since.at for entry in registry.labels}
+    if len(since) != len(registry.labels):
+        raise ValueError(f"{where}: a label has two rows")
+    if CURRENT_PROCESS_LABEL not in since:
+        raise ValueError(f"{where}: no label row for {CURRENT_PROCESS_LABEL}")
+    digests = [blessing.digest for blessing in registry.blessings]
+    if len(set(digests)) != len(digests):
+        raise ValueError(f"{where}: a digest is blessed twice")
+    for named in [blessing.label for blessing in registry.blessings] + [
+        window.label for window in registry.windows
+    ]:
+        if named not in since:
+            raise ValueError(f"{where}: {named} has no label row")
+    for window in registry.windows:
+        if window.opens.at != since[window.label]:
+            raise ValueError(
+                f"{where}: the {window.label} window of {window.digest} does not open at "
+                f"its label's counting instant"
+            )
+        if window.closes is not None and window.closes.at not in since.values():
+            raise ValueError(
+                f"{where}: the {window.label} window of {window.digest} closes off every "
+                f"label's counting instant"
+            )
     return registry
 
 

@@ -4282,6 +4282,12 @@ RegistryBoundaryReach = Literal[
 ]
 
 
+def _registry_utc(moment: datetime | None, what: str) -> None:
+    """Refuse a registry datetime that is naive or off UTC."""
+    if moment is not None and (moment.tzinfo is None or moment.utcoffset() != timedelta(0)):
+        raise ValueError(f"a registry {what} is UTC")
+
+
 class RegistryInstant(_Strict):
     """One registered instant of the process registry, with where it came from.
 
@@ -4295,26 +4301,33 @@ class RegistryInstant(_Strict):
     at: datetime = Field(description="The instant, in UTC (`YYYY-MM-DDTHH:MM:SSZ`)")
     merge: str | None = Field(
         pattern=_FULL_SHA,
-        description="The full SHA of the promotion merge that carried this instant's "
-        "registration to `main`; the commit an auditor re-derives the instant against. "
-        "Null marks a registration no merge has carried yet",
+        description="The full SHA of the carrying merge of the label's freeze commit — the "
+        "promotion merge that made the blessed bytes immutable on `main` — and so the "
+        "commit the instant is audited against: a bless moment equals its committer time, "
+        "a counting instant is at or after it. Not the merge that carried a later "
+        "correction of the instant. Null marks a registration no merge has carried yet",
     )
     source: Literal["hand", "merge"] = Field(
-        description="`hand` where a maintainer set the instant (a counting instant forecast "
-        "at the freeze commit and verified against the merge), `merge` where it is the "
-        "carrying merge's committer time"
+        description="`merge` where `at` equals `merge`'s committer time, so git re-derives "
+        "it; `hand` where a maintainer set `at` at or after that committer time (a "
+        "counting instant forecast at the freeze commit and verified against the merge)"
     )
 
     @model_validator(mode="after")
     def _utc(self) -> RegistryInstant:
         """An instant is timezone-aware UTC, so every comparison reads one clock."""
-        if self.at.tzinfo is None or self.at.utcoffset() != timedelta(0):
-            raise ValueError("a registry instant is UTC")
+        _registry_utc(self.at, "instant")
         return self
 
 
 class RegistryLabel(_Strict):
-    """A process label and the counting instant from which its cells count."""
+    """A process label and the counting instant from which its cells count.
+
+    The labels before ``proc-v8`` are deliberately absent: their digests were
+    de-counted when each was superseded, so they open no window.
+    """
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
 
     label: str = Field(description="The process label (`proc-vN`)")
     since: RegistryInstant = Field(
@@ -4325,6 +4338,8 @@ class RegistryLabel(_Strict):
 
 class RegistryBlessing(_Strict):
     """One digest the current process blesses, with its bless moment."""
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
 
     digest: str = Field(description="The blessed process digest (`sha256:<hex>`)")
     role: Literal["predictor", "evaluator"] = Field(description="The actor's role")
@@ -4342,6 +4357,8 @@ class RegistryBlessing(_Strict):
 class RegistryWindow(_Strict):
     """One counting window: a blessing of one predictor digest and its span."""
 
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
+
     label: str = Field(description="The label whose blessing opened the window")
     digest: str = Field(description="The blessed predictor process digest (`sha256:<hex>`)")
     predictor_id: str | None = Field(description="The predictor whose process the digest is")
@@ -4354,9 +4371,17 @@ class RegistryWindow(_Strict):
         "window that counts"
     )
 
+    @model_validator(mode="after")
+    def _utc(self) -> RegistryWindow:
+        """A revocation instant reads the registry's one clock."""
+        _registry_utc(self.revoked_at, "revocation")
+        return self
+
 
 class RegistryBoundary(_Strict):
     """A dated change to what a predict cell reads under an unchanged predictor digest."""
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
 
     name: str = Field(description="The boundary's stable name")
     merge: str = Field(
@@ -4374,6 +4399,12 @@ class RegistryBoundary(_Strict):
         "cell after it may still read the earlier document set"
     )
 
+    @model_validator(mode="after")
+    def _utc(self) -> RegistryBoundary:
+        """A boundary's display time reads the registry's one clock."""
+        _registry_utc(self.at, "boundary time")
+        return self
+
 
 class ProcessRegistry(_Strict):
     """``process_registry.json`` — the frozen-process registry, as committed data.
@@ -4388,6 +4419,8 @@ class ProcessRegistry(_Strict):
     labels, blessing labels and boundaries, but never rewrites a landed
     instant.
     """
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
 
     schema_version: Literal[1] = Field(description="The registry format's version")
     labels: list[RegistryLabel] = Field(description="Every label with a counting window, in order")

@@ -127,11 +127,11 @@
               "type": "null"
             }
           ],
-          "description": "The full SHA of the promotion merge that carried this instant's registration to `main`; the commit an auditor re-derives the instant against. Null marks a registration no merge has carried yet",
+          "description": "The full SHA of the carrying merge of the label's freeze commit \u2014 the promotion merge that made the blessed bytes immutable on `main` \u2014 and so the commit the instant is audited against: a bless moment equals its committer time, a counting instant is at or after it. Not the merge that carried a later correction of the instant. Null marks a registration no merge has carried yet",
           "title": "Merge"
         },
         "source": {
-          "description": "`hand` where a maintainer set the instant (a counting instant forecast at the freeze commit and verified against the merge), `merge` where it is the carrying merge's committer time",
+          "description": "`merge` where `at` equals `merge`'s committer time, so git re-derives it; `hand` where a maintainer set `at` at or after that committer time (a counting instant forecast at the freeze commit and verified against the merge)",
           "enum": [
             "hand",
             "merge"
@@ -150,7 +150,7 @@
     },
     "RegistryLabel": {
       "additionalProperties": false,
-      "description": "A process label and the counting instant from which its cells count.",
+      "description": "A process label and the counting instant from which its cells count.\n\nThe labels before ``proc-v8`` are deliberately absent: their digests were\nde-counted when each was superseded, so they open no window.",
       "properties": {
         "label": {
           "description": "The process label (`proc-vN`)",

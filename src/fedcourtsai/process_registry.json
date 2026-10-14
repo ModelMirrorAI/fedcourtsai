@@ -6,7 +6,7 @@
       "since": {
         "at": "2026-09-16T00:26:04Z",
         "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
-        "source": "hand"
+        "source": "merge"
       }
     },
     {
@@ -27,7 +27,7 @@
       "blessed": {
         "at": "2026-10-11T00:12:02Z",
         "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
-        "source": "hand"
+        "source": "merge"
       }
     },
     {
@@ -38,7 +38,7 @@
       "blessed": {
         "at": "2026-09-16T00:26:04Z",
         "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
-        "source": "hand"
+        "source": "merge"
       }
     },
     {
@@ -49,7 +49,7 @@
       "blessed": {
         "at": "2026-09-16T00:26:04Z",
         "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
-        "source": "hand"
+        "source": "merge"
       }
     },
     {
@@ -60,7 +60,7 @@
       "blessed": {
         "at": "2026-10-11T00:12:02Z",
         "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
-        "source": "hand"
+        "source": "merge"
       }
     },
     {
@@ -71,7 +71,7 @@
       "blessed": {
         "at": "2026-10-11T00:12:02Z",
         "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
-        "source": "hand"
+        "source": "merge"
       }
     },
     {
@@ -82,7 +82,7 @@
       "blessed": {
         "at": "2026-10-11T00:12:02Z",
         "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
-        "source": "hand"
+        "source": "merge"
       }
     }
   ],
@@ -94,7 +94,7 @@
       "opens": {
         "at": "2026-09-16T00:26:04Z",
         "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
-        "source": "hand"
+        "source": "merge"
       },
       "closes": {
         "at": "2026-10-11T12:00:00Z",
@@ -110,7 +110,7 @@
       "opens": {
         "at": "2026-09-16T00:26:04Z",
         "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
-        "source": "hand"
+        "source": "merge"
       },
       "closes": null,
       "revoked_at": null
@@ -122,7 +122,7 @@
       "opens": {
         "at": "2026-09-16T00:26:04Z",
         "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
-        "source": "hand"
+        "source": "merge"
       },
       "closes": null,
       "revoked_at": null
@@ -141,12 +141,24 @@
     }
   ],
   "evaluate_blessing_labels": {
-    "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13": ["proc-v8"],
-    "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1": ["proc-v8"],
-    "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe": ["proc-v8"],
-    "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": ["proc-v9"],
-    "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": ["proc-v9"],
-    "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": ["proc-v9"]
+    "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13": [
+      "proc-v8"
+    ],
+    "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1": [
+      "proc-v8"
+    ],
+    "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe": [
+      "proc-v8"
+    ],
+    "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": [
+      "proc-v9"
+    ],
+    "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": [
+      "proc-v9"
+    ],
+    "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": [
+      "proc-v9"
+    ]
   },
   "harness_boundaries": [
     {
@@ -217,7 +229,10 @@
       "name": "predict-cell-record-hide",
       "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
       "at": "2026-10-11T00:12:02Z",
-      "predictors": ["codex-baseline", "gemini-baseline"],
+      "predictors": [
+        "codex-baseline",
+        "gemini-baseline"
+      ],
       "reach": "all",
       "gradual": false
     },
@@ -225,7 +240,10 @@
       "name": "widened-document-kinds-freshness",
       "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
       "at": "2026-10-11T00:12:02Z",
-      "predictors": ["codex-baseline", "gemini-baseline"],
+      "predictors": [
+        "codex-baseline",
+        "gemini-baseline"
+      ],
       "reach": "all",
       "gradual": true
     },
@@ -233,7 +251,10 @@
       "name": "replay-moment-cut",
       "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
       "at": "2026-10-11T00:12:02Z",
-      "predictors": ["codex-baseline", "gemini-baseline"],
+      "predictors": [
+        "codex-baseline",
+        "gemini-baseline"
+      ],
       "reach": "replay cells",
       "gradual": false
     },

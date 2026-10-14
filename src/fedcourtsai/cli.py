@@ -8788,9 +8788,10 @@ def process_digest_cmd(
 ) -> None:
     """Print an actor's process digest — the value a maintainer blesses to freeze.
 
-    The freeze procedure: run ``fedcourts process-digest --all``, paste the
-    blessed digest(s) into ``FROZEN_PROCESS_DIGESTS`` in ``process_version.py``
-    **and set ``FROZEN_SINCE`` beside it** (the two move together — a test
+    The freeze procedure: run ``fedcourts process-digest --all``, register the
+    blessed digest(s) in the ``blessings`` of ``process_registry.json`` (the
+    record ``FROZEN_PROCESS_DIGESTS`` is built from) **and set the label's
+    ``since`` (``FROZEN_SINCE``) beside it** (the two move together — a test
     pins it) in one small freeze commit, and record that commit as the cutover
     in the docs. Each digest's value there is its **bless moment**, the
     carrying promotion's merge time, written once that promotion lands; it is

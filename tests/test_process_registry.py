@@ -1,18 +1,20 @@
 """The committed frozen-process registry and the freeze constants built from it.
 
-The golden values below are the constants as the module held them before the
-registry existed, copied verbatim; the registry must keep reproducing them
-exactly, types, order and clock included.
+The golden values below pin the constants as they stood when they moved into
+the registry, copied verbatim, and a freeze commit extends them with what it
+registers; the registry must keep reproducing them exactly, types, order and
+clock included.
 """
 
 from __future__ import annotations
 
 import json
 import re
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 from types import MappingProxyType
-from typing import get_args
+from typing import Any, get_args
 
 import pytest
 
@@ -246,3 +248,117 @@ def test_the_registry_is_the_single_source_of_the_freeze_constants() -> None:
         assert digest not in code, digest
     for boundary in GOLDEN_BOUNDARIES:
         assert boundary.merge not in code, boundary.name
+
+
+def _raw() -> dict[str, Any]:
+    loaded: dict[str, Any] = json.loads(_REGISTRY_FILE.read_text(encoding="utf-8"))
+    return loaded
+
+
+@pytest.mark.parametrize(
+    ("mutate", "match"),
+    [
+        (lambda r: r["labels"].pop(), "no label row for proc-v9"),
+        (lambda r: r["labels"].append(r["labels"][0]), "a label has two rows"),
+        (lambda r: r["blessings"].append(r["blessings"][0]), "a digest is blessed twice"),
+        (lambda r: r["blessings"][0].update(label="proc-v7"), "proc-v7 has no label row"),
+        (lambda r: r["windows"][1].update(label="proc-v7"), "proc-v7 has no label row"),
+        (
+            lambda r: r["windows"][1]["opens"].update(at="2026-09-17T00:00:00Z"),
+            "does not open at its label's counting instant",
+        ),
+        (
+            lambda r: r["windows"][0]["closes"].update(at="2026-10-12T00:00:00Z"),
+            "closes off every label's counting instant",
+        ),
+    ],
+    ids=[
+        "no-current-label",
+        "duplicate-label",
+        "duplicate-blessing",
+        "blessing-unknown-label",
+        "window-unknown-label",
+        "window-off-its-since",
+        "close-off-every-since",
+    ],
+)
+def test_an_inconsistent_registry_is_refused(mutate: Any, match: str) -> None:
+    raw = _raw()
+    mutate(raw)
+    with pytest.raises(ValueError, match=match):
+        load_process_registry(json.dumps(raw))
+
+
+@pytest.mark.parametrize(
+    ("mutate", "match"),
+    [
+        (lambda r: r["windows"][0].update(revoked_at="2026-10-12T00:00:00"), "revocation is UTC"),
+        (
+            lambda r: r["windows"][0].update(revoked_at="2026-10-12T00:00:00-04:00"),
+            "revocation is UTC",
+        ),
+        (lambda r: r["harness_boundaries"][0].update(at="2026-09-21T18:01:19"), "boundary time"),
+        (
+            lambda r: r["harness_boundaries"][0].update(at="2026-09-21T14:01:19-04:00"),
+            "boundary time",
+        ),
+    ],
+    ids=["naive-revocation", "offset-revocation", "naive-boundary", "offset-boundary"],
+)
+def test_a_registry_datetime_off_utc_is_refused(mutate: Any, match: str) -> None:
+    raw = _raw()
+    mutate(raw)
+    with pytest.raises(ValueError, match=match):
+        load_process_registry(json.dumps(raw))
+
+
+def _committed_at(sha: str) -> datetime:
+    """``sha``'s committer time from this checkout's history, or skip where it is absent."""
+    repo = _SRC.parents[2]
+    shallow = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "--is-shallow-repository"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if shallow.returncode != 0:
+        pytest.skip("not a git checkout, so no merge's committer time is readable")
+    if shallow.stdout.strip() == "true":
+        pytest.skip("a shallow checkout lacks the merges the registry is audited against")
+    found = subprocess.run(
+        ["git", "-C", str(repo), "log", "-1", "--format=%cI", sha],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if found.returncode != 0 or not found.stdout.strip():
+        pytest.skip(f"{sha} is not in this checkout's history")
+    return datetime.fromisoformat(found.stdout.strip())
+
+
+def _registered_instants() -> list[tuple[str, Any]]:
+    registry = load_process_registry()
+    instants: list[tuple[str, Any]] = [(f"since {e.label}", e.since) for e in registry.labels]
+    instants += [(f"blessed {b.actor_id}", b.blessed) for b in registry.blessings]
+    for w in registry.windows:
+        instants.append((f"opens {w.label} {w.predictor_id}", w.opens))
+        if w.closes is not None:
+            instants.append((f"closes {w.label} {w.predictor_id}", w.closes))
+    return instants
+
+
+@pytest.mark.parametrize(
+    "instant", [i for _, i in _registered_instants()], ids=[n for n, _ in _registered_instants()]
+)
+def test_every_instant_is_audited_against_its_merge(instant: Any) -> None:
+    """A ``merge`` instant is its merge's committer time; a ``hand`` one is at or after it."""
+    committed = _committed_at(instant.merge)
+    if instant.source == "merge":
+        assert instant.at == committed
+    else:
+        assert instant.at >= committed
+
+
+@pytest.mark.parametrize("boundary", GOLDEN_BOUNDARIES, ids=[b.name for b in GOLDEN_BOUNDARIES])
+def test_every_boundary_time_is_its_merge_s_committer_time(boundary: HarnessBoundary) -> None:
+    assert boundary.at == _committed_at(boundary.merge)
