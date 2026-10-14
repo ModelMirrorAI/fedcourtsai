@@ -52,6 +52,7 @@ from .pricing import DEFAULT_MODELS
 from .registry import enabled_evaluators, enabled_predictors
 from .schemas import Stage
 from .store import predictor_holds_no_counted_prediction
+from .voids import is_voided
 
 _JSON_BLOCK = re.compile(r"```json\s*(.+?)\s*```", re.S)
 
@@ -1095,6 +1096,12 @@ def evaluate_matrix(
             if data_root is not None and not event_has_predictions(
                 data_root, case.court, case.docket, event_id
             ):
+                continue
+            # A voided event owes no grading, on any route here — an explicit
+            # body, a manual dispatch whose events resolve to the case's, or the
+            # backlog — since a grading could only score another petition's
+            # outcome (`fedcourtsai.voids`).
+            if is_voided(cid, event_id):
                 continue
             for evaluator in fanout_order(evaluators, run_id=run_id, case=cid, event_id=event_id):
                 if (

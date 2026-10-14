@@ -31,7 +31,6 @@ from .integrity import (
     forward_claim_breach,
     latest_evaluation_runs,
     leakage_excluded,
-    voided_reason,
 )
 from .paths import CasePaths
 from .pipeline import moments
@@ -61,6 +60,7 @@ from .schemas import (
     Stratum,
 )
 from .serialize import read_model
+from .voids import voided_reason
 
 
 def iter_tracked_cases(corpus_db_path: Path) -> list[tuple[str, int]]:
@@ -1082,7 +1082,7 @@ class StratifiedRun(NamedTuple):
     population, so the counts are published side by side and never summed.
 
     ``voided`` is the third ledger: in-scope gradings of an event
-    :data:`fedcourtsai.integrity.VOIDED_EVENTS` voids, whose outcome describes
+    :data:`fedcourtsai.voids.VOIDED_EVENTS` voids, whose outcome describes
     another petition. They leave the pass before anything is counted — no
     stratum, no window composition, no forward-claim or leakage denominator —
     because they are an observation of nothing, and the boards publish their
@@ -1124,7 +1124,7 @@ def _drop_voided(
     return kept, voided
 
 
-def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, both exclusions
+def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, three ledgers
     data_root: Path,
     *,
     frozen_only: bool = True,

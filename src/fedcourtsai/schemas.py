@@ -24,6 +24,8 @@ from pydantic import (
     model_validator,
 )
 
+from .ids import CASE_ID_PATTERN, EVENT_ID_PATTERN
+
 SCHEMA_VERSION: Final = "1.0"
 
 
@@ -4587,8 +4589,8 @@ class VoidedEvent(_Strict):
     voided gradings' scores (``docs/process-version.md``, *Voiding an event*).
     """
 
-    case_id: str = Field(description="The voided event's case id")
-    event_id: str = Field(description="The voided event's id")
+    case_id: str = Field(pattern=CASE_ID_PATTERN, description="The voided event's case id")
+    event_id: str = Field(pattern=EVENT_ID_PATTERN, description="The voided event's id")
     ground: Literal["redocketed"] = Field(
         description="Why the event is voided. `redocketed`: its outcome records a "
         "different petition than the one it was opened on, shown from stored docket "
@@ -4619,7 +4621,7 @@ class VoidedEventsRecord(_Strict):
     """The voided events a board's build dropped, and what their gradings scored.
 
     An event whose committed outcome describes another petition is voided by a
-    dated freeze-record entry (``integrity.VOIDED_EVENTS``). Its gradings leave
+    dated freeze-record entry (``voids.VOIDED_EVENTS``). Its gradings leave
     every stratum, rank key and composition count, so this block states how many
     the shared stratify pass dropped, which events, and what those gradings had
     scored, and the de-count is never silent. Omitted where nothing in scope is
@@ -4712,7 +4714,7 @@ class Leaderboard(_Strict):
     )
     voided_events: VoidedEventsRecord | None = Field(
         default=None,
-        description="The voided events this build dropped (`integrity.VOIDED_EVENTS`) "
+        description="The voided events this build dropped (`voids.VOIDED_EVENTS`) "
         "and how many gradings they held; omitted where no in-scope grading sits "
         "on a voided event",
     )
@@ -11149,13 +11151,6 @@ class ExportPredictionRow(_Strict):
         "mootness (which routes the cell to the procedural stratum); null while "
         "unresolved, and null on a `voided` row"
     )
-    voided: bool = Field(
-        default=False,
-        description="Whether the prediction's event is voided: its committed outcome "
-        "records a different petition than the one the event was opened on, so the "
-        "outcome columns are nulled rather than exported beside a forecast of another case "
-        "(`docs/process-version.md`, *Voiding an event*)",
-    )
     stratum: Stratum | None = Field(
         description="The stratum the scored figures place the prediction in (`forward`, "
         "`retrospective` or `procedural`); null unless `scored`"
@@ -11171,6 +11166,13 @@ class ExportPredictionRow(_Strict):
     forward_claim_excluded: bool = Field(
         description="Whether the harness record claims a forward cell but the event resolved "
         "before the cell's harness clock day, which sets the prediction aside"
+    )
+    voided: bool = Field(
+        default=False,
+        description="Whether the prediction's event is voided: its committed outcome "
+        "records a different petition than the one the event was opened on, so the "
+        "outcome columns are nulled rather than exported beside a forecast of another case "
+        "(`docs/process-version.md`, *Voiding an event*)",
     )
     gradings_total: int = Field(
         ge=0,

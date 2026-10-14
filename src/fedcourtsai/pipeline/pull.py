@@ -28,7 +28,7 @@ from typing import Literal
 
 import httpx
 
-from .. import corpus, ids, integrity
+from .. import corpus, ids
 from ..config import PredictScope
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_transient
 from ..matrix import (
@@ -46,6 +46,7 @@ from ..store import (
     forward_refusal_reason_from_parts,
     predictor_holds_no_counted_prediction,
 )
+from ..voids import is_voided
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .moments import spec_for
@@ -527,7 +528,7 @@ def derive_evaluate_backlog(
         owed = [
             event_id
             for event_id in resolved_by_case[row.case_id]
-            if (row.case_id, event_id) not in integrity.VOIDED_EVENTS
+            if not is_voided(row.case_id, event_id)
             and event_has_predictions(data_root, court, docket, event_id)
             and any(
                 not event_has_evaluations(data_root, court, docket, event_id, evaluator_id=ev)

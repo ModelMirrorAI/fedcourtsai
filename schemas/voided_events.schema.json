@@ -6,6 +6,7 @@
       "properties": {
         "case_id": {
           "description": "The voided event's case id",
+          "pattern": "^[a-z0-9._-]+/[0-9]+$",
           "title": "Case Id",
           "type": "string"
         },
@@ -31,6 +32,7 @@
         },
         "event_id": {
           "description": "The voided event's id",
+          "pattern": "^evt-[a-z0-9._]+-[a-z0-9._-]+$",
           "title": "Event Id",
           "type": "string"
         },

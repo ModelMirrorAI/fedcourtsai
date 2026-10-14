@@ -12,7 +12,7 @@ import pyarrow.parquet as pq
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus, integrity, process_version
+from fedcourtsai import corpus, process_version, voids
 from fedcourtsai.cli import app
 from fedcourtsai.dataset_export import (
     DATA_DICTIONARY,
@@ -271,7 +271,7 @@ def test_a_voided_event_exports_no_outcome_and_marks_its_gradings(
     # carries `voided` and null outcome columns, so nobody re-scores it against
     # that outcome, and every grading of it is uncounted with reason `voided`.
     monkeypatch.setattr(
-        integrity,
+        voids,
         "VOIDED_EVENTS",
         {
             ("scotus/100", "evt-petition-disposition"): VoidedEvent(

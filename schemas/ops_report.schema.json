@@ -1452,7 +1452,7 @@
     },
     "VoidedEventsRecord": {
       "additionalProperties": false,
-      "description": "The voided events a board's build dropped, and what their gradings scored.\n\nAn event whose committed outcome describes another petition is voided by a\ndated freeze-record entry (``integrity.VOIDED_EVENTS``). Its gradings leave\nevery stratum, rank key and composition count, so this block states how many\nthe shared stratify pass dropped, which events, and what those gradings had\nscored, and the de-count is never silent. Omitted where nothing in scope is\nvoided. It changes which cells are counted, never what any cell scored.",
+      "description": "The voided events a board's build dropped, and what their gradings scored.\n\nAn event whose committed outcome describes another petition is voided by a\ndated freeze-record entry (``voids.VOIDED_EVENTS``). Its gradings leave\nevery stratum, rank key and composition count, so this block states how many\nthe shared stratify pass dropped, which events, and what those gradings had\nscored, and the de-count is never silent. Omitted where nothing in scope is\nvoided. It changes which cells are counted, never what any cell scored.",
       "properties": {
         "by_predictor": {
           "additionalProperties": {

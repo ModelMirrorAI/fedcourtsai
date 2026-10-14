@@ -1026,9 +1026,11 @@ event opened, or the ingest attached another docket's disposition to it. The
 void is registered in `src/fedcourtsai/voided_events.json` (a closed `ground`
 vocabulary, today `redocketed`, and a `detection` of `outcome-triggered` or
 `scan`), a code-owned file a void reaches only through a maintainer-merged PR,
-beside a dated freeze-record entry; `store.stratify` then drops the event's
-gradings from every scored figure, the agreement views drop its stakes reads,
-the evaluate backlog stops owing it, and the export nulls its outcome columns.
+beside a dated freeze-record entry, and every reader asks the one predicate in
+`src/fedcourtsai/voids.py`; `store.stratify` then drops the event's gradings
+from every scored figure, the agreement views and the usefulness join drop its
+reads, no evaluate cell is minted for it on any route, and the export and the
+big-case board null its outcome.
 A void is admissible only when:
 
 - **the ground is the sole one** above — the outcome describes another case;

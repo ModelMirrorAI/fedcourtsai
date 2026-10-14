@@ -35,7 +35,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from . import process_version
 from .ids import parse_run_id
-from .integrity import cell_clock, latest_evaluation_runs, voided_reason
+from .integrity import cell_clock, latest_evaluation_runs
 from .leaderboard import build_leaderboard, cell_facts, skill_components, vote_scores
 from .paths import CasePaths
 from .process_version import co_current, graded_in_window, window_of
@@ -57,6 +57,7 @@ from .store import (
     scored_prediction,
     stratify,
 )
+from .voids import voided_reason
 
 
 class WindowRecordError(ValueError):
@@ -374,7 +375,7 @@ def _evaluator_digests(
         if not graded_in_window(evaluation.process_version, scored.process_version):
             continue
         # A voided event's gradings were scored against another petition's
-        # outcome: no window's record counts them (`integrity.VOIDED_EVENTS`).
+        # outcome: no window's record counts them (`voids.VOIDED_EVENTS`).
         if voided_reason(evaluation) is not None:
             continue
         scoped.append(evaluation)

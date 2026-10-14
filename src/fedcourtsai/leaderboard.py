@@ -109,7 +109,6 @@ from .integrity import (
     StratifiedCell,
     cell_clock,
     latest_evaluations,
-    voided_reason,
 )
 from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statpack_digest
 from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
@@ -183,6 +182,7 @@ from .store import (
     scored_prediction,
     scored_prediction_cell,
 )
+from .voids import voided_reason
 
 #: A big-case agreement's key: the predictor and the label of the counting
 #: window its reads come from — ``None`` on the pooled default, which spans
@@ -997,7 +997,7 @@ def _scoped_evaluations(
     differs from a board count is two populations rather than an error in
     either.
 
-    A **voided** event (``integrity.VOIDED_EVENTS``) is the exception, and it is
+    A **voided** event (``voids.VOIDED_EVENTS``) is the exception, and it is
     dropped here as well: its outcome describes another petition, so a judge's
     stakes read of it was taken across two cases filed under one id, and pooling
     it into the case's panel would mix their reads rather than shrink the panel.
@@ -2059,6 +2059,10 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         two exclusion records, carried verbatim. They are independent rules over
         one population — a cell both caught appears in both counts — so they are
         published side by side and never summed into an exclusion total.
+
+    ``voided_events`` is the same pass's voided-event record (``None`` where it
+        dropped nothing): gradings of an event whose outcome records another
+        petition, dropped before any stratum (:mod:`fedcourtsai.voids`).
 
     ``superseded_gradings`` is likewise the caller's to supply
         (``store.StratifiedRun.superseded``): ``cells`` holds only survivors of the

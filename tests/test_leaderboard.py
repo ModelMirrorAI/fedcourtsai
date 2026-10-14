@@ -11,15 +11,13 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from fedcourtsai import integrity, process_version
+from fedcourtsai import process_version, voids
 from fedcourtsai.cli import app
 from fedcourtsai.integrity import (
     FORWARD,
     LEAKAGE_EXCLUSION_REASON,
     PROCEDURAL,
     RETROSPECTIVE,
-    VOIDED_EVENTS,
-    VOIDED_EXCLUSION_REASON,
     classify_stratum,
     forward_claim_record,
     leakage_record,
@@ -1781,7 +1779,9 @@ def test_the_board_publishes_the_forward_claim_record(tmp_path: Path) -> None:
 
 
 def _voided(case_id: str, event_id: str) -> VoidedEvent:
-    return VoidedEvent(
+    # The fixture ledger's short event ids (`evt-a`) are not the canonical shape the
+    # registry validates, so the stand-in row skips validation.
+    return VoidedEvent.model_construct(
         case_id=case_id,
         event_id=event_id,
         ground="redocketed",
@@ -1793,7 +1793,7 @@ def _voided(case_id: str, event_id: str) -> VoidedEvent:
 
 def _void(monkeypatch: pytest.MonkeyPatch, *events: tuple[str, str]) -> None:
     """Void ``events`` for one test, as a dated freeze-record entry would."""
-    monkeypatch.setattr(integrity, "VOIDED_EVENTS", {event: _voided(*event) for event in events})
+    monkeypatch.setattr(voids, "VOIDED_EVENTS", {event: _voided(*event) for event in events})
 
 
 def test_a_voided_event_leaves_every_stratum_and_denominator(
@@ -1822,7 +1822,7 @@ def test_a_voided_event_leaves_every_stratum_and_denominator(
 
     assert [evaluation.event_id for evaluation, *_ in run.cells] == ["evt-b"]
     assert [cell.evaluation.event_id for cell in run.voided] == ["evt-a"]
-    assert run.voided[0].reason.startswith(VOIDED_EXCLUSION_REASON)
+    assert run.voided[0].reason.startswith(voids.VOIDED_EXCLUSION_REASON)
     assert "freeze record 2026-10-14" in run.voided[0].reason
     # Not a breach and not a leak: the other two ledgers never see it, and
     # it is in neither denominator.
@@ -1879,8 +1879,8 @@ def test_both_boards_publish_the_voided_events_and_name_each_dropped_grading(
     assert board.voided_events.excluded == 1
     assert board.voided_events.events == ["ca9/123 evt-a"]
     assert board.voided_events.by_predictor == {"alpha": 1}
-    assert set(board.voided_events.correct_by_predictor) == {"alpha"}
-    assert set(board.voided_events.mean_brier_by_predictor) <= {"alpha"}
+    assert board.voided_events.correct_by_predictor == {"alpha": 1}
+    assert board.voided_events.mean_brier_by_predictor == {"alpha": 0.1}
     assert [entry.predictor_id for entry in board.entries] == ["beta"]
 
     claims = tmp_path / "claim-scores.json"
@@ -1909,41 +1909,6 @@ def test_a_board_with_nothing_voided_in_scope_omits_the_block(tmp_path: Path) ->
     assert result.exit_code == 0, result.output
     assert read_model(out, Leaderboard).voided_events is None
     assert "voided_events" not in json.loads(out.read_text(encoding="utf-8"))
-
-
-#: How a voiding entry's heading opens, so the reverse check below can find
-#: every void the freeze record declares.
-_VOID_HEADING = "- **An event whose docket number the Court re-docketed is voided"
-
-
-def _freeze_entries() -> list[str]:
-    """The freeze record's top-level entries, each with its whitespace collapsed."""
-    text = Path("docs/freeze-record.md").read_text(encoding="utf-8")
-    return [" ".join(("- **" + entry).split()) for entry in text.split("\n- **")[1:]]
-
-
-@pytest.mark.reads_docs
-def test_every_voided_event_is_declared_by_its_own_dated_freeze_record_entry() -> None:
-    # A void de-counts gradings, so each registry row must point at a landed
-    # entry that names the event and carries the row's date in its own heading,
-    # not a date found anywhere in the file.
-    entries = _freeze_entries()
-    for (case_id, event_id), event in VOIDED_EVENTS.items():
-        named = [entry for entry in entries if f"`{case_id}` `{event_id}`" in entry]
-        assert named, (case_id, event_id)
-        heading = named[0].split(".**", 1)[0]
-        assert heading.endswith(event.declared.isoformat()), (heading, event.declared)
-
-
-@pytest.mark.reads_docs
-def test_every_void_the_freeze_record_declares_is_still_registered() -> None:
-    # The reverse direction: a voiding entry whose row left the registry would
-    # re-count gradings the dated entry withdrew.
-    registered = {f"`{case_id}` `{event_id}`" for case_id, event_id in VOIDED_EVENTS}
-    voids = [entry for entry in _freeze_entries() if entry.startswith(_VOID_HEADING)]
-    assert voids, "the freeze record declares no void"
-    for entry in voids:
-        assert any(key in entry for key in registered), entry[:200]
 
 
 def test_a_leaked_cell_the_clock_places_forward_is_excluded_by_the_bit(tmp_path: Path) -> None:

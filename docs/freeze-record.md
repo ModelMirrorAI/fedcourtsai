@@ -8322,9 +8322,12 @@ freeze commit is recorded here.
   (gemini-baseline) under each judge. gemini-judge has no grading on the
   event. `store.stratify` drops the gradings after the run collapse and before
   any stratum, window composition, forward-claim or leakage denominator counts
-  them; the agreement views drop the event's stakes reads; the evaluate
-  backlog stops owing gemini-judge's missing grading; and the export carries
-  the three predictions with `voided` true and null outcome columns. No
+  them; the agreement views and the tool-usefulness join drop the event's
+  reads; no evaluate cell is minted for it on any route, so gemini-judge's
+  missing grading is never owed; the big-case board shows its outcome as none;
+  and the export carries the three predictions with `voided` true and null
+  outcome columns. Every reader asks the one predicate in
+  `src/fedcourtsai/voids.py`, which is code-owned with the registry. No
   committed file is edited: the predictions, the gradings and the outcome stay
   in `data/` as written.
 

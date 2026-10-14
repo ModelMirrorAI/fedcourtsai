@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from fedcourtsai import corpus, integrity
+from fedcourtsai import corpus, voids
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.pull import PullQueues, derive_evaluate_backlog, evaluate_backlog
 from fedcourtsai.registry import enabled_evaluators
@@ -115,7 +115,7 @@ def test_a_voided_event_owes_no_grading(tmp_path: Path, monkeypatch: pytest.Monk
     assert _derive(tmp_path, today=date(2026, 7, 20)).evaluate != []
 
     monkeypatch.setattr(
-        integrity,
+        voids,
         "VOIDED_EVENTS",
         {
             ("scotus/1", event): VoidedEvent(

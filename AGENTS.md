@@ -105,9 +105,7 @@ non-interactive** container. Two consequences shape everything you do:
   `src/fedcourtsai/registry_gate.py`, `src/fedcourtsai/promotion_record.py`,
   `src/fedcourtsai/process_registration.py` and their tests — a registration
   is a pre-registration, and the promotion record is what a bypass writer may
-  push to `main`; and `src/fedcourtsai/voided_events.json`, whose every row
-  de-counts a single event's gradings on a dated freeze-record entry),
-  `config/predictors.yaml` /
+  push to `main`), `config/predictors.yaml` /
   `config/evaluators.yaml` (what agents are and what they may reach), and the
   authority to spend without a human release: `config/review-hold.yaml` (the
   auto-release caps), `src/fedcourtsai/planning_rates.py` (the rates a round
@@ -116,7 +114,11 @@ non-interactive** container. Two consequences shape everything you do:
   (`tests/test_review_hold.py`, `tests/test_dispatch_chain.py`,
   `tests/test_workflow_dispatch_chain.py`, `tests/test_workflow_agent_bot.py`).
   A raised cap or a lowered rate lets more spend run unattended, which is why
-  it is not a configuration change like any other. Open those, get them
+  it is not a configuration change like any other. The event-void registry is a
+  pre-registration surface owned the same way: `src/fedcourtsai/voided_events.json`,
+  whose every row de-counts one event's gradings on a dated freeze-record entry,
+  the predicate every reader asks in `src/fedcourtsai/voids.py`, and
+  `tests/test_voided_events.py`, which binds each row to its entry. Open those, get them
   green, and report them ready.
   The `staging` ruleset encodes this through `.github/CODEOWNERS` for every
   identity that does not hold the admin role — Dependabot's workflow bumps, the

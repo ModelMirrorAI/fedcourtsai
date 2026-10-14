@@ -66,15 +66,18 @@ Everything here is derived from committed, harness-written artifacts — the
 context and the stamp are the harness's fields (AGENTS.md), the outcome is the
 docket record — so the rules are properties of the record, never of predictor
 behavior.
+
+A third membership rule sits beside the forward-claim and leakage rules but
+lives in its own code-owned module, :mod:`fedcourtsai.voids`: an event whose
+committed outcome records another petition is **voided**, and its gradings
+leave every scored figure. ``store.stratify`` applies all three in one pass.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from datetime import UTC, date, datetime
-from importlib.resources import files
-from types import MappingProxyType
-from typing import Final, Literal
+from typing import Literal
 
 from .schemas import (
     Evaluation,
@@ -86,8 +89,6 @@ from .schemas import (
     ProcessVersion,
     Stage,
     Stratum,
-    VoidedEvent,
-    VoidedEventsRegistry,
 )
 
 #: What the scoring funnel does with a cell whose forward claim its own record
@@ -377,58 +378,6 @@ def leakage_excluded(evaluation: Evaluation) -> bool:
     degrades exactly that.
     """
     return evaluation.leakage_suspected is True
-
-
-#: The voided-events registry: events whose committed outcome records a different
-#: petition than the one the event was opened on, each voided by a dated
-#: ``docs/freeze-record.md`` entry (``docs/process-version.md``, *Voiding an
-#: event*). Data, not code, so a void is a reviewed, maintainer-merged edit to
-#: one file; append-only, since a removed row would re-count gradings a dated
-#: entry withdrew.
-VOIDED_EVENTS_RESOURCE = "voided_events.json"
-
-
-def load_voided_events(text: str | None = None) -> Mapping[tuple[str, str], VoidedEvent]:
-    """The voided events keyed ``(case_id, event_id)``; ``text`` overrides the packaged file.
-
-    Refuses an event registered twice: one key, one dated void.
-    """
-    raw = (
-        text
-        if text is not None
-        else files("fedcourtsai").joinpath(VOIDED_EVENTS_RESOURCE).read_text(encoding="utf-8")
-    )
-    registry = VoidedEventsRegistry.model_validate_json(raw)
-    voided: dict[tuple[str, str], VoidedEvent] = {}
-    for event in registry.events:
-        key = (event.case_id, event.event_id)
-        if key in voided:
-            raise ValueError(f"voided_events.json registers {key[0]} {key[1]} twice")
-        voided[key] = event
-    return MappingProxyType(voided)
-
-
-#: The registry as loaded at import; :func:`voided_reason` reads it.
-VOIDED_EVENTS: Final[Mapping[tuple[str, str], VoidedEvent]] = load_voided_events()
-
-#: The reason prefix recorded against a cell a voided event drops; the event's
-#: own stated defect follows it.
-VOIDED_EXCLUSION_REASON = "the event is voided — its outcome describes another petition"
-
-
-def voided_reason(evaluation: Evaluation) -> str | None:
-    """Why this grading's event is voided, or ``None`` where it is not.
-
-    A voided event's gradings leave every scored figure — every stratum, rank
-    key, claim score, composition count and export row — because the outcome
-    they were scored against is not the forecast subject's. Like the leakage
-    rule it changes membership and never a value: no score on any record is
-    touched, and the boards publish how many gradings it dropped.
-    """
-    entry = VOIDED_EVENTS.get((evaluation.case_id, evaluation.event_id))
-    if entry is None:
-        return None
-    return f"{VOIDED_EXCLUSION_REASON} ({entry.defect}; freeze record {entry.declared.isoformat()})"
 
 
 def leakage_record(

@@ -50,7 +50,7 @@ from typing import Any, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
-from . import corpus, integrity
+from . import corpus
 from .blinding import latest_prediction_dirs
 from .integrity import FORWARD_CLAIM_POLICY, forward_claim_breach
 from .leaderboard import SKILL_COHERENCE_TOLERANCE
@@ -80,6 +80,7 @@ from .store import (
     scored_prediction_cell,
     stratify,
 )
+from .voids import is_voided
 
 #: A prediction's identity in the bundle: ``(case_id, event_id, predictor_id, run_id)``.
 PredictionKey = tuple[str, str, str, str]
@@ -323,14 +324,13 @@ def build_tables(
                 # exported beside a forecast of this one: the outcome columns go
                 # null and no forward claim is checked against it.
                 read_model(event_paths.outcome, Outcome)
-                if event_paths.outcome.is_file()
-                and (entry.case_id, entry.event_id) not in integrity.VOIDED_EVENTS
+                if event_paths.outcome.is_file() and not is_voided(entry.case_id, entry.event_id)
                 else None,
                 latest_prediction_dirs(event_paths),
             )
             event_cache[event_paths.base] = cached
         event, outcome, latest = cached
-        event_voided = (entry.case_id, entry.event_id) in integrity.VOIDED_EVENTS
+        event_voided = is_voided(entry.case_id, entry.event_id)
         prediction = entry.prediction
         key = (entry.case_id, entry.event_id, entry.predictor_id, entry.run_id)
         rows = by_prediction.get(key, [])
