@@ -100,7 +100,12 @@ non-interactive** container. Two consequences shape everything you do:
   `sync-staging.yml`, ci.yml's gate jobs, and the lane machinery that decides
   which of the gate's checks a change gets: `scripts/gate.sh`,
   `scripts/ci_lane.py`, `tests/test_ci_lane.py`, `tests/lane_guard.py` and its
-  registration in `tests/conftest.py`), `config/predictors.yaml` /
+  registration in `tests/conftest.py`; and the process registry the gate's
+  Step 0 reads and a promotion merge stamps: `src/fedcourtsai/process_registry.json`,
+  `src/fedcourtsai/registry_gate.py`, `src/fedcourtsai/promotion_record.py`,
+  `src/fedcourtsai/process_registration.py` and their tests — a registration
+  is a pre-registration, and the promotion record is what a bypass writer may
+  push to `main`), `config/predictors.yaml` /
   `config/evaluators.yaml` (what agents are and what they may reach), and the
   authority to spend without a human release: `config/review-hold.yaml` (the
   auto-release caps), `src/fedcourtsai/planning_rates.py` (the rates a round

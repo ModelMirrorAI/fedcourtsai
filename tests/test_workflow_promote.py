@@ -121,6 +121,36 @@ def test_promote_delegates_both_gates_to_the_script() -> None:
     text = _steps_text(job)
     assert "scripts/promotion-gate.sh quiesce" in text
     assert "scripts/promotion-gate.sh freshness" in text
+    assert "scripts/promotion-gate.sh registry" in text
+
+
+def test_both_call_sites_run_the_registry_stage_with_the_refs_it_reads() -> None:
+    """Step 0 reads origin/main's ledger and registry and the prereg/ tags from
+    git: the required check runs it through `all`, the pre-flight on its own
+    before freshness, and each checks out full history with tags, so a shallow
+    clone can never read as a registry-less main with an empty ledger."""
+    script = GATE_SCRIPT.read_text()
+    all_stage = script.split("  all)", 1)[1].split(";;", 1)[0]
+    order = [all_stage.index(stage) for stage in ("quiesce", "freshness ", 'registry "$2"')]
+    assert order == sorted(order)
+    assert "uv run fedcourts registry-gate --at" in script
+    assert "git rev-parse --verify -q origin/main^{commit}" in script
+
+    gate = _promotion_gate_job()
+    assert 'scripts/promotion-gate.sh all "$HEAD_SHA"' in _steps_text(gate)
+    promote = _load(WORKFLOWS / "promote.yml")["jobs"]["promote"]
+    for job in (gate, promote):
+        checkout = job["steps"][0]
+        assert checkout["uses"].startswith("actions/checkout@")
+        assert checkout["with"]["fetch-depth"] == 0
+        assert checkout["with"]["persist-credentials"] is False
+        setups = [s for s in job["steps"] if s.get("uses") == "./.github/actions/setup-python-env"]
+        assert setups and all(s["with"]["restore-cache"] == "false" for s in setups)
+
+    names = [step.get("name", "") for step in promote["steps"]]
+    registry = names.index("Process registry gate at the staging head")
+    assert registry < names.index("Freshness gate at the staging head")
+    assert 'scripts/promotion-gate.sh registry "$sha"' in promote["steps"][registry]["run"]
 
 
 def test_the_contexts_stage_stays_out_of_the_automated_gates() -> None:

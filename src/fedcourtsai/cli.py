@@ -63,6 +63,7 @@ from . import (
     process_version,
     promotion_record,
     provision,
+    registry_gate,
     repo_gate,
     retrieval,
     scope_manifest,
@@ -9028,6 +9029,38 @@ def promotion_record_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
+
+
+@app.command("registry-gate")
+def registry_gate_cmd(
+    at: Annotated[str, typer.Option("--at", help="The batch's head: the commit to promote.")],
+    main_ref: Annotated[
+        str, typer.Option("--main-ref", help="The ref holding main's ledger and registry.")
+    ],
+) -> None:
+    """The promotion gate's Step 0: refuse a batch whose process registrations cannot be stamped.
+
+    Reads the registry, config and prompts at ``--at`` and the ledger, registry
+    and tags of ``--main-ref``, from git alone, whatever tree is checked out.
+    Refuses where a pending digest already stamps a committed cell on main,
+    an enabled actor's digest is not registered, a newly opened window leaves
+    its predictor's earlier window open, a new label's ``prereg/`` tag already
+    exists, a boundary name repeats, a pending row already sits on main, or
+    the registry does not load. Tags are read locally, so the caller fetches
+    them first.
+    """
+    repo = Path.cwd()
+    try:
+        actors = registry_gate.live_actors_at(repo, at)
+        result = registry_gate.registry_gate(repo, at, main_ref, actors)
+    except (promotion_record.PromotionRecordError, KeyError, OSError, ValueError) as exc:
+        typer.echo(f"::error::registry-gate: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    for problem in result.problems:
+        typer.echo(f"::error::registry: {problem}", err=True)
+    if result.problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"registry: {result.pending} pending, step 0 clean")
 
 
 @app.command("digest-census")

@@ -297,6 +297,19 @@ def pending_registrations(registry: Mapping[str, Any]) -> list[Stamp]:
     return found
 
 
+def labels_new_to(registry: Mapping[str, Any], base: Mapping[str, Any]) -> list[str]:
+    """The labels ``registry`` holds that ``base`` does not, in document order.
+
+    A ``base`` with no registry at all predates the record: the labels the
+    record moved in from code were frozen by hand, their ``prereg/`` tags made
+    then, so none of them is new to it.
+    """
+    if not base:
+        return []
+    known = {entry["label"] for entry in base.get("labels", [])}
+    return [entry["label"] for entry in registry.get("labels", []) if entry["label"] not in known]
+
+
 def stamp_registry(
     registry: Mapping[str, Any], stamps: list[Stamp], merge: str, merged_at: datetime
 ) -> dict[str, Any]:
@@ -722,10 +735,7 @@ def plan_promotion_record(
         raise PromotionRecordError(f"{merge} carries pending registrations, but {refusal}")
 
     prereg: TagPlan | None = None
-    known = {entry["label"] for entry in registry_before.get("labels", [])}
-    new_labels = [
-        entry["label"] for entry in registry_after.get("labels", []) if entry["label"] not in known
-    ]
+    new_labels = labels_new_to(registry_after, registry_before)
     if new_labels:
         label = new_labels[-1]
         name = f"prereg/{label}"
