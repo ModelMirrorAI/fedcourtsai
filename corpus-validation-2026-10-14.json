@@ -10,14 +10,14 @@
     },
     {
       "checked": 2153472,
-      "detail": "2153472 rows vs baseline 2153451",
+      "detail": "2153472 rows vs baseline 2153472",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4310189,
+      "checked": 4310190,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4307116,
+      "checked": 4307117,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4310189,
+      "checked": 4310190,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 152,
+      "checked": 153,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 26887,
+      "checked": 26888,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -206,7 +206,7 @@
       "problems": []
     }
   ],
-  "corpus_events": 2153644,
+  "corpus_events": 2153645,
   "corpus_rows": 2153472,
   "ok": true,
   "schema_version": "1.0",
