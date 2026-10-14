@@ -1,0 +1,222 @@
+{
+  "actor_id": "gemini-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ad3f05c3c8241d93",
+      "query": "{\"strategic_intent\": \"Read the prediction instructions and agent documentation to understand how to execute the prediction.\"}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:13:51.358Z",
+      "tool": "update_topic"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "2258f95b646afe0b",
+      "query": "{\"end_line\": 200, \"file_path\": \".github/prompts/predict.md\", \"start_line\": 1}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:14:02.817Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "e4f53a4be086712c",
+      "query": "{\"end_line\": 200, \"file_path\": \"AGENTS.md\", \"start_line\": 1}",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:14:02.818Z",
+      "tool": "read_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "923693f124e63e56",
+      "query": "cat data/cases/scotus/9526000458/record/context.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:14:12.086Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "72bd17a3fa6f57ea",
+      "query": "cat data/cases/scotus/9526000458/events/evt-brief-response-disposition/event.yaml",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:14:12.087Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "6ea9c3e908b51304",
+      "query": "cat .github/prompts/predict.md | grep -A 50 \"Stage: interim\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:14:18.195Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "9035513b83b9e0d0",
+      "query": "cat metrics/statpack.md | grep -A 50 \"interim\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:14:23.800Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8a3dc4cc1f19ae0a",
+      "query": "cat data/cases/scotus/9526000458/record/snapshots/2026-10-13.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:14:30.754Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "e63734e3c5c281e0",
+      "query": "\"Washington Interscholastic Activities Association\" OR \"K.M.K.\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:16:06.836Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "33fdb31cd27a61ef",
+      "query": "\"Washington Interscholastic Activities Association\" AND \"K.M.K.\"",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:16:06.837Z",
+      "tool": "mcp_courtlistener_search"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f8aeb6d4fb7c7bdb",
+      "query": "cat schemas/prediction.schema.json",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:16:17.704Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "027d6f481c5d7d65",
+      "query": "grep -A 20 \"interim\" src/fedcourtsai/pipeline/claims.py",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:16:26.494Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "150d2af3738c4c20",
+      "query": "mkdir -p data/cases/scotus/9526000458/events/evt-brief-response-disposition/predictions/gemini-baseline/20261014T174020Z",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:16:50.838Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4e0b841564132a6f",
+      "query": "{\"content\": \"{\\n  \\\"case_id\\\": \\\"scotus/9526000458\\\",\\n  \\\"event_id\\\": \\\"evt-brief-response-disposition\\\",\\n  \\\"predictor_id\\\": \\\"gemini-baseline\\\",\\n  \\\"engine\\\": \\\"gemini\\\",\\n  \\\"run_id\\\": \\\"20261014T174020Z\\\",\\n  \\\"created_at\\\": \\\"2026-10-14T17:40:20Z\\\",\\n  \\\"input_snapshot\\\": \\\"2026-10-13.json\\\",\\n  \\\"granted\\\": 0,\\n  \\\"probability\\\": 0.15,\\n  \\\"predicted_disposition\\\": \\\"denied\\\",\\n  \\\"model\\\": \\\"gemini-3.1-pro-preview\\\",\\n  \\\"reasoning_doc\\\": \\\"reasoning.md\\\",\\n  \\\"big_case_score\\\": 0.8,\\n",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:16:50.845Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f6c84923fd952512",
+      "query": "{\"content\": \"# Prediction for evt-brief-response-disposition in SCOTUS docket 9526000458\\n\\n## Base Rate and Context\\nThis is an application for an injunction pending appeal, submitted to Justice Kagan, who subsequently requested a response. It has attracted significant attention, evidenced by the four amicus briefs filed at this interim stage by states and organizations (including the State of Iowa, Do No Harm, Inc., and Independent Council on Women's Sports). The case concerns transgender athl",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:16:50.848Z",
+      "tool": "write_file"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "9dcccafea4689454",
+      "query": "uv run fedcourts validate data",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:17:38.202Z",
+      "tool": "run_shell_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "789a80e0c4dbb693",
+      "query": "{\"strategic_intent\": \"Prediction complete and validated.\", \"summary\": \"I have read the relevant schema files and agent instructions, analyzed the context of the requested event (evt-brief-response-disposition for docket 9526000458), extracted the necessary base rates from the statpack, investigated the docket records via MCP to determine the posture (injunction pending appeal, transgender athlete policy case), written the reasoning to reasoning.md, and generated a conforming prediction.json with",
+      "result_capture": "unobserved",
+      "result_digest": null,
+      "result_status": "unobserved",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T18:17:44.517Z",
+      "tool": "update_topic"
+    }
+  ],
+  "case_id": "scotus/9526000458",
+  "engine": "gemini",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 0.0,
+  "role": "predictor",
+  "run_id": "20261014T174020Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}
