@@ -8926,9 +8926,18 @@ def register_boundary_cmd(
     typer.echo(f"registered boundary {name}, pending")
 
 
+def _check_stamped_registry(text: str) -> object:
+    """Load a rendered registry under its own last label, refusing what the loader refuses."""
+    labels = json.loads(text).get("labels") or [{}]
+    current = labels[-1].get("label") or process_version.CURRENT_PROCESS_LABEL
+    return process_version.load_process_registry(text, current_label=current)
+
+
 @app.command("promotion-record")
 def promotion_record_cmd(
-    merge: Annotated[str, typer.Option(help="The staging→main promotion merge commit.")],
+    merge: Annotated[
+        str, typer.Option(help="The staging→main promotion merge commit to plan.")
+    ] = "",
     apply: Annotated[
         bool,
         typer.Option("--apply", help="Write the fills and stamps into the working tree's copies."),
@@ -8941,23 +8950,55 @@ def promotion_record_cmd(
             "already carried.",
         ),
     ] = False,
+    check_main: Annotated[
+        str,
+        typer.Option(
+            "--check-main",
+            help="Instead of planning, exit 1 where this ref (e.g. origin/main) holds a "
+            "pending registration a merge on its first-parent chain already carried.",
+        ),
+    ] = "",
 ) -> None:
     """Print what a promotion merge owes ``main``: tags, placeholder fills, stamps.
 
-    Pure: reads only the merge, its first parent and the repository's tags.
-    The plan names the ``promotion/<UTC date>`` tag (adopting one that already
-    names the merge), a ``prereg/<label>`` tag where the merge carried a
-    pending label, each ``<FILL:>`` placeholder the merge added with its value
+    Pure: reads only the merge, its first parent and the repository's tags,
+    which the caller fetches first — a tag missing locally reads as a free
+    name. The plan names the ``promotion/<UTC date>`` tag (adopting one that
+    already names the merge), a ``prereg/<label>`` tag on the merge where it
+    added a label, each ``<FILL:>`` placeholder the merge added with its value
     where the closed key set has one (tag, merge SHA, merge time, digest
     census) and the free-text ones a maintainer completes, and each pending
     registration the merge added, to stamp with its SHA and committer time.
-    ``--apply`` writes the fills and stamps into the working tree; it creates
-    no tag and no commit.
+    ``--apply`` renders both files first and writes nothing unless both
+    render and the stamped registry loads; it creates no tag and no commit.
+    ``--check-main`` names every pending row a merge already carried to the
+    ref, so a stamp that never landed cannot go unnoticed.
     """
     repo = Path.cwd()
+    if check_main:
+        try:
+            problems = promotion_record.pending_carried_problems(repo, check_main)
+        except promotion_record.PromotionRecordError as exc:
+            typer.echo(f"promotion-record: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        for problem in problems:
+            typer.echo(f"::error::{problem}", err=True)
+        if problems:
+            raise typer.Exit(code=1)
+        typer.echo(f"{check_main}: no pending registration a merge already carried")
+        return
+    if not merge:
+        typer.echo("promotion-record: pass --merge, or --check-main", err=True)
+        raise typer.Exit(code=2)
     try:
         plan = promotion_record.plan_promotion_record(repo, merge)
-        changed = promotion_record.apply_promotion_record(repo, repo, plan) if apply else []
+        changed = (
+            promotion_record.apply_promotion_record(
+                repo, repo, plan, check_registry=_check_stamped_registry
+            )
+            if apply
+            else []
+        )
     except promotion_record.PromotionRecordError as exc:
         typer.echo(f"promotion-record: {exc}", err=True)
         raise typer.Exit(code=1) from exc
@@ -8998,40 +9039,60 @@ def digest_census_cmd(
     typer.echo(str(count))
 
 
+def _changed_paths(repo: Path, base: str, head: str) -> list[str]:
+    """Every path ``head`` (or the working tree) changes from ``base``, NUL-separated and exact.
+
+    ``--name-status -z --no-renames`` keeps a path with a space whole and
+    reports a rename as its delete and its add, so neither half escapes the
+    jail; untracked files count as changes of the working tree.
+    """
+    args = ["diff", "--name-status", "-z", "--no-renames", base] + ([head] if head else [])
+    fields = [part for part in promotion_record.git(repo, *args).split("\0") if part]
+    changed = fields[1::2]
+    if not head:
+        untracked = promotion_record.git(repo, "ls-files", "-z", "--others", "--exclude-standard")
+        changed += [path for path in untracked.split("\0") if path]
+    return changed
+
+
 @app.command("assert-promotion-record-diff")
 def assert_promotion_record_diff_cmd(
+    merge: Annotated[str, typer.Option(help="The promotion merge the record is written for.")],
     base: Annotated[str, typer.Option(help="The commit the promotion record is written on.")],
     head: Annotated[
         str, typer.Option(help="The commit to check; empty for the working tree.")
     ] = "",
 ) -> None:
-    """Refuse a promotion-record change that writes more than fills and stamps.
+    """Refuse a promotion-record change that is not exactly the merge's plan.
 
-    The diff from ``base`` may touch only ``process_registry.json``, by
-    stamping pending instants and boundaries, and ``docs/freeze-record.md``, by
-    replacing ``<FILL:>`` placeholders with one-line values. Exit 1 naming
-    every excess.
+    Recomputes ``promotion-record --merge``'s plan, renders it onto ``base``'s
+    copies, and requires the change's ``process_registry.json`` and
+    ``docs/freeze-record.md`` to equal that rendering byte for byte — so every
+    stamp carries the merge's own SHA and committer time and no free-text or
+    stale placeholder moves. Checks structurally besides: only those two paths,
+    the registry only by stamping pending rows, the freeze record only by
+    replacing placeholders with one-line values. Exit 1 naming every excess.
     """
     repo = Path.cwd()
-    paths = (promotion_record.REGISTRY_PATH, promotion_record.FREEZE_RECORD_PATH)
+    paths = promotion_record.RECORD_PATHS
     try:
+        changed = _changed_paths(repo, base, head)
         if head:
-            changed = promotion_record.git(repo, "diff", "--name-only", base, head).split()
             after = {path: promotion_record.show_at(repo, head, path) for path in paths}
         else:
-            changed = promotion_record.git(repo, "diff", "--name-only", base).split()
-            changed += promotion_record.git(
-                repo, "ls-files", "--others", "--exclude-standard"
-            ).split()
             after = {
                 path: (repo / path).read_text(encoding="utf-8") if (repo / path).exists() else None
                 for path in paths
             }
+        before = {path: promotion_record.show_at(repo, base, path) for path in paths}
+        plan = promotion_record.plan_promotion_record(repo, merge)
+        expected = promotion_record.render_promotion_record(repo, plan, before)
     except promotion_record.PromotionRecordError as exc:
-        typer.echo(f"assert-promotion-record-diff: {exc}", err=True)
+        typer.echo(f"::error::assert-promotion-record-diff: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    before = {path: promotion_record.show_at(repo, base, path) for path in paths}
-    problems = promotion_record.promotion_record_diff_problems(changed, before, after)
+    problems = promotion_record.promotion_record_diff_problems(
+        changed, before, after, expected=expected
+    )
     for problem in problems:
         typer.echo(f"::error::{problem}", err=True)
     if problems:

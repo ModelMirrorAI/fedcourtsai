@@ -361,6 +361,8 @@ def _registered_instants() -> list[tuple[str, Any]]:
 )
 def test_every_instant_is_audited_against_its_merge(instant: Any) -> None:
     """A ``merge`` instant is its merge's committer time; a ``hand`` one is at or after it."""
+    if instant.pending:
+        pytest.skip("pending: no merge has carried it yet, so there is nothing to audit")
     committed = _committed_at(instant.merge)
     if instant.source == "merge":
         assert instant.at == committed

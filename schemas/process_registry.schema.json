@@ -295,6 +295,20 @@
       "title": "Labels",
       "type": "array"
     },
+    "merge_stamping_declared": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The date of the freeze-record entry that declares counting instants and bless moments stamped by the carrying merge's committer time. Until it is set, `register-process` writes no pending label: a merge may stamp a label's instants only under a rule the freeze record already holds on `main`",
+      "title": "Merge Stamping Declared"
+    },
     "schema_version": {
       "const": 1,
       "description": "The registry format's version",

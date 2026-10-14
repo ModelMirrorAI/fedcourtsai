@@ -4262,13 +4262,25 @@ class FrozenProcessRecord(_Strict):
         "event only the earliest window's counts. Every figure over a window is "
         "reported under that window's `label`",
     )
+    pending: list[str] = Field(
+        default_factory=list,
+        description="Each registration the build's registry held as pending — written by "
+        "the PR that registers it, not yet stamped by the merge that carries it — as "
+        "`<kind> <ident>` (`label proc-vN`, `blessing <digest>`, `window-opens <label> "
+        "<digest>`, `window-closes <label> <digest>`, `boundary <name>`). Nothing pending "
+        "counts, opens, closes or splits, so a board built while any is pending reads them "
+        "here. Omitted while empty",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_empty_windows(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``windows`` while it is empty, so a record with none reads as before."""
+        """Drop ``windows`` and ``pending`` while empty, so such a record reads as before."""
         payload = handler(self)
-        if isinstance(payload, dict) and not self.windows:
-            payload.pop("windows", None)
+        if isinstance(payload, dict):
+            if not self.windows:
+                payload.pop("windows", None)
+            if not self.pending:
+                payload.pop("pending", None)
         return payload
 
 
@@ -4450,6 +4462,14 @@ class ProcessRegistry(_Strict):
     model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
 
     schema_version: Literal[1] = Field(description="The registry format's version")
+    merge_stamping_declared: str | None = Field(
+        default=None,
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        description="The date of the freeze-record entry that declares counting instants "
+        "and bless moments stamped by the carrying merge's committer time. Until it is set, "
+        "`register-process` writes no pending label: a merge may stamp a label's instants "
+        "only under a rule the freeze record already holds on `main`",
+    )
     labels: list[RegistryLabel] = Field(description="Every label with a counting window, in order")
     blessings: list[RegistryBlessing] = Field(
         description="The digests the current process blesses, one per actor, in order"

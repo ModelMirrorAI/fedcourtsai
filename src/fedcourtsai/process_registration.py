@@ -57,18 +57,30 @@ def register_process(
 ) -> dict[str, Any]:
     """``registry`` with ``label`` registered, pending, over the live fleet's digests.
 
-    - the label gets a pending counting instant, as the last label row;
     - ``blessings`` becomes the live fleet: a digest already blessed is carried
       forward with its bless moment and first label; a new one is pending
       under ``label``;
-    - each predictor digest newly blessed opens a pending window, and each
-      open window whose digest no live predictor computes closes pending;
+    - where the **predictor** digests moved (one changed, appeared or left),
+      the label gets a pending counting instant as the last label row; each
+      predictor digest newly blessed opens a pending window, and each open
+      window whose digest no live predictor computes closes pending;
+    - where only **evaluator** digests moved, the label holds its
+      predecessor's counting instant (its ``since`` is a copy of the last
+      label's) and opens and closes no window, since an evaluator digest
+      records and never partitions;
     - each live evaluator digest gains ``label`` in ``evaluate_blessing_labels``.
 
-    Refuses a label that does not follow the last one, a registry that already
-    holds a pending registration, and a fleet whose digests have not moved.
+    Refuses a registry whose freeze record has not declared merge-stamped
+    instants (``merge_stamping_declared``), a label that does not follow the
+    last one, a label registration already waiting for its merge, and a fleet
+    whose digests have not moved.
     """
     document: dict[str, Any] = copy.deepcopy(dict(registry))
+    if document.get("merge_stamping_declared") is None:
+        raise RegistrationError(
+            "no freeze-record entry declares merge-stamped instants "
+            "(merge_stamping_declared is unset); register the label by hand"
+        )
     _refuse_label(document, label)
     carried = {blessing["digest"]: blessing for blessing in document["blessings"]}
     blessings: list[dict[str, Any]] = []
@@ -89,27 +101,38 @@ def register_process(
     if not moved and {b["digest"] for b in blessings} == set(carried):
         raise RegistrationError("no digest moved: a label registers a moved process")
     live_predictors = {actor.digest for actor in actors if actor.role == "predictor"}
-    _move_windows(document, label, moved, live_predictors)
+    blessed_predictors = {
+        blessing["digest"] for blessing in carried.values() if blessing["role"] == "predictor"
+    }
+    if live_predictors != blessed_predictors:
+        _move_windows(document, label, moved, live_predictors)
+        since = _pending_instant()
+    else:
+        since = dict(document["labels"][-1]["since"])
     for actor in actors:
         if actor.role == "evaluator":
             named = document["evaluate_blessing_labels"].setdefault(actor.digest, [])
             if label not in named:
                 named.append(label)
-    document["labels"].append({"label": label, "since": _pending_instant()})
+    document["labels"].append({"label": label, "since": since})
     document["blessings"] = blessings
     return document
 
 
 def _refuse_label(document: Mapping[str, Any], label: str) -> None:
-    """Refuse a label already registered, not after the last, or behind a pending one."""
+    """Refuse a label already registered, not after the last, or behind a pending one.
+
+    Only a pending label, blessing or window blocks a new label; a pending
+    harness boundary is independent of labels and rides along.
+    """
     labels = document["labels"]
     ordinal = _ordinal(label)
     if any(entry["label"] == label for entry in labels):
         raise RegistrationError(f"{label} is already registered")
     if labels and ordinal <= _ordinal(labels[-1]["label"]):
         raise RegistrationError(f"{label} does not follow {labels[-1]['label']}")
-    if pending_registrations(document):
-        raise RegistrationError("a pending registration is already waiting for its merge")
+    if any(stamp.kind != "boundary" for stamp in pending_registrations(document)):
+        raise RegistrationError("a label registration is already waiting for its merge")
 
 
 def _move_windows(

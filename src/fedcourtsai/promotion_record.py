@@ -4,18 +4,22 @@ A promotion merge carries registrations that are still **pending** — a label,
 its blessings and windows, a harness boundary — and freeze-record entries with
 ``<FILL:>`` placeholders for facts only the merge knows: its tag, its SHA, its
 time, and a census of the ledger at that moment. :func:`plan_promotion_record`
-reads the merge commit and its first parent and nothing else, and says what
-the merge owes: the annotated ``promotion/<UTC date>`` tag, a ``prereg/<label>``
-tag where the merge carried a label, each placeholder the merge added that a
-closed key set can fill, and each pending registration to stamp with the
-merge's SHA and committer time. :func:`apply_promotion_record` writes those
-edits into a working tree; :func:`promotion_record_diff_problems` is the jail
-that holds such a commit to exactly that.
+reads the merge commit, its first parent and the repository's tags, and says
+what the merge owes: the annotated ``promotion/<UTC date>`` tag, a
+``prereg/<label>`` tag on the merge where it added a label, each placeholder
+the merge added that a closed key set can fill, and each pending registration
+to stamp with the merge's SHA and committer time.
+:func:`render_promotion_record` makes those edits on given copies of the two
+files, :func:`apply_promotion_record` writes them into a working tree, and
+:func:`promotion_record_diff_problems` is the jail: a promotion-record change
+must be **byte-identical** to the plan rendered on its base, and is checked
+structurally besides.
 
 Only what the merge **added** is filled or stamped. A placeholder or pending
-row the first parent already held was carried by an earlier merge, and
-stamping it with this one would date it late; it is reported as stale, never
-written.
+row the first parent already held — or a placeholder on a line the merge only
+edited — was carried by an earlier merge, and stamping it with this one would
+date it late; it is reported as stale, never written. Nothing here runs on a
+merge by itself: a writer job that invokes it lands separately.
 """
 
 from __future__ import annotations
@@ -37,10 +41,16 @@ from .schemas import ProcessRegistry
 #: The registry and the freeze record, as paths in the repository.
 REGISTRY_PATH = "src/fedcourtsai/process_registry.json"
 FREEZE_RECORD_PATH = "docs/freeze-record.md"
+RECORD_PATHS = (REGISTRY_PATH, FREEZE_RECORD_PATH)
 
-#: A freeze-record placeholder. ``[^<>]`` spans newlines, so a placeholder
-#: wrapped across lines is still one placeholder.
-FILL_PATTERN = re.compile(r"<FILL:([^<>]*)>")
+#: A candidate placeholder: ``<FILL:`` to the next ``>``, with no ``<``,
+#: ``>`` or backtick inside. :func:`placeholders` also refuses a span that
+#: crosses a blank line or names no word, so an unclosed marker cannot swallow
+#: the paragraphs after it and a prose mention (``<FILL:>``, ``<FILL: …>``) is
+#: not a placeholder. A placeholder wrapped across one line break is still one.
+FILL_PATTERN = re.compile(r"<FILL:([^<>`]*)>")
+_BLANK_LINE = re.compile(r"\n[ \t]*\n")
+_WORD = re.compile(r"[A-Za-z]")
 
 #: The closed key set a promotion merge can fill: its tag, its SHA, its time.
 #: Keys compare case-insensitively after whitespace is collapsed.
@@ -119,14 +129,17 @@ class PromotionPlan:
 
 
 class PromotionRecordError(RuntimeError):
-    """The merge cannot be planned, or a plan cannot be applied cleanly."""
+    """The merge cannot be planned, or a plan cannot be rendered or applied cleanly."""
+
+
+def _git_argv(repo: Path, args: tuple[str, ...]) -> list[str]:
+    # A configured signature check would print into %cI and show's output.
+    return ["git", "-C", str(repo), "-c", "log.showSignature=false", *args]
 
 
 def git(repo: Path, *args: str) -> str:
     """Run git in ``repo`` and return its stdout; raises on failure."""
-    result = subprocess.run(
-        ["git", "-C", str(repo), *args], capture_output=True, text=True, check=False
-    )
+    result = subprocess.run(_git_argv(repo, args), capture_output=True, text=True, check=False)
     if result.returncode != 0:
         raise PromotionRecordError(f"git {' '.join(args)}: {result.stderr.strip()}")
     return result.stdout
@@ -135,19 +148,15 @@ def git(repo: Path, *args: str) -> str:
 def show_at(repo: Path, rev: str, path: str) -> str | None:
     """``path`` at ``rev``, or ``None`` where that tree does not hold it."""
     result = subprocess.run(
-        ["git", "-C", str(repo), "show", f"{rev}:{path}"],
-        capture_output=True,
-        text=True,
-        check=False,
+        _git_argv(repo, ("show", f"{rev}:{path}")), capture_output=True, text=True, check=False
     )
     return result.stdout if result.returncode == 0 else None
 
 
 def committer_time(repo: Path, sha: str) -> datetime:
     """``sha``'s committer time, on UTC."""
-    return datetime.fromisoformat(git(repo, "log", "-1", "--format=%cI", sha).strip()).astimezone(
-        UTC
-    )
+    stamp = git(repo, "log", "-1", "--format=%cI", sha).strip()
+    return datetime.fromisoformat(stamp).astimezone(UTC)
 
 
 def iso(moment: datetime) -> str:
@@ -159,11 +168,26 @@ def _normalize(key: str) -> str:
     return " ".join(key.split()).lower()
 
 
+def _registry(text: str | None, where: str) -> dict[str, Any]:
+    """A registry document, or a refusal naming where it would not parse."""
+    try:
+        document = json.loads(text or "{}")
+    except json.JSONDecodeError as exc:
+        raise PromotionRecordError(f"{where}: the registry is not JSON ({exc})") from exc
+    if not isinstance(document, dict):
+        raise PromotionRecordError(f"{where}: the registry is not a JSON object")
+    return document
+
+
 # --- tags --------------------------------------------------------------------
 
 
 def _tags(repo: Path, prefix: str) -> dict[str, str]:
-    """Every tag under ``prefix`` mapped to the commit it peels to."""
+    """Every tag under ``prefix`` mapped to the commit it peels to.
+
+    Reads the local tag refs, so a caller planning a merge fetches tags first;
+    a missed tag would read as a free name.
+    """
     out = git(
         repo,
         "for-each-ref",
@@ -225,27 +249,50 @@ def pending_registrations(registry: Mapping[str, Any]) -> list[Stamp]:
 def stamp_registry(
     registry: Mapping[str, Any], stamps: list[Stamp], merge: str, merged_at: datetime
 ) -> dict[str, Any]:
-    """A copy of ``registry`` with each of ``stamps`` set to the merge's SHA and time."""
+    """A copy of ``registry`` with each of ``stamps`` set to the merge's SHA and time.
+
+    Only a row still pending is stamped; a row already stamped is left as it
+    is, so a stamp can never overwrite a landed instant.
+    """
     stamped: dict[str, Any] = copy.deepcopy(dict(registry))
     instant = {"at": iso(merged_at), "merge": merge, "source": "merge"}
     wanted = set(stamps)
-    for entry in stamped["labels"]:
-        if Stamp("label", entry["label"]) in wanted:
+
+    def due(kind: StampKind, ident: str, node: Any) -> bool:
+        return Stamp(kind, ident) in wanted and isinstance(node, dict) and node["merge"] is None
+
+    for entry in stamped.get("labels", []):
+        if due("label", entry["label"], entry["since"]):
             entry["since"] = dict(instant)
-    for blessing in stamped["blessings"]:
-        if Stamp("blessing", blessing["digest"]) in wanted:
+    for blessing in stamped.get("blessings", []):
+        if due("blessing", blessing["digest"], blessing["blessed"]):
             blessing["blessed"] = dict(instant)
-    for window in stamped["windows"]:
+    for window in stamped.get("windows", []):
         ident = f"{window['label']} {window['digest']}"
-        if Stamp("window-opens", ident) in wanted:
+        if due("window-opens", ident, window["opens"]):
             window["opens"] = dict(instant)
-        if Stamp("window-closes", ident) in wanted:
+        if due("window-closes", ident, window["closes"]):
             window["closes"] = dict(instant)
-    for boundary in stamped["harness_boundaries"]:
-        if Stamp("boundary", boundary["name"]) in wanted:
+    for boundary in stamped.get("harness_boundaries", []):
+        if due("boundary", boundary["name"], boundary):
             boundary["merge"] = merge
             boundary["at"] = iso(merged_at)
     return stamped
+
+
+def _stamped_instants(registry: Mapping[str, Any]) -> list[datetime]:
+    """Every instant a merge has already stamped or a hand has set, on UTC."""
+    raw = [entry["since"]["at"] for entry in registry.get("labels", [])]
+    raw += [blessing["blessed"]["at"] for blessing in registry.get("blessings", [])]
+    for window in registry.get("windows", []):
+        raw.append(window["opens"]["at"])
+        if window["closes"] is not None:
+            raw.append(window["closes"]["at"])
+    return [
+        datetime.fromisoformat(str(at).replace("Z", "+00:00")).astimezone(UTC)
+        for at in raw
+        if at is not None
+    ]
 
 
 def dump_registry(registry: Mapping[str, Any]) -> str:
@@ -254,9 +301,13 @@ def dump_registry(registry: Mapping[str, Any]) -> str:
 
 
 def _prereg_message(registry: Mapping[str, Any], label: str, merge: str, at: str) -> str:
-    lines = [f"prereg/{label}: {label} counts from {at}, the committer time of merge {merge}."]
-    lines.append("")
-    lines.append("Blessed digests:")
+    entry = next(row for row in registry["labels"] if row["label"] == label)
+    since = entry["since"]
+    if since["merge"] is None:
+        counts = f"counts from {at}, the committer time of merge {merge}."
+    else:
+        counts = f"holds the counting instant {since['at']}; merged as {merge} at {at}."
+    lines = [f"prereg/{label}: {label} {counts}", "", "Blessed digests:"]
     for blessing in registry["blessings"]:
         carried = blessing["label"] != label
         how = f"carried from {blessing['label']}" if carried else "new"
@@ -267,24 +318,49 @@ def _prereg_message(registry: Mapping[str, Any], label: str, merge: str, at: str
 # --- placeholders ------------------------------------------------------------
 
 
-def _added_lines(before: str, after: str) -> set[int]:
-    """The 0-based lines of ``after`` that ``before`` does not hold, by line diff."""
-    old, new = before.splitlines(), after.splitlines()
-    added: set[int] = set()
-    matcher = difflib.SequenceMatcher(None, old, new, autojunk=False)
-    for tag, _i1, _i2, j1, j2 in matcher.get_opcodes():
-        if tag in ("insert", "replace"):
-            added.update(range(j1, j2))
-    return added
-
-
 def placeholders(text: str) -> list[tuple[str, int, int, int]]:
-    """Each placeholder in ``text``: its normalized key, start line, and byte span."""
+    """Each placeholder in ``text``: its normalized key, start line, and byte span.
+
+    A span that crosses a blank line, or whose key names no word, is not a
+    placeholder: an unclosed ``<FILL:`` stays prose, and a mention of the
+    marker itself is never filled.
+    """
     found = []
     for match in FILL_PATTERN.finditer(text):
+        inner = match.group(1)
+        if _BLANK_LINE.search(inner) or not _WORD.search(inner):
+            continue
         line = text.count("\n", 0, match.start())
-        found.append((_normalize(match.group(1)), line, match.start(), match.end()))
+        found.append((_normalize(inner), line, match.start(), match.end()))
     return found
+
+
+def _added_placeholder_lines(before: str, after: str) -> set[int]:
+    """The 0-based lines of ``after`` whose placeholders the change added.
+
+    A line inserted, or edited from lines that held no placeholder of the same
+    key, adds its placeholders. A placeholder on a line edited from one that
+    already held that key — a typo fixed on a landed entry — was carried by an
+    earlier merge, so the edit does not make it this merge's.
+    """
+    old_lines, new_lines = before.splitlines(keepends=True), after.splitlines(keepends=True)
+    old_keys_by_line: dict[int, set[str]] = {}
+    for key, line, _start, _end in placeholders(before):
+        old_keys_by_line.setdefault(line, set()).add(key)
+    new_keys_by_line: dict[int, set[str]] = {}
+    for key, line, _start, _end in placeholders(after):
+        new_keys_by_line.setdefault(line, set()).add(key)
+    added: set[int] = set()
+    matcher = difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False)
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "insert":
+            added.update(range(j1, j2))
+        elif tag == "replace":
+            held = set().union(*(old_keys_by_line.get(i, set()) for i in range(i1, i2)))
+            for j in range(j1, j2):
+                if not new_keys_by_line.get(j, set()) & held:
+                    added.add(j)
+    return added
 
 
 def fill_value(
@@ -315,34 +391,39 @@ def digest_census(repo: Path, rev: str, kind: str, digests: list[str]) -> int:
     Reads every ``data/cases/**/<kind>/**/<artifact>.json`` on ``rev``'s tree
     and counts those whose ``process_version.digest`` starts (after its
     ``sha256:`` prefix) with one of the given hex prefixes. Unstamped
-    artifacts count for no digest.
+    artifacts count for no digest; an artifact that is not JSON is refused.
     """
     if kind not in _ARTIFACT:
         raise PromotionRecordError(f"census kind is predictions or evaluations, not {kind!r}")
     prefixes = tuple(digest.removeprefix("sha256:").lower() for digest in digests)
+    if not prefixes:
+        raise PromotionRecordError("a census names at least one digest prefix")
     artifact = _ARTIFACT[kind]
+    listed = git(repo, "ls-tree", "-r", "-z", "--name-only", rev, "--", "data/cases")
     names = [
-        name
-        for name in git(repo, "ls-tree", "-r", "--name-only", rev, "--", "data/cases").splitlines()
-        if name.endswith(f"/{artifact}") and f"/{kind}/" in name
+        name for name in listed.split("\0") if name.endswith(f"/{artifact}") and f"/{kind}/" in name
     ]
     if not names:
         return 0
     batch = subprocess.run(
-        ["git", "-C", str(repo), "cat-file", "--batch"],
+        _git_argv(repo, ("cat-file", "--batch")),
         input="".join(f"{rev}:{name}\n" for name in names).encode(),
         capture_output=True,
         check=True,
     ).stdout
     count = 0
     offset = 0
-    for _ in names:
+    for name in names:
         header_end = batch.index(b"\n", offset)
         header = batch[offset:header_end].split()
         size = int(header[2])
         body = batch[header_end + 1 : header_end + 1 + size]
         offset = header_end + 1 + size + 1
-        stamp = json.loads(body).get("process_version") or {}
+        try:
+            document = json.loads(body)
+        except json.JSONDecodeError as exc:
+            raise PromotionRecordError(f"{name} at {rev} is not JSON") from exc
+        stamp = (document.get("process_version") if isinstance(document, dict) else None) or {}
         digest = str(stamp.get("digest") or "").removeprefix("sha256:")
         if digest and digest.startswith(prefixes):
             count += 1
@@ -352,6 +433,24 @@ def digest_census(repo: Path, rev: str, kind: str, digests: list[str]) -> int:
 # --- the plan ----------------------------------------------------------------
 
 
+def _merge_and_parent(repo: Path, merge: str) -> tuple[str, str, datetime]:
+    """The merge's full SHA, its first parent and its committer time; refuses a non-merge.
+
+    The committer time must not precede the first parent's, nor lie in the
+    future: either would date every stamp wrong.
+    """
+    merge = git(repo, "rev-parse", "--verify", f"{merge}^{{commit}}").strip()
+    parents = git(repo, "rev-list", "--parents", "-n", "1", merge).split()[1:]
+    if len(parents) != 2:
+        raise PromotionRecordError(f"{merge} is not a two-parent merge")
+    merged_at = committer_time(repo, merge)
+    if merged_at < committer_time(repo, parents[0]):
+        raise PromotionRecordError(f"{merge} is committed before its first parent")
+    if merged_at > datetime.now(UTC):
+        raise PromotionRecordError(f"{merge} is committed in the future")
+    return merge, parents[0], merged_at
+
+
 def plan_promotion_record(repo: Path, merge: str) -> PromotionPlan:
     """What ``merge`` owes ``main``: tags, fills and stamps, read from git alone.
 
@@ -359,12 +458,7 @@ def plan_promotion_record(repo: Path, merge: str) -> PromotionPlan:
     first parent's — what ``main`` held before — so only what the promotion
     added is filled or stamped.
     """
-    merge = git(repo, "rev-parse", "--verify", f"{merge}^{{commit}}").strip()
-    parents = git(repo, "rev-list", "--parents", "-n", "1", merge).split()[1:]
-    if len(parents) != 2:
-        raise PromotionRecordError(f"{merge} is not a two-parent merge")
-    parent = parents[0]
-    merged_at = committer_time(repo, merge)
+    merge, parent, merged_at = _merge_and_parent(repo, merge)
     tag, adopt = promotion_tag_name(repo, merge, merged_at)
     promotion = TagPlan(tag, adopt, f"{tag}: the staging→main promotion merged as {merge}.\n")
 
@@ -373,7 +467,7 @@ def plan_promotion_record(repo: Path, merge: str) -> PromotionPlan:
 
     record_after = show_at(repo, merge, FREEZE_RECORD_PATH) or ""
     record_before = show_at(repo, parent, FREEZE_RECORD_PATH) or ""
-    added = _added_lines(record_before, record_after)
+    added = _added_placeholder_lines(record_before, record_after)
     fills: list[Fill] = []
     free: list[Fill] = []
     stale: list[Fill] = []
@@ -387,17 +481,26 @@ def plan_promotion_record(repo: Path, merge: str) -> PromotionPlan:
         else:
             fills.append(item)
 
-    registry_after = json.loads(show_at(repo, merge, REGISTRY_PATH) or "{}")
-    registry_before = json.loads(show_at(repo, parent, REGISTRY_PATH) or "{}")
+    registry_after = _registry(show_at(repo, merge, REGISTRY_PATH), merge)
+    registry_before = _registry(show_at(repo, parent, REGISTRY_PATH), parent)
+    latest = max(_stamped_instants(registry_after), default=None)
+    if latest is not None and merged_at < latest:
+        raise PromotionRecordError(
+            f"{merge} is committed at {iso(merged_at)}, before the registered instant "
+            f"{iso(latest)}: its stamps would close a window before it opened"
+        )
     pending_after = pending_registrations(registry_after)
     pending_before = set(pending_registrations(registry_before))
     stamps = [stamp for stamp in pending_after if stamp not in pending_before]
     stale_pending = [stamp for stamp in pending_after if stamp in pending_before]
 
     prereg: TagPlan | None = None
-    labels = [stamp.ident for stamp in stamps if stamp.kind == "label"]
-    if labels:
-        label = labels[0]
+    known = {entry["label"] for entry in registry_before.get("labels", [])}
+    new_labels = [
+        entry["label"] for entry in registry_after.get("labels", []) if entry["label"] not in known
+    ]
+    if new_labels:
+        label = new_labels[-1]
         name = f"prereg/{label}"
         existing = _tags(repo, "prereg/").get(name)
         if existing is not None and existing != merge:
@@ -443,44 +546,118 @@ def _three_way(tip: str, base: str, patched: str) -> str:
             ["git", "merge-file", "-p", *paths], capture_output=True, text=True, check=False
         )
     if result.returncode != 0:
-        raise PromotionRecordError("the edit conflicts with the working tree's copy")
+        raise PromotionRecordError("the edit conflicts with the copy it is carried onto")
     return result.stdout
 
 
-def apply_promotion_record(repo: Path, worktree: Path, plan: PromotionPlan) -> list[str]:
-    """Write the plan's fills and stamps into ``worktree``; returns the paths it changed.
+#: Checks a rendered registry's semantics (the loader's rules) beyond its schema.
+type RegistryCheck = Callable[[str], object]
 
-    Each edit is made on the merge's own copy of the file and carried onto the
-    working tree's copy by a three-way merge, so later commits that touched
-    other lines of the same file keep them.
+
+def render_promotion_record(
+    repo: Path,
+    plan: PromotionPlan,
+    onto: Mapping[str, str | None],
+    *,
+    check_registry: RegistryCheck | None = None,
+) -> dict[str, str | None]:
+    """The two files as ``plan`` leaves them, rendered onto the copies in ``onto``.
+
+    Each edit is made on the merge's own copy and carried onto ``onto``'s by a
+    three-way merge, so later commits that touched other lines keep them. A
+    path the plan does not edit comes back as given. Raises
+    :class:`PromotionRecordError` — before anything is written anywhere —
+    where an edit conflicts, or where the rendered registry fails its schema
+    or ``check_registry``.
     """
-    changed: list[str] = []
+    rendered: dict[str, str | None] = dict(onto)
     if plan.fills:
         merged = show_at(repo, plan.merge, FREEZE_RECORD_PATH) or ""
-        target = worktree / FREEZE_RECORD_PATH
-        tip = target.read_text(encoding="utf-8")
-        result = _three_way(tip, merged, substitute(merged, plan.fills))
-        if result != tip:
-            target.write_text(result, encoding="utf-8")
-            changed.append(FREEZE_RECORD_PATH)
+        tip = onto.get(FREEZE_RECORD_PATH)
+        if tip is None:
+            raise PromotionRecordError(f"{FREEZE_RECORD_PATH} is missing")
+        rendered[FREEZE_RECORD_PATH] = _three_way(tip, merged, substitute(merged, plan.fills))
     if plan.stamps:
         merged = show_at(repo, plan.merge, REGISTRY_PATH) or ""
         stamped = dump_registry(
             stamp_registry(
-                json.loads(merged),
+                _registry(merged, plan.merge),
                 plan.stamps,
                 plan.merge,
                 datetime.fromisoformat(plan.merged_at),
             )
         )
-        target = worktree / REGISTRY_PATH
-        tip = target.read_text(encoding="utf-8")
+        tip = onto.get(REGISTRY_PATH)
+        if tip is None:
+            raise PromotionRecordError(f"{REGISTRY_PATH} is missing")
         result = _three_way(tip, merged, stamped)
-        ProcessRegistry.model_validate_json(result)
-        if result != tip:
-            target.write_text(result, encoding="utf-8")
-            changed.append(REGISTRY_PATH)
+        try:
+            ProcessRegistry.model_validate_json(result)
+            if check_registry is not None:
+                check_registry(result)
+        except ValueError as exc:
+            raise PromotionRecordError(f"the stamped registry is refused: {exc}") from exc
+        rendered[REGISTRY_PATH] = result
+    return rendered
+
+
+def apply_promotion_record(
+    repo: Path,
+    worktree: Path,
+    plan: PromotionPlan,
+    *,
+    check_registry: RegistryCheck | None = None,
+) -> list[str]:
+    """Write the plan's fills and stamps into ``worktree``; returns the paths it changed.
+
+    Renders both files first (:func:`render_promotion_record`), so a conflict
+    or a refused registry writes nothing at all.
+    """
+    current = {
+        path: (worktree / path).read_text(encoding="utf-8") if (worktree / path).exists() else None
+        for path in RECORD_PATHS
+    }
+    rendered = render_promotion_record(repo, plan, current, check_registry=check_registry)
+    changed = []
+    for path in RECORD_PATHS:
+        new = rendered.get(path)
+        if new is not None and new != current[path]:
+            changed.append(path)
+    for path in changed:
+        text = rendered[path]
+        if text is not None:
+            (worktree / path).write_text(text, encoding="utf-8")
     return changed
+
+
+# --- main must hold nothing pending --------------------------------------------
+
+
+def pending_carried_problems(repo: Path, ref: str, *, depth: int = 200) -> list[str]:
+    """Each pending row on ``ref`` that a merge on its first-parent chain already carried.
+
+    A pending row belongs on ``staging`` only: once a promotion merge carries
+    it to ``main``, that merge is due to stamp it. Walks ``ref``'s first-parent
+    merges, newest first, up to ``depth``, and names the merge that introduced
+    each row still pending at ``ref``. Empty when ``ref`` holds nothing pending.
+    """
+    pending = set(pending_registrations(_registry(show_at(repo, ref, REGISTRY_PATH), ref)))
+    if not pending:
+        return []
+    problems: list[str] = []
+    merges = git(
+        repo, "rev-list", "--first-parent", "--merges", f"--max-count={depth}", ref
+    ).split()
+    for merge in merges:
+        parent = git(repo, "rev-parse", f"{merge}^1").strip()
+        after = set(pending_registrations(_registry(show_at(repo, merge, REGISTRY_PATH), merge)))
+        before = set(pending_registrations(_registry(show_at(repo, parent, REGISTRY_PATH), parent)))
+        for stamp in sorted((after - before) & pending, key=lambda s: (s.kind, s.ident)):
+            problems.append(f"{stamp.kind} {stamp.ident}: carried by {merge}, still pending")
+        pending -= after - before
+        if not pending:
+            break
+    return problems
 
 
 # --- the jail ----------------------------------------------------------------
@@ -533,46 +710,84 @@ def _stamped_only(before: Any, after: Any) -> bool:
 
 
 def _fills_only(before: str, after: str) -> bool:
-    """Whether ``after`` is ``before`` with only placeholders replaced by one-line values."""
-    pattern: list[str] = []
+    """Whether ``after`` is ``before`` with only placeholders replaced by one-line values.
+
+    Walks ``before``'s literal text in order: each placeholder may stay as it
+    is or become one line holding no ``<``, ``>`` or backtick, and every
+    literal stretch must follow unchanged.
+    """
     cursor = 0
-    for match in FILL_PATTERN.finditer(before):
-        pattern.append(re.escape(before[cursor : match.start()]))
-        pattern.append(f"(?:{re.escape(match.group(0))}|[^<>\\n]+)")
-        cursor = match.end()
-    pattern.append(re.escape(before[cursor:]))
-    return re.fullmatch("".join(pattern), after) is not None
+    position = 0
+    spans = [(start, end) for _key, _line, start, end in placeholders(before)]
+    for index, (start, end) in enumerate(spans):
+        literal = before[position:start]
+        if not after.startswith(literal, cursor):
+            return False
+        cursor += len(literal)
+        next_literal = before[end : spans[index + 1][0] if index + 1 < len(spans) else None]
+        original = before[start:end]
+        if after.startswith(original + next_literal, cursor):
+            cursor += len(original)
+        elif not next_literal and index + 1 < len(spans):
+            return False  # two abutting placeholders: no literal marks where a value ends
+        else:
+            stop = after.find(next_literal, cursor) if next_literal else len(after)
+            value = after[cursor:stop] if stop >= 0 else ""
+            if stop < 0 or not value or re.search(r"[\n<>`]", value):
+                return False
+            cursor = stop
+        position = end
+    return after[cursor:] == before[position:]
 
 
 def promotion_record_diff_problems(
-    changed: list[str], before: Mapping[str, str | None], after: Mapping[str, str | None]
+    changed: list[str],
+    before: Mapping[str, str | None],
+    after: Mapping[str, str | None],
+    *,
+    expected: Mapping[str, str | None] | None = None,
 ) -> list[str]:
-    """Why a promotion-record commit exceeds what it may write; empty when it does not.
+    """Why a promotion-record change exceeds what it may write; empty when it does not.
 
-    It may change only the registry and the freeze record: the registry only by
+    It may change only the registry and the freeze record. Where ``expected``
+    is given — the plan rendered on the same base
+    (:func:`render_promotion_record`) — each must equal it byte for byte, so
+    the stamps carry the merge's own SHA and committer time and no free-text
+    or stale placeholder moves. Structurally besides: the registry only by
     stamping pending instants and boundaries, the freeze record only by
-    replacing ``<FILL:>`` placeholders with one-line values.
+    replacing placeholders with one-line values.
     """
     problems = [
         f"{path}: a promotion record writes only {REGISTRY_PATH} and {FREEZE_RECORD_PATH}"
         for path in changed
-        if path not in (REGISTRY_PATH, FREEZE_RECORD_PATH)
+        if path not in RECORD_PATHS
     ]
+    if expected is not None:
+        for path in RECORD_PATHS:
+            if after.get(path) != expected.get(path):
+                problems.append(f"{path}: differs from the plan rendered on its base")
     if REGISTRY_PATH in changed:
-        old, new = before.get(REGISTRY_PATH), after.get(REGISTRY_PATH)
-        if old is None or new is None:
-            problems.append(f"{REGISTRY_PATH}: created or deleted")
-        else:
-            try:
-                ProcessRegistry.model_validate_json(new)
-            except ValueError as exc:
-                problems.append(f"{REGISTRY_PATH}: invalid ({exc})")
-            if not _stamped_only(json.loads(old), json.loads(new)):
-                problems.append(f"{REGISTRY_PATH}: changes something other than pending stamps")
+        problems += _registry_problems(before.get(REGISTRY_PATH), after.get(REGISTRY_PATH))
     if FREEZE_RECORD_PATH in changed:
         old, new = before.get(FREEZE_RECORD_PATH), after.get(FREEZE_RECORD_PATH)
         if old is None or new is None or not _fills_only(old, new):
             problems.append(
                 f"{FREEZE_RECORD_PATH}: changes something other than <FILL:> placeholders"
             )
+    return problems
+
+
+def _registry_problems(old: str | None, new: str | None) -> list[str]:
+    if old is None or new is None:
+        return [f"{REGISTRY_PATH}: created or deleted"]
+    problems = []
+    try:
+        ProcessRegistry.model_validate_json(new)
+    except ValueError as exc:
+        problems.append(f"{REGISTRY_PATH}: invalid ({exc})")
+    try:
+        if not _stamped_only(json.loads(old), json.loads(new)):
+            problems.append(f"{REGISTRY_PATH}: changes something other than pending stamps")
+    except json.JSONDecodeError as exc:
+        problems.append(f"{REGISTRY_PATH}: not JSON ({exc})")
     return problems

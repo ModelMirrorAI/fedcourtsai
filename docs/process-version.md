@@ -488,20 +488,25 @@ are read from a run at the refresh commit the release pins. `semantic-summary` p
 A registration can be written before any merge has carried it. A **pending**
 instant has `at` and `merge` both null (`source: "merge"`), and a pending
 harness boundary has `merge` and `at` null. Only the label a PR is registering
-may be pending: `CURRENT_PROCESS_LABEL`, as the last label row, with its own
-blessings, the windows it opens, the windows it closes and harness
-boundaries pending beside it. `load_process_registry` refuses a pending row
-anywhere else.
+may carry pending rows: `CURRENT_PROCESS_LABEL`, as the last label row, with
+its own new blessings, the windows it opens and the windows it closes. A
+still-pending label holds no stamped blessing of its own. A harness boundary
+may be pending with or without a label. `load_process_registry` refuses a
+pending row anywhere else, and refuses a half-pending instant.
 
 Every reader treats a pending row in the safe direction until a merge stamps
 it:
 
 - a **pending blessing** has no bless moment, so it is not in
-  `FROZEN_PROCESS_DIGESTS`: a cell stamped with its digest is unblessed and
-  counts nowhere. The digest is still **registered**
-  (`REGISTERED_PROCESS_DIGESTS`, every blessing, carried or pending), and the
-  fleet tripwires read the registered set, so the PR that moves a digest
-  registers it in the same commit;
+  `FROZEN_PROCESS_DIGESTS`: a board counts no cell stamped with its digest.
+  The digest is still **registered** (`REGISTERED_PROCESS_DIGESTS`, every
+  blessing, carried or pending), and the fleet tripwires read the registered
+  set, so the PR that moves a digest registers it in the same commit;
+- a cell stamped with a pending digest is **pending, not de-counted**
+  (`is_pending`). Uncounted is the safe reading for a board, but not for the
+  backlog, which re-owes a de-counted cell: the re-predict rule
+  (`predictor_holds_no_counted_prediction`) re-owes nothing while a
+  predictor's cell on the event is pending, since the stamp opens its window;
 - a **pending label** leaves `FROZEN_SINCE` at the last carried label's
   instant, so the freeze stays in force and nothing of the pending label
   counts yet;
@@ -511,27 +516,60 @@ it:
 - a **pending harness boundary** is left out of `HARNESS_BOUNDARIES`: with no
   carrying commit to test ancestry against, no cell has a side of it.
 
+A board built while anything is pending lists it in its `frozen_process`
+block's `pending`, so the board names the registrations it read as not yet in
+force.
+
 `fedcourts register-process --label <proc-vN>` writes a label's pending rows
-from the live fleet's digests and sets `CURRENT_PROCESS_LABEL`; `fedcourts
-register-boundary` appends a pending boundary. The merge that carries the PR
-to `main` stamps every pending row it added with its own SHA and committer
-time (`source: "merge"`). `fedcourts promotion-record --merge <sha>` says what
-a promotion merge owes `main`, from git alone: its annotated
-`promotion/<UTC date>` tag (`-2`, `-3` … past a date another merge holds; an
-existing tag on the merge is adopted), a `prereg/<label>` tag on the merge
-where it carried a pending label, each `<FILL:>` placeholder the merge added
-that a closed key set fills (`promotion tag`, `merge hash` / `merge SHA`,
-`merged-at` / `merged time UTC`, and `census predictions digest=<hex>[,…]` /
-`census evaluations digest=<hex>[,…]`, the count `fedcourts digest-census`
-reads off the merge's tree), the free-text placeholders a maintainer completes
-by hand, and each pending row to stamp. Only what the merge **added** is
-filled or stamped; a pending row or placeholder its first parent already held
-was carried by an earlier merge and is reported as stale, never stamped with a
-later time. `--apply` writes the fills and stamps into the working tree;
-`fedcourts assert-promotion-record-diff` refuses a change that touches
-anything but those stamps in the registry and those placeholders in the
-freeze record. Nothing runs these on a merge on its own: the cutover
-procedure below is how a label is frozen.
+from the live fleet's digests and sets `CURRENT_PROCESS_LABEL`. Where a
+predictor digest moved, the label's counting instant, its new windows and its
+closes are pending. Where only evaluator digests moved, the label holds its
+predecessor's counting instant (the evaluator-half supersession below), opens
+and closes no window, and only its new blessings are pending. The command
+refuses while the registry's `merge_stamping_declared` is unset: a merge may
+stamp a label's instants only under a rule a dated freeze-record entry
+already declares on `main`, so that entry lands first and the registration
+after it. `fedcourts register-boundary` appends a pending boundary.
+
+`fedcourts promotion-record --merge <sha>` says what a promotion merge owes
+`main`, from git alone; a caller fetches tags first, since a tag missing
+locally reads as a free name. The plan names:
+
+- its annotated `promotion/<UTC date>` tag (`-2`, `-3` … past a date another
+  merge holds; an existing tag on the merge is adopted);
+- a `prereg/<label>` tag on the merge where it added a label, an
+  evaluator-only label included;
+- each `<FILL:>` placeholder the merge added that a closed key set fills:
+  `promotion tag`, `merge hash` / `merge SHA`, `merged-at` / `merged time UTC`
+  (the merge's committer time), and `census predictions digest=<hex>[,…]` /
+  `census evaluations digest=<hex>[,…]`, the count `fedcourts digest-census`
+  reads off the merge's tree;
+- the free-text placeholders, left for a maintainer;
+- each pending row the merge added, to stamp with its SHA and committer time
+  (`source: "merge"`).
+
+A placeholder is `<FILL:` to the next `>` with no backtick or `<` inside, not
+crossing a blank line, and naming a word, so an unclosed marker or a prose
+mention of the marker is never filled. Only what the merge **added** is filled
+or stamped. A pending row or placeholder its first parent already held, or a
+placeholder on a line the merge only edited, was carried by an earlier merge:
+it is reported as stale and never stamped with a later time. The plan refuses
+a merge committed before its first parent, in the future, or before an
+instant the registry already holds. `--apply` renders both files first and
+writes nothing unless both render and the stamped registry loads.
+
+`fedcourts assert-promotion-record-diff --merge <sha> --base <ref>` is the
+jail. It re-renders the merge's plan onto the base's copies and requires the
+change's registry and freeze record to equal that rendering byte for byte, so
+every stamp carries the merge's own SHA and time and no free-text or stale
+placeholder moves. It also checks structurally that nothing else changed.
+`fedcourts promotion-record --check-main <ref>` names every pending row a merge
+on the ref's first-parent chain already carried, so a stamp that never landed
+is caught.
+
+Nothing stamps until a writer that runs these on a promotion merge lands.
+Until then the cutover procedure below is how a label is frozen, with its
+instants set by hand.
 
 ### Two boundaries, two jobs
 
