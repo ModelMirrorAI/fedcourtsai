@@ -112,40 +112,79 @@ def test_write_checks_out_main_without_persisted_credentials() -> None:
     assert setup["with"] == {"restore-cache": "false"}
 
 
-def test_the_token_is_minted_after_the_jail_and_read_by_the_push_step_alone() -> None:
+ATTEMPTS = (1, 2, 3)
+
+
+def test_each_attempt_mints_after_its_jail_and_only_its_push_and_revoke_read_the_token() -> None:
     steps = _steps("write")
-    prepare = _index("write", lambda s: s.get("id") == "prepare")
-    mint = _index("write", lambda s: "create-github-app-token" in str(s.get("uses", "")))
-    push = _index("write", lambda s: s.get("id") == "push")
-    assert prepare < mint < push
-    assert steps[mint]["with"] == {
-        "client-id": "${{ vars.DATA_APP_CLIENT_ID }}",
-        "private-key": "${{ secrets.DATA_APP_PRIVATE_KEY }}",
-        "permission-contents": "write",
-    }
-    readers = [
-        i for i, step in enumerate(steps) if "steps.app-token.outputs" in yaml.safe_dump(step)
-    ]
-    assert readers == [push]
-    # The prepare step — fetch, plan, tag, apply, commit, jail — holds no secret.
-    assert "secrets." not in yaml.safe_dump(steps[prepare])
-    assert (
-        steps[prepare]["run"] == 'bash .github/actions/promotion-record/write.sh prepare "$MERGE"'
-    )
-    assert 'write.sh push "$MERGE"' in steps[push]["run"]
-    # The push step refuses a token that is not the data App's.
-    assert '"$APP_SLUG" != "fedcourtsai-data"' in steps[push]["run"]
+    for n in ATTEMPTS:
+        prepare = _index("write", lambda s, n=n: s.get("id") == f"prepare{n}")
+        validate = _index("write", lambda s, n=n: s.get("id") == f"validate{n}")
+        mint = _index("write", lambda s, n=n: s.get("id") == f"app-token-{n}")
+        push = _index("write", lambda s, n=n: s.get("id") == f"push{n}")
+        assert prepare < validate < mint < push, n
+        assert steps[mint]["uses"].startswith("actions/create-github-app-token@")
+        assert steps[mint]["with"] == {
+            "client-id": "${{ vars.DATA_APP_CLIENT_ID }}",
+            "private-key": "${{ secrets.DATA_APP_PRIVATE_KEY }}",
+            "permission-contents": "write",
+        }
+        readers = [
+            step.get("id") or step.get("name")
+            for step in steps
+            if f"steps.app-token-{n}.outputs" in yaml.safe_dump(step)
+        ]
+        expected = [f"push{n}"] + ([f"Revoke the attempt-{n} token"] if n < 3 else [])
+        assert readers == expected, (n, readers)
+        # Prepare and validate — fetch, plan, tag, apply, commit, jail — hold no secret
+        # and read no token.
+        for index in (prepare, validate):
+            dumped = yaml.safe_dump(steps[index])
+            assert "secrets." not in dumped and "app-token" not in dumped, n
+        assert steps[prepare]["run"] == (
+            'bash .github/actions/promotion-record/write.sh prepare "$MERGE"'
+        )
+        assert steps[validate]["run"] == "bash .github/actions/promotion-record/write.sh validate"
+        run = steps[push]["run"]
+        assert "bash .github/actions/promotion-record/write.sh push" in run
+        assert '"$APP_SLUG" != "fedcourtsai-data"' in run
+        # A lease rejection records `rejected` for the next attempt; nothing re-plans here.
+        assert '"$status" -eq 3' in run and "rejected=true" in run
+        assert "prepare" not in run
+        assert steps[push]["env"]["BASE"] == f"${{{{ steps.validate{n}.outputs.base }}}}"
+
+
+def test_a_later_attempt_runs_only_after_a_rejection_and_revokes_the_last_token_first() -> None:
+    steps = _steps("write")
+    for n in (2, 3):
+        group = [
+            step
+            for step in steps
+            if step.get("id") in {f"prepare{n}", f"validate{n}", f"app-token-{n}", f"push{n}"}
+            or step.get("name") == f"Revoke the attempt-{n - 1} token"
+        ]
+        assert len(group) == 5
+        assert {step.get("if") for step in group} == {
+            f"steps.push{n - 1}.outputs.rejected == 'true'"
+        }
+        revoke = _index(
+            "write", lambda s, n=n: s.get("name") == f"Revoke the attempt-{n - 1} token"
+        )
+        prepare = _index("write", lambda s, n=n: s.get("id") == f"prepare{n}")
+        assert revoke < prepare
+        assert "-X DELETE" in steps[revoke]["run"] and "installation/token" in steps[revoke]["run"]
+    final = _step("write", "Refuse a record main kept outrunning")
+    assert final["if"] == "steps.push3.outputs.rejected == 'true'" and "exit 1" in final["run"]
+    upload = _step("write", "Upload the plan")
+    assert upload["if"] == "always()"
+    assert _steps("write").index(upload) > _index("write", lambda s: s.get("id") == "push3")
 
 
 def test_report_rides_the_ambient_token_and_triggers_nothing() -> None:
     job = _workflow()["jobs"]["report"]
     assert job["needs"] == ["classify", "write"]
     assert job["if"] == "always() && needs.classify.outputs.promotion == 'true'"
-    assert job["permissions"] == {
-        "actions": "read",
-        "issues": "write",
-        "pull-requests": "write",
-    }
+    assert job["permissions"] == {"issues": "write", "pull-requests": "write"}
     text = yaml.safe_dump(job)
     assert "secrets." not in text and "environment" not in job
     run = _step("report", "Surface what the plan left for a maintainer")["run"]
@@ -155,7 +194,7 @@ def test_report_rides_the_ambient_token_and_triggers_nothing() -> None:
 
 def test_the_writer_orders_tags_apply_commit_jail_and_pushes_by_explicit_refspec() -> None:
     text = WRITER.read_text(encoding="utf-8")
-    body = text[text.index("prepare() {") : text.index("git_auth() {")]
+    body = text[text.index("prepare() {") : text.index("validate() {")]
     order = [
         "fetch\n",
         "promotion-record --merge",
@@ -163,6 +202,7 @@ def test_the_writer_orders_tags_apply_commit_jail_and_pushes_by_explicit_refspec
         "--apply",
         "git commit",
         "assert-promotion-record-diff",
+        '>"$state"',
     ]
     positions = [body.index(marker) for marker in order]
     assert positions == sorted(positions), order
@@ -171,10 +211,11 @@ def test_the_writer_orders_tags_apply_commit_jail_and_pushes_by_explicit_refspec
     assert '"${head}:refs/heads/main"' in push
     assert '--force-with-lease="refs/heads/main:${base}"' in push
     assert not re.search(r"push[^\n]*(--force(?!-with-lease)|\s-f\b)", text)
-    # Tags are pushed before the record commit in every attempt.
+    # Tags are pushed before the record commit.
     assert push.index("refs/tags/") < push.index("refs/heads/main")
-    # A re-plan never carries the write token.
-    assert 'env -u WRITE_TOKEN bash "${here}/write.sh" prepare' in push
+    # The push never plans: a lease rejection is exit 3, for the next attempt.
+    assert "prepare" not in push.split("case ")[0]
+    assert "return 3" in push
     # Remote-tracking refs, never local branches, and every tag.
     assert "refs=(--main-ref origin/main --staging-ref origin/staging)" in text
     assert "--tags" in text
@@ -185,6 +226,9 @@ def test_the_writer_never_puts_the_token_in_a_url_or_a_config_file() -> None:
     assert "x-access-token:${" not in text.replace("x-access-token:%s", "")
     assert "git config" not in text
     assert "extraheader=" in text
+    # Every push blanks an ambient header first and runs no hook.
+    assert "-c core.hooksPath=/dev/null -c http.extraHeader=" in text
+    assert "push --no-verify" in text
 
 
 # --- the plumbing, end to end ------------------------------------------------
@@ -248,11 +292,15 @@ def _outputs(env: dict[str, str]) -> dict[str, str]:
     return dict(line.split("=", 1) for line in lines)
 
 
-def _prepare_and_push(work: Path, env: dict[str, str], merge: str) -> dict[str, str]:
-    prepared = _run(work, env, "prepare", merge)
-    assert prepared.returncode == 0, prepared.stderr + prepared.stdout
-    outputs = _outputs(env)
-    pushed = _run(
+def _validate(work: Path, env: dict[str, str]) -> dict[str, str]:
+    Path(env["GITHUB_OUTPUT"]).write_text("", encoding="utf-8")
+    validated = _run(work, env, "validate")
+    assert validated.returncode == 0, validated.stderr + validated.stdout
+    return _outputs(env)
+
+
+def _push(work: Path, env: dict[str, str], outputs: dict[str, str]) -> Any:
+    return _run(
         work,
         {
             **env,
@@ -261,8 +309,14 @@ def _prepare_and_push(work: Path, env: dict[str, str], merge: str) -> dict[str, 
             "HEAD_SHA": outputs["head"],
         },
         "push",
-        merge,
     )
+
+
+def _prepare_and_push(work: Path, env: dict[str, str], merge: str) -> dict[str, str]:
+    prepared = _run(work, env, "prepare", merge)
+    assert prepared.returncode == 0, prepared.stderr + prepared.stdout
+    outputs = _validate(work, env)
+    pushed = _push(work, env, outputs)
     assert pushed.returncode == 0, pushed.stderr + pushed.stdout
     return outputs
 
@@ -292,22 +346,17 @@ def test_a_second_run_adopts_the_tags_and_commits_nothing(tmp_path: Path) -> Non
     work, remote, merge, env = _setup(tmp_path)
     _prepare_and_push(work, env, merge)
     head = _git(remote, "rev-parse", "main")
-    Path(env["GITHUB_OUTPUT"]).write_text("", encoding="utf-8")
     again = _run(work, env, "prepare", merge)
     # The record commit already landed, so the merge's placeholders and pending
     # rows are gone from main's tip: the re-plan stamps nothing and fills nothing.
     assert again.returncode == 0, again.stderr + again.stdout
     assert "adopting promotion/2026-10-13" in again.stdout
-    assert _outputs(env)["head"] == ""
+    assert _validate(work, env)["head"] == ""
     assert _git(remote, "rev-parse", "main") == head
 
 
-def test_main_advancing_under_the_push_re_plans_from_the_new_tip(tmp_path: Path) -> None:
-    work, remote, merge, env = _setup(tmp_path)
-    prepared = _run(work, env, "prepare", merge)
-    assert prepared.returncode == 0, prepared.stderr
-    outputs = _outputs(env)
-    # A data commit lands on main between the jail and the push.
+def _advance_main(tmp_path: Path, remote: Path) -> str:
+    """A data commit lands on main from elsewhere; returns the new tip."""
     other = tmp_path / "other"
     _git(tmp_path, "clone", "-q", str(remote), str(other))
     _git(other, "config", "user.email", "data@users.noreply.github.com")
@@ -316,19 +365,57 @@ def test_main_advancing_under_the_push_re_plans_from_the_new_tip(tmp_path: Path)
     _git(other, "add", "data.txt")
     _git(other, "commit", "-q", "-m", "data")
     _git(other, "push", "-q", "origin", "main")
-    advanced = _git(remote, "rev-parse", "main")
-    pushed = _run(
-        work,
-        {**env, "WRITE_TOKEN": "unused", "BASE": outputs["base"], "HEAD_SHA": outputs["head"]},
-        "push",
-        merge,
-    )
-    assert pushed.returncode == 0, pushed.stderr + pushed.stdout
-    assert "re-planning from the new tip" in pushed.stdout
+    return _git(remote, "rev-parse", "main")
+
+
+def test_main_advancing_rejects_the_push_and_the_next_attempt_re_plans(tmp_path: Path) -> None:
+    work, remote, merge, env = _setup(tmp_path)
+    assert _run(work, env, "prepare", merge).returncode == 0
+    first = _validate(work, env)
+    advanced = _advance_main(tmp_path, remote)
+    rejected = _push(work, env, first)
+    # The push never re-plans: it reports the rejection as exit 3 and stops.
+    assert rejected.returncode == 3, rejected.stderr + rejected.stdout
+    assert _git(remote, "rev-parse", "main") == advanced
+    # The next attempt prepares from scratch on the new tip, holding no token.
+    retried = _prepare_and_push(work, env, merge)
     head = _git(remote, "rev-parse", "main")
-    # Re-planned onto the data commit, never a rebase of the first jailed commit.
-    assert head != outputs["head"]
+    assert head == retried["head"] != first["head"]
     assert _git(remote, "rev-list", "--parents", "-n", "1", head).split() == [head, advanced]
+
+
+def test_a_re_prepare_whose_jail_refuses_pushes_nothing(tmp_path: Path) -> None:
+    """A refused re-plan ends the attempt: no state file, so no validate and no push."""
+    work, remote, merge, env = _setup(tmp_path)
+    assert _run(work, env, "prepare", merge).returncode == 0
+    first = _validate(work, env)
+    advanced = _advance_main(tmp_path, remote)
+    assert _push(work, env, first).returncode == 3
+    # From now on the jail refuses.
+    shim = Path(env["PATH"].split(os.pathsep)[0]) / "uv"
+    shim.write_text(
+        shim.read_text(encoding="utf-8").replace(
+            "shift 3;",
+            'shift 3; if [ "$1" = assert-promotion-record-diff ]; then '
+            + 'echo "JAIL REFUSED" >&2; exit 1; fi;',
+        ),
+        encoding="utf-8",
+    )
+    again = _run(work, env, "prepare", merge)
+    assert again.returncode != 0 and "JAIL REFUSED" in again.stderr
+    Path(env["GITHUB_OUTPUT"]).write_text("", encoding="utf-8")
+    assert _run(work, env, "validate").returncode != 0
+    assert _git(remote, "rev-parse", "main") == advanced
+
+
+def test_validate_refuses_a_record_commit_off_the_base(tmp_path: Path) -> None:
+    work, _remote, merge, env = _setup(tmp_path)
+    assert _run(work, env, "prepare", merge).returncode == 0
+    state = Path(env["RUNNER_TEMP"]) / "promotion-record" / "state"
+    lines = state.read_text(encoding="utf-8").splitlines()
+    state.write_text(f"{lines[0]}\nhead={merge}\n", encoding="utf-8")
+    refused = _run(work, env, "validate")
+    assert refused.returncode != 0 and "only parent" in refused.stdout
 
 
 def test_a_date_another_commit_holds_takes_the_next_suffix(tmp_path: Path) -> None:
@@ -342,18 +429,12 @@ def test_a_date_another_commit_holds_takes_the_next_suffix(tmp_path: Path) -> No
 
 def test_a_tag_planted_between_prepare_and_push_is_refused_not_replaced(tmp_path: Path) -> None:
     work, remote, merge, env = _setup(tmp_path)
-    prepared = _run(work, env, "prepare", merge)
-    assert prepared.returncode == 0, prepared.stderr
-    outputs = _outputs(env)
+    assert _run(work, env, "prepare", merge).returncode == 0
+    outputs = _validate(work, env)
     planted = _git(remote, "rev-parse", "staging")
     _git(remote, "tag", "-a", "promotion/2026-10-13", "-m", "planted", planted)
-    pushed = _run(
-        work,
-        {**env, "WRITE_TOKEN": "unused", "BASE": outputs["base"], "HEAD_SHA": outputs["head"]},
-        "push",
-        merge,
-    )
-    assert pushed.returncode != 0
+    pushed = _push(work, env, outputs)
+    assert pushed.returncode not in (0, 3)
     assert "already exists" in pushed.stderr + pushed.stdout
     # The remote tag is untouched and the record commit never pushed.
     assert _git(remote, "rev-parse", "promotion/2026-10-13^{commit}") == planted

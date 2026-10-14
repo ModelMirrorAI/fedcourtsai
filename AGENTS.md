@@ -63,9 +63,12 @@ non-interactive** container. Two consequences shape everything you do:
   conventional-commit title and a description of what changed and why; prefer
   a small, correct, well-tested change over a large speculative one. `main` is
   the pre-registration record: code and config reach it only in a reviewed
-  staging→main promotion batch (*Promotion* in `docs/pipeline.md`), while data
-  commits — the deterministic writers and the data-run collect PRs — land on
-  `main` directly and never ride staging. (For a predict / evaluate cell
+  staging→main promotion batch (*Promotion* in `docs/pipeline.md`) — except
+  the `promotion-record` writer's one-parent record commit, jailed byte-equal
+  to its plan, touching only `src/fedcourtsai/process_registry.json` and
+  `docs/freeze-record.md` — while data commits — the deterministic writers
+  and the data-run collect PRs — land on `main` directly and never ride
+  staging. (For a predict / evaluate cell
   the *workflow* commits and opens the PR — you only write files; the task
   prompt says which mode you are in.)
 - **You may merge to `staging`; only the maintainer merges to `main`.** The two
@@ -84,8 +87,10 @@ non-interactive** container. Two consequences shape everything you do:
   with auto-merge, still gated on the same required checks.)
   Your own changes travel by PR on both branches — "you may merge" never means
   "you may skip the PR". The rulesets require one, with two documented bypasses
-  that are not your lane: the data App's deterministic writers push to `main`,
-  and an admin-role escape hatch on `staging`. Do not lean on the platform to
+  that are not your lane: the data App's deterministic writers push to `main`
+  (the `promotion-record` writer's record commit among them, jailed byte-equal
+  to its plan and touching only the registry and the freeze record), and an
+  admin-role escape hatch on `staging`. Do not lean on the platform to
   stop you; the identity you hold can bypass the `staging` PR requirement, so
   this one is discipline. And the staging permission is a permission, not an
   obligation: leaving a green PR for the maintainer is always a legitimate

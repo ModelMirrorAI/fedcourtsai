@@ -1731,7 +1731,12 @@ The full path of a change, operator's view:
    placeholders, and stale ones an earlier merge carried. A merge it refuses
    (a hand-written fill that rewrapped a landed placeholder, say) opens a
    `promotion-record-log` issue, and the tag and fills are then the
-   maintainer's by hand. Live on the next workflow run.
+   maintainer's by hand. A run that failed after pushing its tags — `main`
+   advanced under all three attempts, or the job was cancelled — leaves the
+   tags on the merge with no record commit; re-dispatch it with
+   `gh workflow run promotion-record.yml --ref main -f merge=<merge SHA>`,
+   which adopts the tags and pushes the record. Live on the next workflow
+   run.
 6. Run that stated effect check and record what it printed. A promotion
    changes code, not state, so until something executes the check a batch that
    changed nothing is indistinguishable from one that worked. Mind the timing:

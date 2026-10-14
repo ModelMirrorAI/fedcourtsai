@@ -107,14 +107,15 @@ jobs:
     # is `main`-only, so a dispatch from any other ref is refused here.
     environment: prod
     # Two writers never race: the second waits for the first's push, then
-    # plans against the tip that push left.
+    # plans against the tip that push left. A group holds one running and one
+    # pending run; a third arrival cancels the pending one. A cancelled write
+    # still reaches `report`, which opens the failure issue, and a re-dispatch
+    # with the merge SHA recovers it.
     concurrency:
       group: promotion-record
       cancel-in-progress: false
     permissions:
       contents: read # the trusted checkout of main; the push rides the App token
-    outputs:
-      outcome: ${{ steps.push.outcome }}
     steps:
       # Main's own code is what runs, never the PR's: the merge is already on
       # main, and the checkout is main's tip, detached again after each fetch.
@@ -130,8 +131,10 @@ jobs:
 
       # The committer and tagger identity is the data App's bot user, resolved
       # before any write token exists: the lookup is public and rides the
-      # read-only ambient token. The push step re-checks that the minted
-      # token is that App's.
+      # read-only ambient token. (configure-git-identity takes a minted token
+      # and its app-slug, which would mean minting before the plan, so it is
+      # not reused here.) Each push step re-checks that its minted token is
+      # that App's.
       - name: Set the data App's git identity
         env:
           GH_TOKEN: ${{ github.token }}
@@ -142,45 +145,176 @@ jobs:
           git config --global user.name "$LOGIN"
           git config --global user.email "${user_id}+${LOGIN}@users.noreply.github.com"
 
-      # Fetch, plan, tag, apply, commit and jail — holding no write credential.
-      - name: Plan, tag, apply, commit and jail
-        id: prepare
+      # Attempt 1. Each attempt is four steps: prepare (fetch, plan, tag, apply,
+      # commit, jail) and validate holding no credential; then the data App
+      # token, minted only after the jail; then the push, the only step that
+      # reads it. The push never re-plans: where `main` advanced it records
+      # `rejected`, and the next attempt starts over from a fresh fetch.
+      - name: Plan, tag, apply, commit and jail (attempt 1)
+        id: prepare1
         env:
           MERGE: ${{ needs.classify.outputs.merge }}
         run: bash .github/actions/promotion-record/write.sh prepare "$MERGE"
 
-      - name: Upload the plan
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: promotion-record-plan-${{ github.run_id }}
-          path: ${{ steps.prepare.outputs.plan }}
-          retention-days: 7
-          if-no-files-found: error
+      - name: Validate the prepared record (attempt 1)
+        id: validate1
+        run: bash .github/actions/promotion-record/write.sh validate
 
-      # Minted only now, after the jail passed, and held by the push step alone.
-      - name: Mint the data App token
-        id: app-token
+      - name: Mint the data App token (attempt 1)
+        id: app-token-1
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
           permission-contents: write
 
-      - name: Push the tags, then the record commit
-        id: push
+      - name: Push the tags, then the record commit (attempt 1)
+        id: push1
         env:
-          WRITE_TOKEN: ${{ steps.app-token.outputs.token }}
-          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
-          MERGE: ${{ needs.classify.outputs.merge }}
-          BASE: ${{ steps.prepare.outputs.base }}
-          HEAD_SHA: ${{ steps.prepare.outputs.head }}
+          WRITE_TOKEN: ${{ steps.app-token-1.outputs.token }}
+          APP_SLUG: ${{ steps.app-token-1.outputs.app-slug }}
+          BASE: ${{ steps.validate1.outputs.base }}
+          HEAD_SHA: ${{ steps.validate1.outputs.head }}
         run: |
           set -euo pipefail
           if [ "$APP_SLUG" != "fedcourtsai-data" ]; then
             echo "::error::the minted token is ${APP_SLUG}'s, not the data App's"
             exit 1
           fi
-          bash .github/actions/promotion-record/write.sh push "$MERGE"
+          status=0
+          bash .github/actions/promotion-record/write.sh push || status=$?
+          if [ "$status" -eq 3 ]; then
+            echo "rejected=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          exit "$status"
+
+      # Attempt 2: `main` advanced under attempt 1's push. Its token is
+      # revoked before anything plans again, and this attempt prepares from the
+      # new tip holding no credential, exactly as the first did.
+      - name: Revoke the attempt-1 token
+        if: steps.push1.outputs.rejected == 'true'
+        env:
+          TOKEN: ${{ steps.app-token-1.outputs.token }}
+        run: |
+          set -euo pipefail
+          curl -fsS -X DELETE -H "Authorization: Bearer ${TOKEN}" \
+            -H "Accept: application/vnd.github+json" https://api.github.com/installation/token
+
+      - name: Plan, tag, apply, commit and jail (attempt 2)
+        id: prepare2
+        if: steps.push1.outputs.rejected == 'true'
+        env:
+          MERGE: ${{ needs.classify.outputs.merge }}
+        run: bash .github/actions/promotion-record/write.sh prepare "$MERGE"
+
+      - name: Validate the prepared record (attempt 2)
+        id: validate2
+        if: steps.push1.outputs.rejected == 'true'
+        run: bash .github/actions/promotion-record/write.sh validate
+
+      - name: Mint the data App token (attempt 2)
+        id: app-token-2
+        if: steps.push1.outputs.rejected == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Push the tags, then the record commit (attempt 2)
+        id: push2
+        if: steps.push1.outputs.rejected == 'true'
+        env:
+          WRITE_TOKEN: ${{ steps.app-token-2.outputs.token }}
+          APP_SLUG: ${{ steps.app-token-2.outputs.app-slug }}
+          BASE: ${{ steps.validate2.outputs.base }}
+          HEAD_SHA: ${{ steps.validate2.outputs.head }}
+        run: |
+          set -euo pipefail
+          if [ "$APP_SLUG" != "fedcourtsai-data" ]; then
+            echo "::error::the minted token is ${APP_SLUG}'s, not the data App's"
+            exit 1
+          fi
+          status=0
+          bash .github/actions/promotion-record/write.sh push || status=$?
+          if [ "$status" -eq 3 ]; then
+            echo "rejected=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          exit "$status"
+
+      # Attempt 3: `main` advanced under attempt 2's push. Its token is
+      # revoked before anything plans again, and this attempt prepares from the
+      # new tip holding no credential, exactly as the first did.
+      - name: Revoke the attempt-2 token
+        if: steps.push2.outputs.rejected == 'true'
+        env:
+          TOKEN: ${{ steps.app-token-2.outputs.token }}
+        run: |
+          set -euo pipefail
+          curl -fsS -X DELETE -H "Authorization: Bearer ${TOKEN}" \
+            -H "Accept: application/vnd.github+json" https://api.github.com/installation/token
+
+      - name: Plan, tag, apply, commit and jail (attempt 3)
+        id: prepare3
+        if: steps.push2.outputs.rejected == 'true'
+        env:
+          MERGE: ${{ needs.classify.outputs.merge }}
+        run: bash .github/actions/promotion-record/write.sh prepare "$MERGE"
+
+      - name: Validate the prepared record (attempt 3)
+        id: validate3
+        if: steps.push2.outputs.rejected == 'true'
+        run: bash .github/actions/promotion-record/write.sh validate
+
+      - name: Mint the data App token (attempt 3)
+        id: app-token-3
+        if: steps.push2.outputs.rejected == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Push the tags, then the record commit (attempt 3)
+        id: push3
+        if: steps.push2.outputs.rejected == 'true'
+        env:
+          WRITE_TOKEN: ${{ steps.app-token-3.outputs.token }}
+          APP_SLUG: ${{ steps.app-token-3.outputs.app-slug }}
+          BASE: ${{ steps.validate3.outputs.base }}
+          HEAD_SHA: ${{ steps.validate3.outputs.head }}
+        run: |
+          set -euo pipefail
+          if [ "$APP_SLUG" != "fedcourtsai-data" ]; then
+            echo "::error::the minted token is ${APP_SLUG}'s, not the data App's"
+            exit 1
+          fi
+          status=0
+          bash .github/actions/promotion-record/write.sh push || status=$?
+          if [ "$status" -eq 3 ]; then
+            echo "rejected=true" >>"$GITHUB_OUTPUT"
+            exit 0
+          fi
+          exit "$status"
+
+      - name: Refuse a record main kept outrunning
+        if: steps.push3.outputs.rejected == 'true'
+        run: |
+          echo "::error::main advanced under all three attempts; the record was not pushed — re-dispatch with the merge SHA"
+          exit 1
+
+      # Uploaded after the last attempt, whatever happened, so the report
+      # describes the plan the final attempt pushed (or failed on).
+      - name: Upload the plan
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: promotion-record-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/promotion-record/plan.json
+          retention-days: 7
+          if-no-files-found: warn
 
       # A stamp that never landed is a hole in the scored population: name any
       # pending row main still holds once the record is pushed. The promotion
@@ -198,7 +332,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      actions: read # download this run's plan artifact
       issues: write # the failure issue (ambient, triggers nothing)
       pull-requests: write # the comment on the promotion PR
     steps:
