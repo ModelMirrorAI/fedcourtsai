@@ -1,0 +1,3 @@
+- `fedcourts query` used via `uv run fedcourts query --court scotus --include-applications --limit 5` (returned empty). 
+- Read `metrics/statpack.md` to compute the pooled interim base rate for Terms 2023-2025.
+- Google search `26A477 Supreme Court` used to understand the nature of the application, as the provisioned snapshot contained only a bare submission entry.

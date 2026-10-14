@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs, the committed `metrics/statpack.md`, and unsuccessful CourtListener MCP searches for the prior synthetic docket 26A274 which returned 0 results.
