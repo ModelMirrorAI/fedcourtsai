@@ -23,6 +23,20 @@ updates:
         patterns:
           - "*"
 
+  # The engine CLIs every cell runs, pinned once in .github/engines/package.json.
+  # Daily and ungrouped: each engine release arrives soon after it ships as its
+  # own PR, so a bump is reviewed, smoke-tested and promoted on its own — an
+  # engine change under an unchanged process digest is composition, recorded
+  # per cell, and one engine per PR keeps that composition legible. Dispatch
+  # `integration-test` `engine-smoke` and `engine-actions-smoke` on the bump's
+  # branch before merging; see docs/pipeline.md.
+  - package-ecosystem: npm
+    directory: /.github/engines
+    schedule:
+      interval: daily
+    target-branch: staging
+    versioning-strategy: increase
+
   # Python dependencies, resolved from pyproject.toml + uv.lock.
   - package-ecosystem: uv
     directory: /

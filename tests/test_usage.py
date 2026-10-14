@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from fedcourtsai.usage import (
+    engine_version_from_output,
     parse_claude_usage,
     parse_codex_usage,
     parse_gemini_usage,
@@ -181,6 +182,29 @@ def test_gemini_missing_empty_or_tokenless_returns_none(tmp_path: Path) -> None:
     tokenless = tmp_path / "tokenless.log"
     tokenless.write_text(json.dumps({"name": "gemini_cli.tool_call", "function": "read_file"}))
     assert parse_gemini_usage(tokenless) is None
+
+
+# --- engine version provenance ---------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("output", "expected"),
+    [
+        ("2.1.289 (Claude Code)\n", "2.1.289"),
+        ("codex-cli 0.144.1", "0.144.1"),
+        ("0.49.0\n", "0.49.0"),
+        ("", None),
+        ("unknown", None),
+        # A longer dotted string is not a version: neither an address nor a
+        # four-part build number may be cut down to three parts.
+        ("listening on 10.0.0.1", None),
+        ("build 1.2.3.4", None),
+    ],
+)
+def test_the_engine_version_is_the_first_standalone_three_part_version(
+    output: str, expected: str | None
+) -> None:
+    assert engine_version_from_output(output) == expected
 
 
 # --- pipeline provenance ---------------------------------------------------------

@@ -67,6 +67,69 @@ def test_record_predict_usage_from_explicit_tokens(
     assert usage.pipeline_sha == "ci-checkout-sha"
 
 
+def _record(engine_version: str | None) -> list[str]:
+    args = [
+        "record-usage",
+        "--court",
+        "ca9",
+        "--docket",
+        "123",
+        "--event",
+        "evt-motion-stay",
+        "--run-id",
+        "20260624T103000Z",
+        "--engine",
+        "claude-code",
+        "--role",
+        "predictor",
+        "--actor",
+        "claude-baseline",
+        "--input-tokens",
+        "1000",
+        "--output-tokens",
+        "10",
+    ]
+    if engine_version is not None:
+        args += ["--engine-version", engine_version]
+    return args
+
+
+@pytest.mark.parametrize(
+    ("reported", "stamped"),
+    [("2.1.289 (Claude Code)\n", "2.1.289"), ("no version here", None), (None, None)],
+)
+def test_record_usage_stamps_the_version_the_engine_binary_reported(
+    _data_root: Path, reported: str | None, stamped: str | None
+) -> None:
+    result = runner.invoke(app, _record(reported))
+    assert result.exit_code == 0, result.output
+    path = (
+        CasePaths(_data_root, "ca9", 123)
+        .event("evt-motion-stay")
+        .prediction_usage("claude-baseline", "20260624T103000Z")
+    )
+    assert read_model(path, ModelUsage).engine_version == stamped
+
+
+def test_a_record_written_before_the_engine_version_field_still_validates() -> None:
+    record = ModelUsage.model_validate(
+        {
+            "case_id": "ca9/123",
+            "event_id": "evt-motion-stay",
+            "run_id": "20260624T103000Z",
+            "role": "predictor",
+            "actor_id": "claude-baseline",
+            "engine": "claude-code",
+            "model": "claude-opus-5-5",
+            "created_at": "2026-06-24T10:30:00+00:00",
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "estimated_cost_usd": 0.0,
+        }
+    )
+    assert record.engine_version is None
+
+
 def test_record_usage_stamps_the_explicit_pipeline_sha(_data_root: Path) -> None:
     result = runner.invoke(
         app,

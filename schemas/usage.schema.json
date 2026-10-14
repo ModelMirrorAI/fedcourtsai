@@ -54,6 +54,20 @@
     "engine": {
       "$ref": "#/$defs/Engine"
     },
+    "engine_version": {
+      "anyOf": [
+        {
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The engine CLI's version as the binary that ran reported it (`claude --version`, `codex --version`, `gemini --version`), read by a harness step after the engine finished \u2014 never the agent's word. An engine update under an unchanged process digest is composition, and this field is how a reading cuts by it. Null on records written before the field existed or when the binary's output named no version.",
+      "title": "Engine Version"
+    },
     "estimated_cost_usd": {
       "description": "On-demand USD estimate from the rates in fedcourtsai.pricing",
       "minimum": 0.0,

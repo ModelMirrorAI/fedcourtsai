@@ -456,6 +456,7 @@ from .supremecourt import (
     parse_scotus_docket_number,
 )
 from .usage import (
+    engine_version_from_output,
     parse_claude_usage,
     parse_codex_usage,
     parse_gemini_usage,
@@ -7102,6 +7103,13 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             "then the local git HEAD, else omitted."
         ),
     ] = "",
+    engine_version: Annotated[
+        str,
+        typer.Option(
+            help="The engine binary's own `--version` output; its first dotted "
+            "version is recorded, and output naming none records nothing."
+        ),
+    ] = "",
 ) -> None:
     """Record one run's measured token usage and estimated cost to ``usage.json``.
 
@@ -7150,6 +7158,7 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         model=resolved_model,
         created_at=when,
         pipeline_sha=resolve_pipeline_sha(pipeline_sha),
+        engine_version=engine_version_from_output(engine_version),
         input_tokens=counts.input_tokens,
         output_tokens=counts.output_tokens,
         cache_read_input_tokens=counts.cache_read_input_tokens,

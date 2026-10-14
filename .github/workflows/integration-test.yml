@@ -950,42 +950,19 @@ jobs:
       # fresh at every install), so npm lifecycle scripts must never see
       # credentials.
       #
-      # The engine-actions-smoke legs take this step for gemini alone: that
-      # engine's production invocation is a CLI call, while claude and codex
-      # run through actions that install their own CLI — and letting them do
-      # that is part of what the leg exercises.
+      # Both engine smokes take this step. engine-smoke runs every CLI itself,
+      # so it installs codex here too; engine-actions-smoke runs claude and
+      # codex through their actions exactly as the live cells do, so this step
+      # installs the pinned claude CLI the action is pointed at and resolves the
+      # codex version codex-action installs. Every version comes from
+      # `.github/engines/package.json`, the one pin the cells read.
       - name: Install the selected agent CLI
-        if: ${{ matrix.scenario == 'engine-smoke' || (matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'gemini') }}
-        env:
-          ENGINE: ${{ matrix.engine }}
-        # zizmor: ignore[adhoc-packages] — top-level exact-version pins,
-        # transitive scripts disabled, and a secret-free step environment are
-        # the practical controls for global CLIs; a lockfile is not
-        # expressible for `npm i -g`. The one script run on purpose is the
-        # pinned claude package's own installer, which fetches the native
-        # binary from the vendor's release endpoint — the same vendor trust
-        # executing the agent itself carries. Keep the pins in lockstep with
-        # the workflows that install the same CLIs: run-predict and
-        # run-evaluate (gemini), run-backtest (all three), and run-analytics's
-        # labeler (claude). Production claude cells run the CLI their action
-        # bundles instead, which the engine-actions-smoke leg exercises.
-        run: |
-          set -euo pipefail
-          case "$ENGINE" in
-            claude-code) package="@anthropic-ai/claude-code@2.1.280" binary=claude ;;
-            codex) package="@openai/codex@0.144.1" binary=codex ;;
-            gemini) package="@google/gemini-cli@0.49.0" binary=gemini ;;
-          esac
-          npm install --silent --no-audit --ignore-scripts --global "$package"
-          # Claude's native binary is placed by its postinstall, which
-          # --ignore-scripts suppresses; run the pinned package's own
-          # installer explicitly — the one script we already trust enough to
-          # execute as the agent moments later. codex/gemini need no
-          # postinstall.
-          if [ "$ENGINE" = "claude-code" ]; then
-            node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs"
-          fi
-          "$binary" --version
+        id: engine-cli
+        if: ${{ matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke' }}
+        uses: ./.github/actions/engine-cli
+        with:
+          engine: ${{ matrix.engine }}
+          install-codex: ${{ matrix.scenario == 'engine-smoke' }}
 
       # The codex sandbox (bubblewrap) needs unprivileged user namespaces,
       # which Ubuntu 24.04 runners restrict via AppArmor: without this, every
@@ -1580,7 +1557,7 @@ jobs:
           # permission profile in the emitted config, live web search, a pinned
           # CLI — the cells' posture, held in lockstep.
           permission-profile: fedcourts-cell
-          codex-version: "0.144.1"
+          codex-version: ${{ steps.engine-cli.outputs.version }}
           codex-args: '["-c","web_search=live"]'
 
       # Stand the watchdog down the moment the engine step is over, however it
@@ -2012,6 +1989,8 @@ jobs:
         with:
           allowed_bots: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The pinned CLI, as the live cells run it.
+          path_to_claude_code_executable: ${{ steps.engine-cli.outputs.path }}
           # DEVIATION, in the safe direction. The cells hand the action a
           # freshly minted App token (issues/PR write, for the agent's own
           # comment on the trigger issue); a probe has no issue to comment on,
@@ -2073,7 +2052,7 @@ jobs:
           # profile-selection path the cells depend on — the layer the bare-CLI
           # engine smoke never traverses.
           permission-profile: fedcourts-cell
-          codex-version: "0.144.1"
+          codex-version: ${{ steps.engine-cli.outputs.version }}
           codex-args: '["-c","web_search=live"]'
 
       - name: Smoke the Gemini cell invocation
@@ -2916,18 +2895,10 @@ jobs:
       - name: Install the pinned Claude Code CLI for the labeler
         id: claude-cli
         timeout-minutes: 5
-        # zizmor: ignore[adhoc-packages] — top-level exact-version pin,
-        # transitive scripts disabled, and a credential-free step environment
-        # are the practical controls for a global CLI; a lockfile is not
-        # expressible for `npm i -g`.
-        run: |
-          set -euo pipefail
-          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.280
-          node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs"
-          claude --version
-          path=$(command -v claude)
-          test -n "$path"
-          echo "path=$path" >> "$GITHUB_OUTPUT"
+        # The pin `.github/engines/package.json` holds for every claude cell.
+        uses: ./.github/actions/engine-cli
+        with:
+          engine: claude-code
 
       - name: Enable unprivileged user namespaces for the subprocess scrub
         run: |

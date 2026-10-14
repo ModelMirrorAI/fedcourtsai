@@ -66,6 +66,11 @@ No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
 - a harness boundary the freeze record dates under an unchanged digest (the
   predict-cell hide is one) cuts nothing out, but the pooled and paired
   figures carry each engine's `n` on either side of it;
+- an engine CLI update under an unchanged digest is composition in the same
+  way: it cuts nothing out, each cell's `usage.json` records the
+  `engine_version` its binary reported, and a by-version cut is a comparison
+  over different events; a cell recorded before the field existed has an
+  unknown version, never a guessed one;
 - every figure computed from an evaluator's judgment — `mean_reasoning_quality`,
   the `big_case` and judge-validation tau-b, `evaluator_agreement`, the
   semantic grades — lists each evaluator digest it spans with its `n`; its

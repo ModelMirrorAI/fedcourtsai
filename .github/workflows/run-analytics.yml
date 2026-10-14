@@ -1245,37 +1245,18 @@ jobs:
       # The action's bundled install left the CLI's native binary missing on
       # this job ("claude native binary not installed", while the action still
       # exited `is_error: false` with no output). Install the pinned CLI here
-      # instead — the same npm pattern run-backtest.yml and integration-test.yml
-      # prove on these runners, kept in version step with both — and hand the
-      # action the executable, which skips its own install path entirely. The
-      # pin runs ahead of the CLI the action bundles, because it is the floor
-      # the newest `label_model` choice needs (an older CLI refuses the model
-      # id). If the labeler ever misbehaves under this pin, the first lever is
-      # an action release whose bundled agent SDK matches it — not a rollback,
-      # which would drop that choice.
+      # instead — the engine-cli action every claude cell uses, reading the one
+      # pin in `.github/engines/package.json` — and hand the action the
+      # executable, which skips its own install path entirely. The pin must stay
+      # at or above the floor the newest `label_model` choice needs (an older
+      # CLI refuses the model id).
       - name: Install the pinned Claude Code CLI for the labeler
         id: claude-cli
         timeout-minutes: 5
-        # zizmor: ignore[adhoc-packages] — top-level exact-version pin,
-        # transitive scripts disabled, and a credential-free step environment
-        # are the practical controls for a global CLI; a lockfile is not
-        # expressible for `npm i -g`. The one script run on purpose is the
-        # pinned claude package's own installer, which fetches the native
-        # binary from the vendor's release endpoint — the same vendor trust
-        # executing the agent itself carries.
-        run: |
-          set -euo pipefail
-          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.280
-          # Claude's native binary is placed by its postinstall, which
-          # --ignore-scripts suppresses; run the pinned package's own
-          # installer explicitly.
-          node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs"
-          claude --version
-          # Fail closed: an empty path would make the action fall back to its
-          # own installer with no signal.
-          path=$(command -v claude)
-          test -n "$path"
-          echo "path=$path" >> "$GITHUB_OUTPUT"
+        # The pin `.github/engines/package.json` holds for every claude cell.
+        uses: ./.github/actions/engine-cli
+        with:
+          engine: claude-code
 
       # Without the userns relaxation, bubblewrap's uid-map setup is refused
       # under the runner image's AppArmor policy and every scrubbed subprocess

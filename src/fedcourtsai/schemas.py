@@ -2083,6 +2083,16 @@ class ModelUsage(_Strict):
         "templates, harness, and registry in force at run time. Null on "
         "records written before the field existed or when unresolvable.",
     )
+    engine_version: str | None = Field(
+        default=None,
+        pattern=r"^\d+\.\d+\.\d+$",
+        description="The engine CLI's version as the binary that ran reported it "
+        "(`claude --version`, `codex --version`, `gemini --version`), read by a "
+        "harness step after the engine finished — never the agent's word. An engine "
+        "update under an unchanged process digest is composition, and this field is "
+        "how a reading cuts by it. Null on records written before the field existed "
+        "or when the binary's output named no version.",
+    )
     input_tokens: int = Field(ge=0, description="Fresh (uncached) input tokens")
     output_tokens: int = Field(ge=0)
     cache_read_input_tokens: int = Field(default=0, ge=0, description="Input served from cache")

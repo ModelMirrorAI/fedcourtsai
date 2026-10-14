@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -58,6 +59,23 @@ def resolve_pipeline_sha(explicit: str = "") -> str | None:
     except (OSError, subprocess.SubprocessError):
         return None
     return out.stdout.strip() or None
+
+
+_ENGINE_VERSION = re.compile(r"(?<![\d.])(\d+\.\d+\.\d+)(?![\d.])")
+
+
+def engine_version_from_output(output: str) -> str | None:
+    """The first dotted ``X.Y.Z`` version in an engine binary's ``--version`` output.
+
+    Provenance for ``usage.json``: each CLI prints its version in its own shape
+    (``2.1.289 (Claude Code)``, ``codex-cli 0.144.1``, a bare ``0.49.0``), so
+    the first standalone three-part version is what the record keeps. Output
+    naming none resolves to ``None`` rather than failing the capture, and a
+    version run into a longer dotted string (an IP address, a four-part build
+    number) is not mistaken for one.
+    """
+    match = _ENGINE_VERSION.search(output)
+    return match.group(1) if match else None
 
 
 def _as_int(value: Any) -> int:

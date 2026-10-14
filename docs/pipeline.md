@@ -1799,6 +1799,36 @@ pre-registration marker defeats its purpose. `promotion/` tags, and the
 frozen by hand, and any tag the workflow refused to write are the
 maintainer's.
 
+### Engine CLI updates
+
+The engine CLIs every cell, smoke and labeler runs — Claude Code, Codex and the
+Gemini CLI — are pinned once, in `.github/engines/package.json`, and installed
+from there by the `engine-cli` action. The claude cells hand
+`claude-code-action` that binary (`path_to_claude_code_executable`) and
+`codex-action` takes its `codex-version` from the same pin, so an engine
+action's own bump changes the wrapper and never the engine a cell runs.
+
+Dependabot proposes each engine release as its own PR against `staging`, daily,
+so updates land soon after they ship rather than accumulating. One PR per
+engine keeps each change legible in the record: under an unchanged process
+digest an engine update is **composition**, not a series break, and every
+cell's `usage.json` carries the `engine_version` its binary reported, so a
+reading can cut by it. A **model** change is different — it moves the digest
+and is a new label.
+
+Before merging an engine bump, run both smokes for that engine on its branch,
+since one drives the CLI directly and the other drives it through the action
+the cells use (`<engine>` is `claude-code`, `codex` or `gemini`; `-f
+scenario=gate` runs both for all three):
+
+```bash
+gh workflow run integration-test.yml --ref <bump-branch> -f scenario=engine-smoke -f engine=<engine>
+gh workflow run integration-test.yml --ref <bump-branch> -f scenario=engine-actions-smoke -f engine=<engine>
+```
+
+A bump that fails either smoke stays unmerged until the engine or the harness
+is fixed; one that passes rides the next promotion like any other change.
+
 ### Adding a required status check
 
 The ordering is forced, and getting it wrong stops data production rather than
