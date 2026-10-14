@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73514289",
+  "gaps": [
+    "The petition text cap removes part of the appended opinion's dispositive alternative-ground analysis.",
+    "General-precedent web requests returned no usable content."
+  ],
+  "helpful": [
+    "Opposition and cert reply exposed both sides of the independent-ground vehicle objection.",
+    "Frozen conditioning prevented duplicate entries for the same conference from becoming an extra relist.",
+    "JSON risk-set denominators allowed exact pooling rather than averaging rounded percentages.",
+    "Targeted CourtListener opinion snippets verified the general precedent without retrieving the forecast case."
+  ],
+  "notes": "The initial CLI call hit a read-only default cache; using a writable temporary cache resolved it. The initial citation-only MCP search was imprecise, while a court/name/date-constrained search found the intended precedent. No corpus retrieval was attempted. Provisioned case facts and committed aggregate context were sufficient.",
+  "role": "predictor",
+  "run_id": "20261013T174813Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned documents",
+    "committed statpack",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

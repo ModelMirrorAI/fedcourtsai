@@ -1,0 +1,13 @@
+case_id: scotus/73369985
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-05-20'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Donovan Moore, et al. v. Ashly Romero, as Personal Representative for the Estate
+  of Stephen Romero, Deceased, et al.

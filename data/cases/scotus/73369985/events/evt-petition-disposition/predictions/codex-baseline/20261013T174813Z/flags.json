@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73369985",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned appendix is truncated at the 150,000-character cap, ending within the Thapar/Hermandorfer rehearing dissent and omitting the later Bush and Readler opinions. Their positions were considered only as characterized in the provisioned petition and reply. No body-camera recordings were viewed; the forecast relies on the competing filing descriptions and panel treatment. These limitations reduce confidence in the proposed summary-reversal vehicle; they do not block prediction.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261013T174813Z",
+  "schema_version": "1.0"
+}
