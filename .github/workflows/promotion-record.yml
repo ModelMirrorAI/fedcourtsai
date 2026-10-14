@@ -23,7 +23,8 @@ name: promotion-record
 #              the jail passes, and uses it only to push.
 #   report   — the ambient token only: surfaces what the plan left for a
 #              maintainer (free-text placeholders, stale rows and placeholders)
-#              on the promotion PR, and latches a failure issue.
+#              on the promotion PR, latches a failure issue, and checks main
+#              holds no pending registration a merge already carried.
 
 on:
   push:
@@ -299,6 +300,28 @@ jobs:
           fi
           exit "$status"
 
+      # Every token an attempt minted and no later attempt already revoked is
+      # revoked here, whatever happened, so no repo code runs in this job while
+      # a write token is live.
+      - name: Revoke the remaining tokens
+        if: always()
+        env:
+          TOKEN_1: ${{ steps.app-token-1.outputs.token }}
+          TOKEN_2: ${{ steps.app-token-2.outputs.token }}
+          TOKEN_3: ${{ steps.app-token-3.outputs.token }}
+          REVOKED_1: ${{ steps.push1.outputs.rejected }}
+          REVOKED_2: ${{ steps.push2.outputs.rejected }}
+        run: |
+          set -euo pipefail
+          revoke() {
+            curl -fsS -X DELETE -H "Authorization: Bearer $1" \
+              -H "Accept: application/vnd.github+json" https://api.github.com/installation/token \
+              || echo "::warning::could not revoke the attempt-$2 token; it expires within the hour"
+          }
+          if [ -n "$TOKEN_1" ] && [ "$REVOKED_1" != "true" ]; then revoke "$TOKEN_1" 1; fi
+          if [ -n "$TOKEN_2" ] && [ "$REVOKED_2" != "true" ]; then revoke "$TOKEN_2" 2; fi
+          if [ -n "$TOKEN_3" ]; then revoke "$TOKEN_3" 3; fi
+
       - name: Refuse a record main kept outrunning
         if: steps.push3.outputs.rejected == 'true'
         run: |
@@ -316,15 +339,6 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-      # A stamp that never landed is a hole in the scored population: name any
-      # pending row main still holds once the record is pushed. The promotion
-      # gate's `registry` stage runs the same check before every promotion.
-      - name: Check main holds no pending registration
-        run: |
-          set -euo pipefail
-          git fetch --quiet --force "https://github.com/${GITHUB_REPOSITORY}.git" \
-            "+refs/heads/main:refs/remotes/origin/main"
-          uv run --locked fedcourts promotion-record --check-main origin/main
 
   report:
     needs: [classify, write]
@@ -337,9 +351,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: main
           persist-credentials: false
-          sparse-checkout: scripts/gh_retry.sh
-          sparse-checkout-cone-mode: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - name: Download the plan
         if: needs.write.result != 'skipped'
@@ -397,3 +415,14 @@ jobs:
             gh_retry gh issue create --repo "$REPO" --label promotion-record-log \
               --title "promotion-record: ${MERGE:0:9} (#${PR}) not recorded" --body-file "$summary"
           fi
+
+      # A stamp that never landed is a hole in the scored population: name any
+      # pending row main still holds once the writer is done, in this job,
+      # which holds no data App credential. The promotion gate's `registry`
+      # stage runs the same check before every promotion.
+      - name: Check main holds no pending registration
+        run: |
+          set -euo pipefail
+          git fetch --quiet --force "https://github.com/${GITHUB_REPOSITORY}.git" \
+            "+refs/heads/main:refs/remotes/origin/main"
+          uv run --locked fedcourts promotion-record --check-main origin/main

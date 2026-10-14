@@ -134,7 +134,11 @@ def test_each_attempt_mints_after_its_jail_and_only_its_push_and_revoke_read_the
             for step in steps
             if f"steps.app-token-{n}.outputs" in yaml.safe_dump(step)
         ]
-        expected = [f"push{n}"] + ([f"Revoke the attempt-{n} token"] if n < 3 else [])
+        expected = (
+            [f"push{n}"]
+            + ([f"Revoke the attempt-{n} token"] if n < 3 else [])
+            + ["Revoke the remaining tokens"]
+        )
         assert readers == expected, (n, readers)
         # Prepare and validate — fetch, plan, tag, apply, commit, jail — hold no secret
         # and read no token.
@@ -173,6 +177,11 @@ def test_a_later_attempt_runs_only_after_a_rejection_and_revokes_the_last_token_
         prepare = _index("write", lambda s, n=n: s.get("id") == f"prepare{n}")
         assert revoke < prepare
         assert "-X DELETE" in steps[revoke]["run"] and "installation/token" in steps[revoke]["run"]
+    remaining = _step("write", "Revoke the remaining tokens")
+    assert remaining["if"] == "always()"
+    assert _steps("write").index(remaining) > _index("write", lambda s: s.get("id") == "push3")
+    for n in ATTEMPTS:
+        assert f"$TOKEN_{n}" in remaining["run"], n
     final = _step("write", "Refuse a record main kept outrunning")
     assert final["if"] == "steps.push3.outputs.rejected == 'true'" and "exit 1" in final["run"]
     upload = _step("write", "Upload the plan")
@@ -330,7 +339,8 @@ def test_the_writer_records_a_promotion_end_to_end(tmp_path: Path) -> None:
     assert _git(remote, "rev-list", "--parents", "-n", "1", head).split() == [head, merge]
     # The tag names the merge, annotated, carrying the plan's message.
     assert _git(remote, "rev-parse", "promotion/2026-10-13^{commit}") == merge
-    plan = json.loads(Path(outputs["plan"]).read_text(encoding="utf-8"))
+    plan_file = Path(env["RUNNER_TEMP"]) / "promotion-record" / "plan.json"
+    plan = json.loads(plan_file.read_text(encoding="utf-8"))
     assert tag_message(remote, "promotion/2026-10-13") == plan["promotion_tag"]["message"]
     assert _git(remote, "rev-parse", "prereg/proc-v10^{commit}") == merge
     # The fills and stamps landed: the merge's SHA and committer time on main.
@@ -393,8 +403,9 @@ def test_a_re_prepare_whose_jail_refuses_pushes_nothing(tmp_path: Path) -> None:
     assert _push(work, env, first).returncode == 3
     # From now on the jail refuses.
     shim = Path(env["PATH"].split(os.pathsep)[0]) / "uv"
+    honest = shim.read_text(encoding="utf-8")
     shim.write_text(
-        shim.read_text(encoding="utf-8").replace(
+        honest.replace(
             "shift 3;",
             'shift 3; if [ "$1" = assert-promotion-record-diff ]; then '
             + 'echo "JAIL REFUSED" >&2; exit 1; fi;',
@@ -406,6 +417,12 @@ def test_a_re_prepare_whose_jail_refuses_pushes_nothing(tmp_path: Path) -> None:
     Path(env["GITHUB_OUTPUT"]).write_text("", encoding="utf-8")
     assert _run(work, env, "validate").returncode != 0
     assert _git(remote, "rev-parse", "main") == advanced
+    # A later attempt, the jail honest again, re-plans onto the advanced tip and lands.
+    shim.write_text(honest, encoding="utf-8")
+    recovered = _prepare_and_push(work, env, merge)
+    head = _git(remote, "rev-parse", "main")
+    assert head == recovered["head"]
+    assert _git(remote, "rev-list", "--parents", "-n", "1", head).split() == [head, advanced]
 
 
 def test_validate_refuses_a_record_commit_off_the_base(tmp_path: Path) -> None:
@@ -453,3 +470,20 @@ def test_a_push_that_is_not_a_promotion_merge_is_refused(tmp_path: Path) -> None
 def test_the_writer_refuses_an_unknown_subcommand(tmp_path: Path, subcommand: str) -> None:
     work, _remote, _merge, env = _setup(tmp_path)
     assert _run(work, env, *([subcommand] if subcommand else [])).returncode == 2
+
+
+def test_no_repo_code_runs_in_the_write_job_after_its_last_token() -> None:
+    """The pending-row check runs in `report`, which holds no data App credential."""
+    steps = _steps("write")
+    remaining = _index("write", lambda s: s.get("name") == "Revoke the remaining tokens")
+    for step in steps[remaining + 1 :]:
+        run = step.get("run", "")
+        assert "uv run" not in run and "write.sh" not in run, step.get("name")
+    assert not any("--check-main" in step.get("run", "") for step in steps)
+    check = _step("report", "Check main holds no pending registration")
+    assert "promotion-record --check-main origin/main" in check["run"]
+    assert "env" not in check
+    report = _workflow()["jobs"]["report"]
+    assert "environment" not in report and "secrets." not in yaml.safe_dump(report)
+    setup = next(s for s in _steps("report") if "setup-python-env" in str(s.get("uses", "")))
+    assert setup["with"] == {"restore-cache": "false"}

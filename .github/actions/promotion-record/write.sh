@@ -122,7 +122,6 @@ validate() {
   {
     echo "base=${base}"
     echo "head=${head}"
-    echo "plan=${plan}"
   } >>"${GITHUB_OUTPUT:-/dev/null}"
   echo "validated base ${base}, record commit ${head:-none}"
 }
