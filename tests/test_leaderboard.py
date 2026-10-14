@@ -11,13 +11,15 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
-from fedcourtsai import process_version
+from fedcourtsai import integrity, process_version
 from fedcourtsai.cli import app
 from fedcourtsai.integrity import (
     FORWARD,
     LEAKAGE_EXCLUSION_REASON,
     PROCEDURAL,
     RETROSPECTIVE,
+    VOIDED_EVENTS,
+    VOIDED_EXCLUSION_REASON,
     classify_stratum,
     forward_claim_record,
     leakage_record,
@@ -1280,6 +1282,27 @@ def test_the_agreement_views_keep_a_leakage_suspected_cell(tmp_path: Path) -> No
     assert _by_predictor(big_case_agreement(data_root, frozen_only=False))["agree"].cases == 3
 
 
+def test_the_agreement_views_drop_a_voided_event(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The one exception to the carve-out above: a voided event's stakes reads
+    # were taken across two petitions filed under one id, so they leave the
+    # panel instead of mixing into it.
+    data_root = tmp_path / "data"
+    for case_id, pred, panel in (("scotus/1", 0.9, 0.8), ("scotus/2", 0.5, 0.55)):
+        _write_big_case_cell(data_root, "agree", case_id, pred_score=pred, eval_scores=[panel])
+    _write_big_case_cell(data_root, "agree", "scotus/3", pred_score=0.1, eval_scores=[0.2])
+    assert _by_predictor(big_case_agreement(data_root, frozen_only=False))["agree"].cases == 3
+
+    monkeypatch.setattr(
+        integrity,
+        "VOIDED_EVENTS",
+        {("scotus/3", "evt-petition-disposition"): ("reassigned", date(2026, 10, 14))},
+    )
+
+    assert _by_predictor(big_case_agreement(data_root, frozen_only=False))["agree"].cases == 2
+
+
 def test_big_case_agreement_averages_the_evaluator_panel(tmp_path: Path) -> None:
     # Two evaluators disagree on one case; the panel mean is what the predictor's
     # score is correlated against.
@@ -1758,6 +1781,138 @@ def test_the_board_publishes_the_forward_claim_record(tmp_path: Path) -> None:
     assert board.forward_claim is not None
     assert board.forward_claim.policy == "exclude"
     assert board.forward_claim.excluded == 1
+
+
+def _void(monkeypatch: pytest.MonkeyPatch, *events: tuple[str, str]) -> None:
+    """Void ``events`` for one test, as a dated freeze-record entry would."""
+    monkeypatch.setattr(
+        integrity,
+        "VOIDED_EVENTS",
+        {event: ("a docket number reassigned in a test", date(2026, 10, 14)) for event in events},
+    )
+
+
+def test_a_voided_event_leaves_every_stratum_and_denominator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A voided event's outcome describes another petition: its grading is an
+    # observation of nothing, so it lands in its own ledger before any stratum,
+    # forward-claim or leakage denominator counts it, and the event beside it
+    # is untouched.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a", leakage_suspected=False),
+        predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-b", leakage_suspected=False),
+        predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+    _void(monkeypatch, ("ca9/123", "evt-a"))
+
+    run = stratify(data_root, frozen_only=False)
+
+    assert [evaluation.event_id for evaluation, *_ in run.cells] == ["evt-b"]
+    assert [cell.evaluation.event_id for cell in run.voided] == ["evt-a"]
+    assert run.voided[0].reason.startswith(VOIDED_EXCLUSION_REASON)
+    assert "freeze record 2026-10-14" in run.voided[0].reason
+    # Not a breach and not a leak: the other two ledgers never see it, and
+    # it is in neither denominator.
+    assert run.excluded == [] and run.leaked == []
+    assert run.leakage_assessed == 1
+
+
+def test_without_the_registry_row_the_same_event_is_scored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The control: the exclusion turns on the registry row and nothing else.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+    _void(monkeypatch)
+
+    run = stratify(data_root, frozen_only=False)
+
+    assert len(run.cells) == 1
+    assert list(run.voided) == []
+
+
+def test_both_boards_publish_the_voided_events_and_name_each_dropped_grading(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The de-count is never silent: each board carries the block, and the
+    # stderr ledger names every grading it dropped.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+    _write_cell(
+        data_root,
+        _evaluation("beta", event_id="evt-b"),
+        predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+    _void(monkeypatch, ("ca9/123", "evt-a"))
+    env = {"FEDCOURTS_DATA_ROOT": str(data_root)}
+
+    out = tmp_path / "leaderboard.json"
+    result = runner.invoke(app, ["leaderboard", "--out", str(out), "--all-versions"], env=env)
+    assert result.exit_code == 0, result.output
+    assert "::warning::voided-event exclusion: ca9/123 evt-a alpha" in result.output
+    board = read_model(out, Leaderboard)
+    assert board.voided_events is not None
+    assert board.voided_events.excluded == 1
+    assert board.voided_events.events == ["ca9/123 evt-a"]
+    assert board.voided_events.by_predictor == {"alpha": 1}
+    assert [entry.predictor_id for entry in board.entries] == ["beta"]
+
+    claims = tmp_path / "claim-scores.json"
+    result = runner.invoke(app, ["claim-scores", "--out", str(claims), "--all-versions"], env=env)
+    assert result.exit_code == 0, result.output
+    claim_board = read_model(claims, ClaimScoreBoard)
+    assert claim_board.voided_events == board.voided_events
+
+
+def test_a_board_with_nothing_voided_in_scope_omits_the_block(tmp_path: Path) -> None:
+    # The committed voided event is pre-freeze, so a frozen board carries no
+    # `voided_events` key at all, and committed boards keep their bytes.
+    data_root = tmp_path / "data"
+    _write_cell(
+        data_root,
+        _evaluation("alpha", event_id="evt-a"),
+        predicted_at=datetime(2026, 6, 20, tzinfo=UTC),
+        resolved_at=date(2026, 6, 23),
+    )
+    out = tmp_path / "leaderboard.json"
+    result = runner.invoke(
+        app,
+        ["leaderboard", "--out", str(out), "--all-versions"],
+        env={"FEDCOURTS_DATA_ROOT": str(data_root)},
+    )
+    assert result.exit_code == 0, result.output
+    assert read_model(out, Leaderboard).voided_events is None
+    assert "voided_events" not in json.loads(out.read_text(encoding="utf-8"))
+
+
+@pytest.mark.reads_docs
+def test_every_voided_event_is_declared_by_a_dated_freeze_record_entry() -> None:
+    # A void de-counts gradings, so each registry row must point at a landed,
+    # dated entry stating the defect — the same discipline a revocation keeps.
+    record = " ".join(Path("docs/freeze-record.md").read_text(encoding="utf-8").split())
+    for (case_id, event_id), (_defect, declared) in VOIDED_EVENTS.items():
+        assert f"`{case_id}` `{event_id}`" in record, (case_id, event_id)
+        assert f", {declared.isoformat()}.**" in record, declared
 
 
 def test_a_leaked_cell_the_clock_places_forward_is_excluded_by_the_bit(tmp_path: Path) -> None:

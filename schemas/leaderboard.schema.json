@@ -1431,6 +1431,39 @@
       "title": "SignatureReading",
       "type": "object"
     },
+    "VoidedEventsRecord": {
+      "additionalProperties": false,
+      "description": "The voided events a board's build dropped, and how many gradings they held.\n\nAn event whose committed outcome describes another petition \u2014 a docket number\nthe Court reassigned after the event opened \u2014 is voided by a dated\nfreeze-record entry (``integrity.VOIDED_EVENTS``). Its gradings leave every\nstratum, rank key and composition count, so this block states how many the\nbuild dropped and which events, and the de-count is never silent. It changes\nwhich cells are counted, never what any cell scored.",
+      "properties": {
+        "by_predictor": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Dropped gradings keyed by predictor id (only predictors with a nonzero count appear)",
+          "title": "By Predictor",
+          "type": "object"
+        },
+        "events": {
+          "description": "The voided events among those gradings, as '<case_id> <event_id>', sorted",
+          "items": {
+            "type": "string"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "excluded": {
+          "description": "How many in-scope gradings of voided events this build dropped, counted after the run collapse and before any stratum, so it is 'dropped within this scope' and never subtracted from a total beside it",
+          "minimum": 0,
+          "title": "Excluded",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "excluded"
+      ],
+      "title": "VoidedEventsRecord",
+      "type": "object"
+    },
     "WindowCount": {
       "additionalProperties": false,
       "description": "One (predictor, counting window) series inside a figure that pools across predictors.\n\nA frozen-scope figure keyed on something other than the forecaster \u2014 a\njudge-validation coefficient, a grader-agreement read, a calibration over\nevery engine's cells \u2014 pools whatever series its cells come from. It is\nthe **record across those series**: it lists each series and its ``n``\nbeside the pooled value, a single series included, and is never a rank key\n(``docs/process-version.md``, *Pooled by default*). It names its predictor\nbecause such a figure pools several; :class:`WindowShare` is the\none-predictor form a predictor's own pooled figure lists.",
@@ -1643,6 +1676,18 @@
       "minimum": 0,
       "title": "Superseded Gradings",
       "type": "integer"
+    },
+    "voided_events": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VoidedEventsRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The voided events this build dropped (`integrity.VOIDED_EVENTS`) and how many gradings they held; omitted where no in-scope grading sits on a voided event"
     }
   },
   "required": [

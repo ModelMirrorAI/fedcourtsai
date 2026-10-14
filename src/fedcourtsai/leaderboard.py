@@ -109,6 +109,7 @@ from .integrity import (
     StratifiedCell,
     cell_clock,
     latest_evaluations,
+    voided_reason,
 )
 from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statpack_digest
 from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
@@ -170,6 +171,7 @@ from .schemas import (
     Stage,
     StatPack,
     Stratum,
+    VoidedEventsRecord,
     self_provisioned_fetches,
     target_blind_fetches,
 )
@@ -994,11 +996,16 @@ def _scoped_evaluations(
     reach. ``metrics/README.md`` registers the carve-out, and a count here that
     differs from a board count is two populations rather than an error in
     either.
+
+    A **voided** event (``integrity.VOIDED_EVENTS``) is the exception, and it is
+    dropped here as well: its outcome describes another petition, so a judge's
+    stakes read of it was taken across two cases filed under one id, and pooling
+    it into the case's panel would mix their reads rather than shrink the panel.
     """
     scoped: list[Evaluation] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
         evaluation = read_model(path, Evaluation)
-        if in_scope(evaluation):
+        if voided_reason(evaluation) is None and in_scope(evaluation):
             scoped.append(evaluation)
     return latest_evaluations(scoped)
 
@@ -2002,6 +2009,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
     skills: Mapping[EvaluationKey, CellSkill] | None = None,
     forward_claim: ForwardClaimRecord | None = None,
     leakage_exclusion: LeakageExclusionRecord | None = None,
+    voided_events: VoidedEventsRecord | None = None,
     superseded_gradings: int = 0,
     facts: Mapping[EvaluationKey, CellFacts] | None = None,
     vote_scores: Mapping[EvaluationKey, float] | None = None,
@@ -2173,6 +2181,9 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
         # The same pass's leakage exclusion. An independent rule, so it rides
         # as its own block rather than folding into the count above.
         leakage_exclusion=leakage_exclusion,
+        # The same pass's voided events: gradings of an event whose outcome
+        # describes another petition, dropped before any stratum.
+        voided_events=voided_events,
         # The same pass's run-collapse count. The cells below are survivors, so
         # this is the only surface on which a re-grade is visible at all.
         superseded_gradings=superseded_gradings,

@@ -29,7 +29,9 @@ entry in the freeze record — preceded the outcomes of the claim window it
 governs (the declaration itself states any slice whose own outcomes had
 already resolved). A window's cells are otherwise de-counted only by a
 **revocation** for a defect, on its own dated entry
-([docs/process-version.md](../docs/process-version.md)). Alpha cells stay
+([docs/process-version.md](../docs/process-version.md)); a single event whose
+outcome describes another petition is **voided** on its own dated entry (*The
+voided-event exclusion*, below). Alpha cells stay
 committed with their timestamps, but they are **excluded from every
 frozen-scope performance artifact and from any claimed performance result** —
 they exercised the pipeline while the process was still moving, and nothing
@@ -75,7 +77,9 @@ No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
 - pooling windows licenses **no other pooling**: stratum, stage and moment,
   salience band and version, scoring baseline, claim-set version and every
   other registered boundary still cut the pooled figure;
-- **revocation** stays the only de-count;
+- **revocation** stays the only de-count of a window's cells, and a
+  **void** the only de-count of a single event's (*The voided-event
+  exclusion*, below), each on its own dated entry stating the defect;
 - `release-sensitivity` and `semantic-summary` pool with the breakdown rather
   than refuse.
 
@@ -1457,6 +1461,24 @@ contaminated cell *is* the published number), and the tool-usefulness figures
 are a declared superset
 (below). A figure there that differs from a board figure is two populations
 rather than an error in either.
+
+**The voided-event exclusion.** An event whose committed outcome describes
+another petition — the Court re-docketed its number after the event opened, so
+the outcome it resolved on is a different case's — is **voided**: registered in
+`fedcourtsai.integrity.VOIDED_EVENTS` beside the dated freeze-record entry that
+states its defect, and its gradings leave **every rank key, scored aggregate,
+stratum, window composition and export count**. `store.stratify` drops them
+after the run collapse (so a re-grade of one still counts in
+`superseded_gradings`) and before anything else counts them, so they are in
+neither the `forward_claim` nor the `leakage_exclusion` denominator; unlike those
+two rules, the `big_case` and `evaluator_agreement` views drop them too, because
+a stakes read of a voided event was taken across two petitions filed under one
+id. It changes membership, never value: no committed file is edited. Each board
+carries a `voided_events` block — the dropped gradings' count, the events, and
+the per-predictor split — omitted where no in-scope grading sits on a voided
+event, and the export marks each such grading `excluded_reason: voided`.
+A void is not a corrected outcome: `stamp-cell --regrade` re-scores an event
+against its true outcome, and a voided event has none at that docket number.
 
 **A row-blind `codex-baseline` grading is "not assessed", never "clean".** A
 `codex-baseline` `retrieval_log.json` whose rows all carry a null `call_source`

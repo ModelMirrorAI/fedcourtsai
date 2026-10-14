@@ -177,25 +177,33 @@ def _grading_key(evaluation: Evaluation) -> GradingKey:
 
 
 def _exclusion_reason(
-    *, in_scope: bool, counted: bool, forward_claim: bool, leakage: bool
+    *, in_scope: bool, counted: bool, voided: bool, forward_claim: bool, leakage: bool
 ) -> ExportExclusionReason | None:
     """Why a grading is not counted, read off where :func:`stratify` placed it.
 
-    Every in-scope survivor of the run collapse lands in the cells, the
-    forward-claim ledger or the leakage ledger, so an in-scope grading in none
-    of them is one the collapse dropped: a superseded re-grade.
+    Every in-scope survivor of the run collapse lands in the cells, the voided
+    ledger, the forward-claim ledger or the leakage ledger, so an in-scope
+    grading in none of them is one the collapse dropped: a superseded re-grade.
+    A voided grading leaves before the other two rules run, so it is never in
+    their ledgers.
     """
     if not in_scope:
         return "out_of_scope"
     if counted:
         return None
-    if forward_claim and leakage:
-        return "forward_claim_and_leakage"
-    if forward_claim:
-        return "forward_claim"
-    if leakage:
-        return "leakage"
-    return "superseded"
+    if voided:
+        return "voided"
+    return _LEDGER_REASON[(forward_claim, leakage)]
+
+
+#: Which of the two remaining ledgers held an uncounted in-scope grading; in
+#: neither, the run collapse dropped it.
+_LEDGER_REASON: dict[tuple[bool, bool], ExportExclusionReason] = {
+    (True, True): "forward_claim_and_leakage",
+    (True, False): "forward_claim",
+    (False, True): "leakage",
+    (False, False): "superseded",
+}
 
 
 def build_tables(
@@ -226,8 +234,10 @@ def build_tables(
         policy=FORWARD_CLAIM_POLICY,
     )
     strata: dict[GradingKey, Stratum] = {_grading_key(ev): s for ev, s, _st, _m in run.cells}
-    forward_claim = {_grading_key(cell.evaluation) for cell in run.excluded}
-    leaked = {_grading_key(cell.evaluation) for cell in run.leaked}
+    forward_claim, leaked, voided = (
+        {_grading_key(cell.evaluation) for cell in ledger}
+        for ledger in (run.excluded, run.leaked, run.voided)
+    )
 
     committed = iter_predictions(data_root)
     counted = dict(
@@ -282,6 +292,7 @@ def build_tables(
                     in_scope=all_versions
                     or graded_in_window(evaluation.process_version, graded[1].process_version),
                     counted=gkey in strata,
+                    voided=gkey in voided,
                     forward_claim=gkey in forward_claim,
                     leakage=gkey in leaked,
                 ),

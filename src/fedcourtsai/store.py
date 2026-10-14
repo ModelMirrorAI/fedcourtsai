@@ -31,6 +31,7 @@ from .integrity import (
     forward_claim_breach,
     latest_evaluation_runs,
     leakage_excluded,
+    voided_reason,
 )
 from .paths import CasePaths
 from .pipeline import moments
@@ -1080,6 +1081,13 @@ class StratifiedRun(NamedTuple):
     ``excluded`` **and** ``leaked``: they answer different questions over one
     population, so the counts are published side by side and never summed.
 
+    ``voided`` is the third ledger: in-scope gradings of an event
+    :data:`fedcourtsai.integrity.VOIDED_EVENTS` voids, whose outcome describes
+    another petition. They leave the pass before anything is counted — no
+    stratum, no window composition, no forward-claim or leakage denominator —
+    because they are an observation of nothing, and the boards publish their
+    count so the de-count is never silent.
+
     ``cell_windows`` maps each in-scope cell (:func:`evaluation_key`) to the
     counting window its scored prediction sits in — what a pooled figure's
     composition counts and the by-protocol cut keys on. Empty on an
@@ -1093,6 +1101,27 @@ class StratifiedRun(NamedTuple):
     superseded: int = 0
     leakage_assessed: int = 0
     cell_windows: Mapping[EvaluationKey, CountingWindow] = MappingProxyType({})
+    voided: Sequence[ExcludedCell] = ()
+
+
+def _drop_voided(
+    survivors: Sequence[_ScopedCell],
+) -> tuple[list[_ScopedCell], list[ExcludedCell]]:
+    """Split the collapse's survivors into kept cells and voided-event gradings.
+
+    A voided event's outcome describes another petition, so its gradings are an
+    observation of nothing: they leave before any stratum, window or
+    denominator counts them, into the ledger the boards publish.
+    """
+    kept: list[_ScopedCell] = []
+    voided: list[ExcludedCell] = []
+    for cell in survivors:
+        reason = voided_reason(cell.evaluation)
+        if reason is None:
+            kept.append(cell)
+        else:
+            voided.append(ExcludedCell(cell.evaluation, reason))
+    return kept, voided
 
 
 def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, both exclusions
@@ -1231,6 +1260,14 @@ def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, bot
     # board does not admit. Every counter below therefore sees one grading per
     # (case, event, predictor, evaluator).
     survivors = latest_evaluation_runs(scoped, lambda cell: cell.evaluation)
+    # A voided event's gradings leave here, after the collapse (so a re-grade of
+    # one still counts as superseded) and before anything else counts them.
+    kept, voided = _drop_voided(survivors)
+    # The one place a re-grade is still countable: every survivor below is
+    # indistinguishable from a cell that was graded once, so the boards take
+    # their audit line from this difference rather than re-scanning the ledger.
+    superseded = len(scoped) - len(survivors)
+    survivors = kept
     cell_windows: dict[EvaluationKey, CountingWindow] = {}
     if frozen_only:
         for cell in survivors:
@@ -1256,10 +1293,6 @@ def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, bot
         ((pid, window) for pid, spans in windows.items() for window in spans),
         surface="frozen-scope cells",
     )
-    # The one place a re-grade is still countable: every survivor below is
-    # indistinguishable from a cell that was graded once, so the boards take
-    # their audit line from this difference rather than re-scanning the ledger.
-    superseded = len(scoped) - len(survivors)
     for evaluation, event_dir, scored in survivors:
         outcome = read_model(event_dir / "outcome.json", Outcome)
         if scored.context is not None and scored.context.mode == "forward":
@@ -1290,6 +1323,7 @@ def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, bot
         superseded,
         leakage_assessed,
         cell_windows,
+        voided,
     )
 
 

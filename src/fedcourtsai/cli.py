@@ -419,6 +419,7 @@ from .schemas import (
     Stratum,
     SummaryPlan,
     UsageRole,
+    VoidedEventsRecord,
     observed_mcp_conditions,
     self_provisioned_fetches,
 )
@@ -5454,6 +5455,7 @@ def leaderboard(
         skills=skill_components(cells, settings.data_root, statpack),
         forward_claim=_forward_claim_from(run),
         leakage_exclusion=_leakage_exclusion_from(run),
+        voided_events=_voided_events_from(run),
         superseded_gradings=run.superseded,
         # Each cert cell's frozen band and realized outcome: the forward
         # stratum's per-band cut and the realized always-deny floor beside
@@ -5572,6 +5574,7 @@ def claim_scores_command(
         process_scope=scope,
         forward_claim=_forward_claim_from(run),
         leakage_exclusion=_leakage_exclusion_from(run),
+        voided_events=_voided_events_from(run),
         cell_windows=run.cell_windows,
     )
     destination = out if out is not None else settings.metrics_root / "claim-scores.json"
@@ -15866,6 +15869,22 @@ def _forward_claim_from(run: StratifiedRun) -> ForwardClaimRecord:
     )
 
 
+def _voided_events_from(run: StratifiedRun) -> VoidedEventsRecord | None:
+    """The same pass's voided-event record, or ``None`` where it dropped nothing."""
+    if not run.voided:
+        return None
+    by_predictor: dict[str, int] = {}
+    for cell in run.voided:
+        pid = cell.evaluation.predictor_id
+        by_predictor[pid] = by_predictor.get(pid, 0) + 1
+    events = sorted(
+        {f"{cell.evaluation.case_id} {cell.evaluation.event_id}" for cell in run.voided}
+    )
+    return VoidedEventsRecord(
+        excluded=len(run.voided), events=events, by_predictor=dict(sorted(by_predictor.items()))
+    )
+
+
 def _leakage_exclusion_from(run: StratifiedRun) -> LeakageExclusionRecord:
     """The same pass's leakage-exclusion record — count, denominator, and split."""
     return leakage_record(
@@ -15927,7 +15946,11 @@ def _report_exclusions(run: StratifiedRun) -> None:
     rules caught is named twice — once per reason, which is what the two counts
     on the boards say too.
     """
-    for label, dropped in (("forward-claim", run.excluded), ("leakage", run.leaked)):
+    for label, dropped in (
+        ("voided-event", run.voided),
+        ("forward-claim", run.excluded),
+        ("leakage", run.leaked),
+    ):
         for cell in dropped:
             ev = cell.evaluation
             typer.echo(

@@ -4577,6 +4577,34 @@ class LeakageExclusionRecord(_Strict):
     )
 
 
+class VoidedEventsRecord(_Strict):
+    """The voided events a board's build dropped, and how many gradings they held.
+
+    An event whose committed outcome describes another petition — a docket number
+    the Court reassigned after the event opened — is voided by a dated
+    freeze-record entry (``integrity.VOIDED_EVENTS``). Its gradings leave every
+    stratum, rank key and composition count, so this block states how many the
+    build dropped and which events, and the de-count is never silent. It changes
+    which cells are counted, never what any cell scored.
+    """
+
+    excluded: int = Field(
+        ge=0,
+        description="How many in-scope gradings of voided events this build "
+        "dropped, counted after the run collapse and before any stratum, so it is "
+        "'dropped within this scope' and never subtracted from a total beside it",
+    )
+    events: list[str] = Field(
+        default_factory=list,
+        description="The voided events among those gradings, as '<case_id> <event_id>', sorted",
+    )
+    by_predictor: dict[str, int] = Field(
+        default_factory=dict,
+        description="Dropped gradings keyed by predictor id (only predictors "
+        "with a nonzero count appear)",
+    )
+
+
 class Leaderboard(_Strict):
     """``metrics/leaderboard.json`` — predictors ranked from the evaluations ledger.
 
@@ -4632,6 +4660,12 @@ class Leaderboard(_Strict):
         "counted in both and the two counts must never be summed into an "
         "exclusion total; null on a board built before the record existed, or "
         "one constructed without it",
+    )
+    voided_events: VoidedEventsRecord | None = Field(
+        default=None,
+        description="The voided events this build dropped (`integrity.VOIDED_EVENTS`) "
+        "and how many gradings they held; omitted where no in-scope grading sits "
+        "on a voided event",
     )
     salience_versions: list[str] = Field(
         default_factory=list,
@@ -4769,6 +4803,8 @@ class Leaderboard(_Strict):
                 payload.pop("by_protocol", None)
             if self.paired is None:
                 payload.pop("paired", None)
+            if self.voided_events is None:
+                payload.pop("voided_events", None)
             if not self.salience_versions:
                 payload.pop("salience_versions", None)
         return payload
@@ -5038,6 +5074,12 @@ class ClaimScoreBoard(_Strict):
         "the leaderboard records it; null on a surface built before the record "
         "existed, or one constructed without it",
     )
+    voided_events: VoidedEventsRecord | None = Field(
+        default=None,
+        description="The voided events this build dropped, exactly as the "
+        "leaderboard records them; omitted where no in-scope grading sits on a "
+        "voided event",
+    )
     evaluations_total: int = Field(
         ge=0,
         description="Cert-stage evaluation cells in scope (after the "
@@ -5087,8 +5129,11 @@ class ClaimScoreBoard(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_empty_cut(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``by_protocol`` while it lists nothing (an all-versions build)."""
-        return _omit_empty(handler(self), by_protocol=self.by_protocol)
+        """Drop ``by_protocol`` while it lists nothing (an all-versions build), and
+        ``voided_events`` while no in-scope grading sits on a voided event."""
+        return _omit_empty(
+            handler(self), by_protocol=self.by_protocol, voided_events=self.voided_events
+        )
 
 
 class SemanticClaimSummary(_Strict):
@@ -10907,7 +10952,7 @@ class SummaryPlan(_Strict):
 
 #: Why an exported grading does not count toward any scored figure.
 ExportExclusionReason = Literal[
-    "forward_claim", "leakage", "forward_claim_and_leakage", "superseded", "out_of_scope"
+    "voided", "forward_claim", "leakage", "forward_claim_and_leakage", "superseded", "out_of_scope"
 ]
 
 
@@ -11117,7 +11162,9 @@ class ExportGradingRow(_Strict):
     )
     counted: bool = Field(description="Whether the scored figures count this grading")
     excluded_reason: ExportExclusionReason | None = Field(
-        description="Why an uncounted grading is not counted: `forward_claim` (the "
+        description="Why an uncounted grading is not counted: `voided` (its event "
+        "is voided by a dated freeze-record entry, because the event's outcome "
+        "describes another petition), `forward_claim` (the "
         "prediction's forward claim is contradicted by its own record), `leakage` "
         "(`leakage_suspected` is true), `forward_claim_and_leakage` (both), `superseded` "
         "(a newer grading by the same judge of the same predictor on this event replaced "

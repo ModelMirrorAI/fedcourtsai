@@ -102,6 +102,7 @@
       "anyOf": [
         {
           "enum": [
+            "voided",
             "forward_claim",
             "leakage",
             "forward_claim_and_leakage",
@@ -114,7 +115,7 @@
           "type": "null"
         }
       ],
-      "description": "Why an uncounted grading is not counted: `forward_claim` (the prediction's forward claim is contradicted by its own record), `leakage` (`leakage_suspected` is true), `forward_claim_and_leakage` (both), `superseded` (a newer grading by the same judge of the same predictor on this event replaced it, possibly one of a different prediction run) or `out_of_scope` (the grading's harness stamp is absent or predates the freeze instant); null when counted",
+      "description": "Why an uncounted grading is not counted: `voided` (its event is voided by a dated freeze-record entry, because the event's outcome describes another petition), `forward_claim` (the prediction's forward claim is contradicted by its own record), `leakage` (`leakage_suspected` is true), `forward_claim_and_leakage` (both), `superseded` (a newer grading by the same judge of the same predictor on this event replaced it, possibly one of a different prediction run) or `out_of_scope` (the grading's harness stamp is absent or predates the freeze instant); null when counted",
       "title": "Excluded Reason"
     },
     "leakage_suspected": {
