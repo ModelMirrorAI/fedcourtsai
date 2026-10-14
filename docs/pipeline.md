@@ -1723,10 +1723,15 @@ The full path of a change, operator's view:
    and any narrative, outside the generated block (or on the feature PR,
    before marking ready, for the next refresh to pick up). Edit the body once
    after the integration run is green to re-fire `promotion-gate`. Re-run the
-   check right before merging, and merge with a **merge commit**; tag the
-   merge commit `promotion/<YYYY-MM-DD>` (annotated preferred, lightweight
-   acceptable; `-2` for a same-day second batch — the *Tags* subsection
-   below). Live on the next workflow run.
+   check right before merging, and merge with a **merge commit**. The
+   `promotion-record` workflow then tags the merge commit
+   `promotion/<YYYY-MM-DD>` (`-2` for a same-day second batch — the *Tags*
+   subsection below), fills the closed-key placeholders the merge added, and
+   comments on the PR with whatever it left for a maintainer — free-text
+   placeholders, and stale ones an earlier merge carried. A merge it refuses
+   (a hand-written fill that rewrapped a landed placeholder, say) opens a
+   `promotion-record-log` issue, and the tag and fills are then the
+   maintainer's by hand. Live on the next workflow run.
 6. Run that stated effect check and record what it printed. A promotion
    changes code, not state, so until something executes the check a batch that
    changed nothing is indistinguishable from one that worked. Mind the timing:
@@ -1773,15 +1778,21 @@ procedure writes the pre-registration record into the tag message
   digests and the instant together. The namespace blocks moving either.
 - **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit,
   named by the merge's **UTC** date; a `-2` suffix distinguishes a second
-  batch merged on the same UTC date.
+  batch merged on the same UTC date. The `promotion-record` workflow creates
+  it as an annotated tag under the data App right after the merge
+  (docs/process-version.md, *Pending registrations*), with the message its
+  plan computes, and refuses to replace a tag another object already holds.
 - **`results/<term>-<milestone>`** — a `main` commit whose tree carries a
   published metrics refresh and the write-ups quoting it, e.g.
   `results/ot2026-longconf`.
 
 One-time setup (maintainer): before the first tag is minted, add a tag
 ruleset blocking update and deletion on all three namespaces — a movable
-pre-registration marker defeats its purpose. Creating a tag is likewise a
-maintainer step, like the promotion merge it usually accompanies.
+pre-registration marker defeats its purpose. `promotion/` tags, and the
+`prereg/` tag of a label the merge stamps, are created by the
+`promotion-record` workflow; a `results/` tag, a `prereg/` tag for a label
+frozen by hand, and any tag the workflow refused to write are the
+maintainer's.
 
 ### Adding a required status check
 

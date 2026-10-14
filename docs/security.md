@@ -26,7 +26,8 @@ agent is merely instructed to follow (that the PR is *reviewed* is a
 convention `AGENTS.md` carries, not something identity enforces):
 
 - **data App** — used by the deterministic writers `run-pull`, `run-seed`
-  and `run-repair`.
+  and `run-repair`, and by `promotion-record`, which tags each promotion merge
+  and pushes its record commit.
   Its client id is the `DATA_APP_CLIENT_ID` variable and its private key the
   `DATA_APP_PRIVATE_KEY` secret. This App **is** a bypass actor on `main: require
   PR`, so the writers push corpus facts straight to `main`.
@@ -76,6 +77,7 @@ two client ids as variables, the two keys as secrets). Each workflow mints a tok
 |----------|-----|-------------|-------|
 | `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
 | `run-seed` | data | contents (walker steps; the order-vote sweep's writer); none at all on the order-vote sweep's projection and parse jobs; ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
+| `promotion-record` (write job only) | data | contents | on a staging→main promotion merge only (a no-secret, read-only `classify` job decides that first): push the annotated `promotion/` and `prereg/` tags and the one-parent record commit that fills the placeholders the merge added and stamps its pending registrations. Minted after the plan, the tags, the apply, the commit and the jail have run holding no write credential, and read by the push step alone, which refuses a token that is not the data App's; a re-plan after `main` advances runs with the token removed from its environment. A tag push never replaces one, and the commit is pushed with a lease on the base it was jailed against. The failure issue and the PR comment ride the ambient token in a separate job |
 | `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record and opinion-record jobs); none at all on the selector-validation, `handoff-projection` and `handoff-parse` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Four of the passes that fetch and parse the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`) run as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill and opinion-record writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for either role `prod` is trusted by — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only and minted on Claude cells alone; the workflow commits. The engine watchdog that brackets every engine step holds no token: it reports only on the runner, through the cell's own tail |
 | `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
@@ -150,7 +152,12 @@ person's GitHub login.
   No workflow creates a Release, but any credential with `contents: write` —
   the Apps' tokens and `github.token` in a job granted it — could create a tag
   and a published Release through the API. The record-namespace tag ruleset
-  blocks update and deletion, not creation, and GitHub's loop prevention
+  blocks update and deletion, not creation, so a `promotion/` or `prereg/`
+  tag can also be planted ahead of the `promotion-record` writer. The writer
+  adopts only its own canonical name as an annotated tag carrying its plan's
+  message, so a planted tag never enters the record, but one planted on the
+  canonical name blocks the writer until a maintainer resolves it; restricting
+  creation in those namespaces to the data App closes that. GitHub's loop prevention
   suppresses workflow triggers only, so the webhook fires and Zenodo archives
   such a Release all the same. Keeping Release creation out of every workflow
   is therefore the rule this integration rests on.
@@ -187,7 +194,9 @@ pre-registration record's commit ids.
   rows and
   point-in-time snapshots — to the S3 corpus remote; its pointer, deterministic
   `outcome.json` and `event.yaml` records, and the writer lanes' bounded repair
-  sweeps to `main`) while all agent code changes — including
+  sweeps to `main`), and `promotion-record` pushes a promotion merge's record
+  commit — only the two record files, byte-equal to the plan its jail
+  recomputes — while all agent code changes — including
   anything the dev App holds —
   go through a PR gated on the required checks. The dev App is deliberately
   **absent** from this bypass list. Required approvals are `0` — the maintainer

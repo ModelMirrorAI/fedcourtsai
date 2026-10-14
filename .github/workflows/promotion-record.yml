@@ -1,0 +1,266 @@
+name: promotion-record
+
+# Records each staging→main promotion on `main` itself: the annotated
+# `promotion/<UTC date>` tag on the merge (and `prereg/<label>` where the merge
+# added a label), the `<FILL:>` placeholders the merge added that a closed key
+# set fills, and the pending process registrations the merge added, stamped
+# with its SHA and committer time. What is written is decided by the tested
+# `fedcourts promotion-record` plan and checked by its jail
+# (`assert-promotion-record-diff`); this workflow orders them, under the writer
+# requirements docs/process-version.md lists.
+#
+# Its own workflow, not a job on `promote`: promote is read-only and
+# dispatch-only, while this pushes to `main` on the data App — the one identity
+# that bypasses `main: require PR` — after a merge. A different trigger class
+# and a different risk class.
+#
+# Three jobs, three trust levels:
+#   classify — no secret, read-only token: is the pushed commit a promotion
+#              merge? Every other push to main (data commits, this workflow's
+#              own commit) stops here, green.
+#   write    — the `prod` environment. Plans, tags, applies, commits and jails
+#              holding no write credential; mints the data App token only after
+#              the jail passes, and uses it only to push.
+#   report   — the ambient token only: surfaces what the plan left for a
+#              maintainer (free-text placeholders, stale rows and placeholders)
+#              on the promotion PR, and latches a failure issue.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      merge:
+        description: "Recovery: the promotion merge commit (40-hex SHA) to record again. It must pass the same promotion-merge checks."
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  classify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # read the commit's parents
+      pull-requests: read # find the merged promotion PR the commit closed
+    outputs:
+      promotion: ${{ steps.classify.outputs.promotion }}
+      merge: ${{ steps.classify.outputs.merge }}
+      pr: ${{ steps.classify.outputs.pr }}
+    steps:
+      - name: Classify the pushed commit
+        id: classify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PUSHED: ${{ github.sha }}
+          BEFORE: ${{ github.event.before }}
+          DISPATCHED: ${{ inputs.merge }}
+        run: |
+          set -euo pipefail
+          not_a_promotion() {
+            echo "not a promotion merge: $1"
+            echo "promotion=false" >>"$GITHUB_OUTPUT"
+            exit 0
+          }
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            sha="$DISPATCHED"
+          else
+            sha="$PUSHED"
+          fi
+          # A dispatch input is untrusted text until it is a full SHA.
+          if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::not a 40-hex commit SHA"
+            exit 1
+          fi
+          parents=$(gh api "repos/${REPO}/commits/${sha}" --jq '[.parents[].sha] | join(" ")')
+          read -r -a parent_list <<<"$parents"
+          if [ "${#parent_list[@]}" -ne 2 ]; then
+            not_a_promotion "${sha} has ${#parent_list[@]} parent(s)"
+          fi
+          # A push is a promotion only when it moved main by exactly that merge.
+          if [ "$EVENT" = "push" ] && [ "${parent_list[0]}" != "$BEFORE" ]; then
+            not_a_promotion "${sha}'s first parent is not the tip it replaced"
+          fi
+          pr=$(gh api "repos/${REPO}/commits/${sha}/pulls" --jq "[.[] | select(
+              .merged_at != null and .base.ref == \"main\" and .head.ref == \"staging\"
+              and .head.repo.full_name == \"${REPO}\" and .merge_commit_sha == \"${sha}\"
+            ) | .number] | if length == 1 then .[0] else empty end")
+          if [ -z "$pr" ]; then
+            not_a_promotion "${sha} is not the merge commit of a merged staging→main PR"
+          fi
+          echo "${sha} is the merge of promotion PR #${pr}"
+          {
+            echo "promotion=true"
+            echo "merge=${sha}"
+            echo "pr=${pr}"
+          } >>"$GITHUB_OUTPUT"
+
+  write:
+    needs: classify
+    if: needs.classify.outputs.promotion == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # The data App's credentials live on `prod`, whose deployment-branch policy
+    # is `main`-only, so a dispatch from any other ref is refused here.
+    environment: prod
+    # Two writers never race: the second waits for the first's push, then
+    # plans against the tip that push left.
+    concurrency:
+      group: promotion-record
+      cancel-in-progress: false
+    permissions:
+      contents: read # the trusted checkout of main; the push rides the App token
+    outputs:
+      outcome: ${{ steps.push.outcome }}
+    steps:
+      # Main's own code is what runs, never the PR's: the merge is already on
+      # main, and the checkout is main's tip, detached again after each fetch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      # The committer and tagger identity is the data App's bot user, resolved
+      # before any write token exists: the lookup is public and rides the
+      # read-only ambient token. The push step re-checks that the minted
+      # token is that App's.
+      - name: Set the data App's git identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOGIN: fedcourtsai-data[bot]
+        run: |
+          set -euo pipefail
+          user_id=$(gh api "/users/${LOGIN}" --jq .id)
+          git config --global user.name "$LOGIN"
+          git config --global user.email "${user_id}+${LOGIN}@users.noreply.github.com"
+
+      # Fetch, plan, tag, apply, commit and jail — holding no write credential.
+      - name: Plan, tag, apply, commit and jail
+        id: prepare
+        env:
+          MERGE: ${{ needs.classify.outputs.merge }}
+        run: bash .github/actions/promotion-record/write.sh prepare "$MERGE"
+
+      - name: Upload the plan
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: promotion-record-plan-${{ github.run_id }}
+          path: ${{ steps.prepare.outputs.plan }}
+          retention-days: 7
+          if-no-files-found: error
+
+      # Minted only now, after the jail passed, and held by the push step alone.
+      - name: Mint the data App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Push the tags, then the record commit
+        id: push
+        env:
+          WRITE_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          MERGE: ${{ needs.classify.outputs.merge }}
+          BASE: ${{ steps.prepare.outputs.base }}
+          HEAD_SHA: ${{ steps.prepare.outputs.head }}
+        run: |
+          set -euo pipefail
+          if [ "$APP_SLUG" != "fedcourtsai-data" ]; then
+            echo "::error::the minted token is ${APP_SLUG}'s, not the data App's"
+            exit 1
+          fi
+          bash .github/actions/promotion-record/write.sh push "$MERGE"
+
+      # A stamp that never landed is a hole in the scored population: name any
+      # pending row main still holds once the record is pushed. The promotion
+      # gate's `registry` stage runs the same check before every promotion.
+      - name: Check main holds no pending registration
+        run: |
+          set -euo pipefail
+          git fetch --quiet --force "https://github.com/${GITHUB_REPOSITORY}.git" \
+            "+refs/heads/main:refs/remotes/origin/main"
+          uv run --locked fedcourts promotion-record --check-main origin/main
+
+  report:
+    needs: [classify, write]
+    if: always() && needs.classify.outputs.promotion == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read # download this run's plan artifact
+      issues: write # the failure issue (ambient, triggers nothing)
+      pull-requests: write # the comment on the promotion PR
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/gh_retry.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Download the plan
+        if: needs.write.result != 'skipped'
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: promotion-record-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/plan
+
+      - name: Surface what the plan left for a maintainer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.classify.outputs.pr }}
+          MERGE: ${{ needs.classify.outputs.merge }}
+          WRITE_RESULT: ${{ needs.write.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PLAN: ${{ runner.temp }}/plan/plan.json
+        run: |
+          set -euo pipefail
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
+          summary=$(mktemp)
+          {
+            echo "### promotion-record — ${MERGE:0:9} (#${PR}): ${WRITE_RESULT}"
+            echo
+            echo "Run: ${RUN_URL}"
+          } >"$summary"
+          if [ -f "$PLAN" ]; then
+            jq -r '
+              "- tag: `\(.promotion_tag.name)`" + (if .prereg_tag then ", `\(.prereg_tag.name)`" else "" end),
+              "- filled: \(.fills | length) placeholder(s); stamped: \(.stamps | length) registration(s)",
+              (if (.free_text | length) > 0 then
+                "- **left for a maintainer** (free-text, never filled by the writer):",
+                (.free_text[] | "  - line \(.line): `\(.key)`")
+              else empty end),
+              (if (.stale_placeholders | length) > 0 then
+                "- **stale placeholders** an earlier merge carried (not filled):",
+                (.stale_placeholders[] | "  - line \(.line): `\(.key)`")
+              else empty end),
+              (if (.stale_pending | length) > 0 then
+                "- **stale pending registrations** an earlier merge carried (not stamped):",
+                (.stale_pending[] | "  - \(.kind) `\(.ident)`")
+              else empty end)
+            ' "$PLAN" >>"$summary"
+          else
+            echo "- no plan was produced; see the run log" >>"$summary"
+          fi
+          cat "$summary" >>"$GITHUB_STEP_SUMMARY"
+          gh_retry gh pr comment "$PR" --repo "$REPO" --body-file "$summary"
+          if [ "$WRITE_RESULT" != "success" ]; then
+            # `promotion-record-log` triggers nothing (no workflow keys on a
+            # label); one open issue per broken promotion merge.
+            gh_retry gh label create promotion-record-log --repo "$REPO" --force \
+              --color b60205 --description "A promotion merge was not recorded (open until a human triages)"
+            gh_retry gh issue create --repo "$REPO" --label promotion-record-log \
+              --title "promotion-record: ${MERGE:0:9} (#${PR}) not recorded" --body-file "$summary"
+          fi
