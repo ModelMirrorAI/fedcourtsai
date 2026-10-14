@@ -59,7 +59,9 @@ from . import (
     integration_check,
     mcp,
     metrics_refresh,
+    process_registration,
     process_version,
+    promotion_record,
     provision,
     repo_gate,
     retrieval,
@@ -8816,6 +8818,225 @@ def process_digest_cmd(
             Path.cwd(), settings.config_root, actor_role, actor_id
         )
         typer.echo(f"{process_version.CURRENT_PROCESS_LABEL}  {actor_role}  {actor_id}  {digest}")
+
+
+#: The source file whose ``CURRENT_PROCESS_LABEL`` names the label cells stamp.
+_PROCESS_VERSION_SOURCE = "src/fedcourtsai/process_version.py"
+
+
+@app.command("register-process")
+def register_process_cmd(
+    label: Annotated[str, typer.Option(help="The label to register (`proc-vN`), named by hand.")],
+) -> None:
+    """Register a moved process as a pending label, in the PR that moves it.
+
+    Reads every enabled actor's digest off this tree, as ``process-digest
+    --all`` prints it, and writes ``process_registry.json``: the label with a
+    pending counting instant, a pending blessing for each digest that moved
+    (a digest that did not is carried forward with its bless moment), a
+    pending window for each newly blessed predictor digest, a pending close on
+    each window no live predictor computes, and the label in each live
+    evaluator digest's blessing labels. Sets ``CURRENT_PROCESS_LABEL`` to the
+    label. The merge that carries the PR to ``main`` stamps every pending
+    instant with its SHA and committer time (``promotion-record``).
+    """
+    settings = get_settings()
+    repo = Path.cwd()
+    actors = [
+        process_registration.LiveActor(
+            role,
+            actor_id,
+            process_version.digest_for_actor(repo, settings.config_root, role, actor_id),
+        )
+        for role, actor_id in [
+            ("predictor", p.id)
+            for p in enabled_predictors(settings.config_root / "predictors.yaml")
+        ]
+        + [
+            ("evaluator", e.id)
+            for e in enabled_evaluators(settings.config_root / "evaluators.yaml")
+        ]
+    ]
+    registry_path = repo / promotion_record.REGISTRY_PATH
+    source_path = repo / _PROCESS_VERSION_SOURCE
+    try:
+        document = process_registration.register_process(
+            json.loads(registry_path.read_text(encoding="utf-8")), label, actors
+        )
+        text = promotion_record.dump_registry(document)
+        process_version.load_process_registry(text, current_label=label)
+        source = process_registration.set_current_label(
+            source_path.read_text(encoding="utf-8"), label
+        )
+    except ValueError as exc:
+        typer.echo(f"register-process: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    registry_path.write_text(text, encoding="utf-8")
+    source_path.write_text(source, encoding="utf-8")
+    moved = [b for b in document["blessings"] if b["label"] == label]
+    typer.echo(f"registered {label}, pending: {len(moved)} digest(s) moved")
+    for blessing in moved:
+        typer.echo(f"  {blessing['role']}  {blessing['actor_id']}  {blessing['digest']}")
+
+
+@app.command("register-boundary")
+def register_boundary_cmd(
+    name: Annotated[str, typer.Option(help="The boundary's stable name.")],
+    reach: Annotated[
+        str,
+        typer.Option(
+            help="The cells the change can reach: self-represented dockets, granted dockets, "
+            "all, or replay cells."
+        ),
+    ],
+    predictors: Annotated[
+        str,
+        typer.Option(
+            help="Comma-separated predictor ids the boundary splits; empty for every one."
+        ),
+    ] = "",
+    gradual: Annotated[
+        bool,
+        typer.Option("--gradual", help="The change reaches the corpus through a back-fill pass."),
+    ] = False,
+) -> None:
+    """Register a harness boundary as pending, in the PR that makes the change.
+
+    Appends the boundary to ``process_registry.json`` with ``merge`` and ``at``
+    null. Until a merge stamps it, no cell has a side of it, so every cell
+    reads as it did before; the merge that carries the PR to ``main`` stamps
+    it with its SHA and committer time (``promotion-record``).
+    """
+    registry_path = Path.cwd() / promotion_record.REGISTRY_PATH
+    named = [p.strip() for p in predictors.split(",") if p.strip()] or None
+    try:
+        document = process_registration.register_boundary(
+            json.loads(registry_path.read_text(encoding="utf-8")),
+            name,
+            predictors=named,
+            reach=reach,
+            gradual=gradual,
+        )
+        text = promotion_record.dump_registry(document)
+        process_version.load_process_registry(text)
+    except ValueError as exc:
+        typer.echo(f"register-boundary: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    registry_path.write_text(text, encoding="utf-8")
+    typer.echo(f"registered boundary {name}, pending")
+
+
+@app.command("promotion-record")
+def promotion_record_cmd(
+    merge: Annotated[str, typer.Option(help="The staging→main promotion merge commit.")],
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the fills and stamps into the working tree's copies."),
+    ] = False,
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help="Exit 1 where the merge holds a pending registration an earlier merge "
+            "already carried.",
+        ),
+    ] = False,
+) -> None:
+    """Print what a promotion merge owes ``main``: tags, placeholder fills, stamps.
+
+    Pure: reads only the merge, its first parent and the repository's tags.
+    The plan names the ``promotion/<UTC date>`` tag (adopting one that already
+    names the merge), a ``prereg/<label>`` tag where the merge carried a
+    pending label, each ``<FILL:>`` placeholder the merge added with its value
+    where the closed key set has one (tag, merge SHA, merge time, digest
+    census) and the free-text ones a maintainer completes, and each pending
+    registration the merge added, to stamp with its SHA and committer time.
+    ``--apply`` writes the fills and stamps into the working tree; it creates
+    no tag and no commit.
+    """
+    repo = Path.cwd()
+    try:
+        plan = promotion_record.plan_promotion_record(repo, merge)
+        changed = promotion_record.apply_promotion_record(repo, repo, plan) if apply else []
+    except promotion_record.PromotionRecordError as exc:
+        typer.echo(f"promotion-record: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    payload = plan.to_json()
+    payload["applied"] = changed
+    typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
+    if check and plan.stale_pending:
+        typer.echo(
+            "promotion-record: pending registrations an earlier merge carried: "
+            + ", ".join(f"{s.kind} {s.ident}" for s in plan.stale_pending),
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command("digest-census")
+def digest_census_cmd(
+    at: Annotated[str, typer.Option("--at", help="The commit whose tree is counted.")],
+    kind: Annotated[str, typer.Option(help="predictions | evaluations.")],
+    digest: Annotated[
+        str, typer.Option(help="Comma-separated digest hex prefixes (8+ characters).")
+    ],
+) -> None:
+    """Print how many committed artifacts of a kind carry any of the given digests at a commit.
+
+    The census a ``<FILL:census …>`` placeholder is filled with: every
+    ``prediction.json`` (or ``evaluation.json``) under ``data/cases`` on the
+    commit's tree whose stamped ``process_version.digest`` starts with one of
+    the prefixes.
+    """
+    try:
+        count = promotion_record.digest_census(
+            Path.cwd(), at, kind, [d.strip() for d in digest.split(",") if d.strip()]
+        )
+    except promotion_record.PromotionRecordError as exc:
+        typer.echo(f"digest-census: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(str(count))
+
+
+@app.command("assert-promotion-record-diff")
+def assert_promotion_record_diff_cmd(
+    base: Annotated[str, typer.Option(help="The commit the promotion record is written on.")],
+    head: Annotated[
+        str, typer.Option(help="The commit to check; empty for the working tree.")
+    ] = "",
+) -> None:
+    """Refuse a promotion-record change that writes more than fills and stamps.
+
+    The diff from ``base`` may touch only ``process_registry.json``, by
+    stamping pending instants and boundaries, and ``docs/freeze-record.md``, by
+    replacing ``<FILL:>`` placeholders with one-line values. Exit 1 naming
+    every excess.
+    """
+    repo = Path.cwd()
+    paths = (promotion_record.REGISTRY_PATH, promotion_record.FREEZE_RECORD_PATH)
+    try:
+        if head:
+            changed = promotion_record.git(repo, "diff", "--name-only", base, head).split()
+            after = {path: promotion_record.show_at(repo, head, path) for path in paths}
+        else:
+            changed = promotion_record.git(repo, "diff", "--name-only", base).split()
+            changed += promotion_record.git(
+                repo, "ls-files", "--others", "--exclude-standard"
+            ).split()
+            after = {
+                path: (repo / path).read_text(encoding="utf-8") if (repo / path).exists() else None
+                for path in paths
+            }
+    except promotion_record.PromotionRecordError as exc:
+        typer.echo(f"assert-promotion-record-diff: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    before = {path: promotion_record.show_at(repo, base, path) for path in paths}
+    problems = promotion_record.promotion_record_diff_problems(changed, before, after)
+    for problem in problems:
+        typer.echo(f"::error::{problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"promotion record diff ok: {', '.join(changed) or 'no change'}")
 
 
 @app.command("record-retrieval")

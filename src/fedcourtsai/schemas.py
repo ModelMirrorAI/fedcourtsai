@@ -4293,31 +4293,47 @@ class RegistryInstant(_Strict):
 
     Every counting instant, bless moment and window edge is one of these, so a
     reader can tell an instant set by hand from one a carrying merge stamped,
-    and audit either against git.
+    and audit either against git. A **pending** instant — ``at`` and ``merge``
+    both null — is a registration no promotion has carried yet: the PR that
+    registers a label writes it, and the merge that carries that PR to
+    ``main`` stamps it with its own SHA and committer time.
     """
 
     model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
 
-    at: datetime = Field(description="The instant, in UTC (`YYYY-MM-DDTHH:MM:SSZ`)")
+    at: datetime | None = Field(
+        description="The instant, in UTC (`YYYY-MM-DDTHH:MM:SSZ`); null while pending"
+    )
     merge: str | None = Field(
         pattern=_FULL_SHA,
         description="The full SHA of the carrying merge of the label's freeze commit — the "
         "promotion merge that made the blessed bytes immutable on `main` — and so the "
         "commit the instant is audited against: a bless moment equals its committer time, "
         "a counting instant is at or after it. Not the merge that carried a later "
-        "correction of the instant. Null marks a registration no merge has carried yet",
+        "correction of the instant. Null, with `at`, marks a registration no merge has "
+        "carried yet",
     )
     source: Literal["hand", "merge"] = Field(
         description="`merge` where `at` equals `merge`'s committer time, so git re-derives "
         "it; `hand` where a maintainer set `at` at or after that committer time (a "
-        "counting instant forecast at the freeze commit and verified against the merge)"
+        "counting instant forecast at the freeze commit and verified against the merge). "
+        "A pending instant is `merge`: its carrying merge stamps it"
     )
 
     @model_validator(mode="after")
     def _utc(self) -> RegistryInstant:
-        """An instant is timezone-aware UTC, so every comparison reads one clock."""
+        """An instant is UTC, and pending exactly when it names no merge."""
         _registry_utc(self.at, "instant")
+        if (self.at is None) != (self.merge is None):
+            raise ValueError("a registry instant sets `at` and `merge` together, or neither")
+        if self.at is None and self.source != "merge":
+            raise ValueError("a pending registry instant is stamped by its merge (`merge`)")
         return self
+
+    @property
+    def pending(self) -> bool:
+        """Whether no promotion has carried this registration yet."""
+        return self.merge is None
 
 
 class RegistryLabel(_Strict):
@@ -4384,12 +4400,15 @@ class RegistryBoundary(_Strict):
     model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
 
     name: str = Field(description="The boundary's stable name")
-    merge: str = Field(
+    merge: str | None = Field(
         pattern=_FULL_SHA,
         description="The full SHA of the commit that carried the change to `main`; a cell's "
-        "side is read by ancestry against it",
+        "side is read by ancestry against it. Null, with `at`, while no promotion has "
+        "carried the registration",
     )
-    at: datetime = Field(description="That commit's committer time; display only")
+    at: datetime | None = Field(
+        description="That commit's committer time; display only. Null while pending"
+    )
     predictors: list[str] | None = Field(
         description="The predictors the boundary splits; null for every predictor"
     )
@@ -4401,9 +4420,16 @@ class RegistryBoundary(_Strict):
 
     @model_validator(mode="after")
     def _utc(self) -> RegistryBoundary:
-        """A boundary's display time reads the registry's one clock."""
+        """A boundary's display time reads the registry's one clock; pending sets neither."""
         _registry_utc(self.at, "boundary time")
+        if (self.at is None) != (self.merge is None):
+            raise ValueError("a registry boundary sets `merge` and `at` together, or neither")
         return self
+
+    @property
+    def pending(self) -> bool:
+        """Whether no promotion has carried this boundary yet."""
+        return self.merge is None
 
 
 class ProcessRegistry(_Strict):
@@ -4417,7 +4443,8 @@ class ProcessRegistry(_Strict):
     every reader keeps reading those names. Append-only in the same sense as
     the freeze record: a successor closes and adds windows, and appends
     labels, blessing labels and boundaries, but never rewrites a landed
-    instant.
+    instant. A pending instant is the one field written twice: null in the PR
+    that registers it, then stamped once by the merge that carries it.
     """
 
     model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)

@@ -483,6 +483,56 @@ The paired figure and each block's counters have no per-window cut, so they
 are read from a run at the refresh commit the release pins. `semantic-summary` pools and states the census's
 `windows` and its (evaluator, digest) `rubrics`.
 
+### Pending registrations
+
+A registration can be written before any merge has carried it. A **pending**
+instant has `at` and `merge` both null (`source: "merge"`), and a pending
+harness boundary has `merge` and `at` null. Only the label a PR is registering
+may be pending: `CURRENT_PROCESS_LABEL`, as the last label row, with its own
+blessings, the windows it opens, the windows it closes and harness
+boundaries pending beside it. `load_process_registry` refuses a pending row
+anywhere else.
+
+Every reader treats a pending row in the safe direction until a merge stamps
+it:
+
+- a **pending blessing** has no bless moment, so it is not in
+  `FROZEN_PROCESS_DIGESTS`: a cell stamped with its digest is unblessed and
+  counts nowhere. The digest is still **registered**
+  (`REGISTERED_PROCESS_DIGESTS`, every blessing, carried or pending), and the
+  fleet tripwires read the registered set, so the PR that moves a digest
+  registers it in the same commit;
+- a **pending label** leaves `FROZEN_SINCE` at the last carried label's
+  instant, so the freeze stays in force and nothing of the pending label
+  counts yet;
+- a window whose **opening** is pending is not in `COUNTING_WINDOWS`, so its
+  digest's cells count nowhere; a window whose **close** is pending stays
+  open, so its cells keep counting;
+- a **pending harness boundary** is left out of `HARNESS_BOUNDARIES`: with no
+  carrying commit to test ancestry against, no cell has a side of it.
+
+`fedcourts register-process --label <proc-vN>` writes a label's pending rows
+from the live fleet's digests and sets `CURRENT_PROCESS_LABEL`; `fedcourts
+register-boundary` appends a pending boundary. The merge that carries the PR
+to `main` stamps every pending row it added with its own SHA and committer
+time (`source: "merge"`). `fedcourts promotion-record --merge <sha>` says what
+a promotion merge owes `main`, from git alone: its annotated
+`promotion/<UTC date>` tag (`-2`, `-3` … past a date another merge holds; an
+existing tag on the merge is adopted), a `prereg/<label>` tag on the merge
+where it carried a pending label, each `<FILL:>` placeholder the merge added
+that a closed key set fills (`promotion tag`, `merge hash` / `merge SHA`,
+`merged-at` / `merged time UTC`, and `census predictions digest=<hex>[,…]` /
+`census evaluations digest=<hex>[,…]`, the count `fedcourts digest-census`
+reads off the merge's tree), the free-text placeholders a maintainer completes
+by hand, and each pending row to stamp. Only what the merge **added** is
+filled or stamped; a pending row or placeholder its first parent already held
+was carried by an earlier merge and is reported as stale, never stamped with a
+later time. `--apply` writes the fills and stamps into the working tree;
+`fedcourts assert-promotion-record-diff` refuses a change that touches
+anything but those stamps in the registry and those placeholders in the
+freeze record. Nothing runs these on a merge on its own: the cutover
+procedure below is how a label is frozen.
+
 ### Two boundaries, two jobs
 
 The freeze commit sets two moments, and conflating them costs a claim in one

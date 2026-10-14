@@ -86,7 +86,6 @@ from .schemas import (
     PredictorConfig,
     ProcessRegistry,
     ProcessVersion,
-    RegistryInstant,
     RubricCount,
     WindowCount,
     WindowShare,
@@ -105,16 +104,21 @@ CURRENT_PROCESS_LABEL = "proc-v9"
 REGISTRY_RESOURCE = "process_registry.json"
 
 
-def load_process_registry(text: str | None = None) -> ProcessRegistry:
+def load_process_registry(
+    text: str | None = None, *, current_label: str = CURRENT_PROCESS_LABEL
+) -> ProcessRegistry:
     """The frozen-process registry, validated; ``text`` overrides the packaged file.
 
-    Beyond the schema it refuses a registry the counting rule cannot read as
-    one partition:
+    ``current_label`` is the label the code stamps, :data:`CURRENT_PROCESS_LABEL`
+    unless a registration is checking the label it is about to set. Beyond the
+    schema it refuses a registry the counting rule cannot read as one partition:
 
-    - a registration no merge has carried yet (``merge: null``), since this
-      module reads every registered instant as in force;
-    - no label row for :data:`CURRENT_PROCESS_LABEL`, which leaves the counting
-      instant unregistered;
+    - a pending registration (``merge: null``) anywhere but the one label a PR
+      is registering: only ``current_label``, the last label row, may be
+      pending, and only its own blessings and windows, the windows it closes
+      and harness boundaries may be pending with it;
+    - no label row for ``current_label``, which leaves the counting instant
+      unregistered;
     - one digest blessed twice, since the bless map holds one moment per digest;
     - a blessing or window naming a label with no row;
     - a window that does not open at its label's counting instant, or that
@@ -127,19 +131,12 @@ def load_process_registry(text: str | None = None) -> ProcessRegistry:
     )
     registry = ProcessRegistry.model_validate_json(raw)
     where = REGISTRY_RESOURCE
-    instants: list[RegistryInstant] = [entry.since for entry in registry.labels]
-    instants += [blessing.blessed for blessing in registry.blessings]
-    for window in registry.windows:
-        instants.append(window.opens)
-        if window.closes is not None:
-            instants.append(window.closes)
-    if any(instant.merge is None for instant in instants):
-        raise ValueError(f"{where}: an instant carries no merge")
+    _refuse_misplaced_pending(registry, where, current_label)
     since = {entry.label: entry.since.at for entry in registry.labels}
     if len(since) != len(registry.labels):
         raise ValueError(f"{where}: a label has two rows")
-    if CURRENT_PROCESS_LABEL not in since:
-        raise ValueError(f"{where}: no label row for {CURRENT_PROCESS_LABEL}")
+    if current_label not in since:
+        raise ValueError(f"{where}: no label row for {current_label}")
     digests = [blessing.digest for blessing in registry.blessings]
     if len(set(digests)) != len(digests):
         raise ValueError(f"{where}: a digest is blessed twice")
@@ -160,6 +157,32 @@ def load_process_registry(text: str | None = None) -> ProcessRegistry:
                 f"label's counting instant"
             )
     return registry
+
+
+def _refuse_misplaced_pending(registry: ProcessRegistry, where: str, current_label: str) -> None:
+    """Refuse a pending registration anywhere but the label a PR is registering.
+
+    One label per digest-moving promotion: only ``current_label``, as the last
+    label row, may be pending, a pending blessing must be that label's own, and
+    a window may close pending only at that label's pending instant. (A window
+    opens pending exactly when its label is pending, which the opening check in
+    :func:`load_process_registry` already holds.)
+    """
+    pending = [entry.label for entry in registry.labels if entry.since.pending]
+    if pending and (pending != [current_label] or registry.labels[-1].label != current_label):
+        raise ValueError(f"{where}: only {current_label}, the last label row, may be pending")
+    for blessing in registry.blessings:
+        if blessing.blessed.pending and blessing.label not in pending:
+            raise ValueError(
+                f"{where}: {blessing.digest} is pending under {blessing.label}, which a "
+                f"merge already carried"
+            )
+    for window in registry.windows:
+        if window.closes is not None and window.closes.pending and not pending:
+            raise ValueError(
+                f"{where}: the {window.label} window of {window.digest} closes pending, "
+                f"with no label pending"
+            )
 
 
 def _utc(moment: datetime) -> datetime:
@@ -247,9 +270,33 @@ def harness_stamps_cert_anchor(label: str | None) -> bool:
 # catches a forecast the cutover's step 4 never corrected). The witness is the
 # dated entry in `docs/freeze-record.md`, which carries the merge and the
 # command that yields it.
-FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
-    {blessing.digest: _utc(blessing.blessed.at) for blessing in _REGISTRY.blessings}
+def bless_moments(registry: ProcessRegistry) -> dict[str, datetime]:
+    """Each blessed digest's bless moment, the carried registrations only.
+
+    A **pending** blessing — one the PR registering the current label wrote and
+    no promotion has carried — has no bless moment yet, so it is left out: a
+    cell stamped with its digest is unblessed, and counts nowhere, until the
+    carrying merge stamps it. That is the safe direction; the digest is still
+    *registered* (:data:`REGISTERED_PROCESS_DIGESTS`).
+    """
+    return {
+        blessing.digest: _utc(blessing.blessed.at)
+        for blessing in registry.blessings
+        if blessing.blessed.at is not None
+    }
+
+
+FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(bless_moments(_REGISTRY))
+
+#: Every digest the current process blesses, carried or pending — what the
+#: registration names, as against :data:`FROZEN_PROCESS_DIGESTS`, which holds
+#: only the blessings a merge has carried. Equal to its keys whenever nothing
+#: is pending. The fleet tripwires read this one: an enabled actor's digest
+#: must be registered in the PR that moves it, before any merge carries it.
+REGISTERED_PROCESS_DIGESTS: frozenset[str] = frozenset(
+    blessing.digest for blessing in _REGISTRY.blessings
 )
+
 
 # The freeze instant — the **counting** boundary, the current label's `since`
 # in the registry, registered in the same commit as the map above (a test pins
@@ -283,10 +330,19 @@ FROZEN_PROCESS_DIGESTS: Mapping[str, datetime] = MappingProxyType(
 # honest shakedown, uncounted and re-owed; one stamped before the
 # merge cannot exist, since nothing carries the new bytes until the merge does.
 # Should the promotion slip past the instant, step 4 bumps it before the tag.
-FROZEN_SINCE: datetime | None = next(
-    (_utc(entry.since.at) for entry in _REGISTRY.labels if entry.label == CURRENT_PROCESS_LABEL),
-    None,
-)
+#
+# While the current label is **pending** — registered in a PR, not yet carried
+# by a promotion — its instant is unknown, and the instant in force is the
+# last carried label's: the freeze stays in force and nothing of the pending
+# label counts until its merge stamps it.
+def counting_instant(registry: ProcessRegistry) -> datetime | None:
+    """The counting instant in force: the last label row a merge has carried."""
+    carried = [entry.since.at for entry in registry.labels if entry.since.at is not None]
+    return _utc(carried[-1]) if carried else None
+
+
+FROZEN_SINCE: datetime | None = counting_instant(_REGISTRY)
+
 
 # The counting registry, built from the registry's `windows`: one window per
 # blessing of a predictor digest, and
@@ -322,17 +378,32 @@ FROZEN_SINCE: datetime | None = next(
 # FROZEN_SINCE and opens a proc-v9 window for the new claude-baseline digest
 # there; codex-baseline's and gemini-baseline's stay open, still labelled
 # proc-v8.
-COUNTING_WINDOWS: tuple[CountingWindow, ...] = tuple(
-    CountingWindow(
-        label=window.label,
-        digest=window.digest,
-        predictor_id=window.predictor_id,
-        opens=_utc(window.opens.at),
-        closes=_utc(window.closes.at) if window.closes is not None else None,
-        revoked_at=_utc(window.revoked_at) if window.revoked_at is not None else None,
+#
+# A **pending** edge reads in the safe direction until its carrying merge
+# stamps it: a window whose opening is pending is not a window yet, so its
+# digest's cells count nowhere; a window whose close is pending is still open,
+# so its cells keep counting.
+def registered_windows(registry: ProcessRegistry) -> tuple[CountingWindow, ...]:
+    """The registry's counting windows, pending openings left out, pending closes open."""
+    return tuple(
+        CountingWindow(
+            label=window.label,
+            digest=window.digest,
+            predictor_id=window.predictor_id,
+            opens=_utc(window.opens.at),
+            closes=(
+                _utc(window.closes.at)
+                if window.closes is not None and window.closes.at is not None
+                else None
+            ),
+            revoked_at=_utc(window.revoked_at) if window.revoked_at is not None else None,
+        )
+        for window in registry.windows
+        if window.opens.at is not None
     )
-    for window in _REGISTRY.windows
-)
+
+
+COUNTING_WINDOWS: tuple[CountingWindow, ...] = registered_windows(_REGISTRY)
 
 # The retrieval surface each engine's cells run with. Folded into the digest
 # because it is a process input as much as the model or the prompt: a cell that
@@ -952,17 +1023,29 @@ class HarnessBoundary:
 #: and the merits-brief selector reach every predictor; the ``proc-v9``
 #: three split only the carried-forward codex and gemini windows, since the
 #: same merge moved claude-baseline's digest.
-HARNESS_BOUNDARIES: Final[tuple[HarnessBoundary, ...]] = tuple(
-    HarnessBoundary(
-        boundary.name,
-        boundary.merge,
-        _utc(boundary.at),
-        frozenset(boundary.predictors) if boundary.predictors is not None else None,
-        boundary.reach,
-        gradual=boundary.gradual,
+def harness_boundaries(registry: ProcessRegistry) -> tuple[HarnessBoundary, ...]:
+    """The registry's carried harness boundaries, in order.
+
+    A **pending** boundary — registered in the PR that makes the change, its
+    carrying merge not yet stamped — is skipped: with no commit to test
+    ancestry against, no cell has a side of it, so every cell reads as it did
+    before the registration until the merge that carries it is stamped.
+    """
+    return tuple(
+        HarnessBoundary(
+            boundary.name,
+            boundary.merge,
+            _utc(boundary.at),
+            frozenset(boundary.predictors) if boundary.predictors is not None else None,
+            boundary.reach,
+            gradual=boundary.gradual,
+        )
+        for boundary in registry.harness_boundaries
+        if boundary.merge is not None and boundary.at is not None
     )
-    for boundary in _REGISTRY.harness_boundaries
-)
+
+
+HARNESS_BOUNDARIES: Final[tuple[HarnessBoundary, ...]] = harness_boundaries(_REGISTRY)
 
 
 class BoundaryHistoryError(RuntimeError):
