@@ -920,7 +920,7 @@ def _swap(path: str, old: bytes, new: bytes) -> Any:
 
 def _chmod(path: str) -> Any:
     def mutate(repo: Path) -> None:
-        os.chmod(repo / path, 0o755)
+        os.chmod(repo / path, 0o700)  # the owner execute bit is all git records
 
     return mutate
 
