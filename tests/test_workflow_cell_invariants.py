@@ -1288,7 +1288,7 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
         "Predict with Claude Code",
         "Arm the engine watchdog",
         "Predict with Codex",
-        "Install the Gemini CLI",
+        "Install the pinned engine CLI",
         "Predict with Gemini",
     ]
     names = [s.get("name") for s in steps]
@@ -2668,14 +2668,24 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
         f"would run without it"
     )
 
-    # The CLI the action installs is the CLI the npm surfaces pin.
-    version = str(predict["with"]["codex-version"])
+    # The CLI the action installs is the CLI the npm surfaces install: both read
+    # the one pin in .github/engines/package.json, the action through the
+    # engine-cli step's version and the npm surfaces through the same action
+    # installing codex itself. A literal npm pin re-appearing would split them.
+    assert str(predict["with"]["codex-version"]) == "${{ steps.engine-cli.outputs.version }}"
     for name in CODEX_NPM_PIN_WORKFLOWS:
-        pins = {pin for block in _joined_run_blocks(name) for pin in _CODEX_NPM_PIN.findall(block)}
-        assert pins == {version}, (
-            f"{name}: @openai/codex npm pin(s) {sorted(pins)!r} differ from the "
-            f"cell steps' codex-version {version!r}"
-        )
+        literal = {
+            pin for block in _joined_run_blocks(name) for pin in _CODEX_NPM_PIN.findall(block)
+        }
+        assert not literal, f"{name}: a literal @openai/codex pin {sorted(literal)!r}"
+        installs = [
+            step
+            for job in _load(name)["jobs"].values()
+            for step in job.get("steps") or []
+            if step.get("uses") == "./.github/actions/engine-cli"
+            and str((step.get("with") or {}).get("install-codex", "false")) != "false"
+        ]
+        assert installs, f"{name}: no engine-cli step installs codex for the npm surface"
 
 
 # The engine hang bound, which is a handful of step attributes and their ORDER.

@@ -868,11 +868,18 @@ _CODEX_PIN_RES = (
 _CODEX_ACTION_USE_RE = re.compile(r"\buses:\s*openai/codex-action@")
 _CODEX_VERSION_INPUT_RE = re.compile(r"\bcodex-version:\s*\S")
 _GITHUB_DIR = Path(__file__).resolve().parents[1] / ".github"
+# The one pin every workflow installs from, and the expression a step uses to
+# defer to it. A step that defers adds no pin of its own; any other value is
+# counted as one, so a literal or a variable re-appearing in a workflow is seen.
+_ENGINE_PINS = _GITHUB_DIR / "engines" / "package.json"
+_DEFERS_TO_THE_PIN = "${{"
 
 
 def _codex_pins() -> dict[str, list[str]]:
     """Each codex version the repository pins, with the files that pin it."""
     pins: dict[str, list[str]] = {}
+    pinned = json.loads(_ENGINE_PINS.read_text())["dependencies"]["@openai/codex"]
+    pins.setdefault(pinned, []).append(str(_ENGINE_PINS.relative_to(_GITHUB_DIR.parent)))
     for path in sorted(_GITHUB_DIR.rglob("*.y*ml")):
         text = path.read_text()
         # A codex-action step without `codex-version` runs the action's own
@@ -885,6 +892,8 @@ def _codex_pins() -> dict[str, list[str]]:
         )
         for pattern in _CODEX_PIN_RES:
             for match in pattern.finditer(text):
+                if match.group(1) == _DEFERS_TO_THE_PIN:
+                    continue
                 where = str(path.relative_to(_GITHUB_DIR.parent))
                 pins.setdefault(match.group(1), []).append(where)
     return {version: sorted(set(files)) for version, files in pins.items()}
