@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/9026000145",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["statpack.md", "courtlistener-mcp search"],
+  "helpful": ["The provisioned petition text made the hold-petition posture obvious right away"],
+  "gaps": ["No 'held pending' signal or linked-lead-case field in context.json; hold petitions follow a very different base rate (GVR vs deny, keyed to the lead case's merits)", "CourtListener search did not surface the lead case Montoya Palacios v. Liggins"]
+}

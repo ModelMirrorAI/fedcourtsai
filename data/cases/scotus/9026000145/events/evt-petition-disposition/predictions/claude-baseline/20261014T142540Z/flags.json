@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000145",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "info", "event_id": "evt-petition-disposition",
+     "message": "Petitioner is represented by the Solicitor General (federal government), but sal-v4 banded the caption 'Warden, Moshannon Valley Correctional Center, et al.' as baseline rather than federal, probably because the facility is contractor-run. Frozen band used as given."},
+    {"category": "other", "severity": "info", "event_id": "evt-petition-disposition",
+     "message": "Hold petition: the SG asks the Court to hold pending Montoya Palacios v. Liggins, No. 25-1223 (cert granted 2026-06-29). The outcome here will track that merits decision (GVR vs deny), not ordinary cert-worthiness, so the band base rate is a poor anchor for this cell."}
+  ]
+}

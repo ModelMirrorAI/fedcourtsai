@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "Sets the reach of the INA terrorism-related inadmissibility bar, which screens a large volume of asylum and withholding claims from conflict zones; doctrinally important to immigration practice but low public salience.",
+  "big_case_score": 0.42,
+  "case_id": "scotus/73500246",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.79
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-14",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-13",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-14T14:31:17Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-13.json",
+  "judgment": "reversed",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.79,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T14:32:48.983797Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261014T142540Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority rejects the Fourth Circuit's requirement that support be usable or readily divertible to terrorist activities: reading 8 U.S.C. 1182(a)(3)(B)(iv)(VI)(dd) text and structure (support 'to a terrorist organization' as distinct from subclause (aa)'s support 'for the commission of a terrorist activity'), and relying on Holder v. Humanitarian Law Project's fungibility/freeing-of-resources reasoning, it holds that sustained in-kind services such as regularly cooking for the organization's leaders can constitute material support to the organization itself."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is a categorical statutory rule, not a fact-bound substantial-evidence ruling: 'material support to a terrorist organization' does not require a nexus to the organization's terrorist activities, so the Fourth Circuit's activity-nexus test is rejected for all cases; the Court expressly declines to decide whether the bar contains an implied duress exception, leaving that question open."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

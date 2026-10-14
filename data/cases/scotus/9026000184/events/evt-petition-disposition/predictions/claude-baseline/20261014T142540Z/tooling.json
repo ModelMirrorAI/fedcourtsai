@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000184",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "provisioned snapshot and documents"],
+  "helpful": ["Provisioned petition text including the court-of-appeals opinion", "Salience band table with risk-set reached rates"],
+  "gaps": ["No statpack cut for petitions where the Court requested a response (after a waiver); the salience band appears not to reflect that signal here"],
+  "notes": "Band 'baseline' coexists with a Court-requested response on the record; a response-requested cut would help calibrate."
+}

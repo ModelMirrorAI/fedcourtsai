@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73500246",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-judgment",
+      "message": "No record/documents/ provisioned for this granted SG petition (no petition, BIO, or QP text). The question presented was inferred from the Fourth Circuit opinion (No. 24-2070) retrieved via CourtListener."
+    }
+  ]
+}

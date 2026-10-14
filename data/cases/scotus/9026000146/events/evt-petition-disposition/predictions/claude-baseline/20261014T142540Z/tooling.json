@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000146",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["courtlistener-mcp search", "courtlistener-mcp get_endpoint_item", "web search", "metrics/statpack.md"],
+  "helpful": ["Statpack band table with reached figures"],
+  "gaps": ["Petition/QP text was not provisioned for an SG petition", "CourtListener opinion text mismatched for the decision below"]
+}

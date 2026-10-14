@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000145",
+  "gaps": [
+    "No respondent brief is yet provisioned; the response deadline remains pending in the supplied record.",
+    "No published conditional base rate for government hold petitions tied to an already-granted lead case.",
+    "Web calls returned no visible content; CourtListener MCP supplied the usable external context."
+  ],
+  "helpful": [
+    "The short petition body explicitly exposed the requested companion-case hold.",
+    "The document manifest distinguished appendix truncation from an unavailable petition.",
+    "Citation-specific MCP lookup verified older conflicting authority without searching the target docket.",
+    "Reached-rate tables made the frozen-band anchor calculable."
+  ],
+  "notes": "The default uv cache location was read-only; a temporary writable cache allowed CLI execution. The apparent federal-party/baseline-band mismatch is recorded in flags. No current target-docket lookup or corpus query was used.",
+  "role": "predictor",
+  "run_id": "20261014T142540Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and filing text",
+    "committed statpack",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "local schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

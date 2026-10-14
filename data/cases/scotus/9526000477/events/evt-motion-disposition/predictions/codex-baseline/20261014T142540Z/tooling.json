@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000477",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned application and appendix", "committed interim statpack", "fedcourts paths", "CourtListener search", "CourtListener search_document", "web search and open attempts"],
+  "helpful": ["The application appendix preserves both the panel majority's reasoning and the concurrence defending mandamus, permitting an adversarial read.", "Frozen escalation signals and per-Term substantive interim counts support the correct claim set and baseline."],
+  "gaps": ["No separate opposition is provisioned; later appendix material is truncated.", "The web tool returned no usable content.", "The default uv cache was read-only; a temporary writable cache allowed CLI execution."],
+  "notes": "No target-case live lookup was needed. The decisive prior related stay is disclosed separately in flags.json. The committed statpack was used without asserting independently verified live corpus freshness."
+}

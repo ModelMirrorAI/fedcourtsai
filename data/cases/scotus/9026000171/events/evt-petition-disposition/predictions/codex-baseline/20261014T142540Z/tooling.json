@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000171",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local shell reads", "fedcourts paths", "jq", "web.run (no usable results)", "fedcourts validate"],
+  "helpful": [
+    "The separately provisioned appendix exposes a concrete preservation concern and permits checking the petition against the lower court's reasoning.",
+    "The frozen band and machine-readable reached rates support an exact strictly-prior pooled anchor.",
+    "The dated response request makes expected redistribution distinguishable from substantive relisting."
+  ],
+  "gaps": [
+    "No opposition text is provisioned; the recorded response deadline is still in the future.",
+    "General web calls returned no usable content.",
+    "The default uv cache is read-only; a temporary writable cache was necessary."
+  ],
+  "notes": "Forecast rests on provisioned documents plus the committed statpack. No own-case outcome lookup was made. The high additional-distribution probability reflects a pending requested response, not a high grant probability."
+}

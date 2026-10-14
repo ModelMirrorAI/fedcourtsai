@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000176",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["local file reads", "jq", "fedcourts paths", "CourtListener search", "CourtListener read_document", "web search", "apply_patch", "fedcourts validate"],
+  "helpful": ["The provisioned appendix supplied the appellate majority's opposing account alongside the petition.", "The statpack JSON enabled exact matching-band reached-rate pooling.", "CourtListener case-name search and opinion retrieval supported a targeted historical-precedent check."],
+  "gaps": ["General-precedent web searches returned no visible results.", "Citation-only CourtListener search returned a different reporter; case-name and court filters resolved it.", "The appendix is truncated and the requested opposition is not yet provisioned.", "The default uv cache location is read-only; a temporary cache override was needed."],
+  "notes": "No live target-case retrieval was necessary. The response request in the supplied forward snapshot materially informs the distribution-increment forecast. Null cutoff metadata on a distribution-moment cell is noted separately in flags.json."
+}

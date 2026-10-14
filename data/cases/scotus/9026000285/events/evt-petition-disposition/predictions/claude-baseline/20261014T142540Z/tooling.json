@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000285",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "provisioned petition text"],
+  "helpful": ["Band table with reached denominators", "Petition text with extracted QP"],
+  "gaps": ["No statpack cut conditioning on a Court-requested response (after a waiver), which is the key signal on this docket and is not reflected in the sal-v4 band"],
+  "notes": "Band 'baseline' despite a response request; the anchor likely understates this petition's position."
+}

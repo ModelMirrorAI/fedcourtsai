@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000477",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["statpack.md", "courtlistener-mcp search", "provisioned application text"],
+  "helpful": ["Provisioned application text with full procedural history", "Interim per-Term substantive counts"],
+  "gaps": ["No linkage from an application to its related prior application (26A274) in the record; a related-docket field would help", "No conditioned interim base rate for repeat applications in the same matter"],
+  "notes": "Corpus query skipped: the dominant signal was the case's own prior stay, not similar priors."
+}

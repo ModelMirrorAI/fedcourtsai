@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000176",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "provisioned record documents"],
+  "helpful": ["Provisioned petition and appendix text; the sal-v4 band table with reached rates"],
+  "gaps": ["No statpack cut conditioning on a Court-requested response at the cert stage (a strong signal for state-petitioner habeas cases)"],
+  "notes": "Petition and appendix were sufficient; corpus query skipped as the band table plus case history dominated."
+}

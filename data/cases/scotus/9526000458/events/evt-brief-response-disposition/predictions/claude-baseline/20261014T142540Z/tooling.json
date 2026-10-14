@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/9526000458",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "record/documents"],
+  "helpful": ["Provisioned application and first-filed response text"],
+  "gaps": ["Interim base rate split by ask (stay vs injunction pending appeal) and conditioned on response-requested", "Only the first-filed response is provisioned; the other respondents' responses are not"]
+}

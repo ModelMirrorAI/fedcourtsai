@@ -1,0 +1,67 @@
+{
+  "big_case_rationale": "The stay affects access to discounted broadcast advertising during the final weeks of a federal election and whether agency delay can forestall timely judicial review; its immediate political reach is substantial despite the narrow procedural question.",
+  "big_case_score": 0.87,
+  "case_id": "scotus/9526000477",
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.78
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.0
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.96
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.2
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": 1,
+    "band": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-11",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": false,
+    "response_requested": true,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-11",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-14T15:57:58Z",
+  "engine": "codex",
+  "event_id": "evt-brief-response-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-10-11.json",
+  "judgment": null,
+  "model": "gpt-6-astra",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.78,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T16:00:46.448614Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261014T142540Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
