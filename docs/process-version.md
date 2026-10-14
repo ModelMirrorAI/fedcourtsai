@@ -357,7 +357,12 @@ successor that stops blessing it (`closes`, null while open), each instant as
 its `prereg/` tag records it. Evaluator digests have no window — an evaluator
 digest records and never partitions. The labels before `proc-v8` are not
 windows: their digests were de-counted under the rule in force when each was
-superseded, and stay de-counted. A cell is in one of three states:
+superseded, and stay de-counted. The three constants are built at import from
+the committed registry `src/fedcourtsai/process_registry.json`
+(`schemas/process_registry.schema.json`), which records every label's counting
+instant, every blessing and window edge with the merge it is audited against,
+the evaluate blessing labels and the harness boundaries; a registration is an
+edit to that file. A cell is in one of three states:
 
 - **Shakedown** — a cell written before the stamp existed carries no
   `process_version`. It is never frozen (an absent stamp is in no window), so
@@ -605,9 +610,10 @@ land; recording and tagging that commit complete the procedure:
    authoring-time check can go stale.
 1. Read the current digests: `fedcourts process-digest --all` prints the label,
    role, id, and digest of every enabled predictor and evaluator.
-2. Paste the digest(s) to bless into `FROZEN_PROCESS_DIGESTS` in
-   `src/fedcourtsai/process_version.py`, set `FROZEN_SINCE` beside it — a test
-   pins that the two move together — and edit `COUNTING_WINDOWS` to match:
+2. Register the digest(s) to bless in the `blessings` of
+   `src/fedcourtsai/process_registry.json` (`FROZEN_PROCESS_DIGESTS`), set the
+   new label's `since` (`FROZEN_SINCE`) beside it — a test pins that the two
+   move together — and edit its `windows` (`COUNTING_WINDOWS`) to match:
    append one window per newly blessed **predictor** digest, labelled with the
    new label and opening at the instant, and set `closes` to the instant on
    every window whose digest this label stops blessing; the entry quotes
@@ -615,7 +621,8 @@ land; recording and tagging that commit complete the procedure:
    a closed window's cells keep counting, and a test fails the suite if a
    `proc-v8` predictor digest leaves the registry without a close. Then
    append each newly blessed **evaluator** digest to
-   `EVALUATE_BLESSING_LABELS` under the new label, and append the new label to
+   `evaluate_blessing_labels` (`EVALUATE_BLESSING_LABELS`) under the new label,
+   and append the new label to
    every evaluator digest the label carries forward; never edit or remove an
    entry, since a published per-rubric reading is named from it (a test fails
    the suite if a live evaluator digest's labels lack the current label). Each
@@ -656,8 +663,8 @@ land; recording and tagging that commit complete the procedure:
    *newly* blesses in `FROZEN_PROCESS_DIGESTS`, replacing step 2's forecast
    (carried-forward digests keep their earlier bless moment); the ledger
    tripwire reads these, so a forecast left uncorrected either fires on honest
-   cells or lets a retroactive one through. Second, the instant: the literal
-   in the file must be at or after that same date. The windows move with it:
+   cells or lets a retroactive one through. Second, the instant: the
+   registered `since` must be at or after that same date. The windows move with it:
    every window this label opens opens at the instant, and every window it
    closes closes there too, so a bumped instant is bumped in all three places —
    a test holds every `closes` to some window's `opens`.
@@ -693,7 +700,7 @@ land; recording and tagging that commit complete the procedure:
    update and deletion so the freeze point stays findable and immovable. The
    after-the-fact auditor's check is the same comparison, against the
    promotion that carried the freeze commit to `main`:
-   `git log -1 --format=%cI promotion/<YYYY-MM-DD>` — the literal in the file
+   `git log -1 --format=%cI promotion/<YYYY-MM-DD>` — the registered `since`
    must be at or after that date. Name the tag pointing at the **carrying
    merge itself** (a same-day second batch carries a `-2` suffix, and the
    bare date resolves to the earlier, weaker comparison). (`prereg/<label>`'s own tagger date is not
