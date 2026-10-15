@@ -1,0 +1,17 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000274",
+  "gaps": [],
+  "helpful": [
+    "statpack.md"
+  ],
+  "notes": "fedcourts query command was not found in the environment, so fell back to CourtListener MCP search.",
+  "role": "predictor",
+  "run_id": "20261014T174020Z",
+  "tools_used": [
+    "mcp_courtlistener_search",
+    "read_file"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

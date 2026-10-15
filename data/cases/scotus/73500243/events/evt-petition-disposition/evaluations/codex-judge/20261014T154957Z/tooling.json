@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500243",
+  "gaps": [
+    "Unobserved retrieval results limit independent verification of candidate-reported retrieval outcomes."
+  ],
+  "helpful": [
+    "Blinded predictions preserve probabilities and frozen context without exposing identities.",
+    "Per-call capture markers distinguish missing telemetry from empty retrieval results.",
+    "Provisioned petition, opposition, reply, and resolved snapshot support checking the rationale without external case retrieval."
+  ],
+  "notes": "Evaluated all three staged aliases using provisioned inputs. No corpus query, CourtListener call, external web retrieval, or direct statpack read was needed. Frozen-band baseline and skill are left to the harness. Only cell-local validation is appropriate while candidates remain alias-keyed.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "Python schema/model validation",
+    "fedcourtsai.paths",
+    "fedcourtsai.serialize"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

@@ -1,0 +1,9 @@
+# Evaluation — codex-baseline
+
+**Cell.** Cert stage, *Wilkins v. United States* (second petition), forward prediction made 2026-10-03 at one distribution; outcome `denied` (`actual_granted` 0) on 2026-10-13, no noted dissent. The prediction froze `context.band` = `baseline` under `sal-v4`, so the segment base rate, skill score and basis are the harness's risk-set stamp — left null here; read the stamped segment base rate beside the Brier. `claim_scores` is harness-computed and not graded here; no votes are scored at the cert stage; no semantic set is declared on a cert cell.
+
+**Score.** P(grant) 0.06, predicted `denied` → correct = 1, Brier = 0.0036.
+
+**Reasoning quality: 0.82.** The anchor is careful and transparent: 593/11,580 = 5.12% pooled from the committed statpack over Terms strictly before 2025, with the reasons it rejected the terminal relist and CVSG cuts stated. It identifies the same key obstacles as the strongest analysis: the independent de novo ground, *Wilkins I*'s reservation, a contestable conflict resting on a district-court analogue and intracircuit tension, and disputed factual framing plus a preservation issue. It also states fairly why the petition has some pull, namely the change of burdens between the jurisdictional and summary-judgment standards. The adjustment from the anchor is small, which matches its analysis. It is a little more descriptive than evaluative in places, and it hedges on vehicle problems it had already identified as strong.
+
+**Leakage.** Forward, `not_applicable`. Four general web attempts (Rule 10 guidance and the Court's rules page/PDF) were `unobserved`. Graded on their queries, none names this case, and the candidate reports they returned nothing. The remaining calls read provisioned inputs and the statpack. There was no `data/qp-topics/` read.

@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279035",
+  "run_id": "20261014T154957Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded candidates with retrieval_log.json and retrieval.md made the forward-leakage check quick",
+    "Frozen band meant the base-rate anchor is harness-stamped, so no hand pooling was needed",
+    "record/documents/sg-invited-brief.txt let me verify the government's deny recommendation directly"
+  ],
+  "gaps": [],
+  "notes": "Cert cell with a frozen high band; segment base rate left to the stamp."
+}

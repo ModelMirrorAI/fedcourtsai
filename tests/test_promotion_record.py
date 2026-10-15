@@ -44,6 +44,7 @@ from fedcourtsai.promotion_record import (
     REGISTRY_PATH,
     PromotionRecordError,
     Stamp,
+    _declared,
     apply_promotion_record,
     digest_census,
     dump_registry,
@@ -63,6 +64,8 @@ COMMITTED = json.loads((ROOT / REGISTRY_PATH).read_text(encoding="utf-8"))
 #: The committed registry once the merge-stamping rule is declared.
 DECLARED_ON = "2026-10-12"
 DECLARED = {**COMMITTED, "merge_stamping_declared": DECLARED_ON}
+#: The committed registry with the declaration removed: a ``main`` from before it.
+UNDECLARED = {key: value for key, value in COMMITTED.items() if key != "merge_stamping_declared"}
 NEW_CLAUDE = "sha256:" + "a" * 64
 NEW_JUDGE = "sha256:" + "d" * 64
 NEW_LABEL = "proc-v10"
@@ -176,12 +179,12 @@ def test_a_pending_boundary_does_not_block_a_label() -> None:
 
 def test_no_label_is_registered_before_the_rule_is_declared() -> None:
     with pytest.raises(RegistrationError, match="merge_stamping_declared"):
-        register_process(COMMITTED, NEW_LABEL, _live_fleet())
+        register_process(UNDECLARED, NEW_LABEL, _live_fleet())
 
 
 def test_no_boundary_is_registered_before_the_rule_is_declared() -> None:
     with pytest.raises(RegistrationError, match="merge_stamping_declared"):
-        register_boundary(COMMITTED, "early", predictors=None, reach="all", gradual=False)
+        register_boundary(UNDECLARED, "early", predictors=None, reach="all", gradual=False)
 
 
 @pytest.mark.parametrize(
@@ -568,8 +571,7 @@ def test_an_evaluator_only_label_is_tagged_on_its_merge(tmp_path: Path) -> None:
 
 
 def test_stamps_need_the_declaration_on_the_first_parent(tmp_path: Path) -> None:
-    undeclared = {k: v for k, v in DECLARED.items() if k != "merge_stamping_declared"}
-    repo, merge = _promote(tmp_path, main_registry=undeclared)
+    repo, merge = _promote(tmp_path, main_registry=UNDECLARED)
     with pytest.raises(PromotionRecordError, match="declares no merge-stamped"):
         _plan(repo, merge)
     repo2, merge2 = _promote(tmp_path / "b", before="# Freeze record\n")
@@ -1147,3 +1149,55 @@ def test_the_live_registry_has_no_pending_row() -> None:
     carried = frozenset(process_version.FROZEN_PROCESS_DIGESTS)
     assert carried == process_version.REGISTERED_PROCESS_DIGESTS
     assert process_version.PENDING_REGISTRATIONS == ()
+
+
+@pytest.mark.reads_docs
+def test_the_committed_declaration_resolves_on_main() -> None:
+    """The committed registry names its declaring entry, and the record holds it.
+
+    Once both are on ``main``, a later promotion's first parent satisfies
+    :func:`_declared`; the promotion that carries them cannot stamp, since its
+    own first parent predates both (``test_stamps_need_the_declaration_on_the_first_parent``).
+    """
+    record = (ROOT / FREEZE_RECORD_PATH).read_text(encoding="utf-8")
+    assert COMMITTED["merge_stamping_declared"]
+    assert _declared(COMMITTED, record) is None
+
+
+def test_the_declaring_promotion_fills_its_entry_and_stamps_nothing(tmp_path: Path) -> None:
+    """The real declaring shape: ``main`` holds no registry file, and the batch
+    brings the registry with the declaration set and nothing pending.
+
+    The merge's first parent holds no declaration, so no stamp is planned and no
+    ``prereg/`` tag is minted; the declaring entry's closed-key placeholders are
+    still filled — the promotion tag, the merge, its time and the census.
+    """
+    repo = _init(tmp_path)
+    _write(repo, FREEZE_RECORD_PATH, "# Freeze record\n")
+    _artifact(repo, "predictions", 1, NEW_CLAUDE)
+    _commit(repo, "main", datetime(2026, 10, 12, tzinfo=UTC))
+    _git(repo, "switch", "-q", "-c", "staging")
+    _write(repo, REGISTRY_PATH, dump_registry(DECLARED))
+    _write(
+        repo,
+        FREEZE_RECORD_PATH,
+        "# Freeze record\n\n"
+        + _DECLARATION
+        + "  Carried to `main` by `<FILL: promotion tag>` (merge commit\n"
+        + "  `<FILL: merge hash>`, merged `<FILL: merged-at>`). Predictions carrying\n"
+        + "  the digest: `<FILL: census predictions digest=aaaaaaaa>`.\n",
+    )
+    _commit(repo, "declare", datetime(2026, 10, 12, 12, tzinfo=UTC))
+    _git(repo, "switch", "-q", "main")
+    _git(repo, "merge", "-q", "--no-ff", "staging", "-m", "promote", when=MERGED_AT)
+    merge = _git(repo, "rev-parse", "HEAD")
+
+    plan = _plan(repo, merge)
+
+    assert plan.stamps == []
+    assert plan.prereg_tag is None
+    filled = {fill.key: fill.value for fill in plan.fills}
+    assert filled["promotion tag"] == plan.promotion_tag.name
+    assert filled["merge hash"] == merge
+    assert filled["census predictions digest=aaaaaaaa"] == "1"
+    assert plan.free_text == []

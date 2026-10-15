@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9526000477",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "Event is moment=response-requested (opened 2026-10-08) but the frozen context has response_requested=false and the snapshot (2026-10-08, cutoff 2026-10-09, date cut) shows only the application entry — the response-request entry is missing from the baseline. The response-requested-increment claim may therefore resolve as a non-vacuous 'increment' for a rung that defined this cell."
+    }
+  ]
+}

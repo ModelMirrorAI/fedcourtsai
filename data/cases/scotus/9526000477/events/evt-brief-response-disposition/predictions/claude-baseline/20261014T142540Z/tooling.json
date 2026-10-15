@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000477",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot", "provisioned application and response text", "metrics/statpack.md"],
+  "helpful": ["Full response text revealed the companion SG application and an existing administrative stay, neither visible in the snapshot"],
+  "gaps": ["Snapshot for 26A477 does not surface the companion application 26A476 or the administrative stay entry; a linked-application field in context.json would help"],
+  "notes": "Interim pool is only three parsed Terms (2023-2025)."
+}

@@ -120,7 +120,8 @@ def _refuse_undeclared(document: Mapping[str, Any], what: str) -> None:
     if document.get("merge_stamping_declared") is None:
         raise RegistrationError(
             "no freeze-record entry declares merge-stamped instants "
-            f"(merge_stamping_declared is unset); register the {what} by hand"
+            f"(merge_stamping_declared is unset); the {what} can be registered only "
+            "once main holds that declaration"
         )
 
 

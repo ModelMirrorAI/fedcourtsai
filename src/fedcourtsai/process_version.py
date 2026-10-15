@@ -14,7 +14,7 @@ inputs, so a silent prompt or config change is automatically a distinct version;
 from the digest; it is provenance, and the side test of every harness boundary
 (:func:`boundary_side`) — see :class:`fedcourtsai.schemas.ProcessVersion`.
 
-The freeze is a deliberate, explicit event: one "freeze commit" registers
+The freeze is a deliberate, explicit event: one registration records
 :data:`FROZEN_PROCESS_DIGESTS` and :data:`FROZEN_SINCE` together, as rows of
 the committed registry ``process_registry.json`` (:func:`load_process_registry`)
 these constants are built from — the
@@ -27,15 +27,16 @@ they answer different questions even where they fall on the same moment:
   bytes became immutable on ``main``, so it is the *retroactivity* boundary. A
   cell stamped before it ran against a commitment that could still be edited,
   which is retroactive blessing and nothing licenses it. Auditable from git:
-  it is the merge time of the promotion that carried the freeze commit.
+  it is the committer time of the promotion merge that carried the
+  registration, which that merge's writer stamps.
 - the **counting instant**, :data:`FROZEN_SINCE`, is when the current label's
   cells start counting, and it opens every window the label newly blesses.
-  It sits at or after every bless moment: guessed generously late at the
-  freeze commit, then verified at step 4 of the cutover against the merge
-  that landed. Where it sits strictly later, cells minted in the window
-  between the two land honestly in the ledger and are de-counted by timing —
-  shakedown, not retroactivity. Where step 4 puts it *at* the merge, the
-  window is zero-width and there is no such cell to mint.
+  It sits at or after every bless moment. The carrying merge's writer
+  stamps it at that merge's committer time, so the window between the two is
+  zero-width and there is no cell to mint in it. A row set by hand under an
+  earlier rule sits later than its merge; cells minted between the two landed
+  honestly in the ledger and are de-counted by timing — shakedown, not
+  retroactivity.
 
 **Counting is per window.** A predictor digest's blessing opens a
 :class:`~fedcourtsai.schemas.CountingWindow` at its label's counting instant;
@@ -266,18 +267,18 @@ def harness_stamps_cert_anchor(label: str | None) -> bool:
 #   windows stay open and unbroken (a test asserts the bytes did not move).
 #
 # Each digest maps to **the instant it was blessed**: the merge time of the
-# promotion that carried its freeze commit to `main`, the moment its bytes
+# promotion that carried its registration to `main`, the moment its bytes
 # stopped being editable. That is the retroactivity boundary the tripwire
 # enforces (`at_or_after_bless`), and it is a different question from
 # FROZEN_SINCE's — see this module's docstring. The value is read off git
-# (`git log -1 --format=%cI <carrying merge>`) at step 4 of the cutover, so
+# (`git log -1 --format=%cI <carrying merge>`) by that merge's writer, so
 # an auditor can re-derive every entry; a digest carried forward
 # byte-identical from an earlier label keeps that label's bless moment,
 # because those bytes have been immutable since then.
 #
 # These values are **auditable, not enforced**: nothing compares them against
 # git at test time, only that each is aware and not in the future (which
-# catches a forecast the cutover's step 4 never corrected). The witness is the
+# catches a value written ahead of its merge). The witness is the
 # dated entry in `docs/freeze-record.md`, which carries the merge and the
 # command that yields it.
 def bless_moments(registry: ProcessRegistry) -> dict[str, datetime]:
@@ -340,28 +341,24 @@ def is_pending(process_version: ProcessVersion | None) -> bool:
 # at or after the instant is in. It opens every window the current label newly
 # blesses and closes every window it stops blessing; a carried-forward digest's
 # window keeps the instant that opened it. It sits at or after every bless
-# moment in the map above — guessed generously late at the freeze commit, then
-# verified at step 4 against the merge that actually landed and bumped where it
-# came in early, never pulled back — so a cell minted in any window between the
-# two lands as shakedown rather than as a counted cell. One shape inverts that
+# moment in the map above — stamped at the carrying merge's committer time, or,
+# for a row set by hand under an earlier rule, later than that merge — so a
+# cell minted in any window between the two lands as shakedown rather than as
+# a counted cell. One shape inverts that
 # order — an evaluator-half re-bless that holds this instant while swapping
 # only the evaluator entries above, licensed because the enforced predictor
 # half is then byte-identical to the prior `prereg/` tag's and such a label is
 # audited by that byte comparison rather than by the date rule (the
 # supersession notes in `docs/process-version.md`).
 #
-# proc-v9 is not that shape: it newly blesses a predictor digest, so the
-# instant moves and the ordinary rule governs — the instant must be at or after
-# the merge of the promotion that carries this label's freeze commit to `main`
-# and before the first run intended to count. That merge is not known at the
-# freeze commit, so the instant is a **late** forecast,
-# `2026-10-11T12:00:00Z`: after the promotion the maintainer is landing on
-# 2026-10-10, and before `run-predict`'s first scheduled round on 2026-10-11
-# (14:12Z), so no scheduled round falls between the merge and the instant. A
-# cell the new claude digest stamps between that merge and the instant is
-# honest shakedown, uncounted and re-owed; one stamped before the
-# merge cannot exist, since nothing carries the new bytes until the merge does.
-# Should the promotion slip past the instant, step 4 bumps it before the tag.
+# proc-v9 is not that shape: it newly blesses a predictor digest, so its
+# instant moved. Its row is hand-set (`source: "hand"`): `2026-10-11T12:00:00Z`,
+# after the merge that carried its registration and before `run-predict`'s
+# first scheduled round under it, so a cell the new claude digest stamped
+# between that merge and the instant is honest shakedown, uncounted and
+# re-owed; one stamped before the merge cannot exist, since nothing carried the
+# new bytes until the merge did. A label registered under the merge-stamped
+# rule has no such span: its instant is its merge's committer time.
 #
 # While the current label is **pending** — registered in a PR, not yet carried
 # by a promotion — its instant is unknown, and the instant in force is the
@@ -387,7 +384,7 @@ FROZEN_SINCE: datetime | None = counting_instant(_REGISTRY)
 # freeze-record entry that states a defect from committed artifacts — de-counts
 # a window, and its events are then re-owed afresh.
 #
-# A successor's freeze commit therefore *adds* to this tuple rather than
+# A successor's registration therefore *adds* to this tuple rather than
 # replacing it: it sets `closes` on each window whose digest it stops blessing
 # (to its own counting instant) and appends one window per digest it newly
 # blesses, opening at that instant. A digest carried forward byte-identical

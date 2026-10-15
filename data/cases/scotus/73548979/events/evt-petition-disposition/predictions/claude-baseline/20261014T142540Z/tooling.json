@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73548979",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["statpack.md", "WebFetch"],
+  "helpful": ["Provisioned BIO and cert reply text", "Band table with reached risk-set figures"],
+  "gaps": ["Rule 15.8 supplemental briefs are not provisioned under record/documents", "No conditional rate for 'relisted once after a conference' as distinct from the terminal relist bucket"],
+  "notes": "The snapshot made the relist after the 10/9 conference clear."
+}

@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73322426",
+  "gaps": [],
+  "helpful": [
+    "Frozen prediction contexts distinguish the scoring band from the decided docket's band.",
+    "Per-call capture markers permit explicit treatment of unobserved retrieval results.",
+    "Provisioned opposition and reply permit checking case-specific analytical support."
+  ],
+  "notes": "All three candidates were evaluated blind. No external searches or corpus lookups were needed. Baselines remain harness-owned. gemini-baseline's unobserved results limit result-level auditing but are not themselves a tooling defect or leakage finding. Standalone schemas are checked before harness un-aliasing and restoration; whole-data target validation belongs to that later step.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell reads of provisioned blinded inputs",
+    "jq",
+    "apply_patch",
+    "Python JSON Schema validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000221",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate documents and frozen context",
+    "Per-call result-capture markers and timestamps",
+    "Provisioned petition appendix and outcome"
+  ],
+  "notes": "All three candidates were evaluable from the provisioned inputs. No external retrieval or statpack lookup was needed; frozen-band anchors are harness-owned. Unobserved retrieval results limit retrospective verification but are not treated as failed searches or candidate defects.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell reads",
+    "jq",
+    "fedcourts paths",
+    "apply_patch",
+    "JSON Schema validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

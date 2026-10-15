@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500246",
+  "gaps": [
+    "Unobserved retrieval results limit the certainty of a negative leakage assessment",
+    "Petition and opposition texts are unavailable for checking reconstructed legal issues"
+  ],
+  "helpful": [
+    "Blinded predictions with frozen context and captured retrieval call rows",
+    "Explicit result-capture markers distinguish unseen results from empty results",
+    "Provisioned outcome and dated snapshot permit a forward-mode timing check"
+  ],
+  "notes": "Used the committed statpack only to assess baseline methodology. Frozen-band rates and skill remain harness-owned. No external retrieval or full-tree validation was needed; only cell output schemas and alias consistency were checked.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "jsonschema",
+    "pydantic"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

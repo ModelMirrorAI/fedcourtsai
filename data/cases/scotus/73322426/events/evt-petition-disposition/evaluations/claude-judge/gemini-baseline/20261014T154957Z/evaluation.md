@@ -1,0 +1,11 @@
+# Evaluation — gemini-baseline
+
+**Cell.** Cert stage, forward mode. Johnson v. Montana, No. 25-1273 (Confrontation Clause: whether *Maryland v. Craig* or *Crawford* governs two-way video testimony by an adult prosecution witness). Outcome: `denied` on 2026-10-13 after two distributions, no CVSG, no noted dissent from denial. The prediction froze band `baseline` under `sal-v4`, so the segment base rate, `brier_skill_score` and `base_rate_basis` are stamped by the harness from the risk-set pool; I wrote none of them and compare against "the stamped segment base rate" only. `vote_accuracy` is omitted (cert cell). No `semantic_grades` (cert cell; no semantic set declared). Claims are scored in code and not graded here.
+
+**Scores.** Predicted `denied`, P(grant) = 0.25 → `correct` = 1, Brier = 0.0625.
+
+**Reasoning quality: 0.45.** Directionally sound (call for a response as a positive signal; preservation and harmlessness as generic vehicle risks) but thin and with factual/method errors. The anchor quoted — "reached 3.9%, n=1140" — matches no row of the sal-v4 table: 3.9% is the OT2025 `baseline` bracketed figure, which is the case's *own* Term (not strictly prior), and its n there is 1297; the strictly-prior pool is ≈5.1%. It did not read the BIO or reply (both on the docket before its snapshot), so preservation and harmlessness appear only as boilerplate rather than case-specific analysis. "Several Justices have previously dissented from denials of certiorari on this exact issue" overstates the record (the petition cites a statement respecting denial in *Wrotten*), and "deep split among … federal circuits" overstates a split that runs two state high courts against most circuits. The relist/dissent rationale ("a dissent from denial … typically forces relists") is muddled, and the 0.40 dissent-from-denial figure did not bear out.
+
+**Leakage.** Forward; `not_applicable`. The log is entirely `unobserved` (coverage 0.0, an engine's standing shape), so graded on queries: provisioned reads, statpack greps, corpus queries bounded `--decided-before 2026-09-16`, and one unbounded `--disposition granted` query, which cannot carry this later-denied petition. No qp-topics read.
+
+**Big case (my read, 0.45).** Real doctrinal reach, weak vehicle, silent denial.

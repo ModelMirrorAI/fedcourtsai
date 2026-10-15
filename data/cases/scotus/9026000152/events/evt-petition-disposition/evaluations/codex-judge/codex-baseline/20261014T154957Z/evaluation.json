@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:1d7fbb9fce0582c4e5a8b7dbbb54fb504532c2bdd7ef8b9946c8145115860bde",
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "The supplied petition concerns an individual hotel-injury allegation and restrictions on filing emergency pleadings. Its due-process question could have broader access-to-courts implications, but it identifies no conflicting appellate rule or developed issue of national reach. Personal stakes may be substantial despite limited demonstrated systemic significance."
+  },
+  "brier_score": 9e-06,
+  "brier_skill_score": 0.9963904758241041,
+  "case_id": "scotus/9026000152",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.04993399083637493,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": 0.0024844034408471757
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.035,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3536723163841808,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.0024844034408471757,
+    "total": 0.0024844034408471757
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T17:29:46Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "October 4 prediction and calls precede the October 13, 2026 denial. The two unobserved web calls target general certiorari guidance and the Court's rules, not this case; their missing results are not evidence that nothing returned. Other captured calls read the provisioned record, schemas, and aggregate statpack. The file search expressly excludes the prohibited labeling path. No logged query or rationale reveals this petition's own disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261004T180949Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T17:32:04.086829Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.04993399083637493,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

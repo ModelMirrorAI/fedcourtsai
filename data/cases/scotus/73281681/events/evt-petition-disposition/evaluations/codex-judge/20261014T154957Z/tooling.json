@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281681",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidates retain frozen context and separate rationale from forecast.",
+    "Retrieval logs distinguish captured results from unobserved results.",
+    "Provisioned briefs and outcome support case-specific evaluation without external retrieval."
+  ],
+  "notes": "Scored all three aliases using only provisioned case evidence. Did not consult the statpack or corpus; all predictions carry frozen bands, so the harness owns their baselines. Unobserved retrieval results were assessed by query scope rather than treated as empty.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "local schema validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

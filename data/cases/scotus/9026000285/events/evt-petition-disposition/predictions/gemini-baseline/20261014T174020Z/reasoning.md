@@ -1,0 +1,7 @@
+P(grant) 0.03. The prior-Term salience band for a once-distributed private petition is the `baseline` class floor, which shows a ~3.9% grant rate (reached). I adjust slightly down because the petition seeks error-correction of a highly fact-bound harmless-error determination.
+
+The First Circuit applied the Supreme Court's unanimous 2024 decision in *McIntosh v. United States*, which held that the failure to enter a preliminary order of forfeiture prior to sentencing is subject to harmless-error review. The petitioner lists five procedural violations of Rule 32.2(b)(4)(B) and asks the Court to hold that they cannot be deemed harmless. The Supreme Court rarely grants certiorari to engage in fact-bound error correction of a lower court's application of a recent unanimous decision.
+
+The Court requested a response on September 17 after the government initially waived. While a requested response is an affirmative act of attention that prevents an immediate denial, it is common in criminal cases where a clerk or Justice wants to ensure no trap is missed before denying. It does not strongly signal a grant on a highly fact-bound issue like this. 
+
+My `relist-increment` is 0.90 because the requested response will mechanically result in at least one more distribution once the response is filed. The `cvsg-increment` is 0.01 because the United States is already a party and will provide its views directly. `big_case_score` is low (0.1) as this is a routine criminal procedure dispute with no broad legal significance outside of Rule 32.2 timing.

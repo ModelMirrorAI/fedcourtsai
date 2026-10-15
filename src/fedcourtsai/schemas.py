@@ -4269,7 +4269,7 @@ class FrozenProcessRecord(_Strict):
 
     digests: list[str] = Field(
         description="The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted — "
-        "predictors and evaluators together, exactly as the freeze commit "
+        "predictors and evaluators together, exactly as the registration "
         "blessed them. Not a filter: the enforced membership rule is `windows`, "
         "which keeps a closed window's digest counting after it leaves this set"
     )
@@ -4341,8 +4341,9 @@ class RegistryInstant(_Strict):
     )
     merge: str | None = Field(
         pattern=_FULL_SHA,
-        description="The full SHA of the carrying merge of the label's freeze commit — the "
-        "promotion merge that made the blessed bytes immutable on `main` — and so the "
+        description="The full SHA of the carrying promotion merge — the promotion merge "
+        "that carried the registration and made the blessed bytes immutable on `main` "
+        "— and so the "
         "commit the instant is audited against: a bless moment equals its committer time, "
         "a counting instant is at or after it. Not the merge that carried a later "
         "correction of the instant. A label that holds its predecessor's counting "
@@ -4353,7 +4354,8 @@ class RegistryInstant(_Strict):
     source: Literal["hand", "merge"] = Field(
         description="`merge` where `at` equals `merge`'s committer time, so git re-derives "
         "it; `hand` where a maintainer set `at` at or after that committer time (a "
-        "counting instant forecast at the freeze commit and verified against the merge). "
+        "counting instant set by hand under the rule before merge-stamped instants, "
+        "verified against the merge). "
         "A pending instant is `merge`: its carrying merge stamps it"
     )
 

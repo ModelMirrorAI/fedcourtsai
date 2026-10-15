@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will most likely deny the petition after receiving the requested response from the United States. I assign an 18% probability to any grant, including a summary disposition.
+
+The baseline contains **one distribution**, entered September 16 for the October 9, 2026 conference. The Court then requested a response on September 17, due October 19, after the government's September 14 waiver. I expect **one additional distribution**, and assign 94% to at least one further distribution. That increment is chiefly the expected return to conference after the requested briefing, not a prediction that the petition has already received substantive consideration and attracted a merits-driven relist. If it attracts serious consideration for review, one or two additional conferences beyond that return are plausible. The modal disposition window is late November 2026 through January 2027, subject to briefing extensions.
+
+No CVSG appears in the baseline. I expect none: the United States is already the respondent, and its requested response supplies the government's position through the ordinary adversarial process. The probability of a separate CVSG is 0.2%; the response request already entered is not a CVSG.
+
+If review is granted, the most likely question is a narrowed version of the petition's question: whether failure to impose or adequately communicate final criminal forfeiture at sentencing under Rule 32.2(b)(4)(B) can be excused as harmless error, and what notice and opportunity to contest forfeiture that analysis requires. I expect the Court to focus on that procedural question rather than independently determine what portion of Ponzo's contracting revenue was traceable to bribery.
+
+Conditional on a grant, I assign 20% to disposition in the cert order itself and 80% to plenary review. Plenary review is the likelier grant route because the distinction between preliminary and final forfeiture requirements calls for resolving an open legal question. A summary correction of the treatment of notice and opportunity to be heard remains possible. A routine intervening-precedent GVR is not the leading alternative: McIntosh preceded the judgment below and was addressed there. If the Court grants plenary review, the likely focus is the limits of extending McIntosh's preliminary-order analysis to final forfeiture, not an unconditional prohibition on all delayed forfeiture orders.
+
+Conditional on denial, I assign 4% to a noted dissent or statement respecting denial. My modal forecast is an ordinary denial without a separate writing; I do not predict an identifiable Justice's writing or a private cert vote tally.

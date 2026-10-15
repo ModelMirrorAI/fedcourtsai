@@ -1,0 +1,4 @@
+- Read `metrics/statpack.md` to establish the baseline grant rate for the interim docket.
+- Used CourtListener `call_endpoint` tool to query docket 26A477 (no results).
+- Used CourtListener `search` tool for "National Republican Congressional Committee" AND "Sherrod Brown".
+- Conducted Google Web Search for "Sherrod Brown v. FCC" OR "In re: Sherrod Brown" to uncover the procedural history and details of the underlying FCC advertising rule dispute, including the Supreme Court's prior stay of the Fourth Circuit's initial ruling in September.

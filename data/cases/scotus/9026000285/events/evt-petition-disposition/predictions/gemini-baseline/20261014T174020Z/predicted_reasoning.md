@@ -1,0 +1,5 @@
+Distributed once so far. Because the Court requested a response on September 17, the petition will mechanically be distributed at least once more for a conference after the response arrives, but expect no further relists beyond that before a decision. No CVSG is expected, as the United States is already the respondent and will provide its views in the requested response.
+
+If granted, the Court would likely focus on whether the multiple procedural violations of Rule 32.2(b)(4)(B) are amenable to harmless-error review under *McIntosh v. United States*, 601 U.S. 330 (2024), taking the QP as written. A summary disposition is unlikely, as the First Circuit faithfully attempted to apply recent precedent, making plenary review the expected route if the Court wishes to clarify the boundaries of *McIntosh*.
+
+Should it deny, expect no separate writing, as the case involves a routine, fact-bound application of harmless-error analysis to a newly decided Supreme Court precedent.

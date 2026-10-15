@@ -638,14 +638,14 @@ over a stamp that never landed.
 
 The writer is `.github/workflows/promotion-record.yml`. On every push to
 `main` it asks whether the pushed commit is a staging→main promotion merge,
-and on one it tags the merge, fills the placeholders the merge added and
-pushes the jailed record commit; its plumbing is
-`.github/actions/promotion-record/write.sh`, and
+and on one it tags the merge, stamps the pending rows the merge added, fills
+the placeholders the merge added and pushes the jailed record commit; its
+plumbing is `.github/actions/promotion-record/write.sh`, and
 `tests/test_workflow_promotion_record.py` holds it to the list below. It
-stamps nothing until `main` declares merge-stamped instants (the plan refuses
-a stamp otherwise, and `register-process` refuses to write a pending row), so
-until that declaration lands the cutover procedure below is how a label is
-frozen, with its instants set by hand.
+stamps only where the merge's first parent declares merge-stamped instants
+(`merge_stamping_declared` and its dated freeze-record entry): the plan
+refuses a stamp otherwise, and `register-process` refuses to write a pending
+row on a registry that does not declare them.
 
 #### Writer requirements
 
@@ -675,14 +675,14 @@ all of the following; its PR is checked against this list:
 
 ### Two boundaries, two jobs
 
-The freeze commit sets two moments, and conflating them costs a claim in one
+A label carries two moments, and conflating them costs a claim in one
 direction or a false alarm in the other:
 
 - The **bless moment** — a digest's value in `FROZEN_PROCESS_DIGESTS` — is
-  when that process's bytes became immutable on `main`: the merge time of the
-  promotion that carried the freeze commit naming it
-  (`git log -1 --format=%cI <carrying merge>`), so any auditor can re-derive
-  every entry from git. It is the **retroactivity** boundary. A cell stamped
+  when that process's bytes became immutable on `main`: the committer time of
+  the promotion merge that carried its registration
+  (`git log -1 --format=%cI <carrying merge>`), which that merge's writer
+  stamps, so any auditor can re-derive every entry from git. It is the **retroactivity** boundary. A cell stamped
   before it ran against a commitment that could still be edited, so the digest
   was applied to it backwards — retroactive blessing, which nothing licenses,
   and which the ledger tripwires in `tests/test_process_version.py` catch
@@ -692,14 +692,16 @@ direction or a false alarm in the other:
   A digest carried forward byte-identical from an earlier label keeps that
   label's bless moment: those bytes have been immutable since then.
 - The **counting instant**, `FROZEN_SINCE`, is when the current label's
-  cells start counting — it opens every window the label newly blesses — and
-  it is deliberately guessed *late* (step 2 below). Cells minted
-  in the window between the two — a live-channel cell queued before the
-  instant, say — land honestly in the ledger and are de-counted on timing
-  alone by `is_frozen`. That is shakedown, not retroactivity, and the trade is
-  one-sided on purpose: an instant guessed late costs a few uncounted cells,
-  while an instant guessed early blesses runs made while the constant was
-  still editable.
+  cells start counting — it opens every window the label newly blesses. The
+  carrying merge's writer stamps it at that merge's committer time, the same
+  instant as the bless moments it stamps, so the span between the newly
+  blessed digests' bless moment and the instant is empty. (The merge's clock
+  is GitHub's and a cell's stamp is its runner's; a cell runs for minutes
+  after the merge it could first carry, so the two clocks' skew never decides
+  `at_or_after_bless`.) A row set by hand under an earlier rule (`source: "hand"`) sits
+  later than its merge; cells minted between that merge and its instant
+  landed honestly in the ledger and are de-counted on timing alone by
+  `is_frozen` — shakedown, not retroactivity.
 
 So a stamp in `[bless, instant)` passes the tripwire and fails `is_frozen`
 (`graded_in_window`, on the evaluation half), which is exactly the intended
@@ -773,145 +775,68 @@ the tournament predictors), so it carries no process version.
 
 ## Freezing: the cutover procedure
 
-The freeze centers on a deliberate, reviewable **two-constant commit**, made
-when the process is settled and the first frozen predictions are about to
-land; recording and tagging that commit complete the procedure:
+A label is **registered** in the PR that moves the digests and **stamped** by the
+promotion merge that carries that PR to `main`; nothing about its instants is
+forecast or corrected by hand.
 
-0. Confirm no stamped cell already carries a digest you are about to bless.
-   Grep `main` for each one — `git fetch origin main && git grep -l
-   '<digest>' origin/main -- data/cases | wc -l` must be 0 per digest —
-   because data commits land there directly and never ride `staging`. (The
-   unscoped form, `git grep -l '"process_version": {' origin/main --
-   data/cases`, counts every stamped cell in the ledger and is the wider
-   census the freeze record reports beside it; the object form, because a
-   rewritten cell can carry a `"process_version": null` key without a stamp.
-   Stamped cells under *superseded* digests are the ordinary ledger, not a
-   finding.) A **prediction**
-   carrying a to-be-blessed digest is retroactive blessing by construction: it
-   ran under bytes that only this freeze makes immutable, so it necessarily
-   predates the digest's bless moment, the tripwire fires on it, and the
-   freeze commit cannot land green — which makes this step a precondition
-   rather than a note. An **evaluation** carrying one fails its own tripwire
-   the same way, so both halves are preconditions the suite enforces — at
-   the promotion PR, whose merge-preview checkout holds `main`'s ledger; a
-   staging run walks a ledger that lags it, which is why the grep targets
-   `origin/main`. Record what the grep found in the freeze record either way.
-   The re-run at promotion time is the promotion gate's: its `registry` stage
-   (`fedcourts registry-gate`, on every batch) refuses a promotion where any
-   digest the batch holds pending already stamps a committed prediction or
-   evaluation on `origin/main`, since cells land continuously and the
-   authoring-time check can go stale.
-1. Read the current digests: `fedcourts process-digest --all` prints the label,
-   role, id, and digest of every enabled predictor and evaluator.
-2. Register the digest(s) to bless in the `blessings` of
-   `src/fedcourtsai/process_registry.json` (`FROZEN_PROCESS_DIGESTS`), set the
-   new label's `since` (`FROZEN_SINCE`) beside it — a test pins that the two
-   move together — and edit its `windows` (`COUNTING_WINDOWS`) to match:
-   append one window per newly blessed **predictor** digest, labelled with the
-   new label and opening at the instant, and set `closes` to the instant on
-   every window whose digest this label stops blessing; the entry quotes
-   `fedcourts successor-disclosures` for what the close owes. Never delete a window:
-   a closed window's cells keep counting, and a test fails the suite if a
-   `proc-v8` predictor digest leaves the registry without a close. Then
-   append each newly blessed **evaluator** digest to
-   `evaluate_blessing_labels` (`EVALUATE_BLESSING_LABELS`) under the new label,
-   and append the new label to
-   every evaluator digest the label carries forward; never edit or remove an
-   entry, since a published per-rubric reading is named from it (a test fails
-   the suite if a live evaluator digest's labels lack the current label). Each
-   digest's value in `FROZEN_PROCESS_DIGESTS` is its **bless moment**, which is not known yet at this step: it is the merge time of the
-   promotion that will carry this commit, so write a placeholder here and
-   correct it at step 4 against the merge that actually landed. **Guess this
-   one early** — this commit's own date is the safe floor, since the carrying
-   merge is necessarily at or after it — because the two forecasts want
-   opposite directions. A bless moment left forecast *late* fires the
-   tripwire on every honest cell minted between the real merge and the
-   correction, reddening `main`'s data PRs; forecast early it merely fails to
-   catch a retroactive cell that step 0 already proved does not exist. A
-   digest carried forward byte-identical from the prior `prereg/` tag keeps
-   that label's bless moment verbatim — copy it across rather than re-dating
-   it.
+1. **Read the digests.** `fedcourts process-digest --all` prints the label,
+   role, id and digest of every enabled predictor and evaluator.
+2. **Register the label** in the same PR as the change that moved them:
+   `fedcourts register-process --label <proc-vN>` writes the label's pending
+   rows into `src/fedcourtsai/process_registry.json` (*Pending registrations*
+   above) and sets `CURRENT_PROCESS_LABEL`. A moved predictor digest gets a
+   pending blessing, a pending counting instant, a pending window and a
+   pending close on the window it supersedes; a moved evaluator digest a pending blessing, and an
+   evaluator-only label holds its predecessor's instant. Write the label's
+   dated freeze-record entry in the same PR: what moved and why, the evidence
+   for the change, and, where it closes windows, the
+   `fedcourts successor-disclosures` lines. Its census and carrying-merge
+   facts are keyed placeholders the merge fills (below); the entry's prose
+   counts "carrying" files, never counted cells.
+3. **Step 0 is the gate's.** The promotion carrying the PR runs
+   `scripts/promotion-gate.sh registry` in its required check; a batch whose
+   registration its merge could not stamp honestly — a pending digest already
+   stamping a committed cell on `main`, an unregistered live digest, two open
+   windows for one predictor, two new labels, a taken `prereg/` tag — does not
+   merge.
+4. **The merge's writer stamps.** On the promotion merge, the
+   `promotion-record` workflow reads the merge's git committer time once and
+   writes it as the label's counting instant, the bless moment of every digest
+   it newly blesses, and the edge of every window it opens or closes
+   (`source: "merge"`). It creates the annotated `promotion/<date>` tag and
+   `prereg/<label>` on the merge itself, fills the placeholders the merge
+   added, and pushes one jailed record commit (*Writer requirements* above).
+   It stamps only where the merge's first parent already holds the dated
+   declaration of this rule (`merge_stamping_declared`), so the declaring
+   promotion stamps nothing itself.
 
-   The instant is the other direction. It must be **at or after the moment the
-   commitment becomes immutable on `main`** (the promotion merge that will
-   carry this commit) and before the first run you intend to count. Choosing
-   it generously late errs conservative: whatever runs between that merge and
-   the instant lands in the ledger as shakedown, honestly stamped and simply
-   uncounted, while an instant before the merge would bless runs made while
-   the constant was still editable. The promotion date is a forecast here
-   too — for the instant, guess late. Late is safe on retroactivity, which is
-   why it is the direction to guess, but it is not free: a cell minted in that
-   window carries a blessed digest and still fails `is_frozen`'s time limb, so
-   the pre-freeze re-predict rule re-owes its event and the round is paid for
-   twice. Where the merge is known before the instant must be — a correction
-   at step 4, or a freeze whose promotion has already landed — the merge's own
-   instant is the value that satisfies the rule and leaves no gap at all.
-3. Commit. Because the digest excludes `pipeline_sha`, the blessed map survives
-   unrelated pipeline commits — predict/evaluate can resume at a newer HEAD and
-   still match.
-4. Once the promotion carrying the commit lands on `main`, **record the bless
-   moment and verify the instant before minting anything immutable**. Read the
-   carrying merge's date once — `git log -1 --format=%cI <promotion merge>` —
-   and use it twice. First, write it as the value of every digest this commit
-   *newly* blesses in `FROZEN_PROCESS_DIGESTS`, replacing step 2's forecast
-   (carried-forward digests keep their earlier bless moment); the ledger
-   tripwire reads these, so a forecast left uncorrected either fires on honest
-   cells or lets a retroactive one through. Second, the instant: the
-   registered `since` must be at or after that same date. The windows move with it:
-   every window this label opens opens at the instant, and every window it
-   closes closes there too, so a bumped instant is bumped in all three places —
-   a test holds every `closes` to some window's `opens`.
+**The audit** is a comparison of instants against git: the carrying merge's
+committer time, printed in UTC as
+`TZ=UTC git log -1 --date=format-local:%Y-%m-%dT%H:%M:%SZ --format=%cd prereg/<label>^{commit}`,
+equals the label's registered `since` and every bless moment it newly
+blesses (compare the instants, not the strings: `%cI` prints the committer's
+local offset). An evaluator-only label is the exception: it holds its
+predecessor's `since`, so its audit is the predictor-digest byte comparison
+against the prior `prereg/` tag, and only its new evaluator blessings equal
+the merge's time. Alongside it,
+`fedcourts promotion-record --check-main origin/main` reports no pending row a
+merge has already carried. A registry row with `source: "hand"` was set by
+hand under an earlier rule; its own dated freeze-record entry carries the
+merge it was verified against. Because the digest excludes `pipeline_sha`,
+the blessed map survives unrelated pipeline commits, so predict and evaluate
+resume at a newer HEAD and still match.
 
-   The two corrections travel differently, because only one of them is a
-   pre-registered *choice*. **The instant is**, so an instant that came in
-   early must be bumped in a follow-up promotion landed **before** tagging —
-   the `prereg/` namespace blocks update and deletion, so a tag minted over a
-   bad instant burns the label. **The bless moment is not**: it is a fact
-   about git that the constant merely restates, and it cannot be in the tagged
-   tree at all when the tag sits on the freeze commit, since the merge that
-   establishes it has not yet happened. So what must be right before tagging
-   is the *record*: the freeze-record entry carries the git-verified bless
-   moment and the `git log` command that yields it, and the constant's
-   correction rides the ordinary next promotion. What the tag pre-registers is
-   the blessed digests and the instant. (One label shape is
-   audited differently: an
-   evaluator-half re-bless that deliberately holds the instant — the second
-   supersession note below — replaces this date comparison with the
-   predictor-digest byte comparison, and its gap check covers only cells
-   stamped under the *newly blessed* digests, which step 0 proves are none.)
-   On a slip — an instant that fell *before* the carrying merge — a cell
-   stamped in the gap would read as frozen although it ran while the constant
-   was still editable. Recording the true bless moment catches that
-   mechanically on **both halves**: such a cell predates its digest's bless
-   and its ledger tripwire fires on it, prediction and evaluation alike.
-   (`graded_in_window` still tests timing with no evaluator-digest limb — a
-   gap cell fails its tripwire even where that filter would count it.) Bump past
-   anything the tripwires find. Only then record the commit as the cutover in
-   [freeze-record.md](freeze-record.md) and tag it `prereg/<label>`
-   (e.g. `prereg/proc-v1`): an annotated tag in the `prereg/` namespace the
-   *Tags* section of [pipeline.md](pipeline.md) describes, protected against
-   update and deletion so the freeze point stays findable and immovable. The
-   after-the-fact auditor's check is the same comparison, against the
-   promotion that carried the freeze commit to `main`:
-   `git log -1 --format=%cI promotion/<YYYY-MM-DD>` — the registered `since`
-   must be at or after that date. Name the tag pointing at the **carrying
-   merge itself** (a same-day second batch carries a `-2` suffix, and the
-   bare date resolves to the earlier, weaker comparison). (`prereg/<label>`'s own tagger date is not
-   the witness: the tag is minted after this check, so it may legitimately
-   fall on either side of a correctly chosen instant.)
-
-From that commit forward, the first long-conference prediction lands under the
-stamped, frozen process and the headline fills in. When the process later changes
-materially, bump `CURRENT_PROCESS_LABEL` to the next label; the old label's cells
-keep their stamp and remain replayable against the process that produced them,
-never overwritten.
+From that merge forward, the label's cells count. When the process later
+changes materially, the next label is registered the same way; the old label's
+cells keep their stamp and remain replayable against the process that produced
+them, never overwritten.
 
 **Re-freezing with nothing counted under the prior label** is a supersession,
-not an extension: the new freeze commit *replaces* the superseded label's
+not an extension: the new registration *replaces* the superseded label's
 digests in `FROZEN_PROCESS_DIGESTS` (the map holds one blessed process per
 actor) and closes their windows at the new instant, exactly as the third shape
 below does — here the closed windows simply hold no cell. The procedure above runs in full
-for the new label — including step 0's grep, which is what proves the
+for the new label — including the gate's Step 0, which is what proves the
 supersession de-blesses nothing — and the freeze record in
 [freeze-record.md](freeze-record.md) must state the count of cells ever stamped
 under the superseded label (zero, or listed). The superseded `prereg/` tag
@@ -932,10 +857,10 @@ the count of counted cells graded under them, since the constant no longer
 does. Where the predictor digests are **byte-identical** to the prior
 `prereg/` tag's, `FROZEN_SINCE` holds rather than moves: the instant does
 no work for anything newly blessed — nothing can carry the new evaluator
-bytes before the carrying promotion lands them on `main`, and step 0
+bytes before the carrying promotion lands them on `main`, and Step 0
 proves nothing already does — while moving it forward would drop every
 stamped prediction from the headline for a change that touched no
-predictor byte, and opens no window. Step 4's date comparison is therefore not such a label's
+predictor byte, and opens no window. The audit's date comparison is therefore not such a label's
 audit (held deliberately, the instant *precedes* the carrying promotion);
 the auditor's check is the byte comparison instead — the predictor digests
 under the new tag must equal the prior tag's, whose own
@@ -946,7 +871,7 @@ freeze record states the exposure.
 
 **Re-blessing the predictor half while the prior predictor digests carry
 counted cells** is the third supersession shape, and it **closes** the prior
-windows; it de-counts nothing. The successor's freeze commit sets `closes`, at
+windows; it de-counts nothing. The successor's registration sets `closes`, at
 its own counting instant, on the window of each predictor digest it stops
 blessing, and appends a window for each digest it newly blesses. Every cell
 that counted inside a closed window keeps counting, reported under the label
@@ -976,9 +901,9 @@ successor-counted events — failed (a committed failure fact in its earlier
 span), uncounted (a cell in that span that did not count), not reached before
 the close, and missing (reached, and nothing from the predictor in its span) —
 and the entry quotes all four, since every one of them is an event the closed
-window did not reach. Run it at the successor's freeze commit once its windows
+window did not reach. Run it at the successor's registration once its windows
 are registered (provisional: outcomes and gradings keep landing until the
-instant), again at any instant correction, and at the tagged commit, and quote
+instant), and again once the carrying merge has stamped it, and quote
 the last run's lines. An unbroken window licenses no other pooling: a salience, baseline,
 evaluator or other boundary registered elsewhere still cuts inside it.
 

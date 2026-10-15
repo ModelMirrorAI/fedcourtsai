@@ -1,0 +1,10 @@
+# Retrieval beyond the provisioned inputs
+
+- Read the interim-application section of `metrics/statpack.md` and inspected `metrics/statpack.json` keys, coverage, and interim Term counts. Computed the 2016–2025 pool locally with `jq`: 53 grants, 549 resolved, 7,331 unparsed. Checked pack commit provenance with `git log -1 --format='%h %cI' -- metrics/statpack.md`: `cf9ae960e 2026-10-13T19:17:46Z`.
+- No `fedcourts query` or `open-events` call was made; no ranged-corpus transfer line exists. The path resolver was run with the supplied identifiers and predictor role. Its first invocation failed because the default uv cache was read-only; rerunning with a writable temporary cache succeeded.
+- Generic web search attempted two queries: `site.supremecourt.gov Hollingsworth Perry 558 183 190 stay reasonable probability fair prospect` and `site.law.cornell.edu uscode 47 155 c 4 every such application shall be passed upon`. The tool returned no usable results.
+- Generic statutory web opens attempted `https://uscode.house.gov/view.xhtml?edition=2023&num=0&req=granuleid%3AUSC-2023-title47-section155` and `https://www.govinfo.gov/link/uscode/47/155`. Neither returned usable content. They supplied no evidence.
+- CourtListener MCP `search`: `type=o`, `citation=558 U.S. 183`, `num_results=1`, fields `caseName,citation,dateFiled,opinions,absolute_url`. Returned *Hollingsworth v. Perry*, January 13, 2010, and lead-opinion ID 9413203.
+- CourtListener MCP `search_document`: `opinion_id=9413203`, `query=reasonable probability`, `snippet_size=800`. Read the paragraph at reporter page 190 stating the stay-pending-certiorari standard. Used only that general legal framework, not the prior case's outcome as a statistical analogue.
+
+No live lookup of 26A477, its disposition, or subsequent history was made. No other predictor's output, realized-outcome file, or topic-label artifact was consulted. Earlier related litigation was encountered only in the provisioned pre-decision filings and is identified in the rationale and flags.

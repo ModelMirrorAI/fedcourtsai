@@ -1,0 +1,14 @@
+# Forecast
+
+The Court will deny the application for an injunction pending appeal, leaving the underlying Ninth Circuit appeal to proceed. The probability of an unqualified grant is **24%**. This is a forecast of interim relief, not a forecast of the eventual Title IX judgment or a petition for certiorari. A mixed grant-and-denial order belongs on the ungranted side of this event's scoring rule.
+
+The October 13 snapshot already records Justice Kagan's October 6 response request and three October 13 responses. It shows four amicus entries, including submitted briefs, and no referral to the full Court. From that state:
+
+- **Referral:** Justice Kagan will refer the application to the full Court, possibly in the same docket entry that records disposition; probability **91%**. The requested responses, multiple amici, and questions about the scope of recent Supreme Court decisions make collective consideration substantially more likely than unilateral disposition.
+- **Response request:** No additional call for a response is expected; probability of a further request **2%**. The declared response-requested increment is already vacuous because the initial request has occurred; this number is not the probability that the Court has requested a response.
+- **Additional amici:** The most likely outcome is no increase beyond the four counted entries. Probability of at least one additional countable amicus entry before resolution is **22%**; if the count rises, one further filing is more likely than a large wave. Submitted briefs count, and later acceptance of one already counted is not a new brief.
+- **Timing:** Expect an order during October 15–23, 2026, after an opportunity for a reply and consideration by the Court, rather than a prolonged hold. This timing forecast is not a scored claim.
+
+The expected denial will be a short order rather than a comprehensive merits opinion. Its likely institutional basis is the difficulty of awarding affirmative relief before completion of the appeal on a disputed record: the imminence of a particular future matchup, the information and control needed to implement an accommodation, and the effect on other athletes remain contested. The requested relief extends beyond simply suspending an existing judicial order.
+
+If the Court instead grants relief, the most plausible route is a narrowly framed protection for K.M.K.'s participation or opt-out, grounded in parental authority and the risk of irretrievably lost athletic opportunities, rather than a final nationwide rule about eligibility. A denial would not decide that Washington's policy ultimately complies with Title IX. The alternative request for certiorari before judgment is unlikely to displace the ordinary appeal; granting review alone would not establish that the requested injunction was granted.

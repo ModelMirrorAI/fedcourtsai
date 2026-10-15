@@ -148,11 +148,11 @@
               "type": "null"
             }
           ],
-          "description": "The full SHA of the carrying merge of the label's freeze commit \u2014 the promotion merge that made the blessed bytes immutable on `main` \u2014 and so the commit the instant is audited against: a bless moment equals its committer time, a counting instant is at or after it. Not the merge that carried a later correction of the instant. A label that holds its predecessor's counting instant (an evaluator-only label) copies that instant whole, so its `merge` names the predecessor's carrying merge, not its own. Null, with `at`, marks a registration no merge has carried yet",
+          "description": "The full SHA of the carrying promotion merge \u2014 the promotion merge that carried the registration and made the blessed bytes immutable on `main` \u2014 and so the commit the instant is audited against: a bless moment equals its committer time, a counting instant is at or after it. Not the merge that carried a later correction of the instant. A label that holds its predecessor's counting instant (an evaluator-only label) copies that instant whole, so its `merge` names the predecessor's carrying merge, not its own. Null, with `at`, marks a registration no merge has carried yet",
           "title": "Merge"
         },
         "source": {
-          "description": "`merge` where `at` equals `merge`'s committer time, so git re-derives it; `hand` where a maintainer set `at` at or after that committer time (a counting instant forecast at the freeze commit and verified against the merge). A pending instant is `merge`: its carrying merge stamps it",
+          "description": "`merge` where `at` equals `merge`'s committer time, so git re-derives it; `hand` where a maintainer set `at` at or after that committer time (a counting instant set by hand under the rule before merge-stamped instants, verified against the merge). A pending instant is `merge`: its carrying merge stamps it",
           "enum": [
             "hand",
             "merge"

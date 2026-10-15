@@ -1,0 +1,211 @@
+{
+  "actor_id": "claude-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "e4511f7c69d194ed",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; cat .github/prompts/evaluate.md; D=data/cases/scotus/73280380/events/evt-petition-disposition; find $D | head -100",
+      "result_capture": "captured",
+      "result_digest": "772a80a6483804bd",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:06:40.131Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "17972b725ad47f80",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; sed -n 1,400p /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/2231421f-ed1e-46d4-8c8f-36639230ef9f/tool-results/bwvajkq40.txt | tail -n +20",
+      "result_capture": "captured",
+      "result_digest": "6680428ce9bab7da",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:06:43.894Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "7b9a23bf9784d3fd",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; sed -n 400,900p /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/2231421f-ed1e-46d4-8c8f-36639230ef9f/tool-results/bwvajkq40.txt",
+      "result_capture": "captured",
+      "result_digest": "3e90bce32ed95c27",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:06:46.082Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b918e708823f4a9d",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; cat /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/2231421f-ed1e-46d4-8c8f-36639230ef9f/tool-results/bqgrpyh8o.txt | sed -n 25,400p",
+      "result_capture": "captured",
+      "result_digest": "99ea728706ee8472",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:06:48.131Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ec88f5ea2bb591be",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; cat /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/2231421f-ed1e-46d4-8c8f-36639230ef9f/tool-results/bqgrpyh8o.txt | sed -n 400,600p; C=data/cases/scotus/73280380; ls -R $C | head -50",
+      "result_capture": "captured",
+      "result_digest": "7b8879627f2329ee",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:06:50.914Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "269462880c0873ee",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; C=data/cases/scotus/73280380; E=$C/events/evt-petition-disposition; cat $E/event.yaml $E/outcome.json $C/record/context.json; cat $C/record/documents/questions-presented.txt | head -40; for a in a b c; do echo \"=== $a\"; cat $C/record/blinded/candidate-$a/prediction.json; done",
+      "result_capture": "captured",
+      "result_digest": "ef6fedf4c6c9d303",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:06:53.909Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "38b4da686d578e14",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; C=data/cases/scotus/73280380/record/blinded; for a in a b c; do echo \"=============== $a\"; cat $C/candidate-$a/reasoning.md; echo \"--- retrieval.md\"; cat $C/candidate-$a/retrieval.md; done",
+      "result_capture": "captured",
+      "result_digest": "20e246804c744898",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:06:57.809Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8a85659255955ccb",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; C=data/cases/scotus/73280380/record/blinded; for a in a b c; do echo \"== $a\"; python3 -c \"\nimport json,sys\nd=json.load(open('$C/candidate-$a/retrieval_log.json'))\nprint({k:v for k,v in d.items() if k!='calls'})\nfor c in d.get('calls',[]):\n  t=c.get('tool'); q=str(c.get('query') or c.get('query_slice') or c.get('args') or '')[:160]\n  if t not in ('file-read','shell') or 'qp-topic' in q or 'predictions' in q: print(t,c.get('retrieved_doc_date'),c.get('",
+      "result_capture": "captured",
+      "result_digest": "074ecc90eb6cb790",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:07:03.875Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "9c321c551c8a2b00",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; python3 -c \"\nimport json\nd=json.load(open('data/cases/scotus/73280380/record/blinded/gemini-baseline/retrieval_log.json'))\nfor c in d['calls']: print(c['tool'], str(c.get('query'))[:130])\n\"; grep -n \"elevated\" metrics/statpack.md | head; ls schemas | grep -i -E \"eval|flag|tool\"",
+      "result_capture": "captured",
+      "result_digest": "c380fc695c2eb1d8",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:07:08.201Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "634f5db8a5279d64",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; python3 -c \"\nimport json;s=json.load(open('schemas/evaluation.schema.json'));print(s.get('required'));print(list(s['properties']));print(json.dumps(s['\\$defs'].get('LeakageAssessment',{}))[:1500]);print(json.dumps(s['\\$defs'].get('BigCaseEvaluation',s['properties']['big_case']))[:800])\"; python3 -c \"\nimport json;s=json.load(open('schemas/agent_tooling.schema.json'));print(s.get('required'),list(s['properties']))\"",
+      "result_capture": "captured",
+      "result_digest": "2cb5642ba4f3888f",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:07:12.555Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "962ac2ce6635c8bb",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; python3 - <<'EOF'\nimport json,os,datetime\nbase=\"data/cases/scotus/73280380/events/evt-petition-disposition/evaluations/claude-judge\"\nRUN=\"20261014T154957Z\"; now=datetime.datetime.now(datetime.timezone.utc).strftime(\"%Y-%m-%dT%H:%M:%SZ\")\nc={\"a\":(0.12,0.85),\"b\":(0.35,0.40),\"c\":(0.28,0.70)}\nbig={\"evaluator_score\":0.35,\"notes\":\"Rule 11 / \u00a7 1927 sanctions against counsel in the 2022 Arizona voting-machine suit. A six-judge en banc dissent gives the issue ",
+      "result_capture": "captured",
+      "result_digest": "29661ee229e5d43b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:07:24.317Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "bee0d4b3d35016ba",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; B=data/cases/scotus/73280380/events/evt-petition-disposition/evaluations/claude-judge; R=20261014T154957Z\nCOMMON='**Cell:** scotus/73280380 (No. 25-882, *Parker v. Gates*), `evt-petition-disposition`, stage `cert`. **Outcome:** `denied` (`actual_granted` 0), resolved 2026-10-13 after three distributions, no noted dissent from denial, no CVSG.\n\nThe prediction froze `context.band` = `elevated` under `sal-v4`, so the segment base rate, `base_rate_basis`",
+      "result_capture": "captured",
+      "result_digest": "6a88e161c674f0b5",
+      "result_status": "error",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:07:47.390Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "3b0d9a0dd5817d07",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; B=data/cases/scotus/73280380/events/evt-petition-disposition/evaluations/claude-judge; R=20261014T154957Z; ls $B/$R; cat $B/$R/retrieval.md; grep -rln \"class Evaluation(\\|class AgentToolingFeedback\" src/fedcourtsai | head",
+      "result_capture": "captured",
+      "result_digest": "b7e425df5342bf95",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:07:51.178Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "3d360e3d4882840e",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; B=data/cases/scotus/73280380/events/evt-petition-disposition/evaluations/claude-judge; R=20261014T154957Z; uv run python -c \"\nimport json,glob\nfrom fedcourtsai.schemas import Evaluation, AgentToolingFeedback\nfor f in glob.glob('$B/*/$R/evaluation.json'): Evaluation.model_validate(json.load(open(f))); print('ok',f)\nAgentToolingFeedback.model_validate(json.load(open('$B/$R/tooling.json'))); print('ok tooling')\n\"; git status --short | grep -v \"^ D\" | he",
+      "result_capture": "captured",
+      "result_digest": "928ebaec399b2ef6",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:07:54.760Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ee56babdc5eed8f1",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; grep -n -i -E \"VanDyke|dissenting from the denial|Bumatay, Circuit Judge, dissent\" data/cases/scotus/73280380/record/documents/appendix.txt | head -10",
+      "result_capture": "captured",
+      "result_digest": "5e57a47e978d7c38",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:08:00.159Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "7b64353e6a8e9800",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; f=data/cases/scotus/73280380/events/evt-petition-disposition/evaluations/claude-judge/gemini-baseline/20261014T154957Z/evaluation.md; sed -i 's/but the provisioned material and the en banc order attribute the dissent from rehearing en banc to another judge, with Bumatay joining\\./but the provisioned appendix (`record\\/documents\\/appendix.txt`) shows the dissent from denial of rehearing en banc was written by Judge VanDyke, with Bumatay joining./' $f; gre",
+      "result_capture": "captured",
+      "result_digest": "ef30cd6d298f4f49",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T16:08:03.763Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73280380",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

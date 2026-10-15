@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "The application concerns individual pretrial liberty and a potentially recurring federal detention-review question. The immediate event is a case-specific stay denial, not a merits resolution of the asserted circuit split; the record supports moderate significance, not a nationwide merits holding."
+  },
+  "brier_score": 0.0729,
+  "brier_skill_score": -6.822048024207904,
+  "case_id": "scotus/9526000446",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.0965391621129326,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.27,
+        "score": -0.06358019017853292
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.72,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.06358019017853292,
+    "total": -0.06358019017853292
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T18:03:38Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The prediction and captured calls are dated October 3, 2026, before the October 13 denial. The log shows provisioned-input and statpack reads, general Hollingsworth searches, and a citation-only lookup, not retrieval of this application's disposition. The two web-search results are unobserved, so their null dates do not prove empty results; their queries concern a prior authority, not this case. Result capture coverage is 0.9333. Neither prose document presupposes the actual denial. No evidence of an already-decided case provisioned forward.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261003T175711Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T18:06:23.600303Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0965391621129326,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,13 @@
+# Forecast of the Court's decision
+
+The Court will **reverse** the Fourth Circuit's judgment and remand for further proceedings. The predicted vote is **6–3**: Roberts, Thomas, Alito, Gorsuch, Kavanaugh, and Barrett in the majority; Sotomayor, Kagan, and Jackson dissenting. The probability that the judgment below is disturbed, including a vacatur or mixed judgment, is **84%**.
+
+The majority will answer the granted question in the negative. Material support to a terrorist organization under 8 U.S.C. 1182(a)(3)(B)(iv)(VI) need not be shown to advance that organization's actual commission of terrorism. The opinion will distinguish Congress's separate treatment of support for terrorist activity from its treatment of support to a terrorist organization. It will reject the Fourth Circuit's additional activity-nexus requirement rather than treating statutory ambiguity as a reason to defer to the agency.
+
+The Court will explain that services sustaining an organization can qualify even when they are ordinary, nonviolent services. Preparing meals for its leadership illustrates why assistance to an organization cannot be reduced to supplying instruments of particular attacks. The statutory examples will be treated as illustrative rather than an exhaustive list of prohibited assistance. The Court will not need to hold that every trivial benefit or incidental contact is material support to reach that conclusion.
+
+The ground will extend beyond these cooking facts: the rejection of an activity nexus will govern the organization's receipt of other forms of material support as well. The Court will leave an implied duress exception unresolved rather than deciding that separate question through the definition of materiality. Unresolved alternative arguments can be considered on remand; reversal will not itself determine every remaining eligibility or protection issue.
+
+The dissent will emphasize the limiting force of material, the statutory examples, and the consequences of applying a terrorism bar to coerced ordinary labor. It will resist treating the immigration provision as simply interchangeable with the criminal material-support statute. The principal disagreement will concern the required connection between the assistance and terrorism, not a judicial finding that Ozurumba voluntarily endorsed the organization.
+
+A judgment during the 2026–2027 merits cycle, most likely by June 2027 after briefing and argument, is the expected route. A DIG or an equally divided affirmance is a low-probability alternative, not the forecast. Authorship and separate-writing assignments are left unspecified.

@@ -5877,8 +5877,8 @@ def successor_disclosures_command(
     """Print what a successor's freeze-record entry states about the windows it closed.
 
     Read-only and offline over the committed ledger, against the registry as
-    committed — so run it at the successor's freeze commit (once its windows are
-    registered) and again at the carrying promotion. Four disclosures
+    committed — so run it on the successor's registration PR (once its windows
+    are registered) and again after the carrying promotion has stamped them. Four disclosures
     (``docs/process-version.md``): each closed window's counted events, split
     into resolved and pending at its close; the **split events**, on which
     counted cells come from a closed window and a successor window that never
@@ -8821,16 +8821,16 @@ def process_digest_cmd(
         bool, typer.Option("--all", help="Print the digest of every enabled actor.")
     ] = False,
 ) -> None:
-    """Print an actor's process digest — the value a maintainer blesses to freeze.
+    """Print an actor's process digest — the value a registration blesses.
 
-    The freeze procedure: run ``fedcourts process-digest --all``, register the
-    blessed digest(s) in the ``blessings`` of ``process_registry.json`` (the
-    record ``FROZEN_PROCESS_DIGESTS`` is built from) **and set the label's
-    ``since`` (``FROZEN_SINCE``) beside it** (the two move together — a test
-    pins it) in one small freeze commit, and record that commit as the cutover
-    in the docs. Each digest's value there is its **bless moment**, the
-    carrying promotion's merge time, written once that promotion lands; it is
-    the retroactivity boundary, separate from the counting instant. Because
+    The registration: run ``fedcourts process-digest --all``, then
+    ``fedcourts register-process`` in the PR that moved the digests, which
+    writes the label's pending rows into ``process_registry.json`` (the record
+    ``FROZEN_PROCESS_DIGESTS`` is built from). The promotion merge carrying
+    that PR stamps them: each newly blessed digest's **bless moment** and the
+    label's counting instant (``FROZEN_SINCE``) are that merge's committer
+    time. The bless moment is the retroactivity boundary, separate from the
+    counting instant an evaluator-only label holds over. Because
     the digest excludes the pipeline commit, the blessed map survives
     unrelated pipeline changes — predict/evaluate can resume at a newer HEAD
     and still match.

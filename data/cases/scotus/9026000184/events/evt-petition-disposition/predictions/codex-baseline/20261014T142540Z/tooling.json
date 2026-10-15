@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000184",
+  "gaps": [
+    "No opposition text yet: the snapshot's requested response is due after prediction time.",
+    "Petition and appendix are marked truncated; omitted record portions were not assumed available.",
+    "Web search/open attempts returned no usable content."
+  ],
+  "helpful": [
+    "The provisioned appellate opinion allowed a check of the petition's split claims and revealed independent pleading obstacles.",
+    "The response-request entry clarified that another distribution need not be a substantive relist.",
+    "Exact reached-rate fields in the statpack JSON supported prior-Term pooling.",
+    "CourtListener provided the historical Junger opinion."
+  ],
+  "notes": "No corpus-prior query was needed. A writable temporary package cache resolved the initial CLI launch failure. Forecast uses the supplied baseline and a historical authority, not a current-case outcome search.",
+  "role": "predictor",
+  "run_id": "20261014T142540Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file reads",
+    "fedcourts paths",
+    "committed statpack Markdown and JSON",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "web search/open attempts",
+    "schema and data validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

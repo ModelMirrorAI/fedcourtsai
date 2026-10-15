@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs (event.yaml, outcome.json, record/context.json, record/snapshots/2026-10-14.json, the blinded candidates under record/blinded/) and the committed `metrics/statpack.md` (sal-v4 segment table, read only to check the candidates' anchoring). No corpus query, CourtListener, or web lookup.

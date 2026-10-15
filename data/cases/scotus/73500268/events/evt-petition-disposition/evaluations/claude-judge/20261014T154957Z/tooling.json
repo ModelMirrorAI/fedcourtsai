@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500268",
+  "run_id": "20261014T154957Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Blinded candidate staging with retrieval_log.json made forward-leakage checks quick", "result_capture markers clarified which calls to grade on query"],
+  "gaps": [],
+  "notes": "Cert cell with frozen bands on all three candidates, so no base-rate pooling was required of the evaluator."
+}

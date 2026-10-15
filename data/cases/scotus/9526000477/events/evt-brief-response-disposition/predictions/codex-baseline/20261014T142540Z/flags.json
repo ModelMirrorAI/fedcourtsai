@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000477",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-brief-response-disposition",
+      "message": "The provisioned October 10 opposition asks at pages 3 and 29 to lift/terminate an administrative stay, but the October 11 snapshot contains no administrative-stay entry. This is a pre-decision record discrepancy, not discovery of this application's terminal disposition. I treated the stay as reported in advocacy only, retained the frozen not-yet-referred state, and did not count temporary administrative relief as the predicted substantive grant. Please check completeness of the provisioned proceedings."
+    },
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "The September 4, 2026 stay in related application 26A274, discussed in both provisioned briefs, is a major upward signal. It predates this event and is not the outcome being forecast. I did not seek or encounter the ultimate disposition of 26A477; the probability discounts the distinction between the earlier vacatur and the present mandamus order."
+    }
+  ]
+}

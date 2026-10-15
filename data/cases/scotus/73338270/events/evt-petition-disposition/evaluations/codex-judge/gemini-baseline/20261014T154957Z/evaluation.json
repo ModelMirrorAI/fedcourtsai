@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:1d7fbb9fce0582c4e5a8b7dbbb54fb504532c2bdd7ef8b9946c8145115860bde",
+  "big_case": {
+    "evaluator_score": 0.45,
+    "notes": "The provisioned question presents consequential bodily-autonomy and licensed-employment issues. The supplied oppositions describe a retrospective employment dispute, an unpublished ruling, and antecedent immunity and state-action obstacles, limiting this vehicle's apparent capacity to establish a broad national rule. This assessment concerns stakes, not grant probability."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9865171436377297,
+  "case_id": "scotus/73338270",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.029267304112156636
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.029267304112156636,
+    "total": 0.029267304112156636
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T16:34:41Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The prediction and all 25 logged calls are dated September 24, 2026, before this petition's October 13 denial. Queries concern provisioned inputs, statistics, and a general denied-priors corpus lookup, not a later disposition of this petition. All results are unobserved (capture coverage 0.0); null dates/digests do not establish empty results. Neither the queries nor the staged prose show this petition already decided. The contradictory retrieval note discloses the corpus query despite its opening no-retrieval sentence; it does not disclose outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260924T182556Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T16:37:10.060797Z"
+  },
+  "reasoning_quality": 0.65,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17224199288256228,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
