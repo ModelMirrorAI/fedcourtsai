@@ -111,11 +111,24 @@ _MOMENT_VALUES: Final = frozenset(m.value for m in Moment)
 
 _FOOTER: Final = (
     "Every forecast above is a committed file in a public git ledger, made before "
-    "the outcome existed; its commit time is the proof. A forecast is not an "
-    "accuracy claim: scored results, and the rules for reading them, are on the "
-    "Results page. Each predictor is a frontier model running the same prompt on "
-    "the same case record."
+    "the outcome existed; its timestamp in the ledger is the proof. A forecast is "
+    "not an accuracy claim: scored results, and the rules for reading them, are on "
+    "the Results page. Each predictor is a frontier model given the same prompt and "
+    "the same provisioned case record, though not at the same moment."
 )
+
+#: The two halves of a group's outcome count, by stage: the stage's usual
+#: outcome, and everything else.
+_USUAL_LABEL: Final[dict[Stage, tuple[str, str]]] = {
+    Stage.cert: ("denied", "not denied"),
+    Stage.interim: ("denied", "not denied"),
+    Stage.merits: ("left standing", "reversed or vacated"),
+}
+
+#: What a lay reader needs to know to read a stage's percentages.
+_STAGE_NOTE: Final[dict[Stage, str]] = {
+    Stage.cert: " A grant, vacate and remand (GVR) counts as a grant.",
+}
 
 
 @dataclass(frozen=True)
@@ -214,7 +227,17 @@ def build_public_update(data_root: Path, week: str) -> PublicUpdate:
             ]
             if before:
                 resolved.append(_item(first, event, before, outcome=outcome))
-        fresh = [row for row in event_rows if start <= cell_clock(row.prediction).date() <= end]
+        # A cell stamped on or after its outcome is retrospective whatever its
+        # mode says, so it never appears as a forecast made in advance.
+        fresh = [
+            row
+            for row in event_rows
+            if start <= cell_clock(row.prediction).date() <= end
+            and (
+                outcome is None
+                or classify_stratum(cell_clock(row.prediction), outcome.resolved_at) == FORWARD
+            )
+        ]
         if fresh:
             new.append(_item(first, event, fresh, outcome=None))
 
@@ -315,13 +338,30 @@ def _item_line(item: EventItem, repo_url: str) -> str:
     docket = f" (No. {item.docket_number})" if item.docket_number else ""
     outcome = f" — {item.outcome}." if item.outcome is not None else "."
     forecasts = " · ".join(
-        f"{forecast.predictor_id} {round(forecast.probability * 100)}%"
-        for forecast in item.forecasts
+        f"{forecast.predictor_id} {_percent(forecast.probability)}" for forecast in item.forecasts
     )
     return (
         f"- **{_escape(item.caption)}**{docket}{outcome} Forecasts: {forecasts}"
         f" ([ledger]({repo_url}/{item.event_path}))"
     )
+
+
+def _percent(probability: float) -> str:
+    """A probability as a whole percentage, never rounded to certainty."""
+    if probability < 0.005:
+        return "<1%"
+    if probability > 0.995:
+        return ">99%"
+    return f"{round(probability * 100)}%"
+
+
+def _outcome_count(stage: Stage | None, members: Sequence[EventItem]) -> str:
+    """How a resolved group split, so the ordering below cannot hide the base rate."""
+    usual_label, other_label = (
+        _USUAL_LABEL.get(stage, ("usual", "other")) if stage is not None else ("usual", "other")
+    )
+    usual = sum(1 for item in members if item.usual)
+    return f"{len(members)} resolved: {len(members) - usual} {other_label}, {usual} {usual_label}. "
 
 
 def _group_order(stage: Stage | None, moment: Moment | None) -> tuple[int, str]:
@@ -332,7 +372,7 @@ def _group_order(stage: Stage | None, moment: Moment | None) -> tuple[int, str]:
     )
 
 
-def _section(title: str, items: Sequence[EventItem], repo_url: str) -> list[str]:
+def _section(title: str, items: Sequence[EventItem], repo_url: str, *, resolved: bool) -> list[str]:
     """A section's lines, grouped by question and moment.
 
     Within a group, the events whose outcome is not the stage's usual one (a
@@ -348,7 +388,9 @@ def _section(title: str, items: Sequence[EventItem], repo_url: str) -> list[str]
         lines += [
             _heading(stage, moment),
             "",
-            f"Each percentage is a model's committed chance of {_chance_of(stage)}.",
+            (_outcome_count(stage, members) if resolved else "")
+            + f"Each percentage is a model's committed chance of {_chance_of(stage)}."
+            + (_STAGE_NOTE.get(stage, "") if stage is not None else ""),
             "",
         ]
         usual = [item for item in members if item.usual]
@@ -366,8 +408,13 @@ def render_public_update(update: PublicUpdate, *, repo_url: str = REPO_TREE_URL)
     if update.empty:
         lines += ["Nothing resolved and no new forecasts were committed this week.", ""]
     if update.resolved:
-        lines += _section("Resolved this week", update.resolved, repo_url)
+        lines += _section(
+            "Resolved this week, with forecasts made in advance",
+            update.resolved,
+            repo_url,
+            resolved=True,
+        )
     if update.new:
-        lines += _section("New forecasts this week", update.new, repo_url)
+        lines += _section("New forecasts this week", update.new, repo_url, resolved=False)
     lines += ["---", "", _FOOTER, ""]
     return "\n".join(lines)

@@ -214,10 +214,12 @@ def test_render_puts_the_unusual_outcome_first_and_escapes_captions(tmp_path: Pa
     update = build_public_update(data, _week_of(resolved_on))
     text = render_public_update(update)
 
-    resolved = text.split("## Resolved this week")[1]
+    resolved = text.split("## Resolved this week")[1].split("## New forecasts")[0]
     assert resolved.index("Zebra") < resolved.index("Aardvark")
     assert r"Zebra \*Corp\* v. \[Smith\]" in text
     assert "claude-baseline 25%" in text
+    assert "2 resolved: 1 not denied, 1 denied." in text
+    assert "(GVR) counts as a grant" in text
     assert "Each percentage is a model's committed chance of a grant." in text
     assert "not an accuracy claim" in text
     assert render_public_update(build_public_update(data, _week_of(resolved_on))) == text
@@ -261,3 +263,25 @@ def test_an_application_reads_in_its_own_words_after_a_round_trip_through_disk(
     assert "Will the Court grant the application?" in render_public_update(
         build_public_update(data, _week_of(resolved_on))
     )
+
+
+def test_a_cell_stamped_on_its_outcome_day_is_not_a_new_forecast(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    _event(data, 701, "Nu v. Xi")
+    _forecast(data, 701, at=base, probability=0.4)
+    _outcome(data, 701, on=base.date(), disposition=Disposition.denied)
+    assert build_public_update(data, _week_of(base.date())).empty
+
+
+def test_percentages_never_round_to_certainty(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    _event(data, 801, "Omicron v. Pi")
+    _forecast(data, 801, at=base, probability=0.001, predictor_id="claude-baseline")
+    _forecast(data, 801, at=base, probability=0.999, predictor_id="codex-baseline")
+    text = render_public_update(build_public_update(data, _week_of(base.date())))
+    assert "claude-baseline <1%" in text
+    assert "codex-baseline >99%" in text
+    assert " 0%" not in text
+    assert "100%" not in text
