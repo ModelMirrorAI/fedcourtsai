@@ -22,7 +22,8 @@ JSON, as served, carried no disposition that ``forward_leakage`` recognises. It 
 not proof the event was undecided. Three residuals stand: the JSON can lag the
 order or be served from a cache; the scan's recall is not perfect; and a
 disposition can land after the poll. Two ``open`` polls bracketing a run do say
-the run ended before the served docket showed a decision.
+the run ended before the served docket showed a decision, though not that the
+order was unpublished: an order list or a press account can precede the JSON.
 
 A poll is best-effort and bounded. It fetches through the same host-locked
 client the live poller uses, with a short per-phase timeout and a total

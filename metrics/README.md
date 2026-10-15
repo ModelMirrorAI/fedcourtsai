@@ -2216,12 +2216,18 @@ the rendered table) and
   every forward interim cell rather than the arrival moment alone: a cell whose
   docket already shows its outcome when it is about to be minted is refused, so
   it never exists. The refused set is correlated with the outcome — fast
-  decisions are the ones a mint arrives after, and they lean toward denials —
-  and engines mint the same event hours apart, so a later engine can lose an
-  event an earlier one kept. The run PR's per-engine pre-mint refusal roll-up
-  is where those cells are counted; it is owed beside any forward interim
-  figure built over runs after the poll began, and a pooled per-engine figure
-  reads it per engine, since only the paired reading absorbs the difference.
+  decisions are the ones a mint arrives after, and they plausibly lean toward
+  denials (unmeasured; in the committed ledger 5 of the 6 exposed applications
+  were denied). The same rule thins forward cert cells too, though none of the
+  394 resolved forward cert cells in the committed ledger was written on or after
+  its decision date. Engines mint the same event hours apart, so a later engine
+  can lose an event an earlier one kept. The run PR's per-engine pre-mint
+  refusal roll-up is where those cells are counted, and it is owed beside any
+  forward figure built over runs after the poll began. A refusal repeats each
+  round while the corpus still shows the event pending, so de-duplicate the
+  roll-up by (event, engine) before reading it as cells removed. Read any
+  per-engine figure beside that engine's refusal count; only a paired
+  comparison over events every engine produced absorbs the difference.
   And read the rate over `scope_pending_rows`, the in-scope undisposed-of slice
   the forward lane actually mints cells for; `pending_rows` pools in the
   out-of-scope kinds the matrix drops (`scope_rows` and `kind_counts` carry

@@ -500,7 +500,11 @@ directory without knowing which part is which invites trusting the wrong half.
   recall is imperfect, and a disposition can land after the poll. `unavailable`
   means the poll could not answer. A `decided` pre-mint poll refuses the cell,
   so it never appears here; a `decided` post-run poll can. Both `open` says the
-  whole run ended before the served docket showed a decision.
+  whole run ended before the served docket showed a decision, not that the
+  order was unpublished: an order list or a press account can precede the
+  docket JSON, so leakage is still judged from the retrieval log. A missing
+  poll reads as unknown whatever the cell's date, because the usage capture is
+  best-effort.
 - **`retrieval_log.json`** — the tool-call transcript, captured harness-side
   from the engine's own log: tool names, query slices, and document dates where
   legible. It is the cross-evaluator's leakage evidence precisely because the

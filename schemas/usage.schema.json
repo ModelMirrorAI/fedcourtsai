@@ -177,7 +177,7 @@
         }
       ],
       "default": null,
-      "description": "The same poll taken after the cell's engine step ended. Record only: it never refuses or removes a cell. `pre_mint_poll` and `post_run_poll` both `open` say the whole run ended before the served docket showed a decision; a `decided` post-run poll leaves the ordering inside the run unresolved, and leakage there is read from the retrieval log's content. Null where no post-run poll ran."
+      "description": "The same poll taken after the cell's engine step ended. Record only: it never refuses or removes a cell. `pre_mint_poll` and `post_run_poll` both `open` say the whole run ended before the served docket showed a decision, not that the order was unpublished (an order list or a press account can precede the docket JSON); a `decided` post-run poll leaves the ordering inside the run unresolved. Either way leakage is read from the retrieval log's content. Null where no post-run poll ran."
     },
     "pre_mint_poll": {
       "anyOf": [

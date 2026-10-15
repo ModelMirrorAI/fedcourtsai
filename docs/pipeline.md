@@ -2247,7 +2247,7 @@ date has no time of day, so a cell minted from a snapshot that predates the
 day's order could run after the order is public with nothing to say which came
 first. Just before writing the record, `run-predict` passes `--pre-mint-poll`:
 provisioning fetches the docket's current JSON from the Court through a bounded
-client (one short-timeout fetch, no politeness pause) and runs the same outcome
+client (short timeouts, one retry, a total deadline, no politeness pause) and runs the same outcome
 scan on it. A disposed event refuses the cell. Otherwise the poll's result
 (`polled_at`, the docket number, `open` or `unavailable`, and why) reaches the
 cell's `usage.json` as `pre_mint_poll`, through a step output fixed before any
@@ -2260,14 +2260,16 @@ the scan's recall is imperfect, and a disposition can land after the poll. So a
 pre-mint `open` bounds the cell's exposure to the window from its `polled_at` to
 the end of the run; ordering inside that window stays unresolvable, and leakage
 there is judged from the retrieval log's content. Both polls `open` says the
-whole run ended before the served docket showed a decision. A poll that cannot
+whole run ended before the served docket showed a decision — not that the
+order was unpublished, since an order list or a press account can precede the
+docket JSON, so leakage is still judged from the retrieval log. A poll that cannot
 answer (no docket served, a body that is not JSON, a timeout, any error) records
 `unavailable`, and the cell proceeds on the stored-snapshot gates. A refused cell
 writes no usage record; its `status.json` carries the refusal, and `collect`
 rolls refusals up per engine in the run PR body and the agent-feedback comment,
 as designed refusals rather than no-output failures against the attempt cap. A
-round makes two GETs to the Court per forward cell that runs — one per
-(predictor, event) before minting and one after — with at most six cells in
+round makes up to four GETs to the Court per forward cell that runs — a poll
+before minting and one after, each a fetch and at most one retry — with at most six cells in
 flight. The fresh payload is evidence for the gate only; the cell still reads
 the stored snapshot. A second is the **arrival anchor**: an
 interim arrival cell whose opening entry cannot be located in its snapshot exits
