@@ -15,9 +15,12 @@ Actions API:
   as job outputs and renders both to the run summary, the page the approver
   lands on (:func:`render_plan_summary`).
 - **The run job** hands the pinned command to :func:`parse_command` again and
-  then to :func:`run_check`, which executes it without a shell, its output to
-  a file rather than the public job log, under a hard timeout, and reads back
-  only the summary file the check wrote (:func:`read_summary`).
+  then to :func:`run_phases`, which installs the head's environment and runs
+  the command as a separate unprivileged account (:func:`as_user`) — no shell,
+  no sudo, an environment of the corpus session and two paths only
+  (:func:`check_env`), output to a file rather than the public job log, each
+  phase under its own hard timeout — and reads back only the summary file the
+  check wrote, as that account (:func:`summary_text`).
 - **The post job** treats every value the run job emitted as untrusted text
   and renders one comment from them (:func:`render_comment`): fenced, with
   mentions neutralised, and clamped under GitHub's comment limit, which
@@ -36,7 +39,6 @@ import contextlib
 import os
 import re
 import shlex
-import shutil
 import signal
 import subprocess
 from collections.abc import Iterable, Mapping, Sequence
@@ -98,21 +100,30 @@ _MARKER = "<!-- corpus-check-result sha={sha} -->"
 RunResult = Literal["success", "failure", "cancelled", "skipped"]
 _RUN_RESULTS: frozenset[str] = frozenset({"success", "failure", "cancelled", "skipped"})
 
-#: Removed from the check's environment. The file-command paths are how a step
-#: writes the run summary, its outputs and later steps' environment; the OIDC
-#: request pair is how a step mints a token. A check needs none of them, so an
-#: honest one cannot write to them by accident. This is hygiene, not a
-#: boundary: the check runs as the job's own user and can still reach them.
-_SCRUBBED_ENV = (
-    "GITHUB_STEP_SUMMARY",
-    "GITHUB_OUTPUT",
-    "GITHUB_ENV",
-    "GITHUB_PATH",
-    "GITHUB_STATE",
-    "ACTIONS_ID_TOKEN_REQUEST_URL",
-    "ACTIONS_ID_TOKEN_REQUEST_TOKEN",
-    "VIRTUAL_ENV",
+#: The only job variables the check's account receives: the read-only role's
+#: session and region, and the corpus estate's address the content-store reads
+#: derive from. Everything else the runner holds — the OIDC request pair, the
+#: runtime token, the step-file paths, the job token — stays with the runner's
+#: own account, which the check's account cannot read (docs/corpus-check.md).
+PASSED_ENV = (
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "AWS_REGION",
+    "AWS_DEFAULT_REGION",
+    "FEDCOURTS_CORPUS_BASE_URL",
 )
+
+#: The PATH the ``sudo`` hop itself runs under; ``sudo`` replaces it with its
+#: ``secure_path`` for the account, where the workflow installs ``uv``.
+SUDO_PATH = "/usr/sbin:/usr/bin:/sbin:/bin"
+
+#: The unprivileged account's name: a system-safe login, since it becomes a
+#: ``sudo -u`` argument and a ``pkill -u`` target.
+_ACCOUNT = re.compile(r"[a-z_][a-z0-9_-]{0,31}")
+
+#: The PR head's install: its own lockfile, refused if stale.
+INSTALL_ARGV = ("uv", "sync", "--locked")
 
 #: Values replaced in the summary before it leaves the job: the session the
 #: read-only role issued, the job's tokens, and the corpus estate's address,
@@ -141,12 +152,17 @@ class CorpusCheckConfig(BaseModel):
 
     A request runs PR-head code with a corpus credential once approved, so the
     list is maintainer-owned. Empty — the default when the file is absent —
-    means nobody may, and every request is passed over.
+    means nobody may, and every request is passed over. ``approver`` is the
+    login the `corpus-check` environment's required-reviewer rule must name;
+    the plan job plans nothing, and the promotion gate refuses, while the
+    environment does not (``fedcourtsai.environment_checks``). Absent, nothing
+    is planned.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     requesters: list[str] = Field(default_factory=list)
+    approver: str | None = None
 
     @field_validator("requesters")
     @classmethod
@@ -154,6 +170,13 @@ class CorpusCheckConfig(BaseModel):
         for login in value:
             if not _LOGIN.fullmatch(login):
                 raise ValueError(f"not a GitHub login: {login!r}")
+        return value
+
+    @field_validator("approver")
+    @classmethod
+    def _approver(cls, value: str | None) -> str | None:
+        if value is not None and not _LOGIN.fullmatch(value):
+            raise ValueError(f"not a GitHub login: {value!r}")
         return value
 
 
@@ -250,6 +273,7 @@ class Request(BaseModel):
 
     pr: int
     sha: str
+    base_sha: str = ""
     author: str
     base_ref: str
     created_at: str
@@ -290,11 +314,12 @@ def candidate_requests(
 ) -> tuple[list[Request], list[Passed]]:
     """The requests the plan may answer, oldest first, and the blocks it passes over.
 
-    A request is answerable only from a PR whose head is in ``repo`` itself
-    (a fork's code never runs) and whose author is on ``requesters``; the rest
-    are passed over without a comment, so the lane is no channel for anyone
-    else. An answerable request with an unreadable block or a command outside
-    the grammar is kept, refused, so its author is told why.
+    A request is answerable only from a ready (non-draft) PR whose head is in
+    ``repo`` itself (a fork's code never runs) and whose author is on
+    ``requesters``; the rest are passed over without a comment, so the lane is
+    no channel for anyone else. An answerable request with an unreadable block
+    or a command outside the grammar is kept, refused, so its author is told
+    why.
     """
     allowed = {login.casefold() for login in requesters}
     requests: list[Request] = []
@@ -323,6 +348,9 @@ def candidate_requests(
         if author.casefold() not in allowed:
             passed.append(Passed(pr=number, reason="author is not on the requester list"))
             continue
+        if pr.get("draft") is not False:
+            passed.append(Passed(pr=number, reason="draft (or draft state unread)"))
+            continue
         if not isinstance(sha, str) or not _SHA.fullmatch(sha):
             passed.append(Passed(pr=number, reason="head SHA unreadable"))
             continue
@@ -334,11 +362,13 @@ def candidate_requests(
             except CommandRefused as exc:
                 refusal = str(exc)
         base_ref = _get(pr, "base", "ref")
+        base_sha = _get(pr, "base", "sha")
         created_at = pr.get("created_at")
         requests.append(
             Request(
                 pr=number,
                 sha=sha,
+                base_sha=base_sha if isinstance(base_sha, str) and _SHA.fullmatch(base_sha) else "",
                 author=author,
                 base_ref=base_ref if isinstance(base_ref, str) else "",
                 created_at=created_at if isinstance(created_at, str) else "",
@@ -411,11 +441,28 @@ def fence(text: str, info: str = "text") -> str:
     return f"{ticks}{info}\n{text}\n{ticks}"
 
 
+#: Format characters that reorder or hide text: zero-width spaces and joiners,
+#: the directional marks, the bidi embeddings and overrides, the bidi isolates
+#: and the byte-order mark. Dropped so rendered text reads as it is stored.
+_INVISIBLE = frozenset(
+    [*range(0x200B, 0x2010), *range(0x202A, 0x202F), *range(0x2066, 0x206A), 0xFEFF]
+)
+
+
 def _printable(text: str) -> str:
-    """Drop control characters other than newline and tab."""
+    """Drop control characters other than newline and tab, and bidi/zero-width ones."""
     return "".join(
-        char for char in text if char in "\n\t" or not (ord(char) < 32 or 127 <= ord(char) < 160)
+        char
+        for char in text
+        if char in "\n\t"
+        or not (ord(char) < 32 or 127 <= ord(char) < 160 or ord(char) in _INVISIBLE)
     )
+
+
+def inline(text: str, limit: int = 100) -> str:
+    """Untrusted text made safe inside one code span: one line, no backticks, no mentions."""
+    flat = " ".join(_printable(text).replace("`", "'").split())
+    return neutralize_mentions(flat[:limit]) or "(none)"
 
 
 def clamp_utf8(text: str, limit_bytes: int) -> tuple[str, bool]:
@@ -426,6 +473,37 @@ def clamp_utf8(text: str, limit_bytes: int) -> tuple[str, bool]:
     return encoded[:limit_bytes].decode("utf-8", errors="ignore"), True
 
 
+class HeadCommit(BaseModel):
+    """Who made the head commit, as the commits API reports it; every field untrusted."""
+
+    author: str = "(unread)"
+    committer: str = "(unread)"
+    verified: bool | None = None
+    reason: str = ""
+
+
+def head_commit(document: Any) -> HeadCommit:
+    """The head commit's author, committer and signature state from ``GET /commits/{sha}``."""
+    if not isinstance(document, Mapping):
+        return HeadCommit()
+
+    def who(role: str) -> str:
+        login = _get(document, role, "login")
+        name = _get(document, "commit", role, "name")
+        if isinstance(login, str) and login:
+            return login
+        return f"{name} (no GitHub account)" if isinstance(name, str) and name else "(unknown)"
+
+    verified = _get(document, "commit", "verification", "verified")
+    reason = _get(document, "commit", "verification", "reason")
+    return HeadCommit(
+        author=who("author"),
+        committer=who("committer"),
+        verified=verified if isinstance(verified, bool) else None,
+        reason=reason if isinstance(reason, str) else "",
+    )
+
+
 def render_plan_summary(
     request: Request | None,
     passed: Sequence[Passed],
@@ -433,15 +511,28 @@ def render_plan_summary(
     server_url: str,
     repo: str,
     candidates: int,
+    commit: HeadCommit | None = None,
+    environment_problems: Sequence[str] = (),
 ) -> str:
     """The run summary the approver reads before approving the `corpus-check` deployment.
 
     The approval page shows a workflow and a ref, not a diff, so this names
-    exactly what approval runs: the PR, its head SHA, its author and the
-    command, fenced and with mentions broken.
+    exactly what approval runs: the PR, its pinned head SHA, the PR author and
+    the head commit's author and committer, the command — fenced, with mentions
+    broken — and a comparison pinned to that SHA, never the PR's moving page.
     """
     lines = ["## corpus-check — plan", ""]
-    if request is None:
+    if environment_problems:
+        lines += [
+            "**Nothing is planned: the `corpus-check` environment is not protected.**",
+            "",
+            *[f"- {inline(problem, 300)}" for problem in environment_problems],
+            "",
+            "The read-only role trusts this environment, so it must hold its required "
+            + "reviewer and its `main`-only branch policy before any check runs "
+            + "(docs/security.md).",
+        ]
+    elif request is None:
         lines.append(
             f"No request to answer: {candidates} request(s) from listed authors, "
             + "every head SHA already answered."
@@ -454,20 +545,45 @@ def render_plan_summary(
             "Nothing runs. The post job tells the PR why; a new push re-asks.",
         ]
     else:
+        commit = commit or HeadCommit()
+        if commit.verified is None:
+            signature = "signature state unread"
+        elif commit.verified:
+            signature = "signature verified"
+        else:
+            signature = f"signature not verified (`{inline(commit.reason, 40)}`)"
+        compare = (
+            f"{server_url}/{repo}/compare/{request.base_sha}...{request.sha}"
+            if request.base_sha
+            else f"{server_url}/{repo}/commit/{request.sha} (the base SHA was unread)"
+        )
         lines += [
-            f"**PR #{request.pr}** (`{request.author}`, into `{request.base_ref}`) "
-            + f"at head `{request.sha}`.",
+            f"**PR #{request.pr}** by `{inline(request.author)}` into "
+            + f"`{inline(request.base_ref)}`, pinned at head `{request.sha}`.",
             "",
-            "Approving the `corpus-check` deployment runs exactly this command, at exactly "
-            + "this commit, with the production corpus read-only:",
+            f"Head commit: author `{inline(commit.author)}`, committer "
+            + f"`{inline(commit.committer)}`, {signature}. A listed PR author does not "
+            + "vouch for commits someone else made on the branch.",
+            "",
+            "Approving the `corpus-check` deployment runs this command at this commit, "
+            + "with the production corpus read-only:",
             "",
             fence(neutralize_mentions(request.command or "")),
             "",
-            f"- the commit: {server_url}/{repo}/commit/{request.sha}",
-            f"- the PR's changes: {server_url}/{repo}/pull/{request.pr}/files",
+            "**Before approving:**",
             "",
-            "The check's code can read everything the read-only role reads and post what "
-            + "it chooses to the PR (docs/corpus-check.md, *What it gives up*).",
+            f"- Read what runs, pinned to this SHA: {compare}. The PR page moves with "
+            + "the branch; this comparison does not.",
+            "- Approval runs the head's **whole tree**, not only the command: "
+            + "`uv sync --locked` builds and installs the head's own project and "
+            + "lockfile, so changes to `pyproject.toml`, `uv.lock` or any build hook "
+            + "deserve the same reading as the check.",
+            f"- If the PR's head is no longer `{request.sha}`, reject: the next poll "
+            + "plans the new head.",
+            "",
+            "The check runs as an unprivileged account holding the read-only session and "
+            + "nothing else; it can read everything that role reads and post what it "
+            + "chooses to the PR (docs/corpus-check.md, *What it gives up*).",
         ]
     if passed:
         lines += ["", "Passed over (no comment is posted):", ""]
@@ -493,7 +609,29 @@ def parse_exit_code(value: str) -> int | None:
     return int(value) if re.fullmatch(r"-?[0-9]{1,3}", value.strip()) else None
 
 
-def outcome(*, refusal: str, run_result: str, exit_code: str, timed_out: str) -> tuple[str, str]:
+def _ran_outcome(code: int | None, *, timed_out: bool, phase: str) -> tuple[str, str]:
+    """The status of a run job that reported: which phase ended it, and how."""
+    if phase == "install":
+        if timed_out:
+            return (
+                "install timed out",
+                "The head's `uv sync --locked` hit its timeout; the check did not run.",
+            )
+        shown = "?" if code is None else str(code)
+        return (
+            "install failed",
+            f"The head's `uv sync --locked` exited {shown}; the check did not run.",
+        )
+    if timed_out:
+        return "timed out", f"The check hit its timeout and was stopped (exit {TIMEOUT_EXIT})."
+    if code is None:
+        return "no exit code", "The run job reported no readable exit code."
+    return f"exit {code}", f"The check exited {code}."
+
+
+def outcome(
+    *, refusal: str, run_result: str, exit_code: str, timed_out: str, phase: str = "check"
+) -> tuple[str, str]:
     """The comment's short status and its one-line explanation."""
     if refusal:
         return "refused", f"Not run: {refusal}."
@@ -505,14 +643,11 @@ def outcome(*, refusal: str, run_result: str, exit_code: str, timed_out: str) ->
             + "rejected or left to expire, a cancelled run, or a failed setup step "
             + "(the run says which).",
         )
-    code = parse_exit_code(exit_code)
-    if timed_out.strip() == "true":
-        return "timed out", f"The check hit its timeout and was stopped (exit {TIMEOUT_EXIT})."
-    if code is None:
-        return "no exit code", "The run job reported no readable exit code."
-    if code == 0:
-        return "exit 0", "The check exited 0."
-    return f"exit {code}", f"The check exited {code}."
+    return _ran_outcome(
+        parse_exit_code(exit_code),
+        timed_out=timed_out.strip() == "true",
+        phase="install" if phase.strip() == "install" else "check",
+    )
 
 
 @dataclass(frozen=True)
@@ -533,6 +668,7 @@ class PostInputs:
     summary_b64: str
     vintage_b64: str
     run_url: str
+    phase: str = "check"
 
 
 def render_comment(inputs: PostInputs) -> str:
@@ -551,6 +687,7 @@ def render_comment(inputs: PostInputs) -> str:
         run_result=inputs.run_result,
         exit_code=inputs.exit_code,
         timed_out=inputs.timed_out,
+        phase=inputs.phase,
     )
     ran = not inputs.refusal and inputs.run_result == "success"
     vintage, vintage_note = decode_b64(inputs.vintage_b64, 2_000) if ran else ("", None)
@@ -603,74 +740,81 @@ def render_comment(inputs: PostInputs) -> str:
 
 @dataclass(frozen=True)
 class CheckResult:
-    """How the check ended: its exit code, whether the timeout ended it, its output size."""
+    """How a phase ended: its exit code, whether the timeout ended it, the output so far."""
 
     exit_code: int
     timed_out: bool
     output_bytes: int
 
 
+@dataclass(frozen=True)
+class PhaseResult:
+    """The run's last phase (``install`` or ``check``) and how it ended."""
+
+    phase: str
+    result: CheckResult
+
+
 def check_env(
-    environ: Mapping[str, str],
-    *,
-    summary_path: Path,
-    corpus_root: Path,
-    drop_path_entries: Sequence[str] = (),
+    environ: Mapping[str, str], *, summary_path: Path, corpus_root: Path
 ) -> dict[str, str]:
-    """The check's environment: the job's, scrubbed, with the check's two paths set.
+    """The check account's whole environment: :data:`PASSED_ENV` and the check's two paths.
 
     ``CHECK_SUMMARY`` is the file the check reports through and
-    ``FEDCOURTS_CORPUS_ROOT`` the pulled production corpus. ``drop_path_entries``
-    removes the wrapper's own virtualenv from ``PATH``, so the check resolves
-    its tools from its own checkout's environment.
+    ``FEDCOURTS_CORPUS_ROOT`` the account's copy of the pulled production
+    corpus. Nothing else the job holds is carried across.
     """
-    env = {key: value for key, value in environ.items() if key not in _SCRUBBED_ENV}
-    dropped = {str(Path(entry)) for entry in drop_path_entries}
-    path = env.get("PATH")
-    if path is not None:
-        env["PATH"] = os.pathsep.join(
-            entry for entry in path.split(os.pathsep) if entry and str(Path(entry)) not in dropped
-        )
+    env = {name: environ[name] for name in PASSED_ENV if environ.get(name)}
     env["CHECK_SUMMARY"] = str(summary_path)
     env["FEDCOURTS_CORPUS_ROOT"] = str(corpus_root)
     return env
 
 
-def prepare_summary(cwd: Path) -> Path:
-    """An empty summary file at the fixed name in ``cwd``, whatever the PR left there."""
-    path = cwd / SUMMARY_FILENAME
-    if path.is_dir() and not path.is_symlink():
-        shutil.rmtree(path)
-    elif path.exists() or path.is_symlink():
-        path.unlink()
-    path.write_bytes(b"")
-    return path
+def as_user(
+    argv: Sequence[str], *, user: str, workdir: Path, env_names: Iterable[str]
+) -> list[str]:
+    """``argv`` run as ``user`` in ``workdir``, carrying only ``env_names`` across.
 
-
-def read_summary(path: Path, *, redact: Iterable[str] = ()) -> tuple[str, bool]:
-    """The summary the check wrote, redacted and clamped; True when it was clamped.
-
-    Reads a regular file only (a check that replaced it with anything else
-    reports nothing), and at most a few times the limit.
+    ``sudo``'s ``env_reset`` drops everything else, ``-H`` gives the account
+    its own home, and ``env -C`` enters a directory the runner's account may
+    not be able to read. The account itself holds no sudo right.
     """
-    if path.is_symlink() or not path.is_file():
-        return "", False
-    with path.open("rb") as handle:
-        raw = handle.read(SUMMARY_LIMIT_BYTES * 4)
-    text = redact_values(raw.decode("utf-8", errors="replace"), redact)
-    return clamp_utf8(text, SUMMARY_LIMIT_BYTES)
-
-
-def redact_values(text: str, values: Iterable[str]) -> str:
-    """``text`` with every listed value of eight or more characters replaced."""
-    for value in sorted({v for v in values if len(v) >= 8}, key=len, reverse=True):
-        text = text.replace(value, _REDACTION)
-    return text
+    if not _ACCOUNT.fullmatch(user):
+        raise ValueError(f"not an account name: {user!r}")
+    if not workdir.is_absolute():
+        raise ValueError("the check's working directory must be absolute")
+    names = sorted(set(env_names))
+    if not names or not all(re.fullmatch(r"[A-Z][A-Z0-9_]*", name) for name in names):
+        raise ValueError("the carried environment names must be upper-case identifiers")
+    return [
+        "sudo",
+        "-n",
+        f"--preserve-env={','.join(names)}",
+        "-u",
+        user,
+        "-H",
+        "--",
+        "/usr/bin/env",
+        "-C",
+        str(workdir),
+        *argv,
+    ]
 
 
 def _kill_group(pgid: int) -> None:
     with contextlib.suppress(ProcessLookupError, PermissionError):
         os.killpg(pgid, signal.SIGKILL)
+
+
+def kill_account(user: str) -> None:
+    """Kill every process ``user`` owns: a check that daemonised does not outlive its phase."""
+    with contextlib.suppress(OSError, subprocess.SubprocessError):
+        subprocess.run(
+            ["sudo", "-n", "pkill", "-KILL", "-u", user],
+            check=False,
+            capture_output=True,
+            timeout=30,
+        )
 
 
 def run_check(
@@ -680,17 +824,21 @@ def run_check(
     env: Mapping[str, str],
     timeout_seconds: float,
     output_path: Path,
+    kill_user: str | None = None,
 ) -> CheckResult:
-    """Run ``argv`` with no shell, stdout and stderr to ``output_path``, under a timeout.
+    """Run ``argv`` with no shell, stdout and stderr appended to ``output_path``, under a timeout.
 
-    The check runs in its own session, and the whole process group is killed
-    once it ends or times out, so a background process it started does not
-    outlive the step. A signal death reports ``128 + signal``; a program that
-    could not be started reports :data:`NOT_FOUND_EXIT`.
+    stdin is closed and only stdout and stderr are inherited, both pointing at
+    the output file, so the process holds no descriptor onto the job log. It
+    runs in its own session, and once it ends or times out its process group —
+    and with ``kill_user`` every process that account owns — is killed, so
+    nothing it started outlives the phase. A signal death reports
+    ``128 + signal``; a program that could not be started reports
+    :data:`NOT_FOUND_EXIT`.
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     timed_out = False
-    with output_path.open("wb") as out:
+    with output_path.open("ab") as out:
         try:
             # An argv list and no shell: nothing in the command is interpreted.
             process = subprocess.Popen(
@@ -701,6 +849,7 @@ def run_check(
                 stdout=out,
                 stderr=subprocess.STDOUT,
                 start_new_session=True,
+                close_fds=True,
             )
         except (FileNotFoundError, PermissionError) as exc:
             out.write(f"corpus-check: cannot start {argv[0]!r}: {exc}\n".encode())
@@ -710,21 +859,82 @@ def run_check(
                 code = process.wait(timeout=timeout_seconds)
             except subprocess.TimeoutExpired:
                 timed_out = True
+                if kill_user is not None:
+                    kill_account(kill_user)
                 _kill_group(process.pid)
                 process.wait()
                 code = TIMEOUT_EXIT
             finally:
+                if kill_user is not None:
+                    kill_account(kill_user)
                 _kill_group(process.pid)
             if code < 0:
                 code = 128 - code
     return CheckResult(exit_code=code, timed_out=timed_out, output_bytes=output_path.stat().st_size)
 
 
-def run_outputs(result: CheckResult, summary: str) -> dict[str, str]:
+def run_phases(
+    *,
+    install_argv: Sequence[str],
+    check_argv: Sequence[str],
+    cwd: Path,
+    env: Mapping[str, str],
+    install_timeout_seconds: float,
+    check_timeout_seconds: float,
+    output_path: Path,
+    kill_user: str | None = None,
+) -> PhaseResult:
+    """Install the head's environment, then run the check; stop at a failed install.
+
+    Both phases append to one output file and each has its own timeout, so a
+    slow install cannot spend the check's budget and an install that never
+    ends is reported as the install's.
+    """
+    install = run_check(
+        install_argv,
+        cwd=cwd,
+        env=env,
+        timeout_seconds=install_timeout_seconds,
+        output_path=output_path,
+        kill_user=kill_user,
+    )
+    if install.exit_code != 0:
+        return PhaseResult(phase="install", result=install)
+    check = run_check(
+        check_argv,
+        cwd=cwd,
+        env=env,
+        timeout_seconds=check_timeout_seconds,
+        output_path=output_path,
+        kill_user=kill_user,
+    )
+    return PhaseResult(phase="check", result=check)
+
+
+def summary_text(raw: bytes, *, redact: Iterable[str] = ()) -> tuple[str, bool]:
+    """The summary bytes the check wrote, decoded, redacted and clamped; True when clamped."""
+    text = redact_values(raw.decode("utf-8", errors="replace"), redact)
+    return clamp_utf8(text, SUMMARY_LIMIT_BYTES)
+
+
+#: How much of the summary file is read back: a few times the limit, so the
+#: clamp is visible without reading an unbounded file.
+SUMMARY_READ_BYTES = SUMMARY_LIMIT_BYTES * 4
+
+
+def redact_values(text: str, values: Iterable[str]) -> str:
+    """``text`` with every listed value of eight or more characters replaced."""
+    for value in sorted({v for v in values if len(v) >= 8}, key=len, reverse=True):
+        text = text.replace(value, _REDACTION)
+    return text
+
+
+def run_outputs(phase: PhaseResult, summary: str) -> dict[str, str]:
     """The run job's outputs: single lines, the summary base64-encoded."""
     return {
-        "exit_code": str(result.exit_code),
-        "timed_out": "true" if result.timed_out else "false",
+        "phase": phase.phase,
+        "exit_code": str(phase.result.exit_code),
+        "timed_out": "true" if phase.result.timed_out else "false",
         "summary_b64": base64.b64encode(summary.encode("utf-8")).decode("ascii"),
     }
 

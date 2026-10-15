@@ -18,25 +18,35 @@ name: corpus-check
 #   - the trust: the read-only role is the only role whose OIDC trust names
 #     `environment:corpus-check`, so the PR's code can mint nothing that writes
 #     (docs/security.md);
-#   - the cache: no credential-holding job restores an Actions cache, so
-#     entries the check's code could save are restored by nothing that holds a
+#   - the account: the head's install and the check run as a separate,
+#     unprivileged UNIX account with no sudo, whose environment is the
+#     read-only session, the corpus address and two paths, and which cannot
+#     read the runner's home, temp files or processes — so the job's OIDC
+#     request pair, its runtime token and its step files stay out of the PR
+#     code's reach;
+#   - the cache: no credential-holding job restores an Actions cache, so even
+#     an entry saved from this job is restored by nothing that holds a
 #     credential (tests/test_workflow_cache_restore.py). Every job here
 #     installs with the cache off.
 #
 # Three jobs, each holding only what it names, under a zero top-level grant:
 #
-#   - plan: no credential. Lists the open PRs, keeps the requests from a head
-#     in this repository by an author on config/corpus-check.yaml (read from
-#     this run's own checkout of `main`, never from a PR), and picks the oldest
-#     whose head SHA has no result comment from this workflow's bot. Pins the
-#     PR, SHA and command as outputs and renders them to the run summary.
+#   - plan: no credential. Plans nothing unless the `corpus-check` environment
+#     holds its required reviewer and its `main`-only branch policy. Lists the
+#     open PRs, keeps the ready requests from a head in this repository by an
+#     author on config/corpus-check.yaml (read from this run's own checkout of
+#     `main`, never from a PR), and picks the oldest whose head SHA has no
+#     result comment from this workflow's bot. Pins the PR, SHA and command as
+#     outputs and renders them to the run summary with a comparison pinned to
+#     the SHA and the head commit's author, committer and signature.
 #   - run: the environment, `contents: read` and `id-token: write`. Checks out
 #     this run's own ref for the composites and the corpus pull — so the blob
 #     is the one `main`'s committed pointer names, and the vintage is read by
-#     reviewed code before any PR code runs — then the pinned SHA beside it,
-#     and runs the command there with no shell, under a hard timeout, its
-#     output kept off the public log. Emits the exit code, the summary the
-#     check wrote and the vintage.
+#     reviewed code before any PR code runs — then the pinned SHA beside it.
+#     Copies both into the unprivileged account's home, and runs the head's
+#     install and then the command as that account, with no shell, each under
+#     its own hard timeout, output kept off the public log. Emits the phase,
+#     the exit code, the summary the check wrote and the vintage.
 #   - post: no environment, no `id-token`, no PR code. Renders one comment from
 #     the run's outputs, treating each as untrusted text, and posts it with the
 #     job's own token.
@@ -48,7 +58,8 @@ name: corpus-check
 # nothing — the pending run that does start sees the previous run's comment
 # and plans the next request, never a duplicate of the last. While an approval
 # waits, the schedule's polls cancel one another in the pending slot; that is
-# the cost of the hold, and it runs nothing.
+# the cost of the hold, and it runs nothing. A poll that finds no PR body
+# naming a corpus-check block stops after one API call, before any install.
 on:
   schedule:
     # Every 30 minutes, on minutes no other workflow's cron uses (GitHub queues
@@ -73,7 +84,8 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      pull-requests: read # list the open PRs and read their comments
+      pull-requests: read # list the open PRs and read their comments and head commits
+      actions: read # read the corpus-check environment's protection rules
     outputs:
       found: ${{ steps.plan.outputs.found }}
       pr: ${{ steps.plan.outputs.pr }}
@@ -85,13 +97,40 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-python-env
+      # Most polls find nothing. A body that does not even contain the block's
+      # name cannot hold a request, so this superset test — not the decision,
+      # which is the tested CLI below — lets an empty poll stop before the
+      # install.
+      - name: Look for any request
+        id: peek
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
+          work="${RUNNER_TEMP}/corpus-check-plan"
+          mkdir -p "$work"
+          gh_retry gh api --paginate --slurp \
+            "repos/${REPO}/pulls?state=open&per_page=100" > "${work}/prs.json"
+          if jq -e '[.[][]? | (.body // "") | contains("corpus-check")] | any' \
+            "${work}/prs.json" > /dev/null; then
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "any=false" >> "$GITHUB_OUTPUT"
+            echo "No open PR names a corpus-check block." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - if: ${{ steps.peek.outputs.any == 'true' }}
+        uses: ./.github/actions/setup-python-env
         with:
           restore-cache: "false"
           save-cache: "false"
 
       - name: Pick the request to answer
         id: plan
+        if: ${{ steps.peek.outputs.any == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -101,21 +140,33 @@ jobs:
           # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
           source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
           work="${RUNNER_TEMP}/corpus-check-plan"
-          mkdir -p "${work}/comments"
-          gh_retry gh api --paginate --slurp \
-            "repos/${REPO}/pulls?state=open&per_page=100" > "${work}/prs.json"
-          # The tested CLI decides which PRs are candidates; only theirs are
-          # read, one comments listing each.
+          mkdir -p "${work}/comments" "${work}/commits"
+          # The environment's protection, which the CLI requires before it plans
+          # anything. A failed read leaves no file, and no file plans nothing.
+          gh api "repos/${REPO}/environments/corpus-check" \
+            > "${work}/environment.json" 2>/dev/null || rm -f "${work}/environment.json"
+          gh api "repos/${REPO}/environments/corpus-check/deployment-branch-policies?per_page=100" \
+            > "${work}/branch-policies.json" 2>/dev/null || rm -f "${work}/branch-policies.json"
+          # The tested CLI decides which PRs are candidates (`<pr> <sha>`
+          # lines); only theirs are read: the comments, and the head commit.
           candidates=$(uv run fedcourts corpus-check-candidates \
             --prs-file "${work}/prs.json" --repo "$REPO")
-          for pr in $candidates; do
+          while read -r pr sha; do
+            [ -n "$pr" ] || continue
+            # stdin is the candidate list: keep the API calls off it.
             gh_retry gh api --paginate --slurp \
-              "repos/${REPO}/issues/${pr}/comments?per_page=100" > "${work}/comments/${pr}.json"
-          done
+              "repos/${REPO}/issues/${pr}/comments?per_page=100" \
+              < /dev/null > "${work}/comments/${pr}.json"
+            gh api "repos/${REPO}/commits/${sha}" < /dev/null \
+              > "${work}/commits/${sha}.json" 2>/dev/null || rm -f "${work}/commits/${sha}.json"
+          done <<< "$candidates"
           uv run fedcourts corpus-check-plan \
             --prs-file "${work}/prs.json" \
             --repo "$REPO" \
             --comments-dir "${work}/comments" \
+            --commits-dir "${work}/commits" \
+            --environment-file "${work}/environment.json" \
+            --branch-policies-file "${work}/branch-policies.json" \
             --server-url "$SERVER_URL" \
             --github-output "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
@@ -125,15 +176,17 @@ jobs:
     # A refused request runs nothing: the post job tells the PR why.
     if: ${{ needs.plan.outputs.found == 'true' && needs.plan.outputs.refusal == '' }}
     runs-on: ubuntu-24.04
-    # Guard < step < job: the check's own timeout (30 min) sits inside its
-    # step's (35), and the pull, the installs and the check together inside the
-    # role's one-hour session, whose credentials cannot refresh.
-    timeout-minutes: 60
+    # Guard < step < job: the install's own timeout (8 min) and the check's
+    # (30) sit inside their step's (45), and the pull, the copies, the install
+    # and the check together inside the role's one-hour session, whose
+    # credentials cannot refresh.
+    timeout-minutes: 75
     environment: corpus-check
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
     outputs:
+      phase: ${{ steps.check.outputs.phase }}
       exit_code: ${{ steps.check.outputs.exit_code }}
       timed_out: ${{ steps.check.outputs.timed_out }}
       summary_b64: ${{ steps.check.outputs.summary_b64 }}
@@ -183,29 +236,71 @@ jobs:
           path: check
           persist-credentials: false
 
-      # From here on the PR's code runs. Its environment installs from its own
-      # lockfile, with uv already installed and every cache off.
-      - name: Install the planned head's environment
-        working-directory: check
-        run: uv sync --locked
+      # The PR's code never runs as the runner's account. That account holds
+      # passwordless sudo, and its processes and files hold the job's OIDC
+      # request pair, its runtime token and its step files — enough to mint a
+      # token for any audience, save a cache entry, upload an artifact or write
+      # the log. The check's account holds none of that and cannot read it.
+      - name: Provision the check's unprivileged account
+        env:
+          CHECK_USER: corpuscheck
+        run: |
+          set -euo pipefail
+          home="/home/${CHECK_USER}"
+          sudo useradd -m -d "$home" -s /usr/sbin/nologin -U "$CHECK_USER"
+          sudo chmod 700 "$home"
+          # Its own copies of the head and the corpus, which it owns: nothing it
+          # needs stays under the runner's home.
+          sudo cp -a "${GITHUB_WORKSPACE}/check" "${home}/check"
+          sudo cp -a "${GITHUB_WORKSPACE}/corpus" "${home}/corpus"
+          sudo chown -R "${CHECK_USER}:${CHECK_USER}" "${home}/check" "${home}/corpus"
+          # `uv` on sudo's secure_path; a public tool, root-owned.
+          sudo install -o root -g root -m 755 "$(command -v uv)" /usr/local/bin/uv
+          # Close the runner's home and temp tree to other accounts. The runner
+          # owns both, so its own access is unchanged.
+          sudo chmod o-rwx "$HOME" "$RUNNER_TEMP"
+          # Prove the separation rather than assume it: each read below must
+          # fail as the check's account.
+          refuse() {
+            if sudo -n -u "$CHECK_USER" -H -- "$@" > /dev/null 2>&1; then
+              echo "::error::the check's account can run: $*"
+              exit 1
+            fi
+          }
+          refuse sudo -n true
+          refuse /usr/bin/cat -- "/proc/$$/environ"
+          refuse /usr/bin/ls -- "$RUNNER_TEMP"
+          refuse /usr/bin/ls -- "$HOME"
+          refuse /usr/bin/cat -- "$GITHUB_ENV"
+          refuse /usr/bin/test -w /var/run/docker.sock
+          groups="$(id -nG "$CHECK_USER")"
+          if [ "$groups" != "$CHECK_USER" ]; then
+            echo "::error::the check's account is in groups beyond its own: ${groups}"
+            exit 1
+          fi
 
       # The command arrives through the environment, never interpolated into
-      # this script, and the tested wrapper re-validates it, splits it without
-      # a shell and runs it with the step-file and OIDC-request variables
-      # removed, its output to a file and a hard timeout.
+      # this script. The tested wrapper re-validates it and runs the head's
+      # `uv sync --locked` and then the command as the check's account, split
+      # without a shell, with that account's environment limited to the
+      # read-only session, the corpus address and two paths, output to a file
+      # and a hard timeout on each phase.
       - name: Run the check
         id: check
-        timeout-minutes: 35
+        timeout-minutes: 45
         env:
           CHECK_COMMAND: ${{ needs.plan.outputs.command }}
+          CHECK_USER: corpuscheck
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
         run: |
           set -euo pipefail
           uv run fedcourts corpus-check-exec \
             --command "$CHECK_COMMAND" \
-            --cwd check \
-            --corpus-root "${GITHUB_WORKSPACE}/corpus" \
+            --user "$CHECK_USER" \
+            --workdir "/home/${CHECK_USER}/check" \
+            --corpus-root "/home/${CHECK_USER}/corpus" \
             --output-file "${RUNNER_TEMP}/corpus-check/output.log" \
+            --install-timeout-seconds 480 \
             --timeout-seconds 1800 \
             --github-output "$GITHUB_OUTPUT"
 
@@ -230,6 +325,10 @@ jobs:
           restore-cache: "false"
           save-cache: "false"
 
+      # The comment's sha256 goes to this job's summary as well: a result
+      # counts only when it links a corpus-check run on `main` whose post
+      # summary carries the same digest, since any workflow running with a
+      # comment-capable token can also post as `github-actions[bot]`.
       - name: Post the result
         env:
           GH_TOKEN: ${{ github.token }}
@@ -239,6 +338,7 @@ jobs:
           CHECK_COMMAND: ${{ needs.plan.outputs.command }}
           CHECK_REFUSAL: ${{ needs.plan.outputs.refusal }}
           RUN_RESULT: ${{ needs.run.result }}
+          CHECK_PHASE: ${{ needs.run.outputs.phase }}
           CHECK_EXIT_CODE: ${{ needs.run.outputs.exit_code }}
           CHECK_TIMED_OUT: ${{ needs.run.outputs.timed_out }}
           CHECK_SUMMARY_B64: ${{ needs.run.outputs.summary_b64 }}
@@ -250,6 +350,13 @@ jobs:
           source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
           body="${RUNNER_TEMP}/corpus-check-comment.md"
           uv run fedcourts corpus-check-comment > "$body"
-          head -n 2 "$body" | tail -n 1 >> "$GITHUB_STEP_SUMMARY"
+          digest=$(sha256sum "$body" | cut -d' ' -f1)
+          {
+            echo "### corpus-check result for PR #${PR} at \`${CHECK_SHA}\`"
+            echo
+            head -n 2 "$body" | tail -n 1
+            echo
+            echo "Posted comment sha256: \`${digest}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
           gh_retry gh api --silent --method POST \
             "repos/${REPO}/issues/${PR}/comments" -F "body=@${body}"

@@ -41,6 +41,10 @@
 /src/fedcourtsai/required_checks.py @modelmirror
 /src/fedcourtsai/ruleset_checks.py @modelmirror
 /tests/test_ruleset_checks.py @modelmirror
+# The corpus-check environment check the same stage runs, which the lane's
+# plan job also reads before it plans anything.
+/src/fedcourtsai/environment_checks.py @modelmirror
+/tests/test_environment_checks.py @modelmirror
 /src/fedcourtsai/collect.py @modelmirror
 # The process registry: the record a registration edits (a pre-registration),
 # the Step 0 checks `promotion-gate.sh registry` runs on it, and the plan and

@@ -340,7 +340,8 @@ def _cache_mechanisms(where: str, steps: list[dict[Any, Any]]) -> list[str]:
         if default_on is not None and str(with_.get(default_on, "true")).lower() not in _FALSE:
             found.append(f"{where} leaves {action}'s default-on `{default_on}` on")
         for key, value in with_.items():
-            if "cache" in str(key).lower() and str(value).lower() not in _FALSE:
+            # `cach`, not `cache`: `dependency-caching` and its kin count too.
+            if "cach" in str(key).lower() and str(value).lower() not in _FALSE:
                 found.append(f"{where} sets {action}'s `{key}: {value}`")
     return found
 
@@ -375,6 +376,10 @@ def test_no_job_or_composite_restores_a_cache_outside_setup_python_env() -> None
         ({"uses": "actions/setup-go@x"}, "default-on `cache`"),
         ({"uses": "actions/setup-node@x"}, "default-on `package-manager-cache`"),
         ({"uses": "ruby/setup-ruby@x", "with": {"bundler-cache": True}}, "`bundler-cache: True`"),
+        (
+            {"uses": "some/setup-java@x", "with": {"dependency-caching": "true"}},
+            "`dependency-caching: true`",
+        ),
     ],
 )
 def test_each_cache_mechanism_is_seen(step: dict[Any, Any], expected: str) -> None:
@@ -395,3 +400,14 @@ def test_each_cache_mechanism_is_seen(step: dict[Any, Any], expected: str) -> No
 )
 def test_a_cache_turned_off_or_absent_is_not_counted(step: dict[Any, Any]) -> None:
     assert _cache_mechanisms("w.yml:j", [step]) == []
+
+
+def test_no_root_package_json_lets_setup_node_cache_by_default() -> None:
+    """`setup-node` turns its package-manager cache on when the repository root
+    carries a `package.json` naming a `packageManager`, and a remote action that
+    calls `setup-node` inside itself is out of reach of every input the sweep
+    above reads. No root manifest, no automatic cache: the engine CLI pins live
+    under `.github/engines/`, not at the root."""
+    assert not (ROOT / "package.json").exists(), (
+        "a root package.json would let a setup-node inside a remote action restore a cache"
+    )

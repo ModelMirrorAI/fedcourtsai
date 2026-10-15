@@ -115,8 +115,9 @@ non-interactive** container. Two consequences shape everything you do:
   `sync-staging.yml`, ci.yml's gate jobs, and the lane machinery that decides
   which of the gate's checks a change gets: `scripts/gate.sh`,
   `scripts/ci_lane.py`, `tests/test_ci_lane.py`, `tests/lane_guard.py` and its
-  registration in `tests/conftest.py`, and the ruleset check its admin-read
-  stage runs, `src/fedcourtsai/ruleset_checks.py` and its tests; and the process registry the gate's
+  registration in `tests/conftest.py`, and the ruleset and environment checks
+  its admin-read stage runs, `src/fedcourtsai/ruleset_checks.py`,
+  `src/fedcourtsai/environment_checks.py` and their tests; and the process registry the gate's
   Step 0 reads and a promotion merge stamps: `src/fedcourtsai/process_registry.json`,
   `src/fedcourtsai/registry_gate.py`, `src/fedcourtsai/promotion_record.py`,
   `src/fedcourtsai/process_registration.py` and their tests — a registration
@@ -219,11 +220,15 @@ non-interactive** container. Two consequences shape everything you do:
   writes the figure to the file `CHECK_SUMMARY` names. Once the maintainer
   approves the run, the lane runs it at the PR's head against the production
   corpus and posts a comment with the result and the vintage to quote beside
-  it; until then the claim is unverified, and the PR says so. Only
-  same-repository PRs by the authors on `config/corpus-check.yaml` are
-  answered, one head SHA once, and the summary is posted publicly, so report
-  counts and identifiers, never stored snapshot text
-  (`docs/corpus-check.md`).
+  it; until then the claim is unverified, and the PR says so. Only ready
+  (non-draft) same-repository PRs by the authors on `config/corpus-check.yaml`
+  are answered, one head SHA once, and the summary is posted publicly, so
+  report counts and identifiers, never stored snapshot text. Every push to a
+  PR still carrying the block asks again and holds the lane for an approval,
+  so **remove the block once the check is answered**, and put it back only
+  for a head that needs checking. A result counts only when its comment
+  links a `corpus-check` run on `main` whose post-job summary carries the
+  comment's sha256 (`docs/corpus-check.md`).
 - **A promotion batch states its observable effect as a runnable check.** The
   promotion PR body carries what should be true once the batch is live and the
   command that shows it, and the promotion is not done until someone runs that

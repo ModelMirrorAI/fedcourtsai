@@ -24,6 +24,7 @@ from fedcourtsai.cli import app
 REPO = "ModelMirrorAI/fedcourtsai"
 SHA = "a" * 40
 SHA2 = "b" * 40
+BASE = "c" * 40
 
 
 def _pr(
@@ -34,15 +35,20 @@ def _pr(
     head_repo: str | None = REPO,
     sha: str = SHA,
     created_at: str = "2026-10-01T00:00:00Z",
+    draft: bool | None = False,
+    base_ref: str = "staging",
 ) -> dict[str, Any]:
-    return {
+    pr: dict[str, Any] = {
         "number": number,
         "body": body,
         "user": {"login": author, "type": "User"},
         "head": {"sha": sha, "repo": {"full_name": head_repo} if head_repo else None},
-        "base": {"ref": "staging", "repo": {"full_name": REPO}},
+        "base": {"ref": base_ref, "sha": BASE, "repo": {"full_name": REPO}},
         "created_at": created_at,
     }
+    if draft is not None:
+        pr["draft"] = draft
+    return pr
 
 
 def _comment(body: str, *, login: str = cc.BOT_LOGIN, kind: str = "Bot") -> dict[str, Any]:
@@ -184,6 +190,7 @@ def test_a_refusal_never_quotes_the_command() -> None:
 def test_the_committed_list_is_the_agent_account_and_the_maintainer() -> None:
     config = cc.load_config(Path(__file__).resolve().parent.parent / "config")
     assert config.requesters == ["modelmirror-agent", "modelmirror"]
+    assert config.approver == "modelmirror"
 
 
 def test_no_file_answers_no_one(tmp_path: Path) -> None:
@@ -238,6 +245,22 @@ def test_an_unlisted_author_with_a_bad_block_is_passed_over_silently() -> None:
     )
     assert requests == []
     assert passed[0].reason == "author is not on the requester list"
+
+
+def test_a_draft_is_passed_over_and_an_unread_draft_state_counts_as_one() -> None:
+    requests, passed = cc.candidate_requests(
+        [_pr(1, draft=True), _pr(2, draft=None), _pr(3)], repo=REPO, requesters=LISTED
+    )
+    assert [r.pr for r in requests] == [3]
+    assert [(p.pr, p.reason) for p in passed] == [
+        (1, "draft (or draft state unread)"),
+        (2, "draft (or draft state unread)"),
+    ]
+
+
+def test_the_base_sha_is_pinned_with_the_request() -> None:
+    requests, _ = cc.candidate_requests([_pr(1)], repo=REPO, requesters=LISTED)
+    assert requests[0].base_sha == BASE
 
 
 def test_an_unreadable_head_sha_is_passed_over() -> None:
@@ -354,15 +377,78 @@ def test_the_plan_summary_names_what_approval_runs() -> None:
         repo=REPO,
         requesters=LISTED,
     )
+    commit = cc.head_commit(
+        {
+            "author": {"login": "someone-else"},
+            "committer": None,
+            "commit": {
+                "author": {"name": "Someone"},
+                "committer": {"name": "Plain `Git` @team"},
+                "verification": {"verified": False, "reason": "unsigned"},
+            },
+        }
+    )
     summary = cc.render_plan_summary(
-        requests[0], passed, server_url="https://github.com", repo=REPO, candidates=1
+        requests[0],
+        passed,
+        server_url="https://github.com",
+        repo=REPO,
+        candidates=1,
+        commit=commit,
     )
     assert "**PR #4**" in summary
-    assert SHA in summary
+    assert f"pinned at head `{SHA}`" in summary
     assert "`modelmirror-agent`" in summary
     assert "```text\nuv run fedcourts query --court scotus\n```" in summary
-    assert f"https://github.com/{REPO}/commit/{SHA}" in summary
+    # The diff is pinned to the SHA, never the PR's moving files page.
+    assert f"https://github.com/{REPO}/compare/{BASE}...{SHA}" in summary
+    assert "/files" not in summary
+    assert "author `someone-else`" in summary
+    assert "`Plain 'Git' @\u200bteam (no GitHub account)`" in summary
+    assert "signature not verified (`unsigned`)" in summary
+    assert "`uv sync --locked`" in summary
+    assert "`pyproject.toml`, `uv.lock`" in summary
+    assert f"If the PR's head is no longer `{SHA}`, reject" in summary
     assert "- #5: author is not on the requester list" in summary
+
+
+def test_the_plan_summary_neutralises_the_base_ref() -> None:
+    requests, _ = cc.candidate_requests(
+        [_pr(4, base_ref="x`@org/team\u202e")], repo=REPO, requesters=LISTED
+    )
+    summary = cc.render_plan_summary(
+        requests[0], [], server_url="https://github.com", repo=REPO, candidates=1
+    )
+    assert "into `x'@\u200borg/team`" in summary
+    assert "\u202e" not in summary
+
+
+def test_an_unprotected_environment_plans_nothing_and_says_why() -> None:
+    summary = cc.render_plan_summary(
+        None,
+        [],
+        server_url="https://github.com",
+        repo=REPO,
+        candidates=1,
+        environment_problems=["no required-reviewer rule names the approver `modelmirror`"],
+    )
+    assert "Nothing is planned" in summary
+    assert "approver" in summary
+
+
+def test_an_unread_head_commit_is_said_to_be_unread() -> None:
+    assert cc.head_commit(None) == cc.HeadCommit()
+    requests, _ = cc.candidate_requests([_pr(4)], repo=REPO, requesters=LISTED)
+    summary = cc.render_plan_summary(
+        requests[0], [], server_url="https://github.com", repo=REPO, candidates=1
+    )
+    assert "author `(unread)`" in summary
+    assert "signature state unread" in summary
+
+
+def test_bidi_and_zero_width_characters_are_dropped() -> None:
+    text = "a\u200bb\u200fc\u202ad\u202ee\u2066f\u2069g\ufeffh"
+    assert cc.inline(text) == "abcdefgh"
 
 
 def test_the_plan_summary_for_a_refusal_and_for_nothing() -> None:
@@ -421,6 +507,8 @@ def test_a_comment_leads_with_the_marker_and_names_sha_command_vintage_summary()
         ({"run_result": "skipped"}, "not run"),
         ({"run_result": "<script>"}, "not run"),
         ({"refusal": "the command is empty", "run_result": "skipped"}, "refused"),
+        ({"phase": "install", "exit_code": "1"}, "install failed"),
+        ({"phase": "install", "exit_code": "124", "timed_out": "true"}, "install timed out"),
     ],
 )
 def test_each_outcome_has_its_status(overrides: dict[str, str], status: str) -> None:
@@ -487,59 +575,85 @@ def test_a_clamped_summary_says_so() -> None:
 # --- running the check ----------------------------------------------------
 
 
-def test_the_check_env_is_scrubbed_and_points_at_its_paths(tmp_path: Path) -> None:
+def test_the_check_env_carries_the_session_the_address_and_two_paths_only(
+    tmp_path: Path,
+) -> None:
     environ = {
         "PATH": "/venv/bin:/usr/bin",
+        "HOME": "/home/runner",
         "GITHUB_STEP_SUMMARY": "/s",
         "GITHUB_OUTPUT": "/o",
         "GITHUB_ENV": "/e",
-        "GITHUB_PATH": "/p",
-        "GITHUB_STATE": "/st",
+        "GITHUB_TOKEN": "ghs_x",
         "ACTIONS_ID_TOKEN_REQUEST_URL": "u",
         "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "t",
-        "VIRTUAL_ENV": "/venv",
+        "ACTIONS_RUNTIME_TOKEN": "r",
+        "AWS_ACCESS_KEY_ID": "AKIA",
+        "AWS_SECRET_ACCESS_KEY": "secret",
+        "AWS_SESSION_TOKEN": "session",
         "AWS_REGION": "us-east-1",
+        "FEDCOURTS_CORPUS_BASE_URL": "s3://b/p",
     }
-    env = cc.check_env(
-        environ,
-        summary_path=tmp_path / "s.md",
-        corpus_root=tmp_path / "corpus",
-        drop_path_entries=["/venv/bin"],
-    )
+    env = cc.check_env(environ, summary_path=tmp_path / "s.md", corpus_root=tmp_path / "corpus")
     assert env == {
-        "PATH": "/usr/bin",
+        "AWS_ACCESS_KEY_ID": "AKIA",
+        "AWS_SECRET_ACCESS_KEY": "secret",
+        "AWS_SESSION_TOKEN": "session",
         "AWS_REGION": "us-east-1",
+        "FEDCOURTS_CORPUS_BASE_URL": "s3://b/p",
         "CHECK_SUMMARY": str(tmp_path / "s.md"),
         "FEDCOURTS_CORPUS_ROOT": str(tmp_path / "corpus"),
     }
 
 
-def test_the_summary_file_is_reset_whatever_the_pr_left(tmp_path: Path) -> None:
-    (tmp_path / cc.SUMMARY_FILENAME).symlink_to("/etc/hostname")
-    path = cc.prepare_summary(tmp_path)
-    assert path.is_file()
-    assert not path.is_symlink()
-    assert path.read_bytes() == b""
-    path.unlink()
-    (tmp_path / cc.SUMMARY_FILENAME).mkdir()
-    assert cc.prepare_summary(tmp_path).read_bytes() == b""
+def test_the_account_hop_carries_only_the_named_variables() -> None:
+    argv = cc.as_user(
+        ["uv", "sync", "--locked"],
+        user="corpuscheck",
+        workdir=Path("/home/corpuscheck/check"),
+        env_names={"CHECK_SUMMARY": "x", "AWS_REGION": "y"},
+    )
+    assert argv == [
+        "sudo",
+        "-n",
+        "--preserve-env=AWS_REGION,CHECK_SUMMARY",
+        "-u",
+        "corpuscheck",
+        "-H",
+        "--",
+        "/usr/bin/env",
+        "-C",
+        "/home/corpuscheck/check",
+        "uv",
+        "sync",
+        "--locked",
+    ]
 
 
-def test_reading_the_summary_redacts_and_refuses_a_non_file(tmp_path: Path) -> None:
-    path = tmp_path / "s.md"
-    path.write_text("key=AKIAEXAMPLEKEY123 url=s3://bucket/prefix short=abc")
-    text, clamped = cc.read_summary(path, redact=["AKIAEXAMPLEKEY123", "s3://bucket/prefix", "abc"])
+@pytest.mark.parametrize(
+    ("user", "workdir", "names", "match"),
+    [
+        ("root;id", "/w", ["A"], "account"),
+        ("Corpus", "/w", ["A"], "account"),
+        ("corpuscheck", "relative", ["A"], "absolute"),
+        ("corpuscheck", "/w", [], "identifiers"),
+        ("corpuscheck", "/w", ["A,B"], "identifiers"),
+        ("corpuscheck", "/w", ["lower"], "identifiers"),
+    ],
+)
+def test_the_account_hop_refuses_malformed_inputs(
+    user: str, workdir: str, names: list[str], match: str
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        cc.as_user(["x"], user=user, workdir=Path(workdir), env_names=names)
+
+
+def test_the_summary_is_redacted_and_clamped() -> None:
+    raw = b"key=AKIAEXAMPLEKEY123 url=s3://bucket/prefix short=abc"
+    text, clamped = cc.summary_text(raw, redact=["AKIAEXAMPLEKEY123", "s3://bucket/prefix", "abc"])
     assert text == "key=[redacted] url=[redacted] short=abc"
     assert not clamped
-    path.unlink()
-    path.symlink_to(tmp_path / "elsewhere")
-    assert cc.read_summary(path) == ("", False)
-
-
-def test_reading_the_summary_clamps(tmp_path: Path) -> None:
-    path = tmp_path / "s.md"
-    path.write_text("y" * (cc.SUMMARY_LIMIT_BYTES + 10))
-    text, clamped = cc.read_summary(path)
+    text, clamped = cc.summary_text(b"y" * (cc.SUMMARY_LIMIT_BYTES + 10))
     assert clamped
     assert len(text) == cc.SUMMARY_LIMIT_BYTES
 
@@ -562,6 +676,14 @@ def test_a_check_runs_without_a_shell_and_its_output_stays_in_a_file(tmp_path: P
     assert "to stderr" in out.read_text()
     # No shell expanded anything the check wrote or was given.
     assert (tmp_path / "s.md").read_text() == "summary $(id) ;"
+
+
+def test_a_check_holds_no_descriptor_but_its_output(tmp_path: Path) -> None:
+    code = "import os; print(sorted(int(f) for f in os.listdir('/proc/self/fd')))"
+    out = tmp_path / "log"
+    cc.run_check(_py(code), cwd=tmp_path, env=dict(os.environ), timeout_seconds=30, output_path=out)
+    # stdin (devnull), stdout and stderr (the file), and the listing's own fd.
+    assert json.loads(out.read_text().strip()) == [0, 1, 2, 3]
 
 
 def test_a_check_past_its_timeout_is_killed_with_its_group(tmp_path: Path) -> None:
@@ -600,8 +722,41 @@ def test_a_check_that_cannot_start_reports_127(tmp_path: Path) -> None:
     assert not result.timed_out
 
 
+def test_a_failed_install_stops_before_the_check(tmp_path: Path) -> None:
+    ran = tmp_path / "check-ran"
+    phase = cc.run_phases(
+        install_argv=_py("import sys; print('install'); sys.exit(2)"),
+        check_argv=_py(f"open({str(ran)!r}, 'w')"),
+        cwd=tmp_path,
+        env=dict(os.environ),
+        install_timeout_seconds=30,
+        check_timeout_seconds=30,
+        output_path=tmp_path / "log",
+    )
+    assert phase.phase == "install"
+    assert phase.result.exit_code == 2
+    assert not ran.exists()
+
+
+def test_each_phase_has_its_own_timeout_and_shares_the_output(tmp_path: Path) -> None:
+    phase = cc.run_phases(
+        install_argv=_py("print('installed')"),
+        check_argv=_py("import time; print('checking', flush=True); time.sleep(30)"),
+        cwd=tmp_path,
+        env=dict(os.environ),
+        install_timeout_seconds=30,
+        check_timeout_seconds=1,
+        output_path=tmp_path / "log",
+    )
+    assert phase.phase == "check"
+    assert phase.result.timed_out
+    assert (tmp_path / "log").read_text().split() == ["installed", "checking"]
+
+
 def test_run_outputs_encode_the_summary() -> None:
-    outputs = cc.run_outputs(cc.CheckResult(0, False, 0), "line one\nline two")
+    phase = cc.PhaseResult(phase="check", result=cc.CheckResult(0, False, 0))
+    outputs = cc.run_outputs(phase, "line one\nline two")
+    assert outputs["phase"] == "check"
     assert outputs["exit_code"] == "0"
     assert outputs["timed_out"] == "false"
     assert base64.b64decode(outputs["summary_b64"]).decode() == "line one\nline two"
@@ -611,78 +766,139 @@ def test_run_outputs_encode_the_summary() -> None:
 # --- the CLI seams --------------------------------------------------------
 
 
-def test_the_plan_cli_picks_writes_outputs_and_the_summary(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+PROTECTED = {
+    "protection_rules": [
+        {
+            "type": "required_reviewers",
+            "reviewers": [{"type": "User", "reviewer": {"login": "modelmirror", "id": 7}}],
+        },
+        {"type": "branch_policy"},
+    ],
+    "deployment_branch_policy": {"protected_branches": False, "custom_branch_policies": True},
+}
+MAIN_ONLY = {"total_count": 1, "branch_policies": [{"name": "main", "type": "branch"}]}
+
+
+def _plan_args(tmp_path: Path, prs: Path, comments: Path) -> list[str]:
+    return [
+        "corpus-check-plan",
+        "--prs-file",
+        str(prs),
+        "--repo",
+        REPO,
+        "--comments-dir",
+        str(comments),
+        "--environment-file",
+        str(tmp_path / "environment.json"),
+        "--branch-policies-file",
+        str(tmp_path / "branch-policies.json"),
+        "--commits-dir",
+        str(tmp_path / "commits"),
+        "--github-output",
+        str(tmp_path / "gh-output"),
+        "--summary-file",
+        str(tmp_path / "summary.md"),
+    ]
+
+
+def _plan_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
     config = tmp_path / "config"
     config.mkdir()
-    (config / cc.CONFIG_FILENAME).write_text("requesters: [modelmirror-agent]\n")
+    (config / cc.CONFIG_FILENAME).write_text(
+        "requesters: [modelmirror-agent]\napprover: modelmirror\n"
+    )
     monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(config))
     prs = tmp_path / "prs.json"
     prs.write_text(json.dumps([[_pr(1), _pr(2, sha=SHA2, author="outsider")]]))
-    runner = CliRunner()
-    listed = runner.invoke(app, ["corpus-check-candidates", "--prs-file", str(prs), "--repo", REPO])
-    assert listed.exit_code == 0, listed.output
-    assert listed.output.split() == ["1"]
-
     comments = tmp_path / "comments"
     comments.mkdir()
     (comments / "1.json").write_text(json.dumps([[]]))
-    output, summary = tmp_path / "gh-output", tmp_path / "summary.md"
-    result = runner.invoke(
-        app,
-        [
-            "corpus-check-plan",
-            "--prs-file",
-            str(prs),
-            "--repo",
-            REPO,
-            "--comments-dir",
-            str(comments),
-            "--github-output",
-            str(output),
-            "--summary-file",
-            str(summary),
-        ],
+    (tmp_path / "commits").mkdir()
+    (tmp_path / "commits" / f"{SHA}.json").write_text(
+        json.dumps({"author": {"login": "modelmirror-agent"}, "commit": {}})
     )
+    (tmp_path / "environment.json").write_text(json.dumps(PROTECTED))
+    (tmp_path / "branch-policies.json").write_text(json.dumps(MAIN_ONLY))
+    return prs, comments
+
+
+def test_the_plan_cli_picks_writes_outputs_and_the_summary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prs, comments = _plan_fixture(tmp_path, monkeypatch)
+    runner = CliRunner()
+    listed = runner.invoke(app, ["corpus-check-candidates", "--prs-file", str(prs), "--repo", REPO])
+    assert listed.exit_code == 0, listed.output
+    assert listed.output.splitlines() == [f"1 {SHA}"]
+
+    result = runner.invoke(app, _plan_args(tmp_path, prs, comments))
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output)["pr"] == 1
-    assert f"sha={SHA}" in output.read_text().splitlines()
-    assert "**PR #1**" in summary.read_text()
+    assert json.loads(result.output.strip().splitlines()[-1])["pr"] == 1
+    assert f"sha={SHA}" in (tmp_path / "gh-output").read_text().splitlines()
+    summary = (tmp_path / "summary.md").read_text()
+    assert "**PR #1**" in summary
+    assert "author `modelmirror-agent`" in summary
 
     (comments / "1.json").unlink()
-    missing = runner.invoke(
-        app,
-        [
-            "corpus-check-plan",
-            "--prs-file",
-            str(prs),
-            "--repo",
-            REPO,
-            "--comments-dir",
-            str(comments),
-        ],
-    )
-    assert missing.exit_code != 0
+    assert runner.invoke(app, _plan_args(tmp_path, prs, comments)).exit_code != 0
+
+
+@pytest.mark.parametrize(
+    ("environment", "policies"),
+    [
+        (None, MAIN_ONLY),
+        ({**PROTECTED, "protection_rules": [{"type": "branch_policy"}]}, MAIN_ONLY),
+        (PROTECTED, None),
+        (PROTECTED, {"branch_policies": [{"name": "*", "type": "branch"}]}),
+    ],
+)
+def test_the_plan_cli_plans_nothing_while_the_environment_is_unprotected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    environment: dict[str, Any] | None,
+    policies: dict[str, Any] | None,
+) -> None:
+    prs, comments = _plan_fixture(tmp_path, monkeypatch)
+    for name, document in (("environment.json", environment), ("branch-policies.json", policies)):
+        if document is None:
+            (tmp_path / name).unlink()
+        else:
+            (tmp_path / name).write_text(json.dumps(document))
+    result = CliRunner().invoke(app, _plan_args(tmp_path, prs, comments))
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "gh-output").read_text().splitlines() == ["found=false"]
+    assert "Nothing is planned" in (tmp_path / "summary.md").read_text()
 
 
 def test_the_exec_cli_refuses_a_command_outside_the_grammar(tmp_path: Path) -> None:
-    result = CliRunner().invoke(
-        app,
-        [
-            "corpus-check-exec",
-            "--command",
-            "uv run fedcourts query; id",
-            "--cwd",
-            str(tmp_path),
-            "--corpus-root",
-            str(tmp_path),
-            "--output-file",
-            str(tmp_path / "log"),
-        ],
-    )
+    base = [
+        "corpus-check-exec",
+        "--user",
+        "corpuscheck",
+        "--workdir",
+        str(tmp_path),
+        "--corpus-root",
+        str(tmp_path),
+        "--output-file",
+        str(tmp_path / "log"),
+        "--command",
+    ]
+    result = CliRunner().invoke(app, [*base, "uv run fedcourts query; id"])
     assert result.exit_code == 1
     assert not (tmp_path / "log").exists()
+    relative = [*base, "uv run fedcourts corpus-info"]
+    relative[relative.index("--workdir") + 1] = "check"
+    assert CliRunner().invoke(app, relative).exit_code == 1
+
+
+def test_the_approver_cli_prints_the_configured_login(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(tmp_path))
+    assert CliRunner().invoke(app, ["corpus-check-approver"]).exit_code == 1
+    (tmp_path / cc.CONFIG_FILENAME).write_text("approver: modelmirror\n")
+    result = CliRunner().invoke(app, ["corpus-check-approver"])
+    assert result.output.strip() == "modelmirror"
 
 
 def test_the_comment_cli_reads_its_inputs_from_the_environment(
@@ -692,6 +908,7 @@ def test_the_comment_cli_reads_its_inputs_from_the_environment(
     monkeypatch.setenv("CHECK_COMMAND", "uv run fedcourts corpus-info")
     monkeypatch.setenv("RUN_RESULT", "success")
     monkeypatch.setenv("CHECK_EXIT_CODE", "0")
+    monkeypatch.setenv("CHECK_PHASE", "check")
     monkeypatch.setenv("CHECK_SUMMARY_B64", _b64("ok"))
     result = CliRunner().invoke(app, ["corpus-check-comment"])
     assert result.exit_code == 0, result.output

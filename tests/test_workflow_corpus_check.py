@@ -106,7 +106,11 @@ def test_every_checkout_drops_its_credentials() -> None:
 
 def test_the_plan_holds_no_credential_and_runs_only_on_main() -> None:
     plan = _job("plan")
-    assert plan["permissions"] == {"contents": "read", "pull-requests": "read"}
+    assert plan["permissions"] == {
+        "contents": "read",
+        "pull-requests": "read",
+        "actions": "read",
+    }
     assert "environment" not in plan
     assert plan["if"] == "${{ github.ref == 'refs/heads/main' }}"
     # Its own checkout of the run's ref, where config/corpus-check.yaml is read.
@@ -117,6 +121,28 @@ def test_the_plan_holds_no_credential_and_runs_only_on_main() -> None:
     assert "fedcourts corpus-check-candidates" in run
     assert "fedcourts corpus-check-plan" in run
     assert run.count("--paginate --slurp") == 2
+    # The environment's protection is read and handed to the plan, which plans
+    # nothing without it.
+    assert 'gh api "repos/${REPO}/environments/corpus-check"' in run
+    assert "/deployment-branch-policies" in run
+    assert '--environment-file "${work}/environment.json"' in run
+    assert '--branch-policies-file "${work}/branch-policies.json"' in run
+    assert 'gh api "repos/${REPO}/commits/${sha}"' in run
+
+
+def test_an_empty_poll_stops_before_the_install() -> None:
+    steps = _steps(_job("plan"))
+    peek = _index(steps, lambda step: step.get("id") == "peek")
+    setup = _index(steps, lambda step: _uses(step) == SETUP)
+    pick = _index(steps, lambda step: step.get("id") == "plan")
+    assert peek < setup < pick
+    gate = "${{ steps.peek.outputs.any == 'true' }}"
+    assert steps[setup]["if"] == gate
+    assert steps[pick]["if"] == gate
+    # A superset of the CLI's block test: any body naming the info string.
+    assert 'contains("corpus-check")' in str(steps[peek]["run"])
+    # The plan's outputs come from the picking step alone.
+    plan = _job("plan")
     assert set(plan["outputs"]) == {"found", "pr", "sha", "command", "refusal"}
     for key, value in plan["outputs"].items():
         assert value == f"${{{{ steps.plan.outputs.{key} }}}}"
@@ -173,6 +199,45 @@ def test_reviewed_code_runs_first_and_the_planned_head_beside_it() -> None:
     assert "fedcourts corpus-info" in str(steps[vintage]["run"])
 
 
+ACCOUNT = "corpuscheck"
+
+
+def test_the_head_never_runs_as_the_runners_account() -> None:
+    """No step runs the head's code as the runner: the install and the check
+    both go through the wrapper, which hops to the unprivileged account."""
+    steps = _steps(_job("run"))
+    head = _index(steps, lambda step: _uses(step).startswith(CHECKOUT) and "path" in step["with"])
+    after = steps[head + 1 :]
+    assert all("working-directory" not in step for step in after)
+    bodies = [str(step.get("run", "")) for step in after]
+    assert not any("uv sync" in body for body in bodies)
+    assert sum("fedcourts corpus-check-exec" in body for body in bodies) == 1
+
+
+def test_the_account_is_provisioned_without_sudo_and_proven_separate() -> None:
+    steps = _steps(_job("run"))
+    provision = steps[_index(steps, lambda step: "useradd" in str(step.get("run", "")))]
+    check = steps[_index(steps, lambda step: step.get("id") == "check")]
+    assert provision["env"]["CHECK_USER"] == ACCOUNT
+    assert check["env"]["CHECK_USER"] == ACCOUNT
+    body = str(provision["run"])
+    # Its own copies, owned by it, under its own closed home.
+    assert 'sudo chmod 700 "$home"' in body
+    assert 'sudo chown -R "${CHECK_USER}:${CHECK_USER}" "${home}/check" "${home}/corpus"' in body
+    assert 'sudo chmod o-rwx "$HOME" "$RUNNER_TEMP"' in body
+    # Each separation is asserted as the account, not assumed.
+    for refused in (
+        "refuse sudo -n true",
+        'refuse /usr/bin/cat -- "/proc/$$/environ"',
+        'refuse /usr/bin/ls -- "$RUNNER_TEMP"',
+        'refuse /usr/bin/ls -- "$HOME"',
+        'refuse /usr/bin/cat -- "$GITHUB_ENV"',
+        "refuse /usr/bin/test -w /var/run/docker.sock",
+    ):
+        assert refused in body
+    assert 'id -nG "$CHECK_USER"' in body
+
+
 def test_the_command_reaches_the_check_only_through_the_tested_wrapper() -> None:
     steps = _steps(_job("run"))
     check = steps[_index(steps, lambda step: step.get("id") == "check")]
@@ -180,13 +245,16 @@ def test_the_command_reaches_the_check_only_through_the_tested_wrapper() -> None
     body = str(check["run"])
     assert "uv run fedcourts corpus-check-exec" in body
     assert '--command "$CHECK_COMMAND"' in body
-    assert "--cwd check" in body
-    # Guard < step < job.
-    seconds = int(re.search(r"--timeout-seconds (\d+)", body).group(1))  # type: ignore[union-attr]
-    assert seconds < check["timeout-minutes"] * 60
+    assert '--user "$CHECK_USER"' in body
+    assert '--workdir "/home/${CHECK_USER}/check"' in body
+    assert '--corpus-root "/home/${CHECK_USER}/corpus"' in body
+    # Guard < step < job, with the install's own bound inside the step too.
+    check_s = int(re.search(r"--timeout-seconds (\d+)", body).group(1))  # type: ignore[union-attr]
+    install_s = int(
+        re.search(r"--install-timeout-seconds (\d+)", body).group(1)  # type: ignore[union-attr]
+    )
+    assert check_s + install_s < check["timeout-minutes"] * 60
     assert check["timeout-minutes"] < _job("run")["timeout-minutes"]
-    install = steps[_index(steps, lambda step: step.get("working-directory") == "check")]
-    assert install["run"] == "uv sync --locked"
 
 
 def test_no_run_block_interpolates_an_expression() -> None:
@@ -212,6 +280,12 @@ def test_the_post_job_checks_out_no_pr_code_and_holds_no_role() -> None:
     body = "\n".join(str(step.get("run", "")) for step in _steps(post))
     assert "uv run fedcourts corpus-check-comment" in body
     assert "repos/${REPO}/issues/${PR}/comments" in body
+    # The digest a reader matches the comment against.
+    assert 'sha256sum "$body"' in body
+    assert "Posted comment sha256" in body
+    # The run gate's guard is appended with `&&`; a top-level `||` would let
+    # that guard be bypassed.
+    assert "||" not in condition
 
 
 def test_the_post_job_takes_the_sha_and_command_from_the_plan() -> None:
@@ -219,6 +293,7 @@ def test_the_post_job_takes_the_sha_and_command_from_the_plan() -> None:
     assert env["CHECK_SHA"] == PLANNED_SHA
     assert env["CHECK_COMMAND"] == "${{ needs.plan.outputs.command }}"
     assert env["RUN_RESULT"] == "${{ needs.run.result }}"
+    assert env["CHECK_PHASE"] == "${{ needs.run.outputs.phase }}"
     assert env["GH_TOKEN"] == "${{ github.token }}"
 
 

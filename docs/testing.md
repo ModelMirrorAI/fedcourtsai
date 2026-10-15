@@ -732,12 +732,16 @@ environment so a dispatch cannot run it from an arbitrary ref — a job reaching
 the role through a corpus composite counting as privileged, and `corpus-check`
 admitted for its own workflow alone — and every agent
 job waits on the `review` hold), the cache (`test_workflow_cache_restore`: no
-job restores the uv cache unless allowed and holding nothing, and no workflow
-or composite restores a cache any other way), the corpus-check lane
+job restores the uv cache unless allowed and holding nothing, no workflow
+or composite restores a cache any other way, and no root `package.json` turns
+on a `setup-node` cache), the corpus-check lane
 (`test_workflow_corpus_check`: each job's grants, the environment and the
 read-only role on the run job alone, the planned head checked out beside the
-run's own ref and after the vintage read, no `${{ }}` in any script, no PR
-code in the post job), the
+run's own ref and after the vintage read, the head's install and check run
+only through the wrapper as the unprivileged account whose separation the job
+proves, no `${{ }}` in any script, no PR code in the post job; and
+`test_environment_checks`: the environment's reviewer, `main`-only policy and
+contents, which the promotion gate checks unconditionally), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants

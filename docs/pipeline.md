@@ -68,7 +68,10 @@ restriction buys, is the *Trigger surface* bullet in
 
 `run-ops` produces nothing the pipeline consumes: it is a read-only daily roll-up of
 operational analytics, consolidated so it reads as a summary — pipeline health
-(the Actions run history, dormant workflows folded into one line), **substance**
+(the Actions run history — the newest 200 runs of the ordinary workflows plus
+the newest day of `corpus-check`'s half-hourly polls, whose replaced pending
+runs end `cancelled` by design and count as neither success nor failure —
+dormant workflows folded into one line), **substance**
 (is the machine producing: scored cells by stratum with deltas against the
 week-old snapshot when one exists — else the newest,
 replay calibration vs the modern-cert deny base rate with the sample size beside
@@ -579,20 +582,27 @@ A pull request whose figure depends on the corpus declares the command that
 produces it in a fenced `corpus-check` block in its description; the lane runs
 it at the PR's head against the production corpus, read-only, and posts the
 result back as a comment naming the commit, the command and the corpus
-vintage. It answers same-repository PRs whose author is on
+vintage. It answers ready (non-draft) same-repository PRs whose author is on
 `config/corpus-check.yaml` and commands of two forms (`uv run fedcourts …`,
 `uv run python scripts/checks/<name>.py …`), one head SHA once. How to write
 a check, what the comment carries, and what the lane gives up:
 [corpus-check.md](corpus-check.md).
 
-Three jobs. `plan` (no credential, `main` only) picks the oldest unanswered
-request from the open PRs and their comments and pins its head SHA and
-command, rendering both to the run summary. `run` binds the `corpus-check`
-environment — the maintainer's approval — assumes the read-only role, pulls
-the corpus at `main`'s committed pointer, reads its vintage, and runs the
-command at the pinned SHA without a shell, under a 30-minute timeout, its
-output kept off the public log. `post` (no environment, no PR code) posts one
-comment whatever became of the run, so the head is not planned again.
+Three jobs. `plan` (no credential, `main` only) stops after one listing when
+no open PR mentions a block, plans nothing while the `corpus-check`
+environment lacks its reviewer or its `main`-only policy, and otherwise picks
+the oldest unanswered request from the open PRs and their comments and pins
+its head SHA and command, rendering both to the run summary with a comparison
+pinned to that SHA and the head commit's author, committer and signature.
+`run` binds the `corpus-check` environment — the maintainer's approval —
+assumes the read-only role, pulls the corpus at `main`'s committed pointer and
+reads its vintage, then runs the head's `uv sync --locked` (8 minutes) and the
+command (30 minutes) as a separate unprivileged account holding only the
+read-only session, without a shell, output kept off the public log. `post` (no
+environment, no PR code) posts one comment whatever became of the run, so the
+head is not planned again, and records the comment's sha256 in its run
+summary — what tells the lane's result from a comment any write holder's
+workflow could post as the same bot.
 
 **Operating it.** A request waits for the next poll (`:19` or `:49` UTC) or a
 manual dispatch on `main`. The approver reads the plan job's summary — PR,
@@ -601,10 +611,16 @@ at a time: the workflow's single concurrency group holds a run waiting on
 approval and keeps at most one pending run behind it, the newest poll
 replacing the pending one; each run plans afresh when it starts, so the
 replacements lose nothing and no head is answered twice, and the run history
-shows the replaced polls as cancelled. An approval left pending holds the
-queue; rejecting it posts `not run` and lets the next request through. To
-re-run an unchanged head, push a commit. The environment and the read-only
-role's trust are provisioned once ([security.md](security.md)).
+shows the replaced polls as cancelled; `run-ops`' health table counts neither
+those nor runs past the newest day of polls. An approval left pending holds
+the queue; rejecting it posts `not run` and lets the next request through.
+Every push to a PR still carrying the block asks again, so the requester
+removes the block once answered; to re-run an unchanged head, push a commit.
+A comment that cannot be posted (a locked conversation) leaves its head to be
+planned again every poll. The environment and the read-only
+role's trust are provisioned once, the environment first
+([security.md](security.md)); the promotion gate's `contexts` stage checks the
+environment on every promotion.
 
 ## `staging-corpus-refresh` — the staging corpus
 

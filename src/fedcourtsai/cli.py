@@ -7,6 +7,7 @@ committed under ``data/`` matches the schema contract.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import logging
@@ -56,6 +57,7 @@ from . import (
     corpus_seed,
     corpus_service,
     dedupe,
+    environment_checks,
     ids,
     integration_check,
     mcp,
@@ -18293,15 +18295,29 @@ def _read_listing(path: Path, label: str) -> list[Any]:
     return list(corpus_check.flatten_pages(document))
 
 
+def _read_document(path: Path | None) -> dict[str, Any] | None:
+    """A JSON object from ``path``, or None when it is absent or unreadable (fails closed)."""
+    if path is None:
+        return None
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return document if isinstance(document, dict) else None
+
+
+def _corpus_check_config(label: str) -> corpus_check.CorpusCheckConfig:
+    try:
+        return corpus_check.load_config(get_settings().config_root)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        typer.echo(f"{label}: cannot read config/corpus-check.yaml: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+
 def _corpus_check_candidates(
     prs_file: Path, repo: str, label: str
 ) -> tuple[list[corpus_check.Request], list[corpus_check.Passed]]:
-    settings = get_settings()
-    try:
-        config = corpus_check.load_config(settings.config_root)
-    except (OSError, ValueError, yaml.YAMLError) as exc:
-        typer.echo(f"{label}: cannot read the requester list: {exc}", err=True)
-        raise typer.Exit(code=1) from exc
+    config = _corpus_check_config(label)
     prs = _read_listing(prs_file, label)
     return corpus_check.candidate_requests(prs, repo=repo, requesters=config.requesters)
 
@@ -18317,20 +18333,21 @@ def corpus_check_candidates_cmd(
     ],
     repo: Annotated[str, typer.Option(help="The `owner/name` the lane runs in.")],
 ) -> None:
-    """Print the PR numbers whose comments the corpus-check plan must read, one per line.
+    """Print `<pr> <head sha>`, one line per PR the corpus-check plan must read.
 
-    A PR is a candidate when its body carries a fenced `corpus-check` block, its
-    head is in this repository, and its author is on `config/corpus-check.yaml`'s
-    requester list — runnable or refused. Reads no network; the plan job fetches
-    each candidate's comments and hands them to `corpus-check-plan`.
+    A PR is a candidate when it is ready for review (not a draft), its body
+    carries a fenced `corpus-check` block, its head is in this repository, and
+    its author is on `config/corpus-check.yaml`'s requester list — runnable or
+    refused. Reads no network; the plan job fetches each candidate's comments
+    and head commit and hands them to `corpus-check-plan`.
     """
     requests, _ = _corpus_check_candidates(prs_file, repo, "corpus-check-candidates")
     for request in requests:
-        typer.echo(str(request.pr))
+        typer.echo(f"{request.pr} {request.sha}")
 
 
 @app.command("corpus-check-plan")
-def corpus_check_plan_cmd(
+def corpus_check_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     prs_file: Annotated[
         Path,
         typer.Option("--prs-file", help="The same PR listing `corpus-check-candidates` read."),
@@ -18343,6 +18360,27 @@ def corpus_check_plan_cmd(
             help="One `<pr>.json` per candidate: that PR's issue comments (REST list or pages).",
         ),
     ],
+    environment_file: Annotated[
+        Path,
+        typer.Option(
+            "--environment-file",
+            help="`GET /repos/{repo}/environments/corpus-check`; absent means unread.",
+        ),
+    ],
+    branch_policies_file: Annotated[
+        Path,
+        typer.Option(
+            "--branch-policies-file",
+            help="That environment's `deployment-branch-policies`; absent means unread.",
+        ),
+    ],
+    commits_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--commits-dir",
+            help="One `<sha>.json` per candidate head: `GET /repos/{repo}/commits/{sha}`.",
+        ),
+    ] = None,
     github_output: Annotated[
         Path | None,
         typer.Option("--github-output", help="Append the plan's job outputs to this file."),
@@ -18357,27 +18395,52 @@ def corpus_check_plan_cmd(
 ) -> None:
     """Pick the corpus check to answer next and pin its head SHA and command.
 
-    The oldest candidate whose head SHA carries no result comment from the
+    Plans nothing while the `corpus-check` environment lacks its required
+    reviewer (`config/corpus-check.yaml`'s `approver`) or its policy admitting
+    `main` alone — the read-only role trusts that environment, so its
+    protection is the gate (`fedcourtsai.environment_checks`). Otherwise the
+    oldest candidate whose head SHA carries no result comment from the
     workflow's own bot (`github-actions[bot]`; the same marker from anyone else
     does not count). Prints the plan as JSON, appends `found`, `pr`, `sha`,
     `author`, `command` and `refusal` to `--github-output`, and the approver's
-    summary — PR, SHA, author and the fenced command — to `--summary-file`. A
-    candidate whose comments file is missing exits 1 rather than reading as
-    unanswered.
+    summary — PR, SHA, PR author, the head commit's author, committer and
+    signature, the fenced command and a comparison pinned to the SHA — to
+    `--summary-file`. A candidate whose comments file is missing exits 1 rather
+    than reading as unanswered.
     """
+    config = _corpus_check_config("corpus-check-plan")
+    problems = environment_checks.protection_problems(
+        _read_document(environment_file),
+        _read_document(branch_policies_file),
+        approver_login=config.approver,
+    )
     requests, passed = _corpus_check_candidates(prs_file, repo, "corpus-check-plan")
-    comments = {
-        request.pr: _read_listing(comments_dir / f"{request.pr}.json", "corpus-check-plan")
-        for request in requests
-    }
-    chosen = corpus_check.select_request(requests, comments)
+    chosen = None
+    commit = None
+    if problems:
+        for problem in problems:
+            typer.echo(f"::warning::corpus-check-plan: {problem}", err=True)
+    else:
+        comments = {
+            request.pr: _read_listing(comments_dir / f"{request.pr}.json", "corpus-check-plan")
+            for request in requests
+        }
+        chosen = corpus_check.select_request(requests, comments)
+        if chosen is not None and commits_dir is not None:
+            commit = corpus_check.head_commit(_read_document(commits_dir / f"{chosen.sha}.json"))
     if github_output is not None:
         corpus_check.write_outputs(github_output, corpus_check.plan_outputs(chosen))
     if summary_file is not None:
         with summary_file.open("a", encoding="utf-8") as handle:
             handle.write(
                 corpus_check.render_plan_summary(
-                    chosen, passed, server_url=server_url, repo=repo, candidates=len(requests)
+                    chosen,
+                    passed,
+                    server_url=server_url,
+                    repo=repo,
+                    candidates=len(requests),
+                    commit=commit,
+                    environment_problems=problems,
                 )
             )
     typer.echo(json.dumps(chosen.model_dump() if chosen else None))
@@ -18386,16 +18449,31 @@ def corpus_check_plan_cmd(
 @app.command("corpus-check-exec")
 def corpus_check_exec_cmd(
     command: Annotated[str, typer.Option(help="The planned command, re-validated here.")],
-    cwd: Annotated[Path, typer.Option(help="The PR head's checkout, where the check runs.")],
+    user: Annotated[
+        str, typer.Option(help="The unprivileged account the install and the check run as.")
+    ],
+    workdir: Annotated[
+        Path,
+        typer.Option(
+            help="The account's copy of the PR head (absolute), where both phases run.",
+        ),
+    ],
     corpus_root: Annotated[
-        Path, typer.Option("--corpus-root", help="The directory holding the pulled corpus.")
+        Path,
+        typer.Option("--corpus-root", help="The account's copy of the pulled corpus (absolute)."),
     ],
     output_file: Annotated[
         Path,
         typer.Option(
-            "--output-file", help="Where the check's stdout and stderr go (never the job log)."
+            "--output-file", help="Where both phases' stdout and stderr go (never the job log)."
         ),
     ],
+    install_timeout_seconds: Annotated[
+        int,
+        typer.Option(
+            "--install-timeout-seconds", min=1, help="Kill the head's `uv sync` after this long."
+        ),
+    ] = 480,
     timeout_seconds: Annotated[
         int, typer.Option("--timeout-seconds", min=1, help="Kill the check after this long.")
     ] = 1800,
@@ -18403,53 +18481,90 @@ def corpus_check_exec_cmd(
         Path | None,
         typer.Option(
             "--github-output",
-            help="Append `exit_code`, `timed_out` and `summary_b64` to this file.",
+            help="Append `phase`, `exit_code`, `timed_out` and `summary_b64` to this file.",
         ),
     ] = None,
 ) -> None:
-    """Run a corpus check's command without a shell and emit its result as job outputs.
+    """Install a planned PR head and run its corpus check as an unprivileged account.
 
-    Re-validates the command against the two accepted forms, empties the
-    summary file (`corpus-check-summary.md` in `--cwd`, exported to the check as
-    `CHECK_SUMMARY`), and runs the command in `--cwd` with the job's environment
-    minus the step-file and OIDC-request variables, `FEDCOURTS_CORPUS_ROOT` set
-    to `--corpus-root`, its output to `--output-file` and a hard timeout. Then
-    reads back the summary — a regular file only, the job's credentials and the
-    corpus address redacted, clamped to 50,000 bytes — and appends the outputs.
-    Prints only sizes and the exit code: the job log is public. Exits 0 whatever
-    the check's own exit code; a command outside the grammar exits 1 unrun.
+    Re-validates the command against the two accepted forms, then runs, as
+    `--user` in `--workdir` through `sudo -u` with no shell: an empty
+    `corpus-check-summary.md` (exported as `CHECK_SUMMARY`), the head's
+    `uv sync --locked` under its own timeout, and the command under its own.
+    The account's environment is the read-only session, the corpus base URL,
+    `FEDCOURTS_CORPUS_ROOT` and `CHECK_SUMMARY` alone; output goes to
+    `--output-file`, and every process the account owns is killed after each
+    phase. The summary is read back as the account, the job's credential
+    values and the corpus address redacted, clamped to 50,000 bytes. Prints
+    only sizes and exit codes: the job log is public. Exits 0 whatever the
+    check's own exit code; a command outside the grammar exits 1 unrun.
     """
     try:
         argv = corpus_check.parse_command(command)
     except corpus_check.CommandRefused as exc:
         typer.echo(f"corpus-check-exec: refused: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    workdir = cwd.resolve()
-    summary_path = corpus_check.prepare_summary(workdir)
+    if not workdir.is_absolute() or not corpus_root.is_absolute():
+        typer.echo("corpus-check-exec: --workdir and --corpus-root must be absolute", err=True)
+        raise typer.Exit(code=1)
     env = corpus_check.check_env(
         os.environ,
-        summary_path=summary_path,
-        corpus_root=corpus_root.resolve(),
-        drop_path_entries=[str(Path(sys.prefix) / "bin")],
+        summary_path=workdir / corpus_check.SUMMARY_FILENAME,
+        corpus_root=corpus_root,
     )
-    secrets = [os.environ[name] for name in corpus_check.REDACTED_ENV if os.environ.get(name)]
-    result = corpus_check.run_check(
-        argv,
-        cwd=workdir,
-        env=env,
-        timeout_seconds=timeout_seconds,
+    try:
+        wrap = functools.partial(corpus_check.as_user, user=user, workdir=workdir, env_names=env)
+        reset = [
+            wrap(["/usr/bin/rm", "-rf", "--", corpus_check.SUMMARY_FILENAME]),
+            wrap(["/usr/bin/touch", "--", corpus_check.SUMMARY_FILENAME]),
+        ]
+    except ValueError as exc:
+        typer.echo(f"corpus-check-exec: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    sudo_env = {"PATH": corpus_check.SUDO_PATH, **env}
+    for step in reset:
+        subprocess.run(step, env=sudo_env, cwd="/", check=True, capture_output=True, timeout=60)
+    phase = corpus_check.run_phases(
+        install_argv=wrap(list(corpus_check.INSTALL_ARGV)),
+        check_argv=wrap(argv),
+        cwd=Path("/"),
+        env=sudo_env,
+        install_timeout_seconds=install_timeout_seconds,
+        check_timeout_seconds=timeout_seconds,
         output_path=output_file,
+        kill_user=user,
     )
-    summary, clamped = corpus_check.read_summary(summary_path, redact=secrets)
+    read = subprocess.run(
+        wrap(
+            [
+                "/usr/bin/head",
+                "-c",
+                str(corpus_check.SUMMARY_READ_BYTES),
+                "--",
+                corpus_check.SUMMARY_FILENAME,
+            ]
+        ),
+        env=sudo_env,
+        cwd="/",
+        check=False,
+        capture_output=True,
+        timeout=60,
+    )
+    corpus_check.kill_account(user)
+    secrets = [os.environ[name] for name in corpus_check.REDACTED_ENV if os.environ.get(name)]
+    summary, clamped = corpus_check.summary_text(
+        read.stdout if read.returncode == 0 else b"", redact=secrets
+    )
+    result = phase.result
     typer.echo(
-        f"corpus-check-exec: exit {result.exit_code}"
+        f"corpus-check-exec: {phase.phase} exit {result.exit_code}"
         + (" (timed out)" if result.timed_out else "")
         + f"; {result.output_bytes} byte(s) of output kept off the log; "
         + f"{len(summary.encode('utf-8'))} byte(s) of summary"
         + (" (clamped)" if clamped else "")
     )
     if github_output is not None:
-        corpus_check.write_outputs(github_output, corpus_check.run_outputs(result, summary))
+        corpus_check.write_outputs(github_output, corpus_check.run_outputs(phase, summary))
 
 
 @app.command("corpus-check-comment")
@@ -18460,6 +18575,9 @@ def corpus_check_comment_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
         str, typer.Option(envvar="CHECK_REFUSAL", help="The plan's refusal, if any.")
     ] = "",
     run_result: Annotated[str, typer.Option(envvar="RUN_RESULT", help="`needs.run.result`.")] = "",
+    phase: Annotated[
+        str, typer.Option(envvar="CHECK_PHASE", help="The run job's last phase.")
+    ] = "check",
     exit_code: Annotated[
         str, typer.Option(envvar="CHECK_EXIT_CODE", help="The run job's exit code.")
     ] = "",
@@ -18495,12 +18613,75 @@ def corpus_check_comment_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
                 summary_b64=summary_b64,
                 vintage_b64=vintage_b64,
                 run_url=run_url,
+                phase=phase,
             )
         )
     except ValueError as exc:
         typer.echo(f"corpus-check-comment: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(rendered, nl=False)
+
+
+@app.command("corpus-check-approver")
+def corpus_check_approver_cmd() -> None:
+    """Print the login `config/corpus-check.yaml` names as the environment's approver.
+
+    The promotion gate resolves it to a user id before checking the
+    `corpus-check` environment's reviewer rule. Exits 1 when none is configured.
+    """
+    approver = _corpus_check_config("corpus-check-approver").approver
+    if not approver:
+        typer.echo("corpus-check-approver: no approver is configured", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(approver)
+
+
+@app.command("assert-corpus-check-environment")
+def assert_corpus_check_environment_cmd(
+    environment_file: Annotated[
+        Path,
+        typer.Option(help="`GET /repos/{repo}/environments/corpus-check`; absent means unread."),
+    ],
+    branch_policies_file: Annotated[
+        Path, typer.Option(help="Its `deployment-branch-policies`; absent means unread.")
+    ],
+    secrets_file: Annotated[
+        Path, typer.Option(help="Its `secrets` listing (admin read); absent means unread.")
+    ],
+    variables_file: Annotated[
+        Path, typer.Option(help="Its `variables` listing (admin read); absent means unread.")
+    ],
+    approver_id: Annotated[
+        int | None,
+        typer.Option(help="The configured approver's user id; omitted means unread."),
+    ] = None,
+) -> None:
+    """Check the `corpus-check` environment still gates the read-only role its trust hands out.
+
+    Requires the environment to exist, its required-reviewer rule to name the
+    approver `config/corpus-check.yaml` configures (by user id), its
+    deployment branches to be a custom policy of exactly `main`, and it to hold
+    no secret and no variable but the read-only role, the region and the corpus
+    base URL. Names each problem and exits non-zero if there is any; an unread
+    listing is a problem.
+    """
+    config = _corpus_check_config("assert-corpus-check-environment")
+    problems = environment_checks.environment_problems(
+        _read_document(environment_file),
+        _read_document(branch_policies_file),
+        _read_document(secrets_file),
+        _read_document(variables_file),
+        approver_login=config.approver,
+        approver_id=approver_id,
+    )
+    for problem in problems:
+        typer.echo(f"::error::corpus-check environment: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(
+        "the corpus-check environment holds its reviewer, its main-only policy "
+        + "and nothing but the read-only role's variables"
+    )
 
 
 @app.command("finalize-produced")

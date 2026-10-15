@@ -361,19 +361,31 @@ runbook, [docs/security.md](docs/security.md).
   with the corpus read-only role. Its triggers are the same two — a
   `schedule` and an input-less `workflow_dispatch`, so the workflow binding
   the environment is always `main`'s — but the code it runs is not the ref's,
-  so the branch policy is met only on paper. Three things bound it instead.
+  so the branch policy is met only on paper. Four things bound it instead.
   The `corpus-check` environment's **required reviewer**: the maintainer
-  approves a named head SHA and command, which the run then takes from the
-  plan, never re-reading the PR. The **trust**: the OIDC token is job-wide, so
-  the PR's code can mint a token for any role trusting
-  `environment:corpus-check`, and only the read-only role does — it reaches
-  every store read-only and nothing it can write; the environment holds that
-  role, its region and the corpus address and no other credential. And the
-  **cache rule** below: the lane runs on `main`, whose cache entries every
-  branch restores, and its code can save entries, which no job holding a
-  credential restores. The requester list (`config/corpus-check.yaml`) is
-  maintainer-owned, and the lane's result comment comes from a separate job
-  that runs no PR code and treats the run's outputs as untrusted.
+  approves a named head SHA and command, reading a diff pinned to that SHA,
+  and the run then takes both from the plan, never re-reading the PR; the
+  lane plans nothing, and the promotion gate refuses, while the environment
+  lacks that reviewer or its `main`-only policy, since the read-only role's
+  trust makes an unprotected `corpus-check` environment that role for any
+  write holder's branch workflow. The **account**: the head's install and the
+  check run as a separate unprivileged account with no sudo, which cannot
+  read the runner's processes, home or temp files, so the job's OIDC request
+  pair, its runtime token, its step files and its log are out of the PR
+  code's reach — it can mint no OIDC token for any audience (the Claude GitHub
+  App's token exchange included), save no cache entry, upload no artifact.
+  The **trust**: what the account holds is the read-only role's session, which
+  reaches every store read-only and nothing it can write; and because the job
+  itself holds `id-token: write`, no role but the read-only one, in any
+  account or cloud, and no other OIDC exchange may accept
+  `environment:corpus-check`, which holds that role, its region and the
+  corpus address and no other credential. And the **cache rule** below. What
+  stays open is network egress and the read-only session for the rest of its
+  hour. The requester list (`config/corpus-check.yaml`) is maintainer-owned,
+  and the lane's result comment comes from a separate job that runs no PR
+  code, treats the run's outputs as untrusted, and records the posted body's
+  sha256 in its own run summary — the check that tells a real result from one
+  any write holder's workflow could post as the same bot.
   `tests/test_workflow_auth_gate.py` sweeps the whole workflow
   directory for a reachable trigger, pins the five privileged lanes to those
   two, and requires every job that mints a token, assumes a role, or runs an
@@ -512,14 +524,18 @@ runbook, [docs/security.md](docs/security.md).
 - **`persist-credentials: false`** on read-only checkouts.
 - **No credential-holding job restores a cache.** An Actions cache is shared
   across a repository's runs: any job can save an entry under a key nothing has
-  claimed yet, and a later job restoring that key runs what it holds. Jobs that
-  parse third-party content, and the `corpus-check` lane, which runs PR-head
-  code, can therefore plant an entry. So every job installs through
+  claimed yet, and a later job restoring that key runs what it holds. A job
+  that parses third-party content could therefore plant an entry, and so could
+  PR-head code in the `corpus-check` lane were its account separation to fail.
+  So every job installs through
   `setup-python-env` with the cache off unless
   `tests/test_workflow_cache_restore.py` allows it, an allowed job is checked
   to hold no credential, no secret, no deployment environment and no write
   grant, and its result is no required check or gate evidence; the same test
-  refuses every other cache mechanism in any workflow or composite.
+  refuses every other cache mechanism in any workflow or composite, and that
+  the repository root carries a `package.json` a `setup-node` would cache
+  from. A remote action's internal caching is outside what the test can read,
+  so it is reviewed when the action's pin is added or bumped.
 - **Secrets are never written to `data/` or logs.** The `validate` gate, the
   collect job's secret scan (which withholds a run branch rather than push
   secret-shaped content), and review on every agent PR are the backstops.
