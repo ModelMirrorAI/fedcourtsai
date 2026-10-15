@@ -442,6 +442,48 @@ contexts() {
       fail=1
       ;;
   esac
+
+  # The corpus-check environment, on the staging check's reasoning and just as
+  # unconditional: the read-only role's trust names `environment:corpus-check`,
+  # so an environment that is missing, reviewer-less or open to any branch hands
+  # that role to whatever branch workflow binds it — and GitHub auto-creates a
+  # referenced environment with neither control. Required: the environment
+  # exists, its reviewer rule names the configured approver (resolved to an id
+  # here, as the ruleset check resolves the team and App ids), its branch
+  # policy admits `main` alone, and it holds no secret and no variable but the
+  # read-only role's three. The decision is tested Python
+  # (tests/test_environment_checks.py); this only fetches what it judges.
+  local cc_dir="${workdir}/corpus-check-environment" cc_base approver approver_id
+  cc_base="repos/${REPO}/environments/corpus-check"
+  mkdir -p "$cc_dir"
+  approver="$(uv run fedcourts corpus-check-approver 2>/dev/null || true)"
+  approver_id=""
+  if [ -n "$approver" ]; then
+    approver_id="$(gh api "users/${approver}" --jq '.id' 2>/dev/null || true)"
+  fi
+  gh api "$cc_base" >"${cc_dir}/environment.json" 2>/dev/null \
+    || rm -f "${cc_dir}/environment.json"
+  gh api "${cc_base}/deployment-branch-policies?per_page=100" \
+    >"${cc_dir}/branch-policies.json" 2>/dev/null || rm -f "${cc_dir}/branch-policies.json"
+  gh api "${cc_base}/secrets?per_page=100" >"${cc_dir}/secrets.json" 2>/dev/null \
+    || rm -f "${cc_dir}/secrets.json"
+  gh api "${cc_base}/variables?per_page=30" >"${cc_dir}/variables.json" 2>/dev/null \
+    || rm -f "${cc_dir}/variables.json"
+  local approver_args=()
+  if [ -n "$approver_id" ]; then
+    approver_args=(--approver-id "$approver_id")
+  fi
+  if uv run fedcourts assert-corpus-check-environment \
+    --environment-file "${cc_dir}/environment.json" \
+    --branch-policies-file "${cc_dir}/branch-policies.json" \
+    --secrets-file "${cc_dir}/secrets.json" \
+    --variables-file "${cc_dir}/variables.json" \
+    ${approver_args[@]+"${approver_args[@]}"}; then
+    echo "contexts: the corpus-check environment holds its reviewer, its main-only policy and only the read-only role's variables"
+  else
+    echo "::error::contexts: fix the corpus-check environment before promoting — the read-only role's trust names it (docs/security.md)"
+    fail=1
+  fi
 }
 
 registry() {

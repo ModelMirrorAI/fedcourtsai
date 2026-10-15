@@ -46,6 +46,10 @@
 /src/fedcourtsai/required_checks.py @modelmirror
 /src/fedcourtsai/ruleset_checks.py @modelmirror
 /tests/test_ruleset_checks.py @modelmirror
+# The corpus-check environment check the same stage runs, which the lane's
+# plan job also reads before it plans anything.
+/src/fedcourtsai/environment_checks.py @modelmirror
+/tests/test_environment_checks.py @modelmirror
 /src/fedcourtsai/collect.py @modelmirror
 # The process registry: the record a registration edits (a pre-registration),
 # the Step 0 checks `promotion-gate.sh registry` runs on it, and the plan and
@@ -66,6 +70,14 @@
 # What agents are and what they may reach.
 /config/predictors.yaml @modelmirror
 /config/evaluators.yaml @modelmirror
+
+# Whose PR code the corpus-check lane may run with the corpus read-only role,
+# what a request may run, and what reaches the PR. The workflow itself is
+# covered by the workflows line above.
+/config/corpus-check.yaml @modelmirror
+/src/fedcourtsai/corpus_check.py @modelmirror
+/tests/test_corpus_check.py @modelmirror
+/tests/test_workflow_corpus_check.py @modelmirror
 
 # The authority to spend without a human release: the auto-release caps, the
 # rates a round is priced at, the decisions that read them, and their tests.

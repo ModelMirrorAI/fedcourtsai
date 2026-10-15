@@ -287,3 +287,127 @@ def test_the_opt_out_turns_the_cache_off_and_fails_closed() -> None:
             "${{ inputs.restore-cache == 'true' && inputs.save-cache == 'true' }}"
         )
         assert str(with_.get("cache-python", "false")) == "false"
+
+
+# The other ways a job could restore a cache entry. `setup-python-env` is the
+# one sanctioned path, and the tests above decide which jobs may turn it on;
+# anything else would restore beside a credential without passing through them.
+ACTIONS = ROOT / ".github" / "actions"
+SETUP_UV = "astral-sh/setup-uv"
+# Actions whose cache is on unless a step turns it off: `setup-go` caches by
+# default, `setup-node` caches the package manager a `packageManager` field
+# names, and `setup-uv` enables its cache on hosted runners. A step using one
+# must name the input and set it false — `setup-uv` everywhere but inside
+# `setup-python-env`, whose cache inputs follow its `restore-cache` input.
+CACHE_ON_BY_DEFAULT = {
+    "actions/setup-go": "cache",
+    "actions/setup-node": "package-manager-cache",
+    SETUP_UV: "enable-cache",
+}
+_FALSE = {"false", ""}
+
+
+def _surfaces() -> list[tuple[str, list[dict[Any, Any]]]]:
+    """Every step list in the workflows and the composites, named for the report."""
+    surfaces: list[tuple[str, list[dict[Any, Any]]]] = []
+    for name, wf in _workflows():
+        for job_name, job in (wf.get("jobs") or {}).items():
+            surfaces.append((f"{name}:{job_name}", _steps(job)))
+    for path in sorted(ACTIONS.glob("*/action.y*ml")):
+        action = yaml.safe_load(path.read_text())
+        steps = (action.get("runs") or {}).get("steps") or []
+        surfaces.append(
+            (f"{path.parent.name}/action.yml", [s for s in steps if isinstance(s, dict)])
+        )
+    return surfaces
+
+
+def _cache_mechanisms(where: str, steps: list[dict[Any, Any]]) -> list[str]:
+    """Each cache a step list restores or saves outside `setup-python-env`."""
+    found = []
+    for step in steps:
+        uses = str(step.get("uses", ""))
+        action = uses.split("@", 1)[0]
+        with_ = step.get("with") or {}
+        if action.startswith("actions/cache"):
+            found.append(f"{where} uses {action}")
+            continue
+        if action == "./.github/actions/setup-python-env" or (
+            action == SETUP_UV and where == "setup-python-env/action.yml"
+        ):
+            continue
+        default_on = CACHE_ON_BY_DEFAULT.get(action)
+        if default_on is not None and str(with_.get(default_on, "true")).lower() not in _FALSE:
+            found.append(f"{where} leaves {action}'s default-on `{default_on}` on")
+        for key, value in with_.items():
+            # `cach`, not `cache`: `dependency-caching` and its kin count too.
+            if "cach" in str(key).lower() and str(value).lower() not in _FALSE:
+                found.append(f"{where} sets {action}'s `{key}: {value}`")
+    return found
+
+
+def test_no_job_or_composite_restores_a_cache_outside_setup_python_env() -> None:
+    """No credential-holding job restores a cache, so no other path may exist.
+
+    The tests above hold `setup-python-env` to the allow-list; this holds every
+    other cache mechanism at zero, so the property cannot erode through a
+    second door: `actions/cache` in any form, any action input naming a cache
+    left on, or an action whose cache is on by default — `setup-uv` among
+    them, which may leave its cache to an input only inside
+    `setup-python-env`, where the opt-out test pins it to `restore-cache`. It
+    is what lets the corpus-check lane run PR-head code with a credential:
+    entries that code saves are restored by no job that holds anything.
+    """
+    found = [hit for where, steps in _surfaces() for hit in _cache_mechanisms(where, steps)]
+    assert not found, "a cache restored outside setup-python-env:\n" + "\n".join(found)
+
+
+@pytest.mark.parametrize(
+    ("step", "expected"),
+    [
+        ({"uses": "actions/cache@x"}, "uses actions/cache"),
+        ({"uses": "actions/cache/restore@x"}, "uses actions/cache/restore"),
+        ({"uses": "astral-sh/setup-uv@x"}, "default-on `enable-cache`"),
+        (
+            {"uses": "astral-sh/setup-uv@x", "with": {"enable-cache": "auto"}},
+            "default-on `enable-cache`",
+        ),
+        ({"uses": "actions/setup-python@x", "with": {"cache": "pip"}}, "`cache: pip`"),
+        ({"uses": "actions/setup-go@x"}, "default-on `cache`"),
+        ({"uses": "actions/setup-node@x"}, "default-on `package-manager-cache`"),
+        ({"uses": "ruby/setup-ruby@x", "with": {"bundler-cache": True}}, "`bundler-cache: True`"),
+        (
+            {"uses": "some/setup-java@x", "with": {"dependency-caching": "true"}},
+            "`dependency-caching: true`",
+        ),
+    ],
+)
+def test_each_cache_mechanism_is_seen(step: dict[Any, Any], expected: str) -> None:
+    found = _cache_mechanisms("w.yml:j", [step])
+    assert found
+    assert expected in found[0]
+
+
+@pytest.mark.parametrize(
+    "step",
+    [
+        {"uses": "actions/setup-go@x", "with": {"cache": False}},
+        {"uses": "actions/setup-node@x", "with": {"package-manager-cache": "false"}},
+        {"uses": "astral-sh/setup-uv@x", "with": {"enable-cache": False}},
+        {"uses": "actions/setup-python@x", "with": {"python-version": "3.12"}},
+        {"uses": "./.github/actions/setup-python-env", "with": {"restore-cache": "true"}},
+    ],
+)
+def test_a_cache_turned_off_or_absent_is_not_counted(step: dict[Any, Any]) -> None:
+    assert _cache_mechanisms("w.yml:j", [step]) == []
+
+
+def test_no_root_package_json_lets_setup_node_cache_by_default() -> None:
+    """`setup-node` turns its package-manager cache on when the repository root
+    carries a `package.json` naming a `packageManager`, and a remote action that
+    calls `setup-node` inside itself is out of reach of every input the sweep
+    above reads. No root manifest, no automatic cache: the engine CLI pins live
+    under `.github/engines/`, not at the root."""
+    assert not (ROOT / "package.json").exists(), (
+        "a root package.json would let a setup-node inside a remote action restore a cache"
+    )

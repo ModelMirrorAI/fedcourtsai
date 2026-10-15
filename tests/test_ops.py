@@ -3473,3 +3473,52 @@ def test_the_weekly_digest_calls_a_replay_without_a_disclosure_tally_unrecorded(
     assert "Cell disclosures **unrecorded**" in _cert_bullet(_cert_backtest())
     offline = _cert_backtest(entries=[_cert_entry("baseline-0", None)])
     assert "Cell disclosures" not in _cert_bullet(offline)
+
+
+def test_a_replaced_corpus_check_poll_is_not_a_failure() -> None:
+    runs = [
+        _run(
+            "corpus-check", "success", started="2026-06-26T00:00:00Z", ended="2026-06-26T00:01:00Z"
+        ),
+        _run(
+            "corpus-check",
+            "cancelled",
+            started="2026-06-26T00:30:00Z",
+            ended="2026-06-26T00:30:01Z",
+        ),
+        _run(
+            "corpus-check", "failure", started="2026-06-26T01:00:00Z", ended="2026-06-26T01:02:00Z"
+        ),
+        _run(
+            "corpus-check",
+            "cancelled",
+            started="2026-06-26T01:30:00Z",
+            ended="2026-06-26T01:30:01Z",
+        ),
+        # Elsewhere a cancelled run still counts as a failure.
+        _run("run-pull", "cancelled", started="2026-06-26T00:00:00Z", ended="2026-06-26T00:10:00Z"),
+    ]
+    poll, pull = ops.summarize_health(runs)
+    assert poll.workflow == "corpus-check"
+    assert (poll.successes, poll.failures) == (1, 1)
+    # "Last" is the last execution, not the replaced poll after it.
+    assert poll.last_conclusion == "failure"
+    assert (pull.successes, pull.failures) == (0, 1)
+
+
+def test_the_window_keeps_ordinary_depth_whatever_the_polls_add() -> None:
+    def at(minute: int) -> str:
+        return f"2026-06-{1 + minute // 1440:02d}T{minute // 60 % 24:02d}:{minute % 60:02d}:00Z"
+
+    polls = [
+        _run("corpus-check", "success", started=at(m), ended=at(m)) for m in range(0, 30000, 30)
+    ]
+    ordinary = [
+        _run("run-pull", "success", started=at(m), ended=at(m)) for m in range(0, 30000, 120)
+    ]
+    kept = ops.window_runs(polls + ordinary)
+    names = [r["workflowName"] for r in kept]
+    assert names.count("run-pull") == ops.RUN_WINDOW
+    assert names.count("corpus-check") == 48
+    newest_poll = max(str(r["createdAt"]) for r in polls)
+    assert newest_poll in {str(r["createdAt"]) for r in kept if r["workflowName"] == "corpus-check"}
