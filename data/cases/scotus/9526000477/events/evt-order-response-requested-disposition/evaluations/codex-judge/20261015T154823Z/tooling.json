@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000477",
+  "gaps": [
+    "Resolution is dated but has no intraday timestamp, limiting checks of same-day forward retrieval.",
+    "codex-baseline's four-call log does not include several lookups described in its retrieval note.",
+    "gemini-baseline's case-specific searches have unobserved results, preventing inspection of what was returned."
+  ],
+  "helpful": [
+    "Blinded aliases preserve separation between prediction quality and identity.",
+    "The resolved docket distinguishes denial as moot from an adverse substantive ruling.",
+    "Frozen context and per-call capture markers make conditioning and telemetry limitations visible."
+  ],
+  "notes": "Used only local provisioned evidence and the committed statpack. The environment's system Python provides jsonschema; the project virtual environment does not. Validation is limited to the authorized outputs while aliases remain unresolved.",
+  "role": "evaluator",
+  "run_id": "20261015T154823Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "rg",
+    "apply_patch",
+    "python3 jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

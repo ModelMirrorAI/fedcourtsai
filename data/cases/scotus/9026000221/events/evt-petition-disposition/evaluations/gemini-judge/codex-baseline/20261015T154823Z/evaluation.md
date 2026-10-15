@@ -1,0 +1,1 @@
+The cell is a cert stage prediction. The prediction correctly identified the outcome (denied). The predictor accurately assessed the vehicle problems, including the alternative Strickland prejudice holding, and set an appropriate probability (3%). The prediction froze a band, so the baseline and skill are stamped by the harness. The reasoning quality is strong.

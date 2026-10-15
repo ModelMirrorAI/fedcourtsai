@@ -1,0 +1,3 @@
+- Consulted `metrics/statpack.md` for baseline salience band base rates.
+- Searched CourtListener via MCP for docket information on "Randy Quaid v. Craig Granet" (docket ID 68477124, C.D. Cal).
+- Read provisioned inputs: `context.json`, `event.yaml`, `documents.json`, `questions-presented.txt`, and partial `appendix.txt`.

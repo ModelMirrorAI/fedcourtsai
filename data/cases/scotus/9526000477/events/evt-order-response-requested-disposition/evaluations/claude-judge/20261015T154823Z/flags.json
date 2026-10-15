@@ -1,0 +1,26 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000477",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "All three predictions were created 2026-10-14 (16:02-18:22 UTC), the same date the application was denied as moot, yet each was provisioned a 2026-10-08 snapshot (cutoff 2026-10-09) whose context shows response_requested false, referred_to_court false, amicus 0 - although the docket shows a response request and an amicus brief on Oct 8, a response Oct 10 and a reply Oct 11 (documents fetched 2026-10-13). The response-requested moment was forecast from a stale baseline, and the denial may have been public before some predictions ran. No candidate's reasoning shows knowledge of the outcome (all predicted granted).",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "codex-baseline's retrieval_log.json captures only 4 'other' shell calls, while its retrieval.md discloses web searches and CourtListener search/search_document calls (Hollingsworth v. Perry) absent from the log. Possible transcript-capture gap for that engine/subagent pattern.",
+      "severity": "info"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "gemini-baseline ran a web search for '26A477 Supreme Court' on the resolution date with all results unobserved (coverage 0.0); retrieved_outcome_material left null. Its forecast (granted) is opposite the outcome, so no influence graded.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261015T154823Z"
+}

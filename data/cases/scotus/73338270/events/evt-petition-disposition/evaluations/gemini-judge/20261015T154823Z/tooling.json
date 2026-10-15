@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73338270",
+  "run_id": "20261015T154823Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read", "glob"],
+  "helpful": ["shell", "file-read"],
+  "gaps": [],
+  "notes": "Evaluated three candidate predictions using shell tools to read staged data files."
+}

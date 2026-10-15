@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/9026000491",
+  "run_id": "20261015T142602Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "record/documents/petition.txt"],
+  "helpful": ["Federal-band reached rates per Term made the arrival anchor direct to compute."],
+  "gaps": ["A pooled strictly-prior figure printed per band would save the manual pooling arithmetic."]
+}

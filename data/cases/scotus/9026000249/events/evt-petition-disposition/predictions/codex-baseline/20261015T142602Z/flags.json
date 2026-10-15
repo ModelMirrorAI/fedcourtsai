@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000249",
+  "run_id": "20261015T142602Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The October 5, 2026 cert reply is recorded as filed and the manifest reports 13 pages, but empty_text is true and cert-reply.txt has no substantive text. The forecast uses the petition, opposition, and relevant appendix passages without access to the reply's arguments; it does not treat the reply as absent. OCR would improve this input."
+    }
+  ]
+}

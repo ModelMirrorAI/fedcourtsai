@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000314",
+  "gaps": [
+    "Generic web lookups returned no usable text in this session.",
+    "The committed statpack did not supply a corpus-wide pull/snapshot vintage.",
+    "Contact scrubbing missed material on the petition's opening page despite the manifest's scrubbed marker."
+  ],
+  "helpful": [
+    "The appendix exposed the actual grounds of dismissal, which differed materially from the petition's framing.",
+    "The frozen sal-v4 baseline band and exact JSON risk-set denominators made the prior-Term anchor reproducible."
+  ],
+  "notes": "No live case lookup was needed. A writable temporary cache resolved the initial uv cache-permission failure. Missing opposition text is explained by the provisioned response waiver, not assumed extraction failure. No harness-owned stamps or logs were authored.",
+  "role": "predictor",
+  "run_id": "20261015T142602Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell provisioned-file reads",
+    "committed statpack Markdown and JSON",
+    "jq risk-set pooling",
+    "fedcourts paths",
+    "web search/open/find attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

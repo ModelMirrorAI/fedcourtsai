@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.7,
+    "notes": "The filed dispute concerns national-party broadcast advertising shortly before a federal election and the timing of agency review. Those practical stakes are substantial, but this event concerns temporary relief from a mandamus order, not a final nationwide ruling on advertising eligibility."
+  },
+  "brier_score": 0.6084,
+  "brier_skill_score": -64.28030202919189,
+  "case_id": "scotus/9526000477",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.0965391621129326,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.78,
+        "score": -0.599080190178533
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.599080190178533,
+    "total": -0.599080190178533
+  },
+  "correct": 0,
+  "created_at": "2026-10-15T16:16:32.559897Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The log shows provisioned filing reads, statpack work, and generic historical stay-standard/statutory queries, not a live lookup of this application's disposition. Three web calls are unobserved; their queries concern general authorities, so their missing results are not treated as proof of empty retrieval. The earlier related stay and temporary administrative stay are not the final disposition. No outcome exposure is shown; the date-only October 14 resolution does not establish intraday ordering.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261014T142540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+    "label": "proc-v9",
+    "pipeline_sha": "74f189b3dcb00640c2cf23cb149cfb16a3d2b465",
+    "stamped_at": "2026-10-15T16:16:47.022019Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261015T154823Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0965391621129326,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

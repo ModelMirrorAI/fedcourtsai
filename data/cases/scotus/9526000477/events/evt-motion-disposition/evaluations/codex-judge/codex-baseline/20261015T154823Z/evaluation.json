@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.7,
+    "notes": "The provisioned application concerns national party committees' broadcast-advertising costs immediately before an election and judicial control of agency decision timing. Those electoral and institutional stakes are substantial, but this event concerns temporary relief and ended in a denial as moot, not a final resolution of the underlying advertising rule."
+  },
+  "brier_score": 0.7055999999999999,
+  "brier_skill_score": -74.70969939480241,
+  "case_id": "scotus/9526000477",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.0965391621129326,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.84,
+        "score": -0.6962801901785328
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.94,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.6962801901785328,
+    "total": -0.6962801901785328
+  },
+  "correct": 0,
+  "created_at": "2026-10-15T16:15:05Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The log shows provisioned materials, statpack context, a historical stay-standard lookup, and general legal web queries. The two web calls are unobserved, not verified empty, but their visible queries do not concern the target case. No target-disposition retrieval or outcome knowledge appears. The earlier September 4 stay is pre-application background. Prediction and resolution share October 14 without a resolution time, preventing independent certification of openness but not proving exposure.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261014T142540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+    "label": "proc-v9",
+    "pipeline_sha": "74f189b3dcb00640c2cf23cb149cfb16a3d2b465",
+    "stamped_at": "2026-10-15T16:17:38.672348Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261015T154823Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0965391621129326,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

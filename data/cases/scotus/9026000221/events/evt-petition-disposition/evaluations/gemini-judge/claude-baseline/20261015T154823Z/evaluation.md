@@ -1,0 +1,1 @@
+The cell is a cert stage prediction. The prediction correctly identified the outcome (denied). The predictor gave a thorough analysis of the vehicle problems (AEDPA posture, unpublished opinion, response waived) and arrived at a well-calibrated probability (3%). The prediction froze a band, so the baseline and skill are stamped by the harness. The reasoning quality is excellent.

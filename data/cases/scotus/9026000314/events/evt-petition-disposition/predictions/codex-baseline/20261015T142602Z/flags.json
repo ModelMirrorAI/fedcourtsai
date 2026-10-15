@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000314",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition.txt opening page retains an apparent personal street address and phone number in OCR-like formatting even though documents.json marks the petition contact_scrubbed=true with value and shape passes. The details were disregarded and are not reproduced in these output files. Please review the contact-scrubbing coverage before republishing the document text. This does not block the forecast.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261015T142602Z",
+  "schema_version": "1.0"
+}

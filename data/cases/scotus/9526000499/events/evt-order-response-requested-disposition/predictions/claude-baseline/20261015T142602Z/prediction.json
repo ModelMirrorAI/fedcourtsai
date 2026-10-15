@@ -1,0 +1,67 @@
+{
+  "big_case_rationale": "A real, acknowledged circuit split on whether a post-transmittal federal-officer remand appeal automatically stays state-court proceedings. It recurs in the climate/coastal/opioid removal wave, but it is a procedural federal-courts question rather than a merits blockbuster.",
+  "big_case_score": 0.35,
+  "case_id": "scotus/9526000499",
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.14
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.9
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.55
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.3
+    }
+  ],
+  "confidence": 0.7,
+  "context": {
+    "amicus_briefs": 0,
+    "band": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-15",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": false,
+    "response_requested": true,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-14",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-15T14:57:33Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-response-requested-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-14.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.14,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+    "label": "proc-v9",
+    "pipeline_sha": "e0bb9838196ba2c281ec6c2c6ca28ca7e279587e",
+    "stamped_at": "2026-10-15T14:58:17.632783Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261015T142602Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

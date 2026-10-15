@@ -1,0 +1,33 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000477",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "The event is labeled response-requested, but codex-baseline, claude-baseline, and gemini-baseline all froze response_requested=false, with snapshot_date 2026-10-08 and cutoff 2026-10-09. The later evaluator docket records a response request on October 8. This is a conditioning inconsistency, not proof of leakage; the later record does not establish what their cut snapshots contained. Candidates handled the label/context conflict differently. Review provisioning and increment masking without changing the preserved predictions.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "codex-baseline's staged retrieval log contains only four statpack-review calls, whereas its retrieval.md describes other local reads, web attempts, and historical CourtListener authority lookups. Capture coverage 1.0 applies to the four recorded calls and cannot establish transcript completeness. No outcome retrieval is evidenced; the forward default is retained with this audit limitation documented.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "gemini-baseline searched this docket/caption and ran the unbounded web query 26A477 Supreme Court at 2026-10-14T18:20:53.166Z, the recorded resolution date. All 25 calls have unobserved results, and the candidate says web context informed the forecast. With no resolution time or returned text, outcome exposure and intraday ordering cannot be established. Graded possible influence with retrieved_outcome_material=null, not likely influence or confirmed forward mis-provisioning. Review capture and resolution timing. Zero capture coverage alone is not treated as a defect or evidence of leakage.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "gemini-baseline's rationale asserts an October 8 administrative stay and relies on it to infer likely substantive relief. The provisioned docket through October 14 contains no such entry, and no inspectable source supports the assertion. This is an evidentiary gap, not conclusive proof the assertion is false. An October 8 interim action would not itself be leakage of the October 14 disposition.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261015T154823Z",
+  "schema_version": "1.0"
+}
