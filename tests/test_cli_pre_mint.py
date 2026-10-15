@@ -12,6 +12,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 from typer.testing import CliRunner, Result
 
@@ -51,9 +52,17 @@ class _LiveDocket:
     def __exit__(self, *exc: object) -> None:
         return None
 
-    def get_docket(self, term: int, serial: int, *, form: str = "cert") -> dict[str, Any] | None:
+    def get_docket_response(
+        self, term: int, serial: int, *, form: str = "cert"
+    ) -> httpx.Response | None:
         self.fetched.append((term, serial, form))
-        return self.payload
+        if self.payload is None:
+            return None
+        return httpx.Response(
+            200,
+            content=json.dumps(self.payload).encode(),
+            request=httpx.Request("GET", "https://www.supremecourt.gov/"),
+        )
 
 
 @pytest.fixture
@@ -68,7 +77,7 @@ def _with_live_docket(
     monkeypatch: pytest.MonkeyPatch, payload: dict[str, Any] | None
 ) -> _LiveDocket:
     live = _LiveDocket(payload)
-    monkeypatch.setattr("fedcourtsai.cli.SupremeCourtClient", lambda **_: live)
+    monkeypatch.setattr("fedcourtsai.pipeline.pre_mint.bounded_client", lambda: live)
     return live
 
 
@@ -147,3 +156,32 @@ def test_no_poll_runs_without_the_flag(
 
     assert result.exit_code == 0, result.output
     assert live.fetched == []
+
+
+def test_poll_docket_records_the_post_run_poll_and_never_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    live = _with_live_docket(monkeypatch, _LIVE_DECIDED)
+    out = tmp_path / "post.json"
+
+    result = runner.invoke(
+        app,
+        [
+            "poll-docket",
+            "--court",
+            "scotus",
+            "--docket-number",
+            "24-12",
+            "--event",
+            "evt-order-judgment",
+            "--out",
+            str(out),
+        ],
+    )
+
+    # Record only: a decided post-run poll exits 0 and removes nothing.
+    assert result.exit_code == 0, result.output
+    assert live.fetched == [(24, 12, "cert")]
+    record = json.loads(out.read_text())
+    assert record["state"] == "decided"
+    assert record["docket_number"] == "24-12"

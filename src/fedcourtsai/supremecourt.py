@@ -370,6 +370,19 @@ class SupremeCourtClient:
             return None
         return payload if isinstance(payload, dict) else None
 
+    def get_docket_response(
+        self, term: int, serial: int, *, form: Literal["cert", "application"] = "cert"
+    ) -> httpx.Response | None:
+        """The docket JSON's raw response, or ``None`` on a 404.
+
+        :meth:`get_docket` folds "no docket here" and "a body that is not JSON"
+        into one ``None``, which suits a poll that only wants a payload. A caller
+        that must say *why* it got none — the pre-mint poll records its reason —
+        reads the response and parses it itself.
+        """
+        url = DOCKET_JSON_URL.format(docket=scotus_docket_slug(term, serial, form=form))
+        return self._fetch(url)
+
     def get_document(self, url: str) -> bytes | None:
         """Fetch one linked document (a filed PDF), or ``None`` when not served.
 

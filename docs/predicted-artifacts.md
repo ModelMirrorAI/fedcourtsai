@@ -491,11 +491,16 @@ directory without knowing which part is which invites trusting the wrong half.
 
 - **`usage.json`** — measured token counts and the estimated cost for the cell,
   written by a post-run harness step from the engine log. On a forward predict
-  cell it also carries `pre_mint_poll`: when provisioning polled the docket
-  just before minting the cell, and whether its event was still `open`
-  (`unavailable` when the poll could not answer). A disposition's date has no
-  time of day, so this is the record that the cell began against an open docket
-  on its event's decision day.
+  cell it also carries the docket bracket: `pre_mint_poll`, taken just before the
+  cell was minted, and `post_run_poll`, taken after its engine stopped, each with
+  `polled_at` (when the fetch began), the docket number polled, and a state.
+  `open` means the Court's docket JSON as served carried no disposition the
+  forward outcome scan recognises at that moment; it is not proof the event was
+  undecided, since the JSON can lag the order or come from a cache, the scan's
+  recall is imperfect, and a disposition can land after the poll. `unavailable`
+  means the poll could not answer. A `decided` pre-mint poll refuses the cell,
+  so it never appears here; a `decided` post-run poll can. Both `open` says the
+  whole run ended before the served docket showed a decision.
 - **`retrieval_log.json`** — the tool-call transcript, captured harness-side
   from the engine's own log: tool names, query slices, and document dates where
   legible. It is the cross-evaluator's leakage evidence precisely because the

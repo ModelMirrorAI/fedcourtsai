@@ -391,6 +391,7 @@ from .schemas import (
     CountedConferenceTotal,
     DataHealth,
     Disposition,
+    DocketPollRecord,
     Engine,
     Evaluation,
     FlagCategory,
@@ -408,7 +409,6 @@ from .schemas import (
     Prediction,
     PredictionContext,
     PredictorConfig,
-    PreMintPollRecord,
     ProcessVersion,
     QpTopicLabels,
     QpTopicReference,
@@ -7070,14 +7070,40 @@ def _resolve_token_counts(
     return explicit
 
 
-def _read_pre_mint_poll(path: Path | None) -> PreMintPollRecord | None:
-    """The pre-mint poll provisioning wrote, or ``None`` (warned) when it is unreadable."""
+@app.command("poll-docket")
+def poll_docket_cmd(
+    court: Annotated[str, typer.Option()],
+    docket_number: Annotated[
+        str, typer.Option(help="The docket number to poll, e.g. 26A477 or 26-221.")
+    ],
+    event: Annotated[str, typer.Option(help="The event whose outcome the poll looks for.")],
+    out: Annotated[Path, typer.Option(help="Write the poll's result here as JSON.")],
+) -> None:
+    """Poll a docket's current JSON once and record whether the event's outcome shows.
+
+    The post-run half of a forward cell's bracket: run after the engine step, it
+    records and never refuses. The docket number is passed in rather than read from
+    the cell's record, which the agent could have changed during its run. Always
+    exits 0: a poll that cannot answer is recorded as ``unavailable``.
+    """
+    with pre_mint.bounded_client() as client:
+        poll = pre_mint.poll_docket(court, docket_number, event, client)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(poll.as_record()) + "\n", encoding="utf-8")
+    typer.echo(
+        f"{court} {poll.docket_number} {event}: {poll.state}"
+        + (f" ({poll.reason})" if poll.reason else "")
+    )
+
+
+def _read_docket_poll(path: Path | None, which: str) -> DocketPollRecord | None:
+    """A poll record a harness step wrote, or ``None`` (warned) when it is unreadable."""
     if path is None:
         return None
     try:
-        return PreMintPollRecord.model_validate_json(path.read_text(encoding="utf-8"))
+        return DocketPollRecord.model_validate_json(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        typer.echo(f"::warning::pre-mint poll record unreadable at {path}: {exc}")
+        typer.echo(f"::warning::{which} poll record unreadable at {path}: {exc}")
         return None
 
 
@@ -7148,6 +7174,13 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             "unreadable file records nothing and warns."
         ),
     ] = None,
+    post_run_poll_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="The JSON `poll-docket` wrote after the cell's engine step ended; "
+            "recorded as the usage record's post_run_poll. Unreadable: warns, records nothing."
+        ),
+    ] = None,
 ) -> None:
     """Record one run's measured token usage and estimated cost to ``usage.json``.
 
@@ -7203,7 +7236,8 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         pipeline_sha=resolve_pipeline_sha(pipeline_sha),
         engine_version=recorded_version,
         engine_version_discrepancy=discrepancy,
-        pre_mint_poll=_read_pre_mint_poll(pre_mint_poll_file),
+        pre_mint_poll=_read_docket_poll(pre_mint_poll_file, "pre-mint"),
+        post_run_poll=_read_docket_poll(post_run_poll_file, "post-run"),
         input_tokens=counts.input_tokens,
         output_tokens=counts.output_tokens,
         cache_read_input_tokens=counts.cache_read_input_tokens,
@@ -12790,8 +12824,8 @@ def _pre_mint_poll_gate(
     any refusal, so a refused cell's poll is on record too.
     """
     docket_number = str(payload.get("CaseNumber") or payload.get("docket_number") or "")
-    with SupremeCourtClient() as client:
-        poll = pre_mint.poll_before_mint(court, docket_number, event, client)
+    with pre_mint.bounded_client() as client:
+        poll = pre_mint.poll_docket(court, docket_number, event, client)
     if out is not None:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(poll.as_record()) + "\n", encoding="utf-8")
@@ -18985,6 +19019,11 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # no gate. Empty on a run where every cell placed the stakes, and on an
         # evaluate run.
         "stakes_reads": plan.stakes_read_markdown,
+        # The forward cells the pre-mint docket poll refused: designed refusals,
+        # not failures, so they carry no attempt-cap fact. The roll-up rides the
+        # PR body and the agent-feedback comment; it leaves the process here too
+        # for any surface that echoes the run's notes.
+        "pre_mint_refusals": plan.pre_mint_refusals_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),

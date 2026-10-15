@@ -2212,6 +2212,16 @@ the rendered table) and
   the stamp having drifted back to docketing between arrival-backfill sweeps, so
   a corpus freshness reading — while only `refused_no_submission_entry` is a
   property of the docket.
+  The **pre-mint poll** carries a second membership rule of the same kind, over
+  every forward interim cell rather than the arrival moment alone: a cell whose
+  docket already shows its outcome when it is about to be minted is refused, so
+  it never exists. The refused set is correlated with the outcome — fast
+  decisions are the ones a mint arrives after, and they lean toward denials —
+  and engines mint the same event hours apart, so a later engine can lose an
+  event an earlier one kept. The run PR's per-engine pre-mint refusal roll-up
+  is where those cells are counted; it is owed beside any forward interim
+  figure built over runs after the poll began, and a pooled per-engine figure
+  reads it per engine, since only the paired reading absorbs the difference.
   And read the rate over `scope_pending_rows`, the in-scope undisposed-of slice
   the forward lane actually mints cells for; `pending_rows` pools in the
   out-of-scope kinds the matrix drops (`scope_rows` and `kind_counts` carry

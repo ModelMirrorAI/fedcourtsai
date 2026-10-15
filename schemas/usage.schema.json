@@ -1,21 +1,16 @@
 {
   "$defs": {
-    "Engine": {
-      "description": "Agentic coding engine that produced an artifact.",
-      "enum": [
-        "claude-code",
-        "codex",
-        "gemini"
-      ],
-      "title": "Engine",
-      "type": "string"
-    },
-    "PreMintPollRecord": {
+    "DocketPollRecord": {
       "additionalProperties": false,
-      "description": "The pre-mint docket poll's result, as a forward cell's usage record carries it.",
+      "description": "One harness poll of a forward cell's docket, as the cell's usage record carries it.\n\nA poll reads the Court's docket JSON as served and runs the forward outcome scan\non it. ``open`` is narrower than it sounds: it means that JSON carried no\ndisposition the scan recognises at ``polled_at``, not that the event was\nundecided \u2014 the JSON can lag the order or come from a cache, the scan's recall\nis not perfect, and a disposition can land after the poll.",
       "properties": {
+        "docket_number": {
+          "description": "The docket number polled, as the provisioned snapshot names it",
+          "title": "Docket Number",
+          "type": "string"
+        },
         "polled_at": {
-          "description": "When the docket was fetched, in UTC",
+          "description": "When the poll's fetch began, in UTC",
           "format": "date-time",
           "title": "Polled At",
           "type": "string"
@@ -34,7 +29,7 @@
           "title": "Reason"
         },
         "state": {
-          "description": "open: the event's outcome was not on the docket; decided: it was, and the cell was refused; unavailable: the poll established nothing",
+          "description": "open: the docket JSON as served carried no disposition the forward outcome scan recognises; decided: it did; unavailable: the poll could not answer (no docket served, a body that is not JSON, a timeout, an error)",
           "enum": [
             "open",
             "decided",
@@ -46,10 +41,21 @@
       },
       "required": [
         "polled_at",
+        "docket_number",
         "state"
       ],
-      "title": "PreMintPollRecord",
+      "title": "DocketPollRecord",
       "type": "object"
+    },
+    "Engine": {
+      "description": "Agentic coding engine that produced an artifact.",
+      "enum": [
+        "claude-code",
+        "codex",
+        "gemini"
+      ],
+      "title": "Engine",
+      "type": "string"
     },
     "UsageRole": {
       "description": "Which agentic stage a usage record belongs to.",
@@ -161,17 +167,29 @@
       "description": "Git commit of the pipeline checkout that ran this cell (GITHUB_SHA in CI, the local HEAD otherwise) \u2014 pins the prompt templates, harness, and registry in force at run time. Null on records written before the field existed or when unresolvable.",
       "title": "Pipeline Sha"
     },
-    "pre_mint_poll": {
+    "post_run_poll": {
       "anyOf": [
         {
-          "$ref": "#/$defs/PreMintPollRecord"
+          "$ref": "#/$defs/DocketPollRecord"
         },
         {
           "type": "null"
         }
       ],
       "default": null,
-      "description": "What the docket showed when the harness polled it just before a forward predict cell's record was written: the poll's UTC time and whether the event was still open. A forward cell is refused when the poll finds the outcome, so an `open` poll is the cell's own evidence that it began against an undecided docket \u2014 the ordering a date-only disposition cannot establish after the fact. `unavailable` says the poll established nothing and the cell ran on the stored-snapshot gates alone. Null on evaluate cells, on cells minted before the poll existed, and wherever no poll ran."
+      "description": "The same poll taken after the cell's engine step ended. Record only: it never refuses or removes a cell. `pre_mint_poll` and `post_run_poll` both `open` say the whole run ended before the served docket showed a decision; a `decided` post-run poll leaves the ordering inside the run unresolved, and leakage there is read from the retrieval log's content. Null where no post-run poll ran."
+    },
+    "pre_mint_poll": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DocketPollRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The harness's poll of a forward predict cell's docket just before its record was written. A cell whose poll reads `decided` is refused and writes no usage record, so a recorded poll is `open` or `unavailable`. `open` bounds the cell's exposure to a disposition to the window from `polled_at` to the end of the run; it is not proof the event was undecided (see DocketPollRecord). Null on evaluate cells, on cells minted before the poll existed, and wherever no poll ran."
     },
     "role": {
       "$ref": "#/$defs/UsageRole",

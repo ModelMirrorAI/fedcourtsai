@@ -2246,16 +2246,30 @@ outcome. The stored snapshot can be days behind the docket, and a disposition's
 date has no time of day, so a cell minted from a snapshot that predates the
 day's order could run after the order is public with nothing to say which came
 first. Just before writing the record, `run-predict` passes `--pre-mint-poll`:
-provisioning fetches the docket's current JSON from the Court and runs the same
-outcome scan on it. A disposed event refuses the cell. An open one records the
-poll's UTC time, and that time reaches the cell's `usage.json` as
-`pre_mint_poll` through a step output fixed before any agent runs, so the cell's
-own record shows it began against an open docket. A poll that cannot answer (no
-docket served, a fetch error) records `unavailable` and the cell proceeds on the
-stored-snapshot gates. A disposition landing after the poll on the same day is
-not prevented; the poll time and the cell's retrieval log are what order it.
-The fresh payload is evidence for the gate only; the cell still reads the stored
-snapshot. A second is the **arrival anchor**: an
+provisioning fetches the docket's current JSON from the Court through a bounded
+client (one short-timeout fetch, no politeness pause) and runs the same outcome
+scan on it. A disposed event refuses the cell. Otherwise the poll's result
+(`polled_at`, the docket number, `open` or `unavailable`, and why) reaches the
+cell's `usage.json` as `pre_mint_poll`, through a step output fixed before any
+agent runs. After the engine step ends, a second poll (`poll-docket`) records
+`post_run_poll` the same way, against the docket number the first poll named;
+it is record-only and never refuses or removes a cell. `open` means the docket
+JSON as served carried no disposition the scan recognises at that moment, not
+that the event was undecided: the JSON can lag the order or come from a cache,
+the scan's recall is imperfect, and a disposition can land after the poll. So a
+pre-mint `open` bounds the cell's exposure to the window from its `polled_at` to
+the end of the run; ordering inside that window stays unresolvable, and leakage
+there is judged from the retrieval log's content. Both polls `open` says the
+whole run ended before the served docket showed a decision. A poll that cannot
+answer (no docket served, a body that is not JSON, a timeout, any error) records
+`unavailable`, and the cell proceeds on the stored-snapshot gates. A refused cell
+writes no usage record; its `status.json` carries the refusal, and `collect`
+rolls refusals up per engine in the run PR body and the agent-feedback comment,
+as designed refusals rather than no-output failures against the attempt cap. A
+round makes two GETs to the Court per forward cell that runs — one per
+(predictor, event) before minting and one after — with at most six cells in
+flight. The fresh payload is evidence for the gate only; the cell still reads
+the stored snapshot. A second is the **arrival anchor**: an
 interim arrival cell whose opening entry cannot be located in its snapshot exits
 4, since the moment's information set cannot be identified and cutting at the
 date instead would restore the conditioning that bound replaces. The third is an

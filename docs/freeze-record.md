@@ -8544,61 +8544,114 @@ freeze commit is recorded here.
   supplied executable rather than installing its own.
 
 - **A forward predict cell is refused when a pre-mint poll finds its event
-  already decided, and each cell records that poll, 2026-10-15.** A
-  **provisioning** change that alters which forward cells mint. It moves no
-  digest, no constant, no window and no membership: `uv run fedcourts
+  already decided, and each cell records a docket poll before and after it
+  ran, 2026-10-15.** A **provisioning** change that alters which forward cells
+  mint. It moves no digest, no constant and no window: `uv run fedcourts
   process-digest --all` prints the same `proc-v9` digests, and what a minted
-  cell reads is unchanged.
+  cell reads is unchanged. It does change membership, by a rule correlated
+  with the outcome; see *What the refusal selects*.
 
   **The defect it closes.** A forward cell is provisioned from the corpus's
   latest stored snapshot, which can be days behind the docket, and a
   disposition's `resolved_at` is a date with no time of day. A cell minted
   from a snapshot that predates the day's order could therefore run after the
-  order was public, and nothing in the record could say which came first. In
-  the committed ledger, 21 forward interim predictions were created on or after
-  their outcome's `resolved_at` date (18 on the same day: 9526000428,
-  9526000434, 9526000437, 9526000447; 3 after: 9526000256). On 2026-10-14 the
-  forward cells for `scotus/9526000477` (26A477) were written between 15:57Z
-  and 18:22Z, the day the order denying the application as moot issued, from a
-  2026-10-08 snapshot. In evaluate run `20261015T154823Z` both judges could only
-  flag the ordering as unresolvable.
+  order was public, and nothing in the record could say which came first.
+  Counted on `origin/main` at `2ce6626ba` (2026-10-15T17:10:49Z), with each
+  cell's clock read from the harness's `stamped_at`: 30 forward interim
+  predictions were written on or after their outcome's `resolved_at` date.
+  27 were written on the same day — `scotus/9526000275` ×4 (`proc-v5`),
+  9526000428 ×6, 9526000434 ×3, 9526000437 ×3, 9526000447 ×2 (`proc-v8`),
+  9526000477 ×9 (`proc-v9`) — and 3 after it, all on 9526000256 (two
+  `proc-v4`, one `proc-v5`, before the first freeze). By engine the 30 split
+  claude 11, gemini 10, codex 9. On 2026-10-14 the forward cells for
+  9526000477 (26A477) were stamped between 15:54:01Z and 18:27:02Z, the day the
+  order denying the application as moot issued, from a 2026-10-08 snapshot;
+  in evaluate run `20261015T154823Z` both judges could only flag the ordering
+  as unresolvable.
 
   **The rule.** From this entry's carrying merge, `run-predict` provisions every
   forward cell with `provision-snapshot --pre-mint-poll`. Just before the
   record is written, the harness fetches the docket's current JSON from the
-  Court and runs the same outcome scan the forward gate runs on the stored
-  snapshot (`pipeline.outcome.forward_leakage`). A decided event refuses the
-  cell (exit 3), and nothing is minted. An open one records the poll's UTC time
-  in the cell's `usage.json` as `pre_mint_poll`. A poll that cannot answer (no
-  docket served, a number with no live spelling, a fetch error) records
-  `unavailable`, and the cell proceeds on the stored-snapshot gates, as every
-  cell did before this entry. The poll applies to every forward cell, cert and
-  interim alike: an order list issues a day's cert dispositions at once, which
-  is the same exposure.
+  Court (one bounded fetch, 10 s timeout) and runs the same outcome scan the
+  forward gate runs on the stored snapshot (`pipeline.outcome.forward_leakage`).
+  A decided event refuses the cell (exit 3) and nothing is minted. An open one
+  is recorded in the cell's `usage.json` as `pre_mint_poll`: `polled_at` (when
+  the fetch began, UTC), the docket number, the state and a reason. A poll that
+  cannot answer — not a SCOTUS docket, no live spelling, no docket served, a
+  body that is not JSON, a timeout, any error in the fetch or the scan —
+  records `unavailable`, and the cell proceeds on the stored-snapshot gates, as
+  every cell did before this entry. The poll applies to every forward cell,
+  cert and interim alike: an order list issues a day's cert dispositions at
+  once, which is the same exposure. After the engine stops, a second step polls
+  the same docket number once more and records the result as `post_run_poll`.
+  That poll only records; it never refuses or removes a cell.
+
+  **What `open` means.** At `polled_at` the Court's docket JSON, as served,
+  carried no disposition the scan recognises. It is not proof the event was
+  undecided: the JSON can lag the order or be served from a cache, the scan's
+  recall is not perfect, and a disposition can land after the poll. A
+  `pre_mint_poll` and a `post_run_poll` both reading `open` say the run ended
+  before the served docket showed a decision. With an open pre-mint poll and a
+  later `decided` or absent post-run poll, the cell's exposure window is
+  `[polled_at, cell end]`, and within it the ordering of order and run stays
+  unresolvable from the polls; whether the cell actually saw the outcome is
+  read from its retrieval log's content, not from the timing.
+
+  **What the refusal selects.** Refusal is a membership rule, and the rule is
+  correlated with the outcome. A disposition that issues quickly, before the
+  next round mints, is refused; one that lingers is predicted. Among the 18
+  resolved interim events that carry forward predictions on `origin/main` at
+  `2ce6626ba`, the 6 exposed on decision day split 5 denied / 1 granted,
+  against 12 denied / 5 granted / 1 withdrawn overall, so the refused set is
+  plausibly denial-weighted. The size of that selection is unmeasured, and the
+  counts are too small to estimate it. The refusal is recorded durably: the
+  cell's `status.json` carries `pre_mint_refusal` (`polled_at`, reason), and
+  the collect job rolls every refused cell into a per-engine section of the
+  run PR body and of the agent-feedback issue comment — posted even when the
+  round has nothing else to report — and does not count it as a cell that
+  produced nothing, against the attempt cap or as a dead engine.
+
+  **Engines.** The poll runs in each engine's cell independently, so a
+  disposition landing between two engines' provisioning steps can refuse one
+  and mint the other. A paired comparison over cells all engines produced
+  absorbs that; a pooled per-engine figure does not, which is why the roll-up
+  is keyed per engine.
+
+  **Re-owing.** A refused cell leaves no output, so the next round's planner
+  owes it again. If that round's poll is `unavailable`, the cell mints on the
+  stored-snapshot gates as before; the refusal roll-up of the earlier round is
+  what shows it was once refused.
 
   **What it does not do.** It does not prevent a disposition that lands after
-  the poll on the same day; for such a cell the recorded poll time and its
-  retrieval log are what order the two. It does not change what a cell reads:
-  the fresh payload is evidence for the gate only, never staged, and the cell
-  still reads the stored snapshot. It de-counts nothing already committed. The
-  earlier same-day cells above stay as they are, flagged by the judges where
-  they were graded; whether a reading should set them aside is a separate
-  counting decision this entry does not make.
+  the poll on the same day. It does not change what a cell reads: the fresh
+  payloads are evidence for the gate and the record only, never staged, and the
+  cell still reads the stored snapshot. A refused interim cell frees its
+  salience-reserve slot exactly as a cell refused by the stored-snapshot gates
+  always has. It de-counts nothing already committed: the 30 cells above stay
+  as they are, flagged by the judges where they were graded. The reading rule
+  in `metrics/README.md` — treat `open` as established, `unavailable` or an
+  absent poll as unknown — is guidance for a reader; no board applies it, and
+  whether a scored figure should set the same-day cells aside is a scoring
+  decision this entry does not make.
 
-  **The record.** `pre_mint_poll` sits on the harness-written `usage.json`, so
-  it is never the agent's word. It reaches the usage step as a step output,
-  fixed before any agent runs, so an agent cannot rewrite it. Cells written
-  before the carrying merge carry no `pre_mint_poll`, and their ordering on a
-  decision day stays unresolvable. A reading that asks whether a forward cell
-  began against an open docket treats `open` as established, and `unavailable`
-  or an absent field as unknown.
+  **The record.** `pre_mint_poll` and `post_run_poll` sit on the
+  harness-written `usage.json`, so they are never the agent's word. Each
+  reaches the usage step as a step output, fixed outside any file the agent can
+  reach; the post-run poll takes its docket number from the pre-mint poll's
+  output, never from the cell's record. A `decided` state never reaches
+  `usage.json`, because a refused cell writes none. The before/after split is
+  read from the presence of `pre_mint_poll` in a cell's `usage.json`, not from
+  a harness boundary: cells written before the carrying merge carry no poll,
+  and their ordering on a decision day stays unresolvable.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit
   `<FILL: merge hash>`, merged `<FILL: merged-at>`).
 
   The runnable effect check once it is live: the first predict round after the
-  carrying merge writes forward-cell `usage.json` files with a `pre_mint_poll`,
-  for example `jq -r '.pre_mint_poll.state // "none"'` over that round's
-  `usage.json` files prints `open` (or `unavailable`). A cell whose docket was
-  already decided at mint shows `refusing to provision forward cell … the live
-  docket polled at …` in its job log and no committed output.
+  carrying merge writes forward-cell `usage.json` files with both polls, for
+  example `jq -r '[.pre_mint_poll.state, .post_run_poll.state] | map(. //
+  "none") | join(" ")'` over that round's `usage.json` files prints `open open`
+  (or `unavailable` in either place). A cell whose docket was already decided
+  at mint shows `refusing to provision forward cell … the live docket polled at
+  …` in its job log, no committed output, and a row under *Pre-mint refusals*
+  in the round's run PR body or agent-feedback comment.

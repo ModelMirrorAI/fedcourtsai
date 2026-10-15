@@ -46,3 +46,35 @@ def test_the_usage_step_records_the_poll_from_the_step_output() -> None:
 
     assert usage["env"]["PRE_MINT_POLL"] == "${{ steps.provision.outputs.pre_mint_poll }}"
     assert "--pre-mint-poll-file" in usage["run"]
+
+
+def test_the_post_run_poll_records_and_never_refuses() -> None:
+    step = _step("post_poll")
+
+    assert step["continue-on-error"] is True
+    assert "poll-docket" in step["run"]
+    # The docket number comes from the provisioning step's output, fixed before
+    # the agent ran — never from the cell's record.
+    assert step["env"]["PRE_MINT_POLL"] == "${{ steps.provision.outputs.pre_mint_poll }}"
+    assert ".docket_number" in step["run"]
+    assert "post_run_poll=" in step["run"]
+    assert 'rm -f "$poll"' in step["run"]
+    steps = _predict_steps()
+    order = [s.get("id") or s.get("name") for s in steps]
+    usage = next(i for i, s in enumerate(steps) if "record-usage" in str(s.get("run", "")))
+    assert order.index("post_poll") < usage
+
+
+def test_the_usage_step_records_the_post_run_poll() -> None:
+    (usage,) = [s for s in _predict_steps() if "record-usage" in str(s.get("run", ""))]
+
+    assert usage["env"]["POST_RUN_POLL"] == "${{ steps.post_poll.outputs.post_run_poll }}"
+    assert "--post-run-poll-file" in usage["run"]
+
+
+def test_a_poll_refused_cell_records_its_refusal_in_status_json() -> None:
+    (status,) = [s for s in _predict_steps() if "> status.json" in str(s.get("run", ""))]
+
+    assert status["env"]["PRE_MINT_POLL"] == "${{ steps.provision.outputs.pre_mint_poll }}"
+    assert "pre_mint_refusal:$pre_mint_refusal" in status["run"]
+    assert '.state == "decided"' in status["run"]

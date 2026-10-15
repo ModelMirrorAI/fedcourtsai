@@ -2057,13 +2057,24 @@ class Evaluation(_Strict):
     )
 
 
-class PreMintPollRecord(_Strict):
-    """The pre-mint docket poll's result, as a forward cell's usage record carries it."""
+class DocketPollRecord(_Strict):
+    """One harness poll of a forward cell's docket, as the cell's usage record carries it.
 
-    polled_at: datetime = Field(description="When the docket was fetched, in UTC")
+    A poll reads the Court's docket JSON as served and runs the forward outcome scan
+    on it. ``open`` is narrower than it sounds: it means that JSON carried no
+    disposition the scan recognises at ``polled_at``, not that the event was
+    undecided — the JSON can lag the order or come from a cache, the scan's recall
+    is not perfect, and a disposition can land after the poll.
+    """
+
+    polled_at: datetime = Field(description="When the poll's fetch began, in UTC")
+    docket_number: str = Field(
+        description="The docket number polled, as the provisioned snapshot names it"
+    )
     state: Literal["open", "decided", "unavailable"] = Field(
-        description="open: the event's outcome was not on the docket; decided: it was, "
-        "and the cell was refused; unavailable: the poll established nothing"
+        description="open: the docket JSON as served carried no disposition the forward "
+        "outcome scan recognises; decided: it did; unavailable: the poll could not answer "
+        "(no docket served, a body that is not JSON, a timeout, an error)"
     )
     reason: str | None = Field(
         default=None,
@@ -2120,16 +2131,24 @@ class ModelUsage(_Strict):
         "engine version treats such a cell as unknown. Null when every read agrees, "
         "and on records written before the field existed.",
     )
-    pre_mint_poll: PreMintPollRecord | None = Field(
+    pre_mint_poll: DocketPollRecord | None = Field(
         default=None,
-        description="What the docket showed when the harness polled it just before a "
-        "forward predict cell's record was written: the poll's UTC time and whether "
-        "the event was still open. A forward cell is refused when the poll finds the "
-        "outcome, so an `open` poll is the cell's own evidence that it began against "
-        "an undecided docket — the ordering a date-only disposition cannot establish "
-        "after the fact. `unavailable` says the poll established nothing and the cell "
-        "ran on the stored-snapshot gates alone. Null on evaluate cells, on cells "
-        "minted before the poll existed, and wherever no poll ran.",
+        description="The harness's poll of a forward predict cell's docket just before "
+        "its record was written. A cell whose poll reads `decided` is refused and writes "
+        "no usage record, so a recorded poll is `open` or `unavailable`. `open` bounds "
+        "the cell's exposure to a disposition to the window from `polled_at` to the "
+        "end of the run; it is not proof the event was undecided (see "
+        "DocketPollRecord). Null on evaluate cells, on cells minted before the poll "
+        "existed, and wherever no poll ran.",
+    )
+    post_run_poll: DocketPollRecord | None = Field(
+        default=None,
+        description="The same poll taken after the cell's engine step ended. Record "
+        "only: it never refuses or removes a cell. `pre_mint_poll` and `post_run_poll` "
+        "both `open` say the whole run ended before the served docket showed a "
+        "decision; a `decided` post-run poll leaves the ordering inside the run "
+        "unresolved, and leakage there is read from the retrieval log's content. Null "
+        "where no post-run poll ran.",
     )
     input_tokens: int = Field(ge=0, description="Fresh (uncached) input tokens")
     output_tokens: int = Field(ge=0)

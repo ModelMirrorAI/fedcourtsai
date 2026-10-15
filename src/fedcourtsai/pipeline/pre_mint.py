@@ -1,4 +1,4 @@
-"""The pre-mint docket poll: is a forward cell's event still open right now?
+"""Docket polls that bracket a forward cell: once before it is minted, once after it ran.
 
 A forward cell is provisioned from the corpus's latest stored snapshot, and that
 snapshot can be days behind the docket: the live rotation re-polls a pending
@@ -9,25 +9,32 @@ once, so a cell minted from a snapshot that predates the order can run after
 the order is public. The disposition's date carries no time of day, so nothing
 after the fact can say which came first.
 
-This module answers the question at the one moment it can be answered: just
-before the cell's record is written, it fetches the docket's current JSON from
-the Court and runs the same outcome scan the forward gate runs on the stored
-snapshot (:func:`fedcourtsai.pipeline.outcome.forward_leakage`). A disposed
-event refuses the cell; an open one is recorded with the poll's UTC time, so
-the cell's own record shows it began against an open docket. The fresh payload
-is read and discarded: it is evidence for the gate, never the cell's input,
-which stays the stored snapshot the rest of provisioning placed.
+This module asks the Court's docket JSON directly, at the two moments the harness
+controls. The **pre-mint** poll runs just before the cell's record is written: a
+disposed event refuses the cell, an undisposed one is recorded with the poll's
+time. The **post-run** poll runs after the engine step ends and only records.
+Both run the outcome scan the forward gate already runs on the stored snapshot
+(:func:`fedcourtsai.pipeline.outcome.forward_leakage`); the fresh payload is read
+and discarded, never the cell's input.
 
-The poll is best-effort by design. A docket the Court does not serve, a number
-that does not parse, or an upstream failure records ``unavailable`` and lets the
-cell proceed on the stored-snapshot gates alone, exactly as it did before the
-poll existed: a forward cell must not be lost to an upstream hiccup, and the
-record says the poll did not establish the ordering.
+What a poll reading ``open`` means, exactly: at ``polled_at`` the Court's docket
+JSON, as served, carried no disposition that ``forward_leakage`` recognises. It is
+not proof the event was undecided. Three residuals stand: the JSON can lag the
+order or be served from a cache; the scan's recall is not perfect; and a
+disposition can land after the poll. Two ``open`` polls bracketing a run do say
+the run ended before the served docket showed a decision.
+
+A poll is best-effort and bounded. It makes one short-timeout fetch through the
+same host-locked client the live poller uses. Every way it can fail to answer —
+not a SCOTUS docket, a number with no live spelling, no docket served, a body
+that is not JSON, a timeout, any unexpected error in the fetch or the scan —
+records ``unavailable`` with the reason, and never refuses a cell.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
@@ -35,7 +42,8 @@ from typing import Any, Literal, Protocol
 import httpx
 
 from ..supremecourt import (
-    OffHostFetch,
+    BROWSER_USER_AGENT,
+    SupremeCourtClient,
     parse_scotus_application_number,
     parse_scotus_docket_number,
 )
@@ -43,20 +51,42 @@ from .outcome import forward_leakage
 
 PollState = Literal["open", "decided", "unavailable"]
 
+#: How long one poll may wait on the Court, per attempt. Short, because a slow
+#: upstream must never hold a cell: a poll that times out reads ``unavailable``.
+POLL_TIMEOUT_SECONDS = 10.0
+
 
 class DocketFetcher(Protocol):
-    """The one call the poll makes: :meth:`SupremeCourtClient.get_docket`."""
+    """The one call a poll makes: :meth:`SupremeCourtClient.get_docket_response`."""
 
-    def get_docket(
+    def get_docket_response(
         self, term: int, serial: int, *, form: Literal["cert", "application"] = "cert"
-    ) -> dict[str, Any] | None: ...
+    ) -> httpx.Response | None: ...
+
+
+def bounded_client() -> SupremeCourtClient:
+    """The poll's own client: short timeout, no politeness pause before its one fetch.
+
+    The live poller's client paces requests and retries once after a pause, which
+    suits a sweep and would stall a cell. This one keeps the host lock and the
+    single retry but drops the waits, so the worst case is two short timeouts.
+    """
+    return SupremeCourtClient(
+        throttle_seconds=0.0,
+        client=httpx.Client(
+            headers={"User-Agent": BROWSER_USER_AGENT},
+            timeout=httpx.Timeout(POLL_TIMEOUT_SECONDS),
+        ),
+        sleep=lambda _seconds: None,
+    )
 
 
 @dataclass(frozen=True)
-class PreMintPoll:
-    """What the docket showed when polled just before a forward cell was minted."""
+class DocketPoll:
+    """What the Court's docket JSON showed for one event at one moment."""
 
     polled_at: datetime
+    docket_number: str
     state: PollState
     reason: str | None = None
 
@@ -64,6 +94,7 @@ class PreMintPoll:
         """The JSON shape the usage record carries."""
         return {
             "polled_at": self.polled_at.isoformat().replace("+00:00", "Z"),
+            "docket_number": self.docket_number,
             "state": self.state,
             "reason": self.reason,
         }
@@ -82,43 +113,61 @@ def docket_coordinates(
     return None
 
 
-def poll_before_mint(
+def poll_docket(
     court: str,
     docket_number: str,
     event_id: str,
     fetcher: DocketFetcher,
     *,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
-) -> PreMintPoll:
-    """Poll the docket once and say whether ``event_id`` is still open on it.
+) -> DocketPoll:
+    """Poll the docket once and say whether ``event_id``'s outcome shows on it.
 
-    ``decided`` carries the outcome scan's reason. ``unavailable`` covers every
-    way the poll can fail to establish the answer — not a SCOTUS docket, a docket
-    number with no Term-form or application spelling, no docket served at that
-    number, or a fetch error — and names which in ``reason``. The time recorded
-    is the moment the fetch was made, in UTC.
+    ``polled_at`` is when the fetch began, in UTC. ``decided`` carries the outcome
+    scan's reason; ``unavailable`` names why the poll could not answer. Nothing
+    here raises: an unexpected error anywhere in the fetch or the scan reads
+    ``unavailable`` with the error's type, because a poll must never be the
+    reason a cell is lost.
     """
     polled_at = now()
+    number = docket_number.strip()
+    state, reason = _read_docket(court, number, event_id, fetcher)
+    return DocketPoll(polled_at, number, state, reason)
+
+
+def _read_docket(
+    court: str, number: str, event_id: str, fetcher: DocketFetcher
+) -> tuple[PollState, str | None]:
+    """The poll's verdict and its reason; every failure is ``unavailable``."""
     if court != "scotus":
-        return PreMintPoll(polled_at, "unavailable", "not a SCOTUS docket")
-    coordinates = docket_coordinates(docket_number)
+        return "unavailable", "not a SCOTUS docket"
+    coordinates = docket_coordinates(number)
     if coordinates is None:
-        return PreMintPoll(polled_at, "unavailable", "docket number has no live spelling")
-    term, serial, form = coordinates
+        return "unavailable", "docket number has no live spelling"
     try:
-        payload = fetcher.get_docket(term, serial, form=form)
-    except (OffHostFetch, httpx.HTTPError) as exc:
-        return PreMintPoll(polled_at, "unavailable", f"fetch failed: {type(exc).__name__}")
-    if payload is None:
-        return PreMintPoll(polled_at, "unavailable", "no docket served at that number")
-    return poll_from_payload(polled_at, payload, court, event_id)
+        payload = _fetch_payload(fetcher, *coordinates)
+        if isinstance(payload, str):
+            return "unavailable", payload
+        reason = forward_leakage(payload, court, event_id)
+    except httpx.TimeoutException:
+        return "unavailable", "fetch timed out"
+    # Anything else, from the fetch or the scan: a poll degrades, never fails the cell.
+    except Exception as exc:
+        return "unavailable", f"poll error: {type(exc).__name__}"
+    return ("decided", reason) if reason is not None else ("open", None)
 
 
-def poll_from_payload(
-    polled_at: datetime, payload: Mapping[str, Any], court: str, event_id: str
-) -> PreMintPoll:
-    """The verdict on a freshly fetched payload: the forward outcome scan, nothing else."""
-    reason = forward_leakage(payload, court, event_id)
-    if reason is not None:
-        return PreMintPoll(polled_at, "decided", reason)
-    return PreMintPoll(polled_at, "open")
+def _fetch_payload(
+    fetcher: DocketFetcher, term: int, serial: int, form: Literal["cert", "application"]
+) -> dict[str, Any] | str:
+    """The docket JSON object, or the reason there is none to scan."""
+    response = fetcher.get_docket_response(term, serial, form=form)
+    if response is None:
+        return "no docket served at that number"
+    try:
+        payload = response.json()
+    except json.JSONDecodeError:
+        return "docket body is not JSON"
+    if not isinstance(payload, dict):
+        return "docket JSON is not an object"
+    return payload
