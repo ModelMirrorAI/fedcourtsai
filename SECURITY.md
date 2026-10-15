@@ -368,8 +368,8 @@ runbook, [docs/security.md](docs/security.md).
   round, never the current one. The caps, the planning rates and the decision
   code are maintainer-owned (`.github/CODEOWNERS`). The daily cap counts the
   larger of two records, the `review-auto` deployments and the auto-released
-  collect commits on `main`. A write holder, which includes an interactive
-  agent session acting as the maintainer, can prune the deployment list or edit
+  collect commits on `main`. A write holder, which includes the agent account
+  interactive sessions act as, can prune the deployment list or edit
   an unmerged collect PR, so each record alone is tamperable; `main`'s history
   is not, once a round's commit has landed.
   The claude/codex agent steps on `run-predict` / `run-evaluate` allow exactly
@@ -397,10 +397,14 @@ runbook, [docs/security.md](docs/security.md).
   `run-seed`, `run-repair`, and `promotion-record`) push corpus facts and the
   promotion record straight to `main` while everything agentic goes through
   that PR — enforced
-  by identity, since the agent workflows authenticate as a separate,
-  non-bypass **dev App**. `main`'s ruleset requires **zero** approving reviews,
-  so maintainer review of a promotion is a convention `AGENTS.md` carries, not
-  something the platform enforces. Code and config reach `main` only as a gated
+  by identity, since the agent workflows authenticate as a separate **dev
+  App** that bypasses no required check. A second `main` ruleset requires one approving
+  review, which only the maintainers team can give, and bypasses it for the
+  dev App's pull requests (the auto-merged data lanes, still bound by the
+  checks), for the data App's direct pushes, and for the admin role's pull
+  requests (the maintainer's own, since GitHub does not let an author approve
+  their own). So a promotion — opened by the dev App — merges only once the
+  maintainer has approved its head. Code and config reach `main` only as a gated
   promotion batch from `staging` — except the `promotion-record` writer's
   one-parent record commit, jailed byte-equal to its plan, touching only
   `src/fedcourtsai/process_registry.json` and `docs/freeze-record.md` — whose own ruleset requires a PR passing `gate`
@@ -410,11 +414,12 @@ runbook, [docs/security.md](docs/security.md).
   the same checks). On the paths `.github/CODEOWNERS` names — the permission
   surface, this security posture and its authorization check, the promotion
   gate and lane machinery, and the agent configs — it also requires a code
-  owner's review. That review binds every identity but the admin role, which
-  interactive agent sessions share with the maintainer, so for them it stays
-  discipline: such a session neither merges an owned-path PR through the
-  bypass nor approves one, since its approval would read as the
-  maintainer's. A ruleset with **no** bypass blocks force-pushes and branch
+  owner's review. That review binds every identity but the admin role.
+  Interactive agent sessions act as a separate machine account,
+  `modelmirror-agent`, which holds write through the `agents` team and no
+  bypass on any ruleset, so both review rules bind them; a session that holds
+  the maintainer's credentials instead holds the admin bypass, and for it
+  they stay `AGENTS.md`'s discipline. A ruleset with **no** bypass blocks force-pushes and branch
   deletion for everyone, so the committed *history* of the predictions,
   outcomes, and evaluations under `data/` is immutable — every forward change
   is a new, attributable commit. Forward deletions of ledger records are
