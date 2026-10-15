@@ -39,11 +39,13 @@
 /tests/test_ci_lane.py @modelmirror
 /tests/lane_guard.py @modelmirror
 /tests/conftest.py @modelmirror
-# The gate's Python halves: the required-contexts check `promotion-gate.sh`
-# runs, and the path jail behind the required `paths` check (which keeps an
-# auto-merged agent PR inside `data/`). `collect.py` is owned whole because
-# the jail lives in it.
+# The gate's Python halves: the required-contexts and ruleset checks
+# `promotion-gate.sh` runs, and the path jail behind the required `paths` check
+# (which keeps an auto-merged agent PR inside `data/`). `collect.py` is owned
+# whole because the jail lives in it.
 /src/fedcourtsai/required_checks.py @modelmirror
+/src/fedcourtsai/ruleset_checks.py @modelmirror
+/tests/test_ruleset_checks.py @modelmirror
 /src/fedcourtsai/collect.py @modelmirror
 # The process registry: the record a registration edits (a pre-registration),
 # the Step 0 checks `promotion-gate.sh registry` runs on it, and the plan and

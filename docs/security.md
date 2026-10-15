@@ -212,9 +212,11 @@ repository) is the required reviewer on `main: require approval`, so its
 membership is who can approve a change into `main`; whoever administers the
 organization's teams holds that decision.
 
-What write lets the account do that no rule here refuses: create a tag in
-`results/**` (and, until the creation ruleset below exists, in `promotion/**`
-and `prereg/**`) or a published Release, which Zenodo archives; prune the
+What write lets the account do that no rule here refuses: publish a
+Release on an existing tag, which Zenodo archives permanently (no repository
+setting restricts Release creation; the tag-creation rulesets below are
+expected to refuse one that would mint a new tag, which is unverified, and a
+draft creates no tag until someone publishes it); prune the
 deployment list the auto-release cap reads; and push onto an open
 data-lane PR's branch, whose armed auto-merge may then run under the dev
 App's approval bypass, bounded by the `paths` jail and `gate` (both `main`
@@ -262,13 +264,14 @@ person's GitHub login.
   No workflow creates a Release, but any credential with `contents: write` —
   the Apps' tokens, `github.token` in a job granted it, and the agent account
   interactive sessions act as — could create a tag
-  and a published Release through the API. The record-namespace tag ruleset
-  blocks update and deletion, not creation, so a `promotion/` or `prereg/`
-  tag can also be planted ahead of the `promotion-record` writer. The writer
-  adopts only its own canonical name as an annotated tag carrying its plan's
-  message, so a planted tag never enters the record, but one planted on the
-  canonical name blocks the writer until a maintainer resolves it. The
-  one-time setup step under *Branch protection* closes that. GitHub's loop prevention
+  and a published Release through the API. The tag-creation rulesets under
+  *Branch protection* confine a new tag to the `promotion-record` writer and
+  the maintainer, which is what keeps a `promotion/` or `prereg/` name from
+  being planted ahead of the writer (the writer adopts only its own canonical
+  name as an annotated tag carrying its plan's message, so a planted tag would
+  never enter the record, but it would block the writer until a maintainer
+  resolved it). A Release on an *existing* tag needs no new tag, and no
+  ruleset can refuse it. GitHub's loop prevention
   suppresses workflow triggers only, so the webhook fires and Zenodo archives
   such a Release all the same. Keeping Release creation out of every workflow
   is therefore the rule this integration rests on.
@@ -287,18 +290,33 @@ published.
 
 The three `main` rulesets are split so each rule's bypass is correct (a ruleset's
 bypass list applies to the whole ruleset); further rulesets protect the
-`staging` and `ops-metrics` branches. One more targets tags rather than
-branches — `tags: protect record` blocks update and deletion on the three
+`staging` and `ops-metrics` branches. Three target tags rather than
+branches. `tags: protect record` blocks update and deletion on the three
 record namespaces (`prereg/**`, `promotion/**`, `results/**`) with an empty
 bypass list, so even an admin must edit the ruleset before a record tag can
 move; the *Tags* subsection of docs/pipeline.md rests the record's
-immutability on it. **One-time setup (maintainer), after the
-`promotion-record` writer's first successful run:** add a tag ruleset that
-restricts **creation** in `promotion/**` and `prereg/**` to the data App as
-bypass actor, the maintainer's admin role keeping a recovery bypass, so no
-other credential can plant a tag ahead of the writer. Until then a tag planted on a promotion's canonical name blocks that
-promotion's record (the writer adopts only its own annotated tag, so a
-planted one never enters the record), and the maintainer resolves it by hand. Every require-PR ruleset pins
+immutability on it. Two more restrict tag **creation**, split because their
+bypass lists differ: **`tags: restrict record creation`** covers `promotion/**`
+and `prereg/**`, with the data App (the `promotion-record` writer) and the
+repository admin role (recovery) as bypass, both in mode **Always** — a tag
+push is not a pull request, so a pull-request-only bypass would never apply
+and the writer's first tag would be refused; **`tags: restrict creation`**
+covers every other tag (`~ALL`, excluding those two), `results/**` among
+them, with the admin role alone as bypass. The data App is shared with the
+corpus writers (`run-pull`, `run-seed`, `run-repair`), so its bypass lets any
+of those jobs mint a record tag too; none does, and a tag one planted would be
+immutable at once, refused by the writer as not its own, and need a
+maintainer's ruleset edit to clear. So no other identity — the dev App,
+a workflow's `github.token`, the agent account — can mint a tag at all, and
+in particular cannot plant a record name ahead of its writer: a planted
+canonical name would block that promotion's record until a maintainer
+resolved it, since the writer adopts only its own annotated tag. The promotion
+gate's admin-read `contexts` stage reads every ruleset as an admin and checks
+the three tag rulesets and the two review rulesets below against this
+section: active, aimed at the refs named here with no carve-out, the rules
+named here, and bypass lists holding exactly the actors and modes named here,
+with the maintainers team and the two Apps resolved by name at run time. It
+runs only when the maintainer runs it, so an edit between runs goes unseen. Every require-PR ruleset pins
 `allowed_merge_methods` to **`merge, squash`**: `merge` because the sync and the
 promotion must keep `main` and `staging` sharing history, `squash` because the
 data-run `collect` PRs auto-merge with it, and no rebase because replaying

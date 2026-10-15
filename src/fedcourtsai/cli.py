@@ -369,6 +369,8 @@ from .release_sensitivity import (
 from .required_checks import produced_contexts
 from .review_hold import decide_from_files as decide_hold_from_files
 from .review_hold import render_summary as render_hold_summary
+from .ruleset_checks import Expected as RulesetExpected
+from .ruleset_checks import ruleset_problems
 from .salience_replay import replay_gate
 from .schemas import (
     EXPORTABLE_MODELS,
@@ -18829,6 +18831,62 @@ def assert_required_contexts_cmd(
         )
         raise typer.Exit(code=1)
     typer.echo(f"required contexts OK ({len(required)} checked)")
+
+
+@app.command("assert-rulesets")
+def assert_rulesets_cmd(
+    rulesets_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Directory of *.json files, one full ruleset document each, as "
+            "GET /repos/{owner}/{repo}/rulesets/{id} returns it (administration read)."
+        ),
+    ],
+    reviewer_team_id: Annotated[
+        int, typer.Option(help="Id of the team whose approval `main` requires (maintainers).")
+    ],
+    data_app_id: Annotated[int, typer.Option(help="The data App's id (its bypass actor id).")],
+    dev_app_id: Annotated[int, typer.Option(help="The dev App's id (its bypass actor id).")],
+    allow_unread_bypass: Annotated[
+        bool,
+        typer.Option(
+            "--allow-unread-bypass",
+            help="Skip bypass-list checks a non-admin read cannot see (a partial check).",
+        ),
+    ] = False,
+) -> None:
+    """Check the review and tag-record rulesets the docs rest on still hold.
+
+    Names each missing or weakened control — the approval `main` requires and
+    who may give it, staging's code-owner review, and the record tags' update,
+    deletion and creation rules — and exits non-zero if there is any.
+    """
+    documents: list[dict[str, Any]] = []
+    for path in sorted(rulesets_dir.glob("*.json")):
+        try:
+            document = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            typer.echo(f"::error::could not read ruleset {path.name}: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        if not isinstance(document, dict):
+            typer.echo(f"::error::{path.name} is not a ruleset object", err=True)
+            raise typer.Exit(code=1)
+        documents.append(document)
+    if not documents:
+        typer.echo(f"::error::no ruleset documents in {rulesets_dir}", err=True)
+        raise typer.Exit(code=1)
+    expected = RulesetExpected(
+        reviewer_team_id=reviewer_team_id,
+        data_app_id=data_app_id,
+        dev_app_id=dev_app_id,
+        require_bypass_lists=not allow_unread_bypass,
+    )
+    problems = ruleset_problems(documents, expected)
+    for problem in problems:
+        typer.echo(f"::error::rulesets: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"rulesets OK ({len(documents)} read)")
 
 
 @app.command("cleanup-out-of-scope-predictions")

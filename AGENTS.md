@@ -95,8 +95,11 @@ non-interactive** container. Two consequences shape everything you do:
   ruleset, so the platform refuses its direct push to either branch and its
   merge into `main` without the maintainer's approval of that head. Once the
   maintainer has approved, the platform would let you merge a PR into `main`;
-  that merge is still the maintainer's. A session that holds the maintainer's
-  own credentials holds the admin bypass instead, and for it every rule here
+  that merge is still the maintainer's. Never create a tag or a GitHub
+  Release, drafts included: the tag rulesets refuse a new tag, but nothing
+  refuses a Release on an existing one, Zenodo archives every published
+  Release permanently, and a draft waits for one click to publish. A session
+  that holds the maintainer's own credentials holds the admin bypass instead, and for it every rule here
   is discipline; `gh api user --jq .login` says which account you are. And
   the staging permission is a permission, not an
   obligation: leaving a green PR for the maintainer is always a legitimate
@@ -112,7 +115,8 @@ non-interactive** container. Two consequences shape everything you do:
   `sync-staging.yml`, ci.yml's gate jobs, and the lane machinery that decides
   which of the gate's checks a change gets: `scripts/gate.sh`,
   `scripts/ci_lane.py`, `tests/test_ci_lane.py`, `tests/lane_guard.py` and its
-  registration in `tests/conftest.py`; and the process registry the gate's
+  registration in `tests/conftest.py`, and the ruleset check its admin-read
+  stage runs, `src/fedcourtsai/ruleset_checks.py` and its tests; and the process registry the gate's
   Step 0 reads and a promotion merge stamps: `src/fedcourtsai/process_registry.json`,
   `src/fedcourtsai/registry_gate.py`, `src/fedcourtsai/promotion_record.py`,
   `src/fedcourtsai/process_registration.py` and their tests — a registration
