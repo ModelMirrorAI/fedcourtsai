@@ -33,14 +33,15 @@ Public releases are anchored to the Court's calendar, so predictions publish
 None of the releases depends on the funding below. Funding changes how much of
 the docket, how many moments, and how many models each release covers.
 
-Between releases, the site's email list carries two optional updates a
-subscriber chooses: a **weekly SCOTUS update** (what resolved against what each
-model forecast, and the forecasts newly committed) and an **AI-cases feed**
-(new filings and rulings on the AI-case watchlist below, with that slice's
-forecasts as an opt-in addition). Both are rendered from committed data rather
-than written, each send is a draft a person approves, and neither is scored.
-They cost almost nothing beyond disclosed model-written summaries, so they sit
-outside the scaling plan.
+Between releases, the site's email list is planned to carry two optional
+updates a subscriber chooses: a **weekly SCOTUS update** (what resolved against
+what each model forecast, and the forecasts newly committed) and an **AI-cases
+feed** (new filings and rulings on the AI-case watchlist below, with that
+slice's forecasts as an opt-in addition). Each update's body is rendered from
+committed data; the only model-written text is an optional ruling summary,
+labelled with its model. Each send will be a draft a person approves, and
+neither update is scored. They cost almost nothing beyond those summaries, so
+they sit outside the scaling plan.
 
 ## The scaling plan
 
@@ -69,8 +70,8 @@ because the project's claims are coverage claims, and every later predictor
 multiplies over the events this step buys. The lower-court slices follow full
 SCOTUS coverage, so they are measured against a finished baseline, and come
 before new models, so their sourcing and costs are learned at three predictors
-rather than seven. The AI-cases feed is the exception to that order: it needs
-no forecasts, so it can run before its slice is forecast at all. New developers come before prompt
+rather than seven. The AI-cases feed is the exception to that order: it
+needs no forecasts, so it can run before its slice is forecast at all. New developers come before prompt
 variants because a baseline for each model has to exist before a variant of it
 means anything.
 
@@ -107,15 +108,16 @@ as the public, pre-registered ranking.
 
 Two small, pre-registered slices below the Supreme Court, built for different
 reasons and sharing most of their machinery: docket ingestion for exactly the
-listed dockets, documents from the RECAP archive, a prediction scope keyed on
-a committed slice list, and docket push. Each scores in its own stratum, and
+listed dockets (for the watchlist, the one planned exception to the corpus's
+exclusion of district courts), documents from the RECAP archive, a prediction
+scope keyed on a committed slice list, and docket push. Each scores in its own stratum, and
 neither enters SCOTUS headline figures or is a coverage claim.
 
 #### The AI-case watchlist
 
 Follow a hand-curated watchlist of 10–20 AI cases — cases where an AI
 developer, or an AI system's training, outputs or deployment, is central to a
-claim or defense — from the district court up. It is built for audience: the
+claim or defense — from the district court up. It exists for its audience: the
 evaluation and forecasting communities follow these cases closely, and
 little timestamped, structured coverage of them exists. The list and the rule
 that admits a case are committed, and a case is added on a dated line. Its
@@ -128,8 +130,8 @@ What the step adds:
   motion is fully briefed: a motion to dismiss, class certification, summary
   judgment, and final disposition. Outcomes include ruling *in part*, which is
   the usual result, and *no merits decision* for a settlement or voluntary
-  dismissal. Nothing is voided, as in the circuit slice.
-- **A facts feed before any forecast.** New filings and rulings on watchlist
+  dismissal. As in the circuit slice, nothing is voided.
+- **The AI-cases feed before any forecast.** New filings and rulings on watchlist
   dockets, with links to the public record, ship first; forecasts are added
   once the district moments are registered.
 - **Forecasts on a developer's own case.** Several watchlist cases name as a
