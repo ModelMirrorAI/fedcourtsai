@@ -284,6 +284,11 @@ class _PriorCandidate:
     #: The row's resolution date, for the replay clock's day bar. ``None`` where
     #: the row carries no date at all, which leaves it to the year rule.
     resolved: date | None = None
+    #: The stored dates of the decision the row's citations belong to
+    #: (:func:`corpus.decision_dates`): under a replay clock its citations can
+    #: match only where that decision provably preceded the clock, as the
+    #: ``query`` mask has it.
+    decided: tuple[date, ...] = ()
 
 
 class PriorIndex:
@@ -358,6 +363,7 @@ class PriorIndex:
                         citations=frozenset(row.citations),
                         year=corpus.case_year(row),
                         resolved=corpus.resolution_date(row),
+                        decided=corpus.decision_dates(row),
                     )
                 )
                 for judge in row.judges:
@@ -390,10 +396,15 @@ class PriorIndex:
         no citation, is skipped); rank is overlap score descending, then the
         candidate order (most recent decision, then ``case_id``).
         The replay clock screens exactly as :func:`corpus._screen_derived`
-        applies it, and its two halves conjoin. ``decided_before`` is the
-        exclusive year cutoff: only candidates whose best-known year strictly
-        precedes it qualify, and one with no derivable year never does — history
-        that cannot be proven to precede the trial is never consulted.
+        applies it, and its two halves conjoin. Under it a candidate's
+        citations count toward a citation filter only where the decision they
+        belong to provably preceded the clock
+        (:func:`corpus.decision_clears_replay_clock`), since that is the only
+        case in which ``retrieve_priors`` hands them back to be matched.
+        ``decided_before`` is the exclusive year cutoff: only candidates whose
+        best-known year strictly precedes it qualify, and one with no derivable
+        year never does — history that cannot be proven to precede the trial is
+        never consulted.
         ``decided_before_day``, where the clock carries one, then removes any
         candidate that had not resolved by that day; a candidate with no
         resolution date is left to the year bar, the only half that can speak
@@ -422,12 +433,23 @@ class PriorIndex:
             matched = cited if matched is None else matched & cited
         assert matched is not None  # at least one filter was given
         want_judges, want_citations = set(judges), set(citations)
+        clocked = decided_before is not None or decided_before_day is not None
+
+        def cites(candidate: _PriorCandidate) -> frozenset[str]:
+            if clocked and not corpus.decision_clears_replay_clock(
+                candidate.decided, decided_before, decided_before_day
+            ):
+                return frozenset()
+            return candidate.citations
+
+        if want_citations:
+            matched = {p for p in matched if want_citations & cites(candidates[p])}
         ranked = sorted(
             matched,
             key=lambda position: (
                 -(
                     len(want_judges & candidates[position].judges)
-                    + len(want_citations & candidates[position].citations)
+                    + len(want_citations & cites(candidates[position]))
                 ),
                 position,
             ),

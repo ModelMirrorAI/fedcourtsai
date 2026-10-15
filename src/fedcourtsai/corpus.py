@@ -3519,12 +3519,18 @@ class PriorQuery(BaseModel):
         "so the pair is stripped unless `merits_decided` also provably precedes "
         "the cutoff, and `merits_terminated` is stripped unconditionally, since "
         "it carries no date to test and records the very fact — the proceeding "
-        "ended — that the clock exists to hide. The undated party and counsel "
-        "lists (`counsel`, `parties`, `attorneys`) are emptied on every admitted "
-        "row, since they hold the docket's current state, amici filed after the "
-        "clock included; the row's other columns come back as stored. This is "
-        "the back-test replay clock; live (forward) retrieval omits it because "
-        "every resolved prior genuinely precedes an open case.",
+        "ended — that the clock exists to hide. The rest of a qualifying row's "
+        "last-pull state is held to the bar too: the undated accruals and "
+        "tracking stamps (`REPLAY_MASKED_UNDATED_COLUMNS`) are reset on every "
+        "admitted row; the opinion-cluster columns "
+        "(`REPLAY_DECISION_RECORD_COLUMNS`) are reset unless every decision date "
+        "the row carries (`date_decided`, `merits_decided`) provably precedes "
+        "the cutoff; and the dated columns (`REPLAY_DATE_TESTED_COLUMNS`: "
+        "`date_decided`, `merits_brief_filed`, `distributed_for_conference`) are "
+        "each nulled unless their own date does. Which rows qualify, and their "
+        "order, read the stored row. This is the back-test replay clock; the "
+        "forward harness never sets it, but a forward agent may pass it itself "
+        "and is then masked the same way.",
     )
     decided_before_day: date | None = Field(
         default=None,
@@ -3687,42 +3693,178 @@ def _mask_post_clock_merits(
     return row.model_copy(update={"merits_judgment": None, "merits_decided": None})
 
 
-#: The party and counsel lists the replay clock empties on every prior it
-#: admits: each holds the row's *current* state with no date to test against
-#: the clock, and each carries the amicus grant oracle. The set is scoped to
-#: that oracle, not to every last-pull column: among those that still reach a
-#: replay cell as stored are ``citations``, ``citation_count``, ``summary``,
-#: ``precedential_status``, ``has_opinion`` (and the opinion body under
-#: ``full``), ``merits_brief_filed`` and ``date_decided`` (on a granted SCOTUS
-#: prior, the termination at the merits judgment). The SCOTUS
-#: party and counsel blocks accrue over a docket's life — every third-party
-#: filing appends its counsel of record, and amici (``role=other``) pile onto a
-#: petition overwhelmingly after a grant — so a prior that resolved before the
-#: clock still carries, in these lists, filings made after it. ``parties`` and
-#: ``attorneys`` are the flat names read off the same blocks and carry the same
-#: amici, so masking ``counsel`` alone would leave the oracle in plain sight.
-#: Whole lists rather than the ``role=other`` entries: no entry is dated, a
+#: The last-pull columns the replay clock resets on every prior it admits,
+#: whatever their value: each holds the row's *current* state with no date of
+#: its own to test against the clock. The SCOTUS party and counsel blocks
+#: accrue over a docket's life — every third-party filing appends its counsel
+#: of record, and amici (``role=other``) pile onto a petition overwhelmingly
+#: after a grant — so a prior that resolved before the clock still carries, in
+#: these lists, filings made after it. ``parties`` and ``attorneys`` are the
+#: flat names read off the same blocks and carry the same amici, so masking
+#: ``counsel`` alone would leave the amicus grant oracle in plain sight. Whole
+#: lists rather than the ``role=other`` entries: no entry is dated, a
 #: post-clock filing for a named side is as possible as an amicus brief, and
 #: this is the stance the replayed case's own snapshot already takes
 #: (:func:`fedcourtsai.cert_backtest.redact_snapshot` strips every party and
-#: counsel block). Emptied to ``[]``, the value the corpus already uses for "no
-#: reading" (an empty list never overwrites a stored one), and applied to every
-#: admitted row alike so the list's presence carries no signal either. The cost
-#: is the stated one: a replay cell cannot see who appeared on a prior, which a
-#: forward cell can.
-REPLAY_MASKED_UNDATED_COLUMNS: frozenset[str] = frozenset({"counsel", "parties", "attorneys"})
+#: counsel block). ``citation_count`` is the same kind of column: a count of
+#: the later opinions citing this one, which keeps growing after any clock
+#: however early the opinion issued, so it has no as-at-clock reading at all.
+#: The tracking stamps are the third kind: each dates when a pipeline channel
+#: last touched the row (``last_pulled``, ``last_live_polled``,
+#: ``opinion_enrich_attempted_at``, ``document_floor_probed_at``) or routed it
+#: (``predict_queued_at``, ``evaluate_queued_at``). They describe the corpus's
+#: activity, not the case, and every one of them is a pipeline date from after
+#: any clock a replay cell runs under; ``last_live_polled`` in particular keeps
+#: moving while the live channel follows a granted prior through its merits
+#: stage, so its value says the prior stayed live past the clock. Reset to the
+#: column's no-reading default (``[]`` / ``None``), and applied to every
+#: admitted row alike so the value's presence carries no signal either. The
+#: cost is the stated one: a replay cell cannot see who appeared on a prior,
+#: how often it was later cited, nor when the pipeline last read it, which an
+#: unclocked query can.
+REPLAY_MASKED_UNDATED_COLUMNS: frozenset[str] = frozenset(
+    {
+        "counsel",
+        "parties",
+        "attorneys",
+        "citation_count",
+        "last_pulled",
+        "last_live_polled",
+        "opinion_enrich_attempted_at",
+        "document_floor_probed_at",
+        "predict_queued_at",
+        "evaluate_queued_at",
+    }
+)
+
+#: The decision-record columns a prior carries from its opinion cluster, which
+#: the replay clock passes only where the decision they record provably
+#: preceded it. None carries a date of its own; each exists because the matter
+#: was decided, and the row dates that decision in two places: ``date_decided``,
+#: the docket's termination, on or after the opinion issued (on a granted
+#: SCOTUS prior, the merits judgment months after the grant, not the cert
+#: date), and ``merits_decided`` where the merits disposition was parsed. So
+#: the family survives exactly where the row carries at least one of the two
+#: and every one it carries clears every bar the clock sets
+#: (:func:`decision_clears_replay_clock`), and is reset to its no-reading
+#: default otherwise — an undated row included, since it cannot prove its
+#: decision came first. ``has_opinion`` goes with
+#: ``opinion_text`` so a ``--full`` query never hydrates the body from the
+#: content store either (:func:`opinion_body` consults the bit first).
+#:
+#: ``judges`` and ``panel`` are deliberately **not** in the family, though a
+#: cluster fills them too: they pass as stored. They are the keys a
+#: ``--judge`` filter overlaps and the prior-vote index posts on
+#: (:class:`fedcourtsai.backtest.PriorIndex`), so masking them would move which
+#: priors return, not only what they carry; and they name who sat on the
+#: deciding bench, not how the matter came out. Read them as the one opinion
+#: cluster field a replay cell still sees on a post-clock decision: on a
+#: SCOTUS prior the sitting Court, on a circuit prior the panel.
+REPLAY_DECISION_RECORD_COLUMNS: frozenset[str] = frozenset(
+    {"citations", "summary", "precedential_status", "has_opinion", "opinion_text"}
+)
+
+#: The dated last-pull columns the replay clock tests on their own date: each
+#: survives only where it clears every bar the clock sets — the bar the merits
+#: pair is held to — and is ``None`` otherwise. ``date_decided`` is the
+#: docket's termination (on a granted SCOTUS prior, the merits judgment),
+#: ``merits_brief_filed`` a merits-stage filing, and
+#: ``distributed_for_conference`` the latest conference the live channel saw
+#: the petition distributed for, which on a held or relisted prior can fall
+#: after the clock; each can postdate a prior whose cert-stage resolution
+#: preceded the clock.
+REPLAY_DATE_TESTED_COLUMNS: frozenset[str] = frozenset(
+    {"date_decided", "merits_brief_filed", "distributed_for_conference"}
+)
 
 
-def _mask_undated_accruals(row: CorpusRow) -> CorpusRow:
-    """Empty a masked prior's undated accruing lists (:data:`REPLAY_MASKED_UNDATED_COLUMNS`).
+def _no_reading(column: str) -> object:
+    """The value a :class:`CorpusRow` column holds when nothing was read for it."""
+    return CorpusRow.model_fields[column].get_default(call_default_factory=True)
 
-    Removal only, and unconditional under the clock, for the same reason
-    ``merits_terminated`` is stripped unconditionally: nothing in the value can
-    prove it came first. Under the clock ``[]`` therefore means *masked*, not
-    "no counsel of record", and a reader of a clocked row cannot tell the two
-    apart.
+
+def _clears_replay_clock(
+    when: date | None, decided_before: int | None, decided_before_day: date | None
+) -> bool:
+    """Whether one dated fact provably precedes every bar a replay clock sets.
+
+    The merits pair's bar (:func:`_mask_post_clock_merits`), applied to any one
+    date: present, its year strictly before the Term where the clock carries
+    one, and itself strictly before the day where the clock carries one. An
+    absent date proves nothing and fails.
     """
-    return row.model_copy(update={column: [] for column in REPLAY_MASKED_UNDATED_COLUMNS})
+    if when is None:
+        return False
+    if decided_before is not None and when.year >= decided_before:
+        return False
+    return decided_before_day is None or when < decided_before_day
+
+
+def decision_dates(row: CorpusRow) -> tuple[date, ...]:
+    """The stored dates of the decision a row's opinion-cluster columns record.
+
+    ``date_decided`` (the docket's termination: on a granted SCOTUS prior, the
+    merits judgment) and ``merits_decided`` (the parsed merits disposition's
+    docket date), whichever the row carries.
+    """
+    return tuple(when for when in (row.date_decided, row.merits_decided) if when is not None)
+
+
+def decision_clears_replay_clock(
+    dates: Sequence[date], decided_before: int | None, decided_before_day: date | None
+) -> bool:
+    """Whether a prior's recorded decision provably preceded a replay clock.
+
+    ``dates`` is :func:`decision_dates`: at least one must be present and every
+    one must clear the clock (:func:`_clears_replay_clock`). Requiring all of
+    them, not the earliest, is the fail-closed reading — a merits judgment
+    dated after the clock makes the opinion on the row a post-clock document,
+    whatever the docket's termination date says. Public because the prior-vote
+    index (:class:`fedcourtsai.backtest.PriorIndex`) applies the same gate to a
+    citation match, keeping its parity with :func:`retrieve_priors`.
+    """
+    return bool(dates) and all(
+        _clears_replay_clock(when, decided_before, decided_before_day) for when in dates
+    )
+
+
+def _mask_last_pull_state(row: CorpusRow, query: PriorQuery) -> CorpusRow:
+    """Reset a clocked prior's last-pull columns that cannot prove they came first.
+
+    Removal only. The undated accruals (:data:`REPLAY_MASKED_UNDATED_COLUMNS`)
+    go unconditionally, for the reason ``merits_terminated`` does: nothing in
+    the value can prove it came first. The decision-record family
+    (:data:`REPLAY_DECISION_RECORD_COLUMNS`) goes unless the decision it records
+    is dated before the clock (:func:`decision_clears_replay_clock`), and each
+    dated column (:data:`REPLAY_DATE_TESTED_COLUMNS`) unless its own date does;
+    the family's gate reads the stored dates, so this runs before
+    :func:`_mask_post_clock_merits` strips ``merits_decided``. Under the clock an
+    empty or null value in any of these columns can therefore mean *masked* as
+    readily as "nothing recorded", and a reader of a clocked row cannot tell the
+    two apart.
+    """
+    term, day = query.decided_before, query.decided_before_day
+    update = {column: _no_reading(column) for column in REPLAY_MASKED_UNDATED_COLUMNS}
+    if not decision_clears_replay_clock(decision_dates(row), term, day):
+        update.update({column: _no_reading(column) for column in REPLAY_DECISION_RECORD_COLUMNS})
+    for column in REPLAY_DATE_TESTED_COLUMNS:
+        if not _clears_replay_clock(getattr(row, column), term, day):
+            update[column] = None
+    return row.model_copy(update=update)
+
+
+def _mask_for_replay_clock(row: CorpusRow, query: PriorQuery) -> CorpusRow:
+    """What a clocked ``query`` hands back for one prior the clock admitted.
+
+    The row's last-pull state (:func:`_mask_last_pull_state`), read off the
+    stored decision dates, then the merits pair and ``merits_terminated``
+    (:func:`_mask_post_clock_merits`). Forward retrieval, with no clock, gets
+    the row back untouched.
+    """
+    if query.decided_before is None and query.decided_before_day is None:
+        return row
+    masked = _mask_last_pull_state(row, query)
+    return _mask_post_clock_merits(masked, query.decided_before, query.decided_before_day)
 
 
 def _precedes_replay_clock(row: CorpusRow, query: PriorQuery) -> bool:
@@ -3758,35 +3900,25 @@ def _precedes_replay_clock(row: CorpusRow, query: PriorQuery) -> bool:
     return True
 
 
-def _screen_derived(row: CorpusRow, query: PriorQuery) -> CorpusRow | None:
-    """Apply the query's derived filters to one retrieved row.
+def _screen_derived(row: CorpusRow, query: PriorQuery) -> bool:
+    """Whether the query's derived filters admit one retrieved row.
 
     Era, the replay clock and docket form are computed from the row (decade,
     best-known year or resolution date, the letter-form recognizers) rather
     than read from a column, so they screen retrieved rows instead of riding
-    the SQL. ``None`` means screened out; otherwise the row comes back possibly
-    rewritten, since the clock also strips a surviving row's post-clock merits
-    columns and empties its undated party and counsel lists. Both retrieval
-    paths screen through here, so the ranked fast path and the scored path
-    admit exactly the same rows.
-
-    Both halves of the replay clock apply to the merits pair exactly as they
-    apply to the row (:func:`_precedes_replay_clock`), so both are passed on to
-    :func:`_mask_post_clock_merits` rather than one standing in for the other.
-    The undated party and counsel lists (:data:`REPLAY_MASKED_UNDATED_COLUMNS`)
-    are emptied on every row the clock admits; forward retrieval, with no
-    clock, returns the row untouched.
+    the SQL. Both retrieval paths screen through here, so the ranked fast path
+    and the scored path admit exactly the same rows. Admission and the recency
+    order read the stored row; what an admitted row carries under the clock,
+    and so what a ``citations`` filter can overlap, is
+    :func:`_mask_for_replay_clock`'s.
     """
     if query.exclude_non_cert and is_non_cert_scotus_form(row):
-        return None
+        return False
     if query.era is not None and case_era(row) != query.era:
-        return None
+        return False
     if query.decided_before_day is not None or query.decided_before is not None:
-        if not _precedes_replay_clock(row, query):
-            return None
-        row = _mask_post_clock_merits(row, query.decided_before, query.decided_before_day)
-        return _mask_undated_accruals(row)
-    return row
+        return _precedes_replay_clock(row, query)
+    return True
 
 
 def _screens_in_python(query: PriorQuery) -> bool:
@@ -3843,10 +3975,10 @@ def _retrieve_priors_ranked(
         params = [*params, limit]
     ranked: list[CorpusRow] = []
     for record in conn.execute(sql, params):
-        row = _screen_derived(_from_record(record), query)
-        if row is None:
+        row = _from_record(record)
+        if not _screen_derived(row, query):
             continue
-        ranked.append(row)
+        ranked.append(_mask_for_replay_clock(row, query))
         if len(ranked) >= limit:
             break
     return ranked
@@ -3951,9 +4083,13 @@ def retrieve_priors(
     scored: list[tuple[int, tuple[int, int], str, CorpusRow]] = []
     source, where = _overlap_scan(conn, query, clauses, want_citations=bool(want_citations))
     for record in conn.execute(f"SELECT * FROM {source}{where}", params):
-        row = _screen_derived(_from_record(record), query)
-        if row is None:
+        stored = _from_record(record)
+        if not _screen_derived(stored, query):
             continue
+        # Overlap reads what the cell will be handed, so a clocked citation
+        # match never returns a prior whose cite postdates the clock; the
+        # recency order reads the stored row, as the fast path's SQL does.
+        row = _mask_for_replay_clock(stored, query)
         judge_overlap = want_judges & set(row.judges)
         citation_overlap = want_citations & set(row.citations)
         # Overlap filters are required when given: skip a row that shares none.
@@ -3962,7 +4098,7 @@ def retrieve_priors(
         if want_citations and not citation_overlap:
             continue
         score = len(judge_overlap) + len(citation_overlap)
-        scored.append((-score, recency_key(row), row.case_id, row))
+        scored.append((-score, recency_key(stored), row.case_id, row))
     scored.sort(key=lambda item: (item[0], item[1], item[2]))
     return [row for *_, row in scored[:limit]]
 
