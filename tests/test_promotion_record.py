@@ -44,6 +44,7 @@ from fedcourtsai.promotion_record import (
     REGISTRY_PATH,
     PromotionRecordError,
     Stamp,
+    _declared,
     apply_promotion_record,
     digest_census,
     dump_registry,
@@ -63,6 +64,8 @@ COMMITTED = json.loads((ROOT / REGISTRY_PATH).read_text(encoding="utf-8"))
 #: The committed registry once the merge-stamping rule is declared.
 DECLARED_ON = "2026-10-12"
 DECLARED = {**COMMITTED, "merge_stamping_declared": DECLARED_ON}
+#: The committed registry with the declaration removed: a ``main`` from before it.
+UNDECLARED = {key: value for key, value in COMMITTED.items() if key != "merge_stamping_declared"}
 NEW_CLAUDE = "sha256:" + "a" * 64
 NEW_JUDGE = "sha256:" + "d" * 64
 NEW_LABEL = "proc-v10"
@@ -176,12 +179,12 @@ def test_a_pending_boundary_does_not_block_a_label() -> None:
 
 def test_no_label_is_registered_before_the_rule_is_declared() -> None:
     with pytest.raises(RegistrationError, match="merge_stamping_declared"):
-        register_process(COMMITTED, NEW_LABEL, _live_fleet())
+        register_process(UNDECLARED, NEW_LABEL, _live_fleet())
 
 
 def test_no_boundary_is_registered_before_the_rule_is_declared() -> None:
     with pytest.raises(RegistrationError, match="merge_stamping_declared"):
-        register_boundary(COMMITTED, "early", predictors=None, reach="all", gradual=False)
+        register_boundary(UNDECLARED, "early", predictors=None, reach="all", gradual=False)
 
 
 @pytest.mark.parametrize(
@@ -568,8 +571,7 @@ def test_an_evaluator_only_label_is_tagged_on_its_merge(tmp_path: Path) -> None:
 
 
 def test_stamps_need_the_declaration_on_the_first_parent(tmp_path: Path) -> None:
-    undeclared = {k: v for k, v in DECLARED.items() if k != "merge_stamping_declared"}
-    repo, merge = _promote(tmp_path, main_registry=undeclared)
+    repo, merge = _promote(tmp_path, main_registry=UNDECLARED)
     with pytest.raises(PromotionRecordError, match="declares no merge-stamped"):
         _plan(repo, merge)
     repo2, merge2 = _promote(tmp_path / "b", before="# Freeze record\n")
@@ -1147,3 +1149,16 @@ def test_the_live_registry_has_no_pending_row() -> None:
     carried = frozenset(process_version.FROZEN_PROCESS_DIGESTS)
     assert carried == process_version.REGISTERED_PROCESS_DIGESTS
     assert process_version.PENDING_REGISTRATIONS == ()
+
+
+@pytest.mark.reads_docs
+def test_the_committed_declaration_resolves_on_main() -> None:
+    """The committed registry names its declaring entry, and the record holds it.
+
+    Once both are on ``main``, a later promotion's first parent satisfies
+    :func:`_declared`; the promotion that carries them cannot stamp, since its
+    own first parent predates both (``test_stamps_need_the_declaration_on_the_first_parent``).
+    """
+    record = (ROOT / FREEZE_RECORD_PATH).read_text(encoding="utf-8")
+    assert COMMITTED["merge_stamping_declared"]
+    assert _declared(COMMITTED, record) is None

@@ -1726,8 +1726,11 @@ The full path of a change, operator's view:
    check right before merging, and merge with a **merge commit**. The
    `promotion-record` workflow then tags the merge commit
    `promotion/<YYYY-MM-DD>` (`-2` for a same-day second batch — the *Tags*
-   subsection below), fills the closed-key placeholders the merge added, and
-   comments on the PR with whatever it left for a maintainer — free-text
+   subsection below), stamps any process registration the batch carried —
+   the label's counting instant, its bless moments and window edges, at the
+   merge's committer time, with `prereg/<label>` on the merge
+   (docs/process-version.md, *Freezing*) — fills the closed-key placeholders
+   the merge added, and comments on the PR with whatever it left for a maintainer — free-text
    placeholders, and stale ones an earlier merge carried. A merge it refuses
    (a hand-written fill that rewrapped a landed placeholder, say) opens a
    `promotion-record-log` issue, and the tag and fills are then the
@@ -1772,15 +1775,16 @@ message and date it carries) and a lightweight one is acceptable. A
 procedure writes the pre-registration record into the tag message
 (docs/process-version.md), so the message is load-bearing there.
 
-- **`prereg/<label>`** — a pre-registration freeze commit, e.g.
-  `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS` and sets
-  `FROZEN_SINCE` (docs/process-version.md carries the freeze procedure).
-  Two tags deviate, and the freeze record in docs/freeze-record.md states
-  each placement and its consequence: `prereg/proc-v4` sits on the promotion
-  merge that carried its freeze commit rather than on the freeze commit
-  itself, and `prereg/proc-v8` sits on the step-4 correction commit, because
-  that label has two freeze commits and neither one's tree states the blessed
-  digests and the instant together. The namespace blocks moving either.
+- **`prereg/<label>`** — a label's pre-registration point: the promotion
+  merge that carried its registration, which also fixes the label's instants,
+  tagged by the `promotion-record` workflow with the message its plan
+  computes (docs/process-version.md carries the procedure). The tags of labels
+  frozen by hand under the earlier rule sit on their freeze commits, and the
+  freeze record in docs/freeze-record.md states each placement:
+  `prereg/proc-v4` sits on the promotion merge that carried its freeze commit,
+  and `prereg/proc-v8` on a correction commit, because that label has two
+  freeze commits and neither one's tree states the blessed digests and the
+  instant together. The namespace blocks moving any of them.
 - **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit,
   named by the merge's **UTC** date; a `-2` suffix distinguishes a second
   batch merged on the same UTC date. The `promotion-record` workflow creates
@@ -1797,7 +1801,11 @@ pre-registration marker defeats its purpose. `promotion/` tags, and the
 `prereg/` tag of a label the merge stamps, are created by the
 `promotion-record` workflow; a `results/` tag, a `prereg/` tag for a label
 frozen by hand, and any tag the workflow refused to write are the
-maintainer's.
+maintainer's. Once the workflow has tagged a promotion successfully, restrict
+**creation** in `promotion/**` and `prereg/**` to the data App (the
+maintainer keeping a recovery bypass): until then any credential with
+`contents: write` can plant a canonical name first, which the workflow then
+refuses to adopt.
 
 ### Adding a required status check
 

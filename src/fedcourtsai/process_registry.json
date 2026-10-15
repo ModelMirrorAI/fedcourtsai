@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "merge_stamping_declared": "2026-10-14",
   "labels": [
     {
       "label": "proc-v8",
