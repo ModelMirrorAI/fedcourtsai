@@ -14,9 +14,10 @@ looser: the predictor's counted cell on the event
 (:func:`fedcourtsai.store.ledger_counts`, so shakedown and de-counted cells
 never appear), in ``forward`` mode, on an event that is not voided
 (:func:`fedcourtsai.voids.is_voided`). Beside a resolution, a forecast is shown
-only where it falls in the forward stratum
-(:func:`fedcourtsai.integrity.classify_stratum`) — committed before the outcome
-existed.
+only where it falls in the forward stratum as the scored boards draw it —
+committed before the outcome existed, on an outcome that is not
+mootness-basis, with no breach of its own forward claim — and the same rule
+keeps a cell stamped on or after its outcome out of the new-forecasts list.
 
 The update **computes no score**. It states a forecast and an outcome side by
 side and links the committed cell; any accuracy figure belongs to a committed
@@ -33,18 +34,25 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Final
 
-from .integrity import FORWARD, cell_clock, classify_stratum
+from .analytics import DEFAULT_REPO_TREE_URL
+from .integrity import FORWARD, cell_clock, classify_stratum, forward_claim_breach
 from .paths import CasePaths
-from .pipeline.moments import spec_for
 from .schemas import Disposition, Judgment, Moment, Outcome, PredictableEvent, Stage
 from .serialize import read_model
 from .short_caption import short_caption
-from .store import LedgerPrediction, iter_predictions, ledger_counts, normalized_stage
+from .store import (
+    LedgerPrediction,
+    iter_predictions,
+    latest_resolvable,
+    ledger_counts,
+    normalized_moment,
+    normalized_stage,
+)
 from .supremecourt import reserved_docket_number
 from .voids import is_voided
 
 #: The public repository tree every link in the update points into.
-REPO_TREE_URL: Final = "https://github.com/ModelMirrorAI/fedcourtsai/tree/main"
+REPO_TREE_URL: Final = DEFAULT_REPO_TREE_URL
 
 #: The repository-relative directory the ledger lives under, whatever local
 #: ``data_root`` a render reads from — so a link never carries a local path.
@@ -207,7 +215,7 @@ def build_public_update(data_root: Path, week: str) -> PublicUpdate:
         and not is_voided(row.case_id, row.event_id)
     ]
     by_event: dict[tuple[str, str], list[LedgerPrediction]] = {}
-    for row in kept:
+    for row in _one_per_predictor(kept):
         by_event.setdefault((row.case_id, row.event_id), []).append(row)
 
     resolved: list[EventItem] = []
@@ -220,11 +228,7 @@ def build_public_update(data_root: Path, week: str) -> PublicUpdate:
             read_model(event_paths.outcome, Outcome) if event_paths.outcome.is_file() else None
         )
         if outcome is not None and start <= outcome.resolved_at <= end:
-            before = [
-                row
-                for row in event_rows
-                if classify_stratum(cell_clock(row.prediction), outcome.resolved_at) == FORWARD
-            ]
+            before = [row for row in event_rows if _in_advance(row, outcome)]
             if before:
                 resolved.append(_item(first, event, before, outcome=outcome))
         # A cell stamped on or after its outcome is retrospective whatever its
@@ -233,10 +237,7 @@ def build_public_update(data_root: Path, week: str) -> PublicUpdate:
             row
             for row in event_rows
             if start <= cell_clock(row.prediction).date() <= end
-            and (
-                outcome is None
-                or classify_stratum(cell_clock(row.prediction), outcome.resolved_at) == FORWARD
-            )
+            and (outcome is None or _in_advance(row, outcome))
         ]
         if fresh:
             new.append(_item(first, event, fresh, outcome=None))
@@ -248,6 +249,40 @@ def build_public_update(data_root: Path, week: str) -> PublicUpdate:
         resolved=tuple(sorted(resolved, key=_order)),
         new=tuple(sorted(new, key=_order)),
     )
+
+
+def _one_per_predictor(rows: Sequence[LedgerPrediction]) -> list[LedgerPrediction]:
+    """Each predictor's one counted cell per event, in path order.
+
+    Within a counting window every run is a candidate, so a predictor that
+    re-ran inside its window holds several counted cells; the one shown is the
+    one the scored boards pick (:func:`fedcourtsai.store.latest_resolvable`).
+    """
+    groups: dict[tuple[str, str, str], list[LedgerPrediction]] = {}
+    for row in rows:
+        groups.setdefault((row.case_id, row.event_id, row.predictor_id), []).append(row)
+    chosen: list[LedgerPrediction] = []
+    for group in groups.values():
+        picked = latest_resolvable([row.prediction for row in group])
+        chosen.append(next(row for row in group if row.prediction is picked))
+    return chosen
+
+
+def _in_advance(row: LedgerPrediction, outcome: Outcome) -> bool:
+    """Whether a cell is a forecast made in advance of this outcome.
+
+    The forward stratum as the scored boards draw it: never a mootness-basis
+    outcome, which routes procedural whatever the timing; never a cell whose own
+    record contradicts its forward claim
+    (:func:`fedcourtsai.integrity.forward_claim_breach`); otherwise the timing
+    rule, under which a cell stamped on or after the outcome's day is
+    retrospective.
+    """
+    if outcome.disposition_basis == "mootness":
+        return False
+    if forward_claim_breach(row.prediction, outcome) is not None:
+        return False
+    return classify_stratum(cell_clock(row.prediction), outcome.resolved_at) == FORWARD
 
 
 def _order(item: EventItem) -> tuple[str, str, str]:
@@ -262,8 +297,7 @@ def _item(
     outcome: Outcome | None,
 ) -> EventItem:
     stage = normalized_stage(event.kind, event.stage)
-    spec = spec_for(event.event_id)
-    declared = event.moment if event.moment is not None else (spec.moment if spec else None)
+    declared = normalized_moment(stage, event.moment)
     moment = Moment(declared) if declared in _MOMENT_VALUES else None
     forecasts = tuple(
         sorted(
@@ -305,13 +339,17 @@ def _repo_cell_path(row: LedgerPrediction) -> Path:
 
 def _usual(stage: Stage | None, outcome: Outcome) -> bool:
     if stage == Stage.merits:
-        return outcome.judgment in {Judgment.affirmed, Judgment.dig, Judgment.equally_divided}
+        return outcome.judgment is None or outcome.judgment in {
+            Judgment.affirmed,
+            Judgment.dig,
+            Judgment.equally_divided,
+        }
     return outcome.actual_disposition == Disposition.denied
 
 
 def _outcome_words(stage: Stage | None, outcome: Outcome) -> str:
-    if stage == Stage.merits and outcome.judgment is not None:
-        return _MERITS_WORDS[outcome.judgment]
+    if stage == Stage.merits:
+        return _MERITS_WORDS[outcome.judgment] if outcome.judgment is not None else "Decided"
     if stage == Stage.interim:
         return _INTERIM_WORDS.get(outcome.actual_disposition, "Resolved another way")
     return _CERT_WORDS[outcome.actual_disposition]

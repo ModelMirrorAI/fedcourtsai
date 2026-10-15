@@ -115,6 +115,7 @@ def _outcome(
     on: date,
     disposition: Disposition,
     event_id: str = PETITION,
+    mootness: bool = False,
 ) -> None:
     write_json(
         CasePaths(data_root, "scotus", docket).event(event_id).outcome,
@@ -124,6 +125,7 @@ def _outcome(
             resolved_at=on,
             actual_disposition=disposition,
             actual_granted=int(disposition is Disposition.granted),
+            disposition_basis="mootness" if mootness else "standard",
         ),
     )
 
@@ -177,12 +179,10 @@ def test_new_forecasts_are_the_counted_forward_cells_whose_clock_is_in_the_week(
     _event(data, 201, "Epsilon v. Zeta")
     _forecast(data, 201, at=base, probability=0.2)
     week = _week_of(base.date())
-    start, end = week_bounds(week)
 
     update = build_public_update(data, week)
     assert [item.case_id for item in update.new] == ["scotus/201"]
     assert update.new[0].outcome is None
-    assert start <= base.date() <= end
 
     later = build_public_update(data, _week_of(base.date() + timedelta(days=7)))
     assert later.empty
@@ -285,3 +285,54 @@ def test_percentages_never_round_to_certainty(tmp_path: Path) -> None:
     assert "codex-baseline >99%" in text
     assert " 0%" not in text
     assert "100%" not in text
+
+
+def test_a_predictor_that_re_ran_in_its_window_shows_once_with_its_latest_cell(
+    tmp_path: Path,
+) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    _event(data, 901, "Rho v. Sigma")
+    _forecast(data, 901, at=base, probability=0.4)
+    _forecast(data, 901, at=base + timedelta(minutes=30), probability=0.55)
+
+    (item,) = build_public_update(data, _week_of(base.date())).new
+    assert [(f.predictor_id, f.probability) for f in item.forecasts] == [("claude-baseline", 0.55)]
+
+
+def test_a_mootness_outcome_is_not_shown_as_forecast_in_advance(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    resolved_on = (base + timedelta(days=3)).date()
+    _event(data, 1001, "Tau v. Upsilon")
+    _forecast(data, 1001, at=base, probability=0.3)
+    _outcome(data, 1001, on=resolved_on, disposition=Disposition.gvr, mootness=True)
+    assert build_public_update(data, _week_of(resolved_on)).resolved == ()
+
+
+def test_a_merits_outcome_without_a_judgment_reads_neutrally(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    resolved_on = (base + timedelta(days=3)).date()
+    event_id = "evt-brief-judgment"
+    _event(data, 1101, "Phi v. Chi", event_id, kind=EventKind.brief, stage=Stage.merits)
+    _forecast(data, 1101, at=base, probability=0.6, event_id=event_id)
+    _outcome(data, 1101, on=resolved_on, disposition=Disposition.other, event_id=event_id)
+
+    (item,) = build_public_update(data, _week_of(resolved_on)).resolved
+    assert item.outcome == "Decided"
+    assert item.usual
+
+
+def test_a_corrupt_ledger_file_is_not_reported_as_a_bad_week(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    _event(data, 1201, "Psi v. Omega")
+    _forecast(data, 1201, at=base, probability=0.5)
+    CasePaths(data, "scotus", 1201).event(PETITION).event_file.write_text("kind: [unclosed\n")
+    result = runner.invoke(
+        app,
+        ["public-update", "--week", _week_of(base.date())],
+        env={"FEDCOURTS_DATA_ROOT": str(data)},
+    )
+    assert result.exit_code not in (0, 2, 3)

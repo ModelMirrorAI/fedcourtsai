@@ -356,6 +356,7 @@ from .public_update import (
     build_public_update,
     last_complete_week,
     render_public_update,
+    week_bounds,
 )
 from .registry import (
     enabled_evaluators,
@@ -9914,10 +9915,11 @@ def public_update_cmd(
     settings = get_settings()
     chosen = week or last_complete_week(datetime.now(UTC))
     try:
-        update = build_public_update(settings.data_root, chosen)
+        week_bounds(chosen)
     except ValueError as exc:
         typer.echo(f"public-update: {exc}", err=True)
         raise typer.Exit(code=2) from exc
+    update = build_public_update(settings.data_root, chosen)
     if update.empty:
         typer.echo(f"public-update: nothing to send for {chosen}.", err=True)
         raise typer.Exit(code=3)
