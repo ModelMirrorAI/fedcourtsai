@@ -39,14 +39,16 @@ on:
 permissions: {}
 
 jobs:
-  # The run gate (src/fedcourtsai/authz.py): a dispatch, or a re-run of any
-  # run, proceeds only for a login config/dispatchers.yaml names. No
-  # environment, no secret, a read-only token. Every other job needs this one
-  # and checks the attempt it judged, because re-running some jobs does not
-  # re-run this one (SECURITY.md -> Trigger surface).
+  # The run gate (src/fedcourtsai/run_gate.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.json names. No
+  # environment, no secret, a read-only token, and no project code: a sparse
+  # checkout of the gate and its allow-list alone, run by path with the
+  # runner's Python in isolated mode. Every other job needs this one and checks
+  # the attempt it judged, because re-running some jobs does not re-run this
+  # one; `run-gate` below fails the run when that check refused.
   authorize:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 5
     permissions:
       contents: read
     outputs:
@@ -56,9 +58,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-python-env
-        with:
-          restore-cache: "false"
+          sparse-checkout: |
+            src/fedcourtsai/run_gate.py
+            config/dispatchers.json
+          sparse-checkout-cone-mode: false
       - name: Authorize who started this run
         id: decide
         env:
@@ -67,7 +70,7 @@ jobs:
           TRIGGERING_ACTOR: ${{ github.triggering_actor }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
         run: >-
-          uv run fedcourts authorize-run --workflow promotion-record.yml
+          python3 -I src/fedcourtsai/run_gate.py --workflow promotion-record.yml
           --event-name "$EVENT_NAME" --actor "$ACTOR"
           --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
           --github-output "$GITHUB_OUTPUT"
@@ -472,3 +475,27 @@ jobs:
           git fetch --quiet --force "https://github.com/${GITHUB_REPOSITORY}.git" \
             "+refs/heads/main:refs/remotes/origin/main"
           uv run --locked fedcourts promotion-record --check-main origin/main
+
+  # The run gate's verdict on the run as a whole. A refused partial re-run
+  # skips every job it re-runs, which alone would leave the earlier attempt's
+  # successes standing and the run concluding `success`. This job needs every
+  # other job, so any re-run re-runs it, and it fails the run when the gate did
+  # not pass or this attempt is neither the one the gate judged nor a re-run by
+  # a login the gate published. No checkout, no token, no environment.
+  run-gate:
+    needs: [authorize, classify, write, report]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail a run the gate refused
+        if: >-
+          ${{ needs.authorize.result != 'success'
+          || (needs.authorize.outputs.attempt != github.run_attempt
+          && !contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+        env:
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          echo "::error::The run gate refused this run or re-run (started by ${TRIGGERING_ACTOR}): see the authorize job's log, or config/dispatchers.json for who may re-run."
+          exit 1

@@ -1,0 +1,6 @@
+{
+  "humans": ["modelmirror"],
+  "bots": {
+    "run-predict.yml": ["fedcourtsai-dispatch[bot]"]
+  }
+}

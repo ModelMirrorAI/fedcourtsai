@@ -15,7 +15,7 @@ The trigger surface is therefore the trust boundary†, and the platform holds i
 a `schedule` fires only from the **default branch**, so a cron can run only what
 a maintainer-merged promotion put on `main`; a `workflow_dispatch` is refused by
 GitHub to anyone without repository write, and by the run gate to any write
-holder `config/dispatchers.yaml` does not name; and every privileged job binds a
+holder `config/dispatchers.json` does not name; and every privileged job binds a
 deployment environment whose branch policy pins the ref it may run from (`prod`
 to `main`, `staging` to `staging`) — a job naming one as a literal is refused at
 the deployment gate from any other ref before a step runs, and the three
@@ -58,18 +58,25 @@ it; one that genuinely needs an outside-reachable trigger fails that sweep and
 has to bring a fail-closed sender check (`fedcourts authorize-trigger`) with
 it. The **starter** is the other, because repository write is wider than the
 people who should start spend — the agent account interactive sessions act as
-holds it. Every dispatchable workflow that binds an environment (every row
-above but `promote` and `run-ops`, which bind none and hold only their own
-token) opens with an `authorize` job running `fedcourts authorize-run`: a
-dispatch proceeds only for a human `config/dispatchers.yaml` names, or for the
-pipeline bot it allows for that workflow (the dispatch App, for `run-predict`
-alone); a re-run of any run, scheduled ones included, only for such a human.
-Every other job needs that job and ends its condition with the same guard, which
-also re-checks a re-run of *some* jobs — that keeps the authorize job's earlier
-success instead of re-running it — against the attempt it judged and the
-re-runner list it published. A refused run fails at its first job and starts
-nothing else; a partial re-run by an unlisted login skips every job it
-re-runs. The reasoning, and what the environment restriction buys beneath both,
+holds it. Every workflow that binds an environment (every row above but
+`promote` and `run-ops`, which bind none and name no secret) opens with an
+`authorize` job that runs the self-contained, code-owned
+`src/fedcourtsai/run_gate.py` by path from a sparse checkout of itself and its
+allow-list: a dispatch proceeds only for a human `config/dispatchers.json`
+names, or for the pipeline bot it allows for that workflow (the dispatch App,
+for `run-predict` alone); a re-run of any run, scheduled ones included, only
+for such a human; a first attempt only for a dispatch, `schedule`, `push` or
+`pull_request`. Every other job needs that job and ends its condition with the
+same guard, which also re-checks a re-run of *some* jobs — that keeps the
+authorize job's earlier success instead of re-running it — against the attempt
+it judged and the re-runner list it published, and a closing `run-gate` job
+that needs every job fails the run when the guard refused. A refused run fails
+at its first job and starts nothing else; a partial re-run by an unlisted login
+skips every job it re-runs and fails at `run-gate`, so it never reads as a
+green run. A refused run still holds its workflow-level concurrency group
+while it fails, and can displace a pending run queued on the same group
+(*The run gate and its allow-list* in [security.md](security.md) carries
+the residuals). re-runs. The reasoning, and what the environment restriction buys beneath both,
 is the *Trigger surface* bullet in [SECURITY.md](../SECURITY.md).
 
 ## `run-ops` — the daily operational roll-up
@@ -1295,16 +1302,19 @@ job and `PINNED_RUNNER` in `tests/test_workflow_cell_invariants.py` together, an
 `integration-test` run on `staging` on the new image, and a freeze-record note.
 `test_every_workflow_job_runs_on_the_pinned_runner_image` pins it repo-wide.
 
-**A new job on a dispatchable workflow that binds an environment waits on the
-run gate.** It lists `authorize` in its own `needs` and ends its `if:` with the
-gate's guard — `needs.authorize.result == 'success'` and the attempt check —
-as a top-level conjunct, parenthesizing its own condition where that disjoins.
-The direct need and the conjunct are both required, not just an ancestry: a
-condition holding `always()`, `!cancelled()` or `failure()` runs past a refused
-gate, and a re-run of that job alone does not re-run the gate. A workflow that
-gains its first environment, or its first `workflow_dispatch` beside one,
-gains the `authorize` job. `tests/workflow_gate.py` holds the guard's exact
-text, and `tests/test_workflow_auth_gate.py` refuses a job without it.
+**A new job on a workflow that binds an environment waits on the run gate.**
+It lists `authorize` in its own `needs` and ends its `if:` with the gate's
+guard — `needs.authorize.result == 'success'` and the attempt check — as a
+top-level conjunct, parenthesizing its own condition where that disjoins, and
+the closing `run-gate` job gains it in its `needs`. The direct need and the
+conjunct are both required, not just an ancestry: a condition holding
+`always()`, `!cancelled()` or `failure()` runs past a refused gate, and a
+re-run of that job alone does not re-run the gate. A job-level concurrency
+group that chooses between a shared group and a per-run skip group puts the
+guard in that choice, since a group is taken before `if:` is read. A workflow
+that gains its first environment gains both gate jobs. `tests/workflow_gate.py`
+holds the guard's exact text, and `tests/test_workflow_auth_gate.py` refuses a
+job without it.
 
 **A `workflow_dispatch` may declare at most 10 inputs, and the "Run workflow"
 form is where the limit bites** — inputs past it are reachable by API but the

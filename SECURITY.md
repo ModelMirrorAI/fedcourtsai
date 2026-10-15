@@ -338,20 +338,35 @@ runbook, [docs/security.md](docs/security.md).
   first credential instead. Repository write is wider than the people who
   should start a run, though — the agent account interactive sessions act as
   holds it — and GitHub lets every write holder dispatch and re-run. So every
-  dispatchable workflow that binds an environment opens with the **run gate**,
-  an `authorize` job (`fedcourts authorize-run`) with no environment, no secret
-  and a read-only token that every other job of the run needs: a dispatch
-  proceeds only when its dispatcher is a human `config/dispatchers.yaml` names
-  or a pipeline bot it allows for that workflow, and a re-run of any run only
-  when its re-runner is such a human. The agent account is deliberately absent
-  from that file, and an unreadable file refuses everything. Re-running some
-  of a run's jobs keeps the gate's earlier success rather than re-running it,
-  so every job's condition also requires the attempt the gate judged, or a
-  re-runner on the list it published (`tests/test_workflow_auth_gate.py` pins
-  both on every job). The gate holds only on refs whose workflow carries it,
-  which is why the environment's branch policy stays the ref gate beneath it:
-  a dispatch from a branch whose workflow drops the gate still reaches no
-  role, no secret and no agent. Two jobs dispatch a lane
+  workflow that binds an environment, whatever its triggers, opens with the
+  **run gate**, an `authorize` job with no environment, no secret and a
+  read-only token that every other job of the run needs: a dispatch proceeds
+  only when its dispatcher is a human `config/dispatchers.json` names or a
+  pipeline bot it allows for that workflow; a re-run of any run only when its
+  re-runner is such a human; a first attempt only for a dispatch or a
+  `schedule`, `push` or `pull_request`, every other event refusing. The agent
+  account is deliberately absent from that file, and an unreadable file
+  refuses everything. **The gate's code is self-contained and owned**: the
+  job sparse-checks-out `src/fedcourtsai/run_gate.py`, which imports only the
+  standard library, and the allow-list, and runs the module by path with the
+  runner's Python in isolated mode, so no change to the package, its
+  dependencies or its lockfile — none of them code-owned — can loosen it on
+  `staging` without the maintainer. Re-running some of a run's jobs keeps the
+  gate's earlier success rather than re-running it, so every job's condition
+  also requires the attempt the gate judged, or a re-runner on the list it
+  published, and a closing `run-gate` job, which needs every job and so
+  re-runs with any of them, **fails** a refused re-run rather than letting the
+  earlier attempt's successes stand as a green run
+  (`tests/test_workflow_auth_gate.py` pins all three). The gate holds only on
+  refs whose workflow carries it, which is why the environment's branch policy
+  stays the ref gate beneath it: a dispatch from a branch whose workflow drops
+  the gate still reaches no role, no secret and no agent. What it does not
+  cover: a refused run still occupies its workflow-level concurrency group
+  while it fails (run-repair's corpus jobs pick their skip group instead) and
+  stays in the run history; `promote` and `run-ops` stay ungated because they
+  bind no environment and name no secret; and repository-level secrets, which
+  a job reaches without an environment, are assumed absent (`docs/security.md`
+  keeps every secret on an environment). Two jobs dispatch a lane
   themselves — `run-pull`'s `chain-predict` and `run-predict`'s `chain`, each
   starting an input-less `run-predict` on `main` with the **dispatch App**,
   whose token holds Actions write (and PR read) and nothing else and whose key

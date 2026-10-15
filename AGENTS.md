@@ -120,9 +120,10 @@ non-interactive** container. Two consequences shape everything you do:
   push to `main`), `config/predictors.yaml` /
   `config/evaluators.yaml` (what agents are and what they may reach), and the
   authority to spend without a human release: `config/review-hold.yaml` (the
-  auto-release caps), `config/dispatchers.yaml` (who may dispatch or re-run a
-  gated workflow at all — the agent account is never on it),
-  `src/fedcourtsai/planning_rates.py` (the rates a round is priced at),
+  auto-release caps), `config/dispatchers.json` with the run gate that reads it,
+  `src/fedcourtsai/run_gate.py`, and its test `tests/test_run_gate.py` (who may
+  dispatch or re-run a gated workflow at all — the agent account is never on
+  it), `src/fedcourtsai/planning_rates.py` (the rates a round is priced at),
   `src/fedcourtsai/review_hold.py` and `src/fedcourtsai/dispatch_chain.py`
   (the decisions), and their tests
   (`tests/test_review_hold.py`, `tests/test_dispatch_chain.py`,
@@ -402,9 +403,9 @@ same PR.
   (`gh run rerun`, with or without `--job`, which answers *Resource not
   accessible by integration*), all refused by the session proxy your GitHub
   connection runs through. The repository refuses the starts on its own as
-  well: every dispatchable workflow that binds an environment opens with the
-  run gate (`fedcourts authorize-run`), which fails a dispatch or a re-run by
-  any login `config/dispatchers.yaml` does not name — the agent account among
+  well: every workflow that binds an environment opens with the run gate
+  (`src/fedcourtsai/run_gate.py`), which fails a dispatch or a re-run by any
+  login `config/dispatchers.json` does not name — the agent account among
   them — before any other job starts. Merging is **not** on that list: what
   limits it into `staging` is the merge rule above, and into `main` the
   approval ruleset as well, not the credential.

@@ -82,12 +82,7 @@ from .attribution_migration import (
     remove_unmintable_baseline_events,
     reopen_misattributed_outcomes,
 )
-from .authz import (
-    DispatchersConfigError,
-    authorize_trigger,
-    decide_run_authorization,
-    load_dispatchers_config,
-)
+from .authz import authorize_trigger
 from .backtest import (
     Backtester,
     ReplayClock,
@@ -18272,7 +18267,7 @@ def authorize_trigger_cmd(
     ``--bot-actor``); any other actor needs write-or-higher collaborator access
     (looked up via ``gh api``). No workflow calls this, because none carries a
     trigger an outside actor can fire (see ``fedcourtsai.authz``); who may start
-    a dispatch or a re-run is ``authorize-run``'s question. It is what a
+    a dispatch or a re-run is the run gate's (``fedcourtsai.run_gate``). It is what a
     workflow that gained such a trigger would run *before* it mints a token,
     assumes the S3 role, or runs an agent. Prints the authorization line and
     exits 0 when allowed; prints the refusal to stderr and exits 1 otherwise.
@@ -18283,62 +18278,6 @@ def authorize_trigger_cmd(
         typer.echo(f"::error::{decision.message}", err=True)
         raise typer.Exit(code=1)
     typer.echo(decision.message)
-
-
-@app.command("authorize-run")
-def authorize_run_cmd(
-    workflow: Annotated[
-        str, typer.Option(help="The workflow's file name under .github/workflows/.")
-    ],
-    event_name: Annotated[str, typer.Option(help="github.event_name.")],
-    actor: Annotated[str, typer.Option(help="github.actor: who started the run's first attempt.")],
-    triggering_actor: Annotated[
-        str, typer.Option(help="github.triggering_actor: who started this attempt.")
-    ],
-    run_attempt: Annotated[str, typer.Option(help="github.run_attempt.")],
-    config_root: Annotated[Path, typer.Option(help="Directory holding dispatchers.yaml.")] = Path(
-        "config"
-    ),
-    github_output: Annotated[
-        Path | None,
-        typer.Option(
-            help="On authorization, append `attempt` and `rerunners` here "
-            + "($GITHUB_OUTPUT) for the other jobs' re-run guard."
-        ),
-    ] = None,
-) -> None:
-    """Gate a run on who started it, or refuse and exit non-zero (fail closed).
-
-    The first job of every dispatchable workflow that binds a deployment
-    environment: a dispatch needs a listed human or a bot the allow-list
-    (``config/dispatchers.yaml``) names for that workflow, and a re-run needs a
-    listed human (see ``fedcourtsai.authz``). No token and no network — the
-    inputs are the run's own GitHub context. A missing or malformed allow-list
-    refuses. Prints the authorization line and exits 0 when allowed, writing
-    the judged attempt and the re-runner list to ``--github-output``; prints
-    the refusal as an ``::error::`` annotation and exits 1 otherwise.
-    """
-    try:
-        config = load_dispatchers_config(config_root)
-    except DispatchersConfigError as exc:
-        typer.echo(f"::error::{exc}; refusing to run.", err=True)
-        raise typer.Exit(code=1) from exc
-    decision = decide_run_authorization(
-        event_name=event_name,
-        actor=actor,
-        triggering_actor=triggering_actor,
-        run_attempt=run_attempt,
-        workflow_file=workflow,
-        config=config,
-    )
-    if not decision.authorized:
-        typer.echo(f"::error::{decision.message}", err=True)
-        raise typer.Exit(code=1)
-    typer.echo(decision.message)
-    if github_output is not None:
-        with github_output.open("a", encoding="utf-8") as out:
-            out.write(f"attempt={run_attempt.strip()}\n")
-            out.write(f"rerunners={config.rerunner_list()}\n")
 
 
 @app.command("finalize-produced")

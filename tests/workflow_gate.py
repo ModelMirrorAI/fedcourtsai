@@ -1,12 +1,13 @@
 """The run gate's shape in a workflow, shared by the tests that read job conditions.
 
-Every dispatchable workflow that binds a deployment environment opens with an
-``authorize`` job (``fedcourts authorize-run``), and every other job of it both
-needs that job and ends its ``if:`` with :data:`RUN_GATE_GUARD`.
-``test_workflow_auth_gate.py`` pins that shape; the helpers here let a test
-about a job's *own* routing — its pass, its mode, its hold — read the condition
-and the needs list the job would carry without the gate, so the gate's conjunct
-does not have to be restated in every such test.
+Every workflow that binds a deployment environment opens with an ``authorize``
+job (``src/fedcourtsai/run_gate.py``) and closes with a ``run-gate`` job that
+fails a refused re-run; every job between them needs ``authorize`` and ends its
+``if:`` with :data:`RUN_GATE_GUARD`. ``test_workflow_auth_gate.py`` pins that
+shape; the helpers here let a test about a job's *own* routing — its pass, its
+mode, its hold — read the condition and the needs list the job would carry
+without the gate, so the gate's conjunct does not have to be restated in every
+such test.
 """
 
 from __future__ import annotations
@@ -15,6 +16,18 @@ from typing import Any
 
 #: The gate's job id.
 AUTHORIZE_JOB = "authorize"
+
+#: The closing job that fails a run the gate refused.
+SENTINEL_JOB = "run-gate"
+
+#: The sentinel step's condition, whitespace-normalized: the gate did not pass,
+#: or this attempt is not the one it judged and its re-runner is not listed.
+SENTINEL_CONDITION = (
+    "${{ needs.authorize.result != 'success'"
+    + " || (needs.authorize.outputs.attempt != github.run_attempt"
+    + " && !contains(needs.authorize.outputs.rerunners,"
+    + " format(',{0},', github.triggering_actor))) }}"
+)
 
 #: The conjunct every gated job's condition ends with, whitespace-normalized:
 #: the authorize job passed, and either this is the attempt it judged or the
@@ -77,6 +90,29 @@ def own_needs(job: dict[str, Any]) -> list[str]:
 
 
 def gated_jobs(workflow: dict[Any, Any]) -> dict[str, dict[str, Any]]:
-    """The workflow's jobs other than the authorize job."""
+    """The workflow's jobs other than the gate's own two."""
     jobs = workflow.get("jobs") or {}
-    return {name: job for name, job in jobs.items() if name != AUTHORIZE_JOB}
+    return {name: job for name, job in jobs.items() if name not in (AUTHORIZE_JOB, SENTINEL_JOB)}
+
+
+def top_level_disjunction(expr: str) -> bool:
+    """Whether ``expr`` holds an ``||`` outside every parenthesis and quoted string.
+
+    Such an expression conjoined with the guard as ``expr && guard`` would bind
+    as ``a || (b && guard)``, so its ``a`` would run without the gate.
+    """
+    depth = 0
+    quoted = False
+    index = 0
+    while index < len(expr):
+        char = expr[index]
+        if char == "'":
+            quoted = not quoted
+        elif not quoted and char == "(":
+            depth += 1
+        elif not quoted and char == ")":
+            depth -= 1
+        elif not quoted and depth == 0 and expr.startswith("||", index):
+            return True
+        index += 1
+    return False

@@ -39,11 +39,14 @@ everything outside `.github/workflows`.)
   permission check is not an accepted form, and `tests/test_workflow_auth_gate.py`
   refuses any outside-reachable trigger outright), and
   the denial path must be the default. Who among write holders may start a run
-  is the run gate's (`authorize-run`, reading `config/dispatchers.yaml`): flag
-  any diff that adds the agent account or a non-`[bot]` login to that file's
-  `bots`, widens a bot to another workflow without a chain job that needs it,
-  gives the `authorize` job an environment, a secret or a write grant, or
-  leaves a job of a gated workflow outside the gate's guard. New trigger
+  is the run gate's (`src/fedcourtsai/run_gate.py`, reading
+  `config/dispatchers.json`): flag any diff that adds the agent account or a
+  non-`[bot]` login to that file's `bots`, widens a bot to another workflow
+  without a chain job that needs it, admits another first-attempt event, makes
+  the module import anything outside the standard library or the `authorize`
+  job run project code, gives that job an environment, a secret or a write
+  grant, or leaves a job of a gated workflow outside the gate's guard or
+  `run-gate`'s needs. New trigger
   surfaces (labels, dispatch inputs, schedules) get the same scrutiny.
 - **Token blast radius.** Which credential can each piece of untrusted input
   (docket text, PDFs, retrieved web content, agent output) reach? Agents get
