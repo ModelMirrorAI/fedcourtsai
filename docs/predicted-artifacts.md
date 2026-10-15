@@ -490,7 +490,12 @@ Part of what a prediction consists of is not the agent's word, and reading the
 directory without knowing which part is which invites trusting the wrong half.
 
 - **`usage.json`** — measured token counts and the estimated cost for the cell,
-  written by a post-run harness step from the engine log.
+  written by a post-run harness step from the engine log. On a forward predict
+  cell it also carries `pre_mint_poll`: when provisioning polled the docket
+  just before minting the cell, and whether its event was still `open`
+  (`unavailable` when the poll could not answer). A disposition's date has no
+  time of day, so this is the record that the cell began against an open docket
+  on its event's decision day.
 - **`retrieval_log.json`** — the tool-call transcript, captured harness-side
   from the engine's own log: tool names, query slices, and document dates where
   legible. It is the cross-evaluator's leakage evidence precisely because the

@@ -2057,6 +2057,20 @@ class Evaluation(_Strict):
     )
 
 
+class PreMintPollRecord(_Strict):
+    """The pre-mint docket poll's result, as a forward cell's usage record carries it."""
+
+    polled_at: datetime = Field(description="When the docket was fetched, in UTC")
+    state: Literal["open", "decided", "unavailable"] = Field(
+        description="open: the event's outcome was not on the docket; decided: it was, "
+        "and the cell was refused; unavailable: the poll established nothing"
+    )
+    reason: str | None = Field(
+        default=None,
+        description="Why the poll read decided or unavailable; null when open",
+    )
+
+
 class ModelUsage(_Strict):
     """``usage.json`` — measured model token usage and estimated cost for one run.
 
@@ -2105,6 +2119,17 @@ class ModelUsage(_Strict):
         "as read; this says the cell's engine is in doubt, and a reading cutting by "
         "engine version treats such a cell as unknown. Null when every read agrees, "
         "and on records written before the field existed.",
+    )
+    pre_mint_poll: PreMintPollRecord | None = Field(
+        default=None,
+        description="What the docket showed when the harness polled it just before a "
+        "forward predict cell's record was written: the poll's UTC time and whether "
+        "the event was still open. A forward cell is refused when the poll finds the "
+        "outcome, so an `open` poll is the cell's own evidence that it began against "
+        "an undecided docket — the ordering a date-only disposition cannot establish "
+        "after the fact. `unavailable` says the poll established nothing and the cell "
+        "ran on the stored-snapshot gates alone. Null on evaluate cells, on cells "
+        "minted before the poll existed, and wherever no poll ran.",
     )
     input_tokens: int = Field(ge=0, description="Fresh (uncached) input tokens")
     output_tokens: int = Field(ge=0)

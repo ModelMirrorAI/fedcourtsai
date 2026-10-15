@@ -2240,8 +2240,22 @@ A predict cell refuses to run for three reasons, all landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP
 sidecar, the comment-token mint, and every engine step). One is the
 **provisioning gate**: `provision-snapshot --refuse-terminal` exits 3 when the
-record or the snapshot shows the event is not open, or when the snapshot is
-older than the forward staleness bound. A second is the **arrival anchor**: an
+record or the snapshot shows the event is not open, when the snapshot is
+older than the forward staleness bound, or when the **pre-mint poll** finds the
+outcome. The stored snapshot can be days behind the docket, and a disposition's
+date has no time of day, so a cell minted from a snapshot that predates the
+day's order could run after the order is public with nothing to say which came
+first. Just before writing the record, `run-predict` passes `--pre-mint-poll`:
+provisioning fetches the docket's current JSON from the Court and runs the same
+outcome scan on it. A disposed event refuses the cell. An open one records the
+poll's UTC time, and that time reaches the cell's `usage.json` as
+`pre_mint_poll` through a step output fixed before any agent runs, so the cell's
+own record shows it began against an open docket. A poll that cannot answer (no
+docket served, a fetch error) records `unavailable` and the cell proceeds on the
+stored-snapshot gates. A disposition landing after the poll on the same day is
+not prevented; the poll time and the cell's retrieval log are what order it.
+The fresh payload is evidence for the gate only; the cell still reads the stored
+snapshot. A second is the **arrival anchor**: an
 interim arrival cell whose opening entry cannot be located in its snapshot exits
 4, since the moment's information set cannot be identified and cutting at the
 date instead would restore the conditioning that bound replaces. The third is an

@@ -8542,3 +8542,63 @@ freeze commit is recorded here.
   '.engine + " " + (.engine_version // "none")'` over that round's
   `usage.json` files; and a claude cell's job log shows the action using the
   supplied executable rather than installing its own.
+
+- **A forward predict cell is refused when a pre-mint poll finds its event
+  already decided, and each cell records that poll, 2026-10-15.** A
+  **provisioning** change that alters which forward cells mint. It moves no
+  digest, no constant, no window and no membership: `uv run fedcourts
+  process-digest --all` prints the same `proc-v9` digests, and what a minted
+  cell reads is unchanged.
+
+  **The defect it closes.** A forward cell is provisioned from the corpus's
+  latest stored snapshot, which can be days behind the docket, and a
+  disposition's `resolved_at` is a date with no time of day. A cell minted
+  from a snapshot that predates the day's order could therefore run after the
+  order was public, and nothing in the record could say which came first. In
+  the committed ledger, 21 forward interim predictions were created on or after
+  their outcome's `resolved_at` date (18 on the same day: 9526000428,
+  9526000434, 9526000437, 9526000447; 3 after: 9526000256). On 2026-10-14 the
+  forward cells for `scotus/9526000477` (26A477) were written between 15:57Z
+  and 18:22Z, the day the order denying the application as moot issued, from a
+  2026-10-08 snapshot. In evaluate run `20261015T154823Z` both judges could only
+  flag the ordering as unresolvable.
+
+  **The rule.** From this entry's carrying merge, `run-predict` provisions every
+  forward cell with `provision-snapshot --pre-mint-poll`. Just before the
+  record is written, the harness fetches the docket's current JSON from the
+  Court and runs the same outcome scan the forward gate runs on the stored
+  snapshot (`pipeline.outcome.forward_leakage`). A decided event refuses the
+  cell (exit 3), and nothing is minted. An open one records the poll's UTC time
+  in the cell's `usage.json` as `pre_mint_poll`. A poll that cannot answer (no
+  docket served, a number with no live spelling, a fetch error) records
+  `unavailable`, and the cell proceeds on the stored-snapshot gates, as every
+  cell did before this entry. The poll applies to every forward cell, cert and
+  interim alike: an order list issues a day's cert dispositions at once, which
+  is the same exposure.
+
+  **What it does not do.** It does not prevent a disposition that lands after
+  the poll on the same day; for such a cell the recorded poll time and its
+  retrieval log are what order the two. It does not change what a cell reads:
+  the fresh payload is evidence for the gate only, never staged, and the cell
+  still reads the stored snapshot. It de-counts nothing already committed. The
+  earlier same-day cells above stay as they are, flagged by the judges where
+  they were graded; whether a reading should set them aside is a separate
+  counting decision this entry does not make.
+
+  **The record.** `pre_mint_poll` sits on the harness-written `usage.json`, so
+  it is never the agent's word. It reaches the usage step as a step output,
+  fixed before any agent runs, so an agent cannot rewrite it. Cells written
+  before the carrying merge carry no `pre_mint_poll`, and their ordering on a
+  decision day stays unresolvable. A reading that asks whether a forward cell
+  began against an open docket treats `open` as established, and `unavailable`
+  or an absent field as unknown.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live: the first predict round after the
+  carrying merge writes forward-cell `usage.json` files with a `pre_mint_poll`,
+  for example `jq -r '.pre_mint_poll.state // "none"'` over that round's
+  `usage.json` files prints `open` (or `unavailable`). A cell whose docket was
+  already decided at mint shows `refusing to provision forward cell … the live
+  docket polled at …` in its job log and no committed output.

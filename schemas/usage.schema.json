@@ -10,6 +10,47 @@
       "title": "Engine",
       "type": "string"
     },
+    "PreMintPollRecord": {
+      "additionalProperties": false,
+      "description": "The pre-mint docket poll's result, as a forward cell's usage record carries it.",
+      "properties": {
+        "polled_at": {
+          "description": "When the docket was fetched, in UTC",
+          "format": "date-time",
+          "title": "Polled At",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why the poll read decided or unavailable; null when open",
+          "title": "Reason"
+        },
+        "state": {
+          "description": "open: the event's outcome was not on the docket; decided: it was, and the cell was refused; unavailable: the poll established nothing",
+          "enum": [
+            "open",
+            "decided",
+            "unavailable"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "polled_at",
+        "state"
+      ],
+      "title": "PreMintPollRecord",
+      "type": "object"
+    },
     "UsageRole": {
       "description": "Which agentic stage a usage record belongs to.",
       "enum": [
@@ -119,6 +160,18 @@
       "default": null,
       "description": "Git commit of the pipeline checkout that ran this cell (GITHUB_SHA in CI, the local HEAD otherwise) \u2014 pins the prompt templates, harness, and registry in force at run time. Null on records written before the field existed or when unresolvable.",
       "title": "Pipeline Sha"
+    },
+    "pre_mint_poll": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PreMintPollRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What the docket showed when the harness polled it just before a forward predict cell's record was written: the poll's UTC time and whether the event was still open. A forward cell is refused when the poll finds the outcome, so an `open` poll is the cell's own evidence that it began against an undecided docket \u2014 the ordering a date-only disposition cannot establish after the fact. `unavailable` says the poll established nothing and the cell ran on the stored-snapshot gates alone. Null on evaluate cells, on cells minted before the poll existed, and wherever no poll ran."
     },
     "role": {
       "$ref": "#/$defs/UsageRole",
