@@ -200,7 +200,9 @@ same guard.
   re-dispatch; where it sets `cancel-in-progress` (integration-test's, and
   run-analytics' two), it can cancel a legitimate run already in progress —
   for integration-test, a promotion-freshness run. Both are availability
-  only. Revoking a re-runner is removing them from `config/dispatchers.json`
+  only. corpus-check's workflow-level group is the gentlest case: a refused
+  dispatch displaces at most a pending poll, and the next poll plans the same
+  request afresh. Revoking a re-runner is removing them from `config/dispatchers.json`
   and from repository write: a re-run executes at its run's original commit,
   so the file alone does not reach runs created before the change. A
   refused run stays in the run history; a census that reads job conclusions by
@@ -734,10 +736,14 @@ whose job runs code its ref did not review: the check a same-repository PR
 declares, at that PR's head ([corpus-check.md](corpus-check.md)). Configure it
 with:
 
-- **required reviewers**: the maintainer — the login
-  `config/corpus-check.yaml` names as `approver`. This is the gate: the
-  approval releases one planned head SHA and command, named on the run's
-  summary page. Leave prevent-self-review off, on the `review` environment's
+- **required reviewers**: the maintainer alone — the login
+  `config/corpus-check.yaml` names as `approver`, and no other user or team,
+  since any other reviewer could release the role on their own approval. This
+  is the gate: the approval releases one planned head SHA and command, named
+  on the run's summary page. The workflow also opens with the run gate (*The
+  run gate and its allow-list* above): the schedule passes it, a dispatch or
+  a re-run proceeds only for a human `config/dispatchers.json` names, and a
+  re-run of the check waits on a fresh approval besides. Leave prevent-self-review off, on the `review` environment's
   reasoning — the run's actor is the schedule or the maintainer's own
   dispatch.
 - **deployment branches**: `main` alone, as a named custom policy. The lane's
@@ -757,7 +763,8 @@ branch policy, so until the environment exists, protected, any write holder
 can push a branch whose own workflow binds it and names the role. The
 promotion gate's `contexts` stage checks the environment unconditionally on
 every promotion (`fedcourtsai.environment_checks`, resolving the approver's
-user id at run time): it exists, its reviewer rule names the approver, its
+user id at run time): it exists, its required reviewers are exactly the
+approver — no other user, no team — its
 branch policy admits exactly `main`, it holds no secret, and its variables are
 among the three above. The lane's plan job reads the environment too, with its
 `actions: read` grant, and plans nothing while the reviewer or the policy is

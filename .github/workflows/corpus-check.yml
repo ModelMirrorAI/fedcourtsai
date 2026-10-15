@@ -78,8 +78,47 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The run gate (src/fedcourtsai/run_gate.py; docs/security.md, *The run gate
+  # and its allow-list*). The half-hourly schedule passes it; a dispatch, or a
+  # re-run of any job, proceeds only for a human config/dispatchers.json
+  # names — never the agent account. A re-run of `run` also waits on a fresh
+  # `corpus-check` approval, so it is gated twice.
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            src/fedcourtsai/run_gate.py
+            config/dispatchers.json
+          sparse-checkout-cone-mode: false
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          python3 -I -S src/fedcourtsai/run_gate.py --workflow corpus-check.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
   plan:
-    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: [authorize]
+    if: >-
+      ${{ github.ref == 'refs/heads/main'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -172,9 +211,13 @@ jobs:
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   run:
-    needs: plan
+    needs: [authorize, plan]
     # A refused request runs nothing: the post job tells the PR why.
-    if: ${{ needs.plan.outputs.found == 'true' && needs.plan.outputs.refusal == '' }}
+    if: >-
+      ${{ needs.plan.outputs.found == 'true' && needs.plan.outputs.refusal == ''
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # Guard < step < job: the install's own timeout (8 min) and the check's
     # (30) sit inside their step's (45), and the pull, the copies, the install
@@ -259,20 +302,95 @@ jobs:
           # Close the runner's home and temp tree to other accounts. The runner
           # owns both, so its own access is unchanged.
           sudo chmod o-rwx "$HOME" "$RUNNER_TEMP"
-          # Prove the separation rather than assume it: each read below must
-          # fail as the check's account.
+          # No persistence past a phase: the account may schedule nothing.
+          echo "$CHECK_USER" | sudo tee -a /etc/cron.deny /etc/at.deny > /dev/null
+          for allow in /etc/cron.allow /etc/at.allow; do
+            if [ -f "$allow" ]; then
+              sudo sed -i "/^${CHECK_USER}\$/d" "$allow"
+            fi
+          done
+          # Less kernel surface: no unprivileged user namespaces. The AppArmor
+          # restriction must take; the older Debian/Ubuntu switch is set where
+          # the kernel has it.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1
+          userns_clone=false
+          if [ -e /proc/sys/kernel/unprivileged_userns_clone ]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=0
+            userns_clone=true
+          fi
+          # No route to the platform's metadata endpoints for the account:
+          # Azure's instance metadata service and its wire server, both
+          # IPv4-only, so there is no IPv6 rule to add.
+          for endpoint in 169.254.169.254 168.63.129.16; do
+            sudo iptables -I OUTPUT 1 -m owner --uid-owner "$CHECK_USER" -d "$endpoint" \
+              -j REJECT --reject-with icmp-port-unreachable
+          done
+          # The runner's install root, from the worker process itself; a layout
+          # this cannot read fails the step rather than leaving a path unproven.
+          worker="$(pgrep -o -f 'Runner.Worker' || true)"
+          if [ -z "$worker" ]; then
+            echo "::error::cannot find the Runner.Worker process to derive the runner's install root"
+            exit 1
+          fi
+          exe="$(readlink -f "/proc/${worker}/exe" || true)"
+          case "$exe" in
+            */bin/Runner.Worker) ;;
+            *) exe="$(tr '\0' '\n' < "/proc/${worker}/cmdline" | grep -m1 'Runner.Worker' || true)" ;;
+          esac
+          runner_root="$(dirname "$(dirname "$exe")")"
+          if [ -z "$exe" ] || [ ! -d "$runner_root" ] || [ "$runner_root" = "/" ]; then
+            echo "::error::cannot derive the runner's install root from the worker (got '${exe}')"
+            exit 1
+          fi
+          echo "runner install root: ${runner_root}"
+          # Prove the separation rather than assume it: each attempt below must
+          # fail as the check's account, and each `require` must succeed.
+          as_check() { sudo -n -u "$CHECK_USER" -H -- "$@"; }
           refuse() {
-            if sudo -n -u "$CHECK_USER" -H -- "$@" > /dev/null 2>&1; then
+            if as_check "$@" > /dev/null 2>&1; then
               echo "::error::the check's account can run: $*"
               exit 1
             fi
           }
+          require() {
+            if ! as_check "$@" > /dev/null 2>&1; then
+              echo "::error::the check's account was not refused by: $*"
+              exit 1
+            fi
+          }
           refuse sudo -n true
+          refuse sudo -n -l
           refuse /usr/bin/cat -- "/proc/$$/environ"
+          refuse /usr/bin/cat -- "/proc/${worker}/environ"
           refuse /usr/bin/ls -- "$RUNNER_TEMP"
           refuse /usr/bin/ls -- "$HOME"
+          refuse /usr/bin/ls -- "$GITHUB_WORKSPACE"
+          refuse /usr/bin/cat -- "${GITHUB_WORKSPACE}/corpus/corpus.db.ref"
+          refuse /usr/bin/ls -- "$runner_root"
+          refuse /usr/bin/cat -- "${runner_root}/.runner"
           refuse /usr/bin/cat -- "$GITHUB_ENV"
           refuse /usr/bin/test -w /var/run/docker.sock
+          if command -v crontab > /dev/null; then
+            refuse crontab /dev/null
+          fi
+          if command -v at > /dev/null; then
+            refuse at -l
+          fi
+          if [ "$userns_clone" = true ]; then
+            refuse /usr/bin/unshare --user true
+          fi
+          # A refused connection, not a timeout: the rule answered, so the
+          # endpoint is unreachable rather than merely slow.
+          for endpoint in 169.254.169.254 168.63.129.16; do
+            require /usr/bin/python3 -I -c "
+          import socket, sys
+          try:
+              socket.create_connection((sys.argv[1], 80), timeout=5)
+          except ConnectionRefusedError:
+              sys.exit(0)
+          sys.exit(1)
+          " "$endpoint"
+          done
           groups="$(id -nG "$CHECK_USER")"
           if [ "$groups" != "$CHECK_USER" ]; then
             echo "::error::the check's account is in groups beyond its own: ${groups}"
@@ -305,10 +423,14 @@ jobs:
             --github-output "$GITHUB_OUTPUT"
 
   post:
-    needs: [plan, run]
+    needs: [authorize, plan, run]
     # Whatever became of the run — approved, rejected, expired, failed — one
     # comment names the SHA, so the next poll does not plan it again.
-    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.found == 'true' }}
+    if: >-
+      ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.found == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -360,3 +482,21 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           gh_retry gh api --silent --method POST \
             "repos/${REPO}/issues/${PR}/comments" -F "body=@${body}"
+
+  run-gate:
+    needs: [authorize, plan, run, post]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail a run the gate refused
+        if: >-
+          ${{ needs.authorize.result != 'success'
+          || (needs.authorize.outputs.attempt != github.run_attempt
+          && !contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+        env:
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          echo "::error::The run gate refused this run or re-run (started by ${TRIGGERING_ACTOR}): see the authorize job's log, or config/dispatchers.json for who may re-run."
+          exit 1

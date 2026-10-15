@@ -52,7 +52,8 @@ reopens.
 
 The lane polls every 30 minutes (`:19` and `:49`). The maintainer can also
 start it at once from the Actions tab (`corpus-check`, *Run workflow* on
-`main`; it takes no inputs). Each run answers at most one request, the oldest
+`main`; it takes no inputs) — the run gate admits a dispatch, or a re-run,
+only from a human `config/dispatchers.json` names, never the agent account. Each run answers at most one request, the oldest
 open one, so several requests are answered one per run in PR-creation order.
 
 ### Writing the check
@@ -120,15 +121,24 @@ comment's body.
 
 ## How it runs
 
-Three jobs under a zero top-level grant, each holding only what it names:
+Three jobs under a zero top-level grant, each holding only what it names,
+between the run gate's two (`src/fedcourtsai/run_gate.py`; *The run gate and
+its allow-list* in [security.md](security.md)): **`authorize`** opens the
+run, holding `contents: read` alone, and every job below needs it and ends its
+condition with its guard. The scheduled poll passes it; a dispatch passes only
+for a human on `config/dispatchers.json`, and a re-run of any job only for a
+human that list names — a re-run of `run` waits on a fresh `corpus-check`
+approval besides. **`run-gate`** closes the run and fails one the gate
+refused.
 
 1. **`plan`** — no environment and no credential: `contents: read`,
    `pull-requests: read` and `actions: read`. Runs only on `main`.
    - A poll whose open PRs never mention `corpus-check` stops after listing
      them, before any install.
    - It reads the `corpus-check` environment and plans **nothing** unless its
-     required-reviewer rule names the configured approver and its branch
-     policy admits `main` alone; the run summary says what is missing.
+     required reviewers are exactly the configured approver — no other user,
+     no team — and its branch policy admits `main` alone; the run summary
+     says what is missing.
    - It reads the requester list from its own checkout of `main` (never from a
      PR), reads the comments and head commit of the PRs that qualify, and
      picks the oldest request whose head has no result. It pins the PR, head
@@ -149,21 +159,36 @@ Three jobs under a zero top-level grant, each holding only what it names:
      every cache off, assumes the read-only role through `corpus-readonly`,
      pulls the corpus and reads its vintage. Then it checks out the pinned
      SHA beside it, with `persist-credentials: false`.
-   - It provisions the unprivileged account `corpuscheck`: its own group and
-     no other, no sudo right, a home closed to everyone else holding its own
-     copies of the head and the corpus, and `uv` on `sudo`'s default path. It
-     closes the runner's home and temp tree to other accounts, then proves
-     the separation by attempting each of these as the account and failing
-     the job if one succeeds: `sudo`, reading the runner step's
-     `/proc/<pid>/environ`, listing the runner's home and temp tree, reading
-     the step's `GITHUB_ENV` file, and writing the Docker socket.
+   - Before any PR code runs, it provisions the unprivileged account
+     `corpuscheck`: its own group and no other, no sudo right, a home closed
+     to everyone else holding its own copies of the head and the corpus, and
+     `uv` on `sudo`'s default path. It denies the account `cron` and `at`
+     (`/etc/cron.deny`, `/etc/at.deny`), turns off unprivileged user
+     namespaces (`kernel.apparmor_restrict_unprivileged_userns=1`, which must
+     take, and `kernel.unprivileged_userns_clone=0` where the kernel has it),
+     rejects the account's traffic to the platform's metadata endpoints
+     (`169.254.169.254` and `168.63.129.16`, both IPv4-only), and closes the
+     runner's home and temp tree to other accounts. It derives the runner's
+     install root from the `Runner.Worker` process, failing the step if it
+     cannot.
+   - It then proves the separation by attempting each of these as the account
+     and failing the job if one succeeds: `sudo`, `sudo -l`, reading the
+     runner step's or the worker's `/proc/<pid>/environ`, listing the runner's
+     home, temp tree, workspace or install root, reading a workspace file, the
+     runner's `.runner` file or the step's `GITHUB_ENV` file, writing the
+     Docker socket, installing a crontab, listing `at` jobs, and creating a
+     user namespace where the older switch exists; and by requiring that a
+     connection to each metadata endpoint is refused, not merely slow. An
+     image whose layout moves a path fails the job rather than leaving the
+     path unproven.
    - It runs `fedcourts corpus-check-exec`, which re-validates the command and
      runs, as the account through `sudo -u` with no shell and only the
      variables above carried across: the head's `uv sync --locked` under its
      own timeout, then the command, split without a shell, under its own.
      Both write to the output file through the only descriptors they inherit.
-     Every process the account owns is killed after each phase, and the
-     summary is read back as the account.
+     After each phase every process the account owns is killed, by effective
+     and by real user id, until `pgrep` finds none; one that survives ten
+     passes fails the run. The summary is read back as the account.
    - The command is taken from the plan's outputs, never re-read from the PR,
      whose head or body may have moved since the approval. Its outputs are the
      phase, the exit code, the timeout flag, the summary (base64, so no line
@@ -212,8 +237,10 @@ runs where the corpus can be read. What bounds it:
   for any audience), its Actions runtime token (which saves cache entries and
   uploads artifacts), its step files and its log. None of that reaches the
   check's account, which has no sudo, cannot read another account's
-  `/proc/<pid>/environ`, cannot enter the runner's home or temp tree, is in
-  no group but its own, and inherits no descriptor but its output file. So
+  `/proc/<pid>/environ`, cannot enter the runner's home, temp tree, workspace
+  or install root, is in no group but its own, can schedule nothing, and
+  inherits no descriptor but its output file — each proven as the account
+  before PR code runs. So
   PR code cannot mint an OIDC token — for AWS or for any other exchange,
   among them the one through which the Claude GitHub App, which is installed
   on this repository, issues an installation token — cannot save a cache
@@ -235,9 +262,15 @@ runs where the corpus can be read. What bounds it:
   it cannot save an entry at all; the rule is what makes an entry harmless
   should one be saved anyway.
 
-What stays open: **network egress** — the account can reach the internet —
-and **the read-only session** for the rest of the role's hour, which the check
-can use or send elsewhere.
+What stays open: **network egress** — the account can reach the internet,
+the metadata endpoints apart — **the read-only session** for the rest of the
+role's hour, which the check can use or send elsewhere, and **the kernel**. A
+Linux account is not a sandbox: a kernel privilege escalation from
+`corpuscheck` reaches root, and through root the runner's processes and their
+tokens. Turning off unprivileged user namespaces narrows that surface; it does
+not close it. The approval and the read-only trust are why even that case is
+bounded: the code ran only because the maintainer approved that SHA, and the
+most any token it could then mint reaches is the read-only role.
 
 ## What it gives up, stated
 
@@ -279,7 +312,8 @@ can use or send elsewhere.
 
 - **Provisioning** (maintainer, once), **in this order**:
   1. create the `corpus-check` environment with the maintainer
-     (`config/corpus-check.yaml`'s `approver`) as required reviewer,
+     (`config/corpus-check.yaml`'s `approver`) as its only required reviewer —
+     no other user and no team,
      deployment branches restricted to `main` by a named custom policy, the
      three variables `AWS_ROLE_TO_ASSUME_READONLY`, `AWS_REGION` and
      `CORPUS_BASE_URL` set to the values `prod` holds, and no secrets;

@@ -14,7 +14,8 @@ requesters:
   - modelmirror-agent
   - modelmirror
 
-# The login the `corpus-check` environment's required-reviewer rule must name.
+# The login the `corpus-check` environment must name as its one required
+# reviewer — no other user and no team.
 # The read-only role trusts that environment, so its reviewer is the gate: the
 # plan job plans nothing while the rule (or the environment's main-only branch
 # policy) is missing, and the promotion gate's `contexts` stage refuses a

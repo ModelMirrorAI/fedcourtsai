@@ -18394,7 +18394,7 @@ def corpus_check_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
 ) -> None:
     """Pick the corpus check to answer next and pin its head SHA and command.
 
-    Plans nothing while the `corpus-check` environment lacks its required
+    Plans nothing while the `corpus-check` environment lacks its sole required
     reviewer (`config/corpus-check.yaml`'s `approver`) or its policy admitting
     `main` alone — the read-only role trusts that environment, so its
     protection is the gate (`fedcourtsai.environment_checks`). Otherwise the
@@ -18496,7 +18496,8 @@ def corpus_check_exec_cmd(
     phase. The summary is read back as the account, the job's credential
     values and the corpus address redacted, clamped to 50,000 bytes. Prints
     only sizes and exit codes: the job log is public. Exits 0 whatever the
-    check's own exit code; a command outside the grammar exits 1 unrun.
+    check's own exit code; a command outside the grammar exits 1 unrun, and a
+    process of the account's that survives the kill passes exits 1.
     """
     try:
         argv = corpus_check.parse_command(command)
@@ -18523,33 +18524,37 @@ def corpus_check_exec_cmd(
     sudo_env = {"PATH": corpus_check.SUDO_PATH, **env}
     for step in reset:
         subprocess.run(step, env=sudo_env, cwd="/", check=True, capture_output=True, timeout=60)
-    phase = corpus_check.run_phases(
-        install_argv=wrap(list(corpus_check.INSTALL_ARGV)),
-        check_argv=wrap(argv),
-        cwd=Path("/"),
-        env=sudo_env,
-        install_timeout_seconds=install_timeout_seconds,
-        check_timeout_seconds=timeout_seconds,
-        output_path=output_file,
-        kill_user=user,
-    )
-    read = subprocess.run(
-        wrap(
-            [
-                "/usr/bin/head",
-                "-c",
-                str(corpus_check.SUMMARY_READ_BYTES),
-                "--",
-                corpus_check.SUMMARY_FILENAME,
-            ]
-        ),
-        env=sudo_env,
-        cwd="/",
-        check=False,
-        capture_output=True,
-        timeout=60,
-    )
-    corpus_check.kill_account(user)
+    try:
+        phase = corpus_check.run_phases(
+            install_argv=wrap(list(corpus_check.INSTALL_ARGV)),
+            check_argv=wrap(argv),
+            cwd=Path("/"),
+            env=sudo_env,
+            install_timeout_seconds=install_timeout_seconds,
+            check_timeout_seconds=timeout_seconds,
+            output_path=output_file,
+            kill_user=user,
+        )
+        read = subprocess.run(
+            wrap(
+                [
+                    "/usr/bin/head",
+                    "-c",
+                    str(corpus_check.SUMMARY_READ_BYTES),
+                    "--",
+                    corpus_check.SUMMARY_FILENAME,
+                ]
+            ),
+            env=sudo_env,
+            cwd="/",
+            check=False,
+            capture_output=True,
+            timeout=60,
+        )
+        corpus_check.kill_account(user)
+    except corpus_check.ProcessesSurvived as exc:
+        typer.echo(f"::error::corpus-check-exec: {exc}; failing the run", err=True)
+        raise typer.Exit(code=1) from exc
     secrets = [os.environ[name] for name in corpus_check.REDACTED_ENV if os.environ.get(name)]
     summary, clamped = corpus_check.summary_text(
         read.stdout if read.returncode == 0 else b"", redact=secrets
@@ -18657,8 +18662,9 @@ def assert_corpus_check_environment_cmd(
 ) -> None:
     """Check the `corpus-check` environment still gates the read-only role its trust hands out.
 
-    Requires the environment to exist, its required-reviewer rule to name the
-    approver `config/corpus-check.yaml` configures (by user id), its
+    Requires the environment to exist, its required reviewers to be exactly the
+    approver `config/corpus-check.yaml` configures (by user id; no other user,
+    no team), its
     deployment branches to be a custom policy of exactly `main`, and it to hold
     no secret and no variable but the read-only role, the region and the corpus
     base URL. Names each problem and exits non-zero if there is any; an unread

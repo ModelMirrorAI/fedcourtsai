@@ -16,6 +16,8 @@ from typing import Any
 
 import yaml
 
+from tests.workflow_gate import AUTHORIZE_JOB, SENTINEL_JOB, own_condition
+
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
 NAME = "corpus-check.yml"
@@ -87,7 +89,8 @@ def test_a_zero_grant_and_one_check_at_a_time() -> None:
     wf = _load()
     assert wf["permissions"] == {}
     assert wf["concurrency"] == {"group": "corpus-check", "cancel-in-progress": False}
-    assert set(wf["jobs"]) == {"plan", "run", "post"}
+    # The run gate opens and closes the workflow (test_workflow_auth_gate).
+    assert list(wf["jobs"]) == [AUTHORIZE_JOB, "plan", "run", "post", SENTINEL_JOB]
 
 
 def test_every_job_installs_with_the_cache_off() -> None:
@@ -112,7 +115,8 @@ def test_the_plan_holds_no_credential_and_runs_only_on_main() -> None:
         "actions": "read",
     }
     assert "environment" not in plan
-    assert plan["if"] == "${{ github.ref == 'refs/heads/main' }}"
+    assert own_condition(plan) == "github.ref == 'refs/heads/main'"
+    assert plan["needs"] == [AUTHORIZE_JOB]
     # Its own checkout of the run's ref, where config/corpus-check.yaml is read.
     for step in _steps(plan):
         if _uses(step).startswith(CHECKOUT):
@@ -152,8 +156,8 @@ def test_the_run_job_holds_the_environment_and_the_read_only_role_alone() -> Non
     run = _job("run")
     assert run["environment"] == "corpus-check"
     assert run["permissions"] == {"contents": "read", "id-token": "write"}
-    assert run["needs"] == "plan"
-    condition = str(run["if"])
+    assert run["needs"] == [AUTHORIZE_JOB, "plan"]
+    condition = own_condition(run)
     assert "needs.plan.outputs.found == 'true'" in condition
     assert "needs.plan.outputs.refusal == ''" in condition
     readonly = [step for step in _steps(run) if _uses(step) == READONLY]
@@ -228,14 +232,34 @@ def test_the_account_is_provisioned_without_sudo_and_proven_separate() -> None:
     # Each separation is asserted as the account, not assumed.
     for refused in (
         "refuse sudo -n true",
+        "refuse sudo -n -l",
         'refuse /usr/bin/cat -- "/proc/$$/environ"',
+        'refuse /usr/bin/cat -- "/proc/${worker}/environ"',
         'refuse /usr/bin/ls -- "$RUNNER_TEMP"',
         'refuse /usr/bin/ls -- "$HOME"',
+        'refuse /usr/bin/ls -- "$GITHUB_WORKSPACE"',
+        'refuse /usr/bin/ls -- "$runner_root"',
         'refuse /usr/bin/cat -- "$GITHUB_ENV"',
         "refuse /usr/bin/test -w /var/run/docker.sock",
+        "refuse crontab /dev/null",
+        "refuse at -l",
     ):
         assert refused in body
     assert 'id -nG "$CHECK_USER"' in body
+    # The runner's install root is derived from the worker, or the step fails.
+    assert "pgrep -o -f 'Runner.Worker'" in body
+    assert "cannot derive the runner's install root" in body
+    # No scheduling, before any PR code runs.
+    assert "sudo tee -a /etc/cron.deny /etc/at.deny" in body
+    # Less kernel surface: the AppArmor switch must take; the older one where present.
+    assert "sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1" in body
+    assert "sudo sysctl -w kernel.unprivileged_userns_clone=0" in body
+    # No route to either metadata endpoint, proven by a refused connection.
+    for endpoint in ("169.254.169.254", "168.63.129.16"):
+        assert endpoint in body
+    assert '-m owner --uid-owner "$CHECK_USER"' in body
+    assert "except ConnectionRefusedError" in body
+    assert "require /usr/bin/python3 -I -c" in body
 
 
 def test_the_command_reaches_the_check_only_through_the_tested_wrapper() -> None:
@@ -268,9 +292,9 @@ def test_the_post_job_checks_out_no_pr_code_and_holds_no_role() -> None:
     post = _job("post")
     assert post["permissions"] == {"contents": "read", "pull-requests": "write"}
     assert "environment" not in post
-    assert post["needs"] == ["plan", "run"]
-    condition = str(post["if"])
-    assert condition.startswith("${{ always() &&")
+    assert post["needs"] == [AUTHORIZE_JOB, "plan", "run"]
+    condition = own_condition(post)
+    assert condition.startswith("always() &&")
     assert "needs.plan.result == 'success'" in condition
     assert "needs.plan.outputs.found == 'true'" in condition
     for step in _steps(post):
@@ -283,8 +307,8 @@ def test_the_post_job_checks_out_no_pr_code_and_holds_no_role() -> None:
     # The digest a reader matches the comment against.
     assert 'sha256sum "$body"' in body
     assert "Posted comment sha256" in body
-    # The run gate's guard is appended with `&&`; a top-level `||` would let
-    # that guard be bypassed.
+    # The job's own condition holds no `||`: the run gate's guard is a
+    # top-level conjunct after it (test_workflow_auth_gate pins the guard).
     assert "||" not in condition
 
 

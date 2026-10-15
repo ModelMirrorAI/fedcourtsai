@@ -938,3 +938,33 @@ def test_the_example_check_passes_the_grammar_and_reports_to_its_summary(
     )
     assert result.exit_code == 0, (tmp_path / "log").read_text()
     assert "No corpus at" in summary.read_text()
+
+
+def test_the_account_is_killed_until_nothing_is_left() -> None:
+    calls: list[list[str]] = []
+    alive = iter([0, 1, 1])  # pgrep finds a process once, then none
+
+    def status(argv: Any) -> int:
+        calls.append(list(argv))
+        return next(alive) if argv[0] == "pgrep" else 0
+
+    cc.kill_account("corpuscheck", status=status, pause=lambda _: None)
+    kills = [c for c in calls if c[0] == "pkill"]
+    assert (
+        kills
+        == [
+            ["pkill", "-KILL", "-u", "corpuscheck"],
+            ["pkill", "-KILL", "-U", "corpuscheck"],
+        ]
+        * 2
+    )
+    assert ["pgrep", "-U", "corpuscheck"] in calls
+
+
+@pytest.mark.parametrize("pgrep", [0, -1, 2])
+def test_a_survivor_or_an_unanswered_pgrep_fails_the_run(pgrep: int) -> None:
+    def status(argv: Any) -> int:
+        return pgrep if argv[0] == "pgrep" else 0
+
+    with pytest.raises(cc.ProcessesSurvived):
+        cc.kill_account("corpuscheck", status=status, pause=lambda _: None, attempts=3)

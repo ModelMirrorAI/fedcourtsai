@@ -393,26 +393,39 @@ runbook, [docs/security.md](docs/security.md).
   `schedule` and an input-less `workflow_dispatch`, so the workflow binding
   the environment is always `main`'s — but the code it runs is not the ref's,
   so the branch policy is met only on paper. Four things bound it instead.
-  The `corpus-check` environment's **required reviewer**: the maintainer
-  approves a named head SHA and command, reading a diff pinned to that SHA,
+  The `corpus-check` environment's **required reviewer** — the maintainer
+  alone, no other user and no team: the maintainer approves a named head SHA
+  and command, reading a diff pinned to that SHA,
   and the run then takes both from the plan, never re-reading the PR; the
   lane plans nothing, and the promotion gate refuses, while the environment
   lacks that reviewer or its `main`-only policy, since the read-only role's
   trust makes an unprotected `corpus-check` environment that role for any
   write holder's branch workflow. The **account**: the head's install and the
-  check run as a separate unprivileged account with no sudo, which cannot
-  read the runner's processes, home or temp files, so the job's OIDC request
-  pair, its runtime token, its step files and its log are out of the PR
-  code's reach — it can mint no OIDC token for any audience (the Claude GitHub
-  App's token exchange included), save no cache entry, upload no artifact.
+  check run as a separate unprivileged account with no sudo, no cron or `at`,
+  no unprivileged user namespaces and no route to the platform's metadata
+  endpoints, which cannot read the runner's process environments, home, temp
+  files, workspace or install root — each proven as the account before PR
+  code runs — so the job's OIDC request pair, its runtime token, its step
+  files and its log are out of the PR code's reach: it can mint no OIDC token
+  for any audience (the Claude GitHub App's token exchange included), save no
+  cache entry, upload no artifact. Every process the account owns is killed
+  after each phase, and one that survives fails the run. A Linux account is
+  not a sandbox, though: a kernel privilege escalation from that account
+  reaches root and, through it, the runner's tokens. The approval and the
+  read-only trust are why even that is bounded — the code ran because the
+  maintainer approved it, and the most any token it could mint reaches is the
+  read-only role.
   The **trust**: what the account holds is the read-only role's session, which
   reaches every store read-only and nothing it can write; and because the job
   itself holds `id-token: write`, no role but the read-only one, in any
   account or cloud, and no other OIDC exchange may accept
   `environment:corpus-check`, which holds that role, its region and the
   corpus address and no other credential. And the **cache rule** below. What
-  stays open is network egress and the read-only session for the rest of its
-  hour. The requester list (`config/corpus-check.yaml`) is maintainer-owned,
+  stays open is network egress, the read-only session for the rest of its
+  hour, and the kernel itself. Like every workflow that binds an environment,
+  the lane opens with the run gate: the schedule passes it, and a dispatch or
+  re-run proceeds only for a human `config/dispatchers.json` names — a re-run
+  of the check also needs a fresh approval. The requester list (`config/corpus-check.yaml`) is maintainer-owned,
   and the lane's result comment comes from a separate job that runs no PR
   code, treats the run's outputs as untrusted, and records the posted body's
   sha256 in its own run summary — the check that tells a real result from one

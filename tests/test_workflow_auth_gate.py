@@ -444,6 +444,7 @@ def test_the_scheduled_back_test_spends_only_behind_the_review_hold() -> None:
 # or leaving the set is a reviewed edit to this file.
 RUN_GATED_WORKFLOWS = frozenset(
     {
+        "corpus-check.yml",
         "integration-test.yml",
         "promotion-prep.yml",
         "promotion-record.yml",

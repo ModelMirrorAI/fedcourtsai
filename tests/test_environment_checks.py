@@ -195,3 +195,30 @@ def test_the_promotion_gate_checks_the_environment_unconditionally() -> None:
     assert "uv run fedcourts assert-corpus-check-environment" in tail
     assert "fail=1" in tail
     assert "grep -rq" not in tail
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"type": "User", "reviewer": {"login": "second-maintainer", "id": 9}},
+        {"type": "Team", "reviewer": {"slug": "maintainers", "id": 3}},
+    ],
+)
+def test_the_approver_must_be_the_only_reviewer(extra: dict[str, Any]) -> None:
+    approver = {"type": "User", "reviewer": {"login": APPROVER, "id": APPROVER_ID}}
+    environment = _environment(reviewers=[approver, extra])
+    problems = _gate(environment=environment)
+    assert any("exactly `modelmirror`" in problem for problem in problems), problems
+    # The plan's lighter read refuses it too.
+    assert ec.protection_problems(environment, MAIN_ONLY, approver_login=APPROVER)
+
+
+def test_a_second_reviewer_rule_counts_toward_the_set() -> None:
+    environment = _environment()
+    environment["protection_rules"].append(
+        {
+            "type": "required_reviewers",
+            "reviewers": [{"type": "Team", "reviewer": {"slug": "maintainers", "id": 3}}],
+        }
+    )
+    assert _gate(environment=environment)

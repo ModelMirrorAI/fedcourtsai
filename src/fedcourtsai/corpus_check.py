@@ -41,7 +41,8 @@ import re
 import shlex
 import signal
 import subprocess
-from collections.abc import Iterable, Mapping, Sequence
+import time
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -806,15 +807,45 @@ def _kill_group(pgid: int) -> None:
         os.killpg(pgid, signal.SIGKILL)
 
 
-def kill_account(user: str) -> None:
-    """Kill every process ``user`` owns: a check that daemonised does not outlive its phase."""
-    with contextlib.suppress(OSError, subprocess.SubprocessError):
-        subprocess.run(
-            ["sudo", "-n", "pkill", "-KILL", "-u", user],
-            check=False,
-            capture_output=True,
-            timeout=30,
-        )
+class ProcessesSurvived(RuntimeError):
+    """The check's account still owned a process after every kill attempt."""
+
+
+#: How many kill passes before a surviving process fails the run.
+KILL_ATTEMPTS = 10
+
+
+def _sudo_status(argv: Sequence[str]) -> int:
+    try:
+        return subprocess.run(
+            ["sudo", "-n", *argv], check=False, capture_output=True, timeout=30
+        ).returncode
+    except (OSError, subprocess.SubprocessError):
+        return -1
+
+
+def kill_account(
+    user: str,
+    *,
+    status: Callable[[Sequence[str]], int] = _sudo_status,
+    pause: Callable[[float], None] = time.sleep,
+    attempts: int = KILL_ATTEMPTS,
+) -> None:
+    """Kill every process ``user`` owns, until none is left.
+
+    Each pass kills by effective and by real user id, then asks `pgrep` for
+    either; `pgrep` exiting 1 means no process matched. A process that survives
+    every pass — or a `pgrep` that cannot answer — raises
+    :class:`ProcessesSurvived`, so the step fails rather than letting anything
+    the check started outlive its phase.
+    """
+    for attempt in range(attempts):
+        status(["pkill", "-KILL", "-u", user])
+        status(["pkill", "-KILL", "-U", user])
+        if status(["pgrep", "-u", user]) == 1 and status(["pgrep", "-U", user]) == 1:
+            return
+        pause(0.2 * (attempt + 1))
+    raise ProcessesSurvived(f"processes owned by {user} survived {attempts} kill passes")
 
 
 def run_check(
@@ -831,8 +862,9 @@ def run_check(
     stdin is closed and only stdout and stderr are inherited, both pointing at
     the output file, so the process holds no descriptor onto the job log. It
     runs in its own session, and once it ends or times out its process group —
-    and with ``kill_user`` every process that account owns — is killed, so
-    nothing it started outlives the phase. A signal death reports
+    and with ``kill_user`` every process that account owns, checked until none
+    is left (:func:`kill_account`, which raises if one survives) — is killed,
+    so nothing it started outlives the phase. A signal death reports
     ``128 + signal``; a program that could not be started reports
     :data:`NOT_FOUND_EXIT`.
     """

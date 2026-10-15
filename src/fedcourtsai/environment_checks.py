@@ -10,12 +10,13 @@ the same predicate:
 
 - **the promotion gate's `contexts` stage** (:func:`environment_problems`),
   unconditionally and with an admin read: the environment exists, its
-  required-reviewer rule names the configured approver by user id, its
+  required reviewers are exactly the configured approver, by user id — no
+  other user and no team — its
   deployment branches are a custom policy of exactly `main`, and it holds no
   secret and no variable outside :data:`CORPUS_CHECK_VARIABLES`;
 - **the lane's plan job** (:func:`protection_problems`), on every poll and with
-  the job's `actions: read` grant: the reviewer rule and the `main`-only
-  policy, so the lane plans nothing while they are missing. It cannot see
+  the job's `actions: read` grant: the approver as sole reviewer and the
+  `main`-only policy, so the lane plans nothing while they are missing. It cannot see
   secrets or variables, which is why the gate is the check that holds.
 """
 
@@ -66,21 +67,29 @@ def protection_problems(
         return [f"the `{CORPUS_CHECK_ENVIRONMENT}` environment does not exist or was unread"]
     problems: list[str] = []
     reviewers = [
-        reviewer.get("reviewer")
+        reviewer
         for rule in _items(environment, "protection_rules") or []
         if rule.get("type") == "required_reviewers"
         for reviewer in rule.get("reviewers") or []
-        if isinstance(reviewer, Mapping) and reviewer.get("type") == "User"
+        if isinstance(reviewer, Mapping)
     ]
-    named = [
-        user
-        for user in reviewers
-        if isinstance(user, Mapping)
-        and str(user.get("login", "")).casefold() == approver_login.casefold()
-        and (approver_id is None or user.get("id") == approver_id)
+    approver = [
+        reviewer
+        for reviewer in reviewers
+        if reviewer.get("type") == "User"
+        and isinstance(reviewer.get("reviewer"), Mapping)
+        and str(reviewer["reviewer"].get("login", "")).casefold() == approver_login.casefold()
+        and (approver_id is None or reviewer["reviewer"].get("id") == approver_id)
     ]
-    if not named:
+    if not approver:
         problems.append(f"no required-reviewer rule names the approver `{approver_login}`")
+    elif len(reviewers) != 1:
+        # Any other reviewer — a second user, or a team whose members change
+        # without a commit — could release the role on their own approval.
+        problems.append(
+            f"the required reviewers must be exactly `{approver_login}`; "
+            + f"the rule names {len(reviewers)}"
+        )
     policy = environment.get("deployment_branch_policy")
     if not (
         isinstance(policy, Mapping)
