@@ -92,19 +92,60 @@ permissions: {}
 # to serialize corpus writers and prevent lost updates.
 # cancel-in-progress is false so a queued run waits rather than being dropped.
 # Every run of this workflow runs exactly one writer job, so every run belongs
-# in the shared group — there is no event class here that spawns a run only to
-# skip it.
+# in the shared group. A dispatch or re-run the run gate refuses still takes
+# the group while it fails (docs/security.md, *The run gate and its
+# allow-list*).
 concurrency:
   group: corpus-write
   cancel-in-progress: false
 
 jobs:
+  # The run gate (src/fedcourtsai/run_gate.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.json names. No
+  # environment, no secret, a read-only token, and no project code: a sparse
+  # checkout of the gate and its allow-list alone, run by path with the
+  # runner's Python in isolated mode. Every other job needs this one and checks
+  # the attempt it judged, because re-running some jobs does not re-run this
+  # one; `run-gate` below fails the run when that check refused.
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            src/fedcourtsai/run_gate.py
+            config/dispatchers.json
+          sparse-checkout-cone-mode: false
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          python3 -I -S src/fedcourtsai/run_gate.py --workflow run-pull.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
   pull:
+    needs: [authorize]
     # One writer job per run: the cron minute (17 = pull, 47 = live) or the
     # dispatch `mode` input selects the job.
     if: >-
-      (github.event_name == 'schedule' && startsWith(github.event.schedule, '17 ')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull')
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '17 ')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull'))
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # A single window's refresh (≤ max_cases_per_run dockets ≈ a few dozen
     # CourtListener fetches + S3 corpus transfer) finishes well inside this; the cap
@@ -443,6 +484,7 @@ jobs:
           fi
 
   live:
+    needs: [authorize]
     # The SCOTUS live channel (docs/live-sources.md): `fedcourts live-poll`
     # probes supremecourt.gov docket JSON for newly docketed petitions and
     # re-polls the pending watchlist — no CourtListener token, no API budget.
@@ -450,8 +492,11 @@ jobs:
     # role) and trigger surface as `pull` — schedule and dispatch, both already
     # gated by the platform, so this job needs no authorization step either.
     if: >-
-      (github.event_name == 'schedule' && startsWith(github.event.schedule, '47 ')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'live')
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '47 ')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'live'))
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The cycle re-polls the pending watchlist and onboards the frontier at ~1
     # req/s, plus document fetches on distribution transitions (which cluster at
@@ -473,8 +518,8 @@ jobs:
     # The ambient GITHUB_TOKEN carries exactly the non-triggering issue write
     # (the failure run-log issue — the doctrine in docs/security.md: issue
     # writes that must trigger nothing stay off the App token). Checkout and the
-    # corpus push run on the App token, and there is no authorize-trigger step
-    # to need a read.
+    # corpus push run on the App token, and the run gate is its own job, so no
+    # step here needs a read.
     permissions:
       contents: read
       issues: write # the failure run-log issue (non-triggering, ambient)
@@ -652,8 +697,8 @@ jobs:
           fi
 
       # Failure-only alarm, mirroring `pull` (see that job's step for the
-      # `cancelled()` and ambient-token rationale; there is no authorize step
-      # here to gate on): an open `live-log` issue means exactly "a live
+      # `cancelled()` and ambient-token rationale; the run gate is its own job,
+      # so no step here gates on it): an open `live-log` issue means exactly "a live
       # window broke"; a human closes it once triaged.
       - name: Open the failure run-log issue
         if: failure() || cancelled()
@@ -712,6 +757,7 @@ jobs:
           fi
 
   enrich:
+    needs: [authorize]
     # Dispatch-only writer: walk granted SCOTUS rows to their published opinion
     # cluster and land the reporter citations and the opinion body
     # (`fedcourts enrich-opinions`; scope and budget arithmetic in
@@ -723,7 +769,11 @@ jobs:
     # one-shot dispatch, unlike a rotation, does not "pick up where it left
     # off"; nothing alarms. Dispatching in a dead zone between the pull
     # windows avoids ever queuing.
-    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'enrich-opinions'
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'enrich-opinions'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # <= max_cases dockets at ~3 CourtListener fetches each plus the corpus S3
     # round-trip finishes well inside this; the cap frees the shared
@@ -862,8 +912,12 @@ jobs:
   # repository-level `DISPATCH_CHAIN_ENABLED` variable is `true` (see
   # run-predict's `chain` job for why the switch is not on `prod`).
   chain-predict:
-    needs: [pull, live]
-    if: ${{ !cancelled() && (needs.pull.outputs.forecast_relevant == 'true' || needs.live.outputs.forecast_relevant == 'true') && vars.DISPATCH_CHAIN_ENABLED == 'true' }}
+    needs: [authorize, pull, live]
+    if: >-
+      ${{ (!cancelled() && (needs.pull.outputs.forecast_relevant == 'true' || needs.live.outputs.forecast_relevant == 'true') && vars.DISPATCH_CHAIN_ENABLED == 'true')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: prod
@@ -908,3 +962,27 @@ jobs:
             gh workflow run run-predict.yml --repo "$REPO" --ref main
           fi
           echo "## Pull -> predict chain: ${reason}." >> "$GITHUB_STEP_SUMMARY"
+
+  # The run gate's verdict on the run as a whole. A refused partial re-run
+  # skips every job it re-runs, which alone would leave the earlier attempt's
+  # successes standing and the run concluding `success`. This job needs every
+  # other job, so any re-run re-runs it, and it fails the run when the gate did
+  # not pass or this attempt is neither the one the gate judged nor a re-run by
+  # a login the gate published. No checkout, no token, no environment.
+  run-gate:
+    needs: [authorize, pull, live, enrich, chain-predict]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail a run the gate refused
+        if: >-
+          ${{ needs.authorize.result != 'success'
+          || (needs.authorize.outputs.attempt != github.run_attempt
+          && !contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+        env:
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          echo "::error::The run gate refused this run or re-run (started by ${TRIGGERING_ACTOR}): see the authorize job's log, or config/dispatchers.json for who may re-run."
+          exit 1

@@ -3,13 +3,12 @@
 claude-code-action and codex-action each run their *own* actor check and refuse
 a bot by default, so a round whose actor GitHub resolves to the data App
 (`fedcourtsai-data[bot]`) dies silently at the agent step unless that one login
-is allowlisted there. Two paths can present it. On `run-evaluate`'s label lane a
-Bot-sent label is an actual sender, which the plan job's `authorize-trigger`
-gate approves before the cells run. On an unattended round — every `run-predict`
-round, and run-evaluate's scheduled ones — there is no requester at all, and the
-actor is whatever GitHub attributes the cron to, which on a repo whose
-deterministic writers push to the default branch can be that same login. Either
-way the allowance stays pinned to it and is never `*`; the spend gate is the
+is allowlisted there. On an unattended round — every scheduled `run-predict` and
+`run-evaluate` round — there is no requester at all, and the actor is whatever
+GitHub attributes the cron to, which on a repo whose deterministic writers push
+to the default branch can be that same login; a chained predict round's actor
+is the dispatch App's login, which the run gate admits for `run-predict` alone.
+Either way the allowance stays pinned to those logins and is never `*`; the spend gate is the
 `review` hold, not this setting. These tests lock the allowlist in — a
 regression here breaks the whole automated pipeline while every other check
 stays green, so it needs its own guard.

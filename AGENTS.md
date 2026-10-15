@@ -124,9 +124,12 @@ non-interactive** container. Two consequences shape everything you do:
   push to `main`), `config/predictors.yaml` /
   `config/evaluators.yaml` (what agents are and what they may reach), and the
   authority to spend without a human release: `config/review-hold.yaml` (the
-  auto-release caps), `src/fedcourtsai/planning_rates.py` (the rates a round
-  is priced at), `src/fedcourtsai/review_hold.py` and
-  `src/fedcourtsai/dispatch_chain.py` (the decisions), and their tests
+  auto-release caps), `config/dispatchers.json` with the run gate that reads it,
+  `src/fedcourtsai/run_gate.py`, and its test `tests/test_run_gate.py` (who may
+  dispatch or re-run a gated workflow at all — the agent account is never on
+  it), `src/fedcourtsai/planning_rates.py` (the rates a round is priced at),
+  `src/fedcourtsai/review_hold.py` and `src/fedcourtsai/dispatch_chain.py`
+  (the decisions), and their tests
   (`tests/test_review_hold.py`, `tests/test_dispatch_chain.py`,
   `tests/test_workflow_dispatch_chain.py`, `tests/test_workflow_agent_bot.py`).
   A raised cap or a lowered rate lets more spend run unattended, which is why
@@ -403,9 +406,13 @@ same PR.
   workflow (`gh workflow enable`), and re-running a run or one of its jobs
   (`gh run rerun`, with or without `--job`, which answers *Resource not
   accessible by integration*), all refused by the session proxy your GitHub
-  connection runs through. Merging is **not** on that list: what limits it
-  into `staging` is the merge rule above, and into `main` the approval
-  ruleset as well, not the credential.
+  connection runs through. The repository refuses the starts on its own as
+  well: every workflow that binds an environment opens with the run gate
+  (`src/fedcourtsai/run_gate.py`), which fails a dispatch or a re-run by any
+  login `config/dispatchers.json` does not name — the agent account among
+  them — before any other job starts. Merging is **not** on that list: what
+  limits it into `staging` is the merge rule above, and into `main` the
+  approval ruleset as well, not the credential.
 
   The re-run refusal has a standing consequence, because some required checks
   read live state at check time rather than from the event payload — the

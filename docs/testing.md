@@ -728,8 +728,16 @@ exception, `pull_request` on CI, the linters and CodeQL, is held to a shape that
 makes it moot: no environment, no secret, no token mint, no role — the privileged lanes carry
 nothing but the platform-gated `schedule` and `workflow_dispatch` and keep the
 dispatch their recovery path depends on, every privileged job binds a deployment
-environment so a dispatch cannot run it from an arbitrary ref, and every agent
-job waits on the `review` hold), the
+environment so a dispatch cannot run it from an arbitrary ref, every agent
+job waits on the `review` hold, and every workflow that binds an environment
+opens with the run gate — an unprivileged `authorize` job that sparse-checks-out
+and runs `src/fedcourtsai/run_gate.py` by path, which every other job needs
+directly and whose guard ends every other job's condition as a top-level
+conjunct — and closes with the `run-gate` job that needs every job and fails a
+refused re-run, with `config/dispatchers.json` never naming the agent account;
+`tests/workflow_gate.py` holds the guard's text and lets the other shape tests
+read a job's own condition and needs without it, and `test_run_gate` pins the
+decision and that the module imports only the standard library), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants

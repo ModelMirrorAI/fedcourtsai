@@ -43,10 +43,25 @@ read the diff, run the linters, and report findings with a clear verdict. You do
   and `workflow_dispatch` (GitHub refuses it to anyone without repository write).
   **Blocker** on any diff that adds `issues`, `issue_comment`, `pull_request_target`,
   or another trigger an outside actor can fire to such a workflow: it would need a
-  fail-closed actor gate (`fedcourts authorize-trigger`) before every privileged
+  fail-closed sender check (`fedcourts authorize-trigger`) before every privileged
   step, and `tests/test_workflow_auth_gate.py` fails on it either way. A dispatch is
   write-gated but not *branch*-gated, so every privileged job must also bind a
   deployment environment whose branch policy pins the ref it may run from.
+- **The run gate covers every job.** Write is wider than who may start spend, so
+  every workflow that binds an environment opens with the `authorize` job (no
+  environment, `contents: read`, no secret, a sparse checkout of
+  `src/fedcourtsai/run_gate.py` and `config/dispatchers.json` run by path with
+  `python3 -I`, context passed through `env:`) and closes with `run-gate`
+  (needs every job, `if: always()`, `permissions: {}`, fails a refused
+  re-run). **Blocker** on a job added to such a workflow without `authorize`
+  in its own `needs`, the gate's guard (`tests/workflow_gate.py`) as a
+  top-level conjunct of its `if:`, and a place in `run-gate`'s `needs` — an
+  ancestry alone is not enough, because an `always()` / `!cancelled()` /
+  `failure()` condition runs past a refused gate and a re-run of that job alone
+  does not re-run the gate. Also a blocker: an `if:` that disjoins the guard
+  away (an unparenthesized `||` before it); an `authorize` job that runs
+  project code (`uv run`, `setup-python-env`, a full checkout); and a workflow
+  that gains its first environment without gaining both gate jobs.
 - **No expression injection.** Never interpolate attacker-controllable `${{ github.event.* }}`
   (issue/PR title or body, branch/ref names, comment text) directly into a `run:`
   script. Pass them through `env:` and reference `"$VAR"` quoted. `github.event.*.number`

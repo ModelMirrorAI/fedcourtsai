@@ -1,22 +1,20 @@
-"""The fail-closed actor gate a trigger would need, as tested logic.
+"""The trigger gate: the fail-closed sender check an outside-reachable trigger needs.
 
 The trigger surface is the pipeline's trust boundary (see SECURITY.md ->
-*Trigger surface*), and the platform holds it: every workflow that does
-privileged work enters on a ``schedule``, which fires only from the default
-branch, or a ``workflow_dispatch``, which GitHub gates on repository write.
-**No workflow calls this module**, because none carries a trigger an outside
-actor could fire *and* anything for that actor to reach, and
-``tests/test_workflow_auth_gate.py`` sweeps the directory to keep it that way.
+*Trigger surface*). Who among repository write holders may start a run of a
+gated workflow, or re-run one, is the run gate's question, answered by the
+self-contained :mod:`fedcourtsai.run_gate`; this module answers the other one.
 
-What it is here for is the trigger class that would change that. An issue
-*form* applies its declared labels on creation regardless of the submitter's
-permissions, so a workflow keyed on ``issues: labeled`` — or on
-``issue_comment``, or ``pull_request_target`` — could be fired by anyone, and
-would have to refuse a non-write actor *before* any privileged work (mint a
-token, assume the S3 role, run an agent). This module is the decision such a
-workflow would delegate to, unit-tested rather than lint-checked for shape, so
-that adding one is a wiring change rather than a security design. The rule: a
-``Bot`` sender matching a pinned App login is the trusted App handoff (only a
+**The trigger gate** (:func:`authorize_trigger`, CLI ``authorize-trigger``) is
+for a trigger class no workflow carries: an issue *form* applies its declared
+labels on creation regardless of the submitter's permissions, so a workflow
+keyed on ``issues: labeled`` — or on ``issue_comment``, or
+``pull_request_target`` — could be fired by anyone, and would have to refuse a
+non-write actor *before* any privileged work (mint a token, assume the S3 role,
+run an agent). ``tests/test_workflow_auth_gate.py`` sweeps the directory so no
+workflow takes such a trigger; this decision is here so that adding one is a
+wiring change rather than a security design. The rule: a ``Bot`` sender
+matching a pinned App login is the trusted App handoff (only a
 maintainer-installed App can apply a label that triggers a workflow — the
 default ``GITHUB_TOKEN`` cannot — and the pin refuses every other App), and any
 other sender must hold ``write`` (or higher) collaborator access. Anything else

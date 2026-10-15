@@ -18268,13 +18268,12 @@ def authorize_trigger_cmd(
     A Bot sender is the trusted App handoff (pinnable to one login via
     ``--bot-actor``); any other actor needs write-or-higher collaborator access
     (looked up via ``gh api``). No workflow calls this, because none carries a
-    trigger an outside actor can fire — every lane here is schedule- or
-    dispatch-only, both gated by the platform (see ``fedcourtsai.authz``). It is
-    what a workflow that gained such a trigger would run *before* it mints a
-    token, assumes the S3 role, or runs an agent. Prints the authorization line
-    and exits 0 when allowed;
-    prints the refusal to stderr and exits 1 otherwise. Needs ``GH_TOKEN`` in
-    the environment for the permission lookup.
+    trigger an outside actor can fire (see ``fedcourtsai.authz``); who may start
+    a dispatch or a re-run is the run gate's (``fedcourtsai.run_gate``). It is what a
+    workflow that gained such a trigger would run *before* it mints a token,
+    assumes the S3 role, or runs an agent. Prints the authorization line and
+    exits 0 when allowed; prints the refusal to stderr and exits 1 otherwise.
+    Needs ``GH_TOKEN`` in the environment for the permission lookup.
     """
     decision = authorize_trigger(sender_type, actor, repo, bot_actor=bot_actor)
     if not decision.authorized:

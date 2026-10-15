@@ -31,6 +31,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
 from tests.workflow_argv import command_argv
+from tests.workflow_gate import own_needs
 
 ROOT = Path(__file__).resolve().parent.parent
 RUN_SEED = ROOT / ".github" / "workflows" / "run-seed.yml"
@@ -158,11 +159,11 @@ def test_the_chain_is_non_blocking_daily_and_gated_on_step_outputs() -> None:
         assert isinstance(jobs[name].get("timeout-minutes"), int), name
         assert "!cancelled()" in _norm(jobs[name]["if"]), name
     assert DAILY in _norm(jobs["order-votes-projection"]["if"])
-    assert jobs["order-votes-parse"]["needs"] == ["order-votes-projection"]
+    assert own_needs(jobs["order-votes-parse"]) == ["order-votes-projection"]
     assert "needs.order-votes-projection.outputs.projection == 'written'" in _norm(
         jobs["order-votes-parse"]["if"]
     )
-    assert jobs["order-votes"]["needs"] == ["seed", "order-votes-parse"]
+    assert own_needs(jobs["order-votes"]) == ["seed", "order-votes-parse"]
     assert "needs.order-votes-parse.outputs.plan == 'written'" in _norm(jobs["order-votes"]["if"])
     for job, output, step in (
         ("order-votes-projection", "projection", "Write the vote projection"),
@@ -173,7 +174,7 @@ def test_the_chain_is_non_blocking_daily_and_gated_on_step_outputs() -> None:
         assert body.rstrip().endswith(f'echo "{output}=written" >> "$GITHUB_OUTPUT"'), job
         assert "set -euo pipefail" in body, job
     # The guard escalates the walk alone; the sweep converges on its own.
-    assert jobs["guard"]["needs"] == ["seed"]
+    assert own_needs(jobs["guard"]) == ["seed"]
     # No job-level lock: the workflow's own `corpus-write` group already covers
     # the run, and a job waiting on the group its run holds would never start.
     for name in JOBS:
