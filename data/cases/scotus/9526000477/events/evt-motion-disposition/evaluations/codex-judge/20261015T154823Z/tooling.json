@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000477",
+  "gaps": [
+    "No intraday resolution timestamp to establish same-day forward timing",
+    "gemini-baseline result payloads are unobserved, so reported empty searches cannot be verified"
+  ],
+  "helpful": [
+    "Blinded candidate prose and captured query logs",
+    "Provisioned decided snapshot distinguishes denial as moot",
+    "Committed interim statpack and local JSON schemas"
+  ],
+  "notes": "Read only staged candidate inputs, this cell's record and outcome, repository contracts and schemas, and committed statpack context. No external retrieval or corpus query. Baseline and skill are left to the harness. Result-capture limitations are not treated as defects or as proof of leakage.",
+  "role": "evaluator",
+  "run_id": "20261015T154823Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "apply_patch",
+    "python jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,3 @@
+This was a forward prediction on an open case. The prediction was incorrect, forecasting a grant while the actual outcome was a denial.
+
+The reasoning quality is mediocre (0.6) because while the predictor identified the relevant factors (high salience band, CVSG, circuit split), it failed to accurately retrieve the Solicitor General's amicus brief. Instead, it guessed or assumed the SG recommended a grant, which was the opposite of reality, leading it to a high P(grant). No leakage occurred.

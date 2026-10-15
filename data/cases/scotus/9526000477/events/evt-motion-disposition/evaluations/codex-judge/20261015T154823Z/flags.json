@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000477",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward-timing verification is limited: claude-baseline, gemini-baseline, and codex-baseline were created and ran on October 14, 2026, the same date as the recorded denial as moot. Neither outcome.json nor the provisioned decided docket supplies an intraday resolution time. The available evidence therefore cannot establish whether these forward runs preceded disposition. This is an unresolved ordering question, not a finding that a decided case was provisioned forward. No affirmative target-outcome exposure appears; forward not_applicable assessments are retained. gemini-baseline's unobserved, unbounded shared-caption search remains unverifiable and is explained separately in evaluation.md.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261015T154823Z",
+  "schema_version": "1.0"
+}

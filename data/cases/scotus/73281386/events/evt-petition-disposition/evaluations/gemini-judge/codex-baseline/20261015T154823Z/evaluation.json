@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:1d7fbb9fce0582c4e5a8b7dbbb54fb504532c2bdd7ef8b9946c8145115860bde",
+  "big_case": {
+    "evaluator_score": 0.85,
+    "notes": "The case presents a high-profile separation of powers clash concerning FOIA applicability to the U.S. DOGE Service. Given the Solicitor General's involvement and the prior intervention by the Supreme Court in this dispute, the institutional stakes are extremely high."
+  },
+  "brier_score": 0.07840000000000001,
+  "brier_skill_score": 0.9129086680785583,
+  "case_id": "scotus/73281386",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.72,
+        "score": 0.821804397731781
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.8,
+        "score": -0.5148196487754229
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.3069847489563582,
+    "total": 0.3069847489563582
+  },
+  "correct": 0,
+  "created_at": "2026-10-15T15:48:23Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "none",
+    "mode": "forward",
+    "notes": "Forward mode prediction with no outcome material retrieved. Evaluated logs and reasoning and found no leakage.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-3.1-pro-preview",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+    "label": "proc-v9",
+    "pipeline_sha": "74f189b3dcb00640c2cf23cb149cfb16a3d2b465",
+    "stamped_at": "2026-10-15T15:54:36.409409Z"
+  },
+  "reasoning_quality": 0.95,
+  "run_id": "20261015T154823Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120898100172712,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
