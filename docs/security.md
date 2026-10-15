@@ -183,9 +183,9 @@ bypass list, so even an admin must edit the ruleset before a record tag can
 move; the *Tags* subsection of docs/pipeline.md rests the record's
 immutability on it. **One-time setup (maintainer), after the
 `promotion-record` writer's first successful run:** add a tag ruleset that
-restricts **creation** in `promotion/**` and `prereg/**` with the data App as
-its only bypass actor, so no other credential can plant a tag ahead of the
-writer. Until then a tag planted on a promotion's canonical name blocks that
+restricts **creation** in `promotion/**` and `prereg/**` to the data App as
+bypass actor, the maintainer's admin role keeping a recovery bypass, so no
+other credential can plant a tag ahead of the writer. Until then a tag planted on a promotion's canonical name blocks that
 promotion's record (the writer adopts only its own annotated tag, so a
 planted one never enters the record), and the maintainer resolves it by hand. Both require-PR rulesets pin
 `allowed_merge_methods` to **`merge, squash`**: `merge` because the sync and the

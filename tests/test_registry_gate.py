@@ -42,6 +42,7 @@ from tests.test_promotion_record import (
     NEW_CLAUDE,
     NEW_LABEL,
     PENDING,
+    UNDECLARED,
     _artifact,
     _commit,
     _git,
@@ -192,7 +193,7 @@ def test_pending_rows_on_an_undeclared_main_are_refused(tmp_path: Path) -> None:
     no merge would stamp it, so the declaration has to land first."""
     staging = register_boundary(DECLARED, "early", predictors=None, reach="all", gradual=False)
     repo, at = _history(
-        tmp_path, main_registry=COMMITTED, staging_registry=staging, main_record=RECORD
+        tmp_path, main_registry=UNDECLARED, staging_registry=staging, main_record=RECORD
     )
     problems = _problems(repo, at)
     assert any(

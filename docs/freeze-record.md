@@ -8386,3 +8386,103 @@ freeze commit is recorded here.
   /tmp/lb.json` shows `excluded: 6`, `correct_by_predictor` zero for each
   predictor, and the event named; the frozen `metrics/leaderboard.json` after
   the next metrics refresh is unchanged and carries no `voided_events` key.
+
+- **Counting instants and bless moments are stamped by the carrying merge, 2026-10-14.**
+  A **procedure** entry that declares how every label registered from now on
+  gets its instants. It moves no digest, no constant, no window and no
+  membership: `uv run fedcourts process-digest --all` prints the same
+  `proc-v9` digests, and the committed registry holds no pending row. The rows
+  already registered keep the instants they hold, `proc-v9`'s hand-set
+  `2026-10-11T12:00:00Z` counting instant included.
+
+  **The rule.** From the next label on, a label is registered in the PR that
+  moves the digests (`fedcourts register-process`), as **pending** rows, and
+  the promotion merge that carries that PR to `main` stamps them:
+  - the label's counting instant, the bless moment of every digest it newly
+    blesses, the opening of every window it opens (and the close of every
+    window it closes), and the instant of every harness boundary it registers
+    are all **that merge's git committer time**, written by
+    the `promotion-record` writer with `source: "merge"`;
+  - **no instant is forecast by hand.** The shakedown margin a hand-set late
+    counting instant used to buy — a span after the merge in which honest
+    cells landed uncounted — is dropped. It bought nothing the stamp does not
+    give: the bytes are immutable from the merge, nothing can carry the new
+    digest before the merge lands it, and the gate's Step 0 refuses a batch
+    whose pending digest already stamps a committed cell. What it cost was a
+    span of honest cells re-owed and paid for twice. The closing side keeps a
+    straddle of its own: a cell of the superseded digest in flight at the
+    carrying merge and stamped after it falls after its window's close, so it
+    is shakedown, uncounted and re-owed, exactly as a hand-margin cell was on
+    the opening side. The promotion gate's quiescence check (docs/pipeline.md,
+    *Promotion*) keeps that set empty in practice, and any residue shows in
+    `fedcourts successor-disclosures` as cells carrying the closed digest
+    stamped at or after the close;
+  - **an evaluator-only label holds the prior counting instant**, opens and
+    closes no window, and only its new evaluator blessings are stamped — the
+    evaluator-half supersession rule in `docs/process-version.md`;
+  - **one label per digest-moving promotion.** Step 0 refuses a batch carrying
+    more than one label new to `main`, so each label has one carrying merge,
+    one instant and one `prereg/` tag;
+  - **`prereg/<label>` sits on the carrying merge**, an annotated tag the
+    writer creates with the plan's message, not on a freeze commit: the merge
+    is what fixes the instant, so it is the commit the label is audited
+    against. This departs from the freeze-commit convention the earlier
+    `prereg/` tags follow;
+  - **"merged" times in fills are git committer time**
+    (`git log -1 --format=%cI <merge>`), the one clock git re-derives.
+    `promotion/2026-10-13`'s fills recorded `2026-10-13T17:54:17Z`, GitHub's
+    `mergedAt`; its committer time is `17:54:16Z`. The second touches no cell:
+    that merge stamped no registry row, and no prediction or evaluation on
+    `main` is stamped inside it.
+
+  **Fills.** The writer fills only placeholders the merge itself added, from a
+  closed key set: the promotion tag, the merge hash and the merged time, and a
+  keyed census of committed artifacts carrying given digest prefixes, rendered
+  by `fedcourts digest-census` over the merge's own tree. A census counts
+  **carrying files** — every stamped cell, shakedown and de-counted ones
+  included — never counted cells, and an entry's wording says "carrying".
+  Free-text placeholders stay a maintainer's, and the writer lists them on the
+  promotion PR.
+
+  **Pending rows read conservatively** until the merge stamps them: a pending
+  blessing is registered but has no bless moment, so a board counts no
+  prediction under it; a cell stamped with a pending digest is pending, not
+  de-counted, so the backlog re-owes nothing; a pending label leaves the prior
+  counting instant in force; a window whose opening is pending counts nothing
+  and one whose close is pending stays open; a pending harness boundary splits
+  nothing. A board built meanwhile names what it read as pending.
+
+  **Step 0 is the promotion gate's**, on every batch (`scripts/promotion-gate.sh
+  registry`): it refuses a pending registration on a `main` that does not yet
+  hold this declaration, a pending digest that already stamps a committed cell
+  on `main`, an enabled actor whose digest is unregistered, a predictor with
+  more than one open window, more than one new label or one whose `prereg/` tag
+  exists, a repeated boundary name, and a pending row already sitting on
+  `main`.
+
+  **When it takes effect.** The registry's `merge_stamping_declared` names this
+  entry's date, and the writer stamps only where the merge's **first parent**
+  — what `main` held before the merge — holds both that field and this
+  heading. So the promotion carrying this entry cannot itself stamp anything:
+  the first label stamped under the rule rides a later promotion.
+
+  Census at `origin/main` `4e505acc0` (2026-10-14T23:03:49Z), counting
+  carrying files: 25 predictions carrying `proc-v9`'s claude-baseline digest
+  (`605201bd`); 277 carrying codex-baseline's digest carried from `proc-v8`
+  (`70fee158`) and 275 carrying gemini-baseline's (`a9033e56`); 168
+  evaluations carrying a `proc-v9` judge digest (`167b7d71`, `18a76b93`,
+  `22558044`).
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`). At the carrying merge,
+  predictions carrying `605201bd`: `<FILL: census predictions digest=605201bd>`;
+  predictions carrying a digest carried from `proc-v8`:
+  `<FILL: census predictions digest=70fee158,a9033e56>`; evaluations carrying
+  a `proc-v9` judge digest:
+  `<FILL: census evaluations digest=167b7d71,18a76b93,22558044>`.
+
+  The runnable effect check once it is live: on `main`,
+  `jq .merge_stamping_declared src/fedcourtsai/process_registry.json` prints
+  `"2026-10-14"`, `fedcourts promotion-record --check-main origin/main`
+  reports no pending registration, and the next `register-process` on
+  `staging` writes pending rows instead of refusing.
