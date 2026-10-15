@@ -8975,3 +8975,116 @@ freeze commit is recorded here.
   shows `refusing to provision … no stored snapshot carries the docket entry
   that opened the moment` and `exit 5` in its job log, with no committed
   output.
+
+- **A codex manifest call logged under its bare tool name is captured under
+  the manifest spelling, 2026-10-15.** A **capture** change of the
+  masking-surface class. No digest, constant, window or membership moves, and
+  `uv run fedcourts process-digest --all` prints the same `proc-v9` digests.
+  Codex's rollout logs a CourtListener call as an item named by the bare tool
+  name (`search`), with no `mcp` prefix and no server field. Capture now
+  renames such a name to `mcp__<server>__<tool>`, but only where the cell's
+  offered set allows it. The offered set is the `mcp_tools` snapshot the same
+  log records. If the item records a namespace, the name is renamed only when
+  the namespace names an offered server that has the tool. If it records
+  none, exactly one offered server must have the tool. Any other name keeps
+  its logged spelling. So does every name in a log whose offered set is
+  empty, which happens when `record-retrieval` cannot resolve the actor's
+  registry entry; it warns when that happens. Claude and gemini rows are
+  unchanged, because their logs already carry the `mcp` prefix.
+
+  **Where the bare names start.** The 2026-08-20 to 2026-09-01 codex logs
+  carry their manifest calls only as rows lifted out of code-mode programs.
+  Those rows are spelled `mcp__<server>__<tool>`; all 170 carry `call_source`
+  `code_mode_source`. From `20260916T170237Z` on, codex calls its tools as
+  direct items, and the manifest ones arrive under the bare name. The
+  regime change follows the `codex-action` pin, and shows two days before the
+  first bare-name row, in `codex-judge` logs:
+  - `20260902T185700Z` ran at `pipeline_sha` `45d32a37b`, which pins
+    `codex-action` v1.11. It still carries `code_mode_source` rows.
+  - `20260914T195025Z` ran at `ba603cd0d`, which pins v1.12. Every row is
+    `transcript_item`.
+
+  Both shas pin codex CLI `0.144.1`, so the CLI did not change. The v1.12
+  bump is the likeliest carrier of codex dropping code mode. That is an
+  inference, since no committed `usage.json` stamps an engine version. The
+  re-derivable facts are each cell's `pipeline_sha`, the `codex-action` pin
+  at that sha, and its rows' `call_source` and spelling.
+
+  **What the bare-name stretch distorted.** It runs from `20260916T170237Z`
+  to the carrying merge. On `main` at `457b395cb` it holds 212 codex logs:
+  211 `codex-baseline` predict logs and one `codex-judge` evaluate log
+  (`20261007T185906Z`). Those logs carry 653 bare-named manifest rows: 324
+  `search`, 237 `search_document`, 81 `read_document`, 5 `get_endpoint_item`,
+  4 `get_more_results` and 2 `analyze_citations`. Each is a builtin to every
+  manifest-gated reader, with `result_status` `ok` whatever came back. So
+  over that stretch every manifest-gated codex figure is **unknown, not
+  zero**. That holds on each published surface:
+  - **The tool-usage rollup's throttle cut and the log's `throttled_calls`.**
+    No codex 429 in the stretch was read as one. The worked case is
+    `scotus/73280380` `evt-petition-disposition` run `20260916T170237Z`: its
+    `flags.json` reports a CourtListener 429 that its log records as `ok`.
+    A codex cell's own `flags.json` is the only record of a throttle it hit
+    there.
+  - **The substitution signal**, which counts cells that searched the web
+    without calling the MCP. Codex shows 285 such cells. Read with the bare
+    names resolved, only 73 remain, so at least 212 of the 285 are capture
+    artifacts.
+  - **The call-volume-against-Brier table.** Codex's mean MCP calls print 0.0
+    beside its Brier. Over this stretch that figure is unknown, not zero.
+  - **The offered-vs-called table.** It reads `analyze_citations` and
+    `get_more_results` as never called by codex. Codex called both: 2 and 4
+    times.
+  - **The per-actor MCP column.** It reads `codex-judge` at 0, which is
+    unknown over this stretch.
+
+  Over codex logs captured from `20260916T170237Z` to the carrying merge, MCP
+  call counts and throttle status are **missing, not low**, and remain so.
+  The rename runs at capture, not when a log is read, and those cells'
+  rollouts are gone. The result text a status would be read from was
+  digested away at capture, so a read-time rename could recover the names
+  but not the statuses. Codex's ledger MCP **call counts** are therefore the
+  `20260820`–`20260901` stretch plus the logs captured after the carrying
+  merge. Those two stretches are two capture regimes: lifted code-mode rows,
+  and resolved direct items. Codex's **throttle** figure has no such earlier
+  stretch. Every one of the 170 prefixed rows from `20260820`–`20260901` is a
+  code-mode lift and `unobserved`, so none enters the throttle denominator.
+  That figure stays capture-blind until logs captured after the carrying merge
+  arrive. A move in any codex figure across the merge is a capture change, not
+  a behavioural one. `self_provisioned_fetches` does not
+  move: respelling the bare rows of all 542 committed codex logs that carry
+  `mcp_tools` changes no log's count.
+
+  **What it reaches through the blinded log.** The blinding mask stages a
+  bare-named row as `other`. After the change it stages it as
+  `mcp:courtlistener:<tool>`, which is what a claude or gemini call to the
+  same tool stages as. So every evaluator now sees, on a codex candidate, the
+  server and method of each CourtListener call, under unchanged evaluator
+  digests. That class is what graders read when they form the
+  `leakage_suspected` bit, and the bit gates which cells every rank key and
+  scored aggregate counts, published as `leakage_exclusion`. So codex's
+  `leakage_exclusion` spans two staging regimes in the middle of the
+  `proc-v9` window. The reach is bounded, because the bit rarely fires on the
+  forward cells that make up the scored population.
+
+  **Why no label bump and no harness-boundary row.** No digest moves, so a
+  label bump would partition nothing. The boundary already exists in the
+  data. The exact test of which rule minted a log is the ancestry of the
+  cell's `pipeline_sha` (its `usage.json` / `process_version` stamp) against
+  the carrying merge. The log itself carries no sha. A row's spelling is only a hint. A log
+  captured after the merge with an empty offered set keeps its bare names,
+  and a cell that called no manifest tool looks the same under either rule.
+  Nor is it a `process_version.HARNESS_BOUNDARIES` change, which registers
+  changes to what a predict cell reads. No predict cell reads anything
+  different, because capture runs after the engine, on its own log.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **Effect check.** On `main`, once a run-predict round after the carrying
+  merge has landed codex cells that called CourtListener, `jq -r '.calls[] |
+  select(.tool | startswith("mcp__courtlistener__")) | .tool'` over those
+  cells' `retrieval_log.json` prints one line per manifest call. The same
+  jq with `select(.tool == "search" or .tool == "search_document" or
+  .tool == "read_document" or .tool == "get_endpoint_item" or .tool ==
+  "get_more_results" or .tool == "analyze_citations")` prints nothing.
+  `fedcourts tool-usage` over that round shows non-zero codex MCP calls.

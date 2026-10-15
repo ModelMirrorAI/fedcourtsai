@@ -1078,7 +1078,33 @@ def _render_throttling(usage: ToolUsage) -> list[str]:
             + "calls in the ledger* is a different thing again: no such call was recorded "
             + "for it, so nothing in the ledger could have been throttled.",
         ]
+    codex = next((p for p in usage.engine_profiles if p.engine == "codex"), None)
+    if codex is not None:
+        lines += ["", _codex_bare_name_note(codex)]
     return lines
+
+
+def _codex_bare_name_note(profile: ToolUsageEngine) -> str:
+    """The codex-only naming blindness, worded by whether codex has a ratio at all.
+
+    A codex log can record a manifest call under its bare tool name, which
+    counts as a builtin whose condition was never read. That is a fact about
+    every codex figure here, so it is printed whenever codex is, but it only
+    qualifies a ratio where one exists; with no legible codex condition the
+    note must not imply one.
+    """
+    scope = (
+        "so codex's ratio covers only its manifest calls spelled "
+        + "`mcp__<server>__<tool>` — part of its manifest use, not all of it"
+        if profile.mcp_calls_with_status
+        else "so codex's MCP call count misses those calls, and its throttle figure "
+        + "is capture-blind rather than a ratio"
+    )
+    return (
+        "_**codex**: a call a codex log recorded under its bare tool name (`search`) "
+        + f"counts as a builtin whose result condition was never read, {scope}. Which "
+        + "logs carry bare names is dated in `docs/freeze-record.md`._"
+    )
 
 
 def _render_dead_ends(usage: ToolUsage) -> list[str]:

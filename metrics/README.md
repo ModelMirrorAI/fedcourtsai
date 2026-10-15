@@ -3205,7 +3205,10 @@ every per-engine cut this touches — the observability rate, the mean call
 counts, and which engines appear in the offered-vs-called table at all — as
 **scoped to the logs that could express it**, since a lifted row exists only
 where capture minted one. A code-mode engine appearing to call no manifest
-tool over a stretch of the ledger is a capture fact, not a behavioural one.
+tool over a stretch of the ledger is a capture fact, not a behavioural one —
+and so is codex appearing to make no manifest call over the bare-name stretch
+the throttle-coverage reading below names, whose calls are counted as
+builtins.
 Which idioms the lift matches decides how many rows a program leaves behind, so
 a ledger-wide cut over a code-mode engine pools logs captured under whatever
 lift each was minted with — exactly as a throttle count pools predicates, and
@@ -3258,8 +3261,21 @@ in what could be seen, not only in what happened, and only one of the three
 supplies a real denominator at all. And the denominator moves with capture: a
 log carrying no lifted rows is one capture never minted them for, not a cell
 that made no manifest call, so a ledger-wide cut pools stretches with
-categorically different coverage. Read a per-engine throttle number as scoped
-to the logs that could express one.
+categorically different coverage. A further case, codex-only, is a naming
+one. Codex logs written from `20260916T170237Z` until bare-name resolution
+reached capture record each manifest call under its bare tool name
+(`search`). Those rows count as builtins: their result condition was never
+read, and the MCP counts, the offered-vs-called table and the per-actor MCP
+column all miss them. So over that stretch every manifest-gated codex figure
+is **unknown, not zero**, and stays so, because no committed log is
+re-derived. Codex's earlier manifest rows, from `20260820` to `20260901`, are
+all code-mode lifts and so `unobserved`, so they add calls but no throttle
+denominator. Codex's throttle figure is therefore capture-blind until logs
+captured after the resolution arrive. Its call counts are those earlier
+lifted rows plus the later resolved ones, two capture regimes. A move in
+either figure across the resolution is a capture change, not a behavioural
+one (`docs/freeze-record.md` dates it). Read a per-engine throttle number as scoped to the logs that could
+express one.
 
 **What may be claimed from `self_provisioned_fetches`: a described share and a
 common-record comparison on the leaderboard, never a rank, a headline figure or

@@ -526,7 +526,20 @@ directory without knowing which part is which invites trusting the wrong half.
   the text predicate is gated on the tool name, because a builtin's result is
   whatever the agent asked it to read (its own `reasoning.md`, this
   repository's source, another cell's artifacts), and prose about throttling is
-  not this cell being refused. `throttled_calls` is the log-level count over
+  not this cell being refused. A manifest call is recognised by its `mcp`
+  prefix: `mcp__<server>__<tool>` as claude and codex spell it, or
+  `mcp_<server>_<tool>` as gemini does. A blinded log's respelling,
+  `mcp:<server>:<tool>`, is also recognised. Codex's rollout can log one under the
+  bare tool name (`search`). Capture renames it to `mcp__<server>__<tool>`
+  only where the cell's offered set (`mcp_tools`) allows it. If the item
+  records a namespace, the namespace must name an offered server that has
+  the tool. If it records none, exactly one offered server must have the
+  tool. Otherwise the row keeps its bare name and counts as a builtin. So
+  does every bare name in a log whose `mcp_tools` is empty, which happens
+  when capture could not resolve the actor's registry entry. Rows captured
+  before the rule keep their bare names: the rule runs at capture, not on
+  read, so those rows count as builtins and their results were never checked
+  for a throttle. `throttled_calls` is the log-level count over
   that same gated set, null where no manifest result was legible, because a
   throttle is only countable where one reached the transcript. Both are floors
   — the predicate is anchored on the server's own rate-limit phrasing, biased
