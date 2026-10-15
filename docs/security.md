@@ -22,8 +22,11 @@ starts workflows and does nothing else. A fourth is installed but referenced by
 no workflow (below). The split is what makes "data
 writes land directly, everything agentic
 lands via a PR" an *identity*-enforced invariant rather than a policy the
-agent is merely instructed to follow (that the PR is *reviewed* is a
-convention `AGENTS.md` carries, not something identity enforces):
+agent is merely instructed to follow (that a PR into `main` is *reviewed*
+is enforced by `main: require approval` for every identity off its bypass
+list, below; for the three on it the bound is the checks and the `paths`
+jail (the dev App's auto-merges), the writer jail (the data App), or
+`AGENTS.md`'s convention (the admin role)):
 
 - **data App** — used by the deterministic writers `run-pull`, `run-seed`
   and `run-repair`, and by `promotion-record`, which tags each promotion merge
@@ -40,8 +43,10 @@ convention `AGENTS.md` carries, not something identity enforces):
   Its client id
   is the `DEV_APP_CLIENT_ID`
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
-  **not** a bypass actor, so nothing it holds can reach `main` except through a
-  PR that satisfies the required checks.
+  **not** a bypass actor on any ruleset that carries a required check, so
+  nothing it holds can reach `main` except through a PR that satisfies them;
+  its one bypass is `main: require approval`'s, for pull requests only, which
+  is what lets the auto-merged lanes land without a human approval.
 - **dispatch App** — used only by the two drain-chain jobs, `run-pull`'s
   `chain-predict` and `run-predict`'s `chain`, each of which starts an
   input-less `run-predict` round on `main`. Its client id is the
@@ -112,6 +117,38 @@ Commits and PRs are attributed to each App's own bot user (the
 `configure-git-identity` action resolves `<app-slug>[bot]` from the token), so
 deterministic corpus pushes and agent PRs are visibly authored by different bots.
 
+### The agent account and the two teams
+
+Interactive agent sessions — Claude in the Claude app, and any coding agent a
+maintainer starts — are set up to act as a separate machine account,
+**`modelmirror-agent`**, not as the maintainer; a session started with the
+maintainer's own credentials is the exception, and for it the rules below are
+`AGENTS.md`'s discipline. It holds **write** on this repository through the
+**`agents`** team and nothing more: no admin role, no place on any ruleset's
+bypass list, never a required reviewer on the `review` environment (whose
+self-review is permitted, so a reviewer there must be a human). Its
+credential is the Claude app's GitHub connection, held server-side and
+reached only through the session proxy, which refuses `workflow_dispatch` and
+the admin APIs; revoking it is disconnecting GitHub in the Claude app, or
+removing the account from `agents`. Any other credential minted for the
+account — a token for a codespace, say — must leave Actions write out, since
+the write role itself permits a dispatch.
+
+The **`maintainers`** team (the maintainer alone, with direct access to the
+repository) is the required reviewer on `main: require approval`, so its
+membership is who can approve a change into `main`; whoever administers the
+organization's teams holds that decision.
+
+What write lets the account do that no rule here refuses: create a tag in
+`results/**` (and, until the creation ruleset below exists, in `promotion/**`
+and `prereg/**`) or a published Release, which Zenodo archives; prune the
+deployment list the auto-release cap reads; and push onto an open
+data-lane PR's branch, whose armed auto-merge may then run under the dev
+App's approval bypass, bounded by the `paths` jail and `gate` (both `main`
+rulesets carry GitHub's extra-approval setting for unattributed changes,
+whose effect on such a push is unverified). Each is
+`AGENTS.md`'s discipline for the account rather than a control.
+
 ## Zenodo archiving
 
 The third-party integration this page covers beside the Apps above is
@@ -150,7 +187,8 @@ person's GitHub login.
   the invariant in [SECURITY.md](../SECURITY.md).
 - **Publishing a Release is a maintainer step by convention, not by control.**
   No workflow creates a Release, but any credential with `contents: write` —
-  the Apps' tokens and `github.token` in a job granted it — could create a tag
+  the Apps' tokens, `github.token` in a job granted it, and the agent account
+  interactive sessions act as — could create a tag
   and a published Release through the API. The record-namespace tag ruleset
   blocks update and deletion, not creation, so a `promotion/` or `prereg/`
   tag can also be planted ahead of the `promotion-record` writer. The writer
@@ -174,7 +212,7 @@ published.
 
 ## Branch protection — the rulesets
 
-The two `main` rulesets are split so the per-rule bypass is correct (a ruleset's
+The three `main` rulesets are split so each rule's bypass is correct (a ruleset's
 bypass list applies to the whole ruleset); further rulesets protect the
 `staging` and `ops-metrics` branches. One more targets tags rather than
 branches — `tags: protect record` blocks update and deletion on the three
@@ -187,7 +225,7 @@ restricts **creation** in `promotion/**` and `prereg/**` to the data App as
 bypass actor, the maintainer's admin role keeping a recovery bypass, so no
 other credential can plant a tag ahead of the writer. Until then a tag planted on a promotion's canonical name blocks that
 promotion's record (the writer adopts only its own annotated tag, so a
-planted one never enters the record), and the maintainer resolves it by hand. Both require-PR rulesets pin
+planted one never enters the record), and the maintainer resolves it by hand. Every require-PR ruleset pins
 `allowed_merge_methods` to **`merge, squash`**: `merge` because the sync and the
 promotion must keep `main` and `staging` sharing history, `squash` because the
 data-run `collect` PRs auto-merge with it, and no rebase because replaying
@@ -205,9 +243,9 @@ pre-registration record's commit ids.
   recomputes — while all agent code changes — including
   anything the dev App holds —
   go through a PR gated on the required checks. The dev App is deliberately
-  **absent** from this bypass list. Required approvals are `0` — the maintainer
-  reviews at merge time by convention, not by rule; set to `1` if a second
-  reviewer exists.
+  **absent** from this bypass list. Required approvals are `0` here: the
+  approval requirement is its own ruleset, below, because its bypass list
+  differs.
   - Required checks are exactly `gate`, `paths`, `promotion-gate`, and
     `main-base` (the latter two report `skipped` — satisfying the requirement —
     on every PR they do not gate). `main-base` is the merge-routing jail: it
@@ -303,6 +341,40 @@ pre-registration record's commit ids.
     assert-cleanup-paths`). A cleanup PR is **never auto-merged** — a maintainer
     reviews and merges it — so this is review-time defense-in-depth. No-op on
     other branches.
+- **`main: require approval`** — requires a pull request with **one
+  approving review from the `maintainers` team** (the maintainer alone), with
+  stale approvals dismissed on a new push, so what merges is the head the
+  maintainer read. The team requirement is what makes the approval the
+  maintainer's: a plain approval count would accept one from any identity
+  with write, the agent account included. Most-recent-push approval is
+  **off**: a promotion's head is `staging`, whose latest push is often the
+  maintainer's own merge, which would make the one person who can approve
+  ineligible to. **Bypass**, each scoped to what it lands:
+  - the **dev App**, for pull requests only — the two auto-merged lanes
+    (`collect` and the big-case board) land without a human, still bound by
+    `main: require PR`'s checks and the `paths` jail, because that ruleset
+    does not list it. Its reviewed lanes (the metrics refresh, the backtest,
+    the summaries, the labeling run) are never auto-merged, so a maintainer
+    merging them is the convention that keeps them read. This is also the
+    residual: a job that mints the dev App token with contents write could
+    merge any green PR into `main` unapproved, a promotion included.
+    Changing what those jobs do takes code on `main`, which takes an
+    approval; `promotion-prep`'s token holds no contents write. Whether an
+    auto-merge armed through a weaker token of the same App inherits the
+    bypass is unverified;
+  - the **data App**, always — its writer pushes are direct, and this
+    ruleset's pull-request requirement would otherwise refuse them; it could
+    equally merge a PR unapproved, which adds nothing to a reach that
+    already skips `main: require PR`;
+  - the **repository admin role**, for pull requests only — any PR an admin
+    merges, which is how the maintainer's own PR lands, since GitHub does not
+    let its author approve it. The merge is recorded as a bypass and is still
+    bound by the checks; direct pushes stay refused. A session holding the
+    maintainer's credentials holds this bypass too.
+
+  Promotions are opened by the dev App (`promotion-prep`), so the maintainer
+  can approve one: a promotion merges on that approval of its head, or
+  through one of the bypasses above, which the merge records.
 - **`main: protect history`** — blocks force-pushes and branch deletion. **No
   bypass — neither App.** This is what guarantees the committed *history* of
   the predictions, outcomes, and evaluations under `data/` cannot be rewritten
@@ -320,18 +392,21 @@ pre-registration record's commit ids.
   stale approvals when new commits are pushed**: it binds only on a PR whose
   diff touches a path `.github/CODEOWNERS` names (the maintainer owns all of
   them), and a push after the approval dismisses it, so an approved PR cannot
-  be extended and merged on the old approval. Every other PR still merges on
+  be extended and merged on the old approval. Approval of the most recent
+  push is **off**: with it on, GitHub asks one approval of every PR, owned
+  path or not, which would end both the agents' self-merge lane and the
+  sync's auto-merge. Every other PR still merges on
   the checks alone, at zero approving reviews. GitHub reads `CODEOWNERS` from the PR's base, so
-  the rule binds on `staging` once the file is there. It binds the dev App and
-  any other identity without the admin role; it does **not** bind an
-  interactive agent session, which acts as the maintainer's own account — the
-  owner, and an admin. A session's own owned-path PR can merge only through
-  the bypass, which is visible afterwards as a bypassed merge. A session can
-  also *approve* an owned-path PR it did not open (a Dependabot workflow bump,
-  a collaborator's PR), and that approval satisfies the rule with no bypass
-  and leaves nothing to tell it from the maintainer's own review. Holding back
-  from both is `AGENTS.md`'s discipline, not a rule this ruleset can
-  enforce. The sync PR is not held by it in practice: its diff
+  the rule binds on `staging` once the file is there. It binds the dev App,
+  the agent account interactive sessions act as, and any other identity
+  without the admin role: an agent's owned-path PR waits for the maintainer,
+  and the agent account, owning nothing, cannot satisfy the rule by approving.
+  What it does not stop is the merge click once the maintainer has approved;
+  leaving that merge to the maintainer is `AGENTS.md`'s convention. The
+  maintainer's own owned-path PR merges through the admin bypass, which is
+  visible afterwards as a bypassed merge, and so does one opened by a session
+  holding the maintainer's credentials, for which the rule is discipline
+  again. The sync PR is not held by it in practice: its diff
   against `staging` is the `main` commits `staging` lacks, which are writer
   data commits, since code reaches `main` only from `staging`; a commit to an
   owned path reaching `main` any other way would stall the sync's auto-merge
@@ -384,15 +459,15 @@ happen and keep the branch list clean. To reproduce the repo (or use it as a tem
 | **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. (It cannot touch `main`: GitHub skips the default branch, and `main: protect history` refuses deletion from anyone.) |
 | **Allow merge commits** | **on** | `sync-staging` merges `main` into `staging` with `--merge`. A squash or rebase would land a commit with no parent link to `main`'s tip, so the promotion gate's ancestry check would fail and the next sync would reopen the same PR forever. |
 
-Rebase-merge is not used by the pipeline, and both require-PR rulesets pin
+Rebase-merge is not used by the pipeline, and every require-PR ruleset pins
 `allowed_merge_methods` to `merge, squash` — so it is refused on `main` and
 `staging` regardless of the repo-level toggle. A rebase-merge of either
 ancestry-critical merge would replay commits onto the target, breaking the
 shared history *and* rewriting the pre-registration record's commit ids; no
 lane needs it. Auto-merge does **not** weaken the gate: it is a
 deferred merge that still waits for the required `gate` + `paths` checks, and the
-dev App that opens these PRs is not a branch-protection bypass actor (above), so
-the checks bind. A bounded diff is what makes auto-merging safe, and the `paths`
+dev App that opens these PRs is not a bypass actor on the ruleset that requires
+them (above), so the checks bind; it bypasses only the approval requirement. A bounded diff is what makes auto-merging safe, and the `paths`
 check carries one per lane: the append-only `data/` jail for agent output, and
 `assert-board-paths` — the board's two files, written, nothing else — for the
 big-case board.
@@ -413,7 +488,8 @@ run — and `run-pull`, whose failure-only
 run-log issues ride the ambient token for the same reason (its App token is
 reserved for the writes that must reach `main` through the
 deterministic-writer bypass: the corpus commits and the published verdict).
-The capability is therefore on the lower-trust, non-bypass token, scoped
+The capability is therefore on the lower-trust token, which bypasses no
+required check, scoped
 to issue comments/creation only; and the agent never touches it (the per-cell agent
 token stays comment-only and writes `flags.json` locally — the trusted `collect`
 job does the surfacing). So docket text the agent ingests cannot reach it, and the
@@ -505,8 +581,8 @@ otherwise create it on first reference with no branch policy, and the
 promotion gate's `contexts` stage refuses a `main` that binds it unless it is
 restricted to `main` and carries no secrets or variables. The deployment count
 is only as good as the deployment record, which any write holder could prune,
-and that includes an interactive agent session, since it acts as the
-maintainer's account. So the daily cap reads a second record beside it, the
+and that includes the agent account interactive sessions act as. So the daily
+cap reads a second record beside it, the
 auto-released collect commits on `main` (collect marks a released round's
 ready commit, and `main`'s history cannot be rewritten), and takes the larger
 count; an unreadable record keeps the hold. A write holder could still edit an
@@ -637,7 +713,7 @@ A per-run approval is the stronger control against a *second* write-access
 human, who could otherwise merge to `staging` (the ruleset requires zero
 approving reviews off the code-owned paths) and reach the environment without
 the maintainer; the code-owner rule already stops such a collaborator changing
-the workflows themselves. It is
+the workflows themselves. Such a per-run approval is
 redundant against the arrangement that exists: no workflow declares
 `actions: write`, the one App granted an Actions scope (the dispatch App) is
 minted only by the two chain jobs, whose code starts nothing but `run-predict`
@@ -658,7 +734,14 @@ token could start any workflow on any ref, but the key is a `prod` secret, so
 only jobs on `main` — maintainer-promoted code — can mint it, and the only
 such jobs are the two chain jobs, which hold no agent, corpus or PR-head code.
 A change that adds a minter, or a chain job that dispatches anything but
-`run-predict` on `main`, reopens it. Another premise **has** fired, and this
+`run-predict` on `main`, reopens it. The first premise **has** fired too,
+with the agent account (*The agent account and the two teams* above): a
+write-access identity whose lane is merging its own PRs to `staging`. It is
+answered by its credential path rather than its role — the write role permits
+`workflow_dispatch`, and the session proxy its connection runs through
+refuses it — and by the code-owner rule, which holds its workflow changes for
+the maintainer. A credential for the account that does not run through that
+proxy and can dispatch reopens it. Another premise **has** fired, and this
 paragraph answers the
 question it was holding: the `staging` environment is repointed at the
 staging corpus (the runbook's step 5), so the promotion gate's freshness
@@ -688,14 +771,15 @@ identity without the admin role: it requires a code owner's review, and
 this document and `SECURITY.md`, of the promotion gate and lane machinery, of
 the authorization check (`src/fedcourtsai/authz.py` and its tests), of the
 agent configs, and of the CODEOWNERS file itself. The admin role is the
-exception, and two kinds of change use it: the maintainer's own PR to an owned
-path, since GitHub does not let an author approve their own PR, and any PR an
-interactive agent session opens, since such a session acts as the
-maintainer's account. A session acting as that account could also approve an
-owned-path PR someone else opened, and its approval would read as the
-maintainer's. For all of these it remains `AGENTS.md`'s convention, recorded
-as such; separating the agent's identity from the maintainer's is what would
-make it a rule.
+exception, used by the maintainer's own PR to an owned path, since GitHub
+does not let an author approve their own PR. Interactive agent sessions act
+as the agent account, `modelmirror-agent`, which holds write through the
+`agents` team and appears on no bypass list, so the rule binds them: an
+agent's owned-path PR cannot merge until the maintainer approves its latest
+push. A session that holds the maintainer's own credentials holds the admin
+bypass, and could approve an owned-path PR someone else opened with an
+approval that reads as the maintainer's; for such a session the rule is
+`AGENTS.md`'s convention, recorded as such.
 
 Blast radius is bounded on **integrity of production**, not on confidentiality
 or spend: staging's engine keys are separate and independently revocable, and

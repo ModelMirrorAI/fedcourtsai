@@ -603,9 +603,10 @@ jobs:
         with:
           restore-cache: "false"
 
-      # The refresh PR is opened with the dev App token. The dev App is not a
-      # branch-protection bypass actor, so the PR still faces the required `gate`
-      # check, and it is never auto-merged — review is mandatory. The read-only
+      # The refresh PR is opened with the dev App token. The dev App bypasses
+      # no required check, so the PR still faces the required `gate` check,
+      # and it is never auto-merged; a maintainer merging it is what keeps it
+      # read. The read-only
       # analysis modes above hold no write token at all; the only other job that
       # does is qp-topic-label, for the same reason and on the same terms.
       # Minted on `main`-ref runs only: the dev App's credentials live on the
@@ -787,8 +788,8 @@ jobs:
     # exactly how a published surface goes stale. What bounds the diff is the
     # required `paths` check, which runs the tested `assert-board-paths` jail on
     # this branch: the board's two files, written, and nothing else. The
-    # gate still decides: the dev App is not a
-    # branch-protection bypass actor, so auto-merge waits on the same required
+    # gate still decides: the dev App bypasses no required check (only
+    # `main`'s approval rule), so auto-merge waits on the same required
     # checks a reviewed PR would. Where the platform refuses to arm it, the PR
     # stays open for a manual merge rather than failing the run.
     if: >-
@@ -1916,9 +1917,9 @@ jobs:
       # existing while an agent runs unattended on the same runner, and a token
       # minted at the top of a 75-minute job would spend its whole 1-hour life
       # waiting for a step that may never run — and be dead by the time it
-      # does. The dev App is not a
-      # branch-protection bypass actor, so the PR still faces the required
-      # `gate` check and is never auto-merged.
+      # does. The dev App bypasses no required check, so the PR still faces
+      # the required `gate` check, and it is never auto-merged; a maintainer
+      # merging it is what keeps it read.
       # Minted on `main`-ref runs only: the dev App's credentials live on the
       # prod environment alone, and a rehearsal's labels stay on the runner —
       # the measured block in the step summary and the transcript artifact are

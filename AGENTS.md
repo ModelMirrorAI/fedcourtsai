@@ -90,9 +90,15 @@ non-interactive** container. Two consequences shape everything you do:
   that are not your lane: the data App's deterministic writers push to `main`
   (the `promotion-record` writer's record commit among them, jailed byte-equal
   to its plan and touching only the registry and the freeze record), and an
-  admin-role escape hatch on `staging`. Do not lean on the platform to
-  stop you; the identity you hold can bypass the `staging` PR requirement, so
-  this one is discipline. And the staging permission is a permission, not an
+  admin-role escape hatch on `staging`. An interactive session acts as the
+  agent account (`modelmirror-agent`), which holds write and no bypass on any
+  ruleset, so the platform refuses its direct push to either branch and its
+  merge into `main` without the maintainer's approval of that head. Once the
+  maintainer has approved, the platform would let you merge a PR into `main`;
+  that merge is still the maintainer's. A session that holds the maintainer's
+  own credentials holds the admin bypass instead, and for it every rule here
+  is discipline; `gh api user --jq .login` says which account you are. And
+  the staging permission is a permission, not an
   obligation: leaving a green PR for the maintainer is always a legitimate
   call, and the better one when the change is large, novel, or rewrites a
   contract others read. Use judgement; say which you chose in the PR
@@ -127,17 +133,19 @@ non-interactive** container. Two consequences shape everything you do:
   `tests/test_voided_events.py`, which binds each row to its entry. Open those, get them
   green, and report them ready.
   The `staging` ruleset encodes this through `.github/CODEOWNERS` for every
-  identity that does not hold the admin role — Dependabot's workflow bumps, the
-  sync PR and any second collaborator: a PR touching an owned path needs the
-  maintainer's code-owner review before it can merge. It does **not** bind an
-  interactive session: such a session acts as the maintainer's own account,
-  which owns those paths and holds the admin bypass, so for you this rule is
-  still discipline. That includes reviews: **never submit an approving review
-  on a PR that touches an owned path**, whoever opened it. An approval from the
-  maintainer's account satisfies the code-owner rule outright, with no bypass
-  and nothing in the record to tell it from the maintainer's own. The discipline also covers
-  what a path cannot name — a change that alters the security posture from
-  outside the owned files. Open either kind and report it ready rather than merging it.
+  identity that does not hold the admin role — the agent account, Dependabot's
+  workflow bumps, the sync PR and any second collaborator: a PR touching an
+  owned path needs the maintainer's code-owner review of its latest push
+  before it can merge, and the agent account's own approval does not count
+  toward it. The rule stops the merge, not the click: once the maintainer has
+  approved, the platform would let you merge, so leave that merge to the
+  maintainer. **Never submit an approving review** on any PR: approvals are
+  the maintainer's record of having read a change, and an approval from a
+  session holding the maintainer's credentials satisfies every review rule
+  outright, with nothing in the record to tell it from the maintainer's own.
+  The discipline also covers what a path cannot name — a change that alters
+  the security posture from outside the owned files. Open either kind and
+  report it ready rather than merging it.
 - **When you merge it yourself, the reviewer subagents are the only review a
   `staging` merge gets.** With the maintainer out of the loop, "run the
   relevant reviewer(s)" below stops
@@ -390,8 +398,10 @@ same PR.
   refused on — environment and variable administration, enabling or disabling a
   workflow (`gh workflow enable`), and re-running a run or one of its jobs
   (`gh run rerun`, with or without `--job`, which answers *Resource not
-  accessible by integration*). Merging is **not** on that list: what limits it
-  is the merge rule above, not the credential.
+  accessible by integration*), all refused by the session proxy your GitHub
+  connection runs through. Merging is **not** on that list: what limits it
+  into `staging` is the merge rule above, and into `main` the approval
+  ruleset as well, not the credential.
 
   The re-run refusal has a standing consequence, because some required checks
   read live state at check time rather than from the event payload — the

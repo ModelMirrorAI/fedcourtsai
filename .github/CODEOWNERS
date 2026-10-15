@@ -2,8 +2,9 @@
 # (AGENTS.md, "Five kinds of change still wait for the maintainer"). The
 # `staging` ruleset requires a code owner's review, so a PR touching any path
 # below cannot merge on green checks alone — for any identity without the
-# admin role. An interactive agent session acts as the maintainer's own account, so
-# for it this is discipline, not a rule (AGENTS.md). A path not listed here has
+# admin role, which includes the agent account interactive sessions act as; a
+# session holding the maintainer's credentials holds that role, and for it this
+# is discipline, not a rule (AGENTS.md). A path not listed here has
 # no owner and merges on the ruleset's other rules.
 #
 # Later lines win, and no line here shadows another: each names one class.

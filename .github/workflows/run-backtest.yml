@@ -760,9 +760,10 @@ jobs:
           uv run fedcourts salience-replay --terms "$BT_TERMS"
 
       # The review PR is opened with the dev App token, exactly like the
-      # metrics refresh: the dev App is not a branch-protection bypass actor,
-      # so the PR still faces the required `gate` check and review is
-      # mandatory. Minted only after the run produced a report.
+      # metrics refresh: the dev App bypasses no required check, so the PR
+      # still faces the required `gate` check, and it is never auto-merged; a
+      # maintainer merging it is what keeps it read. Minted only after the run
+      # produced a report.
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
