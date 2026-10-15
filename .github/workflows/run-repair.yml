@@ -393,7 +393,7 @@ jobs:
       # step summary, not an issue, so no issues:write is needed.
       - name: Mint app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -958,7 +958,7 @@ jobs:
       - name: Mint app token (OCR pass)
         if: ${{ inputs.repair == 'ocr-recovery' && steps.dedupe-live-rows.outcome == 'success' }}
         id: app-token-ocr
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -2113,7 +2113,7 @@ jobs:
             --emit-corpus-projection "${HANDOFF_PROJECTION}"
 
       - name: Upload the projection
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: repair-projection-${{ github.run_id }}
           path: ${{ runner.temp }}/handoff/projection.json
@@ -2184,7 +2184,7 @@ jobs:
           echo "no cloud credential in the parse job"
 
       - name: Download the projection
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: repair-projection-${{ github.run_id }}
           path: ${{ runner.temp }}/handoff
@@ -2330,7 +2330,7 @@ jobs:
       # shaped as served docket JSON plus the fields parsed from it.
       - name: Upload the plan
         if: ${{ inputs.repair_mode == 'apply' && (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record') }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: repair-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/handoff/plan.json
@@ -2394,7 +2394,7 @@ jobs:
           restore-cache: "false"
 
       - name: Download the plan
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: repair-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/handoff
@@ -2496,7 +2496,7 @@ jobs:
       # by the commit step, none of which parses anything.
       - name: Mint app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -2590,7 +2590,7 @@ jobs:
           restore-cache: "false"
 
       - name: Download the plan
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: repair-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/handoff
@@ -2689,7 +2689,7 @@ jobs:
 
       - name: Mint app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -2878,7 +2878,7 @@ jobs:
       - name: Mint app token
         if: ${{ inputs.repair_mode == 'apply' }}
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -2973,7 +2973,7 @@ jobs:
           restore-cache: "false"
 
       - name: Download the plan
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: repair-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/handoff
@@ -3062,7 +3062,7 @@ jobs:
 
       - name: Mint app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -3129,7 +3129,7 @@ jobs:
     steps:
       - name: Mint app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
