@@ -76,8 +76,8 @@ adds ([milestones.md](milestones.md)).
 
 The funded target. Every paid SCOTUS petition is forecast at every prediction
 moment, by seven model developers' predictors plus prompt-lens variants — the
-end state of the five milestones in [milestones.md](milestones.md), the D.C.
-Circuit slice included.
+end state of the five milestones in [milestones.md](milestones.md), both
+lower-court slices included.
 
 | | Monthly | Yearly |
 |---|---:|---:|
