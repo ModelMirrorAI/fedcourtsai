@@ -128,11 +128,19 @@ maintainer's own credentials is the exception, and for it the rules below are
 bypass list, never a required reviewer on the `review` environment (whose
 self-review is permitted, so a reviewer there must be a human). Its
 credential is the Claude app's GitHub connection, held server-side and
-reached only through the session proxy, which refuses `workflow_dispatch` and
-the admin APIs; revoking it is disconnecting GitHub in the Claude app, or
-removing the account from `agents`. Any other credential minted for the
-account — a token for a codespace, say — must leave Actions write out, since
-the write role itself permits a dispatch.
+reached only through the session proxy, which refuses `workflow_dispatch`,
+re-runs and the admin APIs; revoking it is disconnecting GitHub in the Claude
+app, or removing the account from `agents`. The repository refuses the same
+starts on its own, whatever credential the account holds: the write role
+permits a dispatch and a re-run, but every dispatchable workflow that binds an
+environment opens with the run gate (`fedcourts authorize-run`), and
+`config/dispatchers.yaml`, the maintainer-owned allow-list it reads, never
+names the account — `tests/test_workflow_auth_gate.py` refuses a file that
+does. A dispatch the account makes, or a re-run of any run, fails at that
+first job before any other job starts. Any other credential minted for the
+account — a token for a codespace, say — should still leave Actions write
+out: the gate stops the gated workflows, not a dispatch of `promote` or
+`run-ops`, which bind no environment and hold nothing but their own token.
 
 The **`maintainers`** team (the maintainer alone, with direct access to the
 repository) is the required reviewer on `main: require approval`, so its
@@ -663,8 +671,14 @@ Every `prod` job already runs from a `main` ref for its trigger — a `schedule`
 fires only from the default branch, and a production `workflow_dispatch` is
 made against `main` — so the restriction breaks nothing. The two triggers
 divide the trust between them: a schedule can start only what a
-maintainer-merged promotion put on `main`, and GitHub gates a dispatch on
-repository write.
+maintainer-merged promotion put on `main`, and a dispatch is gated twice —
+by GitHub on repository write, then by the run gate on who among write
+holders it is (a human `config/dispatchers.yaml` names, or the pipeline bot it
+allows for that workflow). The run gate also refuses a re-run by anyone
+else. It lives in the workflow file, so it holds only on refs whose workflow
+carries it, and this restriction is what makes that enough: a dispatch from a
+branch whose workflow drops the gate binds no environment that holds
+anything.
 
 **The integration-test workflow selects its environment by input**
 (`deploy-environment`, a closed choice of `auto`/`prod`/`staging` defaulting to
@@ -717,9 +731,9 @@ the workflows themselves. Such a per-run approval is
 redundant against the arrangement that exists: no workflow declares
 `actions: write`, the one App granted an Actions scope (the dispatch App) is
 minted only by the two chain jobs, whose code starts nothing but `run-predict`
-on `main`, and the repo-scoped token agents hold is refused on
-`workflow_dispatch` — so dispatching anything that binds `staging` is still a
-maintainer-only act in practice, and with `prevent_self_review` off the approval is a
+on `main`, and the run gate refuses a dispatch or a re-run by any login
+`config/dispatchers.yaml` does not name, the agent account among them — so
+dispatching anything that binds `staging` is still a maintainer-only act, and with `prevent_self_review` off the approval is a
 second click on the same decision by the same person. **Revisit the moment any
 premise changes**: a second write-access collaborator; the first *token* that
 can dispatch, whether a workflow declaring `actions: write` or any App
@@ -737,11 +751,14 @@ A change that adds a minter, or a chain job that dispatches anything but
 `run-predict` on `main`, reopens it. The first premise **has** fired too,
 with the agent account (*The agent account and the two teams* above): a
 write-access identity whose lane is merging its own PRs to `staging`. It is
-answered by its credential path rather than its role — the write role permits
-`workflow_dispatch`, and the session proxy its connection runs through
-refuses it — and by the code-owner rule, which holds its workflow changes for
-the maintainer. A credential for the account that does not run through that
-proxy and can dispatch reopens it. Another premise **has** fired, and this
+answered in the repository rather than by its role or its credential path —
+the write role permits `workflow_dispatch` and re-runs, and the run gate
+refuses both for any login the maintainer-owned `config/dispatchers.yaml` does
+not name, which the account never is — with the session proxy its connection
+runs through refusing them as well, and by the code-owner rule, which holds
+its workflow changes, and that allow-list, for the maintainer. Adding the
+account to the allow-list, or a gated workflow losing its authorize job,
+reopens it. Another premise **has** fired, and this
 paragraph answers the
 question it was holding: the `staging` environment is repointed at the
 staging corpus (the runbook's step 5), so the promotion gate's freshness

@@ -1,30 +1,40 @@
-"""The label-trigger authorization gate (:mod:`fedcourtsai.authz`).
+"""The two authorization decisions in :mod:`fedcourtsai.authz`.
 
-The security shape — that the gate runs before any privileged step — is locked in
-``test_workflow_auth_gate.py``; this exercises the *decision* the workflow now
-delegates to the ``authorize-trigger`` command: a Bot handoff is trusted, write
-access is required otherwise, and anything else fails closed — plus the default
-lookup's bounded retry, whose one non-negotiable is that no failure path may
-manufacture a permission.
+The workflow shape — that the run gate is every gated workflow's first job and
+every other job waits on it — is locked in ``test_workflow_auth_gate.py``; this
+exercises the *decisions*. The run gate (``authorize-run``): a dispatch needs a
+listed human or a bot listed for that workflow, a re-run needs a listed human,
+an unchosen first attempt passes, and anything unreadable — the context or the
+allow-list — refuses. The trigger gate (``authorize-trigger``): a Bot handoff
+is trusted, write access is required otherwise, and anything else fails closed
+— plus the default lookup's bounded retry, whose one non-negotiable is that no
+failure path may manufacture a permission.
 """
 
 from __future__ import annotations
 
 import subprocess
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import pytest
+from typer.testing import CliRunner
 
 from fedcourtsai import agent_feedback
 from fedcourtsai.authz import (
     _GH_ATTEMPTS,
     _GH_BACKOFF_SECONDS,
     _GH_TIMEOUT_SECONDS,
+    DispatchersConfig,
+    DispatchersConfigError,
     _gh_permission,
     authorize_trigger,
     decide_authorization,
+    decide_run_authorization,
+    load_dispatchers_config,
 )
+from fedcourtsai.cli import app
 
 
 def test_bot_sender_is_authorized_without_a_lookup() -> None:
@@ -261,3 +271,217 @@ def test_lookup_treats_a_successful_empty_answer_as_none(
     run = FakeRun(["\n"])
     monkeypatch.setattr(subprocess, "run", run)
     assert _gh_permission("o/r", "alice", sleeper=lambda _: None) == "none"
+
+
+# --- The run gate -----------------------------------------------------------
+
+MAINTAINER = "maintainer"
+AGENT = "agent-account"
+DISPATCH_BOT = "pipeline-dispatch[bot]"
+
+CONFIG = DispatchersConfig(
+    humans=(MAINTAINER,),
+    bots={"run-predict.yml": (DISPATCH_BOT,)},
+)
+
+
+def _decide(
+    *,
+    event: str = "workflow_dispatch",
+    actor: str = MAINTAINER,
+    triggering: str | None = None,
+    attempt: str = "1",
+    workflow: str = "run-predict.yml",
+    config: DispatchersConfig = CONFIG,
+) -> bool:
+    return decide_run_authorization(
+        event_name=event,
+        actor=actor,
+        triggering_actor=actor if triggering is None else triggering,
+        run_attempt=attempt,
+        workflow_file=workflow,
+        config=config,
+    ).authorized
+
+
+def test_a_listed_human_may_dispatch_any_gated_workflow() -> None:
+    assert _decide(workflow="run-predict.yml")
+    assert _decide(workflow="run-pull.yml")
+
+
+def test_an_unlisted_dispatcher_is_refused_and_named() -> None:
+    decision = decide_run_authorization(
+        event_name="workflow_dispatch",
+        actor=AGENT,
+        triggering_actor=AGENT,
+        run_attempt="1",
+        workflow_file="run-pull.yml",
+        config=CONFIG,
+    )
+    assert not decision.authorized
+    assert AGENT in decision.message
+    assert "run-pull.yml" in decision.message
+
+
+def test_logins_compare_case_insensitively() -> None:
+    """GitHub logins are case-insensitive, and the context may carry either case."""
+    assert _decide(actor=MAINTAINER.upper())
+    assert _decide(actor=DISPATCH_BOT.upper())
+
+
+def test_a_pipeline_bot_may_dispatch_only_the_workflow_listed_for_it() -> None:
+    assert _decide(actor=DISPATCH_BOT, workflow="run-predict.yml")
+    assert not _decide(actor=DISPATCH_BOT, workflow="run-evaluate.yml")
+    assert not _decide(actor=DISPATCH_BOT, workflow="run-pull.yml")
+
+
+def test_a_pipeline_bot_never_re_runs() -> None:
+    """Even the workflow it may dispatch: a bot's re-run is refused."""
+    assert not _decide(actor=DISPATCH_BOT, triggering=DISPATCH_BOT, attempt="2")
+
+
+def test_a_maintainer_may_re_run_a_chained_round() -> None:
+    assert _decide(actor=DISPATCH_BOT, triggering=MAINTAINER, attempt="2")
+
+
+def test_the_agent_may_not_re_run_anything() -> None:
+    for event in ("workflow_dispatch", "schedule", "push"):
+        assert not _decide(event=event, actor=MAINTAINER, triggering=AGENT, attempt="2"), event
+
+
+def test_a_re_run_does_not_launder_an_unlisted_dispatch() -> None:
+    """The dispatch rule binds at every attempt: `actor` stays the dispatcher's,
+    so a listed human re-running an unlisted login's dispatch is still refused."""
+    assert not _decide(actor=AGENT, triggering=MAINTAINER, attempt="2")
+
+
+def test_an_unchosen_first_attempt_passes_whoever_the_actor() -> None:
+    for event in ("schedule", "push", "pull_request"):
+        assert _decide(event=event, actor=AGENT, attempt="1"), event
+        assert _decide(event=event, actor="", triggering="", attempt="1"), event
+
+
+def test_a_re_run_of_a_scheduled_run_needs_a_listed_human() -> None:
+    assert _decide(event="schedule", actor=AGENT, triggering=MAINTAINER, attempt="3")
+    assert not _decide(event="schedule", actor=MAINTAINER, triggering=AGENT, attempt="3")
+
+
+@pytest.mark.parametrize("attempt", ["", " ", "0", "-1", "two", "1.5", "²"])
+def test_an_unparseable_attempt_refuses(attempt: str) -> None:
+    assert not _decide(event="schedule", attempt=attempt)
+
+
+def test_a_blank_dispatcher_refuses() -> None:
+    assert not _decide(actor="", triggering=MAINTAINER)
+    assert not _decide(actor="   ", triggering=MAINTAINER)
+
+
+def test_a_blank_re_runner_refuses() -> None:
+    assert not _decide(event="schedule", triggering="", attempt="2")
+
+
+def test_a_blank_event_or_workflow_refuses() -> None:
+    assert not _decide(event="")
+    assert not _decide(workflow="")
+
+
+def test_an_empty_allow_list_refuses_every_dispatch_and_re_run() -> None:
+    empty = DispatchersConfig(humans=())
+    assert not _decide(config=empty)
+    assert not _decide(event="schedule", attempt="2", config=empty)
+    assert _decide(event="schedule", config=empty)
+
+
+def test_the_rerunner_list_is_comma_delimited_at_both_ends() -> None:
+    """The re-run guard matches `,<login>,` against it, so each login must sit
+    between delimiters, and an empty list must not read as `,,` (which a blank
+    triggering actor would format to)."""
+    assert DispatchersConfig(humans=("a", "b-c")).rerunner_list() == ",a,b-c,"
+    assert DispatchersConfig(humans=()).rerunner_list() == ""
+    rerunners = DispatchersConfig(humans=("modelmirror",)).rerunner_list()
+    assert ",modelmirror-agent," not in rerunners
+    assert ",mirror," not in rerunners
+
+
+def _write(tmp_path: Path, text: str) -> Path:
+    (tmp_path / "dispatchers.yaml").write_text(text)
+    return tmp_path
+
+
+def test_the_loader_reads_a_well_formed_file(tmp_path: Path) -> None:
+    root = _write(
+        tmp_path,
+        "humans: [maintainer]\nbots:\n  run-predict.yml: ['pipeline-dispatch[bot]']\n",
+    )
+    assert load_dispatchers_config(root) == CONFIG
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param("", id="empty file"),
+        pytest.param("- maintainer\n", id="not a mapping"),
+        pytest.param("bots: {}\n", id="no humans key"),
+        pytest.param("humans: maintainer\n", id="humans not a list"),
+        pytest.param("humans: [maintainer]\nhuman: [x]\n", id="unknown key"),
+        pytest.param("humans: ['pipeline-dispatch[bot]']\n", id="bot listed as human"),
+        pytest.param("humans: ['a,b']\n", id="comma in a login"),
+        pytest.param("humans: ['-lead']\n", id="leading hyphen"),
+        pytest.param("humans: ['']\n", id="blank login"),
+        pytest.param("humans: [Maintainer, maintainer]\n", id="duplicate login"),
+        pytest.param("humans: []\nbots:\n  run-predict.yml: [maintainer]\n", id="bot not [bot]"),
+        pytest.param("humans: []\nbots:\n  run-predict: ['x[bot]']\n", id="bad workflow file"),
+        pytest.param("humans: [maintainer\n", id="not YAML"),
+    ],
+)
+def test_the_loader_refuses_a_malformed_file(tmp_path: Path, text: str) -> None:
+    with pytest.raises(DispatchersConfigError):
+        load_dispatchers_config(_write(tmp_path, text))
+
+
+def test_the_loader_refuses_a_missing_file(tmp_path: Path) -> None:
+    """No default allow-list: an unreadable file must refuse, never admit."""
+    with pytest.raises(DispatchersConfigError, match="cannot read"):
+        load_dispatchers_config(tmp_path)
+
+
+def _invoke(root: Path, *, actor: str, attempt: str = "1", output: Path | None = None) -> Any:
+    argv = [
+        "authorize-run",
+        *("--workflow", "run-predict.yml"),
+        *("--event-name", "workflow_dispatch"),
+        *("--actor", actor),
+        *("--triggering-actor", actor),
+        *("--run-attempt", attempt),
+        *("--config-root", str(root)),
+    ]
+    if output is not None:
+        argv += ["--github-output", str(output)]
+    return CliRunner().invoke(app, argv)
+
+
+def test_the_cli_authorizes_and_publishes_the_attempt_and_re_runners(tmp_path: Path) -> None:
+    root = _write(tmp_path, "humans: [maintainer, deputy]\n")
+    output = tmp_path / "github_output"
+    output.write_text("earlier=kept\n")
+    result = _invoke(root, actor="deputy", attempt="2", output=output)
+    assert result.exit_code == 0, result.output
+    assert "Authorized run-predict.yml" in result.output
+    assert output.read_text() == "earlier=kept\nattempt=2\nrerunners=,maintainer,deputy,\n"
+
+
+def test_the_cli_refuses_with_a_workflow_error_and_writes_no_outputs(tmp_path: Path) -> None:
+    root = _write(tmp_path, "humans: [maintainer]\n")
+    output = tmp_path / "github_output"
+    result = _invoke(root, actor=AGENT, output=output)
+    assert result.exit_code == 1
+    assert "::error::" in result.output
+    assert AGENT in result.output
+    assert not output.exists()
+
+
+def test_the_cli_refuses_on_a_missing_allow_list(tmp_path: Path) -> None:
+    result = _invoke(tmp_path, actor=MAINTAINER)
+    assert result.exit_code == 1
+    assert "::error::" in result.output
+    assert "refusing to run" in result.output

@@ -197,8 +197,46 @@ permissions: {}
 # the other.
 
 jobs:
+  # The run gate (src/fedcourtsai/authz.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.yaml names. No
+  # environment, no secret, a read-only token. Every other job needs this one
+  # and checks the attempt it judged, because re-running some jobs does not
+  # re-run this one (SECURITY.md -> Trigger surface).
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          uv run fedcourts authorize-run --workflow run-analytics.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
   corpus-stats:
-    if: ${{ inputs.mode == 'corpus-stats' }}
+    needs: [authorize]
+    if: >-
+      ${{ inputs.mode == 'corpus-stats'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -268,6 +306,7 @@ jobs:
             --summary-out "$GITHUB_STEP_SUMMARY"
 
   distribution-census:
+    needs: [authorize]
     # What re-reading the DISTRIBUTED phrase would move, case by case and band by
     # band — the input-level cut a statistical review reads before any salience
     # version pins a new parse (docs/salience.md). Read-only on exactly
@@ -275,7 +314,11 @@ jobs:
     # nothing written to git or to the corpus remote. What it adds is durability
     # — the JSON *is* the review, so it leaves the runner as an artifact rather
     # than living only on a summary page.
-    if: ${{ inputs.mode == 'census' }}
+    if: >-
+      ${{ inputs.mode == 'census'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # What bounds this job is the credential clock, not the wall clock. The
     # census walks the gate's scored segment and, with the corpus-split mode on,
@@ -426,10 +469,15 @@ jobs:
           retention-days: 1
 
   tool-usage:
+    needs: [authorize]
     # Which configured MCP tools cells actually call. Reads `data/` only — no
     # corpus, no network, no credentials — so unlike the sibling jobs it binds
     # no environment and assumes no role: there is nothing for it to reach.
-    if: ${{ inputs.mode == 'tool-usage' }}
+    if: >-
+      ${{ inputs.mode == 'tool-usage'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
@@ -452,6 +500,7 @@ jobs:
           uv run fedcourts tool-usage --markdown-out "$GITHUB_STEP_SUMMARY"
 
   text-coverage:
+    needs: [authorize]
     # Where the document text actually lives, and for which cases it is missing
     # — the store-configured enumeration a dev checkout cannot perform. The two
     # untruncated case-id ledgers (`empty text`; `no petition, queued`) are the
@@ -460,7 +509,11 @@ jobs:
     # where the per-case content store is wired — which is this job's read
     # path. Read-only on exactly corpus-stats's terms: the read-only role, no
     # contents:write, no App token, nothing written to git or the corpus.
-    if: ${{ inputs.mode == 'text-coverage' }}
+    if: >-
+      ${{ inputs.mode == 'text-coverage'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The credential clock bounds this job the census's way: the walk reads the
     # documents of every live-slice case — under the split a content-store
@@ -575,15 +628,20 @@ jobs:
           retention-days: 1
 
   metrics-refresh:
+    needs: [authorize]
     # Runs on the weekly cron, or on dispatch with mode=metrics-refresh — both
-    # trusted surfaces (dispatch is write-gated by GitHub), so no
-    # authorize-trigger gate is needed here. It gates on **which** cron fired
+    # trusted surfaces (dispatch is write-gated by GitHub, and the run gate
+    # above admits only a listed dispatcher), so no sender check is needed
+    # here. It gates on **which** cron fired
     # rather than on the event class: a bare `event_name == 'schedule'` is
     # fail-open on every other entry in the schedule block, which would run this
     # weekly job on the daily board's tick too.
     if: >-
-      (github.event_name == 'schedule' && startsWith(github.event.schedule, '41 ')) ||
-      inputs.mode == 'metrics-refresh'
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '41 ')) ||
+      inputs.mode == 'metrics-refresh')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -768,6 +826,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   big-cases:
+    needs: [authorize]
     # The case-centric big-case board (`fedcourts big-cases`) — which cases the
     # predictors think matter, and where they disagree, as `metrics/big-cases.{json,md}`.
     # The website's showcase renders the JSON off `main`, so the board is refreshed
@@ -793,8 +852,11 @@ jobs:
     # checks a reviewed PR would. Where the platform refuses to arm it, the PR
     # stays open for a manual merge rather than failing the run.
     if: >-
-      (github.event_name == 'schedule' && startsWith(github.event.schedule, '36 ')) ||
-      inputs.mode == 'big-cases'
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '36 ')) ||
+      inputs.mode == 'big-cases')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -947,12 +1009,17 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   qp-topic-extract:
+    needs: [authorize]
     # First half of the labeling mode, and the only half that holds a cloud
     # credential. `corpus-readonly` exports the assumed role's credentials
     # job-wide, and the second job runs an agent — so the extract is split into
     # its own job rather than sharing an environment with the labeler. What
     # crosses the boundary is one artifact: the texts, and nothing else.
-    if: ${{ inputs.mode == 'qp-topic-label' }}
+    if: >-
+      ${{ inputs.mode == 'qp-topic-label'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -1120,8 +1187,12 @@ jobs:
     # set and writes the artifact. No `id-token: write` and no `corpus-readonly`
     # here — that is the point of the split, and the assertion step below is its
     # tripwire.
-    needs: qp-topic-extract
-    if: ${{ inputs.mode == 'qp-topic-label' }}
+    needs: [authorize, qp-topic-extract]
+    if: >-
+      ${{ inputs.mode == 'qp-topic-label'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The step caps have to fit inside this one or the run loses its artifact
     # to the job clock: the 40-minute labeler, the 5-minute CLI install, the

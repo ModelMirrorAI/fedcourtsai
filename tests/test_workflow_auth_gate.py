@@ -7,6 +7,13 @@ default branch and so runs only what a maintainer-merged promotion put on
 repository write. Nothing an outside actor can file — an issue, a label, a
 comment — starts any of it.
 
+Repository write is wider than the people who should start spend — the agent
+account interactive sessions act as holds it — so every dispatchable workflow
+that binds a deployment environment also carries the run gate: an `authorize`
+job (`fedcourts authorize-run`) that refuses a dispatch or a re-run by a login
+`config/dispatchers.yaml` does not name, and that every other job of the run
+waits on. Its shape is pinned below too.
+
 The one outside-reachable trigger in the directory is `pull_request`, on CI, the
 workflow linters and CodeQL. It stays because those jobs are the other half of
 the same invariant: they bind no environment, name no secret, and mint no token
@@ -17,12 +24,17 @@ These tests lock that shape in so a future edit cannot quietly reopen a path
 around it. The action linters check syntax; only this checks the security shape.
 """
 
+import re
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+from fedcourtsai.authz import load_dispatchers_config
+from tests.workflow_gate import AUTHORIZE_JOB, RUN_GATE_GUARD, norm, own_condition
+
+ROOT = Path(__file__).resolve().parent.parent
+WORKFLOWS = ROOT / ".github" / "workflows"
 
 # The privileged lanes: each spends real money or writes the corpus, and each
 # derives what it does from committed state rather than from anything a
@@ -152,7 +164,8 @@ def test_no_workflow_takes_a_trigger_an_outside_actor_can_reach() -> None:
     so a new one carrying an `issues` (or `issue_comment`, or
     `pull_request_target`) trigger fails here even though nothing else in this
     file names it. Keeping the boundary at the trigger is what lets the lanes
-    below carry no actor gate of their own.
+    below carry no permission lookup of their own: the run gate asks only who
+    among write holders started the run, never whether the starter holds write.
     """
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         on = _triggers(_load(path.name))
@@ -192,8 +205,9 @@ def test_the_pull_request_workflows_stay_unprivileged() -> None:
 def test_the_privileged_lanes_keep_only_platform_gated_triggers() -> None:
     """A subset test, not a ban on one event name.
 
-    The lanes above spend or write, and nothing about them is judged per-actor:
-    a round derives its work from committed state. So the only triggers they may
+    The lanes above spend or write, and what a round does is never judged
+    per-actor: it derives its work from committed state (who may start one is
+    the run gate's, below). So the only triggers they may
     carry are the two GitHub gates on its own — the default-branch-only cron and
     the write-gated dispatch — and `workflow_dispatch` must stay, because it is
     the manual twin that drains a backlog when a scheduled slot is missed.
@@ -209,14 +223,14 @@ def test_the_privileged_lanes_keep_only_platform_gated_triggers() -> None:
 
 
 def test_every_privileged_job_binds_a_deployment_environment() -> None:
-    """With no actor gate in the workflow, the environment is the ref gate.
+    """The environment is the ref gate, which the run gate cannot be.
 
     A `workflow_dispatch` is write-gated but not branch-gated: repository write
     lets someone dispatch from any ref, including a branch whose workflow file
-    they just rewrote. What refuses that is the bound environment's deployment
-    branch rule, so a privileged job that binds none would be reachable from an
-    arbitrary ref by anyone with write. Swept across every workflow, for the
-    same reason as the trigger sweep above.
+    they just rewrote — without its authorize job. What refuses that is the
+    bound environment's deployment branch rule, so a privileged job that binds
+    none would be reachable from an arbitrary ref by anyone with write. Swept
+    across every workflow, for the same reason as the trigger sweep above.
     """
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         for job_name, job in _jobs(_load(path.name)).items():
@@ -345,3 +359,197 @@ def test_the_scheduled_back_test_spends_only_behind_the_review_hold() -> None:
     assert "needs.approval.result != 'success'" in rejected
     assert jobs["rejected"]["permissions"] == {}
     assert "environment" not in jobs["rejected"]
+
+
+# --- The run gate -----------------------------------------------------------
+
+# The workflows the run gate covers: every one a person can dispatch that binds
+# a deployment environment somewhere. Derived below and pinned here, so a lane
+# joining or leaving the set is a reviewed edit to this file.
+RUN_GATED_WORKFLOWS = frozenset(
+    {
+        "integration-test.yml",
+        "promotion-prep.yml",
+        "promotion-record.yml",
+        "run-analytics.yml",
+        "run-backtest.yml",
+        "run-evaluate.yml",
+        "run-predict.yml",
+        "run-pull.yml",
+        "run-repair.yml",
+        "run-seed.yml",
+        "staging-corpus-refresh.yml",
+        "summarize.yml",
+        "sync-staging.yml",
+    }
+)
+
+# The account interactive sessions act as. It holds repository write, so the
+# platform lets it dispatch and re-run; the allow-list must never name it.
+AGENT_ACCOUNT = "modelmirror-agent"
+
+CHECKOUT = "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"
+SETUP = "./.github/actions/setup-python-env"
+
+# The GitHub context the gate's step receives, each through `env:` so no
+# expression is interpolated into the shell.
+GATE_CONTEXT = {
+    "EVENT_NAME": "${{ github.event_name }}",
+    "ACTOR": "${{ github.actor }}",
+    "TRIGGERING_ACTOR": "${{ github.triggering_actor }}",
+    "RUN_ATTEMPT": "${{ github.run_attempt }}",
+}
+
+# A job condition holding one of these runs even after an upstream job failed
+# or was skipped, so it is the condition that must check the gate passed.
+STATUS_FUNCTION = re.compile(r"\b(always|failure|cancelled)\(\)")
+
+
+def _needs(job: dict[str, Any]) -> list[str]:
+    needs = job.get("needs") or []
+    return [needs] if isinstance(needs, str) else list(needs)
+
+
+def _dispatchable_with_an_environment() -> set[str]:
+    return {
+        path.name
+        for path in WORKFLOWS.glob("*.y*ml")
+        if "workflow_dispatch" in _triggers(wf := _load(path.name))
+        and any(job.get("environment") for job in _jobs(wf).values())
+    }
+
+
+def test_the_run_gate_covers_every_dispatchable_workflow_that_binds_an_environment() -> None:
+    assert _dispatchable_with_an_environment() == RUN_GATED_WORKFLOWS, (
+        "the set of dispatchable workflows that bind an environment moved; a new "
+        "one needs the authorize job and a line in RUN_GATED_WORKFLOWS"
+    )
+
+
+def test_a_dispatchable_workflow_outside_the_gate_holds_nothing_to_start() -> None:
+    """The ones left out — the promotion pre-flight and the ops report — bind no
+    environment and name no secret: their runs hold the run's own token and
+    nothing an account with write lacks already. A secret added to one is a
+    reason to gate it, so it fails here rather than passing unnoticed."""
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        if path.name in RUN_GATED_WORKFLOWS or "workflow_dispatch" not in _triggers(
+            _load(path.name)
+        ):
+            continue
+        text = path.read_text()
+        assert not re.search(r"secrets\.(?!GITHUB_TOKEN\b)", text), (
+            f"{path.name} is dispatchable, names a secret and carries no run gate"
+        )
+
+
+def test_the_authorize_job_holds_nothing_and_runs_the_gate() -> None:
+    """The gate itself must be unprivileged: it runs before anything is judged,
+    so it binds no environment (none of whose secrets it could leak), takes a
+    read-only token, persists no credential, restores no cache, and passes the
+    run's context through `env:` rather than into the shell text."""
+    for name in sorted(RUN_GATED_WORKFLOWS):
+        wf = _load(name)
+        jobs = _jobs(wf)
+        assert next(iter(jobs)) == AUTHORIZE_JOB, f"{name}: the authorize job must lead"
+        job = jobs[AUTHORIZE_JOB]
+        assert "environment" not in job, f"{name}: the gate binds an environment"
+        assert job.get("permissions") == {"contents": "read"}, name
+        assert "needs" not in job and "if" not in job, f"{name}: the gate must always run"
+        assert "uses" not in job, name
+        assert "secrets." not in yaml.safe_dump(job), f"{name}: the gate names a secret"
+        assert job["outputs"] == {
+            "attempt": "${{ steps.decide.outputs.attempt }}",
+            "rerunners": "${{ steps.decide.outputs.rerunners }}",
+        }, name
+        checkout, setup, decide = _steps(job)
+        assert checkout["uses"].startswith(CHECKOUT), name
+        assert checkout["with"] == {"persist-credentials": False}, name
+        assert setup["uses"] == SETUP and setup["with"] == {"restore-cache": "false"}, name
+        assert decide["id"] == "decide" and decide["env"] == GATE_CONTEXT, name
+        run = norm(decide["run"])
+        assert "${{" not in run, f"{name}: an expression is interpolated into the gate's shell"
+        assert run == (
+            f"uv run fedcourts authorize-run --workflow {name}"
+            + ' --event-name "$EVENT_NAME" --actor "$ACTOR"'
+            + ' --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"'
+            + ' --github-output "$GITHUB_OUTPUT"'
+        ), name
+
+
+def test_every_other_job_waits_on_the_gate_and_checks_its_attempt() -> None:
+    """Directly, not only transitively, and in its condition, not only its needs.
+
+    A job's `needs` alone does not hold the gate: re-running some of a run's jobs
+    keeps the authorize job's earlier success instead of re-running it, so each
+    job's condition compares the attempt the gate judged with its own, or finds
+    its re-runner on the list the gate published. And a condition holding a
+    status function runs past a failed upstream, so the conjunct also requires
+    the gate's own success — the same expression on every job, pinned whole.
+    """
+    for name in sorted(RUN_GATED_WORKFLOWS):
+        jobs = _jobs(_load(name))
+        for job_name, job in jobs.items():
+            if job_name == AUTHORIZE_JOB:
+                continue
+            assert AUTHORIZE_JOB in _needs(job), f"{name}:{job_name} does not need the gate"
+            condition = norm(job.get("if") or "")
+            assert condition.startswith("${{") and condition.endswith("}}"), (
+                f"{name}:{job_name} carries no wrapped condition"
+            )
+            body = condition[3:-2].strip()
+            assert body == RUN_GATE_GUARD or body.endswith(" && " + RUN_GATE_GUARD), (
+                f"{name}:{job_name}'s condition does not end with the run gate's guard"
+            )
+            # The guard is a top-level conjunct: whatever precedes it is the
+            # job's own condition, parenthesized where it disjoins.
+            own = own_condition(job)
+            assert body in (RUN_GATE_GUARD, f"{own} && {RUN_GATE_GUARD}") or (
+                "||" in own and body == f"({own}) && {RUN_GATE_GUARD}"
+            ), f"{name}:{job_name}: the guard is not a top-level conjunct"
+            if STATUS_FUNCTION.search(condition):
+                assert "needs.authorize.result == 'success'" in condition, (
+                    f"{name}:{job_name} runs past a failed upstream without the gate's result"
+                )
+
+
+def _ancestors(jobs: dict[str, dict[str, Any]], job_name: str) -> set[str]:
+    found: set[str] = set()
+    frontier = _needs(jobs[job_name])
+    while frontier:
+        need = frontier.pop()
+        if need not in found:
+            found.add(need)
+            frontier.extend(_needs(jobs[need]))
+    return found
+
+
+def test_every_job_reaches_the_gate_through_its_needs() -> None:
+    """The transitive form of the check above, kept for the graph's sake: every
+    job's ancestry includes the gate, so no job can start before it."""
+    for name in sorted(RUN_GATED_WORKFLOWS):
+        jobs = _jobs(_load(name))
+        for job_name in jobs:
+            if job_name != AUTHORIZE_JOB:
+                assert AUTHORIZE_JOB in _ancestors(jobs, job_name), f"{name}:{job_name}"
+
+
+def test_the_allow_list_never_names_the_agent_account_and_names_bots_as_bots() -> None:
+    config = load_dispatchers_config(ROOT / "config")
+    assert config.humans, "an empty allow-list would refuse every dispatch and re-run"
+    assert not config.is_human(AGENT_ACCOUNT), (
+        "config/dispatchers.yaml lists the agent account, which would let an "
+        "interactive session start spend or re-run a refused round"
+    )
+    for workflow, bots in config.bots.items():
+        assert workflow in RUN_GATED_WORKFLOWS, f"bots names {workflow}, which no gate reads"
+        for bot in bots:
+            assert bot.endswith("[bot]"), f"bots.{workflow}: {bot} is not an App bot login"
+            assert AGENT_ACCOUNT not in bot.casefold(), bot
+
+
+def test_the_chained_rounds_are_dispatched_by_a_bot_the_allow_list_admits() -> None:
+    """run-predict's `chain` and run-pull's `chain-predict` dispatch run-predict
+    with the dispatch App's token; the gate must admit that App for run-predict,
+    or every chained round is refused at its first job."""
+    config = load_dispatchers_config(ROOT / "config")
+    assert config.is_dispatch_bot("fedcourtsai-dispatch[bot]", "run-predict.yml")

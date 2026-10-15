@@ -39,7 +39,45 @@ on:
 permissions: {}
 
 jobs:
+  # The run gate (src/fedcourtsai/authz.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.yaml names. No
+  # environment, no secret, a read-only token. Every other job needs this one
+  # and checks the attempt it judged, because re-running some jobs does not
+  # re-run this one (SECURITY.md -> Trigger surface).
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          uv run fedcourts authorize-run --workflow promotion-record.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
   classify:
+    needs: [authorize]
+    if: >-
+      ${{ needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -100,8 +138,12 @@ jobs:
           } >>"$GITHUB_OUTPUT"
 
   write:
-    needs: classify
-    if: needs.classify.outputs.promotion == 'true'
+    needs: [authorize, classify]
+    if: >-
+      ${{ needs.classify.outputs.promotion == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # The data App's credentials live on `prod`, whose deployment-branch policy
@@ -341,8 +383,12 @@ jobs:
 
 
   report:
-    needs: [classify, write]
-    if: always() && needs.classify.outputs.promotion == 'true'
+    needs: [authorize, classify, write]
+    if: >-
+      ${{ always() && needs.classify.outputs.promotion == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

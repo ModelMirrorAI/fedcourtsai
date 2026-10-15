@@ -26,6 +26,7 @@ import yaml
 from fedcourtsai import metrics_refresh
 from fedcourtsai.collect import run_branch
 from fedcourtsai.finalize import FinalizeRole
+from tests.workflow_gate import gated_jobs, own_condition
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -383,7 +384,7 @@ def _whole_suite_scenarios(selection: str, tmp_path: Path) -> set[str]:
     standalone jobs are pinned whole: a job added beside the matrix must name
     the scenario it runs here, or this helper would silently skip it.
     """
-    jobs = _load(WORKFLOWS / "integration-test.yml")["jobs"]
+    jobs = gated_jobs(_load(WORKFLOWS / "integration-test.yml"))
     standalone = {"collect-scenario": "collect", "qp-labeler-smoke": "qp-labeler-smoke"}
     assert set(jobs) == {"plan", "scenario", *standalone}
     ran = {entry["scenario"] for entry in _plan_matrix(selection, tmp_path)}
@@ -395,7 +396,7 @@ def _whole_suite_scenarios(selection: str, tmp_path: Path) -> set[str]:
         return selection in equal
 
     for job, scenario in standalone.items():
-        if admits(jobs[job]["if"]):
+        if admits(own_condition(jobs[job])):
             ran.add(scenario)
     return ran
 
@@ -483,9 +484,9 @@ def test_which_jobs_a_scheduled_run_admits_is_stated_not_coerced() -> None:
     # trap docs/pipeline.md tells authors to harden away everywhere else.
     jobs = _load(WORKFLOWS / "integration-test.yml")["jobs"]
     for name in ("plan", "scenario"):
-        assert jobs[name]["if"] == (
-            "${{ github.event_name == 'schedule' || (inputs.scenario != 'collect' "
-            "&& inputs.scenario != 'qp-labeler-smoke') }}"
+        assert own_condition(jobs[name]) == (
+            "github.event_name == 'schedule' || (inputs.scenario != 'collect' "
+            "&& inputs.scenario != 'qp-labeler-smoke')"
         ), name
     # The standalone jobs stay affirmative — equalities — and an empty inputs
     # context satisfies none of them, so the schedule excludes them by shape,
@@ -494,7 +495,7 @@ def test_which_jobs_a_scheduled_run_admits_is_stated_not_coerced() -> None:
         "collect-scenario",
         "qp-labeler-smoke",
     ):
-        standalone_if = str(jobs[name]["if"])
+        standalone_if = own_condition(jobs[name])
         assert "github.event_name" not in standalone_if, name
         assert "!=" not in standalone_if, name
 
@@ -1131,7 +1132,7 @@ def test_the_gate_checks_the_environment_the_staging_writer_actually_binds() -> 
     workflow = yaml.safe_load(
         (ROOT / ".github" / "workflows" / "staging-corpus-refresh.yml").read_text()
     )
-    (job,) = workflow["jobs"].values()
+    (job,) = gated_jobs(workflow).values()
     assert job["environment"] == "staging"
 
 

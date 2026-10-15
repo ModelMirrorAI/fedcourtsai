@@ -14,7 +14,8 @@ that one.
 The trigger surface is therefore the trust boundary†, and the platform holds it:
 a `schedule` fires only from the **default branch**, so a cron can run only what
 a maintainer-merged promotion put on `main`; a `workflow_dispatch` is refused by
-GitHub to anyone without repository write; and every privileged job binds a
+GitHub to anyone without repository write, and by the run gate to any write
+holder `config/dispatchers.yaml` does not name; and every privileged job binds a
 deployment environment whose branch policy pins the ref it may run from (`prod`
 to `main`, `staging` to `staging`) — a job naming one as a literal is refused at
 the deployment gate from any other ref before a step runs, and the three
@@ -45,19 +46,31 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
 | `promotion-prep` | daily schedule + manual dispatch    | script (no agent)    |
 
-† No workflow carries an actor gate of its own, and none is missing: there is no
-trigger for one to judge. `tests/test_workflow_auth_gate.py` locks that shape in
-— it sweeps the whole workflow directory for any trigger class an actor without
-repository write could fire (`issues`, `issue_comment`, `pull_request_target`,
-`workflow_run` and their kin), pins the five privileged lanes to the
-platform-gated two, requires every job that mints a token, assumes the S3
-role, or runs an agent to bind one of the branch-policied environments, and
-holds the `pull_request` workflows to a shape with nothing in it to reach. So a workflow added
-later inherits the boundary rather than having to remember it; one that
-genuinely needs an outside-reachable trigger fails that sweep and has to bring a
-fail-closed actor gate with it. The reasoning, and what the environment
-restriction buys, is the *Trigger surface* bullet in
-[SECURITY.md](../SECURITY.md).
+† Two gates hold it, both pinned by `tests/test_workflow_auth_gate.py`. The
+**trigger** is one: the test sweeps the whole workflow directory for any trigger
+class an actor without repository write could fire (`issues`, `issue_comment`,
+`pull_request_target`, `workflow_run` and their kin), pins the five privileged
+lanes to the platform-gated two, requires every job that mints a token, assumes
+the S3 role, or runs an agent to bind one of the branch-policied environments,
+and holds the `pull_request` workflows to a shape with nothing in it to reach.
+So a workflow added later inherits the boundary rather than having to remember
+it; one that genuinely needs an outside-reachable trigger fails that sweep and
+has to bring a fail-closed sender check (`fedcourts authorize-trigger`) with
+it. The **starter** is the other, because repository write is wider than the
+people who should start spend — the agent account interactive sessions act as
+holds it. Every dispatchable workflow that binds an environment (every row
+above but `promote` and `run-ops`, which bind none and hold only their own
+token) opens with an `authorize` job running `fedcourts authorize-run`: a
+dispatch proceeds only for a human `config/dispatchers.yaml` names, or for the
+pipeline bot it allows for that workflow (the dispatch App, for `run-predict`
+alone); a re-run of any run, scheduled ones included, only for such a human.
+Every other job needs that job and ends its condition with the same guard, which
+also re-checks a re-run of *some* jobs — that keeps the authorize job's earlier
+success instead of re-running it — against the attempt it judged and the
+re-runner list it published. A refused run fails at its first job and starts
+nothing else; a partial re-run by an unlisted login skips every job it
+re-runs. The reasoning, and what the environment restriction buys beneath both,
+is the *Trigger surface* bullet in [SECURITY.md](../SECURITY.md).
 
 ## `run-ops` — the daily operational roll-up
 
@@ -1281,6 +1294,17 @@ can land on different images. Moving to a new image is a deliberate change: ever
 job and `PINNED_RUNNER` in `tests/test_workflow_cell_invariants.py` together, an
 `integration-test` run on `staging` on the new image, and a freeze-record note.
 `test_every_workflow_job_runs_on_the_pinned_runner_image` pins it repo-wide.
+
+**A new job on a dispatchable workflow that binds an environment waits on the
+run gate.** It lists `authorize` in its own `needs` and ends its `if:` with the
+gate's guard — `needs.authorize.result == 'success'` and the attempt check —
+as a top-level conjunct, parenthesizing its own condition where that disjoins.
+The direct need and the conjunct are both required, not just an ancestry: a
+condition holding `always()`, `!cancelled()` or `failure()` runs past a refused
+gate, and a re-run of that job alone does not re-run the gate. A workflow that
+gains its first environment, or its first `workflow_dispatch` beside one,
+gains the `authorize` job. `tests/workflow_gate.py` holds the guard's exact
+text, and `tests/test_workflow_auth_gate.py` refuses a job without it.
 
 **A `workflow_dispatch` may declare at most 10 inputs, and the "Run workflow"
 form is where the limit bites** — inputs past it are reachable by API but the

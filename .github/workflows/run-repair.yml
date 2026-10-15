@@ -105,6 +105,39 @@ on:
 permissions: {}
 
 jobs:
+  # The run gate (src/fedcourtsai/authz.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.yaml names. No
+  # environment, no secret, a read-only token. Every other job needs this one
+  # and checks the attempt it judged, because re-running some jobs does not
+  # re-run this one (SECURITY.md -> Trigger surface).
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          uv run fedcourts authorize-run --workflow run-repair.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
   # The selector gate. It holds no credential, takes no lock, checks out
   # nothing, and reaches no network: it reads the five dispatch inputs out of
   # the environment and refuses anything the selected pass cannot legally run.
@@ -124,6 +157,11 @@ jobs:
   # one mistake can never produce two differently worded refusals depending on
   # where it was caught. A test pins the pairing.
   validate:
+    needs: [authorize]
+    if: >-
+      ${{ needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # Seconds of bash over five environment variables.
     timeout-minutes: 5
@@ -335,13 +373,17 @@ jobs:
   # Structured like run-seed's writer job without the walk — same App token,
   # same read-write role, same `prod` environment, same pointer-commit shape.
   repair:
-    needs: [validate]
+    needs: [authorize, validate]
     # Named as an allow-list, never as "everything but the re-grade": this job
     # is where the corpus role, `id-token: write` and the App token live, so a
     # pass reaches them only by being named here. A deny-list would hand every
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
-    if: ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","amicus-rederive"]'), inputs.repair) }}
+    if: >-
+      ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","amicus-rederive"]'), inputs.repair)
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     # Join the repo-wide corpus-writer lock: one writer at a time across
     # run-pull, run-seed and this bench. cancel-in-progress:false so a
     # dispatch queues behind a running window rather than cancelling it.
@@ -2033,8 +2075,12 @@ jobs:
   # application plan's served docket JSON carries party contact blocks, and
   # crosses under the PII carve-out docs/data-sources.md records for it alone.
   handoff-projection:
-    needs: [validate]
-    if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' }}
+    needs: [authorize, validate]
+    if: >-
+      ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # Setup and the read-only corpus pull (about a gigabyte); each projection
     # is one local query.
@@ -2137,8 +2183,12 @@ jobs:
   # produced; the uv cache is never saved from here, and the remaining cache
   # path is stated in docs/security.md, *S3 / the private stores*.
   handoff-parse:
-    needs: [validate, handoff-projection]
-    if: ${{ inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' }}
+    needs: [authorize, validate, handoff-projection]
+    if: >-
+      ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The longest pass step's 60-minute cap plus setup.
     timeout-minutes: 80
@@ -2358,8 +2408,12 @@ jobs:
   # bound: the two sources' populations, fetches and record shapes share
   # nothing but the stamping.
   votes:
-    needs: [validate, handoff-parse]
-    if: ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes') && inputs.repair_mode == 'apply' }}
+    needs: [authorize, validate, handoff-parse]
+    if: >-
+      ${{ ((inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes') && inputs.repair_mode == 'apply')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     # It commits to `main` on the same push path as the corpus writers, so it
     # joins their lock rather than racing their pointer commits. The lock is
     # taken only once the parse has finished, so the fetch campaign never
@@ -2558,8 +2612,12 @@ jobs:
   # docs/freeze-record.md and waits until after the long-conference release;
   # see docs/data-pipeline.md.
   applications:
-    needs: [validate, handoff-parse]
-    if: ${{ inputs.repair == 'application-backfill' && inputs.repair_mode == 'apply' }}
+    needs: [authorize, validate, handoff-parse]
+    if: >-
+      ${{ inputs.repair == 'application-backfill' && inputs.repair_mode == 'apply'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     concurrency:
       group: ${{ inputs.repair == 'application-backfill' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
@@ -2765,8 +2823,12 @@ jobs:
   # half of a twin pair survives the merge, and no gate, mint or retrieval row
   # reads them, so a half-read pair misleads nothing in the meantime.
   decision-record:
-    needs: [validate]
-    if: ${{ inputs.repair == 'decision-record' }}
+    needs: [authorize, validate]
+    if: >-
+      ${{ inputs.repair == 'decision-record'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     concurrency:
       group: ${{ inputs.repair == 'decision-record' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
@@ -2940,8 +3002,12 @@ jobs:
   # table, keyed by (Term, listing number, position) rather than by case row,
   # and nothing a gate, a mint or a retrieval row reads joins on it.
   opinion-record:
-    needs: [validate, handoff-parse]
-    if: ${{ inputs.repair == 'opinion-record' && inputs.repair_mode == 'apply' }}
+    needs: [authorize, validate, handoff-parse]
+    if: >-
+      ${{ inputs.repair == 'opinion-record' && inputs.repair_mode == 'apply'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     concurrency:
       group: ${{ inputs.repair == 'opinion-record' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
@@ -3111,8 +3177,12 @@ jobs:
   # corpus: an unmerged twin row cannot change what a committed outcome already
   # says.
   regrade:
-    needs: [validate]
-    if: ${{ inputs.repair == 'regrade-stale' }}
+    needs: [authorize, validate]
+    if: >-
+      ${{ inputs.repair == 'regrade-stale'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     # It commits to `main` on the same push path as the corpus writers, so it
     # joins their lock rather than racing their pointer commits — and takes the
     # throwaway group when it will be skipped, for the corpus job's reason.

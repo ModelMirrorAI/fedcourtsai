@@ -69,7 +69,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The run gate (src/fedcourtsai/authz.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.yaml names. No
+  # environment, no secret, a read-only token. Every other job needs this one
+  # and checks the attempt it judged, because re-running some jobs does not
+  # re-run this one (SECURITY.md -> Trigger surface).
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          uv run fedcourts authorize-run --workflow summarize.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
   plan:
+    needs: [authorize]
+    if: >-
+      ${{ needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # A full index pull plus a few content-store reads per predicted case.
     timeout-minutes: 30
@@ -219,8 +257,12 @@ jobs:
   # required reviewers gate it, so nothing below spends until a named reviewer
   # releases this run's plan.
   approval:
-    needs: plan
-    if: needs.plan.outputs.has_cases == 'true'
+    needs: [authorize, plan]
+    if: >-
+      ${{ needs.plan.outputs.has_cases == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: review
@@ -233,8 +275,12 @@ jobs:
   # plan it was judged on. No token and no permissions: a step summary needs
   # neither.
   rejected:
-    needs: [plan, approval]
-    if: ${{ always() && needs.plan.outputs.has_cases == 'true' && needs.approval.result != 'success' }}
+    needs: [authorize, plan, approval]
+    if: >-
+      ${{ always() && needs.plan.outputs.has_cases == 'true' && needs.approval.result != 'success'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
@@ -251,8 +297,12 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   stage:
-    needs: [plan, approval]
-    if: ${{ needs.approval.result == 'success' }}
+    needs: [authorize, plan, approval]
+    if: >-
+      ${{ needs.approval.result == 'success'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # One content-store read per planned case.
     timeout-minutes: 30
@@ -333,8 +383,12 @@ jobs:
           retention-days: 1
 
   generate:
-    needs: [plan, stage]
-    if: ${{ needs.stage.result == 'success' }}
+    needs: [authorize, plan, stage]
+    if: >-
+      ${{ needs.stage.result == 'success'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # ~200 cases at tens of seconds each, plus bounded retries; the summarize
     # step carries its own cap inside this one so a slow run still reaches the
@@ -456,12 +510,15 @@ jobs:
             | tee -a "$GITHUB_STEP_SUMMARY"
 
   publish:
-    needs: [plan, generate]
+    needs: [authorize, plan, generate]
     if: >-
       ${{ needs.generate.result == 'success'
       && needs.generate.outputs.written != ''
       && needs.generate.outputs.written != '0'
-      && github.ref == 'refs/heads/main' }}
+      && github.ref == 'refs/heads/main'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: prod

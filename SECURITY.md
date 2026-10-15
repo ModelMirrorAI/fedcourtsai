@@ -335,13 +335,29 @@ runbook, [docs/security.md](docs/security.md).
   `summarize` — the
   carve-out `docs/security.md` describes) resolve an off-list ref to an empty
   auto-created environment the role trusts do not name, failing closed at the
-  first credential instead. That is why no lane carries an actor gate of its
-  own: there is no trigger for one to judge. Two jobs dispatch a lane
+  first credential instead. Repository write is wider than the people who
+  should start a run, though — the agent account interactive sessions act as
+  holds it — and GitHub lets every write holder dispatch and re-run. So every
+  dispatchable workflow that binds an environment opens with the **run gate**,
+  an `authorize` job (`fedcourts authorize-run`) with no environment, no secret
+  and a read-only token that every other job of the run needs: a dispatch
+  proceeds only when its dispatcher is a human `config/dispatchers.yaml` names
+  or a pipeline bot it allows for that workflow, and a re-run of any run only
+  when its re-runner is such a human. The agent account is deliberately absent
+  from that file, and an unreadable file refuses everything. Re-running some
+  of a run's jobs keeps the gate's earlier success rather than re-running it,
+  so every job's condition also requires the attempt the gate judged, or a
+  re-runner on the list it published (`tests/test_workflow_auth_gate.py` pins
+  both on every job). The gate holds only on refs whose workflow carries it,
+  which is why the environment's branch policy stays the ref gate beneath it:
+  a dispatch from a branch whose workflow drops the gate still reaches no
+  role, no secret and no agent. Two jobs dispatch a lane
   themselves — `run-pull`'s `chain-predict` and `run-predict`'s `chain`, each
   starting an input-less `run-predict` on `main` with the **dispatch App**,
   whose token holds Actions write (and PR read) and nothing else and whose key
-  only `main`'s code can mint. A dispatch from it enters through the same gate
-  as a maintainer's and reaches the same code; the round it starts still waits
+  only `main`'s code can mint, and which the allow-list admits for
+  `run-predict` alone. A dispatch from it enters through the same gates as a
+  maintainer's and reaches the same code; the round it starts still waits
   on the review hold unless its own plan is within the auto-release caps. The
   pull window chains only on a forecast-relevant change, and neither job
   dispatches while a promotion PR is ready.

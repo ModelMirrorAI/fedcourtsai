@@ -30,6 +30,7 @@ import yaml
 
 from fedcourtsai.promotion_record import FREEZE_RECORD_PATH, REGISTRY_PATH, tag_message
 from tests.test_promotion_record import MERGED_AT, _promote
+from tests.workflow_gate import own_condition, own_needs
 
 #: The identity every helper git call commits and tags under. A CI runner has
 #: no global git identity, so the tests supply one rather than lean on the
@@ -124,7 +125,7 @@ def test_classify_requires_a_two_parent_merge_of_a_same_repo_staging_to_main_pr(
 
 def test_write_runs_only_for_a_promotion_on_prod_in_its_own_concurrency_group() -> None:
     job = _workflow()["jobs"]["write"]
-    assert job["if"] == "needs.classify.outputs.promotion == 'true'"
+    assert own_condition(job) == "needs.classify.outputs.promotion == 'true'"
     assert job["environment"] == "prod"
     assert job["concurrency"] == {"group": "promotion-record", "cancel-in-progress": False}
     assert job["permissions"] == {"contents": "read"}
@@ -217,8 +218,8 @@ def test_a_later_attempt_runs_only_after_a_rejection_and_revokes_the_last_token_
 
 def test_report_rides_the_ambient_token_and_triggers_nothing() -> None:
     job = _workflow()["jobs"]["report"]
-    assert job["needs"] == ["classify", "write"]
-    assert job["if"] == "always() && needs.classify.outputs.promotion == 'true'"
+    assert own_needs(job) == ["classify", "write"]
+    assert own_condition(job) == "always() && needs.classify.outputs.promotion == 'true'"
     assert job["permissions"] == {"issues": "write", "pull-requests": "write"}
     text = yaml.safe_dump(job)
     assert "secrets." not in text and "environment" not in job

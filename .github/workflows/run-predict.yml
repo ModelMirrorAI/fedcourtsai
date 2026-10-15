@@ -79,7 +79,45 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The run gate (src/fedcourtsai/authz.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.yaml names. No
+  # environment, no secret, a read-only token. Every other job needs this one
+  # and checks the attempt it judged, because re-running some jobs does not
+  # re-run this one (SECURITY.md -> Trigger surface).
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          uv run fedcourts authorize-run --workflow run-predict.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
   plan:
+    needs: [authorize]
+    if: >-
+      ${{ needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The job pulls the whole corpus and then walks every open SCOTUS event
     # TWICE — once to mint the matrix and once for the plan report the hold is
@@ -505,8 +543,12 @@ jobs:
   # to the count; GitHub would otherwise create it on first reference with no
   # branch policy at all.
   approval:
-    needs: plan
-    if: needs.plan.outputs.has_jobs == 'true'
+    needs: [authorize, plan]
+    if: >-
+      ${{ needs.plan.outputs.has_jobs == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: ${{ needs.plan.outputs.auto_release == 'true' && 'review-auto' || 'review' }}
@@ -530,8 +572,12 @@ jobs:
   # re-derived on the next cycle by construction — so a decline costs a cycle
   # and nothing else.
   rejected:
-    needs: [plan, approval]
-    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success' }}
+    needs: [authorize, plan, approval]
+    if: >-
+      ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # Nothing here but the summary write; the cap is the runner's own setup
     # with room.
@@ -555,8 +601,12 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   predict:
-    needs: [plan, approval]
-    if: needs.plan.outputs.has_jobs == 'true'
+    needs: [authorize, plan, approval]
+    if: >-
+      ${{ needs.plan.outputs.has_jobs == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The engine deadline below plus the setup ahead of the engine step and the
     # capture tail behind it, with room: measured since 2026-08-01, the engine
@@ -1882,7 +1932,7 @@ jobs:
     concurrency:
       group: collect-${{ github.workflow }}-${{ github.run_id }}
       cancel-in-progress: false
-    needs: [plan, approval, predict]
+    needs: [authorize, plan, approval, predict]
     # Run after the whole fan-out even if some cells failed, as long as the plan
     # queued jobs AND the hold released. Without the approval clause, always()
     # would fire this writer on a rejected hold (predict merely skipped) and
@@ -1890,7 +1940,11 @@ jobs:
     # only writer: it unions the cells' artifacts into one
     # PR per run (auto-merged when green) plus, if any cell left salvageable
     # partial output, one draft PR a maintainer finishes.
-    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success' }}
+    if: >-
+      ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The collect action downloads cell artifacts per artifact with bounded
     # parallelism (4 workers; each download is its own degradation boundary —
@@ -2097,8 +2151,12 @@ jobs:
   # PR read the wait below needs) and nothing else, so no job that runs agent
   # code or writes the corpus holds a token that can dispatch.
   chain:
-    needs: [plan, collect]
-    if: ${{ !cancelled() && needs.plan.outputs.drain_more == 'true' && needs.collect.result == 'success' && vars.DISPATCH_CHAIN_ENABLED == 'true' }}
+    needs: [authorize, plan, collect]
+    if: >-
+      ${{ !cancelled() && needs.plan.outputs.drain_more == 'true' && needs.collect.result == 'success' && vars.DISPATCH_CHAIN_ENABLED == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The wait below is 40 minutes; the cap leaves the dispatch inside the App
     # token's one-hour life, which is minted after the checkout and setup.

@@ -319,6 +319,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The run gate (src/fedcourtsai/authz.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.yaml names. No
+  # environment, no secret, a read-only token. Every other job needs this one
+  # and checks the attempt it judged, because re-running some jobs does not
+  # re-run this one (SECURITY.md -> Trigger surface).
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          uv run fedcourts authorize-run --workflow integration-test.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
   # Expands the dispatch into the {scenario, engine} legs the job below fans
   # out over: `gate` becomes the required suite's matrix legs (collect rides
   # the run as its own job, not a leg), `offline-gate` those same legs minus
@@ -337,6 +370,7 @@ jobs:
   # unusable corpus cheap — the whole matrix, engine smokes included, is
   # downstream of this job, so it never starts.
   plan:
+    needs: [authorize]
     # The schedule disjunct is not decoration: on a scheduled run the `inputs`
     # context is empty, and GitHub coerces both sides of a comparison against
     # null numerically — so `inputs.scenario != 'collect'` happens to be TRUE
@@ -348,8 +382,11 @@ jobs:
     # qp-labeler-smoke is excluded beside collect: it runs as a standalone
     # job below, needing no matrix, no case, and no corpus.
     if: >-
-      ${{ github.event_name == 'schedule'
-      || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke') }}
+      ${{ (github.event_name == 'schedule'
+      || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke'))
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # 15, not 5: the resolve path checks out, builds the Python env, assumes
     # the read-only role, and walks a bounded candidate window over the blob.
@@ -576,9 +613,12 @@ jobs:
     # posture it smokes). Plus the scheduled canary, named for the reason the
     # plan job's gate carries.
     if: >-
-      ${{ github.event_name == 'schedule'
-      || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke') }}
-    needs: plan
+      ${{ (github.event_name == 'schedule'
+      || (inputs.scenario != 'collect' && inputs.scenario != 'qp-labeler-smoke'))
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    needs: [authorize, plan]
     runs-on: ubuntu-24.04
     strategy:
       # A broken leg must not cancel the others: each leg is independent
@@ -2369,6 +2409,7 @@ jobs:
   # real token in the job is the ambient read-only one the composite's
   # downloader uses to list and fetch this run's own artifacts.
   collect-scenario:
+    needs: [authorize]
     # Fires on its own dispatch and inside every whole-suite run: the collect
     # composite is the single writer for every predict/evaluate run's output,
     # so the promotion freshness suite must include it — and because this job
@@ -2379,9 +2420,12 @@ jobs:
     # `inputs` context satisfies none of them, so the schedule runs the engine
     # legs and nothing else without needing a clause of its own.
     if: >-
-      ${{ inputs.scenario == 'collect'
+      ${{ (inputs.scenario == 'collect'
       || inputs.scenario == 'gate' || inputs.scenario == 'offline-gate'
-      || inputs.scenario == 'all' || inputs.scenario == 'all-offline' }}
+      || inputs.scenario == 'all' || inputs.scenario == 'all-offline')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -2806,10 +2850,15 @@ jobs:
   # never-cancel group: a cancelled smoke costs cents and a re-dispatch,
   # never an artifact.
   qp-labeler-smoke:
+    needs: [authorize]
     # Its own dispatch, and `all` — the one whole-suite selection that runs
     # every scenario. It spends tokens, so `all-offline` leaves it out, and it
     # is not required evidence, so neither gate suite reaches it.
-    if: ${{ inputs.scenario == 'qp-labeler-smoke' || inputs.scenario == 'all' }}
+    if: >-
+      ${{ (inputs.scenario == 'qp-labeler-smoke' || inputs.scenario == 'all')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The capped steps come to 25 — 5 for the CLI install, 15 for the labeler,
     # 5 for the execution-file digest — so the job clock has to leave room

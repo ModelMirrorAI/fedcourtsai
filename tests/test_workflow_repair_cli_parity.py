@@ -41,6 +41,7 @@ parses every flag it was given.
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -50,6 +51,7 @@ import yaml
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus, fixture
+from fedcourtsai.authz import load_dispatchers_config
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline.document_backfill import (
     DocumentBackfillResult,
@@ -222,6 +224,22 @@ def _values(pass_name: str | None = None, handoff: Path | None = None) -> dict[s
         # below.
         "REPAIR_TARGET": REPAIR_TERM if pass_name == "application-backfill" else REPAIR_PARSE_LABEL,
         **_regrade_fields(),
+        # The run gate's step: a first-attempt dispatch by the allow-list's
+        # first human, which the committed config/dispatchers.yaml authorizes,
+        # so the step exercises the command rather than its refusal.
+        **_run_gate_values(),
+    }
+
+
+def _run_gate_values() -> dict[str, str]:
+    """The GitHub context the authorize job hands `authorize-run`."""
+    dispatcher = load_dispatchers_config(ROOT / "config").humans[0]
+    return {
+        "EVENT_NAME": "workflow_dispatch",
+        "ACTOR": dispatcher,
+        "TRIGGERING_ACTOR": dispatcher,
+        "RUN_ATTEMPT": "1",
+        "GITHUB_OUTPUT": os.devnull,
     }
 
 

@@ -127,6 +127,7 @@ from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest, _cell_env
 from fedcourtsai.registry import load_mcp_servers, load_predictors, resolve_mcp_servers
 from fedcourtsai.schemas import UsageRole
+from tests.workflow_gate import gated_jobs, own_condition, own_needs
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
@@ -2112,7 +2113,7 @@ def test_every_run_repair_pass_gates_on_an_equality_against_a_declared_pass() ->
     gated = 0
     for job in wf["jobs"].values():
         for gate in (job,) if "if" in job else ():
-            condition = str(gate["if"])
+            condition = own_condition(gate)
             if "inputs.repair" not in condition:
                 continue
             gated += 1
@@ -3825,7 +3826,7 @@ def test_the_fortnight_parity_guard_is_a_step_because_it_has_to_be() -> None:
     no checkout, no corpus, no credential.
     """
     cadence = _load("run-backtest.yml")["jobs"]["cadence"]
-    assert cadence["if"] == "github.event_name == 'schedule'", (
+    assert own_condition(cadence) == "github.event_name == 'schedule'", (
         "the guards are the cron's; a dispatch is already a human's choice"
     )
     parity = next(step for step in cadence["steps"] if step.get("id") == "parity")
@@ -4073,7 +4074,9 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
     environments reading two corpus pairs and one must never cancel — or
     queue behind — the other."""
     resolved = "${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
-    for job_id, job in _load("run-analytics.yml")["jobs"].items():
+    # The run gate binds no environment and reads no corpus, so it holds no
+    # concurrency group either (test_workflow_auth_gate.py pins its shape).
+    for job_id, job in gated_jobs(_load("run-analytics.yml")).items():
         if job_id == "tool-usage":
             assert "environment" not in job, "tool-usage reaches nothing; no environment"
         else:
@@ -4195,10 +4198,10 @@ def test_every_run_analytics_mode_is_gated_by_a_job_and_every_job_by_a_mode() ->
         if f"inputs.mode == '{mode}'" in str(job.get("if") or "")
     }
     assert gated == options, f"modes offered but never gated: {sorted(options - gated)}"
-    for job_id, job in wf["jobs"].items():
+    for job_id, job in gated_jobs(wf).items():
         condition = str(job.get("if") or "")
         named = {mode for mode in options if f"inputs.mode == '{mode}'" in condition}
-        assert named or "needs" in job, f"{job_id} gates on no declared mode"
+        assert named or own_needs(job), f"{job_id} gates on no declared mode"
 
 
 def test_the_big_case_board_branch_is_spelled_the_same_in_all_three_places() -> None:
@@ -4313,10 +4316,10 @@ def test_the_split_passes_run_projection_then_parse_then_an_apply_only_writer() 
     assert projection["permissions"] == {"contents": "read", "id-token": "write"}
     assert "corpus-readonly" in yaml.safe_dump(projection)
     assert "AWS_ROLE_TO_ASSUME }}" not in yaml.safe_dump(projection), "the projection reads only"
-    assert parse["needs"] == ["validate", "handoff-projection"]
+    assert own_needs(parse) == ["validate", "handoff-projection"]
     for writer in ("votes", "applications", "opinion-record"):
         job = _repair_job(writer)
-        assert job["needs"] == ["validate", "handoff-parse"], writer
+        assert own_needs(job) == ["validate", "handoff-parse"], writer
         assert "inputs.repair_mode == 'apply'" in _norm(str(job["if"])), writer
         group = _norm(str(job["concurrency"]["group"]))
         assert "inputs.repair_mode == 'apply' && 'corpus-write'" in group, writer
@@ -4573,8 +4576,8 @@ def test_the_application_plan_crosses_only_as_its_one_day_run_artifact() -> None
     assert uploads == [upload]
     # The applications writer downloads exactly that artifact, and only on an apply.
     writer = _repair_job("applications")
-    assert _norm(str(writer["if"])) == (
-        "${{ inputs.repair == 'application-backfill' && inputs.repair_mode == 'apply' }}"
+    assert own_condition(writer) == (
+        "inputs.repair == 'application-backfill' && inputs.repair_mode == 'apply'"
     )
     downloads = [
         s

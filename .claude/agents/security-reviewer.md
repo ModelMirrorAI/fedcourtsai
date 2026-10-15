@@ -36,11 +36,15 @@ everything outside `.github/workflows`.)
 - **Authorization stays fail-closed.** Anything an outside actor can cause
   (issue forms apply labels regardless of permissions!) must be authorized
   before privileged steps (the tested `authorize-trigger` command — an inline
-  permission check is not an accepted form; the auth-gate test rejects it for
-  every workflow it enumerates, so a NEW label-triggered workflow must be added
-  to its RUN_LABELS to inherit that protection), and
-  the denial path must be the default. New trigger surfaces (labels, dispatch
-  inputs, schedules) get the same scrutiny.
+  permission check is not an accepted form, and `tests/test_workflow_auth_gate.py`
+  refuses any outside-reachable trigger outright), and
+  the denial path must be the default. Who among write holders may start a run
+  is the run gate's (`authorize-run`, reading `config/dispatchers.yaml`): flag
+  any diff that adds the agent account or a non-`[bot]` login to that file's
+  `bots`, widens a bot to another workflow without a chain job that needs it,
+  gives the `authorize` job an environment, a secret or a write grant, or
+  leaves a job of a gated workflow outside the gate's guard. New trigger
+  surfaces (labels, dispatch inputs, schedules) get the same scrutiny.
 - **Token blast radius.** Which credential can each piece of untrusted input
   (docket text, PDFs, retrieved web content, agent output) reach? Agents get
   least-privilege App tokens (no contents:write in cells); the collect jobs
