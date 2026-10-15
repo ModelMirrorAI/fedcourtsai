@@ -243,6 +243,7 @@ from .pipeline import (
     opinion_lineups,
     opinion_record,
     order_lineups,
+    pre_mint,
     qp_topics,
     semantic,
     vote_sources,
@@ -390,6 +391,7 @@ from .schemas import (
     CountedConferenceTotal,
     DataHealth,
     Disposition,
+    DocketPollRecord,
     Engine,
     Evaluation,
     FlagCategory,
@@ -7068,6 +7070,43 @@ def _resolve_token_counts(
     return explicit
 
 
+@app.command("poll-docket")
+def poll_docket_cmd(
+    court: Annotated[str, typer.Option()],
+    docket_number: Annotated[
+        str, typer.Option(help="The docket number to poll, e.g. 26A477 or 26-221.")
+    ],
+    event: Annotated[str, typer.Option(help="The event whose outcome the poll looks for.")],
+    out: Annotated[Path, typer.Option(help="Write the poll's result here as JSON.")],
+) -> None:
+    """Poll a docket's current JSON once and record whether the event's outcome shows.
+
+    The post-run half of a forward cell's bracket: run after the engine step, it
+    records and never refuses. The docket number is passed in rather than read from
+    the cell's record, which the agent could have changed during its run. Always
+    exits 0: a poll that cannot answer is recorded as ``unavailable``.
+    """
+    with pre_mint.bounded_client() as client:
+        poll = pre_mint.poll_docket(court, docket_number, event, client)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(poll.as_record()) + "\n", encoding="utf-8")
+    typer.echo(
+        f"{court} {poll.docket_number} {event}: {poll.state}"
+        + (f" ({poll.reason})" if poll.reason else "")
+    )
+
+
+def _read_docket_poll(path: Path | None, which: str) -> DocketPollRecord | None:
+    """A poll record a harness step wrote, or ``None`` (warned) when it is unreadable."""
+    if path is None:
+        return None
+    try:
+        return DocketPollRecord.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        typer.echo(f"::warning::{which} poll record unreadable at {path}: {exc}")
+        return None
+
+
 @app.command("record-usage")
 def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     *,
@@ -7127,6 +7166,21 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             "differs from it is recorded as a discrepancy."
         ),
     ] = "",
+    pre_mint_poll_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="The JSON `provision-snapshot --pre-mint-poll-out` wrote for this "
+            "cell; recorded as the usage record's pre_mint_poll. A missing or "
+            "unreadable file records nothing and warns."
+        ),
+    ] = None,
+    post_run_poll_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="The JSON `poll-docket` wrote after the cell's engine step ended; "
+            "recorded as the usage record's post_run_poll. Unreadable: warns, records nothing."
+        ),
+    ] = None,
 ) -> None:
     """Record one run's measured token usage and estimated cost to ``usage.json``.
 
@@ -7182,6 +7236,8 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         pipeline_sha=resolve_pipeline_sha(pipeline_sha),
         engine_version=recorded_version,
         engine_version_discrepancy=discrepancy,
+        pre_mint_poll=_read_docket_poll(pre_mint_poll_file, "pre-mint"),
+        post_run_poll=_read_docket_poll(post_run_poll_file, "post-run"),
         input_tokens=counts.input_tokens,
         output_tokens=counts.output_tokens,
         cache_read_input_tokens=counts.cache_read_input_tokens,
@@ -12753,6 +12809,44 @@ def _refuse_forward_if_closed(
         raise typer.Exit(code=3)
 
 
+def _pre_mint_poll_gate(
+    case: str,
+    court: str,
+    event: str,
+    payload: Mapping[str, Any],
+    out: Path | None,
+) -> None:
+    """Poll the live docket just before minting; exit 3 when the event is decided.
+
+    The docket number comes from the stored payload (both payload shapes), which
+    names the docket the cell is about, so a reserved-range id and a
+    CourtListener id are polled alike. The result is written to ``out`` before
+    any refusal, so a refused cell's poll is on record too.
+    """
+    docket_number = str(payload.get("CaseNumber") or payload.get("docket_number") or "")
+    with pre_mint.bounded_client() as client:
+        poll = pre_mint.poll_docket(court, docket_number, event, client)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(poll.as_record()) + "\n", encoding="utf-8")
+    stamp = poll.polled_at.isoformat().replace("+00:00", "Z")
+    if poll.state == "decided":
+        typer.echo(
+            f"::warning::refusing to provision forward cell for {case}: the live docket "
+            f"polled at {stamp} shows the outcome ({poll.reason})",
+            err=True,
+        )
+        raise typer.Exit(code=3)
+    if poll.state == "unavailable":
+        typer.echo(
+            f"::warning::pre-mint poll for {case} established nothing ({poll.reason}); "
+            "the cell proceeds on the stored-snapshot gates",
+            err=True,
+        )
+        return
+    typer.echo(f"{case} pre-mint poll: open at {stamp}")
+
+
 def _casestore_row_refusal(db_path: Path, court: str, docket: int, event: str) -> str | None:
     """The row-level half of the forward record gate, from the casestore path.
 
@@ -12997,6 +13091,27 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "disables the bound.",
         ),
     ] = 0,
+    pre_mint_poll: Annotated[
+        bool,
+        typer.Option(
+            "--pre-mint-poll",
+            help="With --refuse-terminal on a forward cell, poll the docket's current "
+            "JSON from the Court just before writing the record and refuse (exit 3) "
+            "when it already shows this event's outcome. The stored snapshot can be "
+            "days behind the docket, and a disposition's date carries no time of day, "
+            "so this is the one moment the cell can be shown to begin against an open "
+            "docket. A failed poll is recorded as unavailable and the cell proceeds "
+            "on the stored-snapshot gates alone.",
+        ),
+    ] = False,
+    pre_mint_poll_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the pre-mint poll's result (UTC time, state, reason) as JSON "
+            "here, for the usage record. Kept out of record/: it is harness "
+            "provenance, not cell input.",
+        ),
+    ] = None,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Materialize a case's corpus snapshot (and documents) for an agent run.
@@ -13133,6 +13248,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
                 err=True,
             )
             raise typer.Exit(code=3)
+        if pre_mint_poll:
+            _pre_mint_poll_gate(case, court, event, payload, pre_mint_poll_out)
     # Both gates ran on the LATEST payload, before the cut, and that ordering is
     # the point of putting the cut here. The staleness bound asks whether the
     # *pipeline* is live, which only the latest snapshot's date can answer — a
@@ -18902,6 +19019,11 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # no gate. Empty on a run where every cell placed the stakes, and on an
         # evaluate run.
         "stakes_reads": plan.stakes_read_markdown,
+        # The forward cells the pre-mint docket poll refused: designed refusals,
+        # not failures, so they carry no attempt-cap fact. The roll-up rides the
+        # PR body and the agent-feedback comment; it leaves the process here too
+        # for any surface that echoes the run's notes.
+        "pre_mint_refusals": plan.pre_mint_refusals_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),

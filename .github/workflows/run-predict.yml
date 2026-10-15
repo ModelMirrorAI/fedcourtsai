@@ -680,7 +680,15 @@ jobs:
         run: |
           set -euo pipefail
           status=0
-          uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal --max-snapshot-age-days 10 || status=$?
+          poll="$RUNNER_TEMP/pre-mint-poll.json"
+          uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal --max-snapshot-age-days 10 --pre-mint-poll --pre-mint-poll-out "$poll" || status=$?
+          # The pre-mint poll's result travels as a step output, fixed before
+          # any agent runs: a file would sit where the agent, running as the
+          # same user, could rewrite it before the usage step reads it.
+          if [ -f "$poll" ]; then
+            echo "pre_mint_poll=$(tr -d '\n' < "$poll")" >> "$GITHUB_OUTPUT"
+            rm -f "$poll"
+          fi
           if [ "$status" -eq 1 ]; then
             # Nothing was written, so there is no cell to run. The usual cause
             # is a corpus with no snapshot for the case; a corpus read that
@@ -1574,6 +1582,34 @@ jobs:
           set -euo pipefail
           uv run fedcourts restore-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
 
+      # The post-run half of the forward cell's docket bracket: the same poll the
+      # provisioning step took before the record was written, taken again now the
+      # engine has stopped. Record only — it never refuses or removes a cell. The
+      # docket number comes from the provisioning step's output, fixed before the
+      # agent ran, never from the cell's record, which the agent could change; the
+      # result leaves as this step's output for the usage capture, so no file the
+      # agent could reach carries it. Pre and post both `open` say the whole run
+      # ended before the served docket showed a decision.
+      - name: Poll the docket after the run
+        id: post_poll
+        if: ${{ !cancelled() && steps.provision.outputs.pre_mint_poll != '' && (steps.predict_claude.conclusion == 'success' || steps.predict_codex.conclusion == 'success' || steps.predict_gemini.conclusion == 'success' || steps.disarm.outputs.reaped == 'true') }}
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          COURT_ID: ${{ matrix.court }}
+          EVENT_ID: ${{ matrix.event_id }}
+          PRE_MINT_POLL: ${{ steps.provision.outputs.pre_mint_poll }}
+        run: |
+          set -euo pipefail
+          number=$(jq -r '.docket_number // empty' <<<"$PRE_MINT_POLL")
+          if [ -z "$number" ]; then
+            exit 0
+          fi
+          poll="$RUNNER_TEMP/post-run-poll.json"
+          uv run fedcourts poll-docket --court "$COURT_ID" --docket-number "$number" --event "$EVENT_ID" --out "$poll"
+          echo "post_run_poll=$(tr -d '\n' < "$poll")" >> "$GITHUB_OUTPUT"
+          rm -f "$poll"
+
       # Record measured token usage + estimated cost next to the prediction so a
       # maintainer can sum it into a real $/run (docs/budget.md). Best-effort: the
       # engine logs are read here, never the agent's word, and a miss must not
@@ -1600,6 +1636,8 @@ jobs:
           CLAUDE_BIN: ${{ steps.engine-cli.outputs.path }}
           REPORTED_VERSION: ${{ steps.engine-cli.outputs.reported-version }}
           ENGINE_PIN: ${{ steps.engine-cli.outputs.version }}
+          PRE_MINT_POLL: ${{ steps.provision.outputs.pre_mint_poll }}
+          POST_RUN_POLL: ${{ steps.post_poll.outputs.post_run_poll }}
           CODEX_HOME: ${{ github.workspace }}/.codex
           GEMINI_TELEMETRY_FILE: ${{ github.workspace }}/.gemini/telemetry.log
         run: |
@@ -1608,6 +1646,18 @@ jobs:
             --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
             --run-id "$RUN_ID" --engine "$ENGINE"
             --role predictor --actor "$PREDICTOR_ID")
+          # The pre-mint poll provisioning took, from its step output (fixed
+          # before the agent ran), into the usage record.
+          if [ -n "$PRE_MINT_POLL" ]; then
+            poll_file="$(mktemp)"
+            printf '%s\n' "$PRE_MINT_POLL" > "$poll_file"
+            args+=(--pre-mint-poll-file "$poll_file")
+          fi
+          if [ -n "$POST_RUN_POLL" ]; then
+            post_file="$(mktemp)"
+            printf '%s\n' "$POST_RUN_POLL" > "$post_file"
+            args+=(--post-run-poll-file "$post_file")
+          fi
           if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
           # The engine version the record carries is the binary's own report:
           # read by the install step before any agent ran where the harness
@@ -1736,6 +1786,10 @@ jobs:
           ENGINE_DEADLINE: ${{ steps.disarm.outputs.deadline == 'true' }}
           # Either gate refused the cell, so no engine ran.
           CELL_REFUSED: ${{ steps.provision.outputs.refused == 'true' || steps.record.outputs.refused == 'true' }}
+          # The pre-mint poll's record, for a cell it refused: the collect job
+          # rolls those up as designed refusals rather than counting them as
+          # cells that produced nothing.
+          PRE_MINT_POLL: ${{ steps.provision.outputs.pre_mint_poll }}
         run: |
           set -euo pipefail
           # The event.yaml is materialized before the agent runs, so a staged change
@@ -1757,12 +1811,18 @@ jobs:
           if [ "$produced" = "true" ] && uv run fedcourts validate data; then
             validated=true
           fi
+          # A poll-refused cell records the refusal; anything else records null. A
+          # malformed poll output is read as no refusal, never as a failed step.
+          refusal=$(jq -c 'if .state == "decided" then {polled_at, reason} else null end' \
+            <<<"${PRE_MINT_POLL:-null}" 2>/dev/null) || refusal=null
+          [ -n "$refusal" ] || refusal=null
           jq -n \
             --arg court "$COURT_ID" --argjson docket "$DOCKET_ID" \
             --arg event_id "$EVENT_ID" --arg actor "$PREDICTOR_ID" --arg run_id "$RUN_ID" \
             --argjson produced "$produced" --argjson validated "$validated" \
             --argjson agent_ok "$AGENT_OK" --argjson engine_deadline "$ENGINE_DEADLINE" \
-            '{court:$court,docket:$docket,event_id:$event_id,actor:$actor,run_id:$run_id,produced:$produced,validated:$validated,agent_ok:$agent_ok,engine_deadline:$engine_deadline}' \
+            --argjson pre_mint_refusal "$refusal" \
+            '{court:$court,docket:$docket,event_id:$event_id,actor:$actor,run_id:$run_id,produced:$produced,validated:$validated,agent_ok:$agent_ok,engine_deadline:$engine_deadline,pre_mint_refusal:$pre_mint_refusal}' \
             > status.json
 
       # One artifact per cell: its status.json, its own matrix event directory

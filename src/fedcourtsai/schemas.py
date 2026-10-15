@@ -2057,6 +2057,31 @@ class Evaluation(_Strict):
     )
 
 
+class DocketPollRecord(_Strict):
+    """One harness poll of a forward cell's docket, as the cell's usage record carries it.
+
+    A poll reads the Court's docket JSON as served and runs the forward outcome scan
+    on it. ``open`` is narrower than it sounds: it means that JSON carried no
+    disposition the scan recognises at ``polled_at``, not that the event was
+    undecided — the JSON can lag the order or come from a cache, the scan's recall
+    is not perfect, and a disposition can land after the poll.
+    """
+
+    polled_at: datetime = Field(description="When the poll's fetch began, in UTC")
+    docket_number: str = Field(
+        description="The docket number polled, as the provisioned snapshot names it"
+    )
+    state: Literal["open", "decided", "unavailable"] = Field(
+        description="open: the docket JSON as served carried no disposition the forward "
+        "outcome scan recognises; decided: it did; unavailable: the poll could not answer "
+        "(no docket served, a body that is not JSON, a timeout, an error)"
+    )
+    reason: str | None = Field(
+        default=None,
+        description="Why the poll read decided or unavailable; null when open",
+    )
+
+
 class ModelUsage(_Strict):
     """``usage.json`` — measured model token usage and estimated cost for one run.
 
@@ -2105,6 +2130,26 @@ class ModelUsage(_Strict):
         "as read; this says the cell's engine is in doubt, and a reading cutting by "
         "engine version treats such a cell as unknown. Null when every read agrees, "
         "and on records written before the field existed.",
+    )
+    pre_mint_poll: DocketPollRecord | None = Field(
+        default=None,
+        description="The harness's poll of a forward predict cell's docket just before "
+        "its record was written. A cell whose poll reads `decided` is refused and writes "
+        "no usage record, so a recorded poll is `open` or `unavailable`. `open` bounds "
+        "the cell's exposure to a disposition to the window from `polled_at` to the "
+        "end of the run; it is not proof the event was undecided (see "
+        "DocketPollRecord). Null on evaluate cells, on cells minted before the poll "
+        "existed, and wherever no poll ran.",
+    )
+    post_run_poll: DocketPollRecord | None = Field(
+        default=None,
+        description="The same poll taken after the cell's engine step ended. Record "
+        "only: it never refuses or removes a cell. `pre_mint_poll` and `post_run_poll` "
+        "both `open` say the whole run ended before the served docket showed a "
+        "decision, not that the order was unpublished (an order list or a press account "
+        "can precede the docket JSON); a `decided` post-run poll leaves the ordering "
+        "inside the run unresolved. Either way leakage is read from the retrieval log's "
+        "content. Null where no post-run poll ran.",
     )
     input_tokens: int = Field(ge=0, description="Fresh (uncached) input tokens")
     output_tokens: int = Field(ge=0)
