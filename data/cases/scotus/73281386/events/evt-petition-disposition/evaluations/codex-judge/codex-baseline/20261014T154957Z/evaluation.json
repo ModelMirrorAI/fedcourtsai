@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:1d7fbb9fce0582c4e5a8b7dbbb54fb504532c2bdd7ef8b9946c8145115860bde",
+  "big_case": {
+    "evaluator_score": 0.78,
+    "notes": "The provisioned questions concern executive-branch confidentiality, FOIA agency-status discovery, and compliance with an earlier Supreme Court mandate. These have substantial institutional reach beyond the parties. The immediate dispute remains discovery and mandamus, not a final determination of FOIA coverage; the recorded cert grant supplies no merits holding."
+  },
+  "brier_score": 0.07840000000000001,
+  "brier_skill_score": 0.9129086680785583,
+  "case_id": "scotus/73281386",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.72,
+        "score": 0.821804397731781
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.8,
+        "score": -0.5148196487754229
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.3069847489563582,
+    "total": 0.3069847489563582
+  },
+  "correct": 0,
+  "created_at": "2026-10-14T16:19:12Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The September 16, 2026 prediction precedes the October 13, 2026 resolution. Reviewed all 31 captured call records: 29 have captured results; two web calls are unobserved and are assessed by their queries, not treated as empty returns. Those queries concern the historical Cheney opinion and an official bound volume, not this petition's disposition. The June 6, 2025 order cited in the reasoning is the earlier proceeding reproduced in the provisioned appendix, not the scored outcome. No recorded query or reasoning passage shows this petition already decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T16:21:51.461195Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120898100172712,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

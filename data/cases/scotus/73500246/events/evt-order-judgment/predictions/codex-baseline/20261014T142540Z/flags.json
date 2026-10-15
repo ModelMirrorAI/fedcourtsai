@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500246",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-judgment",
+      "message": "No record/documents directory or documents manifest was provisioned, although the snapshot records a petition, opposition, and reply. Retrieved the official question-presented sheet and the pre-grant Fourth Circuit opinion through CourtListener, but did not obtain the parties' cert briefs. The forecast is therefore based on the docket, granted question, appellate majority and dissent, and committed merits baseline, not a balanced reading of the cert advocacy. Absence of merits briefs is expected at the grant moment. No target Supreme Court merits outcome was encountered.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261014T142540Z",
+  "schema_version": "1.0"
+}

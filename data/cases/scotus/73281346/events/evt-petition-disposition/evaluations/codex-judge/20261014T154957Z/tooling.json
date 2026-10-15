@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281346",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate documents and capture-aware retrieval logs.",
+    "Provisioned briefs and appellate appendix for checking competing characterizations."
+  ],
+  "notes": "Used only provisioned case materials, blinded candidates, and local contract/schema/path support. No external legal retrieval or independent statpack pooling. Frozen-band baselines and claim scores are left to the harness. Unobserved results were not treated as failed or empty retrievals.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local file reads",
+    "jq",
+    "apply_patch",
+    "Python schema validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000146",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "CourtListener MCP search", "CourtListener MCP search_document", "CourtListener MCP read_document", "web open", "web search"],
+  "helpful": ["Lower-court docket number and decision date enabled a precise pre-petition opinion match.", "CourtListener opinion text exposed and corroborated the statutory circuit conflict.", "Statpack JSON supplied exact weighted prior-Term reached rates."],
+  "gaps": ["Petition and questions-presented text were unavailable, leaving the exact cert question unverified.", "Frozen state band did not reflect the federal-government role apparent from counsel and the lower opinion.", "Web calls returned no usable content; CourtListener MCP supplied the needed historical opinions."],
+  "notes": "Forecast completed without outcome retrieval. Shell command output and long MCP reads were sometimes truncated, so targeted follow-up reads were used. A writable temporary uv cache was needed. No pipeline files or harness-owned artifacts were edited."
+}

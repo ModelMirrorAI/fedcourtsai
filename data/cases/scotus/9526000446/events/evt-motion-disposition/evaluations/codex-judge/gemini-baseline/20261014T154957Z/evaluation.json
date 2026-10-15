@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "The supplied application presents an appellate-review disagreement concerning federal pretrial detention, with potential significance beyond this defendant and immediate individual liberty stakes. The scored event is only an individual stay application; the recorded denial does not establish a nationwide doctrinal holding."
+  },
+  "brier_score": 0.0025000000000000005,
+  "brier_skill_score": 0.731754182983268,
+  "case_id": "scotus/9526000446",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.0965391621129326,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 0.0068198098214670815
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 1,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.0068198098214670815,
+    "total": 0.0068198098214670815
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T17:58:01Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The log records forward calls on October 2, before the October 13 disposition. All results are unobserved (capture coverage 0.0), including two case-name CourtListener searches, so returned contents cannot be established and null document dates are not proof of no retrieval. The queries do not seek a future result, and the rationale does not reveal the disposition. No evidence establishes a decided case mis-provisioned forward.",
+    "retrieved_outcome_material": null
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261002T212439Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T18:00:48.030882Z"
+  },
+  "reasoning_quality": 0.3,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0965391621129326,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

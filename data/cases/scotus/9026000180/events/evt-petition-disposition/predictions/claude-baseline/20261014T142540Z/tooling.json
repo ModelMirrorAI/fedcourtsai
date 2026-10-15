@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000180",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["statpack.md", "provisioned snapshot", "petition text"],
+  "helpful": ["Band table with bracketed reached rates", "QP extraction"],
+  "gaps": ["No statpack cut conditioned on a Court-requested response (a strong signal that sal-v4 seemingly left at baseline here)"],
+  "notes": "The response was requested after all respondents waived, but the frozen band is still baseline; consider feeding response-requested into salience."
+}

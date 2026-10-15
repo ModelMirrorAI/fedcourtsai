@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000180",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["exec_command", "web.run", "CourtListener MCP search", "CourtListener MCP read_document", "fedcourts paths", "fedcourts validate"],
+  "helpful": [
+    "Frozen salience band and distribution count identified the correct prior-Term risk-set anchor.",
+    "The document manifest exposed appendix truncation; the available panel opinion and petition vehicle discussion identified concrete weaknesses.",
+    "CourtListener MCP supplied general qualified-immunity precedent without searching the target case."
+  ],
+  "gaps": [
+    "Web search returned no usable content on two general-precedent calls.",
+    "The committed pack has no response-request-conditioned cert rate, so that adjustment remains judgmental.",
+    "The default uv cache path was read-only; a writable /tmp cache was needed."
+  ],
+  "notes": "No opposition is available because the requested response remains due November 18, 2026. A future distribution after that response should not automatically be interpreted as a substantive relist. No own-case outcome was sought or encountered."
+}

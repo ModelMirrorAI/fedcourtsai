@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000146",
+  "run_id": "20261014T174020Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "schema_version": "1.0",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "run_shell_command",
+    "list_directory"
+  ],
+  "helpful": [
+    "cat for reading statpack.md"
+  ],
+  "gaps": [
+    "The documents directory was missing, so I could not use courtlistener tool to read the petition text."
+  ]
+}

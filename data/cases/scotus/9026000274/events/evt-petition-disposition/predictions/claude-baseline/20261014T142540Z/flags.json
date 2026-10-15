@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9026000274",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "info", "event_id": "evt-petition-disposition",
+     "message": "Context band is 'baseline' although the docket shows a Court-requested response (Oct 1 2026) after the SG's waiver; sal-v4 appears not to treat a called-for response as a salience signal. Prediction adjusted up from the baseline anchor on that basis."}
+  ]
+}

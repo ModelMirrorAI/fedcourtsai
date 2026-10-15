@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000146",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "warning", "event_id": "evt-petition-disposition",
+     "message": "Frozen band is 'state' (sal-v4), but the petitioner is a federal warden represented by the Solicitor General, with no state party in the caption. The caption-class rule would place this as 'federal'. I anchored on the federal floor (~70% pooled reached) instead of state (~23.5%)."},
+    {"category": "data-quality", "severity": "info", "event_id": "evt-petition-disposition",
+     "message": "No record/documents/ were provisioned (no petition/QP/BIO text). Also, CourtListener opinion 10729625 (Daley v. Choate, 10th Cir. 24-1191) serves the text of an unrelated district-court order."}
+  ]
+}

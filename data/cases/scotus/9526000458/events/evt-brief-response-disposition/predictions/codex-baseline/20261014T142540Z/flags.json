@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000458",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "Input coverage limitation, not a missing-record failure: application.txt is marked truncated and ends within the district-court appendix before the complete Ninth Circuit order. The snapshot records three October 13 responses, while application-response.txt contains only the first (Puyallup School District), consistent with the manifest's first-response selection rule. The forecast uses both available parties' accounts of the appellate ruling and does not purport to have read the separate WIAA or state responses."
+    }
+  ]
+}

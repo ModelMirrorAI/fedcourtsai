@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "A private criminal defendant's application to stay a Sixth Circuit order revoking pretrial release, linked to a cert petition (26-391) on the standard of appellate review of Bail Reform Act detention decisions. The underlying split has broad reach across federal detention practice and the speech-adjacent facts drew press attention, but the application itself disposes only of interim release for one defendant ahead of a near-term trial, and the Court denied it without noted dissent."
+  },
+  "brier_score": 0.04000000000000001,
+  "brier_skill_score": -3.291933072267712,
+  "case_id": "scotus/9526000446",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.0965391621129326,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": -0.030680190178532928
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 1,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.030680190178532928,
+    "total": -0.030680190178532928
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T17:58:48Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (predicted 2026-10-02, resolved 2026-10-13). Retrieval was limited to the provisioned record, the committed statpack, and two web calls (unobserved results) whose queries concerned the general Hollingsworth stay standard, not this case. No case-specific external retrieval; no outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261002T212439Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T17:59:40.060592Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0965391621129326,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

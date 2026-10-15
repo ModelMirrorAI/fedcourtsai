@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000285",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "committed statpack", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document", "web.run", "fedcourts corpus-info"],
+  "helpful": ["The petition included the lower-court opinion, permitting comparison of advocacy against the stated vehicle grounds.", "The exact sal-v4 reached-band denominators in statpack.json supported a pooled prior-Term anchor.", "CourtListener's within-opinion search verified the reserved legal question without seeking this case's outcome."],
+  "gaps": ["The committed statpack did not provide an explicit underlying-corpus vintage, and corpus-info could not operate through the service backend.", "The web tool returned no visible results; CourtListener supplied the needed primary-source legal context.", "No matched prior-Term response-request-after-waiver rate was available in the committed pack."],
+  "notes": "The requested response is not yet due in the snapshot, so the missing BIO is a limitation of the current information set, not an assumed failed extraction. The read-only default uv cache was worked around with a temporary cache directory. No credentials or direct CourtListener REST fallback were used."
+}

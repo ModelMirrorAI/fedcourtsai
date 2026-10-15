@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000045",
+  "gaps": [
+    "Some candidate retrieval results are unobserved; missing dates and digests cannot establish that those calls returned nothing."
+  ],
+  "helpful": [
+    "Blinded candidate documents and structured result-capture markers support identity-independent review.",
+    "Provisioned briefs permit checking the competing arguments without retrieving new case facts.",
+    "Local JSON Schema validation checks outputs without restoring identity-bearing prediction trees."
+  ],
+  "notes": "Used the committed statpack caption to assess population selection, not to author frozen-band baseline or skill values. An independent read-only reviewer audited leakage and score methodology. No external searches or corpus queries were needed.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: scoped file reads, jq, rg, and arithmetic checks",
+    "apply_patch",
+    "JSON Schema and Pydantic validation",
+    "read-only reviewer subagent"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

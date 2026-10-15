@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73338270",
+  "run_id": "20261014T154957Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["local shell", "jq", "apply_patch", "JSON Schema validation", "Pydantic validation"],
+  "helpful": ["Blinded candidate documents and frozen contexts", "Harness retrieval logs with timestamps and capture-coverage markers", "Provisioned outcome and opposition text", "Committed output schemas"],
+  "gaps": ["Captured retrieval rows provide result digests rather than result bodies; unobserved calls cannot establish empty or failed retrieval."],
+  "notes": "All three candidates were evaluated using aliases only. No corpus, CourtListener, or web retrieval was needed. I read candidates' discussions of statistics but did not consult the committed statpack or pool a baseline: all candidates froze a band, so baseline and skill stamping belong to the harness. Validation is scoped to these outputs while the prediction tree remains blinded."
+}

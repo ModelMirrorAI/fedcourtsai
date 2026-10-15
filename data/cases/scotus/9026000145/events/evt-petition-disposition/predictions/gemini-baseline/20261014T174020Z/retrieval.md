@@ -1,0 +1,4 @@
+* Attempted to use `fedcourts query --court scotus --era modern --limit 10 "Equal Access to Justice Act waiver sovereign immunity habeas corpus immigration detention"`, but it failed because `fedcourts query` does not support free-text search arguments.
+* Used CourtListener MCP `search` tool for `"Equal Access to Justice Act" AND "habeas corpus" AND "immigration"` (type: Opinion) to discover background circuit cases on EAJA fee awards in immigration habeas.
+* Used CourtListener MCP `search` tool for `"24-2990" OR "24-3198"` (type: Opinion) returning the CA3 opinion *Adolph Michelin v. Warden Moshannon Valley Correctional Center* (Cluster ID: 10802535).
+* Consulted `metrics/statpack.md` (Segment base rate by salience band) using `cat` and `grep` to pull the `federal` class base rates over the last 10 terms.

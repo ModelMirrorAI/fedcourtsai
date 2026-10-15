@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000221",
+  "run_id": "20261014T154957Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "jq", "apply_patch", "JSON Schema validation"],
+  "helpful": ["Blinded candidate inputs preserve the identity boundary.", "The provisioned snapshot and petition expose an event-to-case identity conflict.", "Capture markers distinguish unobserved results from observed empty results."],
+  "gaps": ["The permitted inputs cannot reconcile the Nathan event and predictions with the Purdy snapshot and outcome; original prediction-time snapshot contents are not staged."],
+  "notes": "No external retrieval or corpus query. Candidate-reported base rates were read as part of their reasoning, but the committed statpack was not consulted. All candidates froze bands, so baseline stamping belongs to the harness. Mechanical comparisons were written; substantive reasoning grades were withheld and a blocker was recorded."
+}

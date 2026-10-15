@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281386",
+  "run_id": "20261014T154957Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "All three scored predictions froze sal-v4 band 'baseline' (snapshot 2026-09-15), but the petitioners (U.S. DOGE Service, OMB, NARA) are federal and represented by the Solicitor General; the decided-docket context now carries 'elevated'. The stamped segment base rate for this cell therefore anchors a federal petition to the private baseline pool (~5%), which makes any skill score here look large. Worth checking the sal-v4 federal-party matcher against the 'U.S. Doge Service' caption."
+    }
+  ]
+}

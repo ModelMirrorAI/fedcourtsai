@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73279035",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidates preserve separate rationale, forecast, and retrieval evidence.",
+    "The staged SG brief directly resolves the disputed recommendation without external retrieval.",
+    "Per-call result-capture markers distinguish unavailable telemetry from observed results."
+  ],
+  "notes": "Used only provisioned case evidence and local contract/schema tooling. Historical statpack calculations reported by candidates were not independently recomputed; all candidates freeze bands, so baseline and skill remain harness-owned. gemini-baseline's unobserved results limit auditing but are not treated as a tooling defect or evidence of leakage.",
+  "role": "evaluator",
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "apply_patch",
+    "jq",
+    "fedcourtsai.paths",
+    "fedcourtsai.schemas"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

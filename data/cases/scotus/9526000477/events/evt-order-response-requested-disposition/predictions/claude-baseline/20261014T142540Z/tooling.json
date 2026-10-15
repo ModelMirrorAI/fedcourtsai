@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000477",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "courtlistener-mcp search", "provisioned application.txt"],
+  "helpful": ["Provisioned application text gave the full procedural history, including the related prior stay (26A274)."],
+  "gaps": ["The prior related application's (26A274) docket and order were not provisioned; a related-case link in the record would help.", "fedcourts query has no free-text search, so finding analogous stay applications by subject is hard."],
+  "notes": "CourtListener had no docket for this application yet."
+}

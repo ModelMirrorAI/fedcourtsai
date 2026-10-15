@@ -1,0 +1,4 @@
+- `uv run fedcourts query --court scotus --decided-before 2026-10-13`
+- `ranged corpus reads: 28 GET(s), 7143424 byte(s)`
+- Read CourtListener `dockets` endpoint via MCP server for docket `73500246` to gather case details (parties, originating court, dates).
+- Consulted `metrics/statpack.md` for merits docket base rates (disturbed rate of 69.8% over the 10 prior grant terms).

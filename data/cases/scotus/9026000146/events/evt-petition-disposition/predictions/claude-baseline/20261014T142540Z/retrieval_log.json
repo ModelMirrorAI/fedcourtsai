@@ -1,0 +1,167 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "c7b6d5aa1aba4283",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; cat .github/prompts/predict.md; find data/cases/scotus/9026000146 -type f | head -50",
+      "result_capture": "captured",
+      "result_digest": "397e46ecd5b9f775",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T14:39:19.194Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "404773a0abae90bd",
+      "query": "{\"file_path\": \"/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/30314de0-982e-4740-a173-5f6e96e1c4db/tool-results/bzrstheye.txt\"}",
+      "result_capture": "captured",
+      "result_digest": "e9b94590e4ccc651",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T14:39:21.485Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "78fc7d65a19e312b",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; cat data/cases/scotus/9026000146/record/context.json data/cases/scotus/9026000146/events/evt-petition-disposition/event.yaml; cat data/cases/scotus/9026000146/record/snapshots/2026-10-14.json | head -c 8000",
+      "result_capture": "captured",
+      "result_digest": "abf707bf9b972bf2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T14:39:25.586Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "df62162e3ad6c216",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; grep -n \"^#\" metrics/statpack.md | head -60; grep -n -A30 \"Segment base rate by salience band\" metrics/statpack.md | head -60",
+      "result_capture": "captured",
+      "result_digest": "7702d8652988d2e4",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T14:39:29.447Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "1844510872c73d98",
+      "query": "select:mcp__courtlistener__search,WebSearch",
+      "result_capture": "captured",
+      "result_digest": "3fd55b31051aebc6",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T14:39:36.704Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "6e11e83d80b3c928",
+      "query": "{\"case_name\": \"Daley\", \"court\": \"ca10\", \"fields\": [\"caseName\", \"dateFiled\", \"docketNumber\", \"snippet\", \"absolute_url\"], \"filed_after\": \"2025-10-01\", \"num_results\": 5, \"type\": \"o\"}",
+      "result_capture": "captured",
+      "result_digest": "225df7b90953b8ba",
+      "result_status": "ok",
+      "retrieved_doc_date": "2025-11-03",
+      "timestamp": "2026-10-14T14:39:41.240Z",
+      "tool": "mcp__courtlistener__search"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "e1ca131d8ed3aa60",
+      "query": "Daley v. Baltazar Tenth Circuit 24-1191 Bivens",
+      "result_capture": "captured",
+      "result_digest": "670c0e783e90d33f",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T14:39:41.739Z",
+      "tool": "WebSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "e0c4759d990c45ad",
+      "query": "select:mcp__courtlistener__get_endpoint_item",
+      "result_capture": "captured",
+      "result_digest": "50e473a4cbff94c4",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T14:39:48.814Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ccf6126bf26d4101",
+      "query": "{\"endpoint_id\": \"opinions\", \"fields\": [\"plain_text\"], \"item_id\": 10729625}",
+      "result_capture": "captured",
+      "result_digest": "46c13d9ad213861b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T14:39:50.860Z",
+      "tool": "mcp__courtlistener__get_endpoint_item"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8f082d50b9cbdc04",
+      "query": "\"Daley v. Choate\" Tenth Circuit 2025",
+      "result_capture": "captured",
+      "result_digest": "057357d2ec8eae46",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T14:39:53.784Z",
+      "tool": "WebSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "74e4b60dbb35f889",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; python3 -c \"\nimport json\nfor f in ['prediction','agent_tooling','agent_flags']:\n    s=json.load(open(f'schemas/{f}.schema.json')); print(f, s.get('required'), list(s['properties']))\n\"; ls data/cases/scotus/*/events/evt-petition-disposition/predictions/claude-baseline/*/prediction.json | head -1 | xargs cat",
+      "result_capture": "captured",
+      "result_digest": "4042d57f9624b6f2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T14:40:08.491Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "2a4ad0bd8429ff47",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/9026000146/events/evt-petition-disposition/predictions/claude-baseline/20261014T142540Z; mkdir -p $D; NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)\ncat > $D/prediction.json <<EOF\n{\n  \"schema_version\": \"1.0\",\n  \"case_id\": \"scotus/9026000146\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"claude-baseline\",\n  \"engine\": \"claude-code\",\n  \"model\": \"claude-opus-5-5\",\n  \"run_id\": \"20261014T142540Z\",\n  \"created_at\": \"$NOW\",\n  \"input_sn",
+      "result_capture": "captured",
+      "result_digest": "6443fe1c9970e5ef",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-14T14:40:39.497Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000146",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261014T142540Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": 0
+}

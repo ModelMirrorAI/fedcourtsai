@@ -1,0 +1,6 @@
+- `fedcourts query --court scotus --decided-before "2026-10-14" "McIntosh v. United States"` (Failed: does not support free-text search)
+- MCP `mcp_courtlistener_search` for `"Fed. R. Crim. P. 32.2(b)(4)(B)" McIntosh`
+- MCP `mcp_courtlistener_search` for `"601 U.S. 330"`
+- MCP `mcp_courtlistener_read_document` for opinion_id 11298769 (First Circuit opinion, United States v. Ponzo)
+- MCP `mcp_courtlistener_search_document` for `McIntosh` in opinion_id 11298769
+- MCP `mcp_courtlistener_search_document` for `harmless` in opinion_id 11298769

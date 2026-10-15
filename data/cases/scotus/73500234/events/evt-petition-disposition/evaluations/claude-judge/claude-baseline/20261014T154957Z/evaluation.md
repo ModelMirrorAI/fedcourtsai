@@ -1,0 +1,9 @@
+# Evaluation — claude-baseline
+
+**Cell.** Cert stage, *Wilkins v. United States* (second petition), forward prediction made 2026-10-03 at one distribution; outcome `denied` (`actual_granted` 0) on 2026-10-13, no noted dissent. The prediction froze `context.band` = `baseline` under `sal-v4`, so the segment base rate, skill score and basis are the harness's risk-set stamp — left null here; read the stamped segment base rate beside the Brier. `claim_scores` is harness-computed and not graded here; no votes are scored at the cert stage; no semantic set is declared on a cert cell.
+
+**Score.** P(grant) 0.08, predicted `denied` → correct = 1, Brier = 0.0064.
+
+**Reasoning quality: 0.85.** This is the most complete analysis of the three. It anchors correctly on the pooled baseline-band reached rate (~5.1%, Terms 2017–2024 strictly prior) and explicitly sets aside the terminal relist-0 row as the wrong forward population. It then names the decisive vehicle problem: the Ninth Circuit's independent de novo affirmance on public use. It also notes that *Wilkins I* n.1 reserved the remand question, that the asserted split is weak (wholly-vacated-judgment authorities, *Werner* running the other direction, an unpublished intracircuit case), that Question 2 is factbound, and that the BIO raises a preservation objection. The upward lift to 1.6× the anchor (return trip, repeat-player counsel, published opinion) is reasoned and openly hedged, though in hindsight it was slightly generous given how strong its own down-adjustments are. It also discloses honestly that it did not read the reply or the opinion below.
+
+**Leakage.** Forward, `not_applicable`. One CourtListener search returned the Ninth Circuit decision below (dated 2025-12-29), which is the lower-court ruling and predates this event. The corpus queries were a citation lookup and recent-grant shape context. Nothing touched this petition's disposition, and there was no `data/qp-topics/` read.

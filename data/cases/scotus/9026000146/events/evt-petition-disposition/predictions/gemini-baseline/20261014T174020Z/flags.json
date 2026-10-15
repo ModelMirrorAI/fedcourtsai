@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/9026000146",
+  "run_id": "20261014T174020Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "schema_version": "1.0",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "message": "The record/documents/ directory and documents.json do not exist, so no provisioned documents (petition text, questions presented) were available.",
+      "event_id": "evt-petition-disposition"
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The salience band assigned is 'state', but the petitioner is the Solicitor General (US DOJ), which is classically 'federal'. Predicted based on 'state' anchor as instructed, but adjusted for the actual party.",
+      "event_id": "evt-petition-disposition"
+    }
+  ]
+}

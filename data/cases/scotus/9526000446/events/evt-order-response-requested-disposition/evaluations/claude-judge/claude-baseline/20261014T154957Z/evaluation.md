@@ -1,0 +1,9 @@
+# claude-baseline — scotus/9526000446, evt-order-response-requested-disposition
+
+**Cell.** Interim stage (stay application 26A446, response-requested moment), forward mode. Outcome: referred to the Court and denied 2026-10-13 (`actual_granted` 0). The interim baseline and skill are stamped by the harness from the statpack's interim section; I wrote neither, and `base_rate_basis` is null. No vote accuracy and no semantic grades (interim cell).
+
+**Scores.** Predicted `denied` at P(grant) = 0.06 → correct = 1, Brier = 0.0036.
+
+**Reasoning quality: 0.85.** This is the strongest of the analyses. It takes the same committed anchor (10.5%) and states the 2024 Term's parse coverage caveat. It then makes a principled downward argument. A stay here would in substance order a detained defendant released over a court of appeals' dangerousness finding. The stay standard is conjunctive, so even a cert-worthy standard-of-review question does not carry the irreparable-harm and equities prongs. The imminent trial weakens the "reasonable probability of certiorari" prong. Each of these is a correct reading of how the Court handles such applications, and the denial bore it out. It also credits the upward signals (counsel, a genuine acknowledged split, the response call) and does not overreact to them. The main debit is one the document discloses: the applicant-class adjustment (10.5% → 6%) rests on general knowledge, not on a committed cut. It says so and tells the reader how to discount it, which is good practice. Its tangential referral and amicus reasoning cites cohort counts sensibly.
+
+**Leakage.** Forward; predicted 2026-10-03. Retrieval was one corpus query (newest doc dated 2026-09-23) and CourtListener lookups for the Sixth Circuit docket (filed 2026-03-27). Three further calls were refused with 429. Nothing it retrieved is dated on or after the resolution, and none of it is outcome material. `not_applicable`.

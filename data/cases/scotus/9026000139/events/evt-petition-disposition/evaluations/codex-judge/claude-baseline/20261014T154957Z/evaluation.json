@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:1d7fbb9fce0582c4e5a8b7dbbb54fb504532c2bdd7ef8b9946c8145115860bde",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "The provisioned petition describes a $28 million individual judgment and a question with wider pesticide-litigation relevance. This petition seeks a follow-on remand applying an already announced decision, not a new doctrinal rule; the GVR leaves application to the lower court."
+  },
+  "brier_score": 0.0036000000000000064,
+  "brier_skill_score": 0.9947946529629967,
+  "case_id": "scotus/9026000139",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.16837716484926235,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.94,
+        "score": 0.6879965399441509
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3536723163841808,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": 0.41683947460819043
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 1.1048360145523413,
+    "total": 1.1048360145523413
+  },
+  "correct": 1,
+  "created_at": "2026-10-14T17:20:12.740839Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Reviewed 37 captured calls from the September 27 forward run, including corpus GVR priors, broad Monsanto docket searches, and Durnell opinion retrieval. Visible result dates precede this petition's October 13 resolution; the rationale and retrieval note concern earlier companion decisions and the nonopposing response. No own-case disposing order or already-decided premise appears. Correctly predicting the order date is not evidence of leakage.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6-astra",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+    "label": "proc-v9",
+    "pipeline_sha": "9e749065ba2df8277ff67f3a5b8e216afc8d0fe1",
+    "stamped_at": "2026-10-14T17:20:45.845645Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261014T154957Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.16837716484926235,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

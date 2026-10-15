@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73521973",
+  "run_id": "20261014T154957Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell: local read-only artifact inspection",
+    "jq: blinded retrieval-log inspection",
+    "apply_patch: evaluation artifact creation",
+    "Python: schema, model and score validation"
+  ],
+  "helpful": [
+    "Blinded rationale and forecast documents permit distinct treatment of analysis and unscored forecasts.",
+    "Captured mode, query, timing and result-capture fields support a qualified leakage assessment.",
+    "Provisioned petition and opposition text permits direct checking of procedural descriptions and contested vehicle arguments."
+  ],
+  "gaps": [],
+  "notes": "All three predictions carry a frozen cert band, so baseline pooling is left to the harness and no statpack was consulted. Unobserved retrieval results limit verification but are not treated as defects or empty results. No additional case retrieval was needed."
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000274",
+  "run_id": "20261014T142540Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned petition is marked truncated, and its appendix specifically omits material from partway through page 49a through page 53a, cutting off the lower court's discussion of the production/enticement double-jeopardy claim. The retained opinion establishes plain-error review and the central elements holding, but not the complete rationale. Prediction proceeds conservatively without reconstructing the missing pages; preserving the issue-relevant appellate opinion would improve the cell's inputs."
+    }
+  ]
+}
