@@ -387,6 +387,32 @@ contexts() {
   # runs need it too) — so there is no state in which checking it early is
   # wrong, and the silent window an arming key would leave is exactly the one
   # between provisioning and promotion.
+  # The review and tag-record rulesets: the approval `main` requires and who
+  # may give it, staging's code-owner review, and the record tags' update,
+  # deletion and creation rules. All live in settings, so a promotion would
+  # otherwise outlive one being edited away unnoticed. Fetched whole (the
+  # list endpoint omits rules) and judged by tested Python
+  # (tests/test_ruleset_checks.py).
+  local ruleset_ids id rulesets_dir="${workdir}/rulesets"
+  if ruleset_ids="$(gh api "repos/${REPO}/rulesets" --jq '.[].id' 2>/dev/null)" \
+    && [ -n "$ruleset_ids" ]; then
+    mkdir -p "$rulesets_dir"
+    for id in $ruleset_ids; do
+      if ! gh api "repos/${REPO}/rulesets/${id}" >"${rulesets_dir}/${id}.json" 2>/dev/null; then
+        echo "::error::contexts: could not read ruleset ${id}"
+        fail=1
+      fi
+    done
+    if uv run fedcourts assert-rulesets --rulesets-dir "$rulesets_dir"; then
+      echo "contexts: the review and tag-record rulesets hold"
+    else
+      fail=1
+    fi
+  else
+    echo "::error::contexts: could not list the repository's rulesets — a token with repository administration read is required"
+    fail=1
+  fi
+
   local branch_policy
   # `deployment_branch_policy.custom_branch_policies` means named branches;
   # the names themselves are a second call.

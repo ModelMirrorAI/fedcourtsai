@@ -1806,17 +1806,15 @@ message is load-bearing there.
   published metrics refresh and the write-ups quoting it, e.g.
   `results/ot2026-longconf`.
 
-One-time setup (maintainer): before the first tag is minted, add a tag
-ruleset blocking update and deletion on all three namespaces — a movable
-pre-registration marker defeats its purpose. `promotion/` tags, and the
-`prereg/` tag of a label the merge stamps, are created by the
-`promotion-record` workflow; a `results/` tag and any tag the workflow
-refused to write are the maintainer's. Once the workflow has tagged a
-promotion successfully, add a tag ruleset that restricts **creation** in
-`promotion/**` and `prereg/**` to the data App as bypass actor, the
-maintainer's admin role keeping a recovery bypass: until then any credential with
-`contents: write` can plant a canonical name first, which the workflow then
-refuses to adopt.
+`promotion/` tags, and the `prereg/` tag of a label the merge stamps, are
+created by the `promotion-record` workflow; a `results/` tag and any tag the
+workflow refused to write are the maintainer's. Three tag rulesets hold the
+record (docs/security.md, *Branch protection*): one blocks update and
+deletion on all three namespaces — a movable pre-registration marker defeats
+its purpose — and two restrict creation, `promotion/**` and `prereg/**` to the
+data App and the admin role, every other tag to the admin role alone, so no
+other credential can plant a canonical name ahead of the workflow. The
+promotion gate's `contexts` stage checks all three are present and active.
 
 ### Engine CLI updates
 
@@ -1866,7 +1864,13 @@ scripts/promotion-gate.sh contexts <candidate>   # the context you want to requi
 
 It reads `main: require PR`'s live required contexts and `main`'s own workflow
 files, fails if anything already required has no producing job, and reports each
-candidate as ready or not-yet. It is **not** part of `promotion-gate.sh all`: reading a ruleset
+candidate as ready or not-yet. The same stage reads every ruleset whole and
+fails if a control the docs record is missing or weaker (`fedcourts
+assert-rulesets`): `main: require approval`'s team approval, stale-approval
+dismissal, merge methods and pull-request-only human bypass; `staging: require
+PR`'s code-owner review, with most-recent-push approval off; and the three
+record tag namespaces' update, deletion and creation rules. It is **not** part
+of `promotion-gate.sh all`: reading a ruleset
 needs repository-administration read, which `GITHUB_TOKEN` cannot hold at all,
 so automating it would mean handing a CI job the repo's most powerful scope to
 report an advisory fact. Run it with your own token.
@@ -1887,8 +1891,9 @@ report an advisory fact. Run it with your own token.
    for it.
 
 The same ordering applies to `staging`'s ruleset, which gates the unattended
-`main`→`staging` sync PR. The stage above reads `main`'s; check `staging` by
-hand until there is a reason to parameterize it.
+`main`→`staging` sync PR. The stage above reads `main`'s required contexts;
+check `staging`'s by hand until there is a reason to parameterize it (its
+review settings are checked, above).
 
 ## The predict/evaluate matrix
 
