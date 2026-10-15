@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000477",
+  "run_id": "20261015T154823Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [],
+  "helpful": [],
+  "gaps": [],
+  "notes": "No special tooling used. Provisioned files and evaluator prompt read via standard file tools."
+}

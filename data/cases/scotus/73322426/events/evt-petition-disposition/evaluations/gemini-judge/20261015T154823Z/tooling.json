@@ -1,0 +1,13 @@
+{
+  "case_id": "scotus/73322426",
+  "run_id": "20261015T154823Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "read_file",
+    "run_shell_command",
+    "write_file"
+  ]
+}

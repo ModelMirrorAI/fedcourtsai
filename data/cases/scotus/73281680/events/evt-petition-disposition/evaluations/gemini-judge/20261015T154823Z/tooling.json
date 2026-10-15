@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73281680",
+  "run_id": "20261015T154823Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Shell commands and file reads were fully sufficient for reviewing evaluator inputs and predictor logs."
+  ],
+  "gaps": [],
+  "notes": ""
+}

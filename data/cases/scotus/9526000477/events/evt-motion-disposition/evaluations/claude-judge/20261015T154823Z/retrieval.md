@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. (Read the evaluate prompt, the schemas, `event.yaml`, `outcome.json`, the case's `record/context.json`, `record/snapshots/2026-10-14.json`, `record/documents/documents.json`, and the three `record/blinded/<alias>/` directories. No corpus query, CourtListener, or web lookups.)

@@ -1,0 +1,1 @@
+The cell is a cert stage prediction. The prediction correctly identified the outcome (denied). The predictor provided sound reasoning, pointing out the waiver by the State and the vehicle issues, resulting in an accurate low probability (4%). The prediction froze a band, so the baseline and skill are stamped by the harness. The reasoning quality is good.

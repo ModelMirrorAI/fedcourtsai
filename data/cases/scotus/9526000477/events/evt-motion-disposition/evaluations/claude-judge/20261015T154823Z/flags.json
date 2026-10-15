@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000477",
+  "run_id": "20261015T154823Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward arrival-moment predictions for this application (arrived 2026-10-08) were written 2026-10-14 between 15:57Z and 17:40Z, the same day the order denying it as moot issued. None of the three logs shows retrieval of the disposition, so all are graded clean. However, the record carries no time-of-day for the order, so whether the case was still open when each cell ran cannot be confirmed from the record."
+    }
+  ]
+}

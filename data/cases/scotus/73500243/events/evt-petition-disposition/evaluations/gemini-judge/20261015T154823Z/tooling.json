@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500243",
+  "run_id": "20261015T154823Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["read_file", "run_shell_command", "list_directory"],
+  "helpful": ["The detailed evaluate.md instructions and prompt were very helpful."],
+  "gaps": [],
+  "notes": "Cell evaluated smoothly. Base rates were not pooled manually because the predictions froze a salience band."
+}
