@@ -398,13 +398,16 @@ runbook, [docs/security.md](docs/security.md).
   promotion record straight to `main` while everything agentic goes through
   that PR — enforced
   by identity, since the agent workflows authenticate as a separate **dev
-  App** that bypasses no required check. A second `main` ruleset requires one approving
-  review, which only the maintainers team can give, and bypasses it for the
-  dev App's pull requests (the auto-merged data lanes, still bound by the
-  checks), for the data App's direct pushes, and for the admin role's pull
-  requests (the maintainer's own, since GitHub does not let an author approve
-  their own). So a promotion — opened by the dev App — merges only once the
-  maintainer has approved its head. Code and config reach `main` only as a gated
+  App** that bypasses no required check. `main: require approval` requires
+  one approving review, which only the `maintainers` team can give, and
+  bypasses it for the dev App's pull requests (its two auto-merged lanes,
+  still bound by the checks), for the data App, and for any pull request an
+  admin merges (how the maintainer's own lands, since GitHub does not let an
+  author approve their own). So a promotion — opened by the dev App — merges
+  on the maintainer's approval of its head or through a recorded bypass: the
+  admin role's, or a dev App token with contents write, whose jobs merge
+  nothing but their own lane's PR and change only by an approved promotion.
+  Code and config reach `main` only as a gated
   promotion batch from `staging` — except the `promotion-record` writer's
   one-parent record commit, jailed byte-equal to its plan, touching only
   `src/fedcourtsai/process_registry.json` and `docs/freeze-record.md` — whose own ruleset requires a PR passing `gate`

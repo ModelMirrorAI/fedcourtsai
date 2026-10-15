@@ -1531,8 +1531,9 @@ The mechanics:
   ruleset itself requires a pull request plus the status checks that can report
   on a staging-targeted PR — `gate` and `paths`; `main`'s other two,
   `promotion-gate` and `main-base`, key on a base of `main` and are always
-  `skipped` here — and a code owner's review, with approval of the most
-  recent push, on a PR touching a path `.github/CODEOWNERS` names, with the
+  `skipped` here — and a code owner's review, with stale approvals
+  dismissed on a new push, on a PR touching a path `.github/CODEOWNERS`
+  names, with the
   **repository admin
   role as its sole bypass actor** — a
   required-checks rule blocks direct pushes of commits that carry no passing
@@ -1755,8 +1756,8 @@ The full path of a change, operator's view:
 One-time setup (maintainer): create the branch from main (`git push origin
 main:staging`); add the `staging` ruleset — require a pull request plus the
 checks that can report on a staging-targeted PR (`gate` and `paths`),
-require review from code owners, dismiss stale approvals on new commits and
-require approval of the most recent push,
+require review from code owners and dismiss stale approvals on new commits
+(leave approval of the most recent push off: it asks an approval of every PR),
 **repository admin role as the only bypass actor** (docs/security.md
 inventories it); add the `main: require approval` ruleset, whose one approval
 comes from the `maintainers` team and whose bypass is the dev App and admin

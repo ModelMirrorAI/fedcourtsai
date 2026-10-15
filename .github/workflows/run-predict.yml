@@ -1918,9 +1918,9 @@ jobs:
       issues: write # GITHUB_TOKEN posts flags to the agent-feedback issue (not the App token)
       actions: read # fetch this run's cell artifacts (repo-wide read; collect runs no agent code)
     steps:
-      # The collect job opens the PR with the dev App token. The dev App is *not* a
-      # branch-protection bypass actor (see docs/security.md), so its auto-merge is
-      # bound by the required `gate` + `paths` checks rather than skipping them.
+      # The collect job opens the PR with the dev App token. The dev App bypasses
+      # no required check (see docs/security.md) — only `main`'s approval rule —
+      # so its auto-merge is bound by the required `gate` + `paths` checks.
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0

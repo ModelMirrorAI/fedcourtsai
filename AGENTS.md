@@ -93,9 +93,12 @@ non-interactive** container. Two consequences shape everything you do:
   admin-role escape hatch on `staging`. An interactive session acts as the
   agent account (`modelmirror-agent`), which holds write and no bypass on any
   ruleset, so the platform refuses its direct push to either branch and its
-  merge into `main` without the maintainer's approval of that head. A session
-  that holds the maintainer's own credentials holds the admin bypass instead,
-  and for it every rule here is discipline. And the staging permission is a permission, not an
+  merge into `main` without the maintainer's approval of that head. Once the
+  maintainer has approved, the platform would let you merge a PR into `main`;
+  that merge is still the maintainer's. A session that holds the maintainer's
+  own credentials holds the admin bypass instead, and for it every rule here
+  is discipline; `gh api user --jq .login` says which account you are. And
+  the staging permission is a permission, not an
   obligation: leaving a green PR for the maintainer is always a legitimate
   call, and the better one when the change is large, novel, or rewrites a
   contract others read. Use judgement; say which you chose in the PR
