@@ -11,6 +11,7 @@ from fedcourtsai.usage import (
     parse_claude_usage,
     parse_codex_usage,
     parse_gemini_usage,
+    resolve_engine_version,
     resolve_pipeline_sha,
 )
 
@@ -205,6 +206,39 @@ def test_the_engine_version_is_the_first_standalone_three_part_version(
     output: str, expected: str | None
 ) -> None:
     assert engine_version_from_output(output) == expected
+
+
+@pytest.mark.parametrize(
+    ("at_install", "after_run", "pin", "recorded", "discrepancy"),
+    [
+        # Every read agrees: the install-time read is recorded, nothing flagged.
+        ("2.1.289 (Claude Code)", "2.1.289 (Claude Code)", "2.1.289", "2.1.289", None),
+        # The binary changed during the cell: the install-time read stands.
+        (
+            "2.1.289 (Claude Code)",
+            "2.1.300 (Claude Code)",
+            "2.1.289",
+            "2.1.289",
+            "the binary reported 2.1.300 after the run but 2.1.289 at install",
+        ),
+        # codex has no install-time read: the after-run read is recorded and
+        # checked against the pin its action was told to install.
+        ("", "codex-cli 0.144.1", "0.144.1", "0.144.1", None),
+        (
+            "",
+            "codex-cli 0.145.0",
+            "0.144.1",
+            "0.145.0",
+            "the binary reported 0.145.0 but the pin is 0.144.1",
+        ),
+        # No read at all records nothing and flags nothing.
+        ("", "", "0.49.0", None, None),
+    ],
+)
+def test_the_recorded_engine_version_keeps_the_install_read_and_flags_disagreement(
+    at_install: str, after_run: str, pin: str, recorded: str | None, discrepancy: str | None
+) -> None:
+    assert resolve_engine_version(at_install, after_run, pin) == (recorded, discrepancy)
 
 
 # --- pipeline provenance ---------------------------------------------------------

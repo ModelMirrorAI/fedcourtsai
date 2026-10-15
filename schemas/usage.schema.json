@@ -68,6 +68,19 @@
       "description": "The engine CLI's version as its own binary reported it (`claude --version`, `codex --version`, `gemini --version`), read by the harness \u2014 never the agent's word. For the CLIs the harness installs (claude-code, gemini) the read is taken at install, before any agent ran; codex is installed by its action, so its read follows the run. An engine update under an unchanged process digest is composition, and this field is how a reading cuts by it. Null on records written before the field existed or when the binary's output named no version.",
       "title": "Engine Version"
     },
+    "engine_version_discrepancy": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Set when the engine's version reads disagree: the binary reported a different version after the run than at install, or a version other than the pin the workflow installed from. The recorded `engine_version` is kept as read; this says the cell's engine is in doubt, and a reading cutting by engine version treats such a cell as unknown. Null when every read agrees, and on records written before the field existed.",
+      "title": "Engine Version Discrepancy"
+    },
     "estimated_cost_usd": {
       "description": "On-demand USD estimate from the rates in fedcourtsai.pricing",
       "minimum": 0.0,

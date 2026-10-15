@@ -78,6 +78,32 @@ def engine_version_from_output(output: str) -> str | None:
     return match.group(1) if match else None
 
 
+def resolve_engine_version(
+    at_install: str, after_run: str, pin: str
+) -> tuple[str | None, str | None]:
+    """The engine version a cell records, and any disagreement around it.
+
+    ``at_install`` is the binary's ``--version`` read when the harness
+    installed it, before any agent ran — present for the CLIs the harness
+    installs. ``after_run`` is the same read once the cell finished — the only
+    read for a CLI its action installs (codex). The recorded version is the
+    install-time read where there is one, since nothing the agent did can have
+    shaped it, else the after-run read. A disagreement — the after-run read
+    differing from the install-time one, or the recorded version differing from
+    the ``pin`` the workflow installed from — is returned as a sentence the
+    record keeps, never resolved by picking a side.
+    """
+    before = engine_version_from_output(at_install)
+    after = engine_version_from_output(after_run)
+    recorded = before or after
+    problems: list[str] = []
+    if before is not None and after is not None and after != before:
+        problems.append(f"the binary reported {after} after the run but {before} at install")
+    if pin and recorded is not None and recorded != pin:
+        problems.append(f"the binary reported {recorded} but the pin is {pin}")
+    return recorded, "; ".join(problems) or None
+
+
 def _as_int(value: Any) -> int:
     """Coerce a reported token field to a non-negative int (missing/garbage -> 0)."""
     try:

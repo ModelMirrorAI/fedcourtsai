@@ -714,7 +714,7 @@ jobs:
       # leg does for the cell-provisioning steps it mirrors from run-evaluate.
       - uses: ./.github/actions/corpus-sidecar
         id: corpus
-        if: ${{ matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' }}
+        if: ${{ matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' || matrix.scenario == 'codex-application-repro' }}
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}

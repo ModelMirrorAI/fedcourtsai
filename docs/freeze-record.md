@@ -8413,9 +8413,11 @@ freeze commit is recorded here.
   **The record.** Every cell's harness-written `usage.json` carries
   `engine_version`: the version the engine's own binary reports, read by the
   harness, never the agent's word. For claude-code and gemini, which the
-  harness installs, the read is taken at install, before any agent runs, and a
-  post-run read that disagrees raises a warning rather than replacing it;
-  codex is installed by its action, so its read follows the run. Cells written before
+  harness installs, the read is taken at install, before any agent runs;
+  codex is installed by its action, so its read follows the run. A post-run
+  read that disagrees with the install-time one, or a read other than the
+  pinned version, is kept in the same file as `engine_version_discrepancy`,
+  and a cut by engine version treats that cell as unknown. Cells written before
   this entry's carrying merge do not carry it. For them the engine version is
   recoverable only from the run's job log, which expires, and a cut by engine
   version treats them as unknown rather than guessing.

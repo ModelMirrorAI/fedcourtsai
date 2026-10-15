@@ -594,10 +594,9 @@ jobs:
           uv run fedcourts hide-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
 
       # Install the engine's CLI at the version `.github/engines/<engine>/`
-      # pins, in its own SECRET-FREE step: only the top-level version is exactly
-      # pinned (transitive dependencies resolve fresh at every install), so npm
-      # lifecycle scripts must never see credentials — --ignore-scripts skips
-      # them outright and this step's env carries nothing. claude-code's binary
+      # pins, in its own SECRET-FREE step: the lockfile fixes every package by
+      # hash and --ignore-scripts skips npm lifecycle scripts, and the step's
+      # env carries nothing in case a package ever ran code at install. claude-code's binary
       # path feeds claude-code-action, so the action runs the pinned CLI rather
       # than the one it bundles; codex's version feeds codex-action, which
       # installs it. (.gemini/settings.json is written by the "Configure agent
@@ -1190,6 +1189,7 @@ jobs:
           CLAUDE_EXECUTION_FILE: ${{ steps.evaluate_claude.outputs.execution_file }}
           CLAUDE_BIN: ${{ steps.engine-cli.outputs.path }}
           REPORTED_VERSION: ${{ steps.engine-cli.outputs.reported-version }}
+          ENGINE_PIN: ${{ steps.engine-cli.outputs.version }}
           CODEX_HOME: ${{ github.workspace }}/.codex
           GEMINI_TELEMETRY_FILE: ${{ github.workspace }}/.gemini/telemetry.log
         run: |
@@ -1199,21 +1199,19 @@ jobs:
             --run-id "$RUN_ID" --engine "$ENGINE"
             --role evaluator --actor "$EVALUATOR_ID")
           if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
-          # The engine version the record carries is the binary's own report,
-          # read by the install step before any agent ran, so nothing the
-          # agent did can shape it. codex is installed by its action, so its
-          # version is read here, after the run. A post-run read that
-          # disagrees with the pre-run one is surfaced, never recorded.
+          # The engine version the record carries is the binary's own report:
+          # read by the install step before any agent ran where the harness
+          # installs the CLI, and here, after the run, for codex, which its
+          # action installs. record-usage keeps the install-time read and
+          # records any disagreement — the after-run read, or the pin the
+          # workflow installed from — in usage.json, never picking a side.
           case "$ENGINE" in
             claude-code) engine_bin="${CLAUDE_BIN:-claude}" ;;
             *) engine_bin="$ENGINE" ;;
           esac
           after=$(timeout 30 "$engine_bin" --version 2>/dev/null | head -n 1) || after=""
-          stamp="${REPORTED_VERSION:-$after}"
-          if [ -n "$stamp" ]; then args+=(--engine-version "$stamp"); fi
-          if [ -n "$REPORTED_VERSION" ] && [ -n "$after" ] && [ "$REPORTED_VERSION" != "$after" ]; then
-            echo "::warning::engine binary changed during the cell: installed as '${REPORTED_VERSION}', reports '${after}' after the run"
-          fi
+          args+=(--engine-version "$REPORTED_VERSION" --engine-version-after "$after"
+            --engine-pin "$ENGINE_PIN")
           # Guarded like the retrieval capture beside it: on a reaped cell the
           # claude execution file is an *output of the step the watchdog killed*,
           # so it arrives empty and passing it would only produce a warning about

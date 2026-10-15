@@ -111,6 +111,30 @@ def test_record_usage_stamps_the_version_the_engine_binary_reported(
     assert read_model(path, ModelUsage).engine_version == stamped
 
 
+def test_record_usage_records_a_binary_that_changed_during_the_cell(_data_root: Path) -> None:
+    args = [
+        *_record("2.1.289 (Claude Code)"),
+        "--engine-version-after",
+        "2.1.300 (Claude Code)",
+        "--engine-pin",
+        "2.1.289",
+    ]
+    result = runner.invoke(app, args)
+    assert result.exit_code == 0, result.output
+    assert "::warning::engine version for claude-baseline" in result.output
+    path = (
+        CasePaths(_data_root, "ca9", 123)
+        .event("evt-motion-stay")
+        .prediction_usage("claude-baseline", "20260624T103000Z")
+    )
+    usage = read_model(path, ModelUsage)
+    # The install-time read stands; the disagreement survives the run.
+    assert usage.engine_version == "2.1.289"
+    assert usage.engine_version_discrepancy == (
+        "the binary reported 2.1.300 after the run but 2.1.289 at install"
+    )
+
+
 def test_a_record_written_before_the_engine_version_field_still_validates() -> None:
     record = ModelUsage.model_validate(
         {
@@ -128,6 +152,7 @@ def test_a_record_written_before_the_engine_version_field_still_validates() -> N
         }
     )
     assert record.engine_version is None
+    assert record.engine_version_discrepancy is None
 
 
 def test_record_usage_stamps_the_explicit_pipeline_sha(_data_root: Path) -> None:

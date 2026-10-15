@@ -2097,6 +2097,15 @@ class ModelUsage(_Strict):
         "how a reading cuts by it. Null on records written before the field existed "
         "or when the binary's output named no version.",
     )
+    engine_version_discrepancy: str | None = Field(
+        default=None,
+        description="Set when the engine's version reads disagree: the binary reported "
+        "a different version after the run than at install, or a version other than "
+        "the pin the workflow installed from. The recorded `engine_version` is kept "
+        "as read; this says the cell's engine is in doubt, and a reading cutting by "
+        "engine version treats such a cell as unknown. Null when every read agrees, "
+        "and on records written before the field existed.",
+    )
     input_tokens: int = Field(ge=0, description="Fresh (uncached) input tokens")
     output_tokens: int = Field(ge=0)
     cache_read_input_tokens: int = Field(default=0, ge=0, description="Input served from cache")

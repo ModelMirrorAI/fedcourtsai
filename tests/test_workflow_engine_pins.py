@@ -121,12 +121,103 @@ def test_every_codex_action_runs_the_pinned_codex() -> None:
     assert uses, "no codex-action step found; the check would pass vacuously"
 
 
-def test_the_codex_repro_leg_resolves_its_codex_version() -> None:
+def test_the_codex_repro_leg_resolves_its_codex_version_and_its_corpus() -> None:
     job = yaml.safe_load((GITHUB / "workflows" / "integration-test.yml").read_text())["jobs"][
         "scenario"
     ]
-    installer = next(s for s in job["steps"] if s.get("id") == "engine-cli")
-    assert "matrix.scenario == 'codex-application-repro'" in _terms(installer["if"], "||")
+    repro = "matrix.scenario == 'codex-application-repro'"
+    for step_id in ("engine-cli", "corpus"):
+        provider = next(s for s in job["steps"] if s.get("id") == step_id)
+        assert repro in _terms(provider["if"], "||"), f"the repro leg reads steps.{step_id}"
+
+
+# Outputs a reader must never find empty: an install's version and binary, and
+# the corpus credentials. (Other step outputs are read under wider conditions on
+# purpose — an engine-specific probe's result read by a scenario-wide assert.)
+_PROVIDERS = ("engine-cli", "corpus")
+
+
+def _status_gated(condition: object) -> bool:
+    """A condition that runs a step on how earlier steps ended (a capture or teardown step).
+
+    Such a step runs only after the steps it waits on, so whether its providers
+    ran follows from theirs, not from its own matrix terms; the rule below
+    covers the matrix-gated readers, which is where a skipped provider hides.
+    """
+    text = str(condition)
+    return any(token in text for token in ("steps.", "cancelled()", "always()", "failure()"))
+
+
+def test_every_read_of_an_install_or_corpus_output_finds_the_step_ran() -> None:
+    reads = 0
+    for path in sorted((GITHUB / "workflows").glob("*.y*ml")):
+        for job in _jobs(path):
+            steps = job.get("steps") or []
+            providers = {s["id"]: s for s in steps if s.get("id") in _PROVIDERS}
+            for step in steps:
+                if _status_gated(step.get("if")):
+                    continue
+                body = str({key: value for key, value in step.items() if key != "if"})
+                for step_id in set(re.findall(r"steps\.([\w-]+)\.outputs\.", body)):
+                    if step_id not in providers:
+                        continue
+                    reads += 1
+                    where = f"{path.name}: {step.get('name') or step.get('id')} reads {step_id}"
+                    provider = providers[step_id]
+                    assert steps.index(provider) < steps.index(step), f"{where} too early"
+                    assert _covers(provider.get("if"), step.get("if")), (
+                        f"{where}, which can be skipped when the reader runs"
+                    )
+    assert reads, "no read found; the check would pass vacuously"
+
+
+# Steps that put an assumed role's credentials into the job environment, where
+# every later step — an installer included — would see them.
+_ENV_CREDENTIAL_STEPS = re.compile(
+    r"\./\.github/actions/(corpus-readonly|corpus-ranged)|aws-actions/configure-aws-credentials@"
+)
+
+
+def _scenarios(condition: object) -> set[str]:
+    return set(re.findall(r"matrix\.scenario == '([\w-]+)'", str(condition)))
+
+
+def test_the_corpus_sidecar_keeps_its_credentials_out_of_the_job_environment() -> None:
+    """The sidecar may precede an installer only because its role never reaches the env."""
+    sidecar = yaml.safe_load((GITHUB / "actions" / "corpus-sidecar" / "action.yml").read_text())
+    creds = next(
+        step
+        for step in sidecar["runs"]["steps"]
+        if str(step.get("uses", "")).startswith("aws-actions/configure-aws-credentials@")
+    )
+    assert str(creds["with"]["output-env-credentials"]).lower() == "false"
+
+
+def test_every_engine_install_runs_before_any_credential_lands_in_its_environment() -> None:
+    """An installer must never run beside a live credential in the job environment.
+
+    Each engine-cli step precedes every step that exports an assumed role into
+    the environment — unless the two are gated to disjoint scenarios, so they
+    never share a leg (the integration suite's ranged-reads role and its engine
+    smokes).
+    """
+    callers = 0
+    for path in sorted((GITHUB / "workflows").glob("*.y*ml")):
+        for job in _jobs(path):
+            steps = job.get("steps") or []
+            for index, install in enumerate(steps):
+                if install.get("uses") != ENGINE_CLI:
+                    continue
+                callers += 1
+                for earlier in steps[:index]:
+                    if not _ENV_CREDENTIAL_STEPS.search(str(earlier.get("uses", ""))):
+                        continue
+                    own, theirs = _scenarios(install.get("if")), _scenarios(earlier.get("if"))
+                    assert own and theirs and not own & theirs, (
+                        f"{path.name}: {install.get('name')} runs after "
+                        f"{earlier.get('name') or earlier.get('uses')} put a credential in the env"
+                    )
+    assert callers, "no engine-cli caller found; the check would pass vacuously"
 
 
 def test_every_claude_action_runs_the_pinned_cli() -> None:
