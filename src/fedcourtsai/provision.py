@@ -29,16 +29,17 @@ neither can hand an agent a record shaped differently from the other's.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Literal
 
 from . import casestore
 from .corpus import CaseDocument, CorpusEvent, CorpusRow
 from .paths import CasePaths
-from .pipeline import arrival_cut, cell_context, cert_signals, moments
+from .pipeline import arrival_cut, cell_context, cert_signals, interim_signals, moments
 from .pipeline.documents import (
     KIND_DESCRIPTIONS,
     OTHER_LIST,
@@ -193,7 +194,101 @@ def is_interim_arrival(event_id: str) -> bool:
     return spec is not None and spec.stage is Stage.interim and spec.moment is Moment.arrival
 
 
-def shows_the_moment(payload: Mapping[str, Any], cutoff: date) -> bool:
+class TriggerAbsent(ProvisionError):
+    """A placed cell whose snapshot does not carry the entry that opened its moment.
+
+    Raised by :func:`place_at_moment` on a moment with a :data:`TRIGGER_READERS`
+    reader, once neither the stored snapshot from before the cutoff nor the
+    reconstruction from the latest payload carries the trigger entry. Not
+    recoverable here, for the reason :class:`UnanchorableMoment` is not: a cell
+    placed on a docket missing its own trigger is forecast from the moment
+    *before* the one it is filed under, and an increment claim keyed on that
+    trigger would then resolve on the very entry that defined the cell. Callers
+    refuse the cell; a later round owes it again once the corpus holds a payload
+    that carries the entry.
+    """
+
+
+TriggerReader = Callable[[Mapping[str, Any]], date | None]
+
+
+def _cvsg_trigger(payload: Mapping[str, Any]) -> date | None:
+    return cert_signals.entry_date(cert_signals.snapshot_cvsg_date(payload))
+
+
+def _response_requested_trigger(payload: Mapping[str, Any]) -> date | None:
+    return interim_signals.response_requested_date(cert_signals.proceedings_entries(payload))
+
+
+def _response_filed_trigger(payload: Mapping[str, Any]) -> date | None:
+    return interim_signals.response_filed_date(cert_signals.proceedings_entries(payload))
+
+
+#: The moments whose trigger is one docket entry, each read by the same parse
+#: that dated the event's ``opened_at`` at ingest, so a payload the reader finds
+#: nothing in is one the event could not have been dated from. A day can carry
+#: more than one entry — an application docketed on the day the Court asks for a
+#: response to it — so for these moments an entry from the trigger *day* is not
+#: evidence of the trigger *entry*.
+#:
+#: Each reader takes the **first** dated matching entry, as ingest does, and
+#: parses its date strictly (:func:`cert_signals.entry_date`). A trigger whose
+#: date the strict parse cannot read is read as absent, which reconstructs or
+#: refuses rather than placing a cell — the safe direction.
+#:
+#: Moments absent here keep the day rule in :func:`shows_the_moment`. The interim
+#: arrival moment has the anchor bound instead (:mod:`.pipeline.arrival_cut`),
+#: which already refuses a snapshot without its opening entry; the cert arrival
+#: moment opens at docketing, which no entry dates; and the two merits moments
+#: are dated at ingest by readers that do not take a bare payload — the grant
+#: off the resolution, the briefed moment off a brief bounded by that grant — so
+#: reading them here would be a second parse that can disagree with the first.
+TRIGGER_READERS: Mapping[tuple[Stage, Moment], TriggerReader] = MappingProxyType(
+    {
+        (Stage.cert, Moment.cvsg): _cvsg_trigger,
+        (Stage.interim, Moment.response_requested): _response_requested_trigger,
+        (Stage.interim, Moment.response_filed): _response_filed_trigger,
+    }
+)
+
+
+def trigger_reader(event_id: str) -> TriggerReader | None:
+    """The reader for ``event_id``'s trigger entry, or ``None`` if its moment has none."""
+    spec = moments.spec_for(event_id)
+    if spec is None:
+        return None
+    return TRIGGER_READERS.get((spec.stage, spec.moment))
+
+
+def dated_from_trigger(payload: Mapping[str, Any], cutoff: date, reader: TriggerReader) -> bool:
+    """Whether ``payload``'s trigger is the entry the event was dated from.
+
+    Exact: the trigger ``reader`` finds must fall on the day the event opened,
+    ``cutoff`` being exclusive and one day after it. This is the test a stored
+    snapshot from before the cutoff has to pass to be taken as ``dated``. Being
+    before the cutoff is not enough, because nothing bounds a stored snapshot from
+    below: one carrying an older matching entry and nothing from the trigger day
+    may predate the moment by weeks, and is not the docket as it stood then.
+    """
+    return reader(payload) == cutoff - timedelta(days=1)
+
+
+def carries_trigger(payload: Mapping[str, Any], cutoff: date, reader: TriggerReader) -> bool:
+    """Whether ``payload`` carries a trigger entry ``reader`` finds before ``cutoff``.
+
+    The test the *placed* payload has to pass, whichever branch built it. Looser
+    than :func:`dated_from_trigger` on purpose: a reconstruction is the latest
+    payload cut at the cutoff, so it has no lower-bound problem — every entry the
+    docket held before the cutoff is on it. A trigger dated earlier than the event
+    (an entry backdated after the pull that dated the event) is still the moment
+    having happened by the cutoff, and the cell is placed with it rather than
+    refused on a disagreement no later pull could resolve.
+    """
+    found = reader(payload)
+    return found is not None and found < cutoff
+
+
+def shows_the_moment(payload: Mapping[str, Any], cutoff: date, event_id: str) -> bool:
     """Whether ``payload`` is late enough to show the moment ``cutoff`` was taken from.
 
     A stored snapshot from before the cutoff is the better evidence *only if it
@@ -206,12 +301,21 @@ def shows_the_moment(payload: Mapping[str, Any], cutoff: date) -> bool:
     two cells of one cohort would carry materially different information sets
     with nothing to tell them apart.
 
-    So the payload has to carry an entry from the trigger day itself — the day
-    the cutoff was taken from, ``cutoff`` being exclusive and one day after it.
-    False where it does not, and where the payload discloses no dated
-    proceedings at all: neither can be shown to reach the moment, and
+    Where the moment has a trigger reader (:data:`TRIGGER_READERS`), the payload
+    has to carry the trigger entry itself, dated on the day the event opened
+    (:func:`dated_from_trigger`). A pull taken earlier on the trigger day carries
+    that day's other entries and not the trigger, so the day alone would take it
+    as ``dated``. Every other moment falls back to the day rule:
+    the payload carries an entry from the trigger day — the day the cutoff was
+    taken from, ``cutoff`` being exclusive and one day after it.
+
+    False where neither holds, and where the payload discloses no dated
+    proceedings at all: none of these can be shown to reach the moment, and
     reconstructing from the later payload is what does.
     """
+    reader = trigger_reader(event_id)
+    if reader is not None:
+        return dated_from_trigger(payload, cutoff, reader)
     trigger = cutoff - timedelta(days=1)
     return any(
         (filed := cert_signals.entry_date(raw)) is not None and filed >= trigger
@@ -445,6 +549,10 @@ def place_at_moment(
     while its context recorded the tighter one would carry the defect together
     with a record saying it had been fixed. ``arrival-cut-ledger`` counts those
     refusals.
+
+    Raises :class:`TriggerAbsent` where the moment has a trigger reader
+    (:data:`TRIGGER_READERS`) and the placed payload does not carry that entry,
+    whichever branch built it.
     """
     provenance: Literal["as-stored", "dated", "truncated"] = "as-stored"
     if cutoff is None:
@@ -452,7 +560,7 @@ def place_at_moment(
     # Nothing is removed from a `dated` payload by the DATE rule: it is what the
     # docket served. The anchor bound below can still remove from it.
     dropped_entries = 0
-    reconstruct = read.dated is None or not shows_the_moment(read.dated[1], cutoff)
+    reconstruct = read.dated is None or not shows_the_moment(read.dated[1], cutoff, event)
     if not reconstruct and read.dated is not None:
         # What the docket really served at the moment, which also knows what had
         # not yet been filed — strictly better than reconstructing it, so it is
@@ -503,6 +611,18 @@ def place_at_moment(
         # it.
         snapshot_date = cutoff
         provenance = "truncated"
+    reader = trigger_reader(event)
+    if reader is not None and not carries_trigger(payload, cutoff, reader):
+        # Reached only on the reconstructed branch: a `dated` payload was taken
+        # because it carries the trigger. So even the latest payload, cut to the
+        # moment, does not — the corpus has not yet stored a pull that shows the
+        # entry the event was dated from. There is no snapshot to fall back to
+        # that would be honest about the moment, so the cell is refused.
+        raise TriggerAbsent(
+            f"refusing to provision {case} {event}: no stored snapshot carries the "
+            "docket entry that opened the moment, so the cell would be placed before "
+            "its own trigger"
+        )
     # Documents take the DATE rule under either cut kind, and that residual is
     # stated rather than closed: a document is placed by the entry date its link
     # rode on, which cannot say where inside the opening day it sat, and the one

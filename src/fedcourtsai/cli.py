@@ -12951,7 +12951,9 @@ def _place_at_moment(
 
     Exits 4 where an interim arrival's opening entry cannot be anchored — nothing
     is written, and the caller's cell is refused. ``arrival-cut-ledger`` counts
-    those refusals.
+    those refusals. Exits 5 where the moment's trigger entry is on no stored
+    snapshot (:class:`fedcourtsai.provision.TriggerAbsent`) — nothing is written,
+    and a later round owes the cell again.
     """
     try:
         placement = provision.place_at_moment(
@@ -12966,6 +12968,9 @@ def _place_at_moment(
     except provision.UnanchorableMoment as exc:
         typer.echo(f"::warning::{exc}", err=True)
         raise typer.Exit(code=4) from exc
+    except provision.TriggerAbsent as exc:
+        typer.echo(f"::warning::{exc}", err=True)
+        raise typer.Exit(code=5) from exc
     if cutoff is not None and placement.boundary is not None:
         # Spoken, never written to `context.json`: the cell reads that file, and
         # how much a cut removed separates a grant from a denial about as cleanly
@@ -13163,7 +13168,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     it (:func:`_place_at_moment`). Both gates below run on the latest payload
     first, before any of that.
 
-    Exits non-zero in three ways, kept apart so a refused cell is attributable:
+    Exits non-zero in four ways, kept apart so a refused cell is attributable:
 
     * **1** — the corpus holds no snapshot for the case.
     * **3** — under ``--refuse-terminal`` on a forward cell, the record or the
@@ -13177,6 +13182,12 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
       located, and provisioning on the date rule alone would hand the cell the
       conditioning that rule exists to replace. ``arrival-cut-ledger`` counts
       these.
+    * **5** — a placed cell whose moment's trigger entry (the CVSG invitation,
+      the response request, the filed response) is on no stored snapshot: the
+      dated snapshot from before the cutoff lacks it and so does the latest
+      payload cut to the moment (nothing written). Mode-independent, like exit 4:
+      a cell placed before its own trigger is forecast from the previous moment
+      under this one's name.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)

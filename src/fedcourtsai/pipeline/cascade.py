@@ -166,7 +166,9 @@ def _place_cell(
 
     Pure computation over a read already taken, so the cascade places every
     predict target before the first one runs: a moment that cannot be placed
-    (an interim arrival whose opening entry cannot be anchored) or a document
+    (an interim arrival whose opening entry cannot be anchored, or a moment
+    whose trigger entry no stored payload carries —
+    :class:`~fedcourtsai.provision.TriggerAbsent`) or a document
     kind that cannot name a file refuses the whole run before any token is
     spent, rather than after the earlier targets' cells have run.
 

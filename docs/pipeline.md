@@ -2283,7 +2283,7 @@ is the only record a tool call leaves. The same two hold for the `data/qp-topics
 oracle the job deletes beside it and for the big-case board, which carries a
 third: it is published, and a cell's web tools can reach the public repository.
 
-A predict cell refuses to run for three reasons, all landing on the same gate in
+A predict cell refuses to run for four reasons, all landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP
 sidecar, the comment-token mint, and every engine step). One is the
 **provisioning gate**: `provision-snapshot --refuse-terminal` exits 3 when the
@@ -2321,7 +2321,13 @@ flight. The fresh payload is evidence for the gate only; the cell still reads
 the stored snapshot. A second is the **arrival anchor**: an
 interim arrival cell whose opening entry cannot be located in its snapshot exits
 4, since the moment's information set cannot be identified and cutting at the
-date instead would restore the conditioning that bound replaces. The third is an
+date instead would restore the conditioning that bound replaces. A third is a
+**trigger absent**: a `cvsg`, `response-requested` or `response-filed` cell whose
+trigger entry no stored payload carries exits 5, since a cell placed before its
+own trigger is forecast from the previous moment under this one's name. A later
+round owes it again once a pull stores the entry; unlike a pre-mint refusal it
+is not rolled up as a designed refusal, so `collect` records it as a no-output
+cell against the attempt cap. The fourth is an
 **unprovisioned record**: provisioning wrote nothing (exit 1 — usually a corpus with no
 snapshot for the case, but a failed corpus read lands there too), or
 `assert-cell-record` finds the provisioning write did not land complete — no
