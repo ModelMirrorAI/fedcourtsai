@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000499",
+  "run_id": "20261015T142602Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "courtlistener-mcp search", "provisioned application.txt"],
+  "helpful": ["Provisioned application text with the question presented and the related-case list", "Interim section's per-Term substantive counts made the strictly-prior pool easy to compute"],
+  "gaps": ["No per-ask breakdown of grant rates (vacate-stay vs stay vs injunction) in the interim section; vacatur-of-stay applications likely grant at a different rate than the pooled slice", "No link from an application to a related pending cert petition on the same question (here City of Brunswick, No. 26-289)"],
+  "notes": "Skipped corpus query; the application's posture is distinctive enough that similar-prior retrieval seemed low-value."
+}

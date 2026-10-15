@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000491",
+  "gaps": [
+    "The provided petition text is truncated, although the main cert argument and the relevant en banc remedy passages are present.",
+    "Web search and PDF-open attempts returned no usable content in this run."
+  ],
+  "helpful": [
+    "The isolated QP and substantial petition text allowed a remedy-specific forecast rather than a caption-only forecast.",
+    "Matching sal-v4 federal reached rates and their JSON denominators supported an exact prior-Term anchor.",
+    "CourtListener within-opinion searches verified the historical precedent without querying this petition's current docket."
+  ],
+  "notes": "No BIO is provisioned, as expected at arrival. The default uv cache was read-only; using a temporary writable cache allowed the path command to run. No live corpus query or target-case outcome lookup was needed.",
+  "role": "predictor",
+  "run_id": "20261015T142602Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "web.run",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

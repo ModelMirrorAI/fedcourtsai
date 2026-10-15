@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000249",
+  "run_id": "20261015T142602Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local provisioned-input reads",
+    "fedcourts paths",
+    "committed statpack Markdown and JSON",
+    "CourtListener search",
+    "CourtListener search_document",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Provisioned petition, opposition, and appendix allowed comparison of advocacy with the actual lower-court reasoning.",
+    "Frozen sal-v4 context and exact JSON reached-rate denominators made the prior-Term anchor reproducible.",
+    "CourtListener passage search supplied a targeted check of Kimmel without any target-case outcome retrieval."
+  ],
+  "gaps": [
+    "The scanned cert reply had no usable extracted text; OCR would complete the adversarial briefing.",
+    "Generic official-source web calls returned no usable content."
+  ],
+  "notes": "The default uv cache was read-only; a temporary writable cache override allowed CLI use. No corpus query, target-case live-docket lookup, outcome retrieval, or alternate REST access was used."
+}
