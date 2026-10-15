@@ -8665,8 +8665,9 @@ freeze commit is recorded here.
   harness-written `usage.json`, so they are never the agent's word. Each
   reaches the usage step as a step output, fixed outside any file the agent can
   reach; the post-run poll takes its docket number from the pre-mint poll's
-  output, never from the cell's record. A `decided` state never reaches
-  `usage.json`, because a refused cell writes none. Cells written before the
+  output, never from the cell's record. A `decided` pre-mint poll never
+  reaches `usage.json`, because a refused cell writes none; a `decided`
+  post-run poll does, since that poll only records. Cells written before the
   carrying merge carry no poll, and their ordering on a decision day stays
   unresolvable.
 
