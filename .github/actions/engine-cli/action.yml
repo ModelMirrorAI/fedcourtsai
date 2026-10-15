@@ -1,13 +1,18 @@
 name: Install the pinned engine CLI
 description: >
-  Resolve an engine's CLI version from `.github/engines/package.json`, the one
-  pin every cell, smoke and labeler reads, and install that exact version for
-  the engines this repository installs itself. claude-code and gemini are
-  installed here; codex is installed by `openai/codex-action`, which takes the
-  `version` output as its `codex-version`, so for codex this only resolves
-  unless `install-codex` asks for the CLI itself.
-  Run it in a step whose environment holds no secret: the install's own scripts
-  are skipped, but transitive dependencies still resolve fresh at install time.
+  Install one engine's CLI from its pin, `.github/engines/<engine>/` — a
+  package.json naming the exact version and the lockfile beside it — with
+  `npm ci --ignore-scripts` into a prefix under $RUNNER_TEMP, never into the
+  checkout. The binary is linked into npm's global bin directory, already on
+  PATH, so the job's later steps reach it by name, and its own `--version` is
+  read here, before any agent runs.
+  claude-code and gemini are installed here; codex is installed by
+  `openai/codex-action`, which takes the `version` output as its
+  `codex-version`, so for codex this only resolves unless `install-codex`
+  asks for the CLI itself. Run it in a step whose environment holds no
+  secret: the lockfile fixes every transitive version and npm lifecycle scripts
+  are skipped, but the one script run on purpose — Claude Code's own
+  installer, which fetches its native binary — must see no credential.
 
 inputs:
   engine:
@@ -16,7 +21,8 @@ inputs:
   install-codex:
     description: >
       "true" installs codex here as well, for a caller that runs the codex CLI
-      directly rather than through codex-action (the integration engine smoke).
+      directly rather than through codex-action (the integration engine smoke
+      and the back-test).
     required: false
     default: "false"
 
@@ -30,6 +36,12 @@ outputs:
       `path_to_claude_code_executable`, so the action runs the pinned CLI and
       never installs its own bundled one. Empty for the other engines.
     value: ${{ steps.install.outputs.path }}
+  reported-version:
+    description: >
+      The installed binary's own `--version` output, read before any agent
+      runs. Empty where this action did not install the CLI (codex under
+      codex-action).
+    value: ${{ steps.install.outputs.reported-version }}
 
 runs:
   using: composite
@@ -38,55 +50,73 @@ runs:
       shell: bash
       env:
         ENGINE: ${{ inputs.engine }}
-        PINS: ${{ github.action_path }}/../../engines/package.json
+        PINS: ${{ github.action_path }}/../../engines
       run: |
         set -euo pipefail
         case "$ENGINE" in
-          claude-code) package=@anthropic-ai/claude-code ;;
-          codex) package=@openai/codex ;;
-          gemini) package=@google/gemini-cli ;;
+          claude-code) package=@anthropic-ai/claude-code binary=claude ;;
+          codex) package=@openai/codex binary=codex ;;
+          gemini) package=@google/gemini-cli binary=gemini ;;
           *) echo "::error::engine-cli: unknown engine '$ENGINE'"; exit 1 ;;
         esac
-        version=$(jq -er --arg p "$package" '.dependencies[$p]' "$PINS")
+        pin="$PINS/$ENGINE"
+        version=$(jq -er --arg p "$package" '.dependencies[$p]' "$pin/package.json")
         # An exact version only: a range would let two cells of one round run
         # different CLIs.
         if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
           echo "::error::engine-cli: $package is pinned to '$version', not an exact version"
           exit 1
         fi
-        echo "package=$package" >> "$GITHUB_OUTPUT"
-        echo "version=$version" >> "$GITHUB_OUTPUT"
+        locked=$(jq -er --arg p "node_modules/$package" '.packages[$p].version' "$pin/package-lock.json")
+        if [ "$locked" != "$version" ]; then
+          echo "::error::engine-cli: $package is pinned to $version but locked at $locked"
+          exit 1
+        fi
+        {
+          echo "pin=$pin"
+          echo "package=$package"
+          echo "binary=$binary"
+          echo "version=$version"
+        } >> "$GITHUB_OUTPUT"
 
     - id: install
       shell: bash
       env:
         ENGINE: ${{ inputs.engine }}
         INSTALL_CODEX: ${{ inputs.install-codex }}
+        PIN: ${{ steps.resolve.outputs.pin }}
         PACKAGE: ${{ steps.resolve.outputs.package }}
-        VERSION: ${{ steps.resolve.outputs.version }}
-      # zizmor: ignore[adhoc-packages] — top-level exact-version pin, scripts
-      # disabled, and a secret-free environment are the practical controls for a
-      # single global CLI; a lockfile is not expressible for `npm i -g`.
+        BINARY: ${{ steps.resolve.outputs.binary }}
       run: |
         set -euo pipefail
-        case "$ENGINE" in
-          codex)
-            if [ "$INSTALL_CODEX" != true ]; then
-              echo "path=" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            ;;
-        esac
-        npm install --silent --no-audit --ignore-scripts --global "${PACKAGE}@${VERSION}"
+        if [ "$ENGINE" = codex ] && [ "$INSTALL_CODEX" != true ]; then
+          echo "path=" >> "$GITHUB_OUTPUT"
+          echo "reported-version=" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        prefix="$RUNNER_TEMP/engines/$ENGINE"
+        mkdir -p "$prefix"
+        cp "$PIN/package.json" "$PIN/package-lock.json" "$prefix/"
+        npm ci --prefix "$prefix" --ignore-scripts --no-audit --no-fund --silent
         if [ "$ENGINE" = claude-code ]; then
           # --ignore-scripts skips the postinstall that places Claude Code's
           # native binary, so run the pinned package's own installer explicitly.
-          node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs"
-          claude --version
-          path=$(command -v claude)
-          test -n "$path"
-          echo "path=$path" >> "$GITHUB_OUTPUT"
+          node "$prefix/node_modules/$PACKAGE/install.cjs"
+        fi
+        bin="$prefix/node_modules/.bin/$BINARY"
+        test -x "$bin"
+        reported=$("$bin" --version | head -n 1)
+        echo "$reported"
+        # Later steps reach the binary by name through npm's global bin
+        # directory, which is already on PATH (where a global install would
+        # have put it), so no step writes the job's PATH.
+        global_bin="$(npm prefix --global)/bin"
+        ln -sf "$bin" "$global_bin/$BINARY"
+        test "$(command -v "$BINARY")" = "$global_bin/$BINARY"
+        if [ "$ENGINE" = claude-code ]; then
+          echo "path=$bin" >> "$GITHUB_OUTPUT"
         else
-          if [ "$ENGINE" = codex ]; then codex --version; else gemini --version; fi
           echo "path=" >> "$GITHUB_OUTPUT"
         fi
+        # One line, so it is a single output value.
+        echo "reported-version=${reported//$'\r'/}" >> "$GITHUB_OUTPUT"

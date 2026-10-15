@@ -8,9 +8,12 @@
 #
 # Later lines win, and no line here shadows another: each names one class.
 
-# The permission surface: workflows and the composites that run inside them.
+# The permission surface: workflows and the composites that run inside them,
+# and the engine CLI pins those composites install — the code every agent cell
+# executes.
 /.github/workflows/ @modelmirror
 /.github/actions/ @modelmirror
+/.github/engines/ @modelmirror
 
 # The security posture, its setup, and the authorization check that enforces
 # it (`authorize-trigger` and the tests that pin the trigger surface).

@@ -457,7 +457,7 @@ jobs:
       # runner seam — the same binaries the devcontainer ships. Installed only
       # when a real engine will run; the stub backend needs nothing. All three
       # engines are routable (each has a registered runner), so all three CLIs
-      # are installed at the versions `.github/engines/package.json` pins for
+      # are installed at the versions `.github/engines/<engine>/` pins for
       # every cell — and the report names what actually ran. A
       # `--skip-engines` opt-out (or a missing binary, dropped loudly at run
       # time) is what leaves an engine out. These steps deliberately run BEFORE

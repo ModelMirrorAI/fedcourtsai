@@ -2669,7 +2669,7 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
     )
 
     # The CLI the action installs is the CLI the npm surfaces install: both read
-    # the one pin in .github/engines/package.json, the action through the
+    # the one pin in .github/engines/<engine>/, the action through the
     # engine-cli step's version and the npm surfaces through the same action
     # installing codex itself. A literal npm pin re-appearing would split them.
     assert str(predict["with"]["codex-version"]) == "${{ steps.engine-cli.outputs.version }}"

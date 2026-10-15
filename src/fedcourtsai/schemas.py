@@ -2086,9 +2086,11 @@ class ModelUsage(_Strict):
     engine_version: str | None = Field(
         default=None,
         pattern=r"^\d+\.\d+\.\d+$",
-        description="The engine CLI's version as the binary that ran reported it "
-        "(`claude --version`, `codex --version`, `gemini --version`), read by a "
-        "harness step after the engine finished — never the agent's word. An engine "
+        description="The engine CLI's version as its own binary reported it "
+        "(`claude --version`, `codex --version`, `gemini --version`), read by the "
+        "harness — never the agent's word. For the CLIs the harness installs "
+        "(claude-code, gemini) the read is taken at install, before any agent ran; "
+        "codex is installed by its action, so its read follows the run. An engine "
         "update under an unchanged process digest is composition, and this field is "
         "how a reading cuts by it. Null on records written before the field existed "
         "or when the binary's output named no version.",

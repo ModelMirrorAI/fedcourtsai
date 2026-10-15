@@ -1802,14 +1802,20 @@ maintainer's.
 ### Engine CLI updates
 
 The engine CLIs every cell, smoke and labeler runs — Claude Code, Codex and the
-Gemini CLI — are pinned once, in `.github/engines/package.json`, and installed
-from there by the `engine-cli` action. The claude cells hand
+Gemini CLI — are pinned once each, in `.github/engines/<engine>/` (an exact
+version and its lockfile), and installed from there by the `engine-cli` action
+with `npm ci` into a prefix outside the checkout. The claude cells hand
 `claude-code-action` that binary (`path_to_claude_code_executable`) and
 `codex-action` takes its `codex-version` from the same pin, so an engine
-action's own bump changes the wrapper and never the engine a cell runs.
+action's own bump changes the wrapper and never the engine a cell runs. One
+skew follows from that: a Claude Code bump can run ahead of the agent SDK the
+pinned `claude-code-action` bundles until the action itself is bumped, and the
+`engine-actions-smoke` leg is what catches a combination that breaks.
 
-Dependabot proposes each engine release as its own PR against `staging`, daily,
-so updates land soon after they ship rather than accumulating. One PR per
+Dependabot checks the engines daily and proposes each release as its own PR
+against `staging` about three days after it ships (its `cooldown`): prompt
+enough that updates land rather than accumulate, late enough that a hijacked or
+withdrawn publish is usually caught upstream first. One PR per
 engine keeps each change legible in the record: under an unchanged process
 digest an engine update is **composition**, not a series break, and every
 cell's `usage.json` carries the `engine_version` its binary reported, so a

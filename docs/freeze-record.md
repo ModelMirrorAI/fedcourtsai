@@ -8276,13 +8276,13 @@ freeze commit is recorded here.
   --all` prints the same six `proc-v9` digests.
 
   **What changes.** The three engine CLIs every cell, smoke and labeler runs
-  are pinned once, in `.github/engines/package.json`, and every workflow
-  installs from that file through one action. The claude cells hand
-  `claude-code-action` the pinned binary instead of the CLI the action
-  bundles, and `codex-action` takes its version from the same file. Dependabot
-  proposes each engine release as its own PR, so engine updates arrive soon
-  after they ship, each validated by both integration engine smokes before it
-  merges.
+  are pinned once each, in `.github/engines/<engine>/` (an exact version
+  and its lockfile), and every workflow installs from that pin through one
+  action. The claude cells hand `claude-code-action` the pinned binary
+  instead of the CLI the action bundles, and `codex-action` takes its version
+  from the same pin. Dependabot proposes each engine release as its own PR
+  about three days after it ships, each validated by both integration engine
+  smokes before it merges.
 
   **The reading rule.** An engine CLI update under an unchanged process digest
   is **composition**, not a series break: the predictor's record keeps
@@ -8293,8 +8293,11 @@ freeze commit is recorded here.
   that.
 
   **The record.** Every cell's harness-written `usage.json` carries
-  `engine_version`: the version the binary that ran reports, read by a harness
-  step after the engine finished, never the agent's word. Cells written before
+  `engine_version`: the version the engine's own binary reports, read by the
+  harness, never the agent's word. For claude-code and gemini, which the
+  harness installs, the read is taken at install, before any agent runs, and a
+  post-run read that disagrees raises a warning rather than replacing it;
+  codex is installed by its action, so its read follows the run. Cells written before
   this entry's carrying merge do not carry it. For them the engine version is
   recoverable only from the run's job log, which expires, and a cut by engine
   version treats them as unknown rather than guessing.

@@ -714,7 +714,7 @@ jobs:
       # leg does for the cell-provisioning steps it mirrors from run-evaluate.
       - uses: ./.github/actions/corpus-sidecar
         id: corpus
-        if: ${{ matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' || matrix.scenario == 'codex-application-repro' }}
+        if: ${{ matrix.scenario == 'corpus-service' || matrix.scenario == 'engine-smoke' }}
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -945,20 +945,22 @@ jobs:
       # retrieval, each engine's real sandbox semantics), exercised on demand.
       # This is the scenario that catches an engine-level integration break —
       # a sandbox denying localhost, a CLI behavior change — before a live
-      # run finds it. The CLI install is its own SECRET-FREE step: only the
-      # top-level version is exactly pinned (transitive dependencies resolve
-      # fresh at every install), so npm lifecycle scripts must never see
-      # credentials.
+      # run finds it. The CLI install is its own SECRET-FREE step: the
+      # lockfile fixes every transitive version, but the one script run on
+      # purpose (Claude Code's own installer) must still never see credentials.
       #
-      # Both engine smokes take this step. engine-smoke runs every CLI itself,
-      # so it installs codex here too; engine-actions-smoke runs claude and
-      # codex through their actions exactly as the live cells do, so this step
-      # installs the pinned claude CLI the action is pointed at and resolves the
-      # codex version codex-action installs. Every version comes from
-      # `.github/engines/package.json`, the one pin the cells read.
+      # Every leg that runs an engine takes this step. engine-smoke runs every
+      # CLI itself, so it installs codex here too; engine-actions-smoke and the
+      # codex repro leg run claude and codex through their actions exactly as
+      # the live cells do, so this step installs the pinned claude CLI the
+      # action is pointed at and resolves the codex version codex-action
+      # installs — without it, codex-action would install the latest codex.
+      # Every version comes from `.github/engines/<engine>/`, the pin the
+      # cells read.
       - name: Install the selected agent CLI
         id: engine-cli
-        if: ${{ matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke' }}
+        timeout-minutes: 10
+        if: ${{ matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke' || matrix.scenario == 'codex-application-repro' }}
         uses: ./.github/actions/engine-cli
         with:
           engine: ${{ matrix.engine }}
@@ -2895,7 +2897,7 @@ jobs:
       - name: Install the pinned Claude Code CLI for the labeler
         id: claude-cli
         timeout-minutes: 5
-        # The pin `.github/engines/package.json` holds for every claude cell.
+        # The pin `.github/engines/claude-code/` holds for every claude cell.
         uses: ./.github/actions/engine-cli
         with:
           engine: claude-code

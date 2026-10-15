@@ -1,0 +1,8 @@
+{
+  "name": "fedcourtsai-engine-codex",
+  "private": true,
+  "description": "The pin of the Codex CLI every codex cell, smoke and back-test runs. codex-action takes its version from here; the npm surfaces install it with npm ci against the lockfile beside it. Bumped by Dependabot.",
+  "dependencies": {
+    "@openai/codex": "0.144.1"
+  }
+}

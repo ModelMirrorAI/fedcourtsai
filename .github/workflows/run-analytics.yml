@@ -1246,14 +1246,14 @@ jobs:
       # this job ("claude native binary not installed", while the action still
       # exited `is_error: false` with no output). Install the pinned CLI here
       # instead — the engine-cli action every claude cell uses, reading the one
-      # pin in `.github/engines/package.json` — and hand the action the
+      # pin in `.github/engines/<engine>/` — and hand the action the
       # executable, which skips its own install path entirely. The pin must stay
       # at or above the floor the newest `label_model` choice needs (an older
       # CLI refuses the model id).
       - name: Install the pinned Claude Code CLI for the labeler
         id: claude-cli
         timeout-minutes: 5
-        # The pin `.github/engines/package.json` holds for every claude cell.
+        # The pin `.github/engines/claude-code/` holds for every claude cell.
         uses: ./.github/actions/engine-cli
         with:
           engine: claude-code

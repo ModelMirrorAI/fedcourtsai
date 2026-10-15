@@ -871,7 +871,7 @@ _GITHUB_DIR = Path(__file__).resolve().parents[1] / ".github"
 # The one pin every workflow installs from, and the expression a step uses to
 # defer to it. A step that defers adds no pin of its own; any other value is
 # counted as one, so a literal or a variable re-appearing in a workflow is seen.
-_ENGINE_PINS = _GITHUB_DIR / "engines" / "package.json"
+_ENGINE_PINS = _GITHUB_DIR / "engines" / "codex" / "package.json"
 _DEFERS_TO_THE_PIN = "${{"
 
 

@@ -680,8 +680,9 @@ a workflow change that reads a secret is caught by no *required* check.
 non-blockingly, and the branch policy forces such a change to become a PR diff
 at all. The real control is that `.github/workflows/**` and
 `.github/actions/**` — the permission surface, composites included, since a
-composite runs inside the job and reads the same secrets — wait for the
-maintainer even into `staging`. The `staging` ruleset enforces it for every
+composite runs inside the job and reads the same secrets — and
+`.github/engines/**`, the engine CLI pins and lockfiles every agent cell
+installs and executes, wait for the maintainer even into `staging`. The `staging` ruleset enforces it for every
 identity without the admin role: it requires a code owner's review, and
 `.github/CODEOWNERS` names the maintainer as owner of those directories, of
 this document and `SECURITY.md`, of the promotion gate and lane machinery, of
