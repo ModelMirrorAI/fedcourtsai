@@ -92,8 +92,9 @@ permissions: {}
 # to serialize corpus writers and prevent lost updates.
 # cancel-in-progress is false so a queued run waits rather than being dropped.
 # Every run of this workflow runs exactly one writer job, so every run belongs
-# in the shared group — there is no event class here that spawns a run only to
-# skip it.
+# in the shared group. A dispatch or re-run the run gate refuses still takes
+# the group while it fails (docs/security.md, *The run gate and its
+# allow-list*).
 concurrency:
   group: corpus-write
   cancel-in-progress: false
@@ -130,7 +131,7 @@ jobs:
           TRIGGERING_ACTOR: ${{ github.triggering_actor }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
         run: >-
-          python3 -I src/fedcourtsai/run_gate.py --workflow run-pull.yml
+          python3 -I -S src/fedcourtsai/run_gate.py --workflow run-pull.yml
           --event-name "$EVENT_NAME" --actor "$ACTOR"
           --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
           --github-output "$GITHUB_OUTPUT"

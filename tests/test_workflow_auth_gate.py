@@ -499,7 +499,7 @@ def test_the_authorize_job_holds_nothing_and_runs_only_the_owned_gate() -> None:
         run = norm(decide["run"])
         assert "${{" not in run, f"{name}: an expression is interpolated into the gate's shell"
         assert run == (
-            f"python3 -I {GATE_MODULE} --workflow {name}"
+            f"python3 -I -S {GATE_MODULE} --workflow {name}"
             + ' --event-name "$EVENT_NAME" --actor "$ACTOR"'
             + ' --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"'
             + ' --github-output "$GITHUB_OUTPUT"'

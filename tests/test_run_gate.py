@@ -8,7 +8,7 @@ that workflow, a re-run needs a listed human, an unchosen first attempt of a
 known event passes, and anything unreadable — the context, the event, the
 allow-list — refuses. It also pins what makes the gate the maintainer's alone:
 the module imports nothing but the standard library and runs by path under
-``python3 -I`` from a checkout holding only itself and the allow-list.
+``python3 -I -S`` from a checkout holding only itself and the allow-list.
 """
 
 from __future__ import annotations
@@ -311,8 +311,9 @@ def test_the_module_runs_by_path_from_a_checkout_of_itself_and_the_allow_list(
     tmp_path: Path,
 ) -> None:
     """The authorize job's exact shape: a sparse checkout holding only the gate
-    and the allow-list, run by path under `-I` (no site packages, no script
-    directory on the path, no PYTHON* environment), from the checkout root."""
+    and the allow-list, run by path under `-I -S` (no site packages, user or
+    system, no script directory on the path, no PYTHON* environment), from
+    the checkout root."""
     gate = tmp_path / "src" / "fedcourtsai" / "run_gate.py"
     gate.parent.mkdir(parents=True)
     gate.write_text(MODULE.read_text())
@@ -327,6 +328,7 @@ def test_the_module_runs_by_path_from_a_checkout_of_itself_and_the_allow_list(
             [
                 sys.executable,
                 "-I",
+                "-S",
                 "src/fedcourtsai/run_gate.py",
                 *("--workflow", "run-predict.yml"),
                 *("--event-name", "workflow_dispatch"),

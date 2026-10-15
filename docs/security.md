@@ -173,9 +173,10 @@ same guard.
   its own PRs, and the package, its dependencies and its lockfile are not
   code-owned. So the `authorize` job runs no project code: it sparse-checks-out
   the module and the allow-list alone (no persisted credential), and runs
-  `python3 -I src/fedcourtsai/run_gate.py` with the runner's own Python
-  (3.12 on `ubuntu-24.04`) in isolated mode — no site packages, no script
-  directory on the path, no `PYTHON*` environment. The module imports only
+  `python3 -I -S src/fedcourtsai/run_gate.py` with the runner's own Python
+  (3.12 on `ubuntu-24.04`) in isolated mode without `site` — no site
+  packages, user or system, no script directory on the path, no `PYTHON*`
+  environment. The module imports only
   the standard library, which `tests/test_run_gate.py` checks.
 - **Partial re-runs.** Re-running some of a run's jobs keeps the authorize
   job's earlier success and outputs instead of re-running it. So it publishes
@@ -190,10 +191,17 @@ same guard.
   choice, so a refused job takes its own skip group rather than displacing a
   pending writer.
 - **What it leaves open.** A refused run still takes its workflow-level
-  concurrency group while it fails — `corpus-write`, `run-predict` and the
-  rest — and a job-level group outside run-repair's skip pattern (run-backtest's,
-  promotion-record's); since GitHub keeps one pending run per group, a refused
-  run can displace a pending legitimate one, which then needs a re-dispatch. A
+  concurrency group while it fails — `corpus-write`, `run-predict`,
+  integration-test's and the rest — and a job-level group outside
+  run-repair's skip pattern (run-backtest's, promotion-record's, run-analytics'
+  `analysis` and `tool-usage`). Where the group keeps one pending run, a
+  refused run can displace a pending legitimate one, which then needs a
+  re-dispatch; where it sets `cancel-in-progress` (integration-test's, and
+  run-analytics' two), it can cancel a legitimate run already in progress —
+  for integration-test, a promotion-freshness run. Both are availability
+  only. Revoking a re-runner is removing them from `config/dispatchers.json`
+  and from repository write: a re-run executes at its run's original commit,
+  so the file alone does not reach runs created before the change. A
   refused run stays in the run history; a census that reads job conclusions by
   name with `filter=latest` (run-predict's stranded-run guard) sees a refused
   re-run of `collect` as uncollected. Repository-level secrets, which a job

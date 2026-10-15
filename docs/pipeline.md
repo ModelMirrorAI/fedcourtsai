@@ -76,7 +76,7 @@ skips every job it re-runs and fails at `run-gate`, so it never reads as a
 green run. A refused run still holds its workflow-level concurrency group
 while it fails, and can displace a pending run queued on the same group
 (*The run gate and its allow-list* in [security.md](security.md) carries
-the residuals). re-runs. The reasoning, and what the environment restriction buys beneath both,
+the residuals). The reasoning, and what the environment restriction buys beneath both,
 is the *Trigger surface* bullet in [SECURITY.md](../SECURITY.md).
 
 ## `run-ops` — the daily operational roll-up
