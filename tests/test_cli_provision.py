@@ -2235,6 +2235,101 @@ def test_a_represented_dockets_staged_text_is_left_alone(
     assert entry["contact_scrub_passes"] == []
 
 
+def test_a_court_docket_withholding_the_petitioner_block_is_shape_scrubbed(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The Court serves a pseudonymous self-represented petitioner's docket with
+    # the respondent's counsel list and no petitioner key at all. The petition
+    # is still the filer's own, signed in person: the shape pass runs over it,
+    # and the staged snapshot — which has no petitioner block to withhold —
+    # keeps the respondent's counsel block as served.
+    payload: dict[str, Any] = {
+        "CaseNumber": "25-1300 ",
+        "PetitionerTitle": "Jane Doe, Petitioner",
+        "RespondentTitle": "Agency Roe, Respondent",
+        "AttorneyHeaderRespondent": "Attorneys for Respondent",
+        "Respondent": [
+            {
+                "PartyName": "Agency Roe",
+                "Attorney": "D. John Sauer",
+                "Phone": "202-514-2217",
+                "Email": "SupremeCtBriefs@example.gov",
+            }
+        ],
+        "ProceedingsandOrder": [
+            {"Date": "Jul 01 2026", "Text": "Petition for a writ of certiorari filed."}
+        ],
+    }
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+
+    result = _provision_cell("--no-moment-cutoff")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    staged = paths.document("petition").read_text()
+    assert "jane.doe@example.com" not in staged
+    assert "(713) 555-0147" not in staged
+    assert "1234 Maple Street" not in staged
+    assert "Brady v. Maryland, 373 U.S. 83 (1963)" in staged
+    entry = _documents_manifest(fixture_corpus)["petition"]
+    assert entry["contact_scrubbed"] is True
+    assert entry["contact_replacements"] == 3
+    assert entry["contact_scrub_passes"] == ["shape"]
+    staged_payload = json.loads(paths.snapshot("2026-07-20").read_text())
+    assert "Petitioner" not in staged_payload
+    assert staged_payload["Respondent"] == payload["Respondent"]
+    assert "snapshot contact scrub: 0 value(s) withheld on 0 petitioner-side block(s)" in (
+        result.output
+    )
+    assert "no attorney named for the petitioner; passes: shape only" in result.output
+
+
+def test_a_withheld_petitioner_block_is_still_read_on_a_truncated_placement(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The trigger reads the placed payload, so a moment cut must keep the keys
+    # the withheld-block reading tests: a reconstructed docket that dropped
+    # `ProceedingsandOrder` would silently switch the scrub off.
+    _seed_merits_event(fixture_corpus)
+    payload: dict[str, Any] = {
+        "CaseNumber": "25-1300 ",
+        "AttorneyHeaderRespondent": "Attorneys for Respondent",
+        "Respondent": [{"PartyName": "Agency Roe", "Attorney": "D. John Sauer"}],
+        "ProceedingsandOrder": [
+            {"Date": "Nov 01 2025", "Text": "Petition for a writ of certiorari filed."},
+            {"Date": "Jan 15 2026", "Text": "Petition GRANTED."},
+            {"Date": "Mar 02 2026", "Text": "Brief of petitioner filed."},
+        ],
+    }
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _drop_snapshots_before(fixture_corpus, _GRANT_CUTOFF)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="petition",
+                    url="https://example/petition.pdf",
+                    entry_date="2025-11-01",
+                    fetched_at=date(2025, 11, 2),
+                    text=_SIGNED_IN_PERSON,
+                )
+            ],
+        )
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    assert _context(fixture_corpus)["snapshot_provenance"] == "truncated"
+    entry = _documents_manifest(fixture_corpus)["petition"]
+    assert entry["contact_scrubbed"] is True
+    assert entry["contact_scrub_passes"] == ["shape"]
+    staged = CasePaths(fixture_corpus.data_root, "scotus", 305).document("petition").read_text()
+    assert "jane.doe@example.com" not in staged
+
+
 def test_a_scrubbed_document_with_nothing_to_withhold_still_says_it_was_scrubbed(
     fixture_corpus: FixtureCorpus,
 ) -> None:

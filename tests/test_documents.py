@@ -56,6 +56,7 @@ from fedcourtsai.pipeline.documents import (
     scrub_contact_details,
     select_documents,
     unrepresented_sides,
+    withholds_petitioner_block,
 )
 from fedcourtsai.pipeline.live import LiveDiscovery
 from fedcourtsai.pipeline.merits_signals import (
@@ -1488,6 +1489,14 @@ def test_a_lead_with_a_self_represented_party_lends_nothing() -> None:
         "Respondent": [{"PartyName": "Coastal Freight Lines", "Attorney": "Imani Castellanos"}],
     }
     refs = {r.kind for r in select_documents(_member_payload(), lead=lead)}
+    assert not refs & {KIND_MERITS_BRIEF_PETITIONER, KIND_MERITS_BRIEF_RESPONDENT}
+    # Nor does a lead the Court serves with its petitioner block withheld: the
+    # respondent's counsel is published and the petitioner key is absent.
+    withheld_lead = {
+        **_lead_payload(*_LEAD_BRIEFS),
+        "Respondent": [{"PartyName": "Coastal Freight Lines", "Attorney": "Imani Castellanos"}],
+    }
+    refs = {r.kind for r in select_documents(_member_payload(), lead=withheld_lead)}
     assert not refs & {KIND_MERITS_BRIEF_PETITIONER, KIND_MERITS_BRIEF_RESPONDENT}
     # A self-filing amicus on the lead's `Other` list does not: an amicus brief is
     # not a staged kind.
@@ -4360,6 +4369,93 @@ def test_a_payload_serving_no_petitioner_block_reads_represented(
     # CourtListener docket names nobody because it has nowhere to — which is a
     # far wider change to what cells read than the fact it acts on.
     assert unrepresented_sides(payload) == ()
+
+
+# The Court's own docket for a pseudonymous self-represented petitioner: the
+# respondent side's counsel list and its heading are served, the petitioner
+# key is not there at all.
+_WITHHELD_PETITIONER_DOCKET: dict[str, object] = {
+    "CaseNumber": "25-1300 ",
+    "PetitionerTitle": "John Doe, Petitioner",
+    "RespondentTitle": "Agency Roe, Respondent",
+    "AttorneyHeaderRespondent": "Attorneys for Respondent",
+    "Respondent": [
+        {"PartyName": "Agency Roe", "Attorney": "D. John Sauer", "Email": "sg@example.gov"}
+    ],
+    "ProceedingsandOrder": [{"Date": "Jun 01 2026", "Text": "Petition for a writ filed."}],
+}
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        _WITHHELD_PETITIONER_DOCKET,
+        # The heading alone marks the respondent's counsel list as served.
+        {k: v for k, v in _WITHHELD_PETITIONER_DOCKET.items() if k != "Respondent"},
+        # And the list alone, without its heading.
+        {k: v for k, v in _WITHHELD_PETITIONER_DOCKET.items() if k != "AttorneyHeaderRespondent"},
+        # Key presence is what is tested, not a populated list: the error this
+        # admits is an over-scrub, never a filer's details staged.
+        {"ProceedingsandOrder": [], "Respondent": []},
+    ],
+)
+def test_a_court_docket_withholding_the_petitioner_block_reads_unrepresented(
+    payload: dict[str, object],
+) -> None:
+    # The Court publishes counsel for this docket and leaves the petitioner's
+    # own block off: that is how it serves a pseudonymous self-represented
+    # filer, and it is evidence about the docket rather than a payload shape.
+    assert withholds_petitioner_block(payload)
+    assert unrepresented_sides(payload) == ("Petitioner",)
+    # No block served, so no value to key the value pass on: the shape pass
+    # alone runs, and the respondent's counsel is never keyed on.
+    assert party_contact_values(payload, unrepresented_sides(payload)) == ()
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        # The CourtListener REST shape: no counsel lists anywhere, whatever else
+        # it serves.
+        {"id": 305, "docket_number": "25-1300", "docket_entries": [{"id": 1}]},
+        {
+            "id": 305,
+            "docket_entries": [{"id": 1}],
+            "Respondent": [{"PartyName": "Agency Roe", "Attorney": "D. John Sauer"}],
+        },
+        # The Court's shape serving no counsel list on either side.
+        {
+            k: v
+            for k, v in _WITHHELD_PETITIONER_DOCKET.items()
+            if k not in {"Respondent", "AttorneyHeaderRespondent"}
+        },
+        # The petitioner key served, empty or null: served, so read as nothing.
+        {**_WITHHELD_PETITIONER_DOCKET, "Petitioner": []},
+        {**_WITHHELD_PETITIONER_DOCKET, "Petitioner": None},
+        # Served with counsel: represented, as ever.
+        {
+            **_WITHHELD_PETITIONER_DOCKET,
+            "Petitioner": [{"PartyName": "John Doe", "Attorney": "Paul D. Clement"}],
+        },
+    ],
+)
+def test_only_the_courts_docket_withholding_the_petitioner_key_reads_so(
+    payload: dict[str, object],
+) -> None:
+    assert not withholds_petitioner_block(payload)
+    assert "Petitioner" not in unrepresented_sides(payload)
+
+
+def test_a_withheld_petitioner_block_keeps_the_other_lists_readings() -> None:
+    # The withheld block adds the petitioner side; a self-represented respondent
+    # or amicus served on the same docket still reads, in list order.
+    payload = {
+        **_WITHHELD_PETITIONER_DOCKET,
+        "Respondent": [{"PartyName": "Richard Roe", "Attorney": "Richard Roe"}],
+        "Other": [{"PartyName": "Prof. Ann Major", "Attorney": "Ann Major"}],
+    }
+
+    assert unrepresented_sides(payload) == ("Petitioner", "Respondent", "Other")
 
 
 @pytest.mark.parametrize(

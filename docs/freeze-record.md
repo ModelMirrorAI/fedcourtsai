@@ -8682,3 +8682,155 @@ freeze commit is recorded here.
   at mint shows `refusing to provision forward cell … the live docket polled at
   …` in its job log, no committed output, and a row under *Pre-mint refusals*
   in the round's run PR body or agent-feedback comment.
+
+- **A Court docket that withholds the petitioner's counsel block is read as
+  self-represented on the petitioner side by both contact scrubs,
+  2026-10-15.** A **conditioning** entry in the *what the pipeline provisions*
+  class. The docket-level trigger (`unrepresented_sides`) reads an absent side
+  as **unknown**, which the 2026-09-21 entry registered so that the
+  CourtListener REST shape, which carries no counsel blocks anywhere, is not
+  scrubbed because of its payload shape. The Court serves a pseudonymous
+  self-represented petitioner's docket the same way it serves any other
+  docket, except that the `Petitioner` key is missing. That petitioner's
+  staged petition therefore stayed unscrubbed. This was observed in evaluate
+  run `20261005T221055Z` on `scotus/73372297` (No. 25-1300). Its provisioned
+  `petition.txt` carried two email-pattern matches with
+  `contact_scrubbed: false`, and claude-judge flagged it. The committed
+  ledger for that case holds no email match. The staged text is runner-local
+  and never committed, so nothing was published.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v9` and
+  the six digests `605201bd…` (claude-baseline), `70fee158…`
+  (codex-baseline), `a9033e56…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `18a76b93…` (codex-judge) and `22558044…` (gemini-judge).
+
+  **What changes.** One absence is now read as evidence
+  (`withholds_petitioner_block`). A payload qualifies when all three of
+  these hold:
+  - it is the Court's own docket shape, meaning it carries
+    `ProceedingsandOrder`, which a CourtListener REST docket never does;
+  - it carries the respondent side's counsel key, meaning the `Respondent`
+    key or its `AttorneyHeaderRespondent` heading;
+  - it carries **no** `Petitioner` key.
+
+  All three are tests of **key presence**, never of a key's value. A payload
+  carrying `ProceedingsandOrder` and an empty `Respondent` list therefore
+  qualifies. The error this admits is an over-scrub, which withholds counsel's
+  professional details and never stages a filer's own.
+
+  Such a payload reads `Petitioner` in `unrepresented_sides`. Every reader of
+  that trigger moves with it:
+  - **The staged documents** get the shape pass. No petitioner block is
+    served, so there is no value to key the value pass on. The manifest reads
+    `contact_scrub_passes` `["shape"]`. Where the payload also qualifies on
+    its `Other` list alone, the documents move from `["value"]` to
+    `["value", "shape"]`.
+  - **The staged snapshot** has no petitioner block to withhold. The
+    respondent's counsel block stays as served, and the run log echoes `0
+    value(s) withheld on 0 petitioner-side block(s)`.
+  - **A consolidated member's borrow** refuses a lead that withholds its
+    petitioner block, as it already refuses a lead whose party side reads
+    self-represented. The member then stages none of that lead's merits
+    filings.
+
+  The following stay as they were:
+  - a `Petitioner` key served empty or null, which is still read as nothing;
+  - a CourtListener REST docket;
+  - a Court docket carrying neither side's counsel key;
+  - every docket that serves a petitioner block.
+
+  **A known residual.** The third item above is not closed. A pseudonymous
+  self-represented petitioner whose docket the Court serves with no counsel key
+  on either side, typically before the respondent appears, still stages its
+  text as filed. On that payload nothing tells a withheld block apart from a
+  docket the Court has not yet populated. The census below counts these
+  dockets, so the residual is sized rather than assumed.
+
+  **The trade.** The shape pass runs over every staged document on such a
+  docket, including a brief in opposition filed by the respondent's counsel,
+  as it already does on any docket read as self-represented on a party side.
+  That counsel's professional contact details are withheld, and legal prose
+  the shape pass misreads is withheld with them.
+
+  **The population.** Triage counted **76** SCOTUS rows in blob `c85bda09…`
+  (newest pull stamp `2026-10-05`) that carry counsel but no petitioner-role
+  block. **14** of them are salience-selected and **4** are pending. That
+  figure was read off the corpus row's counsel, not by running this predicate
+  over each row's latest payload. The real-predicate read is a read-only
+  script in the carrying PR's description, run over the latest live snapshot
+  and stored documents of every SCOTUS row. For each class (newly scrubbed,
+  value-only to value+shape, or unchanged) it gives the number of dockets,
+  how many are selected and how many pending, and the total spans the scrub
+  withholds. It also counts the residual above, Court-shaped payloads with
+  neither counsel key, split into selected and pending. It prints no value.
+  Its summary counts, with the blob's sha and its `corpus-info` vintage, go
+  on the next line, which must stay one line of plain prose with no angle
+  bracket or backtick:
+  <FILL: census summary counts, blob sha and vintage, as one plain line>
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut. The pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row.** The boundary is `scrub-withheld-petitioner-block`.
+    It applies to every predictor, its reach is `self-represented dockets`,
+    and it is not gradual: provisioning reads the payload already stored, so
+    the next cell provisioned on an affected docket reads the change, with no
+    back-fill needed. The row is registered **pending** in the change's own
+    PR (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration. Its `merge` and `at` are null until the promotion merge that
+    carries it to `main` stamps them with that merge's SHA and committer time
+    (`promotion-record`). Until then the row is left out of
+    `process_version.HARNESS_BOUNDARIES`, so no cell has a side of it. A board
+    built meanwhile names it under `frozen_process.pending`.
+  - **The side test** is the registered one. A stamped cell is after the change
+    if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`. A cell with no `pipeline_sha` is counted on
+    neither side, and its number is listed.
+  - **Exposure is an upper bound,** as for the earlier scrub boundaries. Whether
+    a docket withholds its petitioner block lives only in the corpus, so the
+    after-side `n` counts the cells that could have read the change, not the
+    cells that did.
+
+  **What a post-change cell reads.** On an affected docket, the cell reads a
+  subset of the pre-change document text and the same snapshot. Its
+  `documents.json` reads `contact_scrubbed: true` with `contact_scrub_passes`
+  `["shape"]`, where before it read `false` with `[]`. That holds on every
+  staged document, including one whose text does not change. On a
+  consolidated member whose lead withholds its petitioner block, the borrowed
+  merits filings are no longer staged. No skill movement is predicted. A
+  movement in **either** direction across this boundary may not be read as a
+  model effect.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves. Nothing is written to the corpus. The corpus row,
+  the content-store payload and the source PDF are untouched. The three lanes
+  that stage through this provisioning narrow the same way from the carrying
+  promotion on: predict cells, evaluate cells and the case-summary lane's
+  `summary-stage`. Summaries that already exist are not re-derived, and a
+  summary's record digest is taken from the corpus payload, so the change
+  moves no digest and re-owes no summary. Cells already run on an affected
+  docket stay as they are. They read the filer's details as filed, which is
+  more information, not leaked information.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py tests/test_cli_provision.py -k
+    withholding_the_petitioner` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    six digests above;
+  - `uv run fedcourts provision-snapshot --court scotus --docket 73372297`
+    (with the data root pointed at a scratch directory) echoes `contact
+    scrub: N detail(s) withheld across M staged document(s) (no attorney
+    named for the petitioner; passes: shape only)` with a non-zero `N`, while
+    its latest payload still serves no `Petitioner` key;
+  - on `main` once the boundary row is stamped, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('scrub-withheld-petitioner-block' in {b.name for b in H})"` prints
+    `True`.

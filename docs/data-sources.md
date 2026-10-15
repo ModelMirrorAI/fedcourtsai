@@ -775,7 +775,12 @@ material**:
   **served** block: a payload carrying no counsel on a side is unknown rather
   than unrepresented on that side, and a respondent who has not appeared has no
   block to read, so a docket awaiting its opposition is not scrubbed on that
-  account. The `Other` list — amici and other non-party filers — is read on
+  account. One exception: the Court's own docket JSON (it carries
+  `ProceedingsandOrder`) that carries the respondent side's counsel key but no
+  `Petitioner` key at all is how the Court serves a pseudonymous
+  self-represented petitioner, and it is read as self-represented on the
+  petitioner side; with no block served, the staged text gets the shape pass
+  alone. The `Other` list — amici and other non-party filers — is read on
   the first two arms (no attorney, or the amicus as its own); the
   register-number arm is not asked there, because `PrisonerId` on that list
   holds free text rather than a register number, and only a qualifying
