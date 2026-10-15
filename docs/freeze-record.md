@@ -8834,3 +8834,144 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('scrub-withheld-petitioner-block' in {b.name for b in H})"` prints
     `True`.
+
+- **A placed cell on a moment whose trigger is one docket entry must carry that
+  entry, dated on the day its event opened, 2026-10-15.** A **provisioning
+  cutoff** change and a **membership rule**. It moves which stored snapshot a
+  cell on the `cvsg`, `response-requested` or `response-filed` moment is placed
+  on, and it refuses the cell where no stored payload carries the trigger. It
+  moves no digest, no constant and no window: `uv run fedcourts process-digest
+  --all` prints the same `proc-v9` digests.
+
+  **The defect it closes.** A stored snapshot from before the cutoff was taken
+  as `dated` wherever it carried any entry from the trigger day. A day can
+  carry more than one entry, so a pull taken on the trigger day before the
+  trigger was docketed passed. On `scotus/9526000477`
+  (`evt-order-response-requested-disposition`, opened 2026-10-08), predict runs
+  `20261014T142540Z` (claude-baseline, codex-baseline) and `20261014T174020Z`
+  (gemini-baseline) placed all three engines' cells on the 2026-10-08 pull,
+  which held only the application docketed that day. Each context froze
+  `response_requested=false`, `referred_to_court=false` and `amicus_briefs=0`
+  for a cell filed under the response-requested moment.
+
+  **The three committed cells.** They are `proc-v9` frozen-stratum forward
+  cells, graded on evaluate `20261015T154823Z` by three judges: claude-judge
+  and codex-judge each flagged the missing trigger, and gemini-judge wrote no
+  `flags.json`. Against the outcome (denied, 2026-10-14; `interim_signals`
+  `response_requested`, `referred_to_court` true, `amicus_briefs` 1), the
+  `response-requested-increment` claim resolved 1 on the request that defined
+  the cell; it carries `score` null only because its baseline returns `None`
+  (`claims._baseline_response_requested_increment`). A later entry registering
+  that baseline must address these three cells or void them, or they score as
+  skill on their own trigger. The `amicus-increment` claim also resolved 1, off
+  the amicus brief docketed the same day as the request, and is likewise
+  unscored only for want of a baseline. The scored `interim-disposition` claim
+  stays counted: the missing entries are signals, not the outcome.
+
+  **Census.** On `origin/main` at `457b395cb` (2026-10-15T20:40:31Z), over
+  every committed `prediction.json`:
+
+  - **response-requested:** 38 predictions (23 `dated`, 13 `truncated`, 2
+    `as-stored`). Those three are the only ones whose context carries
+    `response_requested=false`, which is the trigger's absence.
+  - **cvsg:** 78 predictions (12 `dated`, 66 `truncated`). None carries a null
+    `cvsg_date`, and a non-null one proves the invitation was on the placed
+    payload, so **0 are affected**.
+  - **response-filed:** 32 predictions (23 `dated`, 6 `truncated`, 3
+    `as-stored`). No context field records a filed response, so the 23 `dated`
+    cells cannot be screened from the ledger. By label they are `proc-v9` 3,
+    `proc-v8` 12, `proc-v5` 5, `proc-v3` 3. How many lacked their response is
+    unmeasured here; the check is below.
+
+  **The rule.** From this entry's carrying merge, `provision-snapshot` reads the
+  trigger entry of those three moments with the same parse that dated the
+  event's `opened_at` at ingest (`cert_signals.snapshot_cvsg_date`,
+  `interim_signals.response_requested_date`,
+  `interim_signals.response_filed_date`; `provision.TRIGGER_READERS`). Each
+  takes the first dated matching entry and parses its date strictly.
+
+  - A stored snapshot from before the cutoff is taken as `dated` only where
+    that parse finds the trigger **on the day the event opened**
+    (`provision.dated_from_trigger`). One carrying an older matching entry and
+    nothing from that day is refused as `dated`, as the trigger-day rule
+    refused it.
+  - Otherwise the cell is reconstructed from the latest payload as before
+    (`truncated`). The reconstruction must carry a matching entry strictly
+    before the cutoff (`provision.carries_trigger`). The bound is looser here on
+    purpose: a cut of the latest payload has no lower-bound problem, and a
+    trigger dated earlier than the event is the moment having happened by the
+    cutoff, a disagreement no later pull would resolve.
+  - If the reconstruction does not carry the trigger either, the cell is
+    refused (exit 5, nothing written) in either `--mode`.
+  - Every other moment keeps the trigger-day rule.
+
+  A trigger whose date the strict parse cannot read is treated as absent, which
+  reconstructs or refuses rather than placing a cell.
+
+  **A boundary on the `dated` arm.** On these three moments,
+  `snapshot_provenance: dated` changes meaning at the carrying merge. Before
+  it, the value meant a pull with any entry from the trigger day. After it, the
+  value means a pull carrying the trigger entry dated on that day. No context
+  field separates the two sides, which is the shape
+  [process-version.md](process-version.md) names for a redefinition of an
+  existing value. The split is the cell's stamp: a cell whose
+  `process_version.pipeline_sha` descends from the carrying merge is after it.
+  No figure over those moments' `dated` arm pools across it. The
+  harness-boundary row `single-entry-trigger-placement` (reach `all`, every
+  predictor) is registered pending in this entry's carrying PR, and the
+  carrying merge stamps it, so it joins `HARNESS_BOUNDARIES` with that merge
+  as its carrying commit.
+
+  **What the refusal selects.** The refusal is a membership rule, and on the
+  interim moments it is plausibly correlated with the outcome:
+
+  - A refused cell is owed again by a later round. If the application is
+    decided in the meantime, the forward gate refuses it there, so quick
+    dispositions are under-represented among placed cells — the same direction
+    as the pre-mint refusal above.
+  - Where the stored latest payload disagrees with the event's date, or carries
+    degraded proceedings, the refusal never clears. `run-predict` treats exit 5
+    as a refusal and runs no agent, but `collect` does not exempt it from the
+    attempt cap as it exempts a pre-mint refusal, so after enough rounds the cap
+    retires the cell.
+  - The refused count is unmeasured. No artifact records the cause: exit 5
+    writes no cause into the cell's `status.json`, and `collect` books it as an
+    ordinary no-output cell.
+  - Engines provision independently, so a pull landing between two engines'
+    provisioning steps can refuse one engine and place another. A per-engine
+    figure is read beside that, as with the pre-mint refusal.
+  - A cell refused until a pull stores its trigger is forecast later than one
+    placed at once, which the placement lag (`integrity.context_lag_days`)
+    shows.
+
+  **What it does not do.** It de-counts nothing already committed: the three
+  cells above stay as they are. Whether an increment claim should be scored as
+  skill when its signal predates the run is a separate scoring decision this
+  entry does not make.
+
+  **Reconstructing the affected set.** For each committed `dated`
+  response-filed cell, load the stored snapshot that `input_snapshot` names from
+  the corpus, and apply the moment's `provision.TRIGGER_READERS` reader. A cell
+  is moved if the reader does not return the event's `opened_at`. Count it moved
+  either way it lands under the rule, whether `truncated` or refused (exit 5).
+
+  One residual bounds that check. The stored snapshot for a day may not be the
+  pull the cell read. `corpus.upsert_snapshot` overwrites a second pull on the
+  same day ("a second pull on the same day overwrites that day's snapshot"),
+  and `casestore.write_snapshot` writes the same key again. Its docstring calls
+  the object "immutable per day", which that overwrite contradicts. So a cell
+  that read an early pull can find a later same-day pull stored in its place.
+  The check then reads the cell as unmoved when it was moved, so its count is a
+  lower bound.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **The runnable effect check once it is live.** Take the first predict round
+  after the carrying merge that places a `response-requested` cell, and run
+  `jq -r '.context.response_requested'` over that round's
+  `evt-order-response-requested-disposition/predictions/*/<run>/prediction.json`.
+  It prints at least one `true` and no `false`. A cell refused under the rule
+  shows `refusing to provision … no stored snapshot carries the docket entry
+  that opened the moment` and `exit 5` in its job log, with no committed
+  output.

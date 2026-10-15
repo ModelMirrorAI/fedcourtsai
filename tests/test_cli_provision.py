@@ -1752,6 +1752,122 @@ def test_an_unanchorable_arrival_row_refuses_rather_than_taking_the_date_cut(
     assert not paths.snapshot("2026-06-23").exists()
 
 
+# --- a single-entry trigger must be on the placed snapshot --------------------
+
+_RESPONSE_REQUESTED = "Response to application (26A11) requested, due July 2, 2026."
+_REQUEST_DAY = date(2026, 6, 25)
+
+
+def _seed_response_requested_event(fixture_corpus: FixtureCorpus) -> None:
+    """Give the fixture's application docket its response-requested moment."""
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-response-requested-disposition",
+                    case_id="scotus/306",
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.interim,
+                    moment=Moment.response_requested,
+                    title="Marbury Power Cooperative v. Ellison",
+                    decision_target="disposition",
+                    opened_at=_REQUEST_DAY,
+                )
+            ],
+        )
+
+
+def _provision_response_requested(*args: str) -> Result:
+    return runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "306",
+            "--event",
+            "evt-order-response-requested-disposition",
+            *args,
+        ],
+    )
+
+
+def test_a_trigger_day_pull_without_the_trigger_is_not_taken_as_dated(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A pull taken on the request day, before the request was docketed: it
+    # carries an entry from the trigger day (the application filed that same
+    # day), so the day rule alone would take it as `dated`, and the cell would
+    # be forecast without its own trigger while its increment claim resolved on
+    # that trigger. The latest payload does carry the request, so the cell is
+    # reconstructed from it instead.
+    _seed_response_requested_event(fixture_corpus)
+    _seed_application_snapshot(
+        fixture_corpus, _REQUEST_DAY, [("2026-06-25", _APPLICATION_SUBMITTED)]
+    )
+
+    result = _provision_response_requested()
+
+    assert result.exit_code == 0, result.output
+    context = _application_context(fixture_corpus)
+    assert context["snapshot_provenance"] == "truncated"
+    assert context["cutoff"] == "2026-06-26"
+    assert context["response_requested"] is True
+    payload = json.loads(
+        CasePaths(fixture_corpus.data_root, "scotus", 306).snapshot("2026-06-26").read_text()
+    )
+    assert _RESPONSE_REQUESTED in [e["description"] for e in payload["docket_entries"]]
+
+
+def test_a_dated_pull_carrying_the_trigger_is_still_preferred(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    _seed_response_requested_event(fixture_corpus)
+    _seed_application_snapshot(
+        fixture_corpus,
+        _REQUEST_DAY,
+        [("2026-06-22", _APPLICATION_SUBMITTED), ("2026-06-25", _RESPONSE_REQUESTED)],
+    )
+
+    result = _provision_response_requested()
+
+    assert result.exit_code == 0, result.output
+    context = _application_context(fixture_corpus)
+    assert context["snapshot_provenance"] == "dated"
+    assert context["snapshot_date"] == _REQUEST_DAY.isoformat()
+    assert context["response_requested"] is True
+
+
+@pytest.mark.parametrize("mode", ["forward", "replay"])
+def test_a_trigger_no_stored_snapshot_carries_refuses_the_cell(
+    fixture_corpus: FixtureCorpus, mode: str
+) -> None:
+    # No stored payload shows the request — the event was dated off a pull the
+    # snapshot store does not hold, or the latest pull lost the entry. There is
+    # nothing honest to place the cell on, so it is refused in either mode and
+    # nothing is written.
+    _seed_response_requested_event(fixture_corpus)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        conn.execute("DELETE FROM snapshots WHERE case_id = ?", ("scotus/306",))
+        conn.commit()
+    _seed_application_snapshot(
+        fixture_corpus,
+        date(2026, 7, 14),
+        [("2026-06-22", _APPLICATION_SUBMITTED), ("2026-07-02", "Response to application filed.")],
+    )
+
+    result = _provision_response_requested("--mode", mode)
+
+    assert result.exit_code == 5, result.output
+    assert "opened the moment" in result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 306)
+    assert not paths.cell_context.exists()
+    assert not paths.snapshot("2026-06-26").exists()
+
+
 # --- the ledger: the figures the freeze record cites come from here -----------
 
 
@@ -3036,6 +3152,34 @@ def test_the_cascade_refuses_an_unanchorable_moment_before_any_cell_runs(
             court="scotus",
             docket=306,
             event="evt-motion-disposition",
+            run_id="20260720T120000Z",
+        )
+    assert not list(data_root.rglob("prediction.json"))
+    assert not CasePaths(data_root, "scotus", 306).cell_context.exists()
+
+
+def test_the_cascade_refuses_a_moment_whose_trigger_no_payload_carries(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # The same refusal `provision-snapshot` answers with exit 5, raised while the
+    # cascade places its targets, so nothing is predicted and no record written.
+    _seed_response_requested_event(fixture_corpus)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        conn.execute("DELETE FROM snapshots WHERE case_id = ?", ("scotus/306",))
+        conn.commit()
+    _seed_application_snapshot(
+        fixture_corpus, date(2026, 7, 14), [("2026-06-22", _APPLICATION_SUBMITTED)]
+    )
+    data_root = tmp_path / "cascade"
+
+    with pytest.raises(CascadeError, match="opened the moment"):
+        run_cascade(
+            corpus_db_path=fixture_corpus.db_path,
+            data_root=data_root,
+            config_root=Path("config"),
+            court="scotus",
+            docket=306,
+            event="evt-order-response-requested-disposition",
             run_id="20260720T120000Z",
         )
     assert not list(data_root.rglob("prediction.json"))

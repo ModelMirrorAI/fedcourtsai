@@ -2123,14 +2123,24 @@ the rendered table) and
   declared moment carries the same `dated`/`truncated` split, so no forward
   figure over placed cells may be published without those counts stated inline.
   The split is not cosmetic on either axis. It is **selected**: `dated` needs a
-  pull that landed on the trigger day, which the live poller does for
+  pull that landed on the trigger day — and, on the `cvsg`,
+  `response-requested` and `response-filed` moments, one carrying the trigger
+  entry dated on the day the event opened — which the live poller does for
   watchlisted and salient dockets and not for the rest, so the residual
   concentrates in the `truncated` arm rather than spreading evenly. And the two
   arms err in opposite directions — `dated` brackets the moment from below (it
   is the docket as pulled, so it can miss entries filed later the same day),
   `truncated` from above (it reconstructs to the cutoff but carries the undated
   counsel/amici blocks as at a much later pull). Pooling them averages a
-  selected mixture of two different biases.
+  selected mixture of two different biases. On those three trigger moments a
+  cell no stored payload places is refused rather than placed, so placed-cell
+  counts exclude it, and the refused count is not derivable from the ledger:
+  the refusal writes no cause into the cell's status, and `collect` books it as
+  an ordinary no-output cell. The `dated` arm on those moments also changes
+  meaning at the carrying merge of the exact-trigger rule (before it, a pull
+  from the trigger day sufficed); no context field separates the two sides, and
+  the split is the stamp's `process_version.pipeline_sha` (see the freeze
+  record), so a figure over that arm does not pool across it.
 
   **A third number is owed with them: the placement lag.** Provenance says how
   the snapshot was built; it does not say how old the moment was when the cell

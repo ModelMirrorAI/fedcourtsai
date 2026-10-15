@@ -689,6 +689,16 @@ instant as `context.cutoff`. On the interim arrival moment that day is only the
 outer bound — the snapshot stops at the docket entry that opened the event, and
 `context.cut_kind` / `context.cut_anchor_index` record that boundary — and a row
 whose opening entry cannot be anchored is refused rather than cut at the date.
+On a moment whose trigger is one docket entry — the CVSG invitation, the
+response request, the filed response — the placed snapshot must carry that
+entry: a stored snapshot is taken as `dated` only where its trigger falls on
+the day the event opened, and a cell no stored payload shows it on is refused.
+The refusal is a membership rule as well as a placement one, and plausibly
+outcome-correlated: a re-owed cell whose application is decided in the
+meantime is then refused by the forward gate, so quick dispositions are
+under-represented. Where the stored latest payload disagrees with the event's
+date or carries degraded proceedings, the refusal never clears and the attempt
+cap retires the cell; no artifact records which cells that was.
 The terminal-refusal gates below run on the latest
 payload first, before any cut — a disposition filed after the cutoff is exactly
 what a cut would otherwise hide. See [cli.md](cli.md) for the flag, the two

@@ -274,6 +274,14 @@
       "predictors": null,
       "reach": "self-represented dockets",
       "gradual": false
+    },
+    {
+      "name": "single-entry-trigger-placement",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
     }
   ]
 }
