@@ -328,10 +328,10 @@ def test_every_enabled_actor_runs_a_blessed_process() -> None:
     assert actors, "an empty enabled fleet cannot be what the freeze blessed"
     for role, entry in actors:
         digest = process_version.digest_for_actor(REPO, CONFIG, role, entry.id)
-        assert digest in process_version.FROZEN_PROCESS_DIGESTS, (
-            f"{role} {entry.id}: the tree computes {digest}, which is not blessed — "
-            "the process moved after the freeze; re-bless it deliberately or bump "
-            "the label, in the same commit as the change that moved it"
+        assert digest in process_version.REGISTERED_PROCESS_DIGESTS, (
+            f"{role} {entry.id}: the tree computes {digest}, which is not registered — "
+            "the process moved after the freeze; register it deliberately "
+            "(`fedcourts register-process`), in the same commit as the change that moved it"
         )
 
 
@@ -356,7 +356,7 @@ def test_the_blessed_set_holds_nothing_beyond_the_live_fleet() -> None:
     live = {
         process_version.digest_for_actor(REPO, CONFIG, role, entry.id) for role, entry in actors
     }
-    stale = sorted(set(process_version.FROZEN_PROCESS_DIGESTS) - live)
+    stale = sorted(set(process_version.REGISTERED_PROCESS_DIGESTS) - live)
     assert not stale, (
         f"blessed but computed by no enabled actor: {', '.join(stale)} — a "
         "supersession that added the new digests without retiring the old ones; "

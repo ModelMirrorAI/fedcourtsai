@@ -7866,11 +7866,11 @@ freeze commit is recorded here.
   `proc-v9` rubric existed, and no reading this rule governs had an outcome
   under the new rubrics.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`). At the carrying merge,
+  Carried to `main` by `promotion/2026-10-13` (merge commit
+  `43933a6382d731bb6f96b269e60cb6f6afeee7a5`, merged `2026-10-13T17:54:17Z`). At the carrying merge,
   committed evaluations on `origin/main` carrying any of the three `proc-v9`
   evaluator digests (`167b7d71…`, `18a76b93…`, `22558044…`; `git grep` over
-  `data/`): `<FILL: proc-v9 judge-digest evaluations at the carrying merge>`.
+  `data/`): `0`.
 
   The runnable effect check once it is live: on `main`, after the next
   metrics refresh, `jq '[.entries[].big_case.by_signature | length],
@@ -7914,8 +7914,8 @@ freeze commit is recorded here.
   `metrics/cert-backtest.json` records no lost cell for any engine
   (`events_scored` 10 each), so no published figure moves.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-13` (merge commit
+  `43933a6382d731bb6f96b269e60cb6f6afeee7a5`, merged `2026-10-13T17:54:17Z`).
 
 - **A prompted fetch's retrieval-log row carries its URL ahead of the
   prompt, 2026-10-12.** A **capture** change of the masking-surface class: no
@@ -7971,8 +7971,8 @@ freeze commit is recorded here.
   the carrying merge is a floor on claude's fetch channel in particular, and a
   comparison across that boundary compares two capture regimes.
 
-  **Carrying merge.** <FILL: promotion tag>, merge <FILL: merge SHA> at
-  <FILL: merged time UTC>.
+  **Carrying merge.** promotion/2026-10-13, merge 43933a6382d731bb6f96b269e60cb6f6afeee7a5 at
+  2026-10-13T17:54:17Z.
 
   **Effect check.** On `main`, once a run-predict round after the carrying
   merge has landed a claude cell that used `WebFetch`, `jq -r '.calls[] |
@@ -8016,8 +8016,8 @@ freeze commit is recorded here.
   `run-backtest` with the gemini lane lands its gemini cells with no file-tool
   refusal for a path outside the workspace in the engine log.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-13` (merge commit
+  `43933a6382d731bb6f96b269e60cb6f6afeee7a5`, merged `2026-10-13T17:54:17Z`).
 
 - **The scored boards count each figure's cells by whether their logs show a
   fetch of a court filing, and read a paired figure over the paired events on
@@ -8107,10 +8107,10 @@ freeze commit is recorded here.
   `proc-v8` digests carried forward, so 256 and 253 committed predictions
   carry them, every one predating the cutover's first grading.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`). At the carrying merge,
+  Carried to `main` by `promotion/2026-10-13` (merge commit
+  `43933a6382d731bb6f96b269e60cb6f6afeee7a5`, merged `2026-10-13T17:54:17Z`). At the carrying merge,
   committed evaluations on `origin/main` carrying any of the three `proc-v9`
-  evaluator digests: `<FILL: proc-v9 judge-digest evaluations at the carrying merge>`.
+  evaluator digests: `0`.
 
   The runnable effect check once it is live: on `main`, after the next
   metrics refresh, `jq '[.entries[] | {predictor_id, self_provisioning}],
@@ -8242,16 +8242,16 @@ freeze commit is recorded here.
   application rows only. Nothing is written by this change itself; the pass
   runs only as a dispatched `run-repair` apply.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`). Applied by run
-  `<FILL: apply run id>` on `<FILL: apply date>`, landing
-  `<FILL: rows landed>` rows. The first statpack refreshed after it, at commit
-  `<FILL: statpack refresh commit>`, reads the OT2026 pool as
-  `<FILL: OT2026 pool granted/resolved>` (from
-  `<FILL: OT2026 pool before, granted/resolved>`), the OT2025 pool as
-  `<FILL: OT2025 pool granted/resolved>` (from
-  `<FILL: OT2025 pool before, granted/resolved>`) and the OT2024 pool as
-  `<FILL: OT2024 pool granted/resolved>`.
+  Carried to `main` by `promotion/2026-10-13` (merge commit
+  `43933a6382d731bb6f96b269e60cb6f6afeee7a5`, merged `2026-10-13T17:54:17Z`). Applied by run
+  `38445409277` on `2026-10-13`, landing
+  `1177` rows. The first statpack refreshed after it, at commit
+  `cf9ae960e0a992ca4a051ace24307cf15b9bfb12`, reads the OT2026 pool as
+  `53/549` (from
+  `35/422`), the OT2025 pool as
+  `36/323` (from
+  `18/196`) and the OT2024 pool as
+  `18/127`.
 
   The runnable effect check once it is live:
   - `uv run fedcourts backfill-applications --term 23 --limit 20` (a dev
@@ -8268,3 +8268,417 @@ freeze commit is recorded here.
     a duplicated number. Any residue is named here rather than rounded away.
     `uv run fedcourts process-digest --all` still prints `proc-v9` and the
     same six digests.
+
+- **An event whose docket number the Court re-docketed is voided, and its
+  gradings leave every scored surface: `scotus/9026000221`
+  `evt-petition-arrival-disposition`, 2026-10-14.** A **de-count for a stated
+  defect**, at event grain. It moves no digest, no constant, no window and no
+  label: `uv run fedcourts process-digest --all` prints the same `proc-v9`
+  digests. It narrows the 2026-10-11 statement that revocation is the only
+  de-count: revocation stays the only de-count of a **window's** cells, and a
+  **void** is the only de-count of a **single event's**, each on its own dated
+  entry stating the defect, under the admissibility rule `docs/process-version.md`
+  states in *Voiding an event*. A void is registered in
+  `src/fedcourtsai/voided_events.json`, a code-owned file, so every void is
+  maintainer-merged.
+
+  **The defect, and the ground.** The event's committed outcome records a
+  different petition than the one the event was opened on — the rule's one
+  ground, `redocketed`. On 2026-08-20 the live channel onboarded the Court's
+  No. 26-221 as *Mara Nathan et al. v. Alamo Heights Independent School
+  District* (Fifth Circuit No. 25-50695, docketed August 20, 2026), opened
+  this arrival event under that caption, and predict run `20260820T231432Z`
+  forecast it: claude-baseline 0.72, codex-baseline 0.72, gemini-baseline
+  0.90, each a forecast of Nathan. The Court then re-docketed: No. 26-221
+  became *Theodore James Purdy v. Kansas* (Court of Appeals of Kansas No.
+  126,981, docketed August 21, 2026), and Nathan appears to sit at No. 26-257.
+  The event's `outcome.json` records Purdy's denial on 2026-10-13, and
+  evaluate run `20261014T154957Z` graded the three Nathan forecasts against it.
+
+  **Shown outcome-blind, from stored payloads alone.** The content store's
+  dated snapshots of `scotus/9026000221` are the Court's own docket JSON for
+  `CaseNumber 26-221`: the 2026-08-20 snapshot names Nathan, the Fifth Circuit
+  number and a docketed date of August 20; every snapshot from 2026-10-05 on
+  names Purdy, the Kansas number and a docketed date of August 21. The case has
+  no snapshot between those dates, so the re-docketing fell between polls. The
+  ingest recorded what the Court served; what failed is that nothing compares
+  a stored docket's identity across snapshots.
+
+  **How it was detected: outcome-triggered.** codex-judge flagged a blocker
+  and claude-judge a warning on the graded event, and the agent-feedback
+  triage of 2026-10-14 surfaced them. The defect was then confirmed from the
+  payloads above, without reference to the outcome's value or the scores. No
+  systematic scan has been run, so **the voids so far may be incomplete**:
+  unchecked pending detection are the single-event graded live cases
+  `scotus/9026000006`, `9026000027`, `9026000045`, `9026000139`,
+  `9026000152` and `9026000173`, and the 168 SCOTUS cases on `main` at
+  `5643cbbee` holding a committed prediction on an event not yet resolved.
+
+  **What is removed, and what it scored.** The six gradings of the three
+  forecasts: claude-judge and codex-judge, each over claude-baseline,
+  codex-baseline and gemini-baseline, all under the `proc-v9` judge digests
+  (`167b7d71…`, `18a76b93…`). **All six were misses** (`correct: 0`), with
+  Brier 0.5184 (claude-baseline), 0.5184 (codex-baseline) and 0.81
+  (gemini-baseline) under each judge. gemini-judge has no grading on the
+  event. `store.stratify` drops the gradings after the run collapse and before
+  any stratum, window composition, forward-claim or leakage denominator counts
+  them; the agreement views and the tool-usefulness join drop the event's
+  reads; no evaluate cell is minted for it on any route, so gemini-judge's
+  missing grading is never owed; the big-case board shows its outcome as none;
+  and the export carries the three predictions with `voided` true and null
+  outcome columns. Every reader asks the one predicate in
+  `src/fedcourtsai/voids.py`, which is code-owned with the registry. No
+  committed file is edited: the predictions, the gradings and the outcome stay
+  in `data/` as written.
+
+  **Why the sibling event is not voided.** The same case's
+  `evt-petition-disposition` was opened on 2026-08-21 under Purdy's caption,
+  predicted in run `20261005T153213Z` from Purdy's 2026-10-05 snapshot, its
+  documents name neither Nathan nor Alamo Heights, and its outcome is Purdy's
+  own denial: event and outcome describe one petition.
+
+  **Why a void, and not a revocation or a corrected outcome.** A window's
+  revocation de-counts a whole protocol, and these cells' window is not
+  defective. A corrected outcome (`stamp-cell --regrade`) re-scores an event
+  against its true outcome, which this event has none of at this docket
+  number. The better remedy would re-resolve the event against Nathan's own
+  outcome; nothing relocates an event between dockets today, so this entry
+  instead commits to recording Nathan's eventual disposition under No. 26-257
+  beside this void once it lands.
+
+  **The effect on published figures**, rebuilt before and after over `main`
+  at `5643cbbee`:
+  - **Frozen boards: none.** The three predictions are stamped `proc-v3`, a
+    de-counted label, so no frozen-scope figure ever counted them; the frozen
+    leaderboard and claim scores rebuild byte-identical, the `voided_events`
+    block omitted where nothing in scope is voided.
+  - **All-versions leaderboard,** `stages["cert@arrival"]` alone: per
+    predictor the forward population Brier skill flips from about −100 to
+    about +0.9 (claude-baseline −103.0 → +0.91, codex-baseline −103.1 →
+    +0.75, gemini-baseline −161.5 → +0.91) on **n = 2** skill-scored cells
+    per predictor (from 4); accuracy 0.92 → 1.00; the always-deny floor
+    0.88 → 0.87; and the `sal-v3/baseline` band's accuracy 0.90 → 1.00
+    (20 → 18 evaluations, 7 → 6 events). Beside it `forward_claim.claimed_forward`
+    moves 1374 → 1368 and `leakage_exclusion.assessed` 1410 → 1404, and the
+    `voided_events` block names the event: six gradings, two per predictor,
+    none correct. Nothing outside that stage block moves.
+  - **All-versions claim scores:** the same two denominators and the same
+    block.
+  - **Dataset export:** the six grading rows carry `counted: false` and
+    `excluded_reason: voided`.
+
+  **Owed elsewhere.**
+  - Detection: a stored docket whose `DocketedDate` or petitioner identity
+    changes between snapshots is a re-docketing. Once it runs, every event it
+    flags is voided whatever its gradings scored, and its scan settles the
+    unchecked cases above.
+  - Nathan's disposition under No. 26-257, recorded beside this void once it
+    lands, and Nathan provisioned there as a new case.
+  - The plain-language summary
+    `data/cases/scotus/9026000221/summaries/2026-08-20.md` describes Nathan
+    under Purdy's case id. The summary lane owes its withdrawal or
+    relocation; it is not edited here.
+
+  The runnable effect check once it is live: on `main`, `uv run fedcourts
+  leaderboard --all-versions --out /tmp/lb.json` prints
+  `::warning::voided-event exclusion: scotus/9026000221
+  evt-petition-arrival-disposition` six times, and `jq .voided_events
+  /tmp/lb.json` shows `excluded: 6`, `correct_by_predictor` zero for each
+  predictor, and the event named; the frozen `metrics/leaderboard.json` after
+  the next metrics refresh is unchanged and carries no `voided_events` key.
+
+- **Counting instants and bless moments are stamped by the carrying merge, 2026-10-14.**
+  A **procedure** entry that declares how every label registered from now on
+  gets its instants. It moves no digest, no constant, no window and no
+  membership: `uv run fedcourts process-digest --all` prints the same
+  `proc-v9` digests, and the committed registry holds no pending row. The rows
+  already registered keep the instants they hold, `proc-v9`'s hand-set
+  `2026-10-11T12:00:00Z` counting instant included.
+
+  **The rule.** From the next label on, a label is registered in the PR that
+  moves the digests (`fedcourts register-process`), as **pending** rows, and
+  the promotion merge that carries that PR to `main` stamps them:
+  - the label's counting instant, the bless moment of every digest it newly
+    blesses, the opening of every window it opens (and the close of every
+    window it closes), and the instant of every harness boundary it registers
+    are all **that merge's git committer time**, written by
+    the `promotion-record` writer with `source: "merge"`;
+  - **no instant is forecast by hand.** The shakedown margin a hand-set late
+    counting instant used to buy — a span after the merge in which honest
+    cells landed uncounted — is dropped. It bought nothing the stamp does not
+    give: the bytes are immutable from the merge, nothing can carry the new
+    digest before the merge lands it, and the gate's Step 0 refuses a batch
+    whose pending digest already stamps a committed cell. What it cost was a
+    span of honest cells re-owed and paid for twice. The closing side keeps a
+    straddle of its own: a cell of the superseded digest in flight at the
+    carrying merge and stamped after it falls after its window's close, so it
+    is shakedown, uncounted and re-owed, exactly as a hand-margin cell was on
+    the opening side. The promotion gate's quiescence check (docs/pipeline.md,
+    *Promotion*) keeps that set empty in practice, and any residue shows in
+    `fedcourts successor-disclosures` as cells carrying the closed digest
+    stamped at or after the close;
+  - **an evaluator-only label holds the prior counting instant**, opens and
+    closes no window, and only its new evaluator blessings are stamped — the
+    evaluator-half supersession rule in `docs/process-version.md`;
+  - **one label per digest-moving promotion.** Step 0 refuses a batch carrying
+    more than one label new to `main`, so each label has one carrying merge,
+    one instant and one `prereg/` tag;
+  - **`prereg/<label>` sits on the carrying merge**, an annotated tag the
+    writer creates with the plan's message, not on a freeze commit: the merge
+    is what fixes the instant, so it is the commit the label is audited
+    against. This departs from the freeze-commit convention the earlier
+    `prereg/` tags follow;
+  - **"merged" times in fills are git committer time**
+    (`git log -1 --format=%cI <merge>`), the one clock git re-derives.
+    `promotion/2026-10-13`'s fills recorded `2026-10-13T17:54:17Z`, GitHub's
+    `mergedAt`; its committer time is `17:54:16Z`. The second touches no cell:
+    that merge stamped no registry row, and no prediction or evaluation on
+    `main` is stamped inside it.
+
+  **Fills.** The writer fills only placeholders the merge itself added, from a
+  closed key set: the promotion tag, the merge hash and the merged time, and a
+  keyed census of committed artifacts carrying given digest prefixes, rendered
+  by `fedcourts digest-census` over the merge's own tree. A census counts
+  **carrying files** — every stamped cell, shakedown and de-counted ones
+  included — never counted cells, and an entry's wording says "carrying".
+  Free-text placeholders stay a maintainer's, and the writer lists them on the
+  promotion PR.
+
+  **Pending rows read conservatively** until the merge stamps them: a pending
+  blessing is registered but has no bless moment, so a board counts no
+  prediction under it; a cell stamped with a pending digest is pending, not
+  de-counted, so the backlog re-owes nothing; a pending label leaves the prior
+  counting instant in force; a window whose opening is pending counts nothing
+  and one whose close is pending stays open; a pending harness boundary splits
+  nothing. A board built meanwhile names what it read as pending.
+
+  **Step 0 is the promotion gate's**, on every batch (`scripts/promotion-gate.sh
+  registry`): it refuses a pending registration on a `main` that does not yet
+  hold this declaration, a pending digest that already stamps a committed cell
+  on `main`, an enabled actor whose digest is unregistered, a predictor with
+  more than one open window, more than one new label or one whose `prereg/` tag
+  exists, a repeated boundary name, and a pending row already sitting on
+  `main`.
+
+  **When it takes effect.** The registry's `merge_stamping_declared` names this
+  entry's date, and the writer stamps only where the merge's **first parent**
+  — what `main` held before the merge — holds both that field and this
+  heading. So the promotion carrying this entry cannot itself stamp anything:
+  the first label stamped under the rule rides a later promotion.
+
+  Census at `origin/main` `4e505acc0` (2026-10-14T23:03:49Z), counting
+  carrying files: 25 predictions carrying `proc-v9`'s claude-baseline digest
+  (`605201bd`); 277 carrying codex-baseline's digest carried from `proc-v8`
+  (`70fee158`) and 275 carrying gemini-baseline's (`a9033e56`); 168
+  evaluations carrying a `proc-v9` judge digest (`167b7d71`, `18a76b93`,
+  `22558044`).
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`). At the carrying merge,
+  predictions carrying `605201bd`: `<FILL: census predictions digest=605201bd>`;
+  predictions carrying a digest carried from `proc-v8`:
+  `<FILL: census predictions digest=70fee158,a9033e56>`; evaluations carrying
+  a `proc-v9` judge digest:
+  `<FILL: census evaluations digest=167b7d71,18a76b93,22558044>`.
+
+  The runnable effect check once it is live: on `main`,
+  `jq .merge_stamping_declared src/fedcourtsai/process_registry.json` prints
+  `"2026-10-14"`, `fedcourts promotion-record --check-main origin/main`
+  reports no pending registration, and the next `register-process` on
+  `staging` writes pending rows instead of refusing.
+
+- **Engine CLI updates under an unchanged process digest are composition, and
+  each cell records the engine version that ran, 2026-10-14.** A
+  **reading-rule** entry with a harness change beside it. It moves no digest,
+  no constant, no window and no membership: `uv run fedcourts process-digest
+  --all` prints the same six `proc-v9` digests.
+
+  **What changes.** The three engine CLIs every cell, smoke and labeler runs
+  are pinned once each, in `.github/engines/<engine>/` (an exact version
+  and its lockfile), and every workflow installs from that pin through one
+  action. The claude cells hand `claude-code-action` the pinned binary
+  instead of the CLI the action bundles, and `codex-action` takes its version
+  from the same pin. Dependabot proposes each engine release as its own PR
+  about three days after it ships, each validated by both integration engine
+  smokes before it merges.
+
+  **The reading rule.** An engine CLI update under an unchanged process digest
+  is **composition**, not a series break: the predictor's record keeps
+  accruing across it, as it does across a harness boundary. A by-engine-version
+  cut is available to any reading that wants to ask whether an update moved
+  anything, and it is a comparison over different events, flagged as such. A
+  **model** change remains a digest move and a new label; nothing here changes
+  that.
+
+  **The record.** Every cell's harness-written `usage.json` carries
+  `engine_version`: the version the engine's own binary reports, read by the
+  harness, never the agent's word. For claude-code and gemini, which the
+  harness installs, the read is taken at install, before any agent runs;
+  codex is installed by its action, so its read follows the run. A post-run
+  read that disagrees with the install-time one, or a read other than the
+  pinned version, is kept in the same file as `engine_version_discrepancy`,
+  and a cut by engine version treats that cell as unknown. Cells written before
+  this entry's carrying merge do not carry it. For them the engine version is
+  recoverable only from the run's job log, which expires, and a cut by engine
+  version treats them as unknown rather than guessing.
+
+  **Pinning moves nothing today.** The versions pinned are the ones cells
+  already ran:
+  - **Claude Code 2.1.289.** The claude predict cell of run 38441480911
+    (2026-10-13) logged `claude-agent-sdk@0.3.289` and then `Installing Claude
+    Code v2.1.289 … Version: 2.1.289`: the CLI the action bundled at the
+    pinned `claude-code-action` v1.0.241. The smokes and the labeler had
+    pinned 2.1.280, so they move up to what the cells run, and a smoke now
+    tests the version production uses.
+  - **Codex 0.144.1** and **Gemini CLI 0.49.0.** The cells already pinned
+    these literally (`codex-version`, and the Gemini install step).
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live: the first predict round after the
+  carrying merge writes `usage.json` files whose `engine_version` reads
+  `2.1.289`, `0.144.1` or `0.49.0` by engine, for example `jq -r
+  '.engine + " " + (.engine_version // "none")'` over that round's
+  `usage.json` files; and a claude cell's job log shows the action using the
+  supplied executable rather than installing its own.
+
+- **A forward predict cell is refused when a pre-mint poll finds its event
+  already decided, and each cell records a docket poll before and after it
+  ran, 2026-10-15.** A **provisioning** change that alters which forward cells
+  mint. It moves no digest, no constant and no window: `uv run fedcourts
+  process-digest --all` prints the same `proc-v9` digests, and what a minted
+  cell reads is unchanged. It does change membership, by a rule correlated
+  with the outcome; see *What the refusal selects*.
+
+  **The defect it closes.** A forward cell is provisioned from the corpus's
+  latest stored snapshot, which can be days behind the docket, and a
+  disposition's `resolved_at` is a date with no time of day. A cell minted
+  from a snapshot that predates the day's order could therefore run after the
+  order was public, and nothing in the record could say which came first.
+  Counted on `origin/main` at `893ba48d3` (2026-10-15T17:54:24Z), with each
+  cell's clock read from the harness's `stamped_at` (UTC) and dated in Court
+  local time (America/New_York), the clock `resolved_at` is dated in: 26 of
+  the 108 resolved forward interim predictions were written on or after their
+  outcome's decision date. 23 were written on the day itself —
+  `scotus/9526000428` ×6, 9526000434 ×3, 9526000437 ×3, 9526000447 ×2
+  (`proc-v8`, 14 cells) and 9526000477 ×9 (`proc-v9`) — and 3 after it, all on
+  9526000256 (two `proc-v4`, one `proc-v5`, labels before `proc-v8`, whose
+  cells are de-counted). By engine the 26 split claude 9, codex 9, gemini 8.
+  None of the 394 resolved forward cert predictions was written on or after its
+  decision date. Dated in UTC instead, four `scotus/9526000275` cells stamped
+  01:13Z–01:17Z on 2026-09-03 would also count; that is the evening of
+  2026-09-02 in Court time, before the 2026-09-03 denial, so they are a
+  UTC-only artefact and are not counted here. All 9 resolved `proc-v9` forward
+  interim cells are exposed (26A477), so any `proc-v9` forward interim figure
+  today rests entirely on decision-day cells. On 2026-10-14 the forward cells
+  for 9526000477 (26A477) were stamped between 15:54:01Z and 18:27:02Z, the day
+  the order denying the application as moot issued, from a 2026-10-08
+  snapshot; in evaluate run `20261015T154823Z` both judges could only flag the
+  ordering as unresolvable.
+
+  **The rule.** From this entry's carrying merge, `run-predict` provisions every
+  forward cell with `provision-snapshot --pre-mint-poll`. Just before the
+  record is written, the harness fetches the docket's current JSON from the
+  Court and runs the same outcome scan the forward gate runs on the stored
+  snapshot (`pipeline.outcome.forward_leakage`). The fetch is bounded: a 10 s
+  per-phase timeout, at most one retry, and an 18 s total deadline checked
+  before every request and redirect hop, so a poll is up to two GETs. The
+  deadline does not bound a body trickling in under the per-phase timeout. A
+  decided event refuses the cell (exit 3) and nothing is minted. An open one is
+  recorded in the cell's `usage.json` as `pre_mint_poll`: `polled_at` (when the
+  fetch began, UTC), the docket number, the state and a reason. A poll that
+  cannot answer — not a SCOTUS docket, no live spelling, no docket served, a
+  body that is not JSON, a timeout, the spent deadline, any error in the fetch
+  or the scan — records `unavailable`, and the cell proceeds on the
+  stored-snapshot gates, as every cell did before this entry. The poll applies
+  to every forward cell, cert and interim alike: an order list issues a day's
+  cert dispositions at once, which is the same exposure. After the engine
+  stops, a second step polls the same docket number once more and records the
+  result as `post_run_poll`. That poll only records; it never refuses or
+  removes a cell. A cell's two polls make up to four GETs.
+
+  **What `open` means.** At `polled_at` the Court's docket JSON, as served,
+  carried no disposition the scan recognises. It is not proof the event was
+  undecided: the JSON can lag the order or be served from a cache, the scan's
+  recall is not perfect, and a disposition can land after the poll. A
+  `pre_mint_poll` and a `post_run_poll` both reading `open` say the run ended
+  before the served docket showed a decision — not that the order was
+  unpublished, since an order list or a press account can precede the docket
+  JSON. With an open pre-mint poll and a later `decided` or absent post-run
+  poll, the cell's exposure window is `[polled_at, cell end]`, and within it
+  the ordering of order and run stays unresolvable from the polls. Whether a
+  cell actually saw the outcome is judged from its retrieval log's content in
+  every case, not from the polls.
+
+  **What the refusal selects.** Refusal is a membership rule, and the rule is
+  correlated with the outcome. A disposition that issues quickly, before the
+  next round mints, is refused; one that lingers is predicted. Among the 18
+  applications (37 events) with resolved forward interim predictions on
+  `origin/main` at `893ba48d3`, the 6 with a cell written on or after the
+  decision date (5 of them on the day itself) split 5 denied / 1 granted,
+  against 12 / 5 / 1 (denied / granted / withdrawn) overall and 7 / 4 / 1
+  among the 12 that were not exposed. The refused set is plausibly
+  denial-weighted; the size of that selection is unmeasured, and the counts are
+  too small to estimate it. The same rule thins forward cert cells, though none
+  was exposed in the ledger above. The refusal is recorded durably: the cell's
+  `status.json` carries `pre_mint_refusal` (`polled_at`, reason), and the
+  collect job rolls every refused cell into a per-engine section of the run PR
+  body and of the agent-feedback issue comment — posted even when the round has
+  nothing else to report — and does not count it as a cell that produced
+  nothing, against the attempt cap or as a dead engine.
+
+  **Engines.** The poll runs in each engine's cell independently, so a
+  disposition landing between two engines' provisioning steps can refuse one
+  and mint the other. A paired comparison over events every engine produced
+  absorbs that; a pooled per-engine figure does not, so any per-engine figure
+  is read beside that engine's refusal count, which is why the roll-up is keyed
+  per engine.
+
+  **Re-owing.** A refused cell leaves no output, so a later round's planner
+  owes it again while the corpus still shows the event pending, and each such
+  round refuses it again. The roll-up therefore repeats a refusal across
+  rounds: de-duplicate it by (event, engine) before reading it as cells
+  removed. If a later round's poll is `unavailable`, the cell mints on the
+  stored-snapshot gates as before; the earlier roll-up is what shows it was
+  once refused. For an interim cell, the refusal plausibly leaves its
+  salience-reserve slot held until a corpus pull records the disposition,
+  since the reserve reads the same stored state that still shows the
+  application pending; this is unverified.
+
+  **What it does not do.** It does not prevent a disposition that lands after
+  the poll on the same day. It does not change what a cell reads: the fresh
+  payloads are evidence for the gate and the record only, never staged, and the
+  cell still reads the stored snapshot. It de-counts nothing already committed:
+  the 26 cells above stay as they are, flagged by the judges where they were
+  graded. No scored figure sets them aside; whether one should is a scoring
+  decision this entry does not make.
+
+  **Reading the polls.** Guidance for a reader, which no figure applies yet: a
+  pre-mint poll reading `open` is taken as establishing that the cell began
+  against a docket that did not yet show the outcome, within the residuals
+  above. A poll reading `unavailable`, or a missing poll, is unknown —
+  whatever the cell's date, because the usage capture is best-effort and a
+  missing field does not prove a cell predates the carrying merge.
+
+  **The record.** `pre_mint_poll` and `post_run_poll` sit on the
+  harness-written `usage.json`, so they are never the agent's word. Each
+  reaches the usage step as a step output, fixed outside any file the agent can
+  reach; the post-run poll takes its docket number from the pre-mint poll's
+  output, never from the cell's record. A `decided` pre-mint poll never
+  reaches `usage.json`, because a refused cell writes none; a `decided`
+  post-run poll does, since that poll only records. Cells written before the
+  carrying merge carry no poll, and their ordering on a decision day stays
+  unresolvable.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live: the first predict round after the
+  carrying merge writes forward-cell `usage.json` files with both polls, for
+  example `jq -r '[.pre_mint_poll.state, .post_run_poll.state] | map(. //
+  "none") | join(" ")'` over that round's `usage.json` files prints `open open`
+  (or `unavailable` in either place). A cell whose docket was already decided
+  at mint shows `refusing to provision forward cell … the live docket polled at
+  …` in its job log, no committed output, and a row under *Pre-mint refusals*
+  in the round's run PR body or agent-feedback comment.

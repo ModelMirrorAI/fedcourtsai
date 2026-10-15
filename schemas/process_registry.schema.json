@@ -1,0 +1,337 @@
+{
+  "$defs": {
+    "RegistryBlessing": {
+      "additionalProperties": false,
+      "description": "One digest the current process blesses, with its bless moment.",
+      "properties": {
+        "actor_id": {
+          "description": "The predictor or evaluator the digest is the process of",
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "blessed": {
+          "$ref": "#/$defs/RegistryInstant",
+          "description": "The bless moment: when the digest's bytes became immutable on `main`, the retroactivity boundary no counted cell may predate"
+        },
+        "digest": {
+          "description": "The blessed process digest (`sha256:<hex>`)",
+          "title": "Digest",
+          "type": "string"
+        },
+        "label": {
+          "description": "The label that first blessed the digest; a digest carried forward byte-identical keeps it",
+          "title": "Label",
+          "type": "string"
+        },
+        "role": {
+          "description": "The actor's role",
+          "enum": [
+            "predictor",
+            "evaluator"
+          ],
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "digest",
+        "role",
+        "actor_id",
+        "label",
+        "blessed"
+      ],
+      "title": "RegistryBlessing",
+      "type": "object"
+    },
+    "RegistryBoundary": {
+      "additionalProperties": false,
+      "description": "A dated change to what a predict cell reads under an unchanged predictor digest.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "That commit's committer time; display only. Null while pending",
+          "title": "At"
+        },
+        "gradual": {
+          "description": "Whether the change reached the corpus through a back-fill pass, so a cell after it may still read the earlier document set",
+          "title": "Gradual",
+          "type": "boolean"
+        },
+        "merge": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The full SHA of the commit that carried the change to `main`; a cell's side is read by ancestry against it. Null, with `at`, while no promotion has carried the registration",
+          "title": "Merge"
+        },
+        "name": {
+          "description": "The boundary's stable name",
+          "title": "Name",
+          "type": "string"
+        },
+        "predictors": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The predictors the boundary splits; null for every predictor",
+          "title": "Predictors"
+        },
+        "reach": {
+          "description": "The cells the change can reach",
+          "enum": [
+            "self-represented dockets",
+            "granted dockets",
+            "all",
+            "replay cells"
+          ],
+          "title": "Reach",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "merge",
+        "at",
+        "predictors",
+        "reach",
+        "gradual"
+      ],
+      "title": "RegistryBoundary",
+      "type": "object"
+    },
+    "RegistryInstant": {
+      "additionalProperties": false,
+      "description": "One registered instant of the process registry, with where it came from.\n\nEvery counting instant, bless moment and window edge is one of these, so a\nreader can tell an instant set by hand from one a carrying merge stamped,\nand audit either against git. A **pending** instant \u2014 ``at`` and ``merge``\nboth null \u2014 is a registration no promotion has carried yet: the PR that\nregisters a label writes it, and the merge that carries that PR to\n``main`` stamps it with its own SHA and committer time.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The instant, in UTC (`YYYY-MM-DDTHH:MM:SSZ`); null while pending",
+          "title": "At"
+        },
+        "merge": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The full SHA of the carrying promotion merge \u2014 the promotion merge that carried the registration and made the blessed bytes immutable on `main` \u2014 and so the commit the instant is audited against: a bless moment equals its committer time, a counting instant is at or after it. Not the merge that carried a later correction of the instant. A label that holds its predecessor's counting instant (an evaluator-only label) copies that instant whole, so its `merge` names the predecessor's carrying merge, not its own. Null, with `at`, marks a registration no merge has carried yet",
+          "title": "Merge"
+        },
+        "source": {
+          "description": "`merge` where `at` equals `merge`'s committer time, so git re-derives it; `hand` where a maintainer set `at` at or after that committer time (a counting instant set by hand under the rule before merge-stamped instants, verified against the merge). A pending instant is `merge`: its carrying merge stamps it",
+          "enum": [
+            "hand",
+            "merge"
+          ],
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "at",
+        "merge",
+        "source"
+      ],
+      "title": "RegistryInstant",
+      "type": "object"
+    },
+    "RegistryLabel": {
+      "additionalProperties": false,
+      "description": "A process label and the counting instant from which its cells count.\n\nThe labels before ``proc-v8`` are deliberately absent: their digests were\nde-counted when each was superseded, so they open no window.",
+      "properties": {
+        "label": {
+          "description": "The process label (`proc-vN`)",
+          "title": "Label",
+          "type": "string"
+        },
+        "since": {
+          "$ref": "#/$defs/RegistryInstant",
+          "description": "The label's counting instant: it opens every window the label newly blesses and closes every window it stops blessing"
+        }
+      },
+      "required": [
+        "label",
+        "since"
+      ],
+      "title": "RegistryLabel",
+      "type": "object"
+    },
+    "RegistryWindow": {
+      "additionalProperties": false,
+      "description": "One counting window: a blessing of one predictor digest and its span.",
+      "properties": {
+        "closes": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RegistryInstant"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The successor's counting instant that closed the window; null while open"
+        },
+        "digest": {
+          "description": "The blessed predictor process digest (`sha256:<hex>`)",
+          "title": "Digest",
+          "type": "string"
+        },
+        "label": {
+          "description": "The label whose blessing opened the window",
+          "title": "Label",
+          "type": "string"
+        },
+        "opens": {
+          "$ref": "#/$defs/RegistryInstant",
+          "description": "The counting instant that opened the window"
+        },
+        "predictor_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The predictor whose process the digest is",
+          "title": "Predictor Id"
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "When a dated revocation de-counted the window's cells; null for a window that counts",
+          "title": "Revoked At"
+        }
+      },
+      "required": [
+        "label",
+        "digest",
+        "predictor_id",
+        "opens",
+        "closes",
+        "revoked_at"
+      ],
+      "title": "RegistryWindow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``process_registry.json`` \u2014 the frozen-process registry, as committed data.\n\nThe single source of the counting partition's definition:\n:mod:`fedcourtsai.process_version` builds its freeze constants from it at\nimport (``FROZEN_PROCESS_DIGESTS`` from ``blessings``, ``FROZEN_SINCE``\nfrom the current label's ``since``, ``COUNTING_WINDOWS`` from\n``windows``, ``EVALUATE_BLESSING_LABELS`` and ``HARNESS_BOUNDARIES``), so\nevery reader keeps reading those names. Append-only in the same sense as\nthe freeze record: a successor closes and adds windows, and appends\nlabels, blessing labels and boundaries, but never rewrites a landed\ninstant. A pending instant is the one field written twice: null in the PR\nthat registers it, then stamped once by the merge that carries it.",
+  "properties": {
+    "blessings": {
+      "description": "The digests the current process blesses, one per actor, in order",
+      "items": {
+        "$ref": "#/$defs/RegistryBlessing"
+      },
+      "title": "Blessings",
+      "type": "array"
+    },
+    "evaluate_blessing_labels": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "description": "Every evaluate label that blessed each evaluator digest, in blessing order, kept after those labels are superseded",
+      "title": "Evaluate Blessing Labels",
+      "type": "object"
+    },
+    "harness_boundaries": {
+      "description": "Every harness boundary dated since the earliest window opened, in the order their carrying commits reached `main`",
+      "items": {
+        "$ref": "#/$defs/RegistryBoundary"
+      },
+      "title": "Harness Boundaries",
+      "type": "array"
+    },
+    "labels": {
+      "description": "Every label with a counting window, in order",
+      "items": {
+        "$ref": "#/$defs/RegistryLabel"
+      },
+      "title": "Labels",
+      "type": "array"
+    },
+    "merge_stamping_declared": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The date of the freeze-record entry that declares counting instants and bless moments stamped by the carrying merge's committer time. Until it is set, `register-process` writes no pending label: a merge may stamp a label's instants only under a rule the freeze record already holds on `main`",
+      "title": "Merge Stamping Declared"
+    },
+    "schema_version": {
+      "const": 1,
+      "description": "The registry format's version",
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "windows": {
+      "description": "Every counting window, in the order the registry opened them",
+      "items": {
+        "$ref": "#/$defs/RegistryWindow"
+      },
+      "title": "Windows",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "labels",
+    "blessings",
+    "windows",
+    "evaluate_blessing_labels",
+    "harness_boundaries"
+  ],
+  "title": "ProcessRegistry",
+  "type": "object"
+}

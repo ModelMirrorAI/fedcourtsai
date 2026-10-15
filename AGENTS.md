@@ -63,9 +63,12 @@ non-interactive** container. Two consequences shape everything you do:
   conventional-commit title and a description of what changed and why; prefer
   a small, correct, well-tested change over a large speculative one. `main` is
   the pre-registration record: code and config reach it only in a reviewed
-  staging→main promotion batch (*Promotion* in `docs/pipeline.md`), while data
-  commits — the deterministic writers and the data-run collect PRs — land on
-  `main` directly and never ride staging. (For a predict / evaluate cell
+  staging→main promotion batch (*Promotion* in `docs/pipeline.md`) — except
+  the `promotion-record` writer's one-parent record commit, jailed byte-equal
+  to its plan, touching only `src/fedcourtsai/process_registry.json` and
+  `docs/freeze-record.md` — while data commits — the deterministic writers
+  and the data-run collect PRs — land on `main` directly and never ride
+  staging. (For a predict / evaluate cell
   the *workflow* commits and opens the PR — you only write files; the task
   prompt says which mode you are in.)
 - **You may merge to `staging`; only the maintainer merges to `main`.** The two
@@ -84,8 +87,10 @@ non-interactive** container. Two consequences shape everything you do:
   with auto-merge, still gated on the same required checks.)
   Your own changes travel by PR on both branches — "you may merge" never means
   "you may skip the PR". The rulesets require one, with two documented bypasses
-  that are not your lane: the data App's deterministic writers push to `main`,
-  and an admin-role escape hatch on `staging`. Do not lean on the platform to
+  that are not your lane: the data App's deterministic writers push to `main`
+  (the `promotion-record` writer's record commit among them, jailed byte-equal
+  to its plan and touching only the registry and the freeze record), and an
+  admin-role escape hatch on `staging`. Do not lean on the platform to
   stop you; the identity you hold can bypass the `staging` PR requirement, so
   this one is discipline. And the staging permission is a permission, not an
   obligation: leaving a green PR for the maintainer is always a legitimate
@@ -94,13 +99,19 @@ non-interactive** container. Two consequences shape everything you do:
   description.
   **Five kinds of change still wait for the maintainer even into `staging`**,
   because a green gate is weakest evidence exactly where they are strongest
-  risk: anything under `.github/workflows/` or `.github/actions/` (the
-  permission surface), `SECURITY.md` or the security posture it describes, the
+  risk: anything under `.github/workflows/`, `.github/actions/` or
+  `.github/engines/` (the permission surface, and the engine CLIs every agent
+  cell executes), `SECURITY.md` or the security posture it describes, the
   promotion gate itself (`scripts/promotion-gate.sh`, `promote.yml`,
   `sync-staging.yml`, ci.yml's gate jobs, and the lane machinery that decides
   which of the gate's checks a change gets: `scripts/gate.sh`,
   `scripts/ci_lane.py`, `tests/test_ci_lane.py`, `tests/lane_guard.py` and its
-  registration in `tests/conftest.py`), `config/predictors.yaml` /
+  registration in `tests/conftest.py`; and the process registry the gate's
+  Step 0 reads and a promotion merge stamps: `src/fedcourtsai/process_registry.json`,
+  `src/fedcourtsai/registry_gate.py`, `src/fedcourtsai/promotion_record.py`,
+  `src/fedcourtsai/process_registration.py` and their tests — a registration
+  is a pre-registration, and the promotion record is what a bypass writer may
+  push to `main`), `config/predictors.yaml` /
   `config/evaluators.yaml` (what agents are and what they may reach), and the
   authority to spend without a human release: `config/review-hold.yaml` (the
   auto-release caps), `src/fedcourtsai/planning_rates.py` (the rates a round
@@ -109,7 +120,11 @@ non-interactive** container. Two consequences shape everything you do:
   (`tests/test_review_hold.py`, `tests/test_dispatch_chain.py`,
   `tests/test_workflow_dispatch_chain.py`, `tests/test_workflow_agent_bot.py`).
   A raised cap or a lowered rate lets more spend run unattended, which is why
-  it is not a configuration change like any other. Open those, get them
+  it is not a configuration change like any other. The event-void registry is a
+  pre-registration surface owned the same way: `src/fedcourtsai/voided_events.json`,
+  whose every row de-counts one event's gradings on a dated freeze-record entry,
+  the predicate every reader asks in `src/fedcourtsai/voids.py`, and
+  `tests/test_voided_events.py`, which binds each row to its entry. Open those, get them
   green, and report them ready.
   The `staging` ruleset encodes this through `.github/CODEOWNERS` for every
   identity that does not hold the admin role — Dependabot's workflow bumps, the

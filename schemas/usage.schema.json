@@ -1,5 +1,52 @@
 {
   "$defs": {
+    "DocketPollRecord": {
+      "additionalProperties": false,
+      "description": "One harness poll of a forward cell's docket, as the cell's usage record carries it.\n\nA poll reads the Court's docket JSON as served and runs the forward outcome scan\non it. ``open`` is narrower than it sounds: it means that JSON carried no\ndisposition the scan recognises at ``polled_at``, not that the event was\nundecided \u2014 the JSON can lag the order or come from a cache, the scan's recall\nis not perfect, and a disposition can land after the poll.",
+      "properties": {
+        "docket_number": {
+          "description": "The docket number polled, as the provisioned snapshot names it",
+          "title": "Docket Number",
+          "type": "string"
+        },
+        "polled_at": {
+          "description": "When the poll's fetch began, in UTC",
+          "format": "date-time",
+          "title": "Polled At",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why the poll read decided or unavailable; null when open",
+          "title": "Reason"
+        },
+        "state": {
+          "description": "open: the docket JSON as served carried no disposition the forward outcome scan recognises; decided: it did; unavailable: the poll could not answer (no docket served, a body that is not JSON, a timeout, an error)",
+          "enum": [
+            "open",
+            "decided",
+            "unavailable"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "polled_at",
+        "docket_number",
+        "state"
+      ],
+      "title": "DocketPollRecord",
+      "type": "object"
+    },
     "Engine": {
       "description": "Agentic coding engine that produced an artifact.",
       "enum": [
@@ -54,6 +101,33 @@
     "engine": {
       "$ref": "#/$defs/Engine"
     },
+    "engine_version": {
+      "anyOf": [
+        {
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The engine CLI's version as its own binary reported it (`claude --version`, `codex --version`, `gemini --version`), read by the harness \u2014 never the agent's word. For the CLIs the harness installs (claude-code, gemini) the read is taken at install, before any agent ran; codex is installed by its action, so its read follows the run. An engine update under an unchanged process digest is composition, and this field is how a reading cuts by it. Null on records written before the field existed or when the binary's output named no version.",
+      "title": "Engine Version"
+    },
+    "engine_version_discrepancy": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Set when the engine's version reads disagree: the binary reported a different version after the run than at install, or a version other than the pin the workflow installed from. The recorded `engine_version` is kept as read; this says the cell's engine is in doubt, and a reading cutting by engine version treats such a cell as unknown. Null when every read agrees, and on records written before the field existed.",
+      "title": "Engine Version Discrepancy"
+    },
     "estimated_cost_usd": {
       "description": "On-demand USD estimate from the rates in fedcourtsai.pricing",
       "minimum": 0.0,
@@ -92,6 +166,30 @@
       "default": null,
       "description": "Git commit of the pipeline checkout that ran this cell (GITHUB_SHA in CI, the local HEAD otherwise) \u2014 pins the prompt templates, harness, and registry in force at run time. Null on records written before the field existed or when unresolvable.",
       "title": "Pipeline Sha"
+    },
+    "post_run_poll": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DocketPollRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The same poll taken after the cell's engine step ended. Record only: it never refuses or removes a cell. `pre_mint_poll` and `post_run_poll` both `open` say the whole run ended before the served docket showed a decision, not that the order was unpublished (an order list or a press account can precede the docket JSON); a `decided` post-run poll leaves the ordering inside the run unresolved. Either way leakage is read from the retrieval log's content. Null where no post-run poll ran."
+    },
+    "pre_mint_poll": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DocketPollRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The harness's poll of a forward predict cell's docket just before its record was written. A cell whose poll reads `decided` is refused and writes no usage record, so a recorded poll is `open` or `unavailable`. `open` bounds the cell's exposure to a disposition to the window from `polled_at` to the end of the run; it is not proof the event was undecided (see DocketPollRecord). Null on evaluate cells, on cells minted before the poll existed, and wherever no poll ran."
     },
     "role": {
       "$ref": "#/$defs/UsageRole",

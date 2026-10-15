@@ -681,6 +681,20 @@ judgment backfill so pendency is judged on judgment columns as latched as the
 stored snapshots allow; each then pushes the blob and commits the pointer like
 any other corpus write.
 
+The same daily window runs one sweep outside the `seed` job: the **order-list
+vote sweep** (`fedcourts stamp-order-votes`), which stamps the Court's
+per-Justice notations onto committed cert and interim outcomes once their order
+is seven days settled. It fetches and parses the Court's order documents, so it
+runs as run-repair's `order-votes` credential split — a read-only projection
+job, a parse job holding no credential of any kind, and a writer — in three
+jobs of its own beside the walk rather than inside the job holding the
+read-write corpus role. The writer waits for the walk, applies the plan with
+`--from-plan --sweep --apply` (at most `historical.sweep_caps.order_votes` new
+records, oldest order date first, a class above `order_votes_ceiling` refused
+whole, one ledger line to the run summary), and only then mints the App token
+that pushes its `outcome.json` commit. All three jobs are continue-on-error, so
+a fetch hiccup converges next window; the sweep never replaces a record.
+
 Two further writer steps sit **ahead of the loop** on a dispatch-only footing —
 the `refresh_terms` cursor reset and the `refresh_dockets` targeted re-serve —
 where they precede the walk they change. With `refresh_streams` beside them,
@@ -968,7 +982,11 @@ Each run fetches from supremecourt.gov, so an apply dispatch does not lead with
 a dry run; the bound is read off the previous dry-run dispatch, and a
 re-dispatched dry run after the apply is the control.
 An outcome carrying a different record is held back unless `replace-differing`
-is set. The order-list records are banked, never scored.
+is set. The order-list records are banked, never scored. The orders writer also
+runs on a schedule: run-seed's daily window carries the same split as a
+standing sweep that stamps each settled order list without a dispatch (above),
+so this pass is for a whole-class apply under a bound and for
+`replace-differing`.
 
 `application-backfill` lands one closed Term's interim applications that the
 live channel never polled (`fedcourts backfill-applications`). OT2024 below
@@ -1550,9 +1568,20 @@ The mechanics:
   required integration scenario green at exactly the staging head being
   promoted — one green `scenario=gate` run, which succeeds only when every
   matrix leg and its collect job does, satisfies all twelve required runs at
-  once, engine-smoke and engine-actions-smoke counted once per engine each).
+  once, engine-smoke and engine-actions-smoke counted once per engine each),
+  and the *process registry* (Step 0 of a process move, on every batch: the
+  head's registry must exist and load; a batch carrying anything pending
+  needs `main` to declare merge-stamped instants; no digest the batch holds
+  pending may already stamp a committed cell on `main`; every enabled actor's
+  digest at the head must be registered; each predictor keeps at most one
+  open window, a pending close counting as a close; the batch carries at most
+  one label new to `main`, with no `prereg/` tag yet; no boundary name may
+  repeat; and nothing may already sit pending on `main` — `fedcourts
+  registry-gate`, read from git alone, so both call sites check out full
+  history with tags).
   The `promote` dispatch runs
-  it as pre-flight; ci.yml's `promotion-gate` job runs it as a required
+  it as pre-flight, the registry stage before freshness since it needs no
+  dispatch; ci.yml's `promotion-gate` job runs it as a required
   check on the promotion PR.
   Re-run that check right before merging — quiescence is point-in-time.
 - **The engine-smoke skip, and how far it reaches.** Waiving the six
@@ -1694,10 +1723,27 @@ The full path of a change, operator's view:
    and any narrative, outside the generated block (or on the feature PR,
    before marking ready, for the next refresh to pick up). Edit the body once
    after the integration run is green to re-fire `promotion-gate`. Re-run the
-   check right before merging, and merge with a **merge commit**; tag the
-   merge commit `promotion/<YYYY-MM-DD>` (annotated preferred, lightweight
-   acceptable; `-2` for a same-day second batch — the *Tags* subsection
-   below). Live on the next workflow run.
+   check right before merging, and merge with a **merge commit**. The
+   `promotion-record` workflow then tags the merge commit
+   `promotion/<YYYY-MM-DD>` (`-2` for a same-day second batch — the *Tags*
+   subsection below), stamps any process registration the batch carried —
+   the label's counting instant, its bless moments and window edges, at the
+   merge's committer time, with `prereg/<label>` on the merge
+   (docs/process-version.md, *Freezing*) — fills the closed-key placeholders
+   the merge added, and comments on the PR with whatever it left for a maintainer — free-text
+   placeholders, and stale ones an earlier merge carried. A merge it refuses
+   (a hand-written fill that rewrapped a landed placeholder, say) opens a
+   `promotion-record-log` issue. If that merge carried a registration, its
+   rows stay pending — never stamp them by hand: fix the cause and re-dispatch
+   `gh workflow run promotion-record.yml --ref main -f merge=<merge SHA>`.
+   Until the stamp lands, Step 0's pending-on-`main` check refuses every later
+   promotion. With no registration carried, the tag and fills are the
+   maintainer's by hand. A run that failed after pushing its tags — `main`
+   advanced under all three attempts, or the job was cancelled — leaves the
+   tags on the merge with no record commit; re-dispatch it with
+   `gh workflow run promotion-record.yml --ref main -f merge=<merge SHA>`,
+   which adopts the tags and pushes the record. Live on the next workflow
+   run.
 6. Run that stated effect check and record what it printed. A promotion
    changes code, not state, so until something executes the check a batch that
    changed nothing is indistinguishable from one that worked. Mind the timing:
@@ -1729,30 +1775,78 @@ namespaces. What makes the record trustworthy is the ruleset's
 update/deletion block on these namespaces, not the tag's object type — so
 for `promotion/` and `results/` an annotated tag is preferred (for the
 message and date it carries) and a lightweight one is acceptable. A
-`prereg/` tag is annotated, and not merely by preference: the freeze
-procedure writes the pre-registration record into the tag message
-(docs/process-version.md), so the message is load-bearing there.
+`prereg/` tag is annotated, and not merely by preference: the
+`promotion-record` writer writes the pre-registration record into the tag
+message, from the message its plan computes (docs/process-version.md), so the
+message is load-bearing there.
 
-- **`prereg/<label>`** — a pre-registration freeze commit, e.g.
-  `prereg/proc-v1` on the commit that fills `FROZEN_PROCESS_DIGESTS` and sets
-  `FROZEN_SINCE` (docs/process-version.md carries the freeze procedure).
-  Two tags deviate, and the freeze record in docs/freeze-record.md states
-  each placement and its consequence: `prereg/proc-v4` sits on the promotion
-  merge that carried its freeze commit rather than on the freeze commit
-  itself, and `prereg/proc-v8` sits on the step-4 correction commit, because
-  that label has two freeze commits and neither one's tree states the blessed
-  digests and the instant together. The namespace blocks moving either.
+- **`prereg/<label>`** — a label's pre-registration point: the promotion
+  merge that carried its registration, which also fixes the label's instants,
+  tagged by the `promotion-record` workflow with the message its plan
+  computes (docs/process-version.md carries the procedure). The tags of labels
+  frozen by hand under the earlier rule sit on their freeze commits, and the
+  freeze record in docs/freeze-record.md states each placement:
+  `prereg/proc-v4` sits on the promotion merge that carried its freeze commit,
+  and `prereg/proc-v8` on a correction commit, because that label has two
+  freeze commits and neither one's tree states the blessed digests and the
+  instant together. The namespace blocks moving any of them.
 - **`promotion/<YYYY-MM-DD>`** — a staging→main promotion merge commit,
   named by the merge's **UTC** date; a `-2` suffix distinguishes a second
-  batch merged on the same UTC date.
+  batch merged on the same UTC date. The `promotion-record` workflow creates
+  it as an annotated tag under the data App right after the merge
+  (docs/process-version.md, *Pending registrations*), with the message its
+  plan computes, and refuses to replace a tag another object already holds.
 - **`results/<term>-<milestone>`** — a `main` commit whose tree carries a
   published metrics refresh and the write-ups quoting it, e.g.
   `results/ot2026-longconf`.
 
 One-time setup (maintainer): before the first tag is minted, add a tag
 ruleset blocking update and deletion on all three namespaces — a movable
-pre-registration marker defeats its purpose. Creating a tag is likewise a
-maintainer step, like the promotion merge it usually accompanies.
+pre-registration marker defeats its purpose. `promotion/` tags, and the
+`prereg/` tag of a label the merge stamps, are created by the
+`promotion-record` workflow; a `results/` tag and any tag the workflow
+refused to write are the maintainer's. Once the workflow has tagged a
+promotion successfully, add a tag ruleset that restricts **creation** in
+`promotion/**` and `prereg/**` to the data App as bypass actor, the
+maintainer's admin role keeping a recovery bypass: until then any credential with
+`contents: write` can plant a canonical name first, which the workflow then
+refuses to adopt.
+
+### Engine CLI updates
+
+The engine CLIs every cell, smoke and labeler runs — Claude Code, Codex and the
+Gemini CLI — are pinned once each, in `.github/engines/<engine>/` (an exact
+version and its lockfile), and installed from there by the `engine-cli` action
+with `npm ci` into a prefix outside the checkout. The claude cells hand
+`claude-code-action` that binary (`path_to_claude_code_executable`) and
+`codex-action` takes its `codex-version` from the same pin, so an engine
+action's own bump changes the wrapper and never the engine a cell runs. One
+skew follows from that: a Claude Code bump can run ahead of the agent SDK the
+pinned `claude-code-action` bundles until the action itself is bumped, and the
+`engine-actions-smoke` leg is what catches a combination that breaks.
+
+Dependabot checks the engines daily and proposes each release as its own PR
+against `staging` about three days after it ships (its `cooldown`): prompt
+enough that updates land rather than accumulate, late enough that a hijacked or
+withdrawn publish is usually caught upstream first. One PR per
+engine keeps each change legible in the record: under an unchanged process
+digest an engine update is **composition**, not a series break, and every
+cell's `usage.json` carries the `engine_version` its binary reported, so a
+reading can cut by it. A **model** change is different — it moves the digest
+and is a new label.
+
+Before merging an engine bump, run both smokes for that engine on its branch,
+since one drives the CLI directly and the other drives it through the action
+the cells use (`<engine>` is `claude-code`, `codex` or `gemini`; `-f
+scenario=gate` runs both for all three):
+
+```bash
+gh workflow run integration-test.yml --ref <bump-branch> -f scenario=engine-smoke -f engine=<engine>
+gh workflow run integration-test.yml --ref <bump-branch> -f scenario=engine-actions-smoke -f engine=<engine>
+```
+
+A bump that fails either smoke stays unmerged until the engine or the harness
+is fixed; one that passes rides the next promotion like any other change.
 
 ### Adding a required status check
 
@@ -2146,8 +2240,38 @@ A predict cell refuses to run for three reasons, all landing on the same gate in
 `run-predict` (`refused=true`, which skips the event materialization, the MCP
 sidecar, the comment-token mint, and every engine step). One is the
 **provisioning gate**: `provision-snapshot --refuse-terminal` exits 3 when the
-record or the snapshot shows the event is not open, or when the snapshot is
-older than the forward staleness bound. A second is the **arrival anchor**: an
+record or the snapshot shows the event is not open, when the snapshot is
+older than the forward staleness bound, or when the **pre-mint poll** finds the
+outcome. The stored snapshot can be days behind the docket, and a disposition's
+date has no time of day, so a cell minted from a snapshot that predates the
+day's order could run after the order is public with nothing to say which came
+first. Just before writing the record, `run-predict` passes `--pre-mint-poll`:
+provisioning fetches the docket's current JSON from the Court through a bounded
+client (short timeouts, one retry, a total deadline, no politeness pause) and runs the same outcome
+scan on it. A disposed event refuses the cell. Otherwise the poll's result
+(`polled_at`, the docket number, `open` or `unavailable`, and why) reaches the
+cell's `usage.json` as `pre_mint_poll`, through a step output fixed before any
+agent runs. After the engine step ends, a second poll (`poll-docket`) records
+`post_run_poll` the same way, against the docket number the first poll named;
+it is record-only and never refuses or removes a cell. `open` means the docket
+JSON as served carried no disposition the scan recognises at that moment, not
+that the event was undecided: the JSON can lag the order or come from a cache,
+the scan's recall is imperfect, and a disposition can land after the poll. So a
+pre-mint `open` bounds the cell's exposure to the window from its `polled_at` to
+the end of the run; ordering inside that window stays unresolvable, and leakage
+there is judged from the retrieval log's content. Both polls `open` says the
+whole run ended before the served docket showed a decision — not that the
+order was unpublished, since an order list or a press account can precede the
+docket JSON, so leakage is still judged from the retrieval log. A poll that cannot
+answer (no docket served, a body that is not JSON, a timeout, any error) records
+`unavailable`, and the cell proceeds on the stored-snapshot gates. A refused cell
+writes no usage record; its `status.json` carries the refusal, and `collect`
+rolls refusals up per engine in the run PR body and the agent-feedback comment,
+as designed refusals rather than no-output failures against the attempt cap. A
+round makes up to four GETs to the Court per forward cell that runs — a poll
+before minting and one after, each a fetch and at most one retry — with at most six cells in
+flight. The fresh payload is evidence for the gate only; the cell still reads
+the stored snapshot. A second is the **arrival anchor**: an
 interim arrival cell whose opening entry cannot be located in its snapshot exits
 4, since the moment's information set cannot be identified and cutting at the
 date instead would restore the conditioning that bound replaces. The third is an

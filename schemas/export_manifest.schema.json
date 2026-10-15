@@ -148,11 +148,19 @@
       "description": "The freeze constants in force when a board was built.\n\n``process_scope: \"frozen\"`` names a partition whose membership lives in\ncode (:mod:`fedcourtsai.process_version`), so without this block a reader\nwould have to resolve the build's commit back to the source to see *which*\ndigests were blessed and from which instant. Recording them on the board\nitself, the way ``salience_versions`` names the gate, states what was\nblessed at build time \u2014 on every build, an ``all``-scope one included, as\nthe partition's definition and never a claim it was applied. ``digests`` is\nthe *blessed* set, not the *filter*: the enforced membership rule is\n``windows`` (``process_version.is_frozen`` and ``counted_on_event``), one\nper blessing of a predictor digest, so a closed window's digest keeps\ncounting after it leaves the blessed set; evaluator digests are\nrecord-only (timing alone enforced).",
       "properties": {
         "digests": {
-          "description": "The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted \u2014 predictors and evaluators together, exactly as the freeze commit blessed them. Not a filter: the enforced membership rule is `windows`, which keeps a closed window's digest counting after it leaves this set",
+          "description": "The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted \u2014 predictors and evaluators together, exactly as the registration blessed them. Not a filter: the enforced membership rule is `windows`, which keeps a closed window's digest counting after it leaves this set",
           "items": {
             "type": "string"
           },
           "title": "Digests",
+          "type": "array"
+        },
+        "pending": {
+          "description": "Each registration the build's registry held as pending \u2014 written by the PR that registers it, not yet stamped by the merge that carries it \u2014 as `<kind> <ident>` (`label proc-vN`, `blessing <digest>`, `window-opens <label> <digest>`, `window-closes <label> <digest>`, `boundary <name>`). Nothing pending counts, opens, closes or splits, so a board built while any is pending reads them here. Omitted while empty",
+          "items": {
+            "type": "string"
+          },
+          "title": "Pending",
           "type": "array"
         },
         "since": {

@@ -488,6 +488,8 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
         if: ${{ env.RESOLVE_CASE == 'true' }}
 
       - name: Configure AWS credentials (read-only)
@@ -654,6 +656,8 @@ jobs:
         run: rm -rf data/qp-topics
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # --- ranged-reads: the fixed read set against the blob in place --------
 
@@ -941,47 +945,26 @@ jobs:
       # retrieval, each engine's real sandbox semantics), exercised on demand.
       # This is the scenario that catches an engine-level integration break —
       # a sandbox denying localhost, a CLI behavior change — before a live
-      # run finds it. The CLI install is its own SECRET-FREE step: only the
-      # top-level version is exactly pinned (transitive dependencies resolve
-      # fresh at every install), so npm lifecycle scripts must never see
-      # credentials.
+      # run finds it. The CLI install is its own SECRET-FREE step: the
+      # lockfile fixes every transitive version, but the one script run on
+      # purpose (Claude Code's own installer) must still never see credentials.
       #
-      # The engine-actions-smoke legs take this step for gemini alone: that
-      # engine's production invocation is a CLI call, while claude and codex
-      # run through actions that install their own CLI — and letting them do
-      # that is part of what the leg exercises.
+      # Every leg that runs an engine takes this step. engine-smoke runs every
+      # CLI itself, so it installs codex here too; engine-actions-smoke and the
+      # codex repro leg run claude and codex through their actions exactly as
+      # the live cells do, so this step installs the pinned claude CLI the
+      # action is pointed at and resolves the codex version codex-action
+      # installs — without it, codex-action would install the latest codex.
+      # Every version comes from `.github/engines/<engine>/`, the pin the
+      # cells read.
       - name: Install the selected agent CLI
-        if: ${{ matrix.scenario == 'engine-smoke' || (matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'gemini') }}
-        env:
-          ENGINE: ${{ matrix.engine }}
-        # zizmor: ignore[adhoc-packages] — top-level exact-version pins,
-        # transitive scripts disabled, and a secret-free step environment are
-        # the practical controls for global CLIs; a lockfile is not
-        # expressible for `npm i -g`. The one script run on purpose is the
-        # pinned claude package's own installer, which fetches the native
-        # binary from the vendor's release endpoint — the same vendor trust
-        # executing the agent itself carries. Keep the pins in lockstep with
-        # the workflows that install the same CLIs: run-predict and
-        # run-evaluate (gemini), run-backtest (all three), and run-analytics's
-        # labeler (claude). Production claude cells run the CLI their action
-        # bundles instead, which the engine-actions-smoke leg exercises.
-        run: |
-          set -euo pipefail
-          case "$ENGINE" in
-            claude-code) package="@anthropic-ai/claude-code@2.1.280" binary=claude ;;
-            codex) package="@openai/codex@0.144.1" binary=codex ;;
-            gemini) package="@google/gemini-cli@0.49.0" binary=gemini ;;
-          esac
-          npm install --silent --no-audit --ignore-scripts --global "$package"
-          # Claude's native binary is placed by its postinstall, which
-          # --ignore-scripts suppresses; run the pinned package's own
-          # installer explicitly — the one script we already trust enough to
-          # execute as the agent moments later. codex/gemini need no
-          # postinstall.
-          if [ "$ENGINE" = "claude-code" ]; then
-            node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs"
-          fi
-          "$binary" --version
+        id: engine-cli
+        timeout-minutes: 10
+        if: ${{ matrix.scenario == 'engine-smoke' || matrix.scenario == 'engine-actions-smoke' || matrix.scenario == 'codex-application-repro' }}
+        uses: ./.github/actions/engine-cli
+        with:
+          engine: ${{ matrix.engine }}
+          install-codex: ${{ matrix.scenario == 'engine-smoke' }}
 
       # The codex sandbox (bubblewrap) needs unprivileged user namespaces,
       # which Ubuntu 24.04 runners restrict via AppArmor: without this, every
@@ -1517,7 +1500,7 @@ jobs:
         # The cells' engine deadline; the watchdog armed above fires a margin
         # earlier and is what ends a step the runner cannot.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
-        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         env:
           COURT_ID: ${{ steps.repro.outputs.court }}
           DOCKET_ID: ${{ steps.repro.outputs.docket }}
@@ -1576,7 +1559,7 @@ jobs:
           # permission profile in the emitted config, live web search, a pinned
           # CLI — the cells' posture, held in lockstep.
           permission-profile: fedcourts-cell
-          codex-version: "0.144.1"
+          codex-version: ${{ steps.engine-cli.outputs.version }}
           codex-args: '["-c","web_search=live"]'
 
       # Stand the watchdog down the moment the engine step is over, however it
@@ -1807,7 +1790,7 @@ jobs:
       - name: Upload the codex transcript's item shapes
         if: ${{ always() && ((matrix.scenario == 'engine-smoke' && matrix.engine == 'codex') || matrix.scenario == 'codex-application-repro') }}
         continue-on-error: true
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: codex-item-shapes-${{ matrix.scenario }}
           # The repro leg's watchdog bundle rides the same artifact — the
@@ -2004,10 +1987,12 @@ jobs:
         # bound that tight is what keeps a hung invocation from eating the job
         # budget.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
-        uses: anthropics/claude-code-action@cab360f6565aa35a51d6ce9e43f1f4287c0a32ea # v1.0.241
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
         with:
           allowed_bots: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The pinned CLI, as the live cells run it.
+          path_to_claude_code_executable: ${{ steps.engine-cli.outputs.path }}
           # DEVIATION, in the safe direction. The cells hand the action a
           # freshly minted App token (issues/PR write, for the agent's own
           # comment on the trigger issue); a probe has no issue to comment on,
@@ -2042,7 +2027,7 @@ jobs:
         id: actions_smoke_codex
         if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'codex' }}
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
-        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         # No `CODEX_HOME` env: as on the cells, the `sudo -u` hop cannot carry
         # it, so the action derives codexcell's own `~/.codex`; the teardown step
         # surfaces the rollout into the workspace `.codex/sessions` the assertion
@@ -2069,7 +2054,7 @@ jobs:
           # profile-selection path the cells depend on — the layer the bare-CLI
           # engine smoke never traverses.
           permission-profile: fedcourts-cell
-          codex-version: "0.144.1"
+          codex-version: ${{ steps.engine-cli.outputs.version }}
           codex-args: '["-c","web_search=live"]'
 
       - name: Smoke the Gemini cell invocation
@@ -2427,6 +2412,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # Three production-shaped cells over the deterministic fixture corpus —
       # two ready (claude, codex) and one salvage (gemini: valid output, agent
@@ -2493,7 +2480,7 @@ jobs:
       # download on the `predict-` prefix, and the census rebuilds these names
       # from matrix identities to classify a lost artifact.
       - name: Upload the ready claude cell
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: predict-claude-baseline-ca9-103-${{ env.CELL_EVENT }}
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-claude-baseline-ca9-103-${{ env.CELL_EVENT }}
@@ -2506,7 +2493,7 @@ jobs:
           overwrite: true
 
       - name: Upload the ready codex cell
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: predict-codex-baseline-ca9-103-${{ env.CELL_EVENT }}
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-codex-baseline-ca9-103-${{ env.CELL_EVENT }}
@@ -2519,7 +2506,7 @@ jobs:
           overwrite: true
 
       - name: Upload the salvage gemini cell
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: predict-gemini-baseline-ca9-103-${{ env.CELL_EVENT }}
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-gemini-baseline-ca9-103-${{ env.CELL_EVENT }}
@@ -2532,7 +2519,7 @@ jobs:
           overwrite: true
 
       - name: Upload the cell whose download will be forced to fail
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: predict-claude-baseline-ca9-101-${{ env.CELL_EVENT }}
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-claude-baseline-ca9-101-${{ env.CELL_EVENT }}
@@ -2854,6 +2841,8 @@ jobs:
         run: rm -rf data/qp-topics
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The labeling job's own tripwire, verbatim: this job assumes no role
       # and grants no id-token, and the assertion keeps that true even if a
@@ -2908,18 +2897,10 @@ jobs:
       - name: Install the pinned Claude Code CLI for the labeler
         id: claude-cli
         timeout-minutes: 5
-        # zizmor: ignore[adhoc-packages] — top-level exact-version pin,
-        # transitive scripts disabled, and a credential-free step environment
-        # are the practical controls for a global CLI; a lockfile is not
-        # expressible for `npm i -g`.
-        run: |
-          set -euo pipefail
-          npm install --silent --no-audit --ignore-scripts --global @anthropic-ai/claude-code@2.1.280
-          node "$(npm root -g)/@anthropic-ai/claude-code/install.cjs"
-          claude --version
-          path=$(command -v claude)
-          test -n "$path"
-          echo "path=$path" >> "$GITHUB_OUTPUT"
+        # The pin `.github/engines/claude-code/` holds for every claude cell.
+        uses: ./.github/actions/engine-cli
+        with:
+          engine: claude-code
 
       - name: Enable unprivileged user namespaces for the subprocess scrub
         run: |
@@ -2942,7 +2923,7 @@ jobs:
         # and AGENTS.md — plus five short rows with margin; the job cap at 25
         # holds the setup steps beside it.
         timeout-minutes: 15
-        uses: anthropics/claude-code-action@cab360f6565aa35a51d6ce9e43f1f4287c0a32ea # v1.0.241
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
         env:
           QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
@@ -3158,7 +3139,7 @@ jobs:
         # reports a verdict, and this is the file that verdict was reached on —
         # including on the runs where the assertion never got to speak.
         if: ${{ !cancelled() && steps.labels_guard.outcome == 'success' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: qp-labels
           path: ${{ runner.temp }}/qp-io/qp-labels.jsonl

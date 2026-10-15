@@ -73,6 +73,7 @@ from .schemas import (
     LeakageExclusionRecord,
     Stage,
     Stratum,
+    VoidedEventsRecord,
 )
 from .store import EvaluationKey, evaluation_key
 
@@ -248,6 +249,7 @@ def build_claim_scores(
     process_scope: Literal["frozen", "all"] = "frozen",
     forward_claim: ForwardClaimRecord | None = None,
     leakage_exclusion: LeakageExclusionRecord | None = None,
+    voided_events: VoidedEventsRecord | None = None,
     cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
 ) -> ClaimScoreBoard:
     """Roll stratified evaluations up into the claim-score surface.
@@ -324,6 +326,7 @@ def build_claim_scores(
         process_scope=process_scope,
         forward_claim=forward_claim,
         leakage_exclusion=leakage_exclusion,
+        voided_events=voided_events,
         # Recorded on every build, `all` scope included: it states what the
         # freeze constants were, not that the partition was applied.
         frozen_process=frozen_process_record(),

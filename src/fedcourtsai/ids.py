@@ -21,6 +21,14 @@ def slugify(value: str) -> str:
     return s.strip("-") or "x"
 
 
+#: The shape :func:`case_id` produces — ``<court slug>/<docket id>`` — for a
+#: model that validates a case id it did not build.
+CASE_ID_PATTERN = r"^[a-z0-9._-]+/[0-9]+$"
+
+#: The shape :func:`event_id` produces — ``evt-<kind>-<label>`` — likewise.
+EVENT_ID_PATTERN = r"^evt-[a-z0-9._]+-[a-z0-9._-]+$"
+
+
 def case_id(court_id: str, docket_id: int) -> str:
     """Canonical case identifier, e.g. ``ca9/64512345``."""
     return f"{slugify(court_id)}/{docket_id}"

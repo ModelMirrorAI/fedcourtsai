@@ -141,6 +141,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # The backlog derivation is a whole-court read shape — one pass over every
       # open event plus a row per candidate case, tens of thousands of them —
@@ -594,6 +596,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       # Read-only corpus access (OIDC role; no static keys — a compromised
       # predict runner cannot write or delete corpus objects). No pull: corpus
@@ -676,7 +680,15 @@ jobs:
         run: |
           set -euo pipefail
           status=0
-          uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal --max-snapshot-age-days 10 || status=$?
+          poll="$RUNNER_TEMP/pre-mint-poll.json"
+          uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal --max-snapshot-age-days 10 --pre-mint-poll --pre-mint-poll-out "$poll" || status=$?
+          # The pre-mint poll's result travels as a step output, fixed before
+          # any agent runs: a file would sit where the agent, running as the
+          # same user, could rewrite it before the usage step reads it.
+          if [ -f "$poll" ]; then
+            echo "pre_mint_poll=$(tr -d '\n' < "$poll")" >> "$GITHUB_OUTPUT"
+            rm -f "$poll"
+          fi
           if [ "$status" -eq 1 ]; then
             # Nothing was written, so there is no cell to run. The usual cause
             # is a corpus with no snapshot for the case; a corpus read that
@@ -918,7 +930,7 @@ jobs:
         # which ride to the collect job as an artifact, and that job (its own
         # token) does the commit/PR, so a prompt injection in docket text cannot
         # push code here.
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DEV_APP_CLIENT_ID }}
           private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
@@ -926,24 +938,22 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
-      # Install the Gemini CLI in its own SECRET-FREE step: only the top-level
-      # version is exactly pinned (transitive dependencies resolve fresh at every
-      # install), so npm lifecycle scripts must never see credentials —
-      # --ignore-scripts skips them outright (verified: the CLI needs none) and
-      # this step's env carries nothing. The workspace settings file is written
-      # here too; its telemetry log feeds the usage-capture step.
-      - name: Install the Gemini CLI
-        if: matrix.engine == 'gemini' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
-        # zizmor: ignore[adhoc-packages] — top-level exact-version pin, scripts
-        # disabled, and a secret-free environment are the practical controls for
-        # a single global CLI; a lockfile is not expressible for `npm i -g`.
-        run: |
-          set -euo pipefail
-          npm install --silent --no-audit --ignore-scripts --global @google/gemini-cli@0.49.0
-          gemini --version
-          # .gemini/settings.json (telemetry + mcpServers) is written by the
-          # "Configure agent retrieval" step above: it needs the CourtListener token in
-          # its env, and this npm step must stay secret-free.
+      # Install the engine's CLI at the version `.github/engines/<engine>/`
+      # pins, in its own SECRET-FREE step: the lockfile fixes every package by
+      # hash and --ignore-scripts skips npm lifecycle scripts, and the step's
+      # env carries nothing in case a package ever ran code at install. claude-code's binary
+      # path feeds claude-code-action, so the action runs the pinned CLI rather
+      # than the one it bundles; codex's version feeds codex-action, which
+      # installs it. (.gemini/settings.json is written by the "Configure agent
+      # retrieval" step above: it needs the CourtListener token in its env, and
+      # this step must stay secret-free.)
+      - name: Install the pinned engine CLI
+        id: engine-cli
+        timeout-minutes: 10
+        if: steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
+        uses: ./.github/actions/engine-cli
+        with:
+          engine: ${{ matrix.engine }}
 
       # codex runs as the separate `codexcell` account (see its step's
       # `safety-strategy: unprivileged-user`), so provision and permission that
@@ -1092,7 +1102,7 @@ jobs:
         # everything. The watchdog armed above fires a margin earlier, and is
         # what ends a step whose tree will not die on the runner's own timeout.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
-        uses: anthropics/claude-code-action@cab360f6565aa35a51d6ce9e43f1f4287c0a32ea # v1.0.241
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
@@ -1127,6 +1137,9 @@ jobs:
           # Claude Code / claude.ai, not CI. For a local/interactive fallback,
           # swap this for `claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}`.
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The pinned CLI from the engine-cli step, never the one the action
+          # bundles: the engine a cell runs moves only when the pin does.
+          path_to_claude_code_executable: ${{ steps.engine-cli.outputs.path }}
           github_token: ${{ steps.agent-token.outputs.token }}
           # Prompt caching is automatic: the stable prefix (AGENTS.md + the
           # prompt template + schema) is cached across the run's tool-use turns.
@@ -1182,7 +1195,7 @@ jobs:
         if: matrix.engine == 'codex' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         # The same engine deadline as the Claude and Gemini steps.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
-        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
@@ -1304,7 +1317,7 @@ jobs:
           # case is carried by the prompt and the harness-side retrieval log,
           # which records these hosted searches alongside shell and MCP calls.
           permission-profile: fedcourts-cell
-          codex-version: "0.144.1"
+          codex-version: ${{ steps.engine-cli.outputs.version }}
           # `web_search` is not one of the config roots a protected run guards,
           # so this half of the surface stays an override.
           codex-args: '["-c","web_search=live"]'
@@ -1569,6 +1582,34 @@ jobs:
           set -euo pipefail
           uv run fedcourts restore-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
 
+      # The post-run half of the forward cell's docket bracket: the same poll the
+      # provisioning step took before the record was written, taken again now the
+      # engine has stopped. Record only — it never refuses or removes a cell. The
+      # docket number comes from the provisioning step's output, fixed before the
+      # agent ran, never from the cell's record, which the agent could change; the
+      # result leaves as this step's output for the usage capture, so no file the
+      # agent could reach carries it. Pre and post both `open` say the whole run
+      # ended before the served docket showed a decision.
+      - name: Poll the docket after the run
+        id: post_poll
+        if: ${{ !cancelled() && steps.provision.outputs.pre_mint_poll != '' && (steps.predict_claude.conclusion == 'success' || steps.predict_codex.conclusion == 'success' || steps.predict_gemini.conclusion == 'success' || steps.disarm.outputs.reaped == 'true') }}
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          COURT_ID: ${{ matrix.court }}
+          EVENT_ID: ${{ matrix.event_id }}
+          PRE_MINT_POLL: ${{ steps.provision.outputs.pre_mint_poll }}
+        run: |
+          set -euo pipefail
+          number=$(jq -r '.docket_number // empty' <<<"$PRE_MINT_POLL")
+          if [ -z "$number" ]; then
+            exit 0
+          fi
+          poll="$RUNNER_TEMP/post-run-poll.json"
+          uv run fedcourts poll-docket --court "$COURT_ID" --docket-number "$number" --event "$EVENT_ID" --out "$poll"
+          echo "post_run_poll=$(tr -d '\n' < "$poll")" >> "$GITHUB_OUTPUT"
+          rm -f "$poll"
+
       # Record measured token usage + estimated cost next to the prediction so a
       # maintainer can sum it into a real $/run (docs/budget.md). Best-effort: the
       # engine logs are read here, never the agent's word, and a miss must not
@@ -1592,14 +1633,45 @@ jobs:
           ENGINE: ${{ matrix.engine }}
           MODEL: ${{ matrix.model }}
           CLAUDE_EXECUTION_FILE: ${{ steps.predict_claude.outputs.execution_file }}
+          CLAUDE_BIN: ${{ steps.engine-cli.outputs.path }}
+          REPORTED_VERSION: ${{ steps.engine-cli.outputs.reported-version }}
+          ENGINE_PIN: ${{ steps.engine-cli.outputs.version }}
+          PRE_MINT_POLL: ${{ steps.provision.outputs.pre_mint_poll }}
+          POST_RUN_POLL: ${{ steps.post_poll.outputs.post_run_poll }}
           CODEX_HOME: ${{ github.workspace }}/.codex
           GEMINI_TELEMETRY_FILE: ${{ github.workspace }}/.gemini/telemetry.log
         run: |
+          set -euo pipefail
           args=(record-usage
             --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID"
             --run-id "$RUN_ID" --engine "$ENGINE"
             --role predictor --actor "$PREDICTOR_ID")
+          # The pre-mint poll provisioning took, from its step output (fixed
+          # before the agent ran), into the usage record.
+          if [ -n "$PRE_MINT_POLL" ]; then
+            poll_file="$(mktemp)"
+            printf '%s\n' "$PRE_MINT_POLL" > "$poll_file"
+            args+=(--pre-mint-poll-file "$poll_file")
+          fi
+          if [ -n "$POST_RUN_POLL" ]; then
+            post_file="$(mktemp)"
+            printf '%s\n' "$POST_RUN_POLL" > "$post_file"
+            args+=(--post-run-poll-file "$post_file")
+          fi
           if [ -n "$MODEL" ]; then args+=(--model "$MODEL"); fi
+          # The engine version the record carries is the binary's own report:
+          # read by the install step before any agent ran where the harness
+          # installs the CLI, and here, after the run, for codex, which its
+          # action installs. record-usage keeps the install-time read and
+          # records any disagreement — the after-run read, or the pin the
+          # workflow installed from — in usage.json, never picking a side.
+          case "$ENGINE" in
+            claude-code) engine_bin="${CLAUDE_BIN:-claude}" ;;
+            *) engine_bin="$ENGINE" ;;
+          esac
+          after=$(timeout 30 "$engine_bin" --version 2>/dev/null | head -n 1) || after=""
+          args+=(--engine-version "$REPORTED_VERSION" --engine-version-after "$after"
+            --engine-pin "$ENGINE_PIN")
           # Guarded like the retrieval capture beside it: on a reaped cell the
           # claude execution file is an *output of the step the watchdog killed*,
           # so it arrives empty and passing it would only produce a warning about
@@ -1714,6 +1786,10 @@ jobs:
           ENGINE_DEADLINE: ${{ steps.disarm.outputs.deadline == 'true' }}
           # Either gate refused the cell, so no engine ran.
           CELL_REFUSED: ${{ steps.provision.outputs.refused == 'true' || steps.record.outputs.refused == 'true' }}
+          # The pre-mint poll's record, for a cell it refused: the collect job
+          # rolls those up as designed refusals rather than counting them as
+          # cells that produced nothing.
+          PRE_MINT_POLL: ${{ steps.provision.outputs.pre_mint_poll }}
         run: |
           set -euo pipefail
           # The event.yaml is materialized before the agent runs, so a staged change
@@ -1735,12 +1811,18 @@ jobs:
           if [ "$produced" = "true" ] && uv run fedcourts validate data; then
             validated=true
           fi
+          # A poll-refused cell records the refusal; anything else records null. A
+          # malformed poll output is read as no refusal, never as a failed step.
+          refusal=$(jq -c 'if .state == "decided" then {polled_at, reason} else null end' \
+            <<<"${PRE_MINT_POLL:-null}" 2>/dev/null) || refusal=null
+          [ -n "$refusal" ] || refusal=null
           jq -n \
             --arg court "$COURT_ID" --argjson docket "$DOCKET_ID" \
             --arg event_id "$EVENT_ID" --arg actor "$PREDICTOR_ID" --arg run_id "$RUN_ID" \
             --argjson produced "$produced" --argjson validated "$validated" \
             --argjson agent_ok "$AGENT_OK" --argjson engine_deadline "$ENGINE_DEADLINE" \
-            '{court:$court,docket:$docket,event_id:$event_id,actor:$actor,run_id:$run_id,produced:$produced,validated:$validated,agent_ok:$agent_ok,engine_deadline:$engine_deadline}' \
+            --argjson pre_mint_refusal "$refusal" \
+            '{court:$court,docket:$docket,event_id:$event_id,actor:$actor,run_id:$run_id,produced:$produced,validated:$validated,agent_ok:$agent_ok,engine_deadline:$engine_deadline,pre_mint_refusal:$pre_mint_refusal}' \
             > status.json
 
       # One artifact per cell: its status.json, its own matrix event directory
@@ -1760,7 +1842,7 @@ jobs:
       # collect job keys the download on the `predict-` prefix.
       - name: Upload cell output
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: predict-${{ matrix.predictor_id }}-${{ matrix.court }}-${{ matrix.docket }}-${{ matrix.event_id }}
           path: |
@@ -1841,7 +1923,7 @@ jobs:
       # bound by the required `gate` + `paths` checks rather than skipping them.
       - name: Mint app token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DEV_APP_CLIENT_ID }}
           private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
@@ -1854,6 +1936,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - name: Configure git identity
         uses: ./.github/actions/configure-git-identity
@@ -2031,10 +2115,12 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
 
       - name: Mint the dispatch token
         id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DISPATCH_APP_CLIENT_ID }}
           private-key: ${{ secrets.DISPATCH_APP_PRIVATE_KEY }}

@@ -1288,7 +1288,7 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
         "Predict with Claude Code",
         "Arm the engine watchdog",
         "Predict with Codex",
-        "Install the Gemini CLI",
+        "Install the pinned engine CLI",
         "Predict with Gemini",
     ]
     names = [s.get("name") for s in steps]
@@ -1369,23 +1369,18 @@ def test_the_qp_labeler_transcript_is_captured_and_short_lived() -> None:
     # The action must run the pre-installed pinned CLI: its own installer
     # skips the package postinstall and the native binary goes missing.
     assert label["with"]["path_to_claude_code_executable"] == "${{ steps.claude-cli.outputs.path }}"
+    # The pinned CLI comes from the engine-cli action every claude cell uses,
+    # which runs the package's own installer (the postinstall --ignore-scripts
+    # suppresses is what places the native binary); the one pin it reads is
+    # held by tests/test_workflow_engine_pins.py.
     install = next(s for s in steps if s.get("id") == "claude-cli")
-    assert "--global @anthropic-ai/claude-code@" in install["run"]
-    # The postinstall is the actual fix: --ignore-scripts suppresses the
-    # script that places the native binary, so the step must run the pinned
-    # package's own installer explicitly.
-    assert "install.cjs" in install["run"]
+    assert install["uses"] == "./.github/actions/engine-cli"
+    assert install["with"]["engine"] == "claude-code"
     # Ordered before the label step, or the output resolves empty and the
     # action silently falls back to its own broken installer.
     assert steps.index(install) < steps.index(label)
     # The secret-free property the step's comment claims.
     assert "secrets." not in str(install.get("env") or {})
-    # One CLI pin across every workflow that installs it, as the comments ask.
-    pins = set()
-    for name in ("run-analytics.yml", "run-backtest.yml", "integration-test.yml"):
-        text = (WORKFLOWS / name).read_text()
-        pins.update(re.findall(r"@anthropic-ai/claude-code@([0-9][\w.\-]*)", text))
-    assert len(pins) == 1, f"claude-code CLI pins diverge across workflows: {sorted(pins)}"
     upload = next(s for s in steps if (s.get("with") or {}).get("name") == "qp-label-transcript")
     assert upload["with"]["path"] == "${{ steps.label.outputs.execution_file }}"
     assert upload["with"]["retention-days"] == 1
@@ -2673,14 +2668,24 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
         f"would run without it"
     )
 
-    # The CLI the action installs is the CLI the npm surfaces pin.
-    version = str(predict["with"]["codex-version"])
+    # The CLI the action installs is the CLI the npm surfaces install: both read
+    # the one pin in .github/engines/<engine>/, the action through the
+    # engine-cli step's version and the npm surfaces through the same action
+    # installing codex itself. A literal npm pin re-appearing would split them.
+    assert str(predict["with"]["codex-version"]) == "${{ steps.engine-cli.outputs.version }}"
     for name in CODEX_NPM_PIN_WORKFLOWS:
-        pins = {pin for block in _joined_run_blocks(name) for pin in _CODEX_NPM_PIN.findall(block)}
-        assert pins == {version}, (
-            f"{name}: @openai/codex npm pin(s) {sorted(pins)!r} differ from the "
-            f"cell steps' codex-version {version!r}"
-        )
+        literal = {
+            pin for block in _joined_run_blocks(name) for pin in _CODEX_NPM_PIN.findall(block)
+        }
+        assert not literal, f"{name}: a literal @openai/codex pin {sorted(literal)!r}"
+        installs = [
+            step
+            for job in _load(name)["jobs"].values()
+            for step in job.get("steps") or []
+            if step.get("uses") == "./.github/actions/engine-cli"
+            and str((step.get("with") or {}).get("install-codex", "false")) != "false"
+        ]
+        assert installs, f"{name}: no engine-cli step installs codex for the npm surface"
 
 
 # The engine hang bound, which is a handful of step attributes and their ORDER.
@@ -4467,6 +4472,34 @@ def test_the_opinion_record_steps_suspend_workflow_commands_around_fetched_text(
         assert summary_writes == ['>> "$GITHUB_STEP_SUMMARY" || true'], (name, summary_writes)
         assert "--first-term 2020 --last-term 2025" in _norm(run), name
         assert "--cache-dir" not in run, name
+
+
+@pytest.mark.parametrize(
+    ("workflow", "job"), [("run-repair.yml", "votes"), ("run-seed.yml", "order-votes")]
+)
+def test_the_vote_writers_hold_the_plan_and_their_writes_to_one_shape(
+    workflow: str, job: str
+) -> None:
+    """Both vote writers — the dispatched pass and the daily sweep — check the
+    downloaded artifact is the one plan file, suspend workflow commands around
+    the ledger that echoes the plan's text, and refuse anything but changed
+    committed `outcome.json` files before the App token exists."""
+    steps = _load(workflow)["jobs"][job]["steps"]
+    names = _step_names(steps)
+    check = str(steps[names.index("Check the downloaded plan")]["run"])
+    assert '"f plan.json"' in check and "git status --porcelain" in check
+    stamp = names.index("Stamp the planned vote records")
+    run = str(steps[stamp]["run"])
+    invocation = run.index("uv run fedcourts stamp-")
+    assert run.index('echo "::stop-commands::${stop_token}"') < invocation, workflow
+    assert run.index('echo "::${stop_token}::"') > invocation, workflow
+    only = names.index("Check the stamp wrote only outcome files")
+    assert names.index("Check the downloaded plan") < stamp < only < names.index("Mint app token")
+    guard = str(steps[only]["run"])
+    assert "git status --porcelain --untracked-files=all" in guard
+    assert r"'^ M data/cases/[^/]+/[^/]+/events/[^/]+/outcome\.json$'" in guard
+    assert "exit 1" in guard
+    assert "steps.app-token" not in yaml.safe_dump(steps[only])
 
 
 def _guards_oidc(step: dict[str, Any]) -> bool:

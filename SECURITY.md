@@ -394,13 +394,16 @@ runbook, [docs/security.md](docs/security.md).
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
   is the sole bypass actor, so the deterministic writer jobs (`run-pull`,
-  `run-seed`, `run-repair`) push corpus facts
-  straight to `main` while everything agentic goes through that PR — enforced
+  `run-seed`, `run-repair`, and `promotion-record`) push corpus facts and the
+  promotion record straight to `main` while everything agentic goes through
+  that PR — enforced
   by identity, since the agent workflows authenticate as a separate,
   non-bypass **dev App**. `main`'s ruleset requires **zero** approving reviews,
   so maintainer review of a promotion is a convention `AGENTS.md` carries, not
   something the platform enforces. Code and config reach `main` only as a gated
-  promotion batch from `staging`, whose own ruleset requires a PR passing `gate`
+  promotion batch from `staging` — except the `promotion-record` writer's
+  one-parent record commit, jailed byte-equal to its plan, touching only
+  `src/fedcourtsai/process_registry.json` and `docs/freeze-record.md` — whose own ruleset requires a PR passing `gate`
   and `paths` (sole bypass: the repository admin role, for the maintainer's
   deterministic sync push — no App bypasses it, and the `sync-staging`
   workflow's write token reaches the branch only through a PR that satisfies

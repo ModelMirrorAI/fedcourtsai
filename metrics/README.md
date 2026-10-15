@@ -29,7 +29,9 @@ entry in the freeze record — preceded the outcomes of the claim window it
 governs (the declaration itself states any slice whose own outcomes had
 already resolved). A window's cells are otherwise de-counted only by a
 **revocation** for a defect, on its own dated entry
-([docs/process-version.md](../docs/process-version.md)). Alpha cells stay
+([docs/process-version.md](../docs/process-version.md)); a single event whose
+outcome describes another petition is **voided** on its own dated entry (*The
+voided-event exclusion*, below). Alpha cells stay
 committed with their timestamps, but they are **excluded from every
 frozen-scope performance artifact and from any claimed performance result** —
 they exercised the pipeline while the process was still moving, and nothing
@@ -66,6 +68,12 @@ No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
 - a harness boundary the freeze record dates under an unchanged digest (the
   predict-cell hide is one) cuts nothing out, but the pooled and paired
   figures carry each engine's `n` on either side of it;
+- an engine CLI update under an unchanged digest is composition in the same
+  way: it cuts nothing out, each cell's `usage.json` records the
+  `engine_version` its binary reported, and a by-version cut is a comparison
+  over different events; a cell recorded before the field existed, or one
+  carrying an `engine_version_discrepancy`, has an unknown version, never a
+  guessed one;
 - every figure computed from an evaluator's judgment — `mean_reasoning_quality`,
   the `big_case` and judge-validation tau-b, `evaluator_agreement`, the
   semantic grades — lists each evaluator digest it spans with its `n`; its
@@ -75,7 +83,9 @@ No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
 - pooling windows licenses **no other pooling**: stratum, stage and moment,
   salience band and version, scoring baseline, claim-set version and every
   other registered boundary still cut the pooled figure;
-- **revocation** stays the only de-count;
+- **revocation** stays the only de-count of a window's cells, and a
+  **void** the only de-count of a single event's (*The voided-event
+  exclusion*, below), each on its own dated entry stating the defect;
 - `release-sensitivity` and `semantic-summary` pool with the breakdown rather
   than refuse.
 
@@ -1458,6 +1468,34 @@ are a declared superset
 (below). A figure there that differs from a board figure is two populations
 rather than an error in either.
 
+**The voided-event exclusion.** An event whose committed outcome records a
+different petition than the one it was opened on — the Court re-docketed its
+number, or the ingest attached another docket's disposition — is **voided**:
+registered in `src/fedcourtsai/voided_events.json`, a code-owned file a void
+reaches only through a maintainer-merged PR, beside the dated freeze-record
+entry that states its defect. The admissibility rule is
+[docs/process-version.md](../docs/process-version.md)'s *Voiding an event*: the
+outcome-describes-another-case ground alone, shown from stored docket payloads
+without reference to the outcome or any grading, with the voided gradings'
+scores published and, once the docket-identity detector exists, every flagged
+event voided whatever it scored. Its gradings leave **every rank key, scored
+aggregate, stratum, window composition and export count**: `store.stratify`
+drops them after the run collapse (so a re-grade of one still counts in
+`superseded_gradings`) and before anything else counts them, so they are in
+neither the `forward_claim` nor the `leakage_exclusion` denominator; unlike those
+two rules, the `big_case` and `evaluator_agreement` views drop them too, because
+a stakes read of a voided event was taken across two petitions filed under one
+id. It changes membership, never value: no committed file is edited. Each board
+and the ops report carry a `voided_events` block — the shared pass's dropped
+count, the events, and per predictor the count, the hits (`correct: 1`) and the
+mean Brier score of what was dropped — omitted where nothing in scope is voided,
+and the export marks each such grading `excluded_reason: voided` and its
+prediction `voided` with the outcome columns null. **The voids so far were
+found from a grading, not by a scan, so the set may be incomplete** until the
+docket-identity detector sweeps the ledger. A void is not a corrected outcome:
+`stamp-cell --regrade` re-scores an event against its true outcome, and a voided
+event has none at that docket number.
+
 **A row-blind `codex-baseline` grading is "not assessed", never "clean".** A
 `codex-baseline` `retrieval_log.json` whose rows all carry a null `call_source`
 (the null's meaning is stated on `RetrievalCall.call_source` itself) records
@@ -2174,6 +2212,22 @@ the rendered table) and
   the stamp having drifted back to docketing between arrival-backfill sweeps, so
   a corpus freshness reading — while only `refused_no_submission_entry` is a
   property of the docket.
+  The **pre-mint poll** carries a second membership rule of the same kind, over
+  every forward interim cell rather than the arrival moment alone: a cell whose
+  docket already shows its outcome when it is about to be minted is refused, so
+  it never exists. The refused set is correlated with the outcome — fast
+  decisions are the ones a mint arrives after, and they plausibly lean toward
+  denials (unmeasured; in the committed ledger 5 of the 6 exposed applications
+  were denied). The same rule thins forward cert cells too, though none of the
+  394 resolved forward cert cells in the committed ledger was written on or after
+  its decision date. Engines mint the same event hours apart, so a later engine
+  can lose an event an earlier one kept. The run PR's per-engine pre-mint
+  refusal roll-up is where those cells are counted, and it is owed beside any
+  forward figure built over runs after the poll began. A refusal repeats each
+  round while the corpus still shows the event pending, so de-duplicate the
+  roll-up by (event, engine) before reading it as cells removed. Read any
+  per-engine figure beside that engine's refusal count; only a paired
+  comparison over events every engine produced absorbs the difference.
   And read the rate over `scope_pending_rows`, the in-scope undisposed-of slice
   the forward lane actually mints cells for; `pending_rows` pools in the
   out-of-scope kinds the matrix drops (`scope_rows` and `kind_counts` carry

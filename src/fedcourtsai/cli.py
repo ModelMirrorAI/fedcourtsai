@@ -59,8 +59,11 @@ from . import (
     integration_check,
     mcp,
     metrics_refresh,
+    process_registration,
     process_version,
+    promotion_record,
     provision,
+    registry_gate,
     repo_gate,
     retrieval,
     scope_manifest,
@@ -240,6 +243,7 @@ from .pipeline import (
     opinion_lineups,
     opinion_record,
     order_lineups,
+    pre_mint,
     qp_topics,
     semantic,
     vote_sources,
@@ -387,6 +391,7 @@ from .schemas import (
     CountedConferenceTotal,
     DataHealth,
     Disposition,
+    DocketPollRecord,
     Engine,
     Evaluation,
     FlagCategory,
@@ -416,6 +421,7 @@ from .schemas import (
     Stratum,
     SummaryPlan,
     UsageRole,
+    VoidedEventsRecord,
     observed_mcp_conditions,
     self_provisioned_fetches,
 )
@@ -456,6 +462,7 @@ from .usage import (
     parse_claude_usage,
     parse_codex_usage,
     parse_gemini_usage,
+    resolve_engine_version,
     resolve_pipeline_sha,
 )
 from .validate import (
@@ -465,6 +472,7 @@ from .validate import (
     validate_ledger,
 )
 from .vote_writer import (
+    SweepSlice,
     VoteDocketNumbers,
     VoteSourceName,
     VoteStampPlan,
@@ -5450,6 +5458,7 @@ def leaderboard(
         skills=skill_components(cells, settings.data_root, statpack),
         forward_claim=_forward_claim_from(run),
         leakage_exclusion=_leakage_exclusion_from(run),
+        voided_events=_voided_events_from(run),
         superseded_gradings=run.superseded,
         # Each cert cell's frozen band and realized outcome: the forward
         # stratum's per-band cut and the realized always-deny floor beside
@@ -5568,6 +5577,7 @@ def claim_scores_command(
         process_scope=scope,
         forward_claim=_forward_claim_from(run),
         leakage_exclusion=_leakage_exclusion_from(run),
+        voided_events=_voided_events_from(run),
         cell_windows=run.cell_windows,
     )
     destination = out if out is not None else settings.metrics_root / "claim-scores.json"
@@ -5869,8 +5879,8 @@ def successor_disclosures_command(
     """Print what a successor's freeze-record entry states about the windows it closed.
 
     Read-only and offline over the committed ledger, against the registry as
-    committed — so run it at the successor's freeze commit (once its windows are
-    registered) and again at the carrying promotion. Four disclosures
+    committed — so run it on the successor's registration PR (once its windows
+    are registered) and again after the carrying promotion has stamped them. Four disclosures
     (``docs/process-version.md``): each closed window's counted events, split
     into resolved and pending at its close; the **split events**, on which
     counted cells come from a closed window and a successor window that never
@@ -7060,6 +7070,43 @@ def _resolve_token_counts(
     return explicit
 
 
+@app.command("poll-docket")
+def poll_docket_cmd(
+    court: Annotated[str, typer.Option()],
+    docket_number: Annotated[
+        str, typer.Option(help="The docket number to poll, e.g. 26A477 or 26-221.")
+    ],
+    event: Annotated[str, typer.Option(help="The event whose outcome the poll looks for.")],
+    out: Annotated[Path, typer.Option(help="Write the poll's result here as JSON.")],
+) -> None:
+    """Poll a docket's current JSON once and record whether the event's outcome shows.
+
+    The post-run half of a forward cell's bracket: run after the engine step, it
+    records and never refuses. The docket number is passed in rather than read from
+    the cell's record, which the agent could have changed during its run. Always
+    exits 0: a poll that cannot answer is recorded as ``unavailable``.
+    """
+    with pre_mint.bounded_client() as client:
+        poll = pre_mint.poll_docket(court, docket_number, event, client)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(poll.as_record()) + "\n", encoding="utf-8")
+    typer.echo(
+        f"{court} {poll.docket_number} {event}: {poll.state}"
+        + (f" ({poll.reason})" if poll.reason else "")
+    )
+
+
+def _read_docket_poll(path: Path | None, which: str) -> DocketPollRecord | None:
+    """A poll record a harness step wrote, or ``None`` (warned) when it is unreadable."""
+    if path is None:
+        return None
+    try:
+        return DocketPollRecord.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        typer.echo(f"::warning::{which} poll record unreadable at {path}: {exc}")
+        return None
+
+
 @app.command("record-usage")
 def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     *,
@@ -7098,6 +7145,42 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             "then the local git HEAD, else omitted."
         ),
     ] = "",
+    engine_version: Annotated[
+        str,
+        typer.Option(
+            help="The engine binary's own `--version` output, read at install before "
+            "any agent ran; its first dotted version is recorded."
+        ),
+    ] = "",
+    engine_version_after: Annotated[
+        str,
+        typer.Option(
+            help="The same `--version` output read after the run: the recorded version "
+            "where there is no install-time read, else a cross-check."
+        ),
+    ] = "",
+    engine_pin: Annotated[
+        str,
+        typer.Option(
+            help="The exact version the workflow installed from; a read that "
+            "differs from it is recorded as a discrepancy."
+        ),
+    ] = "",
+    pre_mint_poll_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="The JSON `provision-snapshot --pre-mint-poll-out` wrote for this "
+            "cell; recorded as the usage record's pre_mint_poll. A missing or "
+            "unreadable file records nothing and warns."
+        ),
+    ] = None,
+    post_run_poll_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="The JSON `poll-docket` wrote after the cell's engine step ended; "
+            "recorded as the usage record's post_run_poll. Unreadable: warns, records nothing."
+        ),
+    ] = None,
 ) -> None:
     """Record one run's measured token usage and estimated cost to ``usage.json``.
 
@@ -7136,6 +7219,11 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             typer.echo(f"run-id '{run_id}' is not a timestamp; pass --created-at.", err=True)
             raise typer.Exit(code=2) from exc
 
+    recorded_version, discrepancy = resolve_engine_version(
+        engine_version, engine_version_after, engine_pin
+    )
+    if discrepancy is not None:
+        typer.echo(f"::warning::engine version for {actor} on {event}: {discrepancy}")
     record = ModelUsage(
         case_id=ids.case_id(court, docket),
         event_id=event,
@@ -7146,6 +7234,10 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         model=resolved_model,
         created_at=when,
         pipeline_sha=resolve_pipeline_sha(pipeline_sha),
+        engine_version=recorded_version,
+        engine_version_discrepancy=discrepancy,
+        pre_mint_poll=_read_docket_poll(pre_mint_poll_file, "pre-mint"),
+        post_run_poll=_read_docket_poll(post_run_poll_file, "post-run"),
         input_tokens=counts.input_tokens,
         output_tokens=counts.output_tokens,
         cache_read_input_tokens=counts.cache_read_input_tokens,
@@ -8785,15 +8877,16 @@ def process_digest_cmd(
         bool, typer.Option("--all", help="Print the digest of every enabled actor.")
     ] = False,
 ) -> None:
-    """Print an actor's process digest — the value a maintainer blesses to freeze.
+    """Print an actor's process digest — the value a registration blesses.
 
-    The freeze procedure: run ``fedcourts process-digest --all``, paste the
-    blessed digest(s) into ``FROZEN_PROCESS_DIGESTS`` in ``process_version.py``
-    **and set ``FROZEN_SINCE`` beside it** (the two move together — a test
-    pins it) in one small freeze commit, and record that commit as the cutover
-    in the docs. Each digest's value there is its **bless moment**, the
-    carrying promotion's merge time, written once that promotion lands; it is
-    the retroactivity boundary, separate from the counting instant. Because
+    The registration: run ``fedcourts process-digest --all``, then
+    ``fedcourts register-process`` in the PR that moved the digests, which
+    writes the label's pending rows into ``process_registry.json`` (the record
+    ``FROZEN_PROCESS_DIGESTS`` is built from). The promotion merge carrying
+    that PR stamps them: each newly blessed digest's **bless moment** and the
+    label's counting instant (``FROZEN_SINCE``) are that merge's committer
+    time. The bless moment is the retroactivity boundary, separate from the
+    counting instant an evaluator-only label holds over. Because
     the digest excludes the pipeline commit, the blessed map survives
     unrelated pipeline changes — predict/evaluate can resume at a newer HEAD
     and still match.
@@ -8814,6 +8907,335 @@ def process_digest_cmd(
             Path.cwd(), settings.config_root, actor_role, actor_id
         )
         typer.echo(f"{process_version.CURRENT_PROCESS_LABEL}  {actor_role}  {actor_id}  {digest}")
+
+
+#: The source file whose ``CURRENT_PROCESS_LABEL`` names the label cells stamp.
+_PROCESS_VERSION_SOURCE = "src/fedcourtsai/process_version.py"
+
+
+@app.command("register-process")
+def register_process_cmd(
+    label: Annotated[str, typer.Option(help="The label to register (`proc-vN`), named by hand.")],
+) -> None:
+    """Register a moved process as a pending label, in the PR that moves it.
+
+    Reads every enabled actor's digest off this tree, as ``process-digest
+    --all`` prints it, and writes ``process_registry.json``: the label with a
+    pending counting instant, a pending blessing for each digest that moved
+    (a digest that did not is carried forward with its bless moment), a
+    pending window for each newly blessed predictor digest, a pending close on
+    each window no live predictor computes, and the label in each live
+    evaluator digest's blessing labels. Sets ``CURRENT_PROCESS_LABEL`` to the
+    label. The merge that carries the PR to ``main`` stamps every pending
+    instant with its SHA and committer time (``promotion-record``).
+    """
+    settings = get_settings()
+    repo = Path.cwd()
+    actors = [
+        process_registration.LiveActor(
+            role,
+            actor_id,
+            process_version.digest_for_actor(repo, settings.config_root, role, actor_id),
+        )
+        for role, actor_id in [
+            ("predictor", p.id)
+            for p in enabled_predictors(settings.config_root / "predictors.yaml")
+        ]
+        + [
+            ("evaluator", e.id)
+            for e in enabled_evaluators(settings.config_root / "evaluators.yaml")
+        ]
+    ]
+    registry_path = repo / promotion_record.REGISTRY_PATH
+    source_path = repo / _PROCESS_VERSION_SOURCE
+    try:
+        document = process_registration.register_process(
+            json.loads(registry_path.read_text(encoding="utf-8")), label, actors
+        )
+        text = promotion_record.dump_registry(document)
+        process_version.load_process_registry(text, current_label=label)
+        source = process_registration.set_current_label(
+            source_path.read_text(encoding="utf-8"), label
+        )
+    except ValueError as exc:
+        typer.echo(f"register-process: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    registry_path.write_text(text, encoding="utf-8")
+    source_path.write_text(source, encoding="utf-8")
+    moved = [b for b in document["blessings"] if b["label"] == label]
+    typer.echo(f"registered {label}, pending: {len(moved)} digest(s) moved")
+    for blessing in moved:
+        typer.echo(f"  {blessing['role']}  {blessing['actor_id']}  {blessing['digest']}")
+
+
+@app.command("register-boundary")
+def register_boundary_cmd(
+    name: Annotated[str, typer.Option(help="The boundary's stable name.")],
+    reach: Annotated[
+        str,
+        typer.Option(
+            help="The cells the change can reach: self-represented dockets, granted dockets, "
+            "all, or replay cells."
+        ),
+    ],
+    predictors: Annotated[
+        str,
+        typer.Option(
+            help="Comma-separated predictor ids the boundary splits; empty for every one."
+        ),
+    ] = "",
+    gradual: Annotated[
+        bool,
+        typer.Option("--gradual", help="The change reaches the corpus through a back-fill pass."),
+    ] = False,
+) -> None:
+    """Register a harness boundary as pending, in the PR that makes the change.
+
+    Appends the boundary to ``process_registry.json`` with ``merge`` and ``at``
+    null. Until a merge stamps it, no cell has a side of it, so every cell
+    reads as it did before; the merge that carries the PR to ``main`` stamps
+    it with its SHA and committer time (``promotion-record``). Refuses, like
+    ``register-process``, while the registry's ``merge_stamping_declared`` is
+    unset: nothing would stamp the boundary.
+    """
+    registry_path = Path.cwd() / promotion_record.REGISTRY_PATH
+    named = [p.strip() for p in predictors.split(",") if p.strip()] or None
+    try:
+        document = process_registration.register_boundary(
+            json.loads(registry_path.read_text(encoding="utf-8")),
+            name,
+            predictors=named,
+            reach=reach,
+            gradual=gradual,
+        )
+        text = promotion_record.dump_registry(document)
+        process_version.load_process_registry(text)
+    except ValueError as exc:
+        typer.echo(f"register-boundary: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    registry_path.write_text(text, encoding="utf-8")
+    typer.echo(f"registered boundary {name}, pending")
+
+
+def _check_stamped_registry(text: str) -> object:
+    """Load a rendered registry under its own last label, refusing what the loader refuses."""
+    labels = json.loads(text).get("labels") or [{}]
+    current = labels[-1].get("label") or process_version.CURRENT_PROCESS_LABEL
+    return process_version.load_process_registry(text, current_label=current)
+
+
+@app.command("promotion-record")
+def promotion_record_cmd(
+    merge: Annotated[
+        str, typer.Option(help="The staging→main promotion merge commit to plan.")
+    ] = "",
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the fills and stamps into the working tree's copies."),
+    ] = False,
+    check: Annotated[
+        bool,
+        typer.Option(
+            "--check",
+            help="Exit 1 where the merge holds a pending registration an earlier merge "
+            "already carried.",
+        ),
+    ] = False,
+    check_main: Annotated[
+        str,
+        typer.Option(
+            "--check-main",
+            help="Instead of planning, exit 1 where this ref (e.g. origin/main) holds any "
+            "pending registration, naming the merge that carried each where it finds one.",
+        ),
+    ] = "",
+    main_ref: Annotated[
+        str, typer.Option("--main-ref", help="The ref whose first-parent chain holds the merge.")
+    ] = "",
+    staging_ref: Annotated[
+        str,
+        typer.Option("--staging-ref", help="The ref that must reach the merge's second parent."),
+    ] = "",
+) -> None:
+    """Print what a promotion merge owes ``main``: tags, placeholder fills, stamps.
+
+    Pure: reads only the merge, its first parent and the repository's tags,
+    which the caller fetches first — a tag missing locally reads as a free
+    name. The plan names the ``promotion/<UTC date>`` tag (adopting one that
+    already names the merge), a ``prereg/<label>`` tag on the merge where it
+    added a label, each ``<FILL:>`` placeholder the merge added with its value
+    where the closed key set has one (tag, merge SHA, merge time, digest
+    census) and the free-text ones a maintainer completes, and each pending
+    registration the merge added, to stamp with its SHA and committer time.
+    ``--main-ref`` and ``--staging-ref`` are required with ``--merge``: only a
+    merge on main's first-parent chain whose second parent staging reaches is
+    a promotion merge, so a data PR merged with a merge commit is refused.
+    ``--apply`` renders both files first and writes nothing unless both
+    render and the stamped registry loads; it creates no tag and no commit,
+    and its caller commits the result and then jails that commit
+    (``assert-promotion-record-diff --head``). ``--check-main`` names every
+    pending row on the ref, so a stamp that never landed cannot go unnoticed.
+    """
+    repo = Path.cwd()
+    if check_main:
+        try:
+            problems = promotion_record.pending_carried_problems(repo, check_main)
+        except promotion_record.PromotionRecordError as exc:
+            typer.echo(f"promotion-record: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        for problem in problems:
+            typer.echo(f"::error::{problem}", err=True)
+        if problems:
+            raise typer.Exit(code=1)
+        typer.echo(f"{check_main}: no pending registration a merge already carried")
+        return
+    if not (merge and main_ref and staging_ref):
+        typer.echo(
+            "promotion-record: pass --merge with --main-ref and --staging-ref, or --check-main",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    try:
+        plan = promotion_record.plan_promotion_record(
+            repo, merge, main_ref=main_ref, staging_ref=staging_ref
+        )
+        changed = (
+            promotion_record.apply_promotion_record(
+                repo, repo, plan, check_registry=_check_stamped_registry
+            )
+            if apply
+            else []
+        )
+    except promotion_record.PromotionRecordError as exc:
+        typer.echo(f"promotion-record: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    payload = plan.to_json()
+    payload["applied"] = changed
+    typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
+    if check and plan.stale_pending:
+        typer.echo(
+            "promotion-record: pending registrations an earlier merge carried: "
+            + ", ".join(f"{s.kind} {s.ident}" for s in plan.stale_pending),
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command("registry-gate")
+def registry_gate_cmd(
+    at: Annotated[str, typer.Option("--at", help="The batch's head: the commit to promote.")],
+    main_ref: Annotated[
+        str, typer.Option("--main-ref", help="The ref holding main's ledger and registry.")
+    ],
+) -> None:
+    """The promotion gate's Step 0: refuse a batch whose process registrations cannot be stamped.
+
+    Reads the registry, config and prompts at ``--at`` and the ledger, registry
+    and tags of ``--main-ref``, from git alone, whatever tree is checked out.
+    Refuses first a batch with no registry or one that does not load; then
+    pending registrations on a main that does not declare merge-stamped
+    instants, a pending digest that already stamps a committed cell on main,
+    an unregistered enabled actor, a predictor with more than one open window,
+    more than one label new to main or one whose ``prereg/`` tag already
+    exists, a repeated boundary name, and a pending row already on main. Tags
+    are read locally, so the caller fetches them first
+    (``git fetch origin --tags``).
+    """
+    repo = Path.cwd()
+    try:
+        actors = registry_gate.live_actors_at(repo, at)
+        result = registry_gate.registry_gate(repo, at, main_ref, actors)
+    except (promotion_record.PromotionRecordError, KeyError, OSError, ValueError) as exc:
+        typer.echo(f"::error::registry-gate: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    for problem in result.problems:
+        typer.echo(f"::error::registry: {problem}", err=True)
+    if result.problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"registry: {result.pending} pending, step 0 clean")
+
+
+@app.command("digest-census")
+def digest_census_cmd(
+    at: Annotated[str, typer.Option("--at", help="The commit whose tree is counted.")],
+    kind: Annotated[str, typer.Option(help="predictions | evaluations.")],
+    digest: Annotated[
+        str, typer.Option(help="Comma-separated digest hex prefixes (8+ characters).")
+    ],
+) -> None:
+    """Print how many committed artifacts of a kind carry any of the given digests at a commit.
+
+    The census a ``<FILL:census …>`` placeholder is filled with: every
+    ``prediction.json`` (or ``evaluation.json``) under ``data/cases`` on the
+    commit's tree whose stamped ``process_version.digest`` starts with one of
+    the prefixes.
+    """
+    try:
+        count = promotion_record.digest_census(
+            Path.cwd(), at, kind, [d.strip() for d in digest.split(",") if d.strip()]
+        )
+    except promotion_record.PromotionRecordError as exc:
+        typer.echo(f"digest-census: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(str(count))
+
+
+@app.command("assert-promotion-record-diff")
+def assert_promotion_record_diff_cmd(
+    merge: Annotated[str, typer.Option(help="The promotion merge the record is written for.")],
+    base: Annotated[str, typer.Option(help="The commit the promotion record is written on.")],
+    head: Annotated[str, typer.Option(help="The record commit to check — the one pushed.")],
+    main_ref: Annotated[
+        str, typer.Option("--main-ref", help="The ref whose first-parent chain holds the merge.")
+    ],
+    staging_ref: Annotated[
+        str,
+        typer.Option("--staging-ref", help="The ref that must reach the merge's second parent."),
+    ],
+) -> None:
+    """Refuse a promotion-record commit that is not exactly the merge's plan.
+
+    Jails the commit the writer pushes, never a working tree. ``base`` must be
+    ``--main-ref``'s tip, ``head`` must have exactly that one parent, and the
+    merge must be an ancestor of ``base``. Recomputes ``promotion-record
+    --merge``'s plan, renders it onto ``base``'s copies (the stamped registry
+    loading as the loader requires), and requires ``head``'s
+    ``process_registry.json`` and ``docs/freeze-record.md`` to equal that
+    rendering byte for byte — so every stamp carries the merge's own SHA and
+    committer time and no free-text or stale placeholder moves. Requires the
+    plan's ``promotion/`` and ``prereg/`` tags to already name the merge as
+    annotated tags carrying the plan's messages, since the writer tags first
+    and commits the record after. Checks structurally besides: only those two
+    paths, each still a regular ``100644`` file, no submodule anywhere, the
+    registry only by stamping pending rows, the freeze record only by
+    replacing placeholders with one-line values. Exit 1 naming every excess.
+    """
+    repo = Path.cwd()
+    paths = promotion_record.RECORD_PATHS
+    try:
+        problems = promotion_record.topology_problems(repo, merge, base, head, main_ref)
+        changed, mode_problems = promotion_record.changed_between(repo, base, head)
+        problems += mode_problems
+        after = {path: promotion_record.show_at(repo, head, path) for path in paths}
+        before = {path: promotion_record.show_at(repo, base, path) for path in paths}
+        plan = promotion_record.plan_promotion_record(
+            repo, merge, main_ref=main_ref, staging_ref=staging_ref
+        )
+        expected = promotion_record.render_promotion_record(
+            repo, plan, before, check_registry=_check_stamped_registry
+        )
+    except promotion_record.PromotionRecordError as exc:
+        typer.echo(f"::error::assert-promotion-record-diff: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    problems += promotion_record.tag_problems(repo, plan)
+    problems += promotion_record.promotion_record_diff_problems(
+        changed, before, after, expected=expected
+    )
+    for problem in problems:
+        typer.echo(f"::error::{problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"promotion record diff ok: {', '.join(changed) or 'no change'}")
 
 
 @app.command("record-retrieval")
@@ -9398,6 +9820,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         process_scope=scope,
         forward_claim=_forward_claim_from(stratified_run),
         leakage_exclusion=_leakage_exclusion_from(stratified_run),
+        voided_events=_voided_events_from(stratified_run),
         cell_windows=stratified_run.cell_windows,
     )
     report = build_ops_report(
@@ -10352,9 +10775,10 @@ def _vote_write_preflight(
     cache_dir: Path | None,
     throttle: float,
     needs_corpus: bool,
+    sweep: bool = False,
 ) -> Path:
     """Refuse a malformed invocation, and return the corpus path to read."""
-    if apply and max_stamps is None:
+    if apply and max_stamps is None and not sweep:
         typer.echo(
             f"{command}: --apply requires an explicit --max-stamps. "
             "Read the dry run first and pass the count you are approving.",
@@ -10396,11 +10820,13 @@ def _vote_pass(  # noqa: PLR0913 - one shared body for the two commands' identic
     projection: Path | None,
     plan_out: Path | None,
     from_plan: Path | None,
+    sweep: SweepSlice | None = None,
 ) -> None:
     """One vote pass in whichever of its modes the flags select.
 
     ``run(numbers, client)`` performs the fetch-and-read against ``numbers`` —
-    the open corpus or the projection's map.
+    the open corpus or the projection's map. ``sweep`` is the standing sweep's
+    slice, which replaces ``max_stamps`` on a write.
     """
     _handoff_preflight(
         command,
@@ -10418,13 +10844,15 @@ def _vote_pass(  # noqa: PLR0913 - one shared body for the two commands' identic
         cache_dir=cache_dir,
         throttle=throttle,
         needs_corpus=projection is None and from_plan is None,
+        sweep=sweep is not None,
     )
     settings = get_settings()
+    today = datetime.now(UTC).date()
     if emit_projection is not None:
         # The projection reads two columns every blob carries, so it opens the
         # blob as packed and never pays for a migrated read copy.
         with corpus.connect_readonly(db_path, migrate=False) as conn:
-            numbers = vote_docket_numbers(conn, settings.data_root, source=source)
+            numbers = vote_docket_numbers(conn, settings.data_root, source=source, today=today)
         write_handoff(emit_projection, numbers)
         typer.echo(
             f"{command}: wrote the docket-number projection ({len(numbers.numbers)} case(s), "
@@ -10439,10 +10867,11 @@ def _vote_pass(  # noqa: PLR0913 - one shared body for the two commands' identic
                 plan,
                 settings.data_root,
                 source=source,
-                today=datetime.now(UTC).date(),
+                today=today,
                 apply=apply,
                 max_stamps=max_stamps,
                 replace_differing=replace_differing,
+                sweep=sweep,
             )
         except HandoffRefused as exc:
             typer.echo(f"{command}: refusing the plan whole — {exc}", err=True)
@@ -10462,7 +10891,29 @@ def _vote_pass(  # noqa: PLR0913 - one shared body for the two commands' identic
                     result = run(conn, client)
         if plan_out is not None:
             write_handoff(plan_out, vote_plan(result))
-    _report_vote_write(command, result, max_stamps)
+    _report_vote_write(command, result, max_stamps, sweep=sweep is not None)
+    if sweep is not None:
+        found = len(result.stamps) + result.deferred
+        if not apply and found > sweep.ceiling:
+            # A dry run refuses nothing, so say what the apply would do.
+            typer.echo(
+                f"::warning::{command} --sweep: the class holds {found} rows, above its ceiling "
+                f"of {sweep.ceiling} (historical.sweep_caps); an apply would write none of it.",
+                err=True,
+            )
+        _echo_sweep_ledger(
+            command,
+            written=result.applied and not result.refused,
+            planned=len(result.stamps),
+            deferred=result.deferred,
+            cap=sweep.cap,
+        )
+        _refuse_sweep_above_ceiling(
+            command,
+            refused=result.refused and not result.failures,
+            found=found,
+            ceiling=sweep.ceiling,
+        )
     if result.refused or result.failures:
         raise typer.Exit(code=1)
 
@@ -10483,15 +10934,20 @@ _FROM_PLAN_HELP = (
 )
 
 
-def _report_vote_write(command: str, result: VoteWriteResult, max_stamps: int | None) -> None:
-    """Print a pass's ledger — the reading an apply's bound is taken from."""
+def _report_vote_write(
+    command: str, result: VoteWriteResult, max_stamps: int | None, *, sweep: bool = False
+) -> None:
+    """Print a pass's ledger — the reading an apply's bound is taken from.
+
+    On a sweep the ceiling's refusal is printed by the sweep ledger instead.
+    """
     if result.refused and result.failures:
         typer.echo(
             f"{command}: refusing to apply — the pass could not read everything it "
             "needs: " + "; ".join(result.failures),
             err=True,
         )
-    elif result.refused:
+    elif result.refused and not sweep:
         typer.echo(
             f"{command}: refusing to apply {len(result.stamps)} stamp(s) "
             f"(--max-stamps {max_stamps}). Read a fresh dry run before raising the bound.",
@@ -10662,6 +11118,7 @@ def _run_order_votes(
     apply: bool,
     max_stamps: int | None,
     replace_differing: bool,
+    sweep: SweepSlice | None,
 ) -> VoteWriteResult:
     return stamp_order_votes(
         numbers,
@@ -10671,7 +11128,45 @@ def _run_order_votes(
         apply=apply,
         max_stamps=max_stamps,
         replace_differing=replace_differing,
+        sweep=sweep,
     )
+
+
+def _order_votes_sweep(
+    *,
+    sweep: bool,
+    max_stamps: int | None,
+    replace_differing: bool,
+    emit_projection: Path | None,
+    projection: Path | None,
+) -> SweepSlice | None:
+    """The standing sweep's slice, after refusing the flags it does not combine with.
+
+    A sweep writes: it applies a plan (``--from-plan``) or runs in one process
+    over a pulled corpus, so the two read-only split modes take no ``--sweep``.
+    It never replaces a record — ``--replace-differing`` is a maintainer's call
+    on a dispatched pass — and its cap stands in for ``--max-stamps``.
+    """
+    if not sweep:
+        return None
+    command = "stamp-order-votes"
+    _refuse_bound_with_sweep(command, "--max-stamps", max_stamps)
+    if replace_differing:
+        typer.echo(
+            f"{command}: --sweep never replaces a record; --replace-differing belongs on the "
+            "dispatched order-votes pass, read and bounded by a maintainer.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if emit_projection is not None or projection is not None:
+        typer.echo(
+            f"{command}: --sweep slices a write; the projection and the parse write nothing, "
+            "so they take no --sweep.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    caps = load_historical_config(get_settings().config_root).sweep_caps
+    return SweepSlice(cap=caps.order_votes, ceiling=caps.order_votes_ceiling)
 
 
 @app.command("stamp-order-votes")
@@ -10712,11 +11207,13 @@ def stamp_order_votes_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
     projection: Annotated[Path | None, typer.Option("--projection", help=_PROJECTION_HELP)] = None,
     plan_out: Annotated[Path | None, typer.Option("--plan-out", help=_PLAN_OUT_HELP)] = None,
     from_plan: Annotated[Path | None, typer.Option("--from-plan", help=_FROM_PLAN_HELP)] = None,
+    sweep: Annotated[bool, typer.Option("--sweep", help=_SWEEP_HELP)] = False,
 ) -> None:
     """Stamp cert and interim outcomes with their disposing order's per-Justice notations.
 
     The `supremecourt-orders` writer. Its population is every committed cert-
-    and interim-stage outcome resolved in October Terms 2024 and 2025. For
+    and interim-stage outcome resolved from October Term 2024 through the
+    current Term. For
     each resolution date it reads every order list, miscellaneous order and
     opinion relating to orders the Court lists for that date
     (`order-notations`), and stamps each outcome with its docket's reading:
@@ -10744,7 +11241,20 @@ def stamp_order_votes_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
     every planned record against the ledger as it stands and, with `--apply
     --max-stamps N`, stamps it — opening no corpus and making no request. A
     plan with a malformed or unknown row is refused whole.
+
+    run-seed's daily window runs the same split as a standing sweep, the writer
+    with `--from-plan --sweep --apply`: in place of a bound it stamps at most
+    `historical.sweep_caps.order_votes` new records, oldest order date first,
+    leaves the rest for the next window, and refuses a whole class above
+    `order_votes_ceiling`. A sweep never replaces a record.
     """
+    slice_ = _order_votes_sweep(
+        sweep=sweep,
+        max_stamps=max_stamps,
+        replace_differing=replace_differing,
+        emit_projection=emit_corpus_projection,
+        projection=projection,
+    )
     _vote_pass(
         "stamp-order-votes",
         "supremecourt-orders",
@@ -10755,6 +11265,7 @@ def stamp_order_votes_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
             apply=apply,
             max_stamps=max_stamps,
             replace_differing=replace_differing,
+            sweep=slice_,
         ),
         apply=apply,
         max_stamps=max_stamps,
@@ -10765,6 +11276,7 @@ def stamp_order_votes_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
         projection=projection,
         plan_out=plan_out,
         from_plan=from_plan,
+        sweep=slice_,
     )
 
 
@@ -12297,6 +12809,44 @@ def _refuse_forward_if_closed(
         raise typer.Exit(code=3)
 
 
+def _pre_mint_poll_gate(
+    case: str,
+    court: str,
+    event: str,
+    payload: Mapping[str, Any],
+    out: Path | None,
+) -> None:
+    """Poll the live docket just before minting; exit 3 when the event is decided.
+
+    The docket number comes from the stored payload (both payload shapes), which
+    names the docket the cell is about, so a reserved-range id and a
+    CourtListener id are polled alike. The result is written to ``out`` before
+    any refusal, so a refused cell's poll is on record too.
+    """
+    docket_number = str(payload.get("CaseNumber") or payload.get("docket_number") or "")
+    with pre_mint.bounded_client() as client:
+        poll = pre_mint.poll_docket(court, docket_number, event, client)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(poll.as_record()) + "\n", encoding="utf-8")
+    stamp = poll.polled_at.isoformat().replace("+00:00", "Z")
+    if poll.state == "decided":
+        typer.echo(
+            f"::warning::refusing to provision forward cell for {case}: the live docket "
+            f"polled at {stamp} shows the outcome ({poll.reason})",
+            err=True,
+        )
+        raise typer.Exit(code=3)
+    if poll.state == "unavailable":
+        typer.echo(
+            f"::warning::pre-mint poll for {case} established nothing ({poll.reason}); "
+            "the cell proceeds on the stored-snapshot gates",
+            err=True,
+        )
+        return
+    typer.echo(f"{case} pre-mint poll: open at {stamp}")
+
+
 def _casestore_row_refusal(db_path: Path, court: str, docket: int, event: str) -> str | None:
     """The row-level half of the forward record gate, from the casestore path.
 
@@ -12541,6 +13091,27 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "disables the bound.",
         ),
     ] = 0,
+    pre_mint_poll: Annotated[
+        bool,
+        typer.Option(
+            "--pre-mint-poll",
+            help="With --refuse-terminal on a forward cell, poll the docket's current "
+            "JSON from the Court just before writing the record and refuse (exit 3) "
+            "when it already shows this event's outcome. The stored snapshot can be "
+            "days behind the docket, and a disposition's date carries no time of day, "
+            "so this is the one moment the cell can be shown to begin against an open "
+            "docket. A failed poll is recorded as unavailable and the cell proceeds "
+            "on the stored-snapshot gates alone.",
+        ),
+    ] = False,
+    pre_mint_poll_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the pre-mint poll's result (UTC time, state, reason) as JSON "
+            "here, for the usage record. Kept out of record/: it is harness "
+            "provenance, not cell input.",
+        ),
+    ] = None,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Materialize a case's corpus snapshot (and documents) for an agent run.
@@ -12677,6 +13248,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
                 err=True,
             )
             raise typer.Exit(code=3)
+        if pre_mint_poll:
+            _pre_mint_poll_gate(case, court, event, payload, pre_mint_poll_out)
     # Both gates ran on the LATEST payload, before the cut, and that ordering is
     # the point of putting the cut here. The staleness bound asks whether the
     # *pipeline* is live, which only the latest snapshot's date can answer — a
@@ -15443,6 +16016,36 @@ def _forward_claim_from(run: StratifiedRun) -> ForwardClaimRecord:
     )
 
 
+def _voided_events_from(run: StratifiedRun) -> VoidedEventsRecord | None:
+    """The same pass's voided-event record, or ``None`` where it dropped nothing.
+
+    Carries what the dropped gradings had scored, per predictor, so a void is
+    seen to remove a predictor's hits and misses alike rather than only one kind.
+    """
+    if not run.voided:
+        return None
+    count: dict[str, int] = {}
+    correct: dict[str, int] = {}
+    briers: dict[str, list[float]] = {}
+    for cell in run.voided:
+        evaluation = cell.evaluation
+        pid = evaluation.predictor_id
+        count[pid] = count.get(pid, 0) + 1
+        correct[pid] = correct.get(pid, 0) + (1 if evaluation.correct == 1 else 0)
+        if evaluation.brier_score is not None:
+            briers.setdefault(pid, []).append(evaluation.brier_score)
+    events = sorted(
+        {f"{cell.evaluation.case_id} {cell.evaluation.event_id}" for cell in run.voided}
+    )
+    return VoidedEventsRecord(
+        excluded=len(run.voided),
+        events=events,
+        by_predictor=dict(sorted(count.items())),
+        correct_by_predictor=dict(sorted(correct.items())),
+        mean_brier_by_predictor={pid: sum(v) / len(v) for pid, v in sorted(briers.items())},
+    )
+
+
 def _leakage_exclusion_from(run: StratifiedRun) -> LeakageExclusionRecord:
     """The same pass's leakage-exclusion record — count, denominator, and split."""
     return leakage_record(
@@ -15504,7 +16107,11 @@ def _report_exclusions(run: StratifiedRun) -> None:
     rules caught is named twice — once per reason, which is what the two counts
     on the boards say too.
     """
-    for label, dropped in (("forward-claim", run.excluded), ("leakage", run.leaked)):
+    for label, dropped in (
+        ("voided-event", run.voided),
+        ("forward-claim", run.excluded),
+        ("leakage", run.leaked),
+    ):
         for cell in dropped:
             ev = cell.evaluation
             typer.echo(
@@ -18412,6 +19019,11 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # no gate. Empty on a run where every cell placed the stakes, and on an
         # evaluate run.
         "stakes_reads": plan.stakes_read_markdown,
+        # The forward cells the pre-mint docket poll refused: designed refusals,
+        # not failures, so they carry no attempt-cap fact. The roll-up rides the
+        # PR body and the agent-feedback comment; it leaves the process here too
+        # for any surface that echoes the run's notes.
+        "pre_mint_refusals": plan.pre_mint_refusals_markdown,
         "feedback_comment": plan.feedback_comment,
         "stalled": plan.stalled,
         "dead_actors": list(plan.dead_actors),

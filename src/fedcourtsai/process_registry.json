@@ -1,0 +1,271 @@
+{
+  "schema_version": 1,
+  "merge_stamping_declared": "2026-10-14",
+  "labels": [
+    {
+      "label": "proc-v8",
+      "since": {
+        "at": "2026-09-16T00:26:04Z",
+        "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
+        "source": "merge"
+      }
+    },
+    {
+      "label": "proc-v9",
+      "since": {
+        "at": "2026-10-11T12:00:00Z",
+        "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "source": "hand"
+      }
+    }
+  ],
+  "blessings": [
+    {
+      "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+      "role": "predictor",
+      "actor_id": "claude-baseline",
+      "label": "proc-v9",
+      "blessed": {
+        "at": "2026-10-11T00:12:02Z",
+        "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "source": "merge"
+      }
+    },
+    {
+      "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+      "role": "predictor",
+      "actor_id": "codex-baseline",
+      "label": "proc-v8",
+      "blessed": {
+        "at": "2026-09-16T00:26:04Z",
+        "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
+        "source": "merge"
+      }
+    },
+    {
+      "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
+      "role": "predictor",
+      "actor_id": "gemini-baseline",
+      "label": "proc-v8",
+      "blessed": {
+        "at": "2026-09-16T00:26:04Z",
+        "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
+        "source": "merge"
+      }
+    },
+    {
+      "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+      "role": "evaluator",
+      "actor_id": "claude-judge",
+      "label": "proc-v9",
+      "blessed": {
+        "at": "2026-10-11T00:12:02Z",
+        "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "source": "merge"
+      }
+    },
+    {
+      "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+      "role": "evaluator",
+      "actor_id": "codex-judge",
+      "label": "proc-v9",
+      "blessed": {
+        "at": "2026-10-11T00:12:02Z",
+        "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "source": "merge"
+      }
+    },
+    {
+      "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+      "role": "evaluator",
+      "actor_id": "gemini-judge",
+      "label": "proc-v9",
+      "blessed": {
+        "at": "2026-10-11T00:12:02Z",
+        "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "source": "merge"
+      }
+    }
+  ],
+  "windows": [
+    {
+      "label": "proc-v8",
+      "digest": "sha256:1a0b2bef2e367cd589e4800fa04de5b5110b41bf1ea159b3c51669ccc722e89a",
+      "predictor_id": "claude-baseline",
+      "opens": {
+        "at": "2026-09-16T00:26:04Z",
+        "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
+        "source": "merge"
+      },
+      "closes": {
+        "at": "2026-10-11T12:00:00Z",
+        "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "source": "hand"
+      },
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v8",
+      "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+      "predictor_id": "codex-baseline",
+      "opens": {
+        "at": "2026-09-16T00:26:04Z",
+        "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v8",
+      "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
+      "predictor_id": "gemini-baseline",
+      "opens": {
+        "at": "2026-09-16T00:26:04Z",
+        "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v9",
+      "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+      "predictor_id": "claude-baseline",
+      "opens": {
+        "at": "2026-10-11T12:00:00Z",
+        "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "source": "hand"
+      },
+      "closes": null,
+      "revoked_at": null
+    }
+  ],
+  "evaluate_blessing_labels": {
+    "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13": [
+      "proc-v8"
+    ],
+    "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1": [
+      "proc-v8"
+    ],
+    "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe": [
+      "proc-v8"
+    ],
+    "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": [
+      "proc-v9"
+    ],
+    "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": [
+      "proc-v9"
+    ],
+    "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": [
+      "proc-v9"
+    ]
+  },
+  "harness_boundaries": [
+    {
+      "name": "pro-se-document-scrub",
+      "merge": "a2f84f2eedb4e3b3dcc222522a55b8a93ae1eff0",
+      "at": "2026-09-21T18:01:19Z",
+      "predictors": null,
+      "reach": "self-represented dockets",
+      "gradual": false
+    },
+    {
+      "name": "scrub-ocr-and-served-values",
+      "merge": "adccd9c427be6e1dd4b43d92b2472d7d21fd8d24",
+      "at": "2026-09-29T23:30:38Z",
+      "predictors": null,
+      "reach": "self-represented dockets",
+      "gradual": false
+    },
+    {
+      "name": "pro-se-snapshot-scrub",
+      "merge": "adccd9c427be6e1dd4b43d92b2472d7d21fd8d24",
+      "at": "2026-09-29T23:30:38Z",
+      "predictors": null,
+      "reach": "self-represented dockets",
+      "gradual": false
+    },
+    {
+      "name": "scrub-pro-se-respondent",
+      "merge": "b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b",
+      "at": "2026-10-01T16:15:45Z",
+      "predictors": null,
+      "reach": "self-represented dockets",
+      "gradual": false
+    },
+    {
+      "name": "scrub-pro-se-amicus",
+      "merge": "b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b",
+      "at": "2026-10-01T16:15:45Z",
+      "predictors": null,
+      "reach": "self-represented dockets",
+      "gradual": false
+    },
+    {
+      "name": "scrub-in-re-self-filer",
+      "merge": "41d003e28da4232d772031bf142a773afea52ff5",
+      "at": "2026-10-03T19:08:49Z",
+      "predictors": null,
+      "reach": "self-represented dockets",
+      "gradual": false
+    },
+    {
+      "name": "scrub-titled-joinder-self-filer",
+      "merge": "41d003e28da4232d772031bf142a773afea52ff5",
+      "at": "2026-10-03T19:08:49Z",
+      "predictors": null,
+      "reach": "self-represented dockets",
+      "gradual": false
+    },
+    {
+      "name": "merits-brief-spellings-consolidated-lead",
+      "merge": "41d003e28da4232d772031bf142a773afea52ff5",
+      "at": "2026-10-03T19:08:49Z",
+      "predictors": null,
+      "reach": "granted dockets",
+      "gradual": true
+    },
+    {
+      "name": "predict-cell-record-hide",
+      "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+      "at": "2026-10-11T00:12:02Z",
+      "predictors": [
+        "codex-baseline",
+        "gemini-baseline"
+      ],
+      "reach": "all",
+      "gradual": false
+    },
+    {
+      "name": "widened-document-kinds-freshness",
+      "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+      "at": "2026-10-11T00:12:02Z",
+      "predictors": [
+        "codex-baseline",
+        "gemini-baseline"
+      ],
+      "reach": "all",
+      "gradual": true
+    },
+    {
+      "name": "replay-moment-cut",
+      "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+      "at": "2026-10-11T00:12:02Z",
+      "predictors": [
+        "codex-baseline",
+        "gemini-baseline"
+      ],
+      "reach": "replay cells",
+      "gradual": false
+    },
+    {
+      "name": "merits-brief-partial-support",
+      "merge": "c432a95a9073bcae6651eb6b75fddd30aefbd8d8",
+      "at": "2026-10-11T23:41:22Z",
+      "predictors": null,
+      "reach": "granted dockets",
+      "gradual": true
+    }
+  ]
+}

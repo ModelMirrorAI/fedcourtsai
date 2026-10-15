@@ -26,7 +26,8 @@ agent is merely instructed to follow (that the PR is *reviewed* is a
 convention `AGENTS.md` carries, not something identity enforces):
 
 - **data App** — used by the deterministic writers `run-pull`, `run-seed`
-  and `run-repair`.
+  and `run-repair`, and by `promotion-record`, which tags each promotion merge
+  and pushes its record commit.
   Its client id is the `DATA_APP_CLIENT_ID` variable and its private key the
   `DATA_APP_PRIVATE_KEY` secret. This App **is** a bypass actor on `main: require
   PR`, so the writers push corpus facts straight to `main`.
@@ -75,7 +76,8 @@ two client ids as variables, the two keys as secrets). Each workflow mints a tok
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
 | `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
-| `run-seed` | data | contents (walker steps); ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
+| `run-seed` | data | contents (walker steps; the order-vote sweep's writer); none at all on the order-vote sweep's projection and parse jobs; ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
+| `promotion-record` (write job only) | data | contents | on a staging→main promotion merge only (a no-secret, read-only `classify` job decides that first): push the annotated `promotion/` and `prereg/` tags and the one-parent record commit that fills the placeholders the merge added and stamps its pending registrations. The job runs up to three attempts. In each, the plan, the tags, the apply, the commit, the jail and a validation of the jailed SHA run holding no write credential; only then is a token minted, and only that attempt's push and revoke steps read it, the push refusing one that is not the data App's. The push never re-plans: where `main` advanced it records the rejection, the attempt's token is revoked, and the next attempt prepares again from a fresh fetch holding no credential, running `write.sh` from the newly fetched main tip — the same trust the data App already places in main. Every token still live after the last attempt is revoked before the job ends, and the check that main holds no pending registration runs in the report job, so no repo code runs in the write job while a write token is live. The step split is a least-exposure ordering within one job, not a credential boundary: the planner's code is main's own reviewed code, and a hostile planner would need a job boundary to be contained. A tag push never replaces one, the commit is pushed with a lease on the base it was jailed against, and every push blanks any ambient header and runs no hook. The failure issue and the PR comment ride the ambient token in a separate job |
 | `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record and opinion-record jobs); none at all on the selector-validation, `handoff-projection` and `handoff-parse` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Four of the passes that fetch and parse the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`) run as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill and opinion-record writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for either role `prod` is trusted by — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
 | `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only and minted on Claude cells alone; the workflow commits. The engine watchdog that brackets every engine step holds no token: it reports only on the runner, through the cell's own tail |
 | `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
@@ -150,7 +152,12 @@ person's GitHub login.
   No workflow creates a Release, but any credential with `contents: write` —
   the Apps' tokens and `github.token` in a job granted it — could create a tag
   and a published Release through the API. The record-namespace tag ruleset
-  blocks update and deletion, not creation, and GitHub's loop prevention
+  blocks update and deletion, not creation, so a `promotion/` or `prereg/`
+  tag can also be planted ahead of the `promotion-record` writer. The writer
+  adopts only its own canonical name as an annotated tag carrying its plan's
+  message, so a planted tag never enters the record, but one planted on the
+  canonical name blocks the writer until a maintainer resolves it. The
+  one-time setup step under *Branch protection* closes that. GitHub's loop prevention
   suppresses workflow triggers only, so the webhook fires and Zenodo archives
   such a Release all the same. Keeping Release creation out of every workflow
   is therefore the rule this integration rests on.
@@ -174,7 +181,13 @@ branches — `tags: protect record` blocks update and deletion on the three
 record namespaces (`prereg/**`, `promotion/**`, `results/**`) with an empty
 bypass list, so even an admin must edit the ruleset before a record tag can
 move; the *Tags* subsection of docs/pipeline.md rests the record's
-immutability on it. Both require-PR rulesets pin
+immutability on it. **One-time setup (maintainer), after the
+`promotion-record` writer's first successful run:** add a tag ruleset that
+restricts **creation** in `promotion/**` and `prereg/**` to the data App as
+bypass actor, the maintainer's admin role keeping a recovery bypass, so no
+other credential can plant a tag ahead of the writer. Until then a tag planted on a promotion's canonical name blocks that
+promotion's record (the writer adopts only its own annotated tag, so a
+planted one never enters the record), and the maintainer resolves it by hand. Both require-PR rulesets pin
 `allowed_merge_methods` to **`merge, squash`**: `merge` because the sync and the
 promotion must keep `main` and `staging` sharing history, `squash` because the
 data-run `collect` PRs auto-merge with it, and no rebase because replaying
@@ -187,7 +200,9 @@ pre-registration record's commit ids.
   rows and
   point-in-time snapshots — to the S3 corpus remote; its pointer, deterministic
   `outcome.json` and `event.yaml` records, and the writer lanes' bounded repair
-  sweeps to `main`) while all agent code changes — including
+  sweeps to `main`), and `promotion-record` pushes a promotion merge's record
+  commit — only the two record files, byte-equal to the plan its jail
+  recomputes — while all agent code changes — including
   anything the dev App holds —
   go through a PR gated on the required checks. The dev App is deliberately
   **absent** from this bypass list. Required approvals are `0` — the maintainer
@@ -665,8 +680,9 @@ a workflow change that reads a secret is caught by no *required* check.
 non-blockingly, and the branch policy forces such a change to become a PR diff
 at all. The real control is that `.github/workflows/**` and
 `.github/actions/**` — the permission surface, composites included, since a
-composite runs inside the job and reads the same secrets — wait for the
-maintainer even into `staging`. The `staging` ruleset enforces it for every
+composite runs inside the job and reads the same secrets — and
+`.github/engines/**`, the engine CLI pins and lockfiles every agent cell
+installs and executes, wait for the maintainer even into `staging`. The `staging` ruleset enforces it for every
 identity without the admin role: it requires a code owner's review, and
 `.github/CODEOWNERS` names the maintainer as owner of those directories, of
 this document and `SECURITY.md`, of the promotion gate and lane machinery, of
@@ -990,9 +1006,10 @@ Access mirrors each workflow's role in the pipeline:
 | `run-repair` — `handoff-projection` job | read-only | the credential split's first job, for the vote, application back-fill and opinion-record passes: a full index `corpus-pull`, then the pass's public projection (docket numbers, stored serials, recorded listing keys) as a one-day artifact; it fetches nothing from the Court |
 | `run-repair` — `handoff-parse` job | none | every fetch from supremecourt.gov and every parse of what it served: no environment, no `id-token: write`, no secret, and a step asserts the AWS and OIDC variables are absent first; its only output is the dry-run ledger and, on an apply, the plan artifact |
 | `run-repair` — votes writer | none | on an apply only: re-validates the plan against the ledger and stamps `outcome.json`; no corpus, no role, no `id-token` — the data App token pushes the commit |
+| `run-seed` — `order-votes-projection`, `order-votes-parse`, `order-votes` jobs | read-only, none, none | the order-list vote sweep: the same three-job split as run-repair's `order-votes` pass on the daily window — a projection job with the read-only role (a full index `corpus-pull`, then each population case's docket number), a parse job holding no credential (no environment, no `id-token`, no secret, and the same AWS/OIDC guard), and a writer holding only the data App token, minted after the planned stamps are applied |
 | `run-repair` — application back-fill and opinion-record writers | read-write | on an apply only, under the `corpus-write` lock: a fresh `corpus-pull`, the plan re-validated and applied, `corpus-push`, then the pointer commit — no fetch, no PDF parse |
 | `run-repair` — decision-record job | read-only (pull and dry run), read-write on an apply | the dry run pulls the index and reads each candidate's stored snapshot from the content store; the apply re-assumes the read-write role for the step that fills two index columns and pushes the blob. One job, not the split: it fetches nothing, and the private snapshots it parses may not cross a public artifact |
-| `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull) |
+| `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull). A forward predict cell's provisioning step also fetches its docket's current JSON from the Court (the pre-mint poll), and a post-run step holding no credential fetches it once more, both through the live poller's client, which refuses any hop off the Court's host; each payload is only scanned for the event's outcome, never stored or handed to the cell |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store; the text-coverage mode reads wider on the same terms — a document-manifest round trip per live-slice case plus each stored document's text body |
 | `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
@@ -1231,6 +1248,10 @@ rehearsal, the only place those summaries go.
 
 `run-repair`'s credential split adds two run artifacts to the same public
 channel, each one day and named per run, handing one file between its jobs.
+run-seed's order-vote sweep runs the same split and passes the vote passes'
+same two files under its own names, `order-votes-projection-<run_id>` and
+`order-votes-plan-<run_id>`; the plan crosses on every run there, since the
+sweep always applies.
 Neither carries a corpus row, a snapshot or a stored document: each is a
 pydantic model (`extra="forbid"`, a literal format name and version) whose
 docstring states why its fields are public — the application back-fill's
@@ -1286,7 +1307,14 @@ compromised parse could still hand over rows an honest parse could have
 produced but that the Court never printed — an invented vote record, opinion
 row, or application docket JSON that matches its Term and serial — up to the
 bound. The bound itself is read off a separate dry-run dispatch's parse, so
-one compromised parse in the apply run cannot also choose it. The plan is the
+one compromised parse in the apply run cannot also choose it. run-seed's
+order-vote sweep has no separate dry run and no maintainer's bound: the
+window's cap (`historical.sweep_caps.order_votes`, 200 records a window) and
+ceiling (`order_votes_ceiling`, 1500) stand in for it, so a compromised parse
+there could land up to the cap of invented order-list records each window.
+That is accepted because the orders source's records are banked, never
+scored — vote scoring reads only a complete merits record — and each is a
+committed, reviewable `outcome.json` change. The plan is the
 Court's word only as far as the parse job can be trusted; what the split
 removes is that job's reach to any credential. The parse job's steps run as
 one user on one runner, so a parse that
@@ -1302,8 +1330,30 @@ yet — including one it can predict, such as the uv key of a lockfile already
 visible on `staging` — and any job that later restores a cache under such a key — and run-repair is
 dispatched on the default branch, whose cache scope every branch restores from,
 so that is any job on any branch, in any workflow — would restore what it wrote (`uv sync
---locked` does not re-hash an archive already in the cache). That
-cache-poisoning path is the split's remaining residual. The same reach, with
+--locked` does not re-hash an archive already in the cache). The restore side
+is where that path is closed: every job passes `restore-cache: "false"` to
+`setup-python-env`, which turns the uv cache off for the job entirely (no
+restore of any key, no save) so it installs from the index as the lockfile
+pins, unless `tests/test_workflow_cache_restore.py` allows it to restore —
+run-seed's scheduled order-vote sweep included, whose parse runs on the default
+branch every 02:31 window. The
+allow-list is short and pinned rather than the opt-out list, because a job can
+be worth poisoning for reasons its credentials do not show: `ci.yml`'s `gate`,
+`paths` and `cleanup-paths` hold no credential, but their verdicts are required
+checks — the path jail among them gates every data PR's auto-merge to `main` —
+and `integration-test`'s `collect-scenario` produces the freshness evidence the
+promotion gate reads, so a poisoned cache in any of them could forge a passing
+result. So a new job opts out until someone allows it with the reason it is
+safe, and each allowed job is checked to hold no credential or secret: no
+write-permission App token, no role but a read-only one, no write grant on its
+own token or inherited from its workflow, no secret but the runtime token, no
+deployment environment and no reusable-workflow call. Two jobs restore:
+`run-repair`'s `handoff-parse`, the parse of third-party documents itself,
+which holds no credential by design and hands a plan its writer re-validates;
+and `run-analytics`'s `tool-usage`, a read-only report over committed
+retrieval logs that opens no PR and feeds no check. A poisoned entry there runs
+beside nothing worth taking: the job's own read-scoped runtime token, which the
+attacker already held to save the entry, and an output nothing trusts. The same reach, with
 every credential besides, belongs to the two passes that parse fetched
 PDFs inside the corpus job: `ocr-recovery` and `document-backfill` are not
 split. And in every job that holds `id-token: write` — the projection,

@@ -26,8 +26,9 @@ record shapes share nothing but the stamping:
   other dockets onto the one listed opinion and cross-checks the reading: a
   lead author, decision date or separate writer the list prints differently
   holds the record back.
-- :func:`stamp_order_votes` — cert- and interim-stage outcomes resolved in
-  :data:`ORDER_VOTE_TERMS`. The record is read from every document the Court
+- :func:`stamp_order_votes` — cert- and interim-stage outcomes resolved from
+  :data:`ORDER_VOTE_TERM_FLOOR` through the current October Term
+  (:func:`order_vote_terms`). The record is read from every document the Court
   lists for the outcome's ``resolved_at`` — the date of the order disposing of
   the petition or application — so a notation on a later rehearing or motion
   order is never attached to it, and a docket whose order text on that date
@@ -53,7 +54,10 @@ orders-source record never enters a vote figure, and ``writing_roles`` is read
 by no scorer. A merits record is what that gate was registered to read.
 
 Dry run by default; ``apply`` refuses above ``max_stamps``. With the population
-empty no network request is made at all.
+empty no network request is made at all. The orders pass also runs as a
+**standing sweep** (``sweep=``): instead of a maintainer's bound it writes at most
+a per-window cap of new records and refuses only a class above a ceiling, which
+is how run-seed's daily window stamps each settled order list without a dispatch.
 
 **Split across a credential boundary.** On run-repair the pass runs as three
 jobs, so the step parsing the Court's documents holds no credential: a
@@ -73,7 +77,7 @@ import re
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Annotated, Final, Literal
 
@@ -103,11 +107,26 @@ from .validate import vote_record_problems
 #: Terms before it link whole volumes, which the reader does not read.
 OPINION_VOTE_TERM_FLOOR: Final = 2020
 
-#: The October Terms the order-list pass reads: the two most recent complete
-#: Terms. Both sat the same nine-Justice bench, both grammars were checked
-#: against real OT2025 orders, and every interim outcome in the ledger as of
-#: 2026-09-30 is among them.
-ORDER_VOTE_TERMS: Final = (2024, 2025)
+#: The first October Term the order-list pass reads. OT2024 and OT2025 sat the
+#: same nine-Justice bench and both grammars were checked against real OT2025
+#: orders; every interim outcome in the ledger as of 2026-09-30 is among them.
+ORDER_VOTE_TERM_FLOOR: Final = 2024
+
+
+def order_vote_terms(today: date) -> tuple[int, ...]:
+    """The October Terms the order-list pass reads ``today``: the floor through the current one.
+
+    The current Term is included so that its orders are stamped as they settle,
+    which is what the standing sweep is for. A Term whose orders the reader has
+    not yet seen is protected the way every reading is: the notation grammar
+    makes a name off the bench, an object it does not read and any leftover
+    sentence shaped like a Justice's act a problem, and a docket with a problem
+    is held back rather than stamped, so a new phrasing shows as a held-back
+    count rather than a wrong record. A notation that names no Justice's act at
+    all is beyond that guard and reads as none. Nothing scores these records.
+    """
+    return tuple(range(ORDER_VOTE_TERM_FLOOR, october_term_year(today) + 1))
+
 
 #: Days after an order date before its writings are read as complete. A writing
 #: respecting an order is ordinarily published with it, but not always, and a
@@ -153,6 +172,24 @@ class VoteStamp:
     replaces: bool = False
 
 
+@dataclass(frozen=True)
+class SweepSlice:
+    """A standing sweep's two instruments, in place of a maintainer's bound.
+
+    ``cap`` is a **slice**: a window writes at most this many records, oldest
+    order date first, and leaves the rest for the next window. ``ceiling``
+    **refuses**: a class found larger than it is written not at all, because a
+    class that size is a widened population rather than a backlog to drain.
+    """
+
+    cap: int
+    ceiling: int
+
+    def __post_init__(self) -> None:
+        if self.cap < 1 or self.ceiling < self.cap:
+            raise ValueError(f"a sweep needs 1 <= cap <= ceiling, got {self.cap}/{self.ceiling}")
+
+
 @dataclass
 class VoteWriteResult:
     """What a pass stamped, left, held back and could not read."""
@@ -170,6 +207,8 @@ class VoteWriteResult:
     #: A listing or list that could not be fetched; the pass is not trustworthy.
     failures: list[str] = field(default_factory=list)
     population: int = 0
+    #: On a sweep, the records found past the window's cap, left for the next one.
+    deferred: int = 0
 
 
 def _blank(outcome: Outcome) -> bool:
@@ -589,23 +628,25 @@ def _order_targets(data_root: Path, terms: Sequence[int]) -> list[OutcomeTarget]
     )
 
 
-def stamp_order_votes(
+def stamp_order_votes(  # noqa: PLR0913 - the pass's inputs, keyword-only beside the two readers
     conn: DocketNumbers,
     data_root: Path,
     fetcher: order_lineups.OrderFetcher,
     *,
     today: date,
-    terms: Sequence[int] = ORDER_VOTE_TERMS,
+    terms: Sequence[int] | None = None,
     apply: bool,
     max_stamps: int | None = None,
     replace_differing: bool = False,
+    sweep: SweepSlice | None = None,
 ) -> VoteWriteResult:
     """Stamp cert and interim outcomes with their disposing order's notations and writings.
 
-    ``conn`` is the corpus, or the docket-number projection of it.
+    ``conn`` is the corpus, or the docket-number projection of it. ``terms``
+    defaults to :func:`order_vote_terms` for ``today``.
     """
     result = VoteWriteResult(source=SUPREMECOURT_ORDERS, applied=apply)
-    targets = _order_targets(data_root, terms)
+    targets = _order_targets(data_root, order_vote_terms(today) if terms is None else terms)
     result.population = len(targets)
     numbers = _numbers_for(conn, (t.case_id for t in targets))
     by_term: dict[int, dict[date, list[OutcomeTarget]]] = defaultdict(lambda: defaultdict(list))
@@ -640,19 +681,45 @@ def stamp_order_votes(
             _stamp_order_day(
                 day, refs, members, numbers, fetcher, result, replace_differing=replace_differing
             )
-    return _finish(result, apply=apply, max_stamps=max_stamps)
+    return _finish(result, apply=apply, max_stamps=max_stamps, sweep=sweep)
 
 
 # --- Shared -------------------------------------------------------------------
 
 
-def _finish(result: VoteWriteResult, *, apply: bool, max_stamps: int | None) -> VoteWriteResult:
+def _finish(
+    result: VoteWriteResult,
+    *,
+    apply: bool,
+    max_stamps: int | None,
+    sweep: SweepSlice | None = None,
+) -> VoteWriteResult:
     """Apply the stamps, unless this is a dry run or the bound refuses them.
+
+    On a sweep the cap slices the class first — oldest order date first, then
+    by outcome, so successive windows drain it in a fixed order — and the
+    ceiling stands in for the bound: a whole class above it refuses. A sweep
+    never replaces a record; its caller refuses ``replace_differing``.
 
     Each outcome is re-read from disk and re-validated whole before it is
     written, so a record the model refuses raises before anything is written
     for it.
     """
+    if sweep is not None:
+        if any(stamp.replaces for stamp in result.stamps):
+            raise ValueError("a sweep never replaces a record; replace_differing is dispatch-only")
+        found = len(result.stamps)
+        if apply and found > sweep.ceiling:
+            result.refused = True
+            result.applied = False
+            result.deferred = found
+            result.stamps = []
+            return result
+        ordered = sorted(
+            result.stamps, key=lambda stamp: (stamp.target.outcome.resolved_at, stamp.target.ref)
+        )
+        result.stamps = ordered[: sweep.cap]
+        result.deferred = found - len(result.stamps)
     if not apply:
         return result
     if result.failures:
@@ -760,6 +827,12 @@ class VoteStampPlan(BaseModel):
     stamps: list[PlannedVoteStamp] = Field(max_length=_MAX_ROWS)
 
 
+def _terms_for(terms: Sequence[int] | None, today: date | None) -> Sequence[int]:
+    if terms is not None:
+        return terms
+    return order_vote_terms(today if today is not None else datetime.now(UTC).date())
+
+
 def _population(
     source: VoteSourceName, data_root: Path, terms: Sequence[int]
 ) -> list[OutcomeTarget]:
@@ -773,10 +846,15 @@ def vote_docket_numbers(
     data_root: Path,
     *,
     source: VoteSourceName,
-    terms: Sequence[int] = ORDER_VOTE_TERMS,
+    terms: Sequence[int] | None = None,
+    today: date | None = None,
 ) -> VoteDocketNumbers:
-    """The docket-number projection of the corpus for one pass's population."""
-    targets = _population(source, data_root, terms)
+    """The docket-number projection of the corpus for one pass's population.
+
+    ``terms`` defaults to :func:`order_vote_terms` for ``today`` (the current UTC
+    date when that is omitted too).
+    """
+    targets = _population(source, data_root, _terms_for(terms, today))
     numbers = docket_numbers(conn, (t.case_id for t in targets))
     carried = {k: v for k, v in numbers.items() if _DOCKET_NUMBER_RE.match(v)}
     return VoteDocketNumbers(
@@ -837,16 +915,17 @@ def _plan_problem(
     return None
 
 
-def apply_vote_plan(
+def apply_vote_plan(  # noqa: PLR0913 - the plan, the ledger and the write's keyword-only controls
     plan: VoteStampPlan,
     data_root: Path,
     *,
     source: VoteSourceName,
     today: date,
-    terms: Sequence[int] = ORDER_VOTE_TERMS,
+    terms: Sequence[int] | None = None,
     apply: bool,
     max_stamps: int | None = None,
     replace_differing: bool = False,
+    sweep: SweepSlice | None = None,
 ) -> VoteWriteResult:
     """Re-validate a plan against the ledger it is about to write, then stamp it.
 
@@ -865,7 +944,7 @@ def apply_vote_plan(
     """
     if plan.source != source:
         raise HandoffRefused(f"the plan was written for {plan.source}, not {source}")
-    population = _population(source, data_root, terms)
+    population = _population(source, data_root, _terms_for(terms, today))
     by_ref = {target.ref: target for target in population}
     # The writer's own population, not the plan's word for it.
     result = VoteWriteResult(source=source, applied=apply, population=len(population))
@@ -897,4 +976,4 @@ def apply_vote_plan(
         if not _same(target.outcome, record) and (why := _conformance(target, record)):
             raise HandoffRefused(f"the plan's stamp for {ref} fails the ledger's check: {why}")
         _classify(target, record, result, replace_differing=replace_differing)
-    return _finish(result, apply=apply, max_stamps=max_stamps)
+    return _finish(result, apply=apply, max_stamps=max_stamps, sweep=sweep)

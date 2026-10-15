@@ -1,0 +1,8 @@
+{
+  "name": "fedcourtsai-engine-claude-code",
+  "private": true,
+  "description": "The pin of the Claude Code CLI every claude cell, smoke and labeler runs. Installed by .github/actions/engine-cli with npm ci against the lockfile beside it; bumped by Dependabot.",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.289"
+  }
+}

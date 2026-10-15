@@ -1902,7 +1902,19 @@ application-Terms** — the live poller reaches recently-active applications, so
 Term it reached late contributes a subsample rather than a census, and a pooled
 rate blends Terms of unlike coverage. That unevenness is the leading candidate
 explanation for the spread between Term rates, and no interim comparison should
-treat that spread as a change in the Court's behaviour.
+treat that spread as a change in the Court's behaviour. A third selection sits
+in which forward cells exist at all: a cell whose docket already shows the
+outcome when it is about to be minted is refused, and fast decisions are the
+ones a mint can arrive after. The refused set is unmeasured and plausibly leans
+toward denials — in the committed ledger, 5 of the 6 applications with a
+forward interim cell written on or after the decision date were denied, against
+12 of 18 overall — so the scored interim population is thinned unevenly by
+outcome. The same rule thins forward cert cells too, though none of the 394
+resolved forward cert cells in the committed ledger was written on or after its
+decision date. The run PR's pre-mint refusal roll-up is where that thinning is
+counted, per engine; a refusal repeats each round while the corpus still shows
+the event pending, so de-duplicate it by (event, engine) before reading it as
+cells removed.
 
 The three decisions are fixed here, before any interim cell has been scored, so
 none can be tuned to a result.

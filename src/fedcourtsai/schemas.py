@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Final, Literal, get_args
 
@@ -23,6 +23,8 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+
+from .ids import CASE_ID_PATTERN, EVENT_ID_PATTERN
 
 SCHEMA_VERSION: Final = "1.0"
 
@@ -2055,6 +2057,31 @@ class Evaluation(_Strict):
     )
 
 
+class DocketPollRecord(_Strict):
+    """One harness poll of a forward cell's docket, as the cell's usage record carries it.
+
+    A poll reads the Court's docket JSON as served and runs the forward outcome scan
+    on it. ``open`` is narrower than it sounds: it means that JSON carried no
+    disposition the scan recognises at ``polled_at``, not that the event was
+    undecided — the JSON can lag the order or come from a cache, the scan's recall
+    is not perfect, and a disposition can land after the poll.
+    """
+
+    polled_at: datetime = Field(description="When the poll's fetch began, in UTC")
+    docket_number: str = Field(
+        description="The docket number polled, as the provisioned snapshot names it"
+    )
+    state: Literal["open", "decided", "unavailable"] = Field(
+        description="open: the docket JSON as served carried no disposition the forward "
+        "outcome scan recognises; decided: it did; unavailable: the poll could not answer "
+        "(no docket served, a body that is not JSON, a timeout, an error)"
+    )
+    reason: str | None = Field(
+        default=None,
+        description="Why the poll read decided or unavailable; null when open",
+    )
+
+
 class ModelUsage(_Strict):
     """``usage.json`` — measured model token usage and estimated cost for one run.
 
@@ -2082,6 +2109,47 @@ class ModelUsage(_Strict):
         "(GITHUB_SHA in CI, the local HEAD otherwise) — pins the prompt "
         "templates, harness, and registry in force at run time. Null on "
         "records written before the field existed or when unresolvable.",
+    )
+    engine_version: str | None = Field(
+        default=None,
+        pattern=r"^\d+\.\d+\.\d+$",
+        description="The engine CLI's version as its own binary reported it "
+        "(`claude --version`, `codex --version`, `gemini --version`), read by the "
+        "harness — never the agent's word. For the CLIs the harness installs "
+        "(claude-code, gemini) the read is taken at install, before any agent ran; "
+        "codex is installed by its action, so its read follows the run. An engine "
+        "update under an unchanged process digest is composition, and this field is "
+        "how a reading cuts by it. Null on records written before the field existed "
+        "or when the binary's output named no version.",
+    )
+    engine_version_discrepancy: str | None = Field(
+        default=None,
+        description="Set when the engine's version reads disagree: the binary reported "
+        "a different version after the run than at install, or a version other than "
+        "the pin the workflow installed from. The recorded `engine_version` is kept "
+        "as read; this says the cell's engine is in doubt, and a reading cutting by "
+        "engine version treats such a cell as unknown. Null when every read agrees, "
+        "and on records written before the field existed.",
+    )
+    pre_mint_poll: DocketPollRecord | None = Field(
+        default=None,
+        description="The harness's poll of a forward predict cell's docket just before "
+        "its record was written. A cell whose poll reads `decided` is refused and writes "
+        "no usage record, so a recorded poll is `open` or `unavailable`. `open` bounds "
+        "the cell's exposure to a disposition to the window from `polled_at` to the "
+        "end of the run; it is not proof the event was undecided (see "
+        "DocketPollRecord). Null on evaluate cells, on cells minted before the poll "
+        "existed, and wherever no poll ran.",
+    )
+    post_run_poll: DocketPollRecord | None = Field(
+        default=None,
+        description="The same poll taken after the cell's engine step ended. Record "
+        "only: it never refuses or removes a cell. `pre_mint_poll` and `post_run_poll` "
+        "both `open` say the whole run ended before the served docket showed a "
+        "decision, not that the order was unpublished (an order list or a press account "
+        "can precede the docket JSON); a `decided` post-run poll leaves the ordering "
+        "inside the run unresolved. Either way leakage is read from the retrieval log's "
+        "content. Null where no post-run poll ran.",
     )
     input_tokens: int = Field(ge=0, description="Fresh (uncached) input tokens")
     output_tokens: int = Field(ge=0)
@@ -4246,7 +4314,7 @@ class FrozenProcessRecord(_Strict):
 
     digests: list[str] = Field(
         description="The blessed digest set (`FROZEN_PROCESS_DIGESTS`), sorted — "
-        "predictors and evaluators together, exactly as the freeze commit "
+        "predictors and evaluators together, exactly as the registration "
         "blessed them. Not a filter: the enforced membership rule is `windows`, "
         "which keeps a closed window's digest counting after it leaves this set"
     )
@@ -4262,14 +4330,233 @@ class FrozenProcessRecord(_Strict):
         "event only the earliest window's counts. Every figure over a window is "
         "reported under that window's `label`",
     )
+    pending: list[str] = Field(
+        default_factory=list,
+        description="Each registration the build's registry held as pending — written by "
+        "the PR that registers it, not yet stamped by the merge that carries it — as "
+        "`<kind> <ident>` (`label proc-vN`, `blessing <digest>`, `window-opens <label> "
+        "<digest>`, `window-closes <label> <digest>`, `boundary <name>`). Nothing pending "
+        "counts, opens, closes or splits, so a board built while any is pending reads them "
+        "here. Omitted while empty",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_empty_windows(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``windows`` while it is empty, so a record with none reads as before."""
+        """Drop ``windows`` and ``pending`` while empty, so such a record reads as before."""
         payload = handler(self)
-        if isinstance(payload, dict) and not self.windows:
-            payload.pop("windows", None)
+        if isinstance(payload, dict):
+            if not self.windows:
+                payload.pop("windows", None)
+            if not self.pending:
+                payload.pop("pending", None)
         return payload
+
+
+#: A full 40-hex commit SHA.
+_FULL_SHA = r"^[0-9a-f]{40}$"
+
+#: Which cells a harness boundary's change can reach; see
+#: :class:`fedcourtsai.process_version.HarnessBoundary`.
+RegistryBoundaryReach = Literal[
+    "self-represented dockets", "granted dockets", "all", "replay cells"
+]
+
+
+def _registry_utc(moment: datetime | None, what: str) -> None:
+    """Refuse a registry datetime that is naive or off UTC."""
+    if moment is not None and (moment.tzinfo is None or moment.utcoffset() != timedelta(0)):
+        raise ValueError(f"a registry {what} is UTC")
+
+
+class RegistryInstant(_Strict):
+    """One registered instant of the process registry, with where it came from.
+
+    Every counting instant, bless moment and window edge is one of these, so a
+    reader can tell an instant set by hand from one a carrying merge stamped,
+    and audit either against git. A **pending** instant — ``at`` and ``merge``
+    both null — is a registration no promotion has carried yet: the PR that
+    registers a label writes it, and the merge that carries that PR to
+    ``main`` stamps it with its own SHA and committer time.
+    """
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
+
+    at: datetime | None = Field(
+        description="The instant, in UTC (`YYYY-MM-DDTHH:MM:SSZ`); null while pending"
+    )
+    merge: str | None = Field(
+        pattern=_FULL_SHA,
+        description="The full SHA of the carrying promotion merge — the promotion merge "
+        "that carried the registration and made the blessed bytes immutable on `main` "
+        "— and so the "
+        "commit the instant is audited against: a bless moment equals its committer time, "
+        "a counting instant is at or after it. Not the merge that carried a later "
+        "correction of the instant. A label that holds its predecessor's counting "
+        "instant (an evaluator-only label) copies that instant whole, so its `merge` names "
+        "the predecessor's carrying merge, not its own. Null, with `at`, marks a "
+        "registration no merge has carried yet",
+    )
+    source: Literal["hand", "merge"] = Field(
+        description="`merge` where `at` equals `merge`'s committer time, so git re-derives "
+        "it; `hand` where a maintainer set `at` at or after that committer time (a "
+        "counting instant set by hand under the rule before merge-stamped instants, "
+        "verified against the merge). "
+        "A pending instant is `merge`: its carrying merge stamps it"
+    )
+
+    @model_validator(mode="after")
+    def _utc(self) -> RegistryInstant:
+        """An instant is UTC, and pending exactly when it names no merge."""
+        _registry_utc(self.at, "instant")
+        if (self.at is None) != (self.merge is None):
+            raise ValueError("a registry instant sets `at` and `merge` together, or neither")
+        if self.at is None and self.source != "merge":
+            raise ValueError("a pending registry instant is stamped by its merge (`merge`)")
+        return self
+
+    @property
+    def pending(self) -> bool:
+        """Whether no promotion has carried this registration yet."""
+        return self.merge is None
+
+
+class RegistryLabel(_Strict):
+    """A process label and the counting instant from which its cells count.
+
+    The labels before ``proc-v8`` are deliberately absent: their digests were
+    de-counted when each was superseded, so they open no window.
+    """
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
+
+    label: str = Field(description="The process label (`proc-vN`)")
+    since: RegistryInstant = Field(
+        description="The label's counting instant: it opens every window the label newly "
+        "blesses and closes every window it stops blessing"
+    )
+
+
+class RegistryBlessing(_Strict):
+    """One digest the current process blesses, with its bless moment."""
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
+
+    digest: str = Field(description="The blessed process digest (`sha256:<hex>`)")
+    role: Literal["predictor", "evaluator"] = Field(description="The actor's role")
+    actor_id: str = Field(description="The predictor or evaluator the digest is the process of")
+    label: str = Field(
+        description="The label that first blessed the digest; a digest carried forward "
+        "byte-identical keeps it"
+    )
+    blessed: RegistryInstant = Field(
+        description="The bless moment: when the digest's bytes became immutable on `main`, "
+        "the retroactivity boundary no counted cell may predate"
+    )
+
+
+class RegistryWindow(_Strict):
+    """One counting window: a blessing of one predictor digest and its span."""
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
+
+    label: str = Field(description="The label whose blessing opened the window")
+    digest: str = Field(description="The blessed predictor process digest (`sha256:<hex>`)")
+    predictor_id: str | None = Field(description="The predictor whose process the digest is")
+    opens: RegistryInstant = Field(description="The counting instant that opened the window")
+    closes: RegistryInstant | None = Field(
+        description="The successor's counting instant that closed the window; null while open"
+    )
+    revoked_at: datetime | None = Field(
+        description="When a dated revocation de-counted the window's cells; null for a "
+        "window that counts"
+    )
+
+    @model_validator(mode="after")
+    def _utc(self) -> RegistryWindow:
+        """A revocation instant reads the registry's one clock."""
+        _registry_utc(self.revoked_at, "revocation")
+        return self
+
+
+class RegistryBoundary(_Strict):
+    """A dated change to what a predict cell reads under an unchanged predictor digest."""
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
+
+    name: str = Field(description="The boundary's stable name")
+    merge: str | None = Field(
+        pattern=_FULL_SHA,
+        description="The full SHA of the commit that carried the change to `main`; a cell's "
+        "side is read by ancestry against it. Null, with `at`, while no promotion has "
+        "carried the registration",
+    )
+    at: datetime | None = Field(
+        description="That commit's committer time; display only. Null while pending"
+    )
+    predictors: list[str] | None = Field(
+        description="The predictors the boundary splits; null for every predictor"
+    )
+    reach: RegistryBoundaryReach = Field(description="The cells the change can reach")
+    gradual: bool = Field(
+        description="Whether the change reached the corpus through a back-fill pass, so a "
+        "cell after it may still read the earlier document set"
+    )
+
+    @model_validator(mode="after")
+    def _utc(self) -> RegistryBoundary:
+        """A boundary's display time reads the registry's one clock; pending sets neither."""
+        _registry_utc(self.at, "boundary time")
+        if (self.at is None) != (self.merge is None):
+            raise ValueError("a registry boundary sets `merge` and `at` together, or neither")
+        return self
+
+    @property
+    def pending(self) -> bool:
+        """Whether no promotion has carried this boundary yet."""
+        return self.merge is None
+
+
+class ProcessRegistry(_Strict):
+    """``process_registry.json`` — the frozen-process registry, as committed data.
+
+    The single source of the counting partition's definition:
+    :mod:`fedcourtsai.process_version` builds its freeze constants from it at
+    import (``FROZEN_PROCESS_DIGESTS`` from ``blessings``, ``FROZEN_SINCE``
+    from the current label's ``since``, ``COUNTING_WINDOWS`` from
+    ``windows``, ``EVALUATE_BLESSING_LABELS`` and ``HARNESS_BOUNDARIES``), so
+    every reader keeps reading those names. Append-only in the same sense as
+    the freeze record: a successor closes and adds windows, and appends
+    labels, blessing labels and boundaries, but never rewrites a landed
+    instant. A pending instant is the one field written twice: null in the PR
+    that registers it, then stamped once by the merge that carries it.
+    """
+
+    model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
+
+    schema_version: Literal[1] = Field(description="The registry format's version")
+    merge_stamping_declared: str | None = Field(
+        default=None,
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        description="The date of the freeze-record entry that declares counting instants "
+        "and bless moments stamped by the carrying merge's committer time. Until it is set, "
+        "`register-process` writes no pending label: a merge may stamp a label's instants "
+        "only under a rule the freeze record already holds on `main`",
+    )
+    labels: list[RegistryLabel] = Field(description="Every label with a counting window, in order")
+    blessings: list[RegistryBlessing] = Field(
+        description="The digests the current process blesses, one per actor, in order"
+    )
+    windows: list[RegistryWindow] = Field(
+        description="Every counting window, in the order the registry opened them"
+    )
+    evaluate_blessing_labels: dict[str, list[str]] = Field(
+        description="Every evaluate label that blessed each evaluator digest, in blessing "
+        "order, kept after those labels are superseded"
+    )
+    harness_boundaries: list[RegistryBoundary] = Field(
+        description="Every harness boundary dated since the earliest window opened, in the "
+        "order their carrying commits reached `main`"
+    )
 
 
 class ForwardClaimRecord(_Strict):
@@ -4360,6 +4647,83 @@ class LeakageExclusionRecord(_Strict):
     )
 
 
+class VoidedEvent(_Strict):
+    """One voided event: its key, the ground it was voided on, and how it was found.
+
+    A void de-counts every grading of one event whose committed outcome records a
+    different petition than the one the event was opened on. The ground is a
+    closed vocabulary, so nothing but that defect can be entered here, and the
+    entry naming it is a dated ``docs/freeze-record.md`` entry that publishes the
+    voided gradings' scores (``docs/process-version.md``, *Voiding an event*).
+    """
+
+    case_id: str = Field(pattern=CASE_ID_PATTERN, description="The voided event's case id")
+    event_id: str = Field(pattern=EVENT_ID_PATTERN, description="The voided event's id")
+    ground: Literal["redocketed"] = Field(
+        description="Why the event is voided. `redocketed`: its outcome records a "
+        "different petition than the one it was opened on, shown from stored docket "
+        "payloads alone (docketed date, parties, lower-court number)"
+    )
+    detection: Literal["outcome-triggered", "scan"] = Field(
+        description="How the defect was found: `outcome-triggered` (a grading or "
+        "flag on the resolved event surfaced it) or `scan` (a systematic sweep of "
+        "stored docket identities, outcome-blind by construction)"
+    )
+    declared: date = Field(description="The date of the freeze-record entry that voids it")
+    defect: str = Field(description="The defect, as the entry states it")
+
+
+class VoidedEventsRegistry(_Strict):
+    """``src/fedcourtsai/voided_events.json`` — every voided event, append-only.
+
+    Data rather than code, so a void is a reviewed, maintainer-merged edit to one
+    file, and a row is never removed: removing one would re-count gradings a dated
+    entry withdrew.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    events: list[VoidedEvent] = Field(description="The voided events, in the order declared")
+
+
+class VoidedEventsRecord(_Strict):
+    """The voided events a board's build dropped, and what their gradings scored.
+
+    An event whose committed outcome describes another petition is voided by a
+    dated freeze-record entry (``voids.VOIDED_EVENTS``). Its gradings leave
+    every stratum, rank key and composition count, so this block states how many
+    the shared stratify pass dropped, which events, and what those gradings had
+    scored, and the de-count is never silent. Omitted where nothing in scope is
+    voided. It changes which cells are counted, never what any cell scored.
+    """
+
+    excluded: int = Field(
+        ge=0,
+        description="How many in-scope gradings of voided events the shared "
+        "`store.stratify` pass dropped — the pass every scored surface reads, so the "
+        "count is the pass's, not this surface's own — counted after the run "
+        "collapse and before any stratum; never subtracted from a total beside it",
+    )
+    events: list[str] = Field(
+        default_factory=list,
+        description="The voided events among those gradings, as '<case_id> <event_id>', sorted",
+    )
+    by_predictor: dict[str, int] = Field(
+        default_factory=dict,
+        description="Dropped gradings keyed by predictor id (only predictors "
+        "with a nonzero count appear)",
+    )
+    correct_by_predictor: dict[str, int] = Field(
+        default_factory=dict,
+        description="How many of each predictor's dropped gradings recorded "
+        "`correct: 1`, so a void is seen to remove hits and misses alike",
+    )
+    mean_brier_by_predictor: dict[str, float] = Field(
+        default_factory=dict,
+        description="The mean Brier score of each predictor's dropped gradings "
+        "(predictors whose dropped gradings carry no Brier score are absent)",
+    )
+
+
 class Leaderboard(_Strict):
     """``metrics/leaderboard.json`` — predictors ranked from the evaluations ledger.
 
@@ -4415,6 +4779,12 @@ class Leaderboard(_Strict):
         "counted in both and the two counts must never be summed into an "
         "exclusion total; null on a board built before the record existed, or "
         "one constructed without it",
+    )
+    voided_events: VoidedEventsRecord | None = Field(
+        default=None,
+        description="The voided events this build dropped (`voids.VOIDED_EVENTS`) "
+        "and how many gradings they held; omitted where no in-scope grading sits "
+        "on a voided event",
     )
     salience_versions: list[str] = Field(
         default_factory=list,
@@ -4552,6 +4922,8 @@ class Leaderboard(_Strict):
                 payload.pop("by_protocol", None)
             if self.paired is None:
                 payload.pop("paired", None)
+            if self.voided_events is None:
+                payload.pop("voided_events", None)
             if not self.salience_versions:
                 payload.pop("salience_versions", None)
         return payload
@@ -4821,6 +5193,12 @@ class ClaimScoreBoard(_Strict):
         "the leaderboard records it; null on a surface built before the record "
         "existed, or one constructed without it",
     )
+    voided_events: VoidedEventsRecord | None = Field(
+        default=None,
+        description="The voided events this build dropped, exactly as the "
+        "leaderboard records them; omitted where no in-scope grading sits on a "
+        "voided event",
+    )
     evaluations_total: int = Field(
         ge=0,
         description="Cert-stage evaluation cells in scope (after the "
@@ -4870,8 +5248,11 @@ class ClaimScoreBoard(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_empty_cut(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``by_protocol`` while it lists nothing (an all-versions build)."""
-        return _omit_empty(handler(self), by_protocol=self.by_protocol)
+        """Drop ``by_protocol`` while it lists nothing (an all-versions build), and
+        ``voided_events`` while no in-scope grading sits on a voided event."""
+        return _omit_empty(
+            handler(self), by_protocol=self.by_protocol, voided_events=self.voided_events
+        )
 
 
 class SemanticClaimSummary(_Strict):
@@ -10427,6 +10808,17 @@ class SubstanceDigest(_Strict):
         "equal and never subtracted from one another; null on a "
         "report built before the record existed",
     )
+    voided_events: VoidedEventsRecord | None = Field(
+        default=None,
+        description="The voided events the shared stratify pass dropped from the "
+        "scored-cell figures, exactly as the boards record them; omitted where "
+        "nothing in scope is voided",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_voided(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``voided_events`` while nothing in scope is voided."""
+        return _omit_empty(handler(self), voided_events=self.voided_events)
 
 
 class OpsReport(_Strict):
@@ -10690,7 +11082,7 @@ class SummaryPlan(_Strict):
 
 #: Why an exported grading does not count toward any scored figure.
 ExportExclusionReason = Literal[
-    "forward_claim", "leakage", "forward_claim_and_leakage", "superseded", "out_of_scope"
+    "voided", "forward_claim", "leakage", "forward_claim_and_leakage", "superseded", "out_of_scope"
 ]
 
 
@@ -10811,17 +11203,21 @@ class ExportPredictionRow(_Strict):
         "`ledger_commit`; no committer identity is exported beyond this bit"
     )
     resolved_at: date | None = Field(
-        description="When the event resolved, from its `outcome.json`; null while unresolved"
+        description="When the event resolved, from its `outcome.json`; null while "
+        "unresolved, and null on a `voided` row"
     )
     actual_disposition: Disposition | None = Field(
-        description="The realized disposition label; null while unresolved"
+        description="The realized disposition label; null while unresolved, and null on a "
+        "`voided` row"
     )
     actual_granted: int | None = Field(
-        description="The realized binary outcome: 1 positive, 0 not; null while unresolved"
+        description="The realized binary outcome: 1 positive, 0 not; null while "
+        "unresolved, and null on a `voided` row"
     )
     disposition_basis: Literal["standard", "mootness"] | None = Field(
         description="Whether the disposition rests on the ordinary standard or on "
-        "mootness (which routes the cell to the procedural stratum); null while unresolved"
+        "mootness (which routes the cell to the procedural stratum); null while "
+        "unresolved, and null on a `voided` row"
     )
     stratum: Stratum | None = Field(
         description="The stratum the scored figures place the prediction in (`forward`, "
@@ -10839,6 +11235,13 @@ class ExportPredictionRow(_Strict):
         description="Whether the harness record claims a forward cell but the event resolved "
         "before the cell's harness clock day, which sets the prediction aside"
     )
+    voided: bool = Field(
+        default=False,
+        description="Whether the prediction's event is voided: its committed outcome "
+        "records a different petition than the one the event was opened on, so the "
+        "outcome columns are nulled rather than exported beside a forecast of another case "
+        "(`docs/process-version.md`, *Voiding an event*)",
+    )
     gradings_total: int = Field(
         ge=0,
         description="How many in-scope gradings of this prediction survive the re-grade "
@@ -10850,7 +11253,8 @@ class ExportPredictionRow(_Strict):
     )
     set_aside: bool = Field(
         description="Whether the prediction is set aside from the scored figures: "
-        "`forward_claim_excluded`, or graded with every in-scope grading leakage-flagged"
+        "`voided`, `forward_claim_excluded`, or graded with every in-scope grading "
+        "leakage-flagged"
     )
 
 
@@ -10900,7 +11304,9 @@ class ExportGradingRow(_Strict):
     )
     counted: bool = Field(description="Whether the scored figures count this grading")
     excluded_reason: ExportExclusionReason | None = Field(
-        description="Why an uncounted grading is not counted: `forward_claim` (the "
+        description="Why an uncounted grading is not counted: `voided` (its event "
+        "is voided by a dated freeze-record entry, because the event's outcome "
+        "describes another petition), `forward_claim` (the "
         "prediction's forward claim is contradicted by its own record), `leakage` "
         "(`leakage_suspected` is true), `forward_claim_and_leakage` (both), `superseded` "
         "(a newer grading by the same judge of the same predictor on this event replaced "
@@ -11071,4 +11477,6 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "export_grading_row": ExportGradingRow,
     "export_reasoning_record": ExportReasoningRecord,
     "export_manifest": ExportManifest,
+    "process_registry": ProcessRegistry,
+    "voided_events": VoidedEventsRegistry,
 }

@@ -57,6 +57,7 @@ from .store import (
     scored_prediction,
     stratify,
 )
+from .voids import voided_reason
 
 
 class WindowRecordError(ValueError):
@@ -216,10 +217,11 @@ def successor_disclosures(
 ) -> SuccessorDisclosures:
     """The successor entry's disclosures for the windows ``closed_label`` closed.
 
-    Read over the committed ledger as it stands; run it at the successor's
-    freeze commit for the counts its entry quotes, and again at the carrying
-    promotion (cells keep landing). The closed windows are ``closed_label``'s
-    windows that carry a ``closes``; the instant is the earliest opening among
+    Read over the committed ledger as it stands; run it on the successor's
+    registration PR for the counts its entry quotes, and again after the
+    carrying promotion has stamped it (cells keep landing). The closed windows
+    are ``closed_label``'s windows that carry a ``closes``; the instant is the
+    earliest opening among
     ``successor_label``'s windows. A digest ``closed_label`` blessed and the
     successor carried forward byte-identical keeps one unbroken window, which is
     not closed and so appears in no census here.
@@ -372,6 +374,10 @@ def _evaluator_digests(
         if not prediction_counts(event_dir, evaluation.predictor_id, scored):
             continue
         if not graded_in_window(evaluation.process_version, scored.process_version):
+            continue
+        # A voided event's gradings were scored against another petition's
+        # outcome: no window's record counts them (`voids.VOIDED_EVENTS`).
+        if voided_reason(evaluation) is not None:
             continue
         scoped.append(evaluation)
     tally: Counter[tuple[str, str | None]] = Counter()

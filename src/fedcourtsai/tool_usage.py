@@ -113,6 +113,7 @@ from .schemas import (
 )
 from .serialize import read_model
 from .store import prediction_counts
+from .voids import voided_reason
 
 TOOL_USAGE_CORRELATION_MIN_CELLS = 30
 """Cells a population needs before its call-volume/Brier correlation is published.
@@ -644,6 +645,10 @@ def _scores_of(cell: _PredictedCell, *, frozen_only: bool) -> _JoinedCell | None
             # what fails loudly on a malformed artifact.
             continue
         if frozen_only and not graded_in_window(evaluation.process_version, stamp):
+            continue
+        # A voided event's gradings scored another petition's outcome, so no
+        # usefulness figure reads them (`fedcourtsai.voids`).
+        if voided_reason(evaluation) is not None:
             continue
         found.append(evaluation)
     panel = latest_evaluation_runs(found, lambda evaluation: evaluation)
