@@ -352,6 +352,11 @@ from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
 from .planning_rates import price_cells
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .promotion_body import Batch, batch_prs, render, same_body, splice
+from .public_update import (
+    build_public_update,
+    last_complete_week,
+    render_public_update,
+)
 from .registry import (
     enabled_evaluators,
     enabled_predictors,
@@ -9884,6 +9889,48 @@ def _prior_digest_bodies(path: Path) -> list[str]:
     if not isinstance(raw, list):
         return []
     return [str(item.get("body", "")) if isinstance(item, dict) else str(item) for item in raw]
+
+
+@app.command("public-update")
+def public_update_cmd(
+    *,
+    week: Annotated[
+        str,
+        typer.Option(
+            help="ISO week to render, as YYYY-Www; defaults to the last complete week (UTC)."
+        ),
+    ] = "",
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Write the Markdown here; omit to print it."),
+    ] = None,
+) -> None:
+    """Render the weekly public update for the email list from the committed ledger.
+
+    Read-only and deterministic: the same tree and week render the same bytes.
+    Exits 3, writing nothing, when the week has nothing resolved and no new
+    forecast, so a poster skips the week rather than sending an empty update.
+    """
+    settings = get_settings()
+    chosen = week or last_complete_week(datetime.now(UTC))
+    try:
+        update = build_public_update(settings.data_root, chosen)
+    except ValueError as exc:
+        typer.echo(f"public-update: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    if update.empty:
+        typer.echo(f"public-update: nothing to send for {chosen}.", err=True)
+        raise typer.Exit(code=3)
+    text = render_public_update(update)
+    if out is None:
+        typer.echo(text, nl=False)
+    else:
+        write_text(out, text)
+        typer.echo(
+            f"public-update: {chosen}: {len(update.resolved)} resolved, "
+            f"{len(update.new)} newly forecast -> {out}",
+            err=True,
+        )
 
 
 @app.command("daily-digest")
