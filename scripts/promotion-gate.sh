@@ -376,6 +376,47 @@ contexts() {
     echo "contexts: the review-auto environment is not yet referenced on main; environment check skipped"
   fi
 
+  # The review and tag-record rulesets: the approval `main` requires and who
+  # may give it, staging's code-owner review, and the record tags' update,
+  # deletion and creation rules, each with the bypass list the docs record.
+  # All live in settings, so a promotion would otherwise outlive one being
+  # edited away unnoticed. Each ruleset is fetched whole (the list endpoint
+  # omits rules) and judged by tested Python (tests/test_ruleset_checks.py).
+  # Bypass lists come back only to an admin, so the read must be one; the
+  # identities they must name are resolved here rather than pinned in code.
+  local ruleset_ids id is_admin team_id data_app_id dev_app_id
+  local rulesets_dir="${workdir}/rulesets"
+  is_admin="$(gh api "repos/${REPO}" --jq '.permissions.admin' 2>/dev/null || true)"
+  team_id="$(gh api "orgs/${REPO%%/*}/teams/maintainers" --jq '.id' 2>/dev/null || true)"
+  data_app_id="$(gh api "apps/fedcourtsai-data" --jq '.id' 2>/dev/null || true)"
+  dev_app_id="$(gh api "apps/fedcourtsai-dev" --jq '.id' 2>/dev/null || true)"
+  if [ "$is_admin" != "true" ]; then
+    echo "::error::contexts: the ruleset check needs an admin token — bypass lists are invisible to any other, and a check that cannot see them proves nothing about them"
+    fail=1
+  elif [ -z "$team_id" ] || [ -z "$data_app_id" ] || [ -z "$dev_app_id" ]; then
+    echo "::error::contexts: could not resolve the maintainers team or the data/dev App ids (team: ${team_id:-unread}, data: ${data_app_id:-unread}, dev: ${dev_app_id:-unread})"
+    fail=1
+  elif ruleset_ids="$(gh api --paginate "repos/${REPO}/rulesets" --jq '.[].id' 2>/dev/null)" \
+    && [ -n "$ruleset_ids" ]; then
+    mkdir -p "$rulesets_dir"
+    for id in $ruleset_ids; do
+      if ! gh api "repos/${REPO}/rulesets/${id}" >"${rulesets_dir}/${id}.json" 2>/dev/null; then
+        rm -f "${rulesets_dir}/${id}.json"
+        echo "::error::contexts: could not read ruleset ${id}"
+        fail=1
+      fi
+    done
+    if uv run fedcourts assert-rulesets --rulesets-dir "$rulesets_dir" \
+      --reviewer-team-id "$team_id" --data-app-id "$data_app_id" --dev-app-id "$dev_app_id"; then
+      echo "contexts: the review and tag-record rulesets hold"
+    else
+      fail=1
+    fi
+  else
+    echo "::error::contexts: could not list the repository's rulesets"
+    fail=1
+  fi
+
   # The staging environment's mirror of the same failure mode: the staging
   # read-write role's trust names `environment: staging` — deliberately, so
   # staging rehearses production's provenance model — which makes that
