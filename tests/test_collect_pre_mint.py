@@ -96,3 +96,11 @@ def test_a_round_whose_every_cell_was_refused_still_leaves_a_record() -> None:
 
 def test_no_refusals_and_no_flags_posts_no_comment() -> None:
     assert render_feedback_comment(FinalizeRole.predict, "R", "", "") == ""
+
+
+def test_a_refusal_whose_poll_time_is_not_a_timestamp_reads_as_malformed() -> None:
+    for polled_at in ("| injected | row |", "", "yesterday", 7, None):
+        assert (
+            PreMintRefusal.from_status({"polled_at": polled_at, "reason": _REFUSAL.reason}) is None
+        )
+    assert PreMintRefusal.from_status({"polled_at": _REFUSAL.polled_at, "reason": "r"})

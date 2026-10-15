@@ -110,6 +110,19 @@ def is_court_url(url: str) -> bool:
     return host == DOCUMENT_HOST_SUFFIX or host.endswith(f".{DOCUMENT_HOST_SUFFIX}")
 
 
+class DeadlineExceeded(Exception):
+    """A client built with a total deadline spent it before the next request.
+
+    Checked between attempts and between redirect hops, never inside one
+    request, so a single slow body is bounded only by the per-phase timeout.
+    Not an ``httpx.HTTPError``: the retry loop must not treat it as transient.
+    """
+
+    def __init__(self, url: str) -> None:
+        super().__init__(f"deadline exceeded before fetching {url}")
+        self.url = url
+
+
 class OffHostFetch(httpx.HTTPError):
     """A request that would have left the Court's host, refused unmade.
 
@@ -324,9 +337,16 @@ class SupremeCourtClient:
         throttle_seconds: float = 1.0,
         client: httpx.Client | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        deadline_seconds: float | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._throttle = throttle_seconds
         self._sleep = sleep
+        self._clock = clock
+        # A total budget across every attempt and redirect hop, for a caller that
+        # must not wait on the Court past a bound (the pre-mint poll). None, the
+        # default, leaves the client unbounded beyond its per-phase timeouts.
+        self._deadline = None if deadline_seconds is None else clock() + deadline_seconds
         self._own_client = client is None
         self._client = client or httpx.Client(
             headers={"User-Agent": BROWSER_USER_AGENT},
@@ -343,6 +363,11 @@ class SupremeCourtClient:
     def close(self) -> None:
         if self._own_client:
             self._client.close()
+
+    def _check_deadline(self, url: str) -> None:
+        """Raise :class:`DeadlineExceeded` once the client's total budget is spent."""
+        if self._deadline is not None and self._clock() >= self._deadline:
+            raise DeadlineExceeded(url)
 
     def _pace(self) -> None:
         if self._first_request:
@@ -400,6 +425,7 @@ class SupremeCourtClient:
     def _fetch(self, url: str) -> httpx.Response | None:
         """One paced GET with a single-retry backoff; ``None`` on a 404."""
         for attempt in (1, 2):
+            self._check_deadline(url)
             self._pace()
             try:
                 response = self._walk(url)
@@ -456,6 +482,7 @@ class SupremeCourtClient:
                 response.close()
                 raise OffHostFetch(target, redirected_from=current)
             hops += 1
+            self._check_deadline(target)
             self._pace()
             current = target
             response = self._get(current)

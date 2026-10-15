@@ -1,11 +1,20 @@
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, Literal
 
 import httpx
 import pytest
 
-from fedcourtsai.pipeline.pre_mint import DocketPoll, docket_coordinates, poll_docket
+from fedcourtsai.pipeline.pre_mint import (
+    POLL_DEADLINE_SECONDS,
+    DocketFetcher,
+    DocketPoll,
+    bounded_client,
+    docket_coordinates,
+    poll_docket,
+)
+from fedcourtsai.supremecourt import SupremeCourtClient
 
 _NOON = datetime(2026, 10, 14, 12, 0, tzinfo=UTC)
 
@@ -47,7 +56,7 @@ class _Fetcher:
         return self.response
 
 
-def _poll(fetcher: _Fetcher, number: str = "26A477", court: str = "scotus") -> DocketPoll:
+def _poll(fetcher: DocketFetcher, number: str = "26A477", court: str = "scotus") -> DocketPoll:
     return poll_docket(court, number, "evt-motion-disposition", fetcher, now=lambda: _NOON)
 
 
@@ -121,3 +130,86 @@ def test_docket_coordinates_spell_both_forms() -> None:
     assert docket_coordinates("26A477 ") == (26, 477, "application")
     assert docket_coordinates("26-221") == (26, 221, "cert")
     assert docket_coordinates("Orig. 141") is None
+
+
+class _Clock:
+    """A monotonic clock the test moves by hand."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def _deadline_client(
+    clock: _Clock, handler: Callable[[httpx.Request], httpx.Response]
+) -> SupremeCourtClient:
+    return SupremeCourtClient(
+        throttle_seconds=0.0,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+        sleep=lambda _seconds: None,
+        deadline_seconds=POLL_DEADLINE_SECONDS,
+        clock=clock,
+    )
+
+
+def test_the_deadline_stops_the_retry_once_spent() -> None:
+    clock = _Clock()
+    requests: list[str] = []
+
+    def slow_503(request: httpx.Request) -> httpx.Response:
+        requests.append(str(request.url))
+        clock.now += POLL_DEADLINE_SECONDS  # the first attempt spends the budget
+        return httpx.Response(503)
+
+    poll = _poll(_deadline_client(clock, slow_503))
+
+    assert poll == DocketPoll(_NOON, "26A477", "unavailable", "poll deadline exceeded")
+    assert len(requests) == 1
+
+
+def test_the_deadline_stops_a_redirect_chain_between_hops() -> None:
+    clock = _Clock()
+    requests: list[str] = []
+
+    def redirect_onward(request: httpx.Request) -> httpx.Response:
+        requests.append(str(request.url))
+        clock.now += 7.0
+        return httpx.Response(
+            302, headers={"Location": f"https://www.supremecourt.gov/hop{len(requests)}"}
+        )
+
+    poll = _poll(_deadline_client(clock, redirect_onward))
+
+    assert poll.state == "unavailable"
+    assert poll.reason == "poll deadline exceeded"
+    # Requests start at 0 s, 7 s and 14 s; at 21 s the 18 s budget is spent.
+    assert len(requests) == 3
+
+
+def test_the_poll_client_carries_the_deadline() -> None:
+    clock = _Clock()
+    with bounded_client(clock=clock) as client:
+        clock.now = POLL_DEADLINE_SECONDS
+        # Spent before the first request, so no network is touched.
+        poll = _poll(client)
+
+    assert poll.reason == "poll deadline exceeded"
+
+
+def test_a_client_without_a_deadline_is_unbounded() -> None:
+    clock = _Clock()
+
+    def slow_ok(request: httpx.Request) -> httpx.Response:
+        clock.now += 1_000.0
+        return httpx.Response(200, json=_PENDING_APPLICATION)
+
+    client = SupremeCourtClient(
+        throttle_seconds=0.0,
+        client=httpx.Client(transport=httpx.MockTransport(slow_ok)),
+        clock=clock,
+    )
+    clock.now = 1_000_000.0
+
+    assert _poll(client).state == "open"

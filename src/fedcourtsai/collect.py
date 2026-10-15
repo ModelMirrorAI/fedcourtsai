@@ -34,6 +34,7 @@ import shutil
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
@@ -361,7 +362,13 @@ class PreMintRefusal:
         if not isinstance(value, dict):
             return None
         polled_at, reason = value.get("polled_at"), value.get("reason")
-        if not isinstance(polled_at, str) or not polled_at:
+        # The time reaches a PR body and an issue comment, so only a parseable
+        # timestamp is kept; anything else reads as a malformed record.
+        if not isinstance(polled_at, str):
+            return None
+        try:
+            datetime.fromisoformat(polled_at)
+        except ValueError:
             return None
         return cls(polled_at=polled_at, reason=str(reason or ""))
 
@@ -1416,7 +1423,7 @@ def render_pre_mint_refusals(cells: Sequence[CellStatus]) -> str:
     counts = ", ".join(f"`{actor}` {n}" for actor, n in sorted(per_engine.items()))
     rows = [
         f"| `{c.court}/{c.docket}` | `{c.event_id}` | `{c.actor}` | "
-        f"{c.pre_mint_refusal.polled_at} | {_md_cell(c.pre_mint_refusal.reason)} |"
+        f"{_md_cell(c.pre_mint_refusal.polled_at)} | {_md_cell(c.pre_mint_refusal.reason)} |"
         for c in sorted(refused, key=lambda c: (c.court, c.docket, c.event_id, c.actor))
         if c.pre_mint_refusal is not None
     ]

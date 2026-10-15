@@ -24,16 +24,19 @@ order or be served from a cache; the scan's recall is not perfect; and a
 disposition can land after the poll. Two ``open`` polls bracketing a run do say
 the run ended before the served docket showed a decision.
 
-A poll is best-effort and bounded. It makes one short-timeout fetch through the
-same host-locked client the live poller uses. Every way it can fail to answer —
-not a SCOTUS docket, a number with no live spelling, no docket served, a body
-that is not JSON, a timeout, any unexpected error in the fetch or the scan —
-records ``unavailable`` with the reason, and never refuses a cell.
+A poll is best-effort and bounded. It fetches through the same host-locked
+client the live poller uses, with a short per-phase timeout and a total
+deadline checked before every request, retry and redirect hop. Every way it
+can fail to answer — not a SCOTUS docket, a number with no live spelling, no
+docket served, a body that is not JSON, a timeout, the spent deadline, any
+unexpected error in the fetch or the scan — records ``unavailable`` with the
+reason, and never refuses a cell.
 """
 
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -43,6 +46,7 @@ import httpx
 
 from ..supremecourt import (
     BROWSER_USER_AGENT,
+    DeadlineExceeded,
     SupremeCourtClient,
     parse_scotus_application_number,
     parse_scotus_docket_number,
@@ -55,6 +59,12 @@ PollState = Literal["open", "decided", "unavailable"]
 #: upstream must never hold a cell: a poll that times out reads ``unavailable``.
 POLL_TIMEOUT_SECONDS = 10.0
 
+#: The poll's total budget across its retry and any redirect hops, checked before
+#: each request. The per-phase timeout alone would let a retry and a redirect chain
+#: each start fresh, and the provisioning step that runs the pre-mint poll has no
+#: step timeout (a killed step would never record the refusal).
+POLL_DEADLINE_SECONDS = 18.0
+
 
 class DocketFetcher(Protocol):
     """The one call a poll makes: :meth:`SupremeCourtClient.get_docket_response`."""
@@ -64,12 +74,15 @@ class DocketFetcher(Protocol):
     ) -> httpx.Response | None: ...
 
 
-def bounded_client() -> SupremeCourtClient:
-    """The poll's own client: short timeout, no politeness pause before its one fetch.
+def bounded_client(clock: Callable[[], float] = time.monotonic) -> SupremeCourtClient:
+    """The poll's own client: short timeout, no pauses, and a total deadline.
 
     The live poller's client paces requests and retries once after a pause, which
     suits a sweep and would stall a cell. This one keeps the host lock and the
-    single retry but drops the waits, so the worst case is two short timeouts.
+    single retry but drops the waits, and refuses to start another request once
+    :data:`POLL_DEADLINE_SECONDS` have passed since it was built. The deadline is
+    checked between requests, not within one: a body trickling in under the
+    per-phase timeout is bounded only by that timeout.
     """
     return SupremeCourtClient(
         throttle_seconds=0.0,
@@ -78,6 +91,8 @@ def bounded_client() -> SupremeCourtClient:
             timeout=httpx.Timeout(POLL_TIMEOUT_SECONDS),
         ),
         sleep=lambda _seconds: None,
+        deadline_seconds=POLL_DEADLINE_SECONDS,
+        clock=clock,
     )
 
 
@@ -149,8 +164,9 @@ def _read_docket(
         if isinstance(payload, str):
             return "unavailable", payload
         reason = forward_leakage(payload, court, event_id)
-    except httpx.TimeoutException:
-        return "unavailable", "fetch timed out"
+    except (httpx.TimeoutException, DeadlineExceeded) as exc:
+        spent = isinstance(exc, DeadlineExceeded)
+        return "unavailable", "poll deadline exceeded" if spent else "fetch timed out"
     # Anything else, from the fetch or the scan: a poll degrades, never fails the cell.
     except Exception as exc:
         return "unavailable", f"poll error: {type(exc).__name__}"
