@@ -1,0 +1,15 @@
+# Forecast — Louisiana v. Devon Energy Production Co., No. 26A499 (application to vacate stay)
+
+**What the record shows.** The record holds one entry (Oct 9, 2026): an application by Louisiana and Cameron Parish to vacate the Fifth Circuit's Oct 5 published order. That order treats Devon's notice of appeal from a federal-officer remand order as a *Griggs* automatic stay of the already-transmitted remand, which also stays the state-court proceedings. The application went to Justice Sotomayor because Justice Alito, the Fifth Circuit's Circuit Justice, is recused. No response has been requested, nothing has been referred to the full Court, and no amicus briefs are on the record. The applicants also ask the Court to treat the application as a petition for certiorari before judgment.
+
+**Disposition: denied (P(unqualified grant) ≈ 0.09).** I expect the Court to leave the Fifth Circuit's stay in place. The likeliest form is a one-line denial by the full Court. Another possibility is a denial alongside, or shortly after, the Court's action on the related cert petition, *City of Brunswick v. Honeywell*, No. 26-289, which is set for the Oct 16 conference and raises the same Griggs/post-transmittal question. If the Court grants cert in *Brunswick*, it is likely to resolve the question there and leave this stay alone rather than vacate it now. If it denies *Brunswick*, that signals little appetite to intervene here either. Granting cert before judgment on this application, or holding it for *Brunswick*, are both plausible, but neither counts as an unqualified grant of the vacatur.
+
+**Response requested: likely (≈ 0.8).** The applicant is a sovereign State, the order is published, and the application alleges a split. A Circuit Justice ordinarily calls for a response to an application like this rather than denying it outright. I expect the call within days, with a response due in about a week.
+
+**Referral to the full Court: more likely than not (≈ 0.6).** Justice Sotomayor is substituting for a recused Circuit Justice, the applicants ask for cert before judgment (which only the Court can grant), and a related petition is already before the full Court. All of that favors referral. The main way it is not referred is an in-chambers denial.
+
+**Amicus: probably none (≈ 0.25).** Other coastal parishes, other States, or energy-industry groups could file. But applications to vacate a stay rarely draw amici, and this one may be decided in two or three weeks.
+
+**Timing.** A disposition in late October to mid-November 2026, after a response and probably after the Court acts on *Brunswick*.
+
+**Conditional merits content.** If the Court does take the question, through *Brunswick* or here, the likely ground is narrow: once a remand order has been certified and mailed, the federal district court has no proceeding left to stay, so *Griggs* cannot reach the state court. §§ 1446(d) and 1447(c) and the Anti-Injunction Act would carry that reading. The Court would not need to revisit *Coinbase*.

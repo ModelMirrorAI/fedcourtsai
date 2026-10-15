@@ -1,0 +1,3 @@
+Used `mcp_courtlistener_search` with query `"Title IX" AND ("transgender" OR "sex")` on the `scotus` court (filed after 2024-01-01) to identify recent relevant precedent.
+Used `mcp_courtlistener_get_endpoint_item` on the `opinions` endpoint for item `11349709` (*West Virginia v. B. P. J.*) to read the syllabus and decision text.
+Consulted the local `metrics/statpack.md` using `cat` and `grep` to pull the base rates for the interim docket.

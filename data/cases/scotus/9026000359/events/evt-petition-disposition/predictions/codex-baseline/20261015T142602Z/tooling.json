@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000359",
+  "run_id": "20261015T142602Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell provisioned-file reads", "fedcourts paths", "jq aggregate-prior calculation", "web search/open attempts", "apply_patch", "fedcourts validate"],
+  "helpful": ["The complete appellate opinion in the appendix made it possible to test the petition's characterizations without retrieving case history.", "The frozen sal-v4 band and unrounded statpack prefix rates supported an explicit prior-Term risk-set anchor."],
+  "gaps": ["Web searches and opens returned no usable content.", "The default uv cache location was read-only; a writable temporary cache resolved the CLI failure."],
+  "notes": "No BIO was provisioned, consistent with the response waiver. The available petition and appellate opinion were sufficient for a substantive forecast without corpus-query or live-docket retrieval. No harness-owned stamps or logs were written."
+}

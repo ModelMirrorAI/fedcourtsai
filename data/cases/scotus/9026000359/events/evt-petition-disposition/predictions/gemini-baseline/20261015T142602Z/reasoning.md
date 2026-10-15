@@ -1,0 +1,7 @@
+P(grant) 0.005. 
+
+The prior-Term salience band for a once-distributed private petition (`baseline`) is ~0.9%. I adjust downward for several vehicle and merits reasons. The petition involves a highly fact-bound zoning and property rights dispute against the City of Pontiac, Michigan, concerning the denial of medical marijuana facility permits. The Sixth Circuit issued an unpublished decision affirming summary judgment, finding that the petitioners lacked a protected property interest because the city retained discretion in issuing the permits. The petition presents very broadly-framed questions (e.g., alleging conflicts with "well-established principles") but does not articulate a circuit split on any issue, framing its arguments entirely as error correction.
+
+The respondent waived their right to respond, indicating their view that the petition presents no cert-worthy issues. The Court has distributed the petition for the November 6, 2026 conference without requesting a response. A grant without a response is extraordinarily rare, and given the fact-specific, local nature of this zoning dispute and the unpublished decision below, the probability of the Court requesting a response or ultimately granting the petition is extremely low. 
+
+I set the big case score to 0.05 because the outcome affects only the immediate parties in a local property dispute and involves no novel or wide-ranging legal questions of national importance.

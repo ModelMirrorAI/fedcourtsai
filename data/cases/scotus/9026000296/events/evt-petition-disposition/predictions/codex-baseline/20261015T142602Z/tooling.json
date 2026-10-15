@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000296",
+  "run_id": "20261015T142602Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "jq", "CourtListener search", "CourtListener get_more_results", "CourtListener search_document", "web search/open attempts", "fedcourts validate"],
+  "helpful": ["The separate appendix permitted comparison of the noticed charges with the final discipline rather than relying only on advocacy.", "Frozen salience context and JSON risk-set denominators made the prior-Term anchor reproducible.", "CourtListener opinion-text snippets confirmed the relevant historical notice doctrine."],
+  "gaps": ["General web calls returned no usable content.", "CourtListener citation search returned an unrelated match, and Ruffalo search-date metadata differed from the decision date in its text."],
+  "notes": "The default uv cache was read-only; a temporary writable cache allowed the CLI to run. The lack of a BIO is consistent with the recorded response waiver, not an extraction failure. No case-outcome retrieval or live corpus query was needed."
+}

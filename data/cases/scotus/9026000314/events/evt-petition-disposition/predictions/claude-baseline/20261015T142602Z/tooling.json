@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000314",
+  "run_id": "20261015T142602Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "provisioned snapshot and documents"],
+  "helpful": ["Provisioned petition and appendix text made the vehicle problems immediately clear"],
+  "gaps": ["The salience band does not distinguish pro se paid petitioners, whose grant rate is far below the baseline band's reached rate"],
+  "notes": "Clear-cut denial; no corpus query needed."
+}

@@ -1,0 +1,31 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000499",
+  "gaps": [
+    "The lower-court appendix cited throughout the application was not separately present in the provisioned text.",
+    "No respondent submission was provisioned; the merits account is applicant-weighted.",
+    "Published interim signal counts do not provide arrival-conditioned escalation hazards.",
+    "The default uv cache location was read-only; a writable temporary cache was required."
+  ],
+  "helpful": [
+    "The substantive application supplied the precise post-transmittal dispute and applicant's legal theory.",
+    "Frozen interim context separated arrival observations from later escalation.",
+    "Per-Term interim counts allowed the correct strictly-prior pooled anchor.",
+    "Citation-specific MCP searches verified general authorities without retrieving the target case."
+  ],
+  "notes": "Prediction uses the arrival baseline, applicant's substantive filing, committed prior-Term counts, and two general precedents. No current target docket or disposition was retrieved. The unavailable web output did not block the task because CourtListener MCP worked.",
+  "role": "predictor",
+  "run_id": "20261015T142602Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned-input and schema reads",
+    "fedcourts paths",
+    "committed interim statpack",
+    "web search/open attempts: no usable content returned",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "CourtListener MCP search_document"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
