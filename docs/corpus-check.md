@@ -171,7 +171,7 @@ interpolated into a shell script.
    limits its pushes, and whether the dispatch (naming PR and SHA) replaces
    the reviewer — which first needs a list of who holds Actions write.
 3. **Who may request.** Same-repository PRs only is the floor. Whether to also
-   require a PR author on an allow-list matters, the candidates being the
+   require a PR author on an allow-list is open; the candidates are the
    agent account interactive sessions act as and the maintainer.
 4. **How a check starts:** a maintainer dispatch per check (natural on the
    dedicated ref), or a poll every 15–30 minutes (which needs the lane on the

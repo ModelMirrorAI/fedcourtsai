@@ -1538,9 +1538,9 @@ The mechanics:
   role as its sole bypass actor** — a
   required-checks rule blocks direct pushes of commits that carry no passing
   check runs, so the admin role is the only identity that can land the sync
-  merge below — a role the agent account interactive sessions act as does
-  not hold; `AGENTS.md` carries the discipline rule for a session that holds
-  the maintainer's credentials instead. Neither GitHub App *bypasses* `staging`: the scheduled
+  merge below — a role the agent account does not hold; `AGENTS.md` carries
+  the discipline rule for a session that holds the maintainer's credentials
+  instead. Neither GitHub App *bypasses* `staging`: the scheduled
   `sync-staging` workflow holds a write token to it but opens an ordinary PR
   that must satisfy the same required checks, and `promote` itself performs no
   write at all.

@@ -393,15 +393,15 @@ runbook, [docs/security.md](docs/security.md).
   allowance.
 - **Branch protection and the deployment boundary.** `main` requires a PR
   passing `gate`, `paths`, `promotion-gate`, and `main-base`; the **data App**
-  is the sole bypass actor, so the deterministic writer jobs (`run-pull`,
+  is that ruleset's sole bypass actor, so the deterministic writer jobs (`run-pull`,
   `run-seed`, `run-repair`, and `promotion-record`) push corpus facts and the
   promotion record straight to `main` while everything agentic goes through
   that PR — enforced
   by identity, since the agent workflows authenticate as a separate **dev
   App** that bypasses no required check. `main: require approval` requires
   one approving review, which only the `maintainers` team can give, and
-  bypasses it for the dev App's pull requests (its two auto-merged lanes,
-  still bound by the checks), for the data App, and for any pull request an
+  bypasses it for the dev App's pull requests (what lets its two auto-merged
+  lanes land; still bound by the checks), for the data App, and for any pull request an
   admin merges (how the maintainer's own lands, since GitHub does not let an
   author approve their own). So a promotion — opened by the dev App — merges
   on the maintainer's approval of its head or through a recorded bypass: the

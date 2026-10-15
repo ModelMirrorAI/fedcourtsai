@@ -398,8 +398,10 @@ same PR.
   refused on — environment and variable administration, enabling or disabling a
   workflow (`gh workflow enable`), and re-running a run or one of its jobs
   (`gh run rerun`, with or without `--job`, which answers *Resource not
-  accessible by integration*). Merging is **not** on that list: what limits it
-  is the merge rule above, not the credential.
+  accessible by integration*), all refused by the session proxy your GitHub
+  connection runs through. Merging is **not** on that list: what limits it
+  into `staging` is the merge rule above, and into `main` the approval
+  ruleset as well, not the credential.
 
   The re-run refusal has a standing consequence, because some required checks
   read live state at check time rather than from the event payload — the

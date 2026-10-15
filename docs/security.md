@@ -24,7 +24,9 @@ writes land directly, everything agentic
 lands via a PR" an *identity*-enforced invariant rather than a policy the
 agent is merely instructed to follow (that a PR into `main` is *reviewed*
 is enforced by `main: require approval` for every identity off its bypass
-list, below, and is `AGENTS.md`'s convention for the three on it):
+list, below; for the three on it the bound is the checks and the `paths`
+jail (the dev App's auto-merges), the writer jail (the data App), or
+`AGENTS.md`'s convention (the admin role)):
 
 - **data App** — used by the deterministic writers `run-pull`, `run-seed`
   and `run-repair`, and by `promotion-record`, which tags each promotion merge
@@ -44,7 +46,7 @@ list, below, and is `AGENTS.md`'s convention for the three on it):
   **not** a bypass actor on any ruleset that carries a required check, so
   nothing it holds can reach `main` except through a PR that satisfies them;
   its one bypass is `main: require approval`'s, for pull requests only, which
-  is what lets the data lanes auto-merge without a human approval.
+  is what lets the auto-merged lanes land without a human approval.
 - **dispatch App** — used only by the two drain-chain jobs, `run-pull`'s
   `chain-predict` and `run-predict`'s `chain`, each of which starts an
   input-less `run-predict` round on `main`. Its client id is the
@@ -118,8 +120,10 @@ deterministic corpus pushes and agent PRs are visibly authored by different bots
 ### The agent account and the two teams
 
 Interactive agent sessions — Claude in the Claude app, and any coding agent a
-maintainer starts — act as a separate machine account, **`modelmirror-agent`**,
-not as the maintainer. It holds **write** on this repository through the
+maintainer starts — are set up to act as a separate machine account,
+**`modelmirror-agent`**, not as the maintainer; a session started with the
+maintainer's own credentials is the exception, and for it the rules below are
+`AGENTS.md`'s discipline. It holds **write** on this repository through the
 **`agents`** team and nothing more: no admin role, no place on any ruleset's
 bypass list, never a required reviewer on the `review` environment (whose
 self-review is permitted, so a reviewer there must be a human). Its
@@ -139,8 +143,10 @@ What write lets the account do that no rule here refuses: create a tag in
 `results/**` (and, until the creation ruleset below exists, in `promotion/**`
 and `prereg/**`) or a published Release, which Zenodo archives; prune the
 deployment list the auto-release cap reads; and push onto an open
-data-lane PR's branch, whose armed auto-merge then runs under the dev App's
-approval bypass, bounded by the `paths` jail and `gate`. Each is
+data-lane PR's branch, whose armed auto-merge may then run under the dev
+App's approval bypass, bounded by the `paths` jail and `gate` (both `main`
+rulesets carry GitHub's extra-approval setting for unattributed changes,
+whose effect on such a push is unverified). Each is
 `AGENTS.md`'s discipline for the account rather than a control.
 
 ## Zenodo archiving
@@ -735,7 +741,7 @@ answered by its credential path rather than its role — the write role permits
 `workflow_dispatch`, and the session proxy its connection runs through
 refuses it — and by the code-owner rule, which holds its workflow changes for
 the maintainer. A credential for the account that does not run through that
-proxy reopens it. Another premise **has** fired, and this
+proxy and can dispatch reopens it. Another premise **has** fired, and this
 paragraph answers the
 question it was holding: the `staging` environment is repointed at the
 staging corpus (the runbook's step 5), so the promotion gate's freshness
