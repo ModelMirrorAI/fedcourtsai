@@ -1,0 +1,15 @@
+# Who may request a corpus check (src/fedcourtsai/corpus_check.py and
+# .github/workflows/corpus-check.yml; docs/corpus-check.md). A request is a
+# fenced `corpus-check` block in a pull request's description; the lane answers
+# it only when the PR's head is in this repository and its author's login is
+# listed here. Every other request is passed over without a comment.
+#
+# An approved check runs the PR head's own code with the production corpus
+# read-only, so this list decides whose code may be put in front of that
+# credential. It is maintainer-owned (.github/CODEOWNERS, AGENTS.md's
+# maintainer-only classes) and read only from `main`: the plan job takes it from
+# its own checkout of the run's ref, never from the PR it is judging. An empty
+# list, or no file, answers no one.
+requesters:
+  - modelmirror-agent
+  - modelmirror

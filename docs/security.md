@@ -92,6 +92,7 @@ two client ids as variables, the two keys as secrets). Each workflow mints a tok
 | `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
 | `promotion-prep` | dev | pull-requests | open the **draft** staging→main promotion PR and refresh the generated block of its body while it stays a draft. It merges, dispatches and pushes nothing; the PR merges through `main`'s required checks like a hand-opened one, and the maintainer marks it ready and merges it |
 | `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read (`chain` only) | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
+| `corpus-check` (post job only) | none — the job's own token | pull-requests write | the one result comment on the PR the plan picked. The ambient token, not an App's: the comment must start nothing, and the job runs no PR code, binds no environment and holds no `id-token`. The `run` job, which runs the PR's code, holds `contents: read` and `id-token` only |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
@@ -582,8 +583,10 @@ them declares an environment, and every job outside `integration-test`,
 `run-analytics` and `summarize` declares `prod` — those three resolve the
 environment from the dispatching ref instead (the branch-resolution paragraph
 below; `summarize`'s publish job, which runs on `main` only, is the literal
-`prod`), which is what makes their staging dispatches rehearsals — with two
-deliberate exceptions, by environment. The `approval` jobs of run-predict,
+`prod`), which is what makes their staging dispatches rehearsals — with three
+deliberate exceptions, by environment: the two holds below, and
+`corpus-check`'s `run` job, which binds the environment of its own name (the
+paragraph after them). The `approval` jobs of run-predict,
 run-evaluate, run-backtest and summarize declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables and no role, and its deployment branches
@@ -643,6 +646,34 @@ it decides whether the fortnight runs at all, holds `actions: read` on the
 ambient token to read this workflow's own run history, and reaches no
 credential, no corpus and no agent.
 
+**`corpus-check` holds the read-only role for one lane, behind the
+maintainer's approval.** The `run` job of `corpus-check.yml` binds it, and no
+other job may (`tests/test_workflow_auth_gate.py`). It is the one environment
+whose job runs code its ref did not review: the check a same-repository PR
+declares, at that PR's head ([corpus-check.md](corpus-check.md)). Configure it
+with:
+
+- **required reviewers**: the maintainer. This is the gate: the approval
+  releases one planned head SHA and command, named on the run's summary page.
+  Leave prevent-self-review off, on the `review` environment's reasoning — the
+  run's actor is the schedule or the maintainer's own dispatch.
+- **deployment branches**: `main` alone, as a named custom policy. The lane's
+  triggers run `main`'s workflow file, so this is what keeps a workflow edited
+  on any other ref from binding the environment.
+- **variables**: `AWS_ROLE_TO_ASSUME_READONLY`, `AWS_REGION` and
+  `CORPUS_BASE_URL`, each the value `prod` holds; **no secrets** and no other
+  variable. The PR's code can read everything in the job's environment, so
+  an App key, an engine key or the CourtListener token here would be handed
+  to it.
+
+Create it before the workflow reaches `main`: GitHub auto-creates a referenced
+environment with no reviewer and no branch policy, and the role's trust
+(below) is what such an environment would then hand out. The approval UI
+shows a workflow name and a ref, not a diff, which is why the plan job's run
+summary names the PR, the head SHA, the author and the command, with links to
+the commit and the PR's changes. What the lane gives up, and why the trust and
+the cache rule bound the rest, is [corpus-check.md](corpus-check.md).
+
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
 sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
 strips every env var from the agent's shell in CI
@@ -664,8 +695,9 @@ secret-carrying name that dodges the keyword list (and a value that is not one o
 the ~8 known shapes) would pass. Relatedly, never put anything sensitive in a
 `GEMINI_CLI_*` variable: that prefix is an unconditional bypass of both screens.
 
-**Deployment branches are restricted to `main`** — on `prod` (and to `staging`
-on the `staging` environment, whose policy is load-bearing twice over: the
+**Deployment branches are restricted to `main`** — on `prod` and
+`corpus-check` (and to `staging` on the `staging` environment, whose policy
+is load-bearing twice over: the
 read-only role's trust names it, and so does the one write-capable role
 outside `prod`); `review`
 admits `main` and `staging` — it holds nothing a branch could take, so its
@@ -675,7 +707,9 @@ secrets only when it runs from `main`, so a workflow authored on a PR branch run
 **without** the App key, agent tokens, or S3 role: a malicious or prompt-injected
 workflow added in a PR cannot exfiltrate secrets on its own PR run; the change
 reaches the privileged context only after it is merged to `main`, which required
-review.
+review. `corpus-check` is the one job that runs a PR's *code* inside an
+environment — never its workflow file — and it does so behind its own required
+reviewer (above).
 
 Every `prod` job already runs from a `main` ref for its trigger — a `schedule`
 fires only from the default branch, and a production `workflow_dispatch` is
@@ -891,7 +925,8 @@ trust never names `staging` at all.
 Restoring a lane for arbitrary branches, if one is ever wanted, means a
 **separate** environment — its own keys, its own trust statement, and a required
 reviewer, since arbitrary code is exactly what a human should see — not widening
-this one. It needs no workflow change: `auto` resolution binds an environment
+this one. `corpus-check` is that shape for the one such lane that exists:
+PR-head code, read-only role, a required reviewer, bound from `main` only. It needs no workflow change: `auto` resolution binds an environment
 named after the dispatching branch, so provisioning the environment is itself
 what opens its branch's lane — the environment's existence and contents, not
 the workflow's choice list, are the control surface. The explicit
@@ -1074,7 +1109,9 @@ pair the third one writes:
   index for the vote, application back-fill and opinion-record passes and
   writes only the small public projection their parse needs, and
   `run-repair`'s decision-record job, whose read-only pull feeds the dry run,
-  which writes nothing, and on an apply the blob the write builds on. Two operational facts ride this role. Its IAM **maximum
+  which writes nothing, and on an apply the blob the write builds on, and
+  `corpus-check`'s `run` job, whose pull serves the approved check of one PR
+  head. Two operational facts ride this role. Its IAM **maximum
   session duration** must allow the sessions its callers request —
   `run-backtest`'s replay job asks for 21600 s (6 h), the census for 8100 s —
   because a
@@ -1122,6 +1159,8 @@ Access mirrors each workflow's role in the pipeline:
 | `integration-test`                        | read-only     | infrastructure preflight scenarios (role assumed directly or via the sidecar composite; no pull) |
 | `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent. What leaves it is one artifact of invented question texts — the labels the smoke produced — published only past a containment check against the engine key |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
+| `corpus-check` — run                      | read-only     | the approved check of one PR head: a full index `corpus-pull` at `main`'s committed pointer, then the PR's command, which may read the content store too. The one job that runs PR-head code with a role — the approval and this environment's trust (read-only role alone) are what bound it |
+| `corpus-check` — plan, post               | none          | the plan reads the PR list and comments, the post job writes one comment; neither binds an environment or holds `id-token` |
 | `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
 
@@ -1153,8 +1192,16 @@ one of those environments can assume it. The production read-write role names
 `prod` alone; the read-only role also names `staging`, which is what lets the
 integration scenarios — and `run-analytics`'s staging rehearsals, whose
 environments resolve from the dispatching branch on the same terms — read the
-corpus from the staging branch; and the staging
-read-write role names `staging` alone. The trusts stay disjoint on
+corpus from the staging branch, and `corpus-check`, the PR corpus-check lane's
+environment; and the staging
+read-write role names `staging` alone. `corpus-check` is the trust that
+matters most to keep narrow: its job runs PR-head code holding
+`id-token: write`, and the runner injects the OIDC request pair into every
+step, so that code can mint a token for **every** role trusting the
+environment. Add `repo:<owner>/<repo>:environment:corpus-check` to the
+read-only role's trust and to no other role's, and confirm no write role's
+`sub` condition matches it — a wildcard such as `repo:<owner>/<repo>:*`
+included. The trusts stay disjoint on
 the write side by construction — no environment names two write-capable roles,
 and no write-capable role names two environments — so "who can write which
 store" is answerable from the trust statements without reading a policy.

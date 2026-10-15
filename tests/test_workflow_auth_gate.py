@@ -23,6 +23,7 @@ from typing import Any
 import yaml
 
 WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+ACTIONS = WORKFLOWS.parent / "actions"
 
 # The privileged lanes: each spends real money or writes the corpus, and each
 # derives what it does from committed state rather than from anything a
@@ -108,6 +109,15 @@ COMPUTED_ENVIRONMENTS = {
     "summarize.yml": BRANCH_RESOLVED_ENVIRONMENT,
 }
 
+# One environment bound by one workflow alone, each for a risk class of its
+# own. `corpus-check` holds the read-only role for the lane that runs PR-head
+# code after the maintainer approves it (docs/corpus-check.md): its required
+# reviewer is the gate, its branch policy admits `main` alone, and the
+# read-only role is the only role whose trust names it. Pinned per workflow, so
+# another lane binding it — and so reaching a role behind an approval meant for
+# a different question — fails the sweep below.
+LANE_ENVIRONMENTS = {"corpus-check.yml": "corpus-check"}
+
 # Step markers that mean "privileged work has started": minting an App token,
 # assuming the S3 role, or handing control to a coding agent.
 PRIVILEGED_USES = (
@@ -122,6 +132,26 @@ def _load(name: str) -> dict[Any, Any]:
     data = yaml.safe_load((WORKFLOWS / name).read_text())
     assert isinstance(data, dict)
     return data
+
+
+def _privileged_composites() -> tuple[str, ...]:
+    """The local composites that do privileged work inside the calling job.
+
+    A composite runs in its caller's job with the job's grants, so one that
+    assumes the role (`corpus-readonly`, `corpus-sidecar`, `corpus-ranged`)
+    makes its caller privileged exactly as the AWS action would. Derived from
+    the composites themselves, so a new one is seen without an edit here.
+    """
+    found = []
+    for path in sorted(ACTIONS.glob("*/action.y*ml")):
+        action = yaml.safe_load(path.read_text())
+        steps = (action.get("runs") or {}).get("steps") or []
+        if any(marker in str(step.get("uses", "")) for step in steps for marker in PRIVILEGED_USES):
+            found.append(f"./.github/actions/{path.parent.name}")
+    return tuple(found)
+
+
+PRIVILEGED_COMPOSITES = _privileged_composites()
 
 
 def _triggers(wf: dict[Any, Any]) -> dict[str, Any]:
@@ -142,7 +172,20 @@ def _jobs(wf: dict[Any, Any]) -> dict[str, dict[str, Any]]:
 
 
 def _is_privileged(job: dict[str, Any]) -> bool:
-    return any(marker in step.get("uses", "") for step in _steps(job) for marker in PRIVILEGED_USES)
+    return any(
+        marker in step.get("uses", "") for step in _steps(job) for marker in PRIVILEGED_USES
+    ) or any(step.get("uses", "") in PRIVILEGED_COMPOSITES for step in _steps(job))
+
+
+def test_the_sweep_sees_the_composites_that_assume_the_role() -> None:
+    # The derivation must keep seeing the composites it exists for; an empty
+    # tuple would let every caller of them pass the sweep below vacuously.
+    assert {
+        "./.github/actions/corpus-readonly",
+        "./.github/actions/corpus-sidecar",
+        "./.github/actions/corpus-ranged",
+    } <= set(PRIVILEGED_COMPOSITES)
+    assert _is_privileged({"steps": [{"uses": "./.github/actions/corpus-readonly"}]})
 
 
 def test_no_workflow_takes_a_trigger_an_outside_actor_can_reach() -> None:
@@ -216,7 +259,12 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
     they just rewrote. What refuses that is the bound environment's deployment
     branch rule, so a privileged job that binds none would be reachable from an
     arbitrary ref by anyone with write. Swept across every workflow, for the
-    same reason as the trigger sweep above.
+    same reason as the trigger sweep above. A job is privileged when it uses a
+    marker action directly or through a local composite that does, so the
+    read-only corpus composites' callers are swept too. The one lane
+    environment, `corpus-check`, is admitted for its own workflow only: its
+    branch policy admits `main` alone, and its required reviewer is what
+    stands between a planned check and the read-only role.
     """
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         for job_name, job in _jobs(_load(path.name)).items():
@@ -226,11 +274,29 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
             assert (
                 environment in BRANCH_POLICIED_ENVIRONMENTS
                 or environment == COMPUTED_ENVIRONMENTS.get(path.name)
+                or environment == LANE_ENVIRONMENTS.get(path.name)
             ), (
                 f"{path.name}:{job_name} mints a token, assumes the S3 role or runs an "
                 f"agent under environment {environment!r} — not one whose branch policy "
                 "pins which ref a dispatch may run it from"
             )
+
+
+def test_a_lane_environment_is_bound_by_its_own_workflow_alone() -> None:
+    """`corpus-check`'s reviewer approves one question — run this SHA's check —
+    and the read-only role trusts it for that. A job elsewhere binding it would
+    reach the role behind an approval given for something else."""
+    bound: dict[str, set[str]] = {env: set() for env in LANE_ENVIRONMENTS.values()}
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        for job in _jobs(_load(path.name)).values():
+            environment = job.get("environment")
+            name = environment.get("name") if isinstance(environment, dict) else environment
+            if name in bound:
+                bound[str(name)].add(path.name)
+    for workflow, environment in LANE_ENVIRONMENTS.items():
+        assert bound[environment] == {workflow}, (
+            f"`{environment}` is bound by {sorted(bound[environment])}, not {workflow} alone"
+        )
 
 
 # The hold's one routed form: a round whose own plan auto-released it binds the

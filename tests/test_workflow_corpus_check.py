@@ -1,0 +1,234 @@
+"""The corpus-check lane's shape (`.github/workflows/corpus-check.yml`).
+
+The one workflow that runs PR-head code with a corpus credential
+(docs/corpus-check.md). What bounds it is structural — which job holds what,
+what code each job checks out, where the command comes from — so the structure
+is pinned here; the decisions the jobs route on are tested in
+``test_corpus_check``. ``test_workflow_auth_gate`` pins the environment to this
+workflow alone and ``test_workflow_cache_restore`` keeps every cache off.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+ROOT = Path(__file__).resolve().parent.parent
+WORKFLOWS = ROOT / ".github" / "workflows"
+NAME = "corpus-check.yml"
+CHECKOUT = "actions/checkout@"
+SETUP = "./.github/actions/setup-python-env"
+READONLY = "./.github/actions/corpus-readonly"
+PLANNED_SHA = "${{ needs.plan.outputs.sha }}"
+
+
+def _load(name: str = NAME) -> dict[Any, Any]:
+    data = yaml.safe_load((WORKFLOWS / name).read_text())
+    assert isinstance(data, dict)
+    return data
+
+
+def _triggers(wf: dict[Any, Any]) -> dict[str, Any]:
+    on = wf.get("on")
+    if on is None:
+        on = wf.get(True)
+    assert isinstance(on, dict)
+    return on
+
+
+def _job(name: str) -> dict[str, Any]:
+    job = _load()["jobs"][name]
+    assert isinstance(job, dict)
+    return job
+
+
+def _steps(job: dict[str, Any]) -> list[dict[str, Any]]:
+    return [step for step in job.get("steps") or [] if isinstance(step, dict)]
+
+
+def _uses(step: dict[str, Any]) -> str:
+    return str(step.get("uses", ""))
+
+
+def _index(steps: list[dict[str, Any]], predicate: Any) -> int:
+    hits = [i for i, step in enumerate(steps) if predicate(step)]
+    assert len(hits) == 1, f"expected one matching step, found {len(hits)}"
+    return hits[0]
+
+
+def test_it_starts_only_on_the_schedule_or_an_input_less_dispatch() -> None:
+    on = _triggers(_load())
+    assert set(on) == {"schedule", "workflow_dispatch"}
+    # No inputs: nothing a dispatcher types reaches the plan.
+    assert not (on["workflow_dispatch"] or {}).get("inputs")
+
+
+def test_it_polls_every_thirty_minutes_on_minutes_of_its_own() -> None:
+    crons = [str(entry["cron"]) for entry in _triggers(_load())["schedule"]]
+    assert len(crons) == 1
+    minutes, *rest = crons[0].split()
+    assert rest == ["*", "*", "*", "*"]
+    first, second = (int(m) for m in minutes.split(","))
+    assert second - first == 30
+    taken: set[int] = set()
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        if path.name == NAME:
+            continue
+        for entry in _triggers(_load(path.name)).get("schedule") or []:
+            taken.update(int(m) for m in str(entry["cron"]).split()[0].split(","))
+    assert taken, "no other schedules to compare against"
+    assert not {first, second} & taken, "a corpus-check poll shares a minute with another cron"
+
+
+def test_a_zero_grant_and_one_check_at_a_time() -> None:
+    wf = _load()
+    assert wf["permissions"] == {}
+    assert wf["concurrency"] == {"group": "corpus-check", "cancel-in-progress": False}
+    assert set(wf["jobs"]) == {"plan", "run", "post"}
+
+
+def test_every_job_installs_with_the_cache_off() -> None:
+    for name in ("plan", "run", "post"):
+        setups = [step for step in _steps(_job(name)) if _uses(step) == SETUP]
+        assert len(setups) == 1, name
+        assert setups[0]["with"] == {"restore-cache": "false", "save-cache": "false"}, name
+
+
+def test_every_checkout_drops_its_credentials() -> None:
+    for name in ("plan", "run", "post"):
+        for step in _steps(_job(name)):
+            if _uses(step).startswith(CHECKOUT):
+                assert (step.get("with") or {}).get("persist-credentials") is False, name
+
+
+def test_the_plan_holds_no_credential_and_runs_only_on_main() -> None:
+    plan = _job("plan")
+    assert plan["permissions"] == {"contents": "read", "pull-requests": "read"}
+    assert "environment" not in plan
+    assert plan["if"] == "${{ github.ref == 'refs/heads/main' }}"
+    # Its own checkout of the run's ref, where config/corpus-check.yaml is read.
+    for step in _steps(plan):
+        if _uses(step).startswith(CHECKOUT):
+            assert set(step["with"]) == {"persist-credentials"}
+    run = "\n".join(str(step.get("run", "")) for step in _steps(plan))
+    assert "fedcourts corpus-check-candidates" in run
+    assert "fedcourts corpus-check-plan" in run
+    assert run.count("--paginate --slurp") == 2
+    assert set(plan["outputs"]) == {"found", "pr", "sha", "command", "refusal"}
+    for key, value in plan["outputs"].items():
+        assert value == f"${{{{ steps.plan.outputs.{key} }}}}"
+
+
+def test_the_run_job_holds_the_environment_and_the_read_only_role_alone() -> None:
+    run = _job("run")
+    assert run["environment"] == "corpus-check"
+    assert run["permissions"] == {"contents": "read", "id-token": "write"}
+    assert run["needs"] == "plan"
+    condition = str(run["if"])
+    assert "needs.plan.outputs.found == 'true'" in condition
+    assert "needs.plan.outputs.refusal == ''" in condition
+    readonly = [step for step in _steps(run) if _uses(step) == READONLY]
+    assert len(readonly) == 1
+    # Production through `main`'s committed pointer: no staging selector.
+    assert readonly[0]["with"] == {
+        "role-to-assume": "${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}",
+        "aws-region": "${{ vars.AWS_REGION }}",
+        "corpus-base-url": "${{ vars.CORPUS_BASE_URL }}",
+    }
+
+
+def test_only_the_run_job_reads_variables_and_no_job_reads_a_secret() -> None:
+    text = (WORKFLOWS / NAME).read_text()
+    assert "secrets." not in text
+    assert "secrets[" not in text
+    allowed = {"AWS_ROLE_TO_ASSUME_READONLY", "AWS_REGION", "CORPUS_BASE_URL"}
+    for name in ("plan", "post"):
+        assert "vars." not in yaml.safe_dump(_job(name)), name
+    assert set(re.findall(r"vars\.([A-Za-z0-9_]+)", yaml.safe_dump(_job("run")))) == allowed
+
+
+def test_reviewed_code_runs_first_and_the_planned_head_beside_it() -> None:
+    """The composites, the pull and the vintage come from the run's own ref.
+
+    A local composite resolves from the workspace root, so the root must hold
+    the run's own checkout and the PR head must land beside it; and the
+    vintage the comment quotes is read before any PR code runs.
+    """
+    steps = _steps(_job("run"))
+    checkouts = [i for i, step in enumerate(steps) if _uses(step).startswith(CHECKOUT)]
+    assert len(checkouts) == 2
+    own, head = (steps[i] for i in checkouts)
+    assert set(own["with"]) == {"persist-credentials"}
+    assert head["with"] == {"ref": PLANNED_SHA, "path": "check", "persist-credentials": False}
+    assert checkouts[0] == 0
+    vintage = _index(steps, lambda step: step.get("id") == "vintage")
+    local = [i for i, step in enumerate(steps) if _uses(step).startswith("./")]
+    assert all(i < checkouts[1] for i in local)
+    assert vintage < checkouts[1]
+    # Nothing after the head's checkout is a local composite: from there on
+    # the PR's code is in the workspace.
+    assert "fedcourts corpus-info" in str(steps[vintage]["run"])
+
+
+def test_the_command_reaches_the_check_only_through_the_tested_wrapper() -> None:
+    steps = _steps(_job("run"))
+    check = steps[_index(steps, lambda step: step.get("id") == "check")]
+    assert check["env"]["CHECK_COMMAND"] == "${{ needs.plan.outputs.command }}"
+    body = str(check["run"])
+    assert "uv run fedcourts corpus-check-exec" in body
+    assert '--command "$CHECK_COMMAND"' in body
+    assert "--cwd check" in body
+    # Guard < step < job.
+    seconds = int(re.search(r"--timeout-seconds (\d+)", body).group(1))  # type: ignore[union-attr]
+    assert seconds < check["timeout-minutes"] * 60
+    assert check["timeout-minutes"] < _job("run")["timeout-minutes"]
+    install = steps[_index(steps, lambda step: step.get("working-directory") == "check")]
+    assert install["run"] == "uv sync --locked"
+
+
+def test_no_run_block_interpolates_an_expression() -> None:
+    """Every value reaches a script through `env:`, never `${{ }}` in `run:`."""
+    for name in ("plan", "run", "post"):
+        for step in _steps(_job(name)):
+            assert "${{" not in str(step.get("run", "")), f"{name}: {step.get('name')}"
+
+
+def test_the_post_job_checks_out_no_pr_code_and_holds_no_role() -> None:
+    post = _job("post")
+    assert post["permissions"] == {"contents": "read", "pull-requests": "write"}
+    assert "environment" not in post
+    assert post["needs"] == ["plan", "run"]
+    condition = str(post["if"])
+    assert condition.startswith("${{ always() &&")
+    assert "needs.plan.result == 'success'" in condition
+    assert "needs.plan.outputs.found == 'true'" in condition
+    for step in _steps(post):
+        if _uses(step).startswith(CHECKOUT):
+            assert set(step["with"]) == {"persist-credentials"}
+        assert _uses(step) != READONLY
+    body = "\n".join(str(step.get("run", "")) for step in _steps(post))
+    assert "uv run fedcourts corpus-check-comment" in body
+    assert "repos/${REPO}/issues/${PR}/comments" in body
+
+
+def test_the_post_job_takes_the_sha_and_command_from_the_plan() -> None:
+    env = _steps(_job("post"))[-1]["env"]
+    assert env["CHECK_SHA"] == PLANNED_SHA
+    assert env["CHECK_COMMAND"] == "${{ needs.plan.outputs.command }}"
+    assert env["RUN_RESULT"] == "${{ needs.run.result }}"
+    assert env["GH_TOKEN"] == "${{ github.token }}"
+
+
+def test_the_requester_list_and_the_lane_are_maintainer_owned() -> None:
+    owners = (ROOT / ".github" / "CODEOWNERS").read_text().splitlines()
+    owned = {line.split()[0] for line in owners if line.strip() and not line.startswith("#")}
+    assert {
+        "/config/corpus-check.yaml",
+        "/src/fedcourtsai/corpus_check.py",
+        "/tests/test_corpus_check.py",
+        "/tests/test_workflow_corpus_check.py",
+        "/.github/workflows/",
+    } <= owned

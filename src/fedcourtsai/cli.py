@@ -49,6 +49,7 @@ from . import (
     casestore,
     cleanup,
     corpus,
+    corpus_check,
     corpus_index,
     corpus_ranged,
     corpus_remote,
@@ -18281,6 +18282,225 @@ def authorize_trigger_cmd(
         typer.echo(f"::error::{decision.message}", err=True)
         raise typer.Exit(code=1)
     typer.echo(decision.message)
+
+
+def _read_listing(path: Path, label: str) -> list[Any]:
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        typer.echo(f"{label}: cannot read {path}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    return list(corpus_check.flatten_pages(document))
+
+
+def _corpus_check_candidates(
+    prs_file: Path, repo: str, label: str
+) -> tuple[list[corpus_check.Request], list[corpus_check.Passed]]:
+    settings = get_settings()
+    try:
+        config = corpus_check.load_config(settings.config_root)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        typer.echo(f"{label}: cannot read the requester list: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    prs = _read_listing(prs_file, label)
+    return corpus_check.candidate_requests(prs, repo=repo, requesters=config.requesters)
+
+
+@app.command("corpus-check-candidates")
+def corpus_check_candidates_cmd(
+    prs_file: Annotated[
+        Path,
+        typer.Option(
+            "--prs-file",
+            help="The open PRs (REST list; one array or `gh api --paginate --slurp` pages).",
+        ),
+    ],
+    repo: Annotated[str, typer.Option(help="The `owner/name` the lane runs in.")],
+) -> None:
+    """Print the PR numbers whose comments the corpus-check plan must read, one per line.
+
+    A PR is a candidate when its body carries a fenced `corpus-check` block, its
+    head is in this repository, and its author is on `config/corpus-check.yaml`'s
+    requester list — runnable or refused. Reads no network; the plan job fetches
+    each candidate's comments and hands them to `corpus-check-plan`.
+    """
+    requests, _ = _corpus_check_candidates(prs_file, repo, "corpus-check-candidates")
+    for request in requests:
+        typer.echo(str(request.pr))
+
+
+@app.command("corpus-check-plan")
+def corpus_check_plan_cmd(
+    prs_file: Annotated[
+        Path,
+        typer.Option("--prs-file", help="The same PR listing `corpus-check-candidates` read."),
+    ],
+    repo: Annotated[str, typer.Option(help="The `owner/name` the lane runs in.")],
+    comments_dir: Annotated[
+        Path,
+        typer.Option(
+            "--comments-dir",
+            help="One `<pr>.json` per candidate: that PR's issue comments (REST list or pages).",
+        ),
+    ],
+    github_output: Annotated[
+        Path | None,
+        typer.Option("--github-output", help="Append the plan's job outputs to this file."),
+    ] = None,
+    summary_file: Annotated[
+        Path | None,
+        typer.Option("--summary-file", help="Append the approver's summary to this file."),
+    ] = None,
+    server_url: Annotated[
+        str, typer.Option(help="The GitHub server URL the summary links into.")
+    ] = "https://github.com",
+) -> None:
+    """Pick the corpus check to answer next and pin its head SHA and command.
+
+    The oldest candidate whose head SHA carries no result comment from the
+    workflow's own bot (`github-actions[bot]`; the same marker from anyone else
+    does not count). Prints the plan as JSON, appends `found`, `pr`, `sha`,
+    `author`, `command` and `refusal` to `--github-output`, and the approver's
+    summary — PR, SHA, author and the fenced command — to `--summary-file`. A
+    candidate whose comments file is missing exits 1 rather than reading as
+    unanswered.
+    """
+    requests, passed = _corpus_check_candidates(prs_file, repo, "corpus-check-plan")
+    comments = {
+        request.pr: _read_listing(comments_dir / f"{request.pr}.json", "corpus-check-plan")
+        for request in requests
+    }
+    chosen = corpus_check.select_request(requests, comments)
+    if github_output is not None:
+        corpus_check.write_outputs(github_output, corpus_check.plan_outputs(chosen))
+    if summary_file is not None:
+        with summary_file.open("a", encoding="utf-8") as handle:
+            handle.write(
+                corpus_check.render_plan_summary(
+                    chosen, passed, server_url=server_url, repo=repo, candidates=len(requests)
+                )
+            )
+    typer.echo(json.dumps(chosen.model_dump() if chosen else None))
+
+
+@app.command("corpus-check-exec")
+def corpus_check_exec_cmd(
+    command: Annotated[str, typer.Option(help="The planned command, re-validated here.")],
+    cwd: Annotated[Path, typer.Option(help="The PR head's checkout, where the check runs.")],
+    corpus_root: Annotated[
+        Path, typer.Option("--corpus-root", help="The directory holding the pulled corpus.")
+    ],
+    output_file: Annotated[
+        Path,
+        typer.Option(
+            "--output-file", help="Where the check's stdout and stderr go (never the job log)."
+        ),
+    ],
+    timeout_seconds: Annotated[
+        int, typer.Option("--timeout-seconds", min=1, help="Kill the check after this long.")
+    ] = 1800,
+    github_output: Annotated[
+        Path | None,
+        typer.Option(
+            "--github-output",
+            help="Append `exit_code`, `timed_out` and `summary_b64` to this file.",
+        ),
+    ] = None,
+) -> None:
+    """Run a corpus check's command without a shell and emit its result as job outputs.
+
+    Re-validates the command against the two accepted forms, empties the
+    summary file (`corpus-check-summary.md` in `--cwd`, exported to the check as
+    `CHECK_SUMMARY`), and runs the command in `--cwd` with the job's environment
+    minus the step-file and OIDC-request variables, `FEDCOURTS_CORPUS_ROOT` set
+    to `--corpus-root`, its output to `--output-file` and a hard timeout. Then
+    reads back the summary — a regular file only, the job's credentials and the
+    corpus address redacted, clamped to 50,000 bytes — and appends the outputs.
+    Prints only sizes and the exit code: the job log is public. Exits 0 whatever
+    the check's own exit code; a command outside the grammar exits 1 unrun.
+    """
+    try:
+        argv = corpus_check.parse_command(command)
+    except corpus_check.CommandRefused as exc:
+        typer.echo(f"corpus-check-exec: refused: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    workdir = cwd.resolve()
+    summary_path = corpus_check.prepare_summary(workdir)
+    env = corpus_check.check_env(
+        os.environ,
+        summary_path=summary_path,
+        corpus_root=corpus_root.resolve(),
+        drop_path_entries=[str(Path(sys.prefix) / "bin")],
+    )
+    secrets = [os.environ[name] for name in corpus_check.REDACTED_ENV if os.environ.get(name)]
+    result = corpus_check.run_check(
+        argv,
+        cwd=workdir,
+        env=env,
+        timeout_seconds=timeout_seconds,
+        output_path=output_file,
+    )
+    summary, clamped = corpus_check.read_summary(summary_path, redact=secrets)
+    typer.echo(
+        f"corpus-check-exec: exit {result.exit_code}"
+        + (" (timed out)" if result.timed_out else "")
+        + f"; {result.output_bytes} byte(s) of output kept off the log; "
+        + f"{len(summary.encode('utf-8'))} byte(s) of summary"
+        + (" (clamped)" if clamped else "")
+    )
+    if github_output is not None:
+        corpus_check.write_outputs(github_output, corpus_check.run_outputs(result, summary))
+
+
+@app.command("corpus-check-comment")
+def corpus_check_comment_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
+    sha: Annotated[str, typer.Option(envvar="CHECK_SHA", help="The planned head SHA.")],
+    command: Annotated[str, typer.Option(envvar="CHECK_COMMAND", help="The planned command.")] = "",
+    refusal: Annotated[
+        str, typer.Option(envvar="CHECK_REFUSAL", help="The plan's refusal, if any.")
+    ] = "",
+    run_result: Annotated[str, typer.Option(envvar="RUN_RESULT", help="`needs.run.result`.")] = "",
+    exit_code: Annotated[
+        str, typer.Option(envvar="CHECK_EXIT_CODE", help="The run job's exit code.")
+    ] = "",
+    timed_out: Annotated[
+        str, typer.Option(envvar="CHECK_TIMED_OUT", help="The run job's timeout flag.")
+    ] = "",
+    summary_b64: Annotated[
+        str, typer.Option(envvar="CHECK_SUMMARY_B64", help="The run job's summary, base64.")
+    ] = "",
+    vintage_b64: Annotated[
+        str, typer.Option(envvar="CHECK_VINTAGE_B64", help="The corpus vintage, base64.")
+    ] = "",
+    run_url: Annotated[str, typer.Option(envvar="RUN_URL", help="This run's URL.")] = "",
+) -> None:
+    """Render the one result comment a corpus check posts on its PR.
+
+    Every value is read as untrusted text — the run job's outputs were written
+    after PR code ran — so each is decoded defensively, fenced with a fence
+    longer than any backtick run inside it, has its mentions broken, and the
+    whole is clamped under GitHub's 65,536-character comment limit. The first
+    line is the hidden marker naming the SHA, which is what tells a later plan
+    this head is answered. Prints the comment; posts nothing.
+    """
+    try:
+        rendered = corpus_check.render_comment(
+            corpus_check.PostInputs(
+                sha=sha,
+                command=command,
+                refusal=refusal,
+                run_result=run_result,
+                exit_code=exit_code,
+                timed_out=timed_out,
+                summary_b64=summary_b64,
+                vintage_b64=vintage_b64,
+                run_url=run_url,
+            )
+        )
+    except ValueError as exc:
+        typer.echo(f"corpus-check-comment: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(rendered, nl=False)
 
 
 @app.command("finalize-produced")

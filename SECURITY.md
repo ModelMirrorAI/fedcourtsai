@@ -264,10 +264,11 @@ runbook, [docs/security.md](docs/security.md).
   pair alone — so the production stores keep exactly one writer whatever
   happens to it. Every role's OIDC trust is scoped to named environments of
   this repo — the production read-write role to `prod`, the read-only role to
-  `prod` and `staging` (which is what lets the pre-promotion integration runs
-  read the corpus), the staging read-write role to `staging` — and each of
-  those environments restricts deployments to one branch, so a PR-branch job
-  cannot assume any of them. Within an environment the split is provenance,
+  `prod`, `staging` (which is what lets the pre-promotion integration runs
+  read the corpus) and `corpus-check` (the PR corpus-check lane, under the
+  trigger surface below), the staging read-write role to `staging` — and each
+  of those environments restricts deployments to one branch, so a PR-branch
+  job cannot assume any of them. Within an environment the split is provenance,
   not identity, on both sides of the promotion: any `prod`-bound job could ask
   for the production write role and any `staging`-bound job for the staging
   one, and what stops the wrong job asking is review of the code the branch
@@ -328,7 +329,8 @@ runbook, [docs/security.md](docs/security.md).
   maintainer-merged promotion put on `main`. A `workflow_dispatch` is gated by
   GitHub on repository **write**. And every privileged job binds a deployment
   environment whose branch policy pins the ref it may run from — `prod` to
-  `main`, `staging` to `staging` (below) — so a dispatch from any other ref
+  `main`, `staging` to `staging` (below), `corpus-check` to `main` — so a
+  dispatch from any other ref
   holds no role, no secret, no agent: a job naming an environment as a literal
   is refused at the deployment-branch gate before a step runs, and the three
   branch-resolving workflows (`integration-test`, `run-analytics`,
@@ -352,11 +354,32 @@ runbook, [docs/security.md](docs/security.md).
   environment, names no secret, and mints no token or role, so a fork PR's run
   reaches nothing. Privilege and outside reachability are disjoint here, not
   merely rare together.
+  One lane runs **PR-head code with a credential**, and it is the one place
+  the environment's branch policy does not mean what it means elsewhere:
+  `corpus-check` ([docs/corpus-check.md](docs/corpus-check.md)) runs the
+  check a same-repository PR by a listed author declares, at that PR's head,
+  with the corpus read-only role. Its triggers are the same two — a
+  `schedule` and an input-less `workflow_dispatch`, so the workflow binding
+  the environment is always `main`'s — but the code it runs is not the ref's,
+  so the branch policy is met only on paper. Three things bound it instead.
+  The `corpus-check` environment's **required reviewer**: the maintainer
+  approves a named head SHA and command, which the run then takes from the
+  plan, never re-reading the PR. The **trust**: the OIDC token is job-wide, so
+  the PR's code can mint a token for any role trusting
+  `environment:corpus-check`, and only the read-only role does — it reaches
+  every store read-only and nothing it can write; the environment holds that
+  role, its region and the corpus address and no other credential. And the
+  **cache rule** below: the lane runs on `main`, whose cache entries every
+  branch restores, and its code can save entries, which no job holding a
+  credential restores. The requester list (`config/corpus-check.yaml`) is
+  maintainer-owned, and the lane's result comment comes from a separate job
+  that runs no PR code and treats the run's outputs as untrusted.
   `tests/test_workflow_auth_gate.py` sweeps the whole workflow
   directory for a reachable trigger, pins the five privileged lanes to those
   two, and requires every job that mints a token, assumes a role, or runs an
-  agent to bind one of the branch-policied environments — so a workflow added
-  later inherits the boundary. Behind all of it the `review` hold remains the
+  agent — directly or through a composite that does — to bind one of the
+  branch-policied environments, `corpus-check` admitted for its own workflow
+  alone — so a workflow added later inherits the boundary. Behind all of it the `review` hold remains the
   thing between a plan and any spend, on every round alike — save one bounded
   carve-out: a predict round whose own plan is within the auto-release caps
   (`config/review-hold.yaml`; 0, so off, unless a maintainer sets them) binds
@@ -487,6 +510,16 @@ runbook, [docs/security.md](docs/security.md).
   construction; the jail does not run on them, and the test catches a violation
   only after the fact, in the CI run on `main` that follows the push.
 - **`persist-credentials: false`** on read-only checkouts.
+- **No credential-holding job restores a cache.** An Actions cache is shared
+  across a repository's runs: any job can save an entry under a key nothing has
+  claimed yet, and a later job restoring that key runs what it holds. Jobs that
+  parse third-party content, and the `corpus-check` lane, which runs PR-head
+  code, can therefore plant an entry. So every job installs through
+  `setup-python-env` with the cache off unless
+  `tests/test_workflow_cache_restore.py` allows it, an allowed job is checked
+  to hold no credential, no secret, no deployment environment and no write
+  grant, and its result is no required check or gate evidence; the same test
+  refuses every other cache mechanism in any workflow or composite.
 - **Secrets are never written to `data/` or logs.** The `validate` gate, the
   collect job's secret scan (which withholds a run branch rather than push
   secret-shaped content), and review on every agent PR are the backstops.

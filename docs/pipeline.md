@@ -9,14 +9,18 @@ what a lane does is a function of the ledger, never of a request someone made.
 One lane is deliberately outside it: `run-backtest`'s fortnightly replay is a
 sampled measurement rather than a backlog, so a fortnight nobody released is a
 sample not taken — the next cadence draws a fresh one instead of re-deriving
-that one.
+that one. And one lane answers requests rather than a ledger: `corpus-check`
+runs the check a pull request's description declares — still level-triggered,
+since each poll derives the unanswered requests from the open PRs and their
+result comments, and still started only by a schedule or a dispatch.
 
 The trigger surface is therefore the trust boundary†, and the platform holds it:
 a `schedule` fires only from the **default branch**, so a cron can run only what
 a maintainer-merged promotion put on `main`; a `workflow_dispatch` is refused by
 GitHub to anyone without repository write; and every privileged job binds a
 deployment environment whose branch policy pins the ref it may run from (`prod`
-to `main`, `staging` to `staging`) — a job naming one as a literal is refused at
+to `main`, `staging` to `staging`, `corpus-check` to `main`) — a job naming one
+as a literal is refused at
 the deployment gate from any other ref before a step runs, and the three
 branch-resolving workflows (`integration-test`, `run-analytics`, `summarize`) resolve an
 off-list ref to an auto-created empty environment holding no role variables and
@@ -40,6 +44,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the manual `review` release | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
+| `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; each check runs only on the maintainer's `corpus-check` approval | script — the PR's own declared command (no agent) |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
@@ -567,6 +572,39 @@ when someone next looks, rather than being discovered by a paid round. Check it
 alongside the ops digest, and read a red one the way the run summary states it —
 the leg names which engine's invocation was refused.
 See *Infra-bound integration* in [testing.md](testing.md).
+
+## `corpus-check` — the check a PR asks for
+
+A pull request whose figure depends on the corpus declares the command that
+produces it in a fenced `corpus-check` block in its description; the lane runs
+it at the PR's head against the production corpus, read-only, and posts the
+result back as a comment naming the commit, the command and the corpus
+vintage. It answers same-repository PRs whose author is on
+`config/corpus-check.yaml` and commands of two forms (`uv run fedcourts …`,
+`uv run python scripts/checks/<name>.py …`), one head SHA once. How to write
+a check, what the comment carries, and what the lane gives up:
+[corpus-check.md](corpus-check.md).
+
+Three jobs. `plan` (no credential, `main` only) picks the oldest unanswered
+request from the open PRs and their comments and pins its head SHA and
+command, rendering both to the run summary. `run` binds the `corpus-check`
+environment — the maintainer's approval — assumes the read-only role, pulls
+the corpus at `main`'s committed pointer, reads its vintage, and runs the
+command at the pinned SHA without a shell, under a 30-minute timeout, its
+output kept off the public log. `post` (no environment, no PR code) posts one
+comment whatever became of the run, so the head is not planned again.
+
+**Operating it.** A request waits for the next poll (`:19` or `:49` UTC) or a
+manual dispatch on `main`. The approver reads the plan job's summary — PR,
+head SHA, author, command — on the run page before approving. One check runs
+at a time: the workflow's single concurrency group holds a run waiting on
+approval and keeps at most one pending run behind it, the newest poll
+replacing the pending one; each run plans afresh when it starts, so the
+replacements lose nothing and no head is answered twice, and the run history
+shows the replaced polls as cancelled. An approval left pending holds the
+queue; rejecting it posts `not run` and lets the next request through. To
+re-run an unchanged head, push a commit. The environment and the read-only
+role's trust are provisioned once ([security.md](security.md)).
 
 ## `staging-corpus-refresh` — the staging corpus
 

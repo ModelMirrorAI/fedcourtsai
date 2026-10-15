@@ -728,8 +728,16 @@ exception, `pull_request` on CI, the linters and CodeQL, is held to a shape that
 makes it moot: no environment, no secret, no token mint, no role — the privileged lanes carry
 nothing but the platform-gated `schedule` and `workflow_dispatch` and keep the
 dispatch their recovery path depends on, every privileged job binds a deployment
-environment so a dispatch cannot run it from an arbitrary ref, and every agent
-job waits on the `review` hold), the
+environment so a dispatch cannot run it from an arbitrary ref — a job reaching
+the role through a corpus composite counting as privileged, and `corpus-check`
+admitted for its own workflow alone — and every agent
+job waits on the `review` hold), the cache (`test_workflow_cache_restore`: no
+job restores the uv cache unless allowed and holding nothing, and no workflow
+or composite restores a cache any other way), the corpus-check lane
+(`test_workflow_corpus_check`: each job's grants, the environment and the
+read-only role on the run job alone, the planned head checked out beside the
+run's own ref and after the vintage read, no `${{ }}` in any script, no PR
+code in the post job), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants

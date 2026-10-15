@@ -601,6 +601,7 @@ def _env_mappings(name: str) -> list[tuple[str, dict[str, Any]]]:
 # are pinned on the command line from dedicated variables, so it reads NO
 # ambient corpus variable at all, and the pinning test below holds it to that.
 BASE_URL_WORKFLOWS = {
+    "corpus-check.yml",
     "integration-test.yml",
     "run-analytics.yml",
     "run-backtest.yml",

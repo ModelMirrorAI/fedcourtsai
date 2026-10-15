@@ -1,0 +1,255 @@
+name: corpus-check
+
+# Runs the check a same-repository pull request declares against the production
+# corpus, read-only, once the maintainer approves it, and posts the result back
+# to the PR (docs/corpus-check.md). It exists for a session that can push a
+# branch but cannot read the corpus: the PR declares the command that produces
+# its corpus-dependent figure, and the figure comes back as a comment naming
+# the SHA, the command and the corpus vintage it was read from.
+#
+# Its own workflow because its risk class is one no other lane has: it runs
+# PR-head code — the whole point is to measure the change — with a corpus
+# credential. Three things bound that, and the jobs below are shaped by them:
+#
+#   - the approval: `run` binds the `corpus-check` environment, whose required
+#     reviewer is the maintainer, and takes the SHA and the command from the
+#     plan's outputs — the run summary the approver reads names both — never
+#     from the PR, whose head or body may have moved since;
+#   - the trust: the read-only role is the only role whose OIDC trust names
+#     `environment:corpus-check`, so the PR's code can mint nothing that writes
+#     (docs/security.md);
+#   - the cache: no credential-holding job restores an Actions cache, so
+#     entries the check's code could save are restored by nothing that holds a
+#     credential (tests/test_workflow_cache_restore.py). Every job here
+#     installs with the cache off.
+#
+# Three jobs, each holding only what it names, under a zero top-level grant:
+#
+#   - plan: no credential. Lists the open PRs, keeps the requests from a head
+#     in this repository by an author on config/corpus-check.yaml (read from
+#     this run's own checkout of `main`, never from a PR), and picks the oldest
+#     whose head SHA has no result comment from this workflow's bot. Pins the
+#     PR, SHA and command as outputs and renders them to the run summary.
+#   - run: the environment, `contents: read` and `id-token: write`. Checks out
+#     this run's own ref for the composites and the corpus pull — so the blob
+#     is the one `main`'s committed pointer names, and the vintage is read by
+#     reviewed code before any PR code runs — then the pinned SHA beside it,
+#     and runs the command there with no shell, under a hard timeout, its
+#     output kept off the public log. Emits the exit code, the summary the
+#     check wrote and the vintage.
+#   - post: no environment, no `id-token`, no PR code. Renders one comment from
+#     the run's outputs, treating each as untrusted text, and posts it with the
+#     job's own token.
+#
+# One check at a time: the workflow-level group below holds a run waiting on
+# approval, and GitHub keeps at most one more run pending behind it, replacing
+# the pending one whenever a newer poll arrives. Every run derives its plan
+# afresh from the PRs and comments when it starts, so a replaced poll loses
+# nothing — the pending run that does start sees the previous run's comment
+# and plans the next request, never a duplicate of the last. While an approval
+# waits, the schedule's polls cancel one another in the pending slot; that is
+# the cost of the hold, and it runs nothing.
+on:
+  schedule:
+    # Every 30 minutes, on minutes no other workflow's cron uses (GitHub queues
+    # a repository's crons together, so slots sharing a minute contend).
+    - cron: "19,49 * * * *"
+  # A manual poke after a push, so a request need not wait for the next poll.
+  # No inputs: the plan derives what to run from the PRs, and a dispatch from
+  # any ref but `main` plans nothing (the plan job's condition) and could bind
+  # nothing (the environment's branch policy).
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: corpus-check
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read # list the open PRs and read their comments
+    outputs:
+      found: ${{ steps.plan.outputs.found }}
+      pr: ${{ steps.plan.outputs.pr }}
+      sha: ${{ steps.plan.outputs.sha }}
+      command: ${{ steps.plan.outputs.command }}
+      refusal: ${{ steps.plan.outputs.refusal }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+          save-cache: "false"
+
+      - name: Pick the request to answer
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
+          work="${RUNNER_TEMP}/corpus-check-plan"
+          mkdir -p "${work}/comments"
+          gh_retry gh api --paginate --slurp \
+            "repos/${REPO}/pulls?state=open&per_page=100" > "${work}/prs.json"
+          # The tested CLI decides which PRs are candidates; only theirs are
+          # read, one comments listing each.
+          candidates=$(uv run fedcourts corpus-check-candidates \
+            --prs-file "${work}/prs.json" --repo "$REPO")
+          for pr in $candidates; do
+            gh_retry gh api --paginate --slurp \
+              "repos/${REPO}/issues/${pr}/comments?per_page=100" > "${work}/comments/${pr}.json"
+          done
+          uv run fedcourts corpus-check-plan \
+            --prs-file "${work}/prs.json" \
+            --repo "$REPO" \
+            --comments-dir "${work}/comments" \
+            --server-url "$SERVER_URL" \
+            --github-output "$GITHUB_OUTPUT" \
+            --summary-file "$GITHUB_STEP_SUMMARY"
+
+  run:
+    needs: plan
+    # A refused request runs nothing: the post job tells the PR why.
+    if: ${{ needs.plan.outputs.found == 'true' && needs.plan.outputs.refusal == '' }}
+    runs-on: ubuntu-24.04
+    # Guard < step < job: the check's own timeout (30 min) sits inside its
+    # step's (35), and the pull, the installs and the check together inside the
+    # role's one-hour session, whose credentials cannot refresh.
+    timeout-minutes: 60
+    environment: corpus-check
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    outputs:
+      exit_code: ${{ steps.check.outputs.exit_code }}
+      timed_out: ${{ steps.check.outputs.timed_out }}
+      summary_b64: ${{ steps.check.outputs.summary_b64 }}
+      vintage_b64: ${{ steps.vintage.outputs.vintage_b64 }}
+    steps:
+      # This run's own ref first: the composites below resolve from the
+      # workspace root, so they, the corpus pull and the vintage read are the
+      # reviewed code on `main`, not the PR's.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+          save-cache: "false"
+
+      # Production, read-only, through the committed pointer on `main`: data
+      # commits land on `main` alone, so a branch off `staging` carries an older
+      # pointer, and the check should read the current corpus. No staging
+      # selector: this lane reads production only.
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+
+      # Read before any PR code runs, so the vintage the comment quotes comes
+      # from reviewed code. Freshness and pointer lines only: the location line
+      # names a runner path, and nothing here prints the corpus.
+      - name: Read the corpus vintage
+        id: vintage
+        run: |
+          set -euo pipefail
+          info=$(uv run fedcourts corpus-info)
+          {
+            printf 'blob sha256 %s\n' "$(jq -r '.sha256' corpus/corpus.db.ref)"
+            grep -E '^(freshness|pointer):' <<<"$info" || true
+          } > "${RUNNER_TEMP}/vintage.txt"
+          cat "${RUNNER_TEMP}/vintage.txt"
+          echo "vintage_b64=$(base64 -w0 < "${RUNNER_TEMP}/vintage.txt")" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the planned head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          path: check
+          persist-credentials: false
+
+      # From here on the PR's code runs. Its environment installs from its own
+      # lockfile, with uv already installed and every cache off.
+      - name: Install the planned head's environment
+        working-directory: check
+        run: uv sync --locked
+
+      # The command arrives through the environment, never interpolated into
+      # this script, and the tested wrapper re-validates it, splits it without
+      # a shell and runs it with the step-file and OIDC-request variables
+      # removed, its output to a file and a hard timeout.
+      - name: Run the check
+        id: check
+        timeout-minutes: 35
+        env:
+          CHECK_COMMAND: ${{ needs.plan.outputs.command }}
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts corpus-check-exec \
+            --command "$CHECK_COMMAND" \
+            --cwd check \
+            --corpus-root "${GITHUB_WORKSPACE}/corpus" \
+            --output-file "${RUNNER_TEMP}/corpus-check/output.log" \
+            --timeout-seconds 1800 \
+            --github-output "$GITHUB_OUTPUT"
+
+  post:
+    needs: [plan, run]
+    # Whatever became of the run — approved, rejected, expired, failed — one
+    # comment names the SHA, so the next poll does not plan it again.
+    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.found == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write # the one result comment on the PR
+    steps:
+      # This run's own ref, for the renderer: no PR code is checked out here.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+          save-cache: "false"
+
+      - name: Post the result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.plan.outputs.pr }}
+          CHECK_SHA: ${{ needs.plan.outputs.sha }}
+          CHECK_COMMAND: ${{ needs.plan.outputs.command }}
+          CHECK_REFUSAL: ${{ needs.plan.outputs.refusal }}
+          RUN_RESULT: ${{ needs.run.result }}
+          CHECK_EXIT_CODE: ${{ needs.run.outputs.exit_code }}
+          CHECK_TIMED_OUT: ${{ needs.run.outputs.timed_out }}
+          CHECK_SUMMARY_B64: ${{ needs.run.outputs.summary_b64 }}
+          CHECK_VINTAGE_B64: ${{ needs.run.outputs.vintage_b64 }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
+          source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
+          body="${RUNNER_TEMP}/corpus-check-comment.md"
+          uv run fedcourts corpus-check-comment > "$body"
+          head -n 2 "$body" | tail -n 1 >> "$GITHUB_STEP_SUMMARY"
+          gh_retry gh api --silent --method POST \
+            "repos/${REPO}/issues/${PR}/comments" -F "body=@${body}"

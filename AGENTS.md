@@ -122,7 +122,10 @@ non-interactive** container. Two consequences shape everything you do:
   `src/fedcourtsai/process_registration.py` and their tests — a registration
   is a pre-registration, and the promotion record is what a bypass writer may
   push to `main`), `config/predictors.yaml` /
-  `config/evaluators.yaml` (what agents are and what they may reach), and the
+  `config/evaluators.yaml` (what agents are and what they may reach — and,
+  with them, `config/corpus-check.yaml`, `src/fedcourtsai/corpus_check.py` and
+  its tests, which decide whose PR code the corpus-check lane runs with the
+  corpus read-only role and what it may run), and the
   authority to spend without a human release: `config/review-hold.yaml` (the
   auto-release caps), `src/fedcourtsai/planning_rates.py` (the rates a round
   is priced at), `src/fedcourtsai/review_hold.py` and
@@ -209,7 +212,18 @@ non-interactive** container. Two consequences shape everything you do:
   also reads the **staging** pair: `scripts/corpus-env staging <cmd>`
   re-points one command at it, index reads included where the pair's
   out-of-band pointer secret is present (*Developer access* in
-  `docs/data-pipeline.md`).
+  `docs/data-pipeline.md`). A session with no corpus access asks the
+  **corpus-check** lane instead: put one fenced `corpus-check` block in the PR
+  description naming the command — `uv run fedcourts <subcommand> …` or
+  `uv run python scripts/checks/<name>.py …`, a script the PR may add — that
+  writes the figure to the file `CHECK_SUMMARY` names. Once the maintainer
+  approves the run, the lane runs it at the PR's head against the production
+  corpus and posts a comment with the result and the vintage to quote beside
+  it; until then the claim is unverified, and the PR says so. Only
+  same-repository PRs by the authors on `config/corpus-check.yaml` are
+  answered, one head SHA once, and the summary is posted publicly, so report
+  counts and identifiers, never stored snapshot text
+  (`docs/corpus-check.md`).
 - **A promotion batch states its observable effect as a runnable check.** The
   promotion PR body carries what should be true once the batch is live and the
   command that shows it, and the promotion is not done until someone runs that
@@ -461,6 +475,7 @@ task-specific instructions: the prompt file named in your run
 | On what terms may we use and republish upstream data? | `docs/data-sources.md` |
 | How does the SCOTUS live channel work? | `docs/live-sources.md` |
 | Which command does X, and with which flags? | `docs/cli.md` |
+| How does a PR get its corpus-dependent figure checked without corpus access? | `docs/corpus-check.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
 | What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, ten batches have landed covering the scoped frame; the committed `metrics/docket.md` still renders the two-batch cut until the next `fedcourts docket` run regenerates it) | `docs/qp-topic.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` (the rules), `docs/freeze-record.md` (the dated record) |

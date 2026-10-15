@@ -25,7 +25,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Cache off: setup-uv enables it by default on hosted runners, and no job
+      # restores a cache outside setup-python-env's allow-list
+      # (tests/test_workflow_cache_restore.py).
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          enable-cache: false
       - name: zizmor
         env:
           # Lets zizmor resolve action refs; github.token is read-only here.
