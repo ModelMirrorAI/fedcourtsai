@@ -730,8 +730,17 @@ nothing but the platform-gated `schedule` and `workflow_dispatch` and keep the
 dispatch their recovery path depends on, every privileged job binds a deployment
 environment so a dispatch cannot run it from an arbitrary ref — a job reaching
 the role through a corpus composite counting as privileged, and `corpus-check`
-admitted for its own workflow alone — and every agent
-job waits on the `review` hold), the cache (`test_workflow_cache_restore`: no
+admitted for its own workflow alone — every agent
+job waits on the `review` hold, and every workflow that binds an environment
+opens with the run gate — an unprivileged `authorize` job that sparse-checks-out
+and runs `src/fedcourtsai/run_gate.py` by path, which every other job needs
+directly and whose guard ends every other job's condition as a top-level
+conjunct — and closes with the `run-gate` job that needs every job and fails a
+refused re-run, with `config/dispatchers.json` never naming the agent account;
+`tests/workflow_gate.py` holds the guard's text and lets the other shape tests
+read a job's own condition and needs without it, and `test_run_gate` pins the
+decision and that the module imports only the standard library), the cache
+(`test_workflow_cache_restore`: no
 job restores the uv cache unless allowed and holding nothing, no workflow
 or composite restores a cache any other way, and no root `package.json` turns
 on a `setup-node` cache), the corpus-check lane

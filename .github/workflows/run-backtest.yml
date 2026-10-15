@@ -49,7 +49,8 @@ on:
     # and the `cadence` job below drops the odd ISO weeks — a guard in a step,
     # because expressions carry no date function and a job-level `if` therefore
     # cannot compute a week number at all. An odd week is a cheap successful
-    # no-op (one runner, no checkout, no corpus, no credential), never a failure.
+    # no-op (the run gate's read-only job, then one runner with no checkout, no
+    # corpus and no credential), never a failure.
     #
     # GitHub delivers `schedule` events best-effort: a slot can be delayed or
     # dropped with no record, and a newly registered cron sometimes never
@@ -133,12 +134,54 @@ env:
   BT_TERMS: ${{ inputs.terms }}
 
 jobs:
-  # The fortnight gate, and the whole cost of a fortnight that does not run: one
-  # runner, no checkout, no corpus, no credential, no token. Cron-only — a
+  # The run gate (src/fedcourtsai/run_gate.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.json names. No
+  # environment, no secret, a read-only token, and no project code: a sparse
+  # checkout of the gate and its allow-list alone, run by path with the
+  # runner's Python in isolated mode. Every other job needs this one and checks
+  # the attempt it judged, because re-running some jobs does not re-run this
+  # one; `run-gate` below fails the run when that check refused.
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            src/fedcourtsai/run_gate.py
+            config/dispatchers.json
+          sparse-checkout-cone-mode: false
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          python3 -I -S src/fedcourtsai/run_gate.py --workflow run-backtest.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
+  # The fortnight gate, and, beside the run gate's read-only job, the whole cost
+  # of a fortnight that does not run: one runner, no checkout, no corpus, no
+  # credential, no token. Cron-only — a
   # dispatch is already a human choosing parameters, and neither guard below has
   # anything to add to that.
   cadence:
-    if: github.event_name == 'schedule'
+    needs: [authorize]
+    if: >-
+      ${{ github.event_name == 'schedule'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # Two short checks; the cap is the runner's own setup with room.
     timeout-minutes: 5
@@ -248,8 +291,12 @@ jobs:
   # and the replay job pulls its own corpus, so this line bounds the population
   # described here rather than certifying the one that runs.
   plan:
-    needs: cadence
-    if: needs.cadence.outputs.proceed == 'true'
+    needs: [authorize, cadence]
+    if: >-
+      ${{ needs.cadence.outputs.proceed == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # A corpus pull plus two local reads. Bounded so a wedged pull names itself
     # rather than running out the runner's six-hour default: this job takes no
@@ -337,7 +384,11 @@ jobs:
   # and may this particular run spend — so the replay job keeps `prod` and
   # gains a `needs` on this one.
   approval:
-    needs: plan
+    needs: [authorize, plan]
+    if: >-
+      ${{ needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: review
@@ -353,8 +404,12 @@ jobs:
   # or expired wait, and a plan job that died before the hold (approval then
   # skipped). No token and no permissions, because a step summary needs neither.
   rejected:
-    needs: [cadence, plan, approval]
-    if: ${{ always() && needs.cadence.outputs.proceed == 'true' && needs.approval.result != 'success' }}
+    needs: [authorize, cadence, plan, approval]
+    if: >-
+      ${{ always() && needs.cadence.outputs.proceed == 'true' && needs.approval.result != 'success'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions: {}
@@ -376,18 +431,21 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   backtest:
-    needs: [cadence, plan, approval]
+    needs: [authorize, cadence, plan, approval]
     # A dispatch reaches this job directly — `cadence`, `plan` and `approval`
     # all skip, and the dispatcher's own parameter choice (with `engine`
     # defaulting to the free stub) is the deliberate decision. The cron path
     # reaches it only on an even ISO week, clear of a still-running twin, with a
     # plan that derived, and a hold that a human released.
     if: >-
-      ${{ !cancelled()
+      ${{ (!cancelled()
           && (github.event_name != 'schedule'
               || (needs.cadence.outputs.proceed == 'true'
                   && needs.plan.result == 'success'
-                  && needs.approval.result == 'success')) }}
+                  && needs.approval.result == 'success')))
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # One back-test at a time, and the lock sits on the job that does the work
     # rather than on the workflow: a group is assigned before any job condition
@@ -836,3 +894,27 @@ jobs:
               --title "$title" --body-file pr-body.md
           fi
           cat pr-body.md >> "$GITHUB_STEP_SUMMARY"
+
+  # The run gate's verdict on the run as a whole. A refused partial re-run
+  # skips every job it re-runs, which alone would leave the earlier attempt's
+  # successes standing and the run concluding `success`. This job needs every
+  # other job, so any re-run re-runs it, and it fails the run when the gate did
+  # not pass or this attempt is neither the one the gate judged nor a re-run by
+  # a login the gate published. No checkout, no token, no environment.
+  run-gate:
+    needs: [authorize, cadence, plan, approval, rejected, backtest]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail a run the gate refused
+        if: >-
+          ${{ needs.authorize.result != 'success'
+          || (needs.authorize.outputs.attempt != github.run_attempt
+          && !contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+        env:
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          echo "::error::The run gate refused this run or re-run (started by ${TRIGGERING_ACTOR}): see the authorize job's log, or config/dispatchers.json for who may re-run."
+          exit 1

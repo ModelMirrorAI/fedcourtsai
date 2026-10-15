@@ -73,7 +73,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The run gate (src/fedcourtsai/run_gate.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.json names. No
+  # environment, no secret, a read-only token, and no project code: a sparse
+  # checkout of the gate and its allow-list alone, run by path with the
+  # runner's Python in isolated mode. Every other job needs this one and checks
+  # the attempt it judged, because re-running some jobs does not re-run this
+  # one; `run-gate` below fails the run when that check refused.
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            src/fedcourtsai/run_gate.py
+            config/dispatchers.json
+          sparse-checkout-cone-mode: false
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          python3 -I -S src/fedcourtsai/run_gate.py --workflow run-evaluate.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
   plan:
+    needs: [authorize]
+    if: >-
+      ${{ needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The job pulls the whole corpus and scans every resolved event, unattended,
     # and holds the serializing group while it does — so a hung pull would
@@ -220,8 +261,12 @@ jobs:
   # one environment serves every spend hold, which is what the plan report's
   # closing line and the promotion gate's reviewer check both assume.
   approval:
-    needs: plan
-    if: needs.plan.outputs.has_jobs == 'true'
+    needs: [authorize, plan]
+    if: >-
+      ${{ needs.plan.outputs.has_jobs == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment: review
@@ -245,8 +290,12 @@ jobs:
   # re-derived on the next cycle by construction — so a decline costs a cycle
   # and nothing else.
   rejected:
-    needs: [plan, approval]
-    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success' }}
+    needs: [authorize, plan, approval]
+    if: >-
+      ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result != 'success'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # Nothing here but the summary write; the cap is the runner's own setup
     # with room.
@@ -270,8 +319,12 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   evaluate:
-    needs: [plan, approval]
-    if: needs.plan.outputs.has_jobs == 'true'
+    needs: [authorize, plan, approval]
+    if: >-
+      ${{ needs.plan.outputs.has_jobs == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The engine deadline below plus the setup ahead of the engine step and the
     # capture tail behind it, with room: measured since 2026-08-01, the engine
@@ -1437,7 +1490,7 @@ jobs:
     concurrency:
       group: collect-${{ github.workflow }}-${{ github.run_id }}
       cancel-in-progress: false
-    needs: [plan, approval, evaluate]
+    needs: [authorize, plan, approval, evaluate]
     # Run after the whole fan-out even if some cells failed, as long as the plan
     # queued jobs AND the hold released. Without the approval clause, always()
     # would fire this writer on a rejected hold (evaluate merely skipped) and
@@ -1445,7 +1498,11 @@ jobs:
     # only writer: it unions the cells' artifacts into one
     # PR per run (auto-merged when green) plus, if any cell left salvageable
     # partial output, one draft PR a maintainer finishes.
-    if: ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success' }}
+    if: >-
+      ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The collect action downloads cell artifacts per artifact with bounded
     # parallelism (4 workers; each download is its own degradation boundary —
@@ -1623,3 +1680,27 @@ jobs:
           set -euo pipefail
           [ -s feedback-comment.md ] || exit 0
           uv run fedcourts post-agent-feedback --repo "$REPO" --body-file feedback-comment.md
+
+  # The run gate's verdict on the run as a whole. A refused partial re-run
+  # skips every job it re-runs, which alone would leave the earlier attempt's
+  # successes standing and the run concluding `success`. This job needs every
+  # other job, so any re-run re-runs it, and it fails the run when the gate did
+  # not pass or this attempt is neither the one the gate judged nor a re-run by
+  # a login the gate published. No checkout, no token, no environment.
+  run-gate:
+    needs: [authorize, plan, approval, rejected, evaluate, collect]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail a run the gate refused
+        if: >-
+          ${{ needs.authorize.result != 'success'
+          || (needs.authorize.outputs.attempt != github.run_attempt
+          && !contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+        env:
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          echo "::error::The run gate refused this run or re-run (started by ${TRIGGERING_ACTOR}): see the authorize job's log, or config/dispatchers.json for who may re-run."
+          exit 1

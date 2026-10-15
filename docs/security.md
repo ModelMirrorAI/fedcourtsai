@@ -129,11 +129,92 @@ maintainer's own credentials is the exception, and for it the rules below are
 bypass list, never a required reviewer on the `review` environment (whose
 self-review is permitted, so a reviewer there must be a human). Its
 credential is the Claude app's GitHub connection, held server-side and
-reached only through the session proxy, which refuses `workflow_dispatch` and
-the admin APIs; revoking it is disconnecting GitHub in the Claude app, or
-removing the account from `agents`. Any other credential minted for the
-account — a token for a codespace, say — must leave Actions write out, since
-the write role itself permits a dispatch.
+reached only through the session proxy, which refuses `workflow_dispatch`,
+re-runs and the admin APIs; revoking it is disconnecting GitHub in the Claude
+app, or removing the account from `agents`. The repository refuses the same
+starts on its own, whatever credential the account holds: the write role
+permits a dispatch and a re-run, but every workflow that binds an environment
+opens with the run gate, and the allow-list it reads never names the account.
+A dispatch the account makes, or a re-run of any run, fails the run before
+any work starts. Any other credential minted for the account — a token for a
+codespace, say — should still leave Actions write out: the gate stops the
+gated workflows, not a dispatch of `promote` or `run-ops`, which bind no
+environment and name no secret.
+
+#### The run gate and its allow-list
+
+Each gated workflow opens with an `authorize` job and closes with a `run-gate`
+job; every job between them needs `authorize` and ends its condition with the
+same guard.
+
+- **The decision** (`src/fedcourtsai/run_gate.py`). A `workflow_dispatch`
+  proceeds only when its dispatcher (`github.actor`, which stays the
+  dispatcher's at every attempt) is a human in `config/dispatchers.json`, or a
+  bot that file lists for the workflow file being run. Any attempt above the
+  first — a re-run, of any event — also needs its re-runner
+  (`github.triggering_actor`) among the humans; no bot re-runs. A first
+  attempt of `schedule`, `push` or `pull_request` passes, and every other
+  event refuses, so a trigger added later is refused until the gate names it.
+  A blank login, an unparseable attempt, or a missing or malformed allow-list
+  refuses. Logins compare case-insensitively.
+- **The allow-list** (`config/dispatchers.json`). A JSON object: `humans`, the
+  GitHub user logins that may dispatch any gated workflow and re-run any run;
+  `bots`, a map from workflow file name to the App bot logins
+  (`<slug>[bot]`) that may dispatch that one workflow — today the dispatch App
+  for `run-predict`, whose `chain` and `chain-predict` jobs start chained
+  rounds. Unknown keys, duplicated keys, a login that is not one, and a bot
+  entry without the `[bot]` suffix are refused, so a typo cannot widen the
+  gate. JSON rather than YAML because the gate parses it with the standard
+  library alone. The agent account is deliberately absent: an interactive
+  session composes a dispatch for the maintainer rather than starting spend,
+  a corpus write or a re-run of a round the gate refused, and
+  `tests/test_workflow_auth_gate.py` refuses a file that lists it. Both files
+  are code-owned spend authority (`AGENTS.md`).
+- **Why the gate is self-contained.** On `staging` the agent account merges
+  its own PRs, and the package, its dependencies and its lockfile are not
+  code-owned. So the `authorize` job runs no project code: it sparse-checks-out
+  the module and the allow-list alone (no persisted credential), and runs
+  `python3 -I -S src/fedcourtsai/run_gate.py` with the runner's own Python
+  (3.12 on `ubuntu-24.04`) in isolated mode without `site` — no site
+  packages, user or system, no script directory on the path, no `PYTHON*`
+  environment. The module imports only
+  the standard library, which `tests/test_run_gate.py` checks.
+- **Partial re-runs.** Re-running some of a run's jobs keeps the authorize
+  job's earlier success and outputs instead of re-running it. So it publishes
+  the attempt it judged and the humans (comma-delimited at both ends); each
+  job's guard admits it at that attempt or for a re-runner on that list, and
+  otherwise skips it. Skipping alone would leave the earlier attempt's
+  successes standing and the run concluding `success` — evidence the
+  promotion gate's freshness check reads by conclusion — so `run-gate`, which
+  needs every job and therefore re-runs with any of them, fails the run under
+  exactly the opposite condition. run-repair's corpus jobs, whose job-level
+  group is `corpus-write` or a per-run skip group, put the guard in that
+  choice, so a refused job takes its own skip group rather than displacing a
+  pending writer.
+- **What it leaves open.** A refused run still takes its workflow-level
+  concurrency group while it fails — `corpus-write`, `run-predict`,
+  integration-test's and the rest — and a job-level group outside
+  run-repair's skip pattern (run-backtest's, promotion-record's, run-analytics'
+  `analysis` and `tool-usage`). Where the group keeps one pending run, a
+  refused run can displace a pending legitimate one, which then needs a
+  re-dispatch; where it sets `cancel-in-progress` (integration-test's, and
+  run-analytics' two), it can cancel a legitimate run already in progress —
+  for integration-test, a promotion-freshness run. Both are availability
+  only. Revoking a re-runner is removing them from `config/dispatchers.json`
+  and from repository write: a re-run executes at its run's original commit,
+  so the file alone does not reach runs created before the change. A
+  refused run stays in the run history; a census that reads job conclusions by
+  name with `filter=latest` (run-predict's stranded-run guard) sees a refused
+  re-run of `collect` as uncollected. Repository-level secrets, which a job
+  reaches without an environment, are assumed absent: every secret here lives
+  on an environment. The partial re-run behaviour above follows GitHub's
+  documented semantics and has not yet been observed on a run; on `staging`,
+  the maintainer settles it with an `integration-test` dispatch
+  (`gh workflow run integration-test.yml --ref staging -f scenario=collect`)
+  and then a re-run of one job (`gh run rerun <run-id> --job <job-id>`): the
+  maintainer's re-run proceeds and the run concludes `success`, while the same
+  re-run by an unlisted write holder skips the job and the run concludes
+  `failure` at `run-gate`.
 
 The **`maintainers`** team (the maintainer alone, with direct access to the
 repository) is the required reviewer on `main: require approval`, so its
@@ -731,8 +812,14 @@ Every `prod` job already runs from a `main` ref for its trigger — a `schedule`
 fires only from the default branch, and a production `workflow_dispatch` is
 made against `main` — so the restriction breaks nothing. The two triggers
 divide the trust between them: a schedule can start only what a
-maintainer-merged promotion put on `main`, and GitHub gates a dispatch on
-repository write.
+maintainer-merged promotion put on `main`, and a dispatch is gated twice —
+by GitHub on repository write, then by the run gate on who among write
+holders it is (a human `config/dispatchers.json` names, or the pipeline bot it
+allows for that workflow). The run gate also refuses a re-run by anyone
+else, and fails the run when it does. It lives in the workflow file, so it holds only on refs whose workflow
+carries it, and this restriction is what makes that enough: a dispatch from a
+branch whose workflow drops the gate binds no environment that holds
+anything.
 
 **The integration-test workflow selects its environment by input**
 (`deploy-environment`, a closed choice of `auto`/`prod`/`staging` defaulting to
@@ -785,9 +872,11 @@ the workflows themselves. Such a per-run approval is
 redundant against the arrangement that exists: no workflow declares
 `actions: write`, the one App granted an Actions scope (the dispatch App) is
 minted only by the two chain jobs, whose code starts nothing but `run-predict`
-on `main`, and the repo-scoped token agents hold is refused on
-`workflow_dispatch` — so dispatching anything that binds `staging` is still a
-maintainer-only act in practice, and with `prevent_self_review` off the approval is a
+on `main`, and the run gate refuses a dispatch or a re-run by any login
+`config/dispatchers.json` does not name, the agent account among them — and
+runs no code but its own owned module, so a `staging` merge cannot loosen it —
+so
+dispatching anything that binds `staging` is still a maintainer-only act, and with `prevent_self_review` off the approval is a
 second click on the same decision by the same person. **Revisit the moment any
 premise changes**: a second write-access collaborator; the first *token* that
 can dispatch, whether a workflow declaring `actions: write` or any App
@@ -805,11 +894,15 @@ A change that adds a minter, or a chain job that dispatches anything but
 `run-predict` on `main`, reopens it. The first premise **has** fired too,
 with the agent account (*The agent account and the two teams* above): a
 write-access identity whose lane is merging its own PRs to `staging`. It is
-answered by its credential path rather than its role — the write role permits
-`workflow_dispatch`, and the session proxy its connection runs through
-refuses it — and by the code-owner rule, which holds its workflow changes for
-the maintainer. A credential for the account that does not run through that
-proxy and can dispatch reopens it. Another premise **has** fired, and this
+answered in the repository rather than by its role or its credential path —
+the write role permits `workflow_dispatch` and re-runs, and the run gate
+refuses both for any login the maintainer-owned `config/dispatchers.json` does
+not name, which the account never is — with the session proxy its connection
+runs through refusing them as well, and by the code-owner rule, which holds
+its workflow changes, that allow-list and the gate's self-contained module for
+the maintainer. Adding the account to the allow-list, a gated workflow losing
+its `authorize` or `run-gate` job, or the gate importing code nobody owns
+reopens it. Another premise **has** fired, and this
 paragraph answers the
 question it was holding: the `staging` environment is repointed at the
 staging corpus (the runbook's step 5), so the promotion gate's freshness

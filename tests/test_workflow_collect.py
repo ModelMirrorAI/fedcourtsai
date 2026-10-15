@@ -18,6 +18,7 @@ import yaml
 from fedcourtsai.cli import _render_approval_report
 from fedcourtsai.collect import ExpectedCell, cell_artifact_name
 from fedcourtsai.finalize import FinalizeRole
+from tests.workflow_gate import own_condition, own_needs
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -120,8 +121,8 @@ def test_the_two_call_sites_differ_only_by_role() -> None:
     # assert: a mutating expression inside one vanishes under `python -O`.
     predict_needs = predict.pop("needs")
     evaluate_needs = evaluate.pop("needs")
-    assert predict_needs == ["plan", "approval", "predict"]
-    assert evaluate_needs == ["plan", "approval", "evaluate"]
+    assert own_needs({"needs": predict_needs}) == ["plan", "approval", "predict"]
+    assert own_needs({"needs": evaluate_needs}) == ["plan", "approval", "evaluate"]
 
     # Neither collect may fire on a hold that never released — without the
     # approval clause, always() would spin the writer up over a run that
@@ -565,19 +566,19 @@ def test_the_collect_scenario_is_partitioned_from_the_environment_bound_job() ->
     # and the canary must run on the partitioned side rather than lean on
     # null-coercion making the inequality true by accident.
     for job_id in ("plan", "scenario"):
-        assert workflow["jobs"][job_id]["if"] == (
-            "${{ github.event_name == 'schedule' || (inputs.scenario != 'collect' "
-            "&& inputs.scenario != 'qp-labeler-smoke') }}"
+        assert own_condition(workflow["jobs"][job_id]) == (
+            "github.event_name == 'schedule' || (inputs.scenario != 'collect' "
+            "&& inputs.scenario != 'qp-labeler-smoke')"
         )
-    assert workflow["jobs"]["scenario"]["needs"] in ("plan", ["plan"])
+    assert own_needs(workflow["jobs"]["scenario"]) == ["plan"]
     # Its own dispatch, plus every whole-suite run — collect is part of the
     # promotion freshness suite under both gate selections, riding the run as
     # its own environment-free job, it belongs to every scenario `all` runs,
     # and it costs no tokens for either offline selection to drop.
-    assert _collect_scenario_job()["if"] == (
-        "${{ inputs.scenario == 'collect'"
+    assert own_condition(_collect_scenario_job()) == (
+        "inputs.scenario == 'collect'"
         " || inputs.scenario == 'gate' || inputs.scenario == 'offline-gate'"
-        " || inputs.scenario == 'all' || inputs.scenario == 'all-offline' }}"
+        " || inputs.scenario == 'all' || inputs.scenario == 'all-offline'"
     )
     # `on:` parses as the YAML boolean True.
     options = workflow[True]["workflow_dispatch"]["inputs"]["scenario"]["options"]
