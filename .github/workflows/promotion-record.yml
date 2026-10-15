@@ -163,7 +163,7 @@ jobs:
 
       - name: Mint the data App token (attempt 1)
         id: app-token-1
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -217,7 +217,7 @@ jobs:
       - name: Mint the data App token (attempt 2)
         id: app-token-2
         if: steps.push1.outputs.rejected == 'true'
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -272,7 +272,7 @@ jobs:
       - name: Mint the data App token (attempt 3)
         id: app-token-3
         if: steps.push2.outputs.rejected == 'true'
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -332,7 +332,7 @@ jobs:
       # describes the plan the final attempt pushed (or failed on).
       - name: Upload the plan
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: promotion-record-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/promotion-record/plan.json
@@ -362,7 +362,7 @@ jobs:
       - name: Download the plan
         if: needs.write.result != 'skipped'
         continue-on-error: true
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: promotion-record-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/plan

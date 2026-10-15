@@ -1500,7 +1500,7 @@ jobs:
         # The cells' engine deadline; the watchdog armed above fires a margin
         # earlier and is what ends a step the runner cannot.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
-        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         env:
           COURT_ID: ${{ steps.repro.outputs.court }}
           DOCKET_ID: ${{ steps.repro.outputs.docket }}
@@ -1790,7 +1790,7 @@ jobs:
       - name: Upload the codex transcript's item shapes
         if: ${{ always() && ((matrix.scenario == 'engine-smoke' && matrix.engine == 'codex') || matrix.scenario == 'codex-application-repro') }}
         continue-on-error: true
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: codex-item-shapes-${{ matrix.scenario }}
           # The repro leg's watchdog bundle rides the same artifact — the
@@ -1987,7 +1987,7 @@ jobs:
         # bound that tight is what keeps a hung invocation from eating the job
         # budget.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
-        uses: anthropics/claude-code-action@cab360f6565aa35a51d6ce9e43f1f4287c0a32ea # v1.0.241
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
         with:
           allowed_bots: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -2027,7 +2027,7 @@ jobs:
         id: actions_smoke_codex
         if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'codex' }}
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
-        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         # No `CODEX_HOME` env: as on the cells, the `sudo -u` hop cannot carry
         # it, so the action derives codexcell's own `~/.codex`; the teardown step
         # surfaces the rollout into the workspace `.codex/sessions` the assertion
@@ -2480,7 +2480,7 @@ jobs:
       # download on the `predict-` prefix, and the census rebuilds these names
       # from matrix identities to classify a lost artifact.
       - name: Upload the ready claude cell
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: predict-claude-baseline-ca9-103-${{ env.CELL_EVENT }}
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-claude-baseline-ca9-103-${{ env.CELL_EVENT }}
@@ -2493,7 +2493,7 @@ jobs:
           overwrite: true
 
       - name: Upload the ready codex cell
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: predict-codex-baseline-ca9-103-${{ env.CELL_EVENT }}
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-codex-baseline-ca9-103-${{ env.CELL_EVENT }}
@@ -2506,7 +2506,7 @@ jobs:
           overwrite: true
 
       - name: Upload the salvage gemini cell
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: predict-gemini-baseline-ca9-103-${{ env.CELL_EVENT }}
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-gemini-baseline-ca9-103-${{ env.CELL_EVENT }}
@@ -2519,7 +2519,7 @@ jobs:
           overwrite: true
 
       - name: Upload the cell whose download will be forced to fail
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: predict-claude-baseline-ca9-101-${{ env.CELL_EVENT }}
           path: ${{ runner.temp }}/collect-fixtures/cells/predict-claude-baseline-ca9-101-${{ env.CELL_EVENT }}
@@ -2923,7 +2923,7 @@ jobs:
         # and AGENTS.md — plus five short rows with margin; the job cap at 25
         # holds the setup steps beside it.
         timeout-minutes: 15
-        uses: anthropics/claude-code-action@cab360f6565aa35a51d6ce9e43f1f4287c0a32ea # v1.0.241
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
         env:
           QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl
@@ -3139,7 +3139,7 @@ jobs:
         # reports a verdict, and this is the file that verdict was reached on —
         # including on the runs where the assertion never got to speak.
         if: ${{ !cancelled() && steps.labels_guard.outcome == 'success' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: qp-labels
           path: ${{ runner.temp }}/qp-io/qp-labels.jsonl
