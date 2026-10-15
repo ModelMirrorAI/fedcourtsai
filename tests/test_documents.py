@@ -4394,6 +4394,9 @@ _WITHHELD_PETITIONER_DOCKET: dict[str, object] = {
         {k: v for k, v in _WITHHELD_PETITIONER_DOCKET.items() if k != "Respondent"},
         # And the list alone, without its heading.
         {k: v for k, v in _WITHHELD_PETITIONER_DOCKET.items() if k != "AttorneyHeaderRespondent"},
+        # Key presence is what is tested, not a populated list: the error this
+        # admits is an over-scrub, never a filer's details staged.
+        {"ProceedingsandOrder": [], "Respondent": []},
     ],
 )
 def test_a_court_docket_withholding_the_petitioner_block_reads_unrepresented(

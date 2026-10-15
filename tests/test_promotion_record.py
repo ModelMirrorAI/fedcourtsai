@@ -60,7 +60,14 @@ from tests.conftest import set_windows
 from tests.test_counting_windows import CLOSED, SUCCESSOR, T2, _pv, _seed
 
 ROOT = Path(__file__).resolve().parents[1]
-COMMITTED = json.loads((ROOT / REGISTRY_PATH).read_text(encoding="utf-8"))
+#: The committed registry as a ``main`` that holds it fully stamped: any row a
+#: change in flight registers pending is left out, since these fixtures build
+#: their own pending rows on top and a carried one would be a second batch's.
+_LIVE = json.loads((ROOT / REGISTRY_PATH).read_text(encoding="utf-8"))
+COMMITTED = {
+    **_LIVE,
+    "harness_boundaries": [b for b in _LIVE["harness_boundaries"] if b["merge"] is not None],
+}
 #: The committed registry once the merge-stamping rule is declared.
 DECLARED_ON = "2026-10-12"
 DECLARED = {**COMMITTED, "merge_stamping_declared": DECLARED_ON}
@@ -245,7 +252,10 @@ def test_a_pending_close_with_no_label_pending_is_refused() -> None:
 
 
 def test_the_board_record_lists_pending_rows_and_omits_an_empty_list() -> None:
-    assert "pending" not in process_version.frozen_process_record().model_dump(mode="json")
+    live = process_version.frozen_process_record().model_dump(mode="json")
+    # The live board names exactly the rows the committed registry holds pending.
+    assert live.get("pending", []) == list(process_version.PENDING_REGISTRATIONS)
+    assert "pending" not in FrozenProcessRecord(digests=[], since=None).model_dump(mode="json")
     record = FrozenProcessRecord(digests=[], since=None, pending=[f"label {NEW_LABEL}"])
     assert record.model_dump(mode="json")["pending"] == [f"label {NEW_LABEL}"]
 
@@ -1136,19 +1146,6 @@ def test_the_commands_plan_apply_and_check(
         app, ["digest-census", "--at", merge, "--kind", "predictions", "--digest", "aaaaaaaa"]
     )
     assert census.exit_code == 0 and census.stdout.strip() == "2"
-
-
-def test_the_live_registry_has_no_pending_row() -> None:
-    """Nothing is registered pending before the writer that stamps it lands.
-
-    Until then a pending row on ``main`` could never be stamped, so the
-    committed registry holds none. Once the writer lands, ``promotion-record
-    --check-main`` takes over: a pending row on ``main`` is then a stamp that
-    did not land.
-    """
-    carried = frozenset(process_version.FROZEN_PROCESS_DIGESTS)
-    assert carried == process_version.REGISTERED_PROCESS_DIGESTS
-    assert process_version.PENDING_REGISTRATIONS == ()
 
 
 @pytest.mark.reads_docs

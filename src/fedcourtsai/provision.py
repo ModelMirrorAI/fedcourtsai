@@ -642,7 +642,8 @@ def write_cell_record(
         # The contact-detail scrub, keyed on the docket-level reading that
         # separates a filing signed by counsel from one signed in person:
         # whether the snapshot names anyone but the filer to write to, on
-        # either party side or on an amicus block.
+        # either party side or on an amicus block — or, on the Court's own
+        # docket, withholds the petitioner's block outright.
         # Where it does not, every document staged for this cell has its
         # contact details withheld (shapes and served values; served values
         # alone where only an amicus reads so, see `staged_scrub`) — the whole

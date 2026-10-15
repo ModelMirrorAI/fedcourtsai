@@ -8710,9 +8710,14 @@ freeze commit is recorded here.
   these hold:
   - it is the Court's own docket shape, meaning it carries
     `ProceedingsandOrder`, which a CourtListener REST docket never does;
-  - it serves the respondent side's counsel list, meaning the `Respondent`
+  - it carries the respondent side's counsel key, meaning the `Respondent`
     key or its `AttorneyHeaderRespondent` heading;
   - it carries **no** `Petitioner` key.
+
+  All three are tests of **key presence**, never of a key's value. A payload
+  carrying `ProceedingsandOrder` and an empty `Respondent` list therefore
+  qualifies. The error this admits is an over-scrub, which withholds counsel's
+  professional details and never stages a filer's own.
 
   Such a payload reads `Petitioner` in `unrepresented_sides`. Every reader of
   that trigger moves with it:
@@ -8732,14 +8737,21 @@ freeze commit is recorded here.
   The following stay as they were:
   - a `Petitioner` key served empty or null, which is still read as nothing;
   - a CourtListener REST docket;
-  - a Court docket serving no counsel list on either side;
+  - a Court docket carrying neither side's counsel key;
   - every docket that serves a petitioner block.
+
+  **A known residual.** The third item above is not closed. A pseudonymous
+  self-represented petitioner whose docket the Court serves with no counsel key
+  on either side, typically before the respondent appears, still stages its
+  text as filed. On that payload nothing tells a withheld block apart from a
+  docket the Court has not yet populated. The census below counts these
+  dockets, so the residual is sized rather than assumed.
 
   **The trade.** The shape pass runs over every staged document on such a
   docket, including a brief in opposition filed by the respondent's counsel,
   as it already does on any docket read as self-represented on a party side.
-  That counsel's professional contact details are withheld, and so are the
-  shape pass's misreads of legal prose.
+  That counsel's professional contact details are withheld, and legal prose
+  the shape pass misreads is withheld with them.
 
   **The population.** Triage counted **76** SCOTUS rows in blob `c85bda09…`
   (newest pull stamp `2026-10-05`) that carry counsel but no petitioner-role
@@ -8747,12 +8759,15 @@ freeze commit is recorded here.
   figure was read off the corpus row's counsel, not by running this predicate
   over each row's latest payload. The real-predicate read is a read-only
   script in the carrying PR's description, run over the latest live snapshot
-  and stored documents of every SCOTUS row. It gives each changed docket's
-  class (newly scrubbed, value-only to value+shape, or unchanged), whether it
-  is selected or pending, and how many spans the scrub withholds, with no
-  value printed. Its result, as counts by class, with the blob's sha and its
-  `corpus-info` vintage:
-  <FILL: withheld-petitioner census counts, blob sha and corpus-info vintage>
+  and stored documents of every SCOTUS row. For each class (newly scrubbed,
+  value-only to value+shape, or unchanged) it gives the number of dockets,
+  how many are selected and how many pending, and the total spans the scrub
+  withholds. It also counts the residual above, Court-shaped payloads with
+  neither counsel key, split into selected and pending. It prints no value.
+  Its summary counts, with the blob's sha and its `corpus-info` vintage, go
+  on the next line, which must stay one line of plain prose with no angle
+  bracket or backtick:
+  <FILL: census summary counts, blob sha and vintage, as one plain line>
 
   **A harness boundary under the 2026-10-11 pooled rule.** The change moves
   what a predict cell reads under unchanged digests, so it is composition and
@@ -8763,12 +8778,13 @@ freeze commit is recorded here.
     It applies to every predictor, its reach is `self-represented dockets`,
     and it is not gradual: provisioning reads the payload already stored, so
     the next cell provisioned on an affected docket reads the change, with no
-    back-fill needed. Its carrying merge exists only once the promotion
-    merges. So the row joins `process_version.HARNESS_BOUNDARIES` with that
-    merge's SHA and committer time in a separate registration on the owned
-    registry, as `merits-brief-partial-support`'s did. A leaderboard built
-    before that registration omits this boundary's listing. That loses
-    composition only, never a cut or a score.
+    back-fill needed. The row is registered **pending** in the change's own
+    PR (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration. Its `merge` and `at` are null until the promotion merge that
+    carries it to `main` stamps them with that merge's SHA and committer time
+    (`promotion-record`). Until then the row is left out of
+    `process_version.HARNESS_BOUNDARIES`, so no cell has a side of it. A board
+    built meanwhile names it under `frozen_process.pending`.
   - **The side test** is the registered one. A stamped cell is after the change
     if the carrying merge is an ancestor of, or equal to, its
     `process_version.pipeline_sha`. A cell with no `pipeline_sha` is counted on
@@ -8806,7 +8822,7 @@ freeze commit is recorded here.
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py tests/test_cli_provision.py -k
-    "withhold"` is green;
+    withholding_the_petitioner` is green;
   - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
     six digests above;
   - `uv run fedcourts provision-snapshot --court scotus --docket 73372297`
@@ -8815,5 +8831,6 @@ freeze commit is recorded here.
     named for the petitioner; passes: shape only)` with a non-zero `N`, while
     its latest payload still serves no `Petitioner` key;
   - on `main` once the boundary row is stamped, `uv run python -c "from
-    fedcourtsai.process_version import HARNESS_BOUNDARIES as H; print([b.name
-    for b in H][-1])"` prints `scrub-withheld-petitioner-block`.
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('scrub-withheld-petitioner-block' in {b.name for b in H})"` prints
+    `True`.
