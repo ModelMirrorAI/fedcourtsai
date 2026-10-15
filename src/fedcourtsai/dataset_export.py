@@ -80,6 +80,7 @@ from .store import (
     scored_prediction_cell,
     stratify,
 )
+from .voids import is_voided
 
 #: A prediction's identity in the bundle: ``(case_id, event_id, predictor_id, run_id)``.
 PredictionKey = tuple[str, str, str, str]
@@ -177,25 +178,33 @@ def _grading_key(evaluation: Evaluation) -> GradingKey:
 
 
 def _exclusion_reason(
-    *, in_scope: bool, counted: bool, forward_claim: bool, leakage: bool
+    *, in_scope: bool, counted: bool, voided: bool, forward_claim: bool, leakage: bool
 ) -> ExportExclusionReason | None:
     """Why a grading is not counted, read off where :func:`stratify` placed it.
 
-    Every in-scope survivor of the run collapse lands in the cells, the
-    forward-claim ledger or the leakage ledger, so an in-scope grading in none
-    of them is one the collapse dropped: a superseded re-grade.
+    Every in-scope survivor of the run collapse lands in the cells, the voided
+    ledger, the forward-claim ledger or the leakage ledger, so an in-scope
+    grading in none of them is one the collapse dropped: a superseded re-grade.
+    A voided grading leaves before the other two rules run, so it is never in
+    their ledgers.
     """
     if not in_scope:
         return "out_of_scope"
     if counted:
         return None
-    if forward_claim and leakage:
-        return "forward_claim_and_leakage"
-    if forward_claim:
-        return "forward_claim"
-    if leakage:
-        return "leakage"
-    return "superseded"
+    if voided:
+        return "voided"
+    return _LEDGER_REASON[(forward_claim, leakage)]
+
+
+#: Which of the two remaining ledgers held an uncounted in-scope grading; in
+#: neither, the run collapse dropped it.
+_LEDGER_REASON: dict[tuple[bool, bool], ExportExclusionReason] = {
+    (True, True): "forward_claim_and_leakage",
+    (True, False): "forward_claim",
+    (False, True): "leakage",
+    (False, False): "superseded",
+}
 
 
 def build_tables(
@@ -226,8 +235,10 @@ def build_tables(
         policy=FORWARD_CLAIM_POLICY,
     )
     strata: dict[GradingKey, Stratum] = {_grading_key(ev): s for ev, s, _st, _m in run.cells}
-    forward_claim = {_grading_key(cell.evaluation) for cell in run.excluded}
-    leaked = {_grading_key(cell.evaluation) for cell in run.leaked}
+    forward_claim, leaked, voided = (
+        {_grading_key(cell.evaluation) for cell in ledger}
+        for ledger in (run.excluded, run.leaked, run.voided)
+    )
 
     committed = iter_predictions(data_root)
     counted = dict(
@@ -282,6 +293,7 @@ def build_tables(
                     in_scope=all_versions
                     or graded_in_window(evaluation.process_version, graded[1].process_version),
                     counted=gkey in strata,
+                    voided=gkey in voided,
                     forward_claim=gkey in forward_claim,
                     leakage=gkey in leaked,
                 ),
@@ -308,15 +320,23 @@ def build_tables(
                 read_model(event_paths.event_file, PredictableEvent)
                 if event_paths.event_file.is_file()
                 else None,
-                read_model(event_paths.outcome, Outcome) if event_paths.outcome.is_file() else None,
+                # A voided event's outcome records another petition, so it is not
+                # exported beside a forecast of this one: the outcome columns go
+                # null and no forward claim is checked against it.
+                read_model(event_paths.outcome, Outcome)
+                if event_paths.outcome.is_file() and not is_voided(entry.case_id, entry.event_id)
+                else None,
                 latest_prediction_dirs(event_paths),
             )
             event_cache[event_paths.base] = cached
         event, outcome, latest = cached
+        event_voided = is_voided(entry.case_id, entry.event_id)
         prediction = entry.prediction
         key = (entry.case_id, entry.event_id, entry.predictor_id, entry.run_id)
         rows = by_prediction.get(key, [])
-        judged = [r for r in rows if r.excluded_reason not in ("out_of_scope", "superseded")]
+        judged = [
+            r for r in rows if r.excluded_reason not in ("out_of_scope", "superseded", "voided")
+        ]
         flagged = sum(1 for r in judged if r.leakage_suspected is True)
         counted_strata = sorted(
             {
@@ -378,7 +398,8 @@ def build_tables(
                 forward_claim_excluded=breached,
                 gradings_total=len(judged),
                 gradings_leakage_flagged=flagged,
-                set_aside=breached or (bool(judged) and flagged == len(judged)),
+                voided=event_voided,
+                set_aside=event_voided or breached or (bool(judged) and flagged == len(judged)),
             )
         )
         cell_dir = event_paths.prediction_dir(entry.predictor_id, entry.run_id)
@@ -711,6 +732,13 @@ derived from it at the commit `{MANIFEST}` names.
   judge flagged possible leakage. One flagged judge among several does not set
   a prediction aside; that grading alone is left uncounted. An unresolved
   prediction has null outcome columns and is neither scored nor set aside.
+- **Voided events carry no outcome.** Where an event's committed outcome
+  records a different petition than the one the event was opened on (the
+  Court re-docketed its number), a dated freeze-record entry voids the event:
+  its predictions carry `voided` true, `set_aside` true and null outcome
+  columns, and its gradings `counted` false with `excluded_reason` `voided`.
+  Do not re-score such a forecast against the docket's later outcome; it is
+  another case's.
 - **Gradings.** One row per judge's grading of an exported prediction, joined
   to it on `case_id`, `event_id`, `predictor_id` and `prediction_run_id`.
   Superseded re-grades and gradings unstamped or stamped before the freeze

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "events": [
+    {
+      "case_id": "scotus/9026000221",
+      "event_id": "evt-petition-arrival-disposition",
+      "ground": "redocketed",
+      "detection": "outcome-triggered",
+      "declared": "2026-10-14",
+      "defect": "the Court re-docketed No. 26-221: the event was opened on Nathan v. Alamo Heights ISD (docketed August 20, 2026), and its outcome records Purdy v. Kansas (docketed August 21, 2026)"
+    }
+  ]
+}

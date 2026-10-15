@@ -57,6 +57,7 @@ from .store import (
     scored_prediction,
     stratify,
 )
+from .voids import voided_reason
 
 
 class WindowRecordError(ValueError):
@@ -372,6 +373,10 @@ def _evaluator_digests(
         if not prediction_counts(event_dir, evaluation.predictor_id, scored):
             continue
         if not graded_in_window(evaluation.process_version, scored.process_version):
+            continue
+        # A voided event's gradings were scored against another petition's
+        # outcome: no window's record counts them (`voids.VOIDED_EVENTS`).
+        if voided_reason(evaluation) is not None:
             continue
         scoped.append(evaluation)
     tally: Counter[tuple[str, str | None]] = Counter()

@@ -66,6 +66,11 @@ Everything here is derived from committed, harness-written artifacts — the
 context and the stamp are the harness's fields (AGENTS.md), the outcome is the
 docket record — so the rules are properties of the record, never of predictor
 behavior.
+
+A third membership rule sits beside the forward-claim and leakage rules but
+lives in its own code-owned module, :mod:`fedcourtsai.voids`: an event whose
+committed outcome records another petition is **voided**, and its gradings
+leave every scored figure. ``store.stratify`` applies all three in one pass.
 """
 
 from __future__ import annotations

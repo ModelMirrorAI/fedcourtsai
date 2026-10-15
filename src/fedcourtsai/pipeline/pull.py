@@ -46,6 +46,7 @@ from ..store import (
     forward_refusal_reason_from_parts,
     predictor_holds_no_counted_prediction,
 )
+from ..voids import is_voided
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .moments import spec_for
@@ -521,11 +522,14 @@ def derive_evaluate_backlog(
         # An (evaluator, event) cell is owed when it is ungraded AND has not hit
         # the per-cell attempt cap. Checking the cap per cell — not per case or
         # per event — is what keeps one poison-pill evaluator from suppressing a
-        # sibling evaluator still owed the same event.
+        # sibling evaluator still owed the same event. A voided event owes no
+        # grading at all: its outcome records another petition, so a grading of
+        # it could only be scored against the wrong case.
         owed = [
             event_id
             for event_id in resolved_by_case[row.case_id]
-            if event_has_predictions(data_root, court, docket, event_id)
+            if not is_voided(row.case_id, event_id)
+            and event_has_predictions(data_root, court, docket, event_id)
             and any(
                 not event_has_evaluations(data_root, court, docket, event_id, evaluator_id=ev)
                 and not _cell_capped(data_root, court, docket, event_id, ev, max_attempts)
