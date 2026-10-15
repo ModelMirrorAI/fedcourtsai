@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000499",
+  "run_id": "20261015T173805Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["run_shell_command", "read_file"],
+  "helpful": ["The statpack provided a clear baseline for interim applications."],
+  "gaps": [],
+  "notes": "Read statpack.md directly via grep since corpus commands were not strictly necessary to get the base rate."
+}
