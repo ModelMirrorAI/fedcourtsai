@@ -217,10 +217,11 @@ def successor_disclosures(
 ) -> SuccessorDisclosures:
     """The successor entry's disclosures for the windows ``closed_label`` closed.
 
-    Read over the committed ledger as it stands; run it at the successor's
-    freeze commit for the counts its entry quotes, and again at the carrying
-    promotion (cells keep landing). The closed windows are ``closed_label``'s
-    windows that carry a ``closes``; the instant is the earliest opening among
+    Read over the committed ledger as it stands; run it on the successor's
+    registration PR for the counts its entry quotes, and again after the
+    carrying promotion has stamped it (cells keep landing). The closed windows
+    are ``closed_label``'s windows that carry a ``closes``; the instant is the
+    earliest opening among
     ``successor_label``'s windows. A digest ``closed_label`` blessed and the
     successor carried forward byte-identical keeps one unbroken window, which is
     not closed and so appears in no census here.

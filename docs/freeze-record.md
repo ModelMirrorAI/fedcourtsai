@@ -8399,8 +8399,9 @@ freeze commit is recorded here.
   moves the digests (`fedcourts register-process`), as **pending** rows, and
   the promotion merge that carries that PR to `main` stamps them:
   - the label's counting instant, the bless moment of every digest it newly
-    blesses, and the opening of every window it opens (and the close of every
-    window it closes) are all **that merge's git committer time**, written by
+    blesses, the opening of every window it opens (and the close of every
+    window it closes), and the instant of every harness boundary it registers
+    are all **that merge's git committer time**, written by
     the `promotion-record` writer with `source: "merge"`;
   - **no instant is forecast by hand.** The shakedown margin a hand-set late
     counting instant used to buy — a span after the merge in which honest
@@ -8408,7 +8409,14 @@ freeze commit is recorded here.
     give: the bytes are immutable from the merge, nothing can carry the new
     digest before the merge lands it, and the gate's Step 0 refuses a batch
     whose pending digest already stamps a committed cell. What it cost was a
-    span of honest cells re-owed and paid for twice;
+    span of honest cells re-owed and paid for twice. The closing side keeps a
+    straddle of its own: a cell of the superseded digest in flight at the
+    carrying merge and stamped after it falls after its window's close, so it
+    is shakedown, uncounted and re-owed, exactly as a hand-margin cell was on
+    the opening side. The promotion gate's quiescence check (docs/pipeline.md,
+    *Promotion*) keeps that set empty in practice, and any residue shows in
+    `fedcourts successor-disclosures` as cells carrying the closed digest
+    stamped at or after the close;
   - **an evaluator-only label holds the prior counting instant**, opens and
     closes no window, and only its new evaluator blessings are stamped — the
     evaluator-half supersession rule in `docs/process-version.md`;
@@ -8458,16 +8466,19 @@ freeze commit is recorded here.
   heading. So the promotion carrying this entry cannot itself stamp anything:
   the first label stamped under the rule rides a later promotion.
 
-  Census at `origin/main` `4e505acc0` (2026-10-14T23:03:49Z), carrying files:
-  25 predictions stamped with `proc-v9`'s claude-baseline digest
-  (`605201bd`); 552 predictions stamped with the codex and gemini digests
-  carried from `proc-v8` (`70fee158`, `a9033e56`); 168 evaluations stamped
-  with the `proc-v9` judge digests (`167b7d71`, `18a76b93`, `22558044`).
+  Census at `origin/main` `4e505acc0` (2026-10-14T23:03:49Z), counting
+  carrying files: 25 predictions carrying `proc-v9`'s claude-baseline digest
+  (`605201bd`); 277 carrying codex-baseline's digest carried from `proc-v8`
+  (`70fee158`) and 275 carrying gemini-baseline's (`a9033e56`); 168
+  evaluations carrying a `proc-v9` judge digest (`167b7d71`, `18a76b93`,
+  `22558044`).
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit
   `<FILL: merge hash>`, merged `<FILL: merged-at>`). At the carrying merge,
   predictions carrying `605201bd`: `<FILL: census predictions digest=605201bd>`;
-  evaluations carrying a `proc-v9` judge digest:
+  predictions carrying a digest carried from `proc-v8`:
+  `<FILL: census predictions digest=70fee158,a9033e56>`; evaluations carrying
+  a `proc-v9` judge digest:
   `<FILL: census evaluations digest=167b7d71,18a76b93,22558044>`.
 
   The runnable effect check once it is live: on `main`,

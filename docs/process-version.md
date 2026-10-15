@@ -638,14 +638,14 @@ over a stamp that never landed.
 
 The writer is `.github/workflows/promotion-record.yml`. On every push to
 `main` it asks whether the pushed commit is a staging→main promotion merge,
-and on one it tags the merge, fills the placeholders the merge added and
-pushes the jailed record commit; its plumbing is
-`.github/actions/promotion-record/write.sh`, and
+and on one it tags the merge, stamps the pending rows the merge added, fills
+the placeholders the merge added and pushes the jailed record commit; its
+plumbing is `.github/actions/promotion-record/write.sh`, and
 `tests/test_workflow_promotion_record.py` holds it to the list below. It
-stamps nothing until `main` declares merge-stamped instants (the plan refuses
-a stamp otherwise, and `register-process` refuses to write a pending row), so
-until that declaration lands the cutover procedure below is how a label is
-frozen, with its instants set by hand.
+stamps only where the merge's first parent declares merge-stamped instants
+(`merge_stamping_declared` and its dated freeze-record entry): the plan
+refuses a stamp otherwise, and `register-process` refuses to write a pending
+row on a registry that does not declare them.
 
 #### Writer requirements
 
@@ -694,8 +694,11 @@ direction or a false alarm in the other:
 - The **counting instant**, `FROZEN_SINCE`, is when the current label's
   cells start counting — it opens every window the label newly blesses. The
   carrying merge's writer stamps it at that merge's committer time, the same
-  instant as the bless moments it stamps, so the window between the two is
-  empty. A row set by hand under an earlier rule (`source: "hand"`) sits
+  instant as the bless moments it stamps, so the span between the newly
+  blessed digests' bless moment and the instant is empty. (The merge's clock
+  is GitHub's and a cell's stamp is its runner's; a cell runs for minutes
+  after the merge it could first carry, so the two clocks' skew never decides
+  `at_or_after_bless`.) A row set by hand under an earlier rule (`source: "hand"`) sits
   later than its merge; cells minted between that merge and its instant
   landed honestly in the ledger and are de-counted on timing alone by
   `is_frozen` — shakedown, not retroactivity.
@@ -782,8 +785,8 @@ forecast or corrected by hand.
    `fedcourts register-process --label <proc-vN>` writes the label's pending
    rows into `src/fedcourtsai/process_registry.json` (*Pending registrations*
    above) and sets `CURRENT_PROCESS_LABEL`. A moved predictor digest gets a
-   pending counting instant, a pending window and a pending close on the
-   window it supersedes; a moved evaluator digest a pending blessing, and an
+   pending blessing, a pending counting instant, a pending window and a
+   pending close on the window it supersedes; a moved evaluator digest a pending blessing, and an
    evaluator-only label holds its predecessor's instant. Write the label's
    dated freeze-record entry in the same PR: what moved and why, the evidence
    for the change, and, where it closes windows, the
@@ -807,9 +810,15 @@ forecast or corrected by hand.
    declaration of this rule (`merge_stamping_declared`), so the declaring
    promotion stamps nothing itself.
 
-**The audit** is a comparison against git:
-`git log -1 --format=%cI prereg/<label>^{commit}` equals the label's
-registered `since` and every bless moment it newly blesses, and
+**The audit** is a comparison of instants against git: the carrying merge's
+committer time, printed in UTC as
+`TZ=UTC git log -1 --date=format-local:%Y-%m-%dT%H:%M:%SZ --format=%cd prereg/<label>^{commit}`,
+equals the label's registered `since` and every bless moment it newly
+blesses (compare the instants, not the strings: `%cI` prints the committer's
+local offset). An evaluator-only label is the exception: it holds its
+predecessor's `since`, so its audit is the predictor-digest byte comparison
+against the prior `prereg/` tag, and only its new evaluator blessings equal
+the merge's time. Alongside it,
 `fedcourts promotion-record --check-main origin/main` reports no pending row a
 merge has already carried. A registry row with `source: "hand"` was set by
 hand under an earlier rule; its own dated freeze-record entry carries the

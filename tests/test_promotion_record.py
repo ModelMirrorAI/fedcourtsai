@@ -1162,3 +1162,42 @@ def test_the_committed_declaration_resolves_on_main() -> None:
     record = (ROOT / FREEZE_RECORD_PATH).read_text(encoding="utf-8")
     assert COMMITTED["merge_stamping_declared"]
     assert _declared(COMMITTED, record) is None
+
+
+def test_the_declaring_promotion_fills_its_entry_and_stamps_nothing(tmp_path: Path) -> None:
+    """The real declaring shape: ``main`` holds no registry file, and the batch
+    brings the registry with the declaration set and nothing pending.
+
+    The merge's first parent holds no declaration, so no stamp is planned and no
+    ``prereg/`` tag is minted; the declaring entry's closed-key placeholders are
+    still filled — the promotion tag, the merge, its time and the census.
+    """
+    repo = _init(tmp_path)
+    _write(repo, FREEZE_RECORD_PATH, "# Freeze record\n")
+    _artifact(repo, "predictions", 1, NEW_CLAUDE)
+    _commit(repo, "main", datetime(2026, 10, 12, tzinfo=UTC))
+    _git(repo, "switch", "-q", "-c", "staging")
+    _write(repo, REGISTRY_PATH, dump_registry(DECLARED))
+    _write(
+        repo,
+        FREEZE_RECORD_PATH,
+        "# Freeze record\n\n"
+        + _DECLARATION
+        + "  Carried to `main` by `<FILL: promotion tag>` (merge commit\n"
+        + "  `<FILL: merge hash>`, merged `<FILL: merged-at>`). Predictions carrying\n"
+        + "  the digest: `<FILL: census predictions digest=aaaaaaaa>`.\n",
+    )
+    _commit(repo, "declare", datetime(2026, 10, 12, 12, tzinfo=UTC))
+    _git(repo, "switch", "-q", "main")
+    _git(repo, "merge", "-q", "--no-ff", "staging", "-m", "promote", when=MERGED_AT)
+    merge = _git(repo, "rev-parse", "HEAD")
+
+    plan = _plan(repo, merge)
+
+    assert plan.stamps == []
+    assert plan.prereg_tag is None
+    filled = {fill.key: fill.value for fill in plan.fills}
+    assert filled["promotion tag"] == plan.promotion_tag.name
+    assert filled["merge hash"] == merge
+    assert filled["census predictions digest=aaaaaaaa"] == "1"
+    assert plan.free_text == []

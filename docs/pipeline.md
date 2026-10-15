@@ -1733,7 +1733,11 @@ The full path of a change, operator's view:
    the merge added, and comments on the PR with whatever it left for a maintainer — free-text
    placeholders, and stale ones an earlier merge carried. A merge it refuses
    (a hand-written fill that rewrapped a landed placeholder, say) opens a
-   `promotion-record-log` issue, and the tag and fills are then the
+   `promotion-record-log` issue. If that merge carried a registration, its
+   rows stay pending — never stamp them by hand: fix the cause and re-dispatch
+   `gh workflow run promotion-record.yml --ref main -f merge=<merge SHA>`.
+   Until the stamp lands, Step 0's pending-on-`main` check refuses every later
+   promotion. With no registration carried, the tag and fills are the
    maintainer's by hand. A run that failed after pushing its tags — `main`
    advanced under all three attempts, or the job was cancelled — leaves the
    tags on the merge with no record commit; re-dispatch it with
@@ -1771,9 +1775,10 @@ namespaces. What makes the record trustworthy is the ruleset's
 update/deletion block on these namespaces, not the tag's object type — so
 for `promotion/` and `results/` an annotated tag is preferred (for the
 message and date it carries) and a lightweight one is acceptable. A
-`prereg/` tag is annotated, and not merely by preference: the freeze
-procedure writes the pre-registration record into the tag message
-(docs/process-version.md), so the message is load-bearing there.
+`prereg/` tag is annotated, and not merely by preference: the
+`promotion-record` writer writes the pre-registration record into the tag
+message, from the message its plan computes (docs/process-version.md), so the
+message is load-bearing there.
 
 - **`prereg/<label>`** — a label's pre-registration point: the promotion
   merge that carried its registration, which also fixes the label's instants,
@@ -1799,11 +1804,11 @@ One-time setup (maintainer): before the first tag is minted, add a tag
 ruleset blocking update and deletion on all three namespaces — a movable
 pre-registration marker defeats its purpose. `promotion/` tags, and the
 `prereg/` tag of a label the merge stamps, are created by the
-`promotion-record` workflow; a `results/` tag, a `prereg/` tag for a label
-frozen by hand, and any tag the workflow refused to write are the
-maintainer's. Once the workflow has tagged a promotion successfully, restrict
-**creation** in `promotion/**` and `prereg/**` to the data App (the
-maintainer keeping a recovery bypass): until then any credential with
+`promotion-record` workflow; a `results/` tag and any tag the workflow
+refused to write are the maintainer's. Once the workflow has tagged a
+promotion successfully, add a tag ruleset that restricts **creation** in
+`promotion/**` and `prereg/**` to the data App as bypass actor, the
+maintainer's admin role keeping a recovery bypass: until then any credential with
 `contents: write` can plant a canonical name first, which the workflow then
 refuses to adopt.
 
