@@ -369,6 +369,7 @@ from .release_sensitivity import (
 from .required_checks import produced_contexts
 from .review_hold import decide_from_files as decide_hold_from_files
 from .review_hold import render_summary as render_hold_summary
+from .ruleset_checks import Expected as RulesetExpected
 from .ruleset_checks import ruleset_problems
 from .salience_replay import replay_gate
 from .schemas import (
@@ -18842,6 +18843,18 @@ def assert_rulesets_cmd(
             "GET /repos/{owner}/{repo}/rulesets/{id} returns it (administration read)."
         ),
     ],
+    reviewer_team_id: Annotated[
+        int, typer.Option(help="Id of the team whose approval `main` requires (maintainers).")
+    ],
+    data_app_id: Annotated[int, typer.Option(help="The data App's id (its bypass actor id).")],
+    dev_app_id: Annotated[int, typer.Option(help="The dev App's id (its bypass actor id).")],
+    allow_unread_bypass: Annotated[
+        bool,
+        typer.Option(
+            "--allow-unread-bypass",
+            help="Skip bypass-list checks a non-admin read cannot see (a partial check).",
+        ),
+    ] = False,
 ) -> None:
     """Check the review and tag-record rulesets the docs rest on still hold.
 
@@ -18863,7 +18876,13 @@ def assert_rulesets_cmd(
     if not documents:
         typer.echo(f"::error::no ruleset documents in {rulesets_dir}", err=True)
         raise typer.Exit(code=1)
-    problems = ruleset_problems(documents)
+    expected = RulesetExpected(
+        reviewer_team_id=reviewer_team_id,
+        data_app_id=data_app_id,
+        dev_app_id=dev_app_id,
+        require_bypass_lists=not allow_unread_bypass,
+    )
+    problems = ruleset_problems(documents, expected)
     for problem in problems:
         typer.echo(f"::error::rulesets: {problem}", err=True)
     if problems:

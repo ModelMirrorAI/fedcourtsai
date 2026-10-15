@@ -19,23 +19,47 @@ promotion can silently outlive one of them being edited away:
 ``GET /repos/{owner}/{repo}/rulesets/{id}`` returns, which needs repository
 administration read) and names each control that is missing or weaker than
 the docs record. It is pure: the promotion gate's admin-read ``contexts``
-stage fetches, this decides. Bypass lists come back only to an admin, so the
-bypass check runs only when one is present.
+stage fetches the documents and resolves the identities they must name (the
+maintainers team and the two Apps) into :class:`Expected`; this decides.
+Bypass lists come back only to an admin, so each bypass check runs only when
+the list is present, and then holds it to exactly the actors the docs name.
+Every unknown resolves to a finding: a pattern this module cannot read as
+covering a ref does not cover it.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 MAIN_APPROVAL_RULESET = "main: require approval"
 STAGING_PR_RULESET = "staging: require PR"
 RECORD_TAG_NAMESPACES = ("promotion", "prereg", "results")
+RECORD_CREATION_RULESET = "tags: restrict record creation"
+OTHER_CREATION_RULESET = "tags: restrict creation"
+TAG_PROTECT_RULESET = "tags: protect record"
+# GitHub's built-in repository admin role, as rulesets name it.
+ADMIN_ROLE_ID = 5
 _ALL_FILES = frozenset({"*", "**", "**/*"})
 _ALLOWED_MERGE_METHODS = frozenset({"merge", "squash"})
-# Human-held bypass on the approval ruleset is for pull requests only: an
-# `always` bypass would let the holder push to `main` past every rule in it.
-_HUMAN_ACTOR_TYPES = frozenset({"RepositoryRole", "Team", "OrganizationAdmin"})
+
+
+@dataclass(frozen=True)
+class Expected:
+    """The identities the rulesets must name, resolved by the caller.
+
+    ``reviewer_team_id`` is the maintainers team, the one whose approval
+    counts on ``main``; the two App ids are the data App (the deterministic
+    writers and the record-tag writer) and the dev App (the auto-merged lanes).
+    """
+
+    reviewer_team_id: int
+    data_app_id: int
+    dev_app_id: int
+    # True when the reader was an admin, so every document must carry its
+    # bypass list; a missing one is then a finding, not an unread field.
+    require_bypass_lists: bool = True
 
 
 def _by_name(rulesets: Iterable[Mapping[str, Any]], name: str) -> Mapping[str, Any] | None:
@@ -67,32 +91,82 @@ def _ref_patterns(ruleset: Mapping[str, Any], key: str) -> list[str]:
     return [str(pattern) for pattern in ref_name.get(key) or []]
 
 
-def _targets_main(ruleset: Mapping[str, Any]) -> bool:
-    include = _ref_patterns(ruleset, "include")
-    return ruleset.get("target", "branch") == "branch" and (
-        "~DEFAULT_BRANCH" in include or "refs/heads/main" in include or "~ALL" in include
-    )
+def _targets_branch(ruleset: Mapping[str, Any], branch: str, *, default: bool) -> bool:
+    """Whether the ruleset applies to ``refs/heads/<branch>``, read strictly.
+
+    An include must name the branch (or ``~ALL``, or ``~DEFAULT_BRANCH`` for the
+    default branch); any exclude at all is treated as possibly excluding it,
+    since the documented rulesets carry none.
+    """
+    if ruleset.get("target") != "branch":
+        return False
+    include = set(_ref_patterns(ruleset, "include"))
+    names = {f"refs/heads/{branch}", "~ALL"} | ({"~DEFAULT_BRANCH"} if default else set())
+    return bool(include & names) and not _ref_patterns(ruleset, "exclude")
 
 
 def _covers_tag_namespace(ruleset: Mapping[str, Any], namespace: str) -> bool:
+    """Whether a tag ruleset applies to every tag under ``<namespace>/``.
+
+    An include must be the namespace's own ``refs/tags/<ns>/**``, ``refs/tags/**``
+    or ``~ALL``; an exclude may only be another record namespace's exact
+    pattern. Anything else might carve out part of this namespace, so it does
+    not count as covering it.
+    """
     if ruleset.get("target") != "tag":
         return False
-    pattern = f"refs/tags/{namespace}/**"
-    include = _ref_patterns(ruleset, "include")
-    exclude = _ref_patterns(ruleset, "exclude")
-    included = pattern in include or "~ALL" in include or "refs/tags/**" in include
-    return included and pattern not in exclude
+    own = f"refs/tags/{namespace}/**"
+    include = set(_ref_patterns(ruleset, "include"))
+    if not include & {own, "refs/tags/**", "~ALL"}:
+        return False
+    others = {f"refs/tags/{ns}/**" for ns in RECORD_TAG_NAMESPACES if ns != namespace}
+    return all(pattern in others for pattern in _ref_patterns(ruleset, "exclude"))
 
 
-def _main_approval_problems(rulesets: Sequence[Mapping[str, Any]]) -> list[str]:
+def _bypass_problems(
+    ruleset: Mapping[str, Any],
+    allowed: Mapping[tuple[str, int], frozenset[str]],
+    *,
+    required: bool,
+) -> list[str]:
+    """Bypass entries outside ``allowed`` ((type, id) -> permitted modes).
+
+    GitHub returns the list only to an admin. With ``required`` a missing list
+    is a finding, since the reader claimed admin; without it the check is
+    skipped, which only a deliberately partial read asks for.
+    """
+    actors = ruleset.get("bypass_actors")
+    name = ruleset.get("name")
+    if actors is None:
+        if required:
+            return [f"{name!r} came back without its bypass list; read it with an admin token"]
+        return []
+    problems: list[str] = []
+    for actor in actors:
+        key = (str(actor.get("actor_type")), int(actor.get("actor_id") or 0))
+        mode = str(actor.get("bypass_mode"))
+        modes = allowed.get(key)
+        if modes is None:
+            problems.append(
+                f"{name!r} lets {key[0]} {key[1]} bypass it; the docs name no such actor"
+            )
+        elif mode not in modes:
+            problems.append(
+                f"{name!r} lets {key[0]} {key[1]} bypass it in mode {mode!r}; "
+                + f"the docs allow {sorted(modes)}"
+            )
+    return problems
+
+
+def _main_approval_problems(rulesets: Sequence[Mapping[str, Any]], expected: Expected) -> list[str]:
     ruleset = _by_name(rulesets, MAIN_APPROVAL_RULESET)
     if ruleset is None:
         return [f"no ruleset named {MAIN_APPROVAL_RULESET!r}: main merges on checks alone"]
     problems: list[str] = []
     if not _active(ruleset):
         problems.append(f"{MAIN_APPROVAL_RULESET!r} is not active")
-    if not _targets_main(ruleset):
-        problems.append(f"{MAIN_APPROVAL_RULESET!r} does not target main")
+    if not _targets_branch(ruleset, "main", default=True):
+        problems.append(f"{MAIN_APPROVAL_RULESET!r} does not plainly target main")
     params = _params(ruleset, "pull_request")
     if params is None:
         return [*problems, f"{MAIN_APPROVAL_RULESET!r} has no pull-request rule"]
@@ -100,14 +174,15 @@ def _main_approval_problems(rulesets: Sequence[Mapping[str, Any]]) -> list[str]:
         problems.append(f"{MAIN_APPROVAL_RULESET!r} requires no approving review")
     team_covers_all = any(
         (entry.get("reviewer") or {}).get("type") == "Team"
+        and int((entry.get("reviewer") or {}).get("id") or 0) == expected.reviewer_team_id
         and int(entry.get("minimum_approvals") or 0) >= 1
         and _ALL_FILES & set(entry.get("file_patterns") or [])
         for entry in params.get("required_reviewers") or []
     )
     if not team_covers_all:
         problems.append(
-            f"{MAIN_APPROVAL_RULESET!r} names no required-reviewer team over all files: "
-            + "any write holder's approval, the agent account's included, would satisfy it"
+            f"{MAIN_APPROVAL_RULESET!r} does not require the maintainers team over all "
+            + "files: another team's approval, or any write holder's, would satisfy it"
         )
     if not params.get("dismiss_stale_reviews_on_push"):
         problems.append(
@@ -118,27 +193,34 @@ def _main_approval_problems(rulesets: Sequence[Mapping[str, Any]]) -> list[str]:
     if not methods or not methods <= _ALLOWED_MERGE_METHODS:
         problems.append(
             f"{MAIN_APPROVAL_RULESET!r} allows merge methods {sorted(methods)}; "
-            + "only merge and squash keep main and staging sharing history"
+            + "only merge and squash are documented (a rebase rewrites the record's commits)"
         )
-    for actor in ruleset.get("bypass_actors") or []:
-        if actor.get("actor_type") in _HUMAN_ACTOR_TYPES and actor.get("bypass_mode") != (
-            "pull_request"
-        ):
-            problems.append(
-                f"{MAIN_APPROVAL_RULESET!r} lets a {actor.get('actor_type')} bypass "
-                + f"in mode {actor.get('bypass_mode')!r}; a human-held bypass must be "
-                + "for pull requests only"
-            )
+    problems += _bypass_problems(
+        ruleset,
+        {
+            ("Integration", expected.dev_app_id): frozenset({"pull_request"}),
+            ("Integration", expected.data_app_id): frozenset({"always"}),
+            ("RepositoryRole", ADMIN_ROLE_ID): frozenset({"pull_request"}),
+        },
+        required=expected.require_bypass_lists,
+    )
     return problems
 
 
-def _staging_problems(rulesets: Sequence[Mapping[str, Any]]) -> list[str]:
+def _staging_problems(rulesets: Sequence[Mapping[str, Any]], expected: Expected) -> list[str]:
     ruleset = _by_name(rulesets, STAGING_PR_RULESET)
     if ruleset is None:
         return [f"no ruleset named {STAGING_PR_RULESET!r}"]
     problems: list[str] = []
     if not _active(ruleset):
         problems.append(f"{STAGING_PR_RULESET!r} is not active")
+    if not _targets_branch(ruleset, "staging", default=False):
+        problems.append(f"{STAGING_PR_RULESET!r} does not plainly target staging")
+    problems += _bypass_problems(
+        ruleset,
+        {("RepositoryRole", ADMIN_ROLE_ID): frozenset({"always"})},
+        required=expected.require_bypass_lists,
+    )
     params = _params(ruleset, "pull_request")
     if params is None:
         return [*problems, f"{STAGING_PR_RULESET!r} has no pull-request rule"]
@@ -157,9 +239,23 @@ def _staging_problems(rulesets: Sequence[Mapping[str, Any]]) -> list[str]:
     return problems
 
 
-def _tag_problems(rulesets: Sequence[Mapping[str, Any]]) -> list[str]:
+def _tag_problems(rulesets: Sequence[Mapping[str, Any]], expected: Expected) -> list[str]:
     active_tags = [r for r in rulesets if _active(r) and r.get("target") == "tag"]
     problems: list[str] = []
+    admin = ("RepositoryRole", ADMIN_ROLE_ID)
+    bypass: dict[str, Mapping[tuple[str, int], frozenset[str]]] = {
+        TAG_PROTECT_RULESET: {},
+        RECORD_CREATION_RULESET: {
+            ("Integration", expected.data_app_id): frozenset({"always"}),
+            admin: frozenset({"always"}),
+        },
+        OTHER_CREATION_RULESET: {admin: frozenset({"always"})},
+    }
+    for ruleset in active_tags:
+        allowed = bypass.get(str(ruleset.get("name")))
+        if allowed is None:
+            continue
+        problems += _bypass_problems(ruleset, allowed, required=expected.require_bypass_lists)
     for namespace in RECORD_TAG_NAMESPACES:
         covering = [r for r in active_tags if _covers_tag_namespace(r, namespace)]
         for rule_type, what in (
@@ -175,10 +271,10 @@ def _tag_problems(rulesets: Sequence[Mapping[str, Any]]) -> list[str]:
     return problems
 
 
-def ruleset_problems(rulesets: Sequence[Mapping[str, Any]]) -> list[str]:
+def ruleset_problems(rulesets: Sequence[Mapping[str, Any]], expected: Expected) -> list[str]:
     """Every way the live rulesets fall short of the documented controls."""
     return [
-        *_main_approval_problems(rulesets),
-        *_staging_problems(rulesets),
-        *_tag_problems(rulesets),
+        *_main_approval_problems(rulesets, expected),
+        *_staging_problems(rulesets, expected),
+        *_tag_problems(rulesets, expected),
     ]

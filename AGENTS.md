@@ -96,9 +96,10 @@ non-interactive** container. Two consequences shape everything you do:
   merge into `main` without the maintainer's approval of that head. Once the
   maintainer has approved, the platform would let you merge a PR into `main`;
   that merge is still the maintainer's. Never create a tag or a GitHub
-  Release: the tag rulesets refuse a new tag, but nothing refuses a Release on
-  an existing one, and Zenodo archives every published Release permanently. A session that holds the maintainer's
-  own credentials holds the admin bypass instead, and for it every rule here
+  Release, drafts included: the tag rulesets refuse a new tag, but nothing
+  refuses a Release on an existing one, Zenodo archives every published
+  Release permanently, and a draft waits for one click to publish. A session
+  that holds the maintainer's own credentials holds the admin bypass instead, and for it every rule here
   is discipline; `gh api user --jq .login` says which account you are. And
   the staging permission is a permission, not an
   obligation: leaving a green PR for the maintainer is always a legitimate

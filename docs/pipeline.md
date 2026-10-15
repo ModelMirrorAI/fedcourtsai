@@ -1864,12 +1864,14 @@ scripts/promotion-gate.sh contexts <candidate>   # the context you want to requi
 
 It reads `main: require PR`'s live required contexts and `main`'s own workflow
 files, fails if anything already required has no producing job, and reports each
-candidate as ready or not-yet. The same stage reads every ruleset whole and
-fails if a control the docs record is missing or weaker (`fedcourts
-assert-rulesets`): `main: require approval`'s team approval, stale-approval
-dismissal, merge methods and pull-request-only human bypass; `staging: require
-PR`'s code-owner review, with most-recent-push approval off; and the three
-record tag namespaces' update, deletion and creation rules. It is **not** part
+candidate as ready or not-yet. The same stage reads every ruleset whole, as an
+admin (it refuses any other token, since only an admin sees bypass lists), and
+fails if a control docs/security.md records is missing or weaker (`fedcourts
+assert-rulesets`): `main: require approval`'s approval from the maintainers
+team, stale-approval dismissal, merge methods and bypass list; `staging:
+require PR`'s code-owner review, with most-recent-push approval off; the three
+record tag namespaces' update, deletion and creation rules; and each of those
+rulesets' targets and bypass lists. It is **not** part
 of `promotion-gate.sh all`: reading a ruleset
 needs repository-administration read, which `GITHUB_TOKEN` cannot hold at all,
 so automating it would mean handing a CI job the repo's most powerful scope to
