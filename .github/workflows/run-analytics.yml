@@ -603,9 +603,10 @@ jobs:
         with:
           restore-cache: "false"
 
-      # The refresh PR is opened with the dev App token. The dev App bypasses no
-      # required check, so the PR still faces the required `gate` check, and it
-      # is never auto-merged, so a maintainer reads it before it lands. The read-only
+      # The refresh PR is opened with the dev App token. The dev App bypasses
+      # no required check, so the PR still faces the required `gate` check,
+      # and it is never auto-merged; a maintainer merging it is what keeps it
+      # read. The read-only
       # analysis modes above hold no write token at all; the only other job that
       # does is qp-topic-label, for the same reason and on the same terms.
       # Minted on `main`-ref runs only: the dev App's credentials live on the
@@ -1917,7 +1918,8 @@ jobs:
       # minted at the top of a 75-minute job would spend its whole 1-hour life
       # waiting for a step that may never run — and be dead by the time it
       # does. The dev App bypasses no required check, so the PR still faces
-      # the required `gate` check, and it is never auto-merged.
+      # the required `gate` check, and it is never auto-merged; a maintainer
+      # merging it is what keeps it read.
       # Minted on `main`-ref runs only: the dev App's credentials live on the
       # prod environment alone, and a rehearsal's labels stay on the runner —
       # the measured block in the step summary and the transcript artifact are

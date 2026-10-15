@@ -70,8 +70,11 @@ jobs:
       # The DEV App, deliberately, not the data App: the data App is a bypass
       # actor on `main: require PR`, and a scheduled unattended job must not
       # hold the one identity that can push to main without review — it needs
-      # no main write at all. The dev App is the reviewed-PR opener
-      # (metrics-refresh, cert back-test) and bypasses nothing.
+      # no main write at all. The dev App bypasses no required check, only
+      # `main`'s approval rule for pull requests; contents write is what the
+      # sync's own merge into `staging` needs, and it is also what would let
+      # this token merge a green PR into `main` unapproved, which this job's
+      # code never does (docs/security.md, `main: require approval`).
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0

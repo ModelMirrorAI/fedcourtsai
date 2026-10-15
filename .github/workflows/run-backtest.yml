@@ -761,8 +761,8 @@ jobs:
 
       # The review PR is opened with the dev App token, exactly like the
       # metrics refresh: the dev App bypasses no required check, so the PR
-      # still faces the required `gate` check, and it is never auto-merged, so
-      # a maintainer reads it before it lands. Minted only after the run
+      # still faces the required `gate` check, and it is never auto-merged; a
+      # maintainer merging it is what keeps it read. Minted only after the run
       # produced a report.
       - name: Mint app token
         id: app-token

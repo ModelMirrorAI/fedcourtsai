@@ -19,9 +19,9 @@ name: promotion-prep
 # workflows, so its required checks would never report. The dev App bypasses
 # no required check on `main`, so the PR merges through the same required
 # checks as a hand-opened one, `promotion-gate` among them; and since the
-# author is the App, the maintainer can give the approval `main` requires. `sync-staging` defers to a
-# promotion PR only once it is ready for review, so a standing draft does not
-# hold `staging` behind `main`.
+# author is the App, the maintainer can give the approval `main` requires.
+# `sync-staging` defers to a promotion PR only once it is ready for review, so
+# a standing draft does not hold `staging` behind `main`.
 #
 # Its own workflow rather than a step of `promote`: `promote` is the
 # maintainer's read-only pre-flight and is pinned to stay that way
