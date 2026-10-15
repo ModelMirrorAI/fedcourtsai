@@ -8486,3 +8486,59 @@ freeze commit is recorded here.
   `"2026-10-14"`, `fedcourts promotion-record --check-main origin/main`
   reports no pending registration, and the next `register-process` on
   `staging` writes pending rows instead of refusing.
+
+- **Engine CLI updates under an unchanged process digest are composition, and
+  each cell records the engine version that ran, 2026-10-14.** A
+  **reading-rule** entry with a harness change beside it. It moves no digest,
+  no constant, no window and no membership: `uv run fedcourts process-digest
+  --all` prints the same six `proc-v9` digests.
+
+  **What changes.** The three engine CLIs every cell, smoke and labeler runs
+  are pinned once each, in `.github/engines/<engine>/` (an exact version
+  and its lockfile), and every workflow installs from that pin through one
+  action. The claude cells hand `claude-code-action` the pinned binary
+  instead of the CLI the action bundles, and `codex-action` takes its version
+  from the same pin. Dependabot proposes each engine release as its own PR
+  about three days after it ships, each validated by both integration engine
+  smokes before it merges.
+
+  **The reading rule.** An engine CLI update under an unchanged process digest
+  is **composition**, not a series break: the predictor's record keeps
+  accruing across it, as it does across a harness boundary. A by-engine-version
+  cut is available to any reading that wants to ask whether an update moved
+  anything, and it is a comparison over different events, flagged as such. A
+  **model** change remains a digest move and a new label; nothing here changes
+  that.
+
+  **The record.** Every cell's harness-written `usage.json` carries
+  `engine_version`: the version the engine's own binary reports, read by the
+  harness, never the agent's word. For claude-code and gemini, which the
+  harness installs, the read is taken at install, before any agent runs;
+  codex is installed by its action, so its read follows the run. A post-run
+  read that disagrees with the install-time one, or a read other than the
+  pinned version, is kept in the same file as `engine_version_discrepancy`,
+  and a cut by engine version treats that cell as unknown. Cells written before
+  this entry's carrying merge do not carry it. For them the engine version is
+  recoverable only from the run's job log, which expires, and a cut by engine
+  version treats them as unknown rather than guessing.
+
+  **Pinning moves nothing today.** The versions pinned are the ones cells
+  already ran:
+  - **Claude Code 2.1.289.** The claude predict cell of run 38441480911
+    (2026-10-13) logged `claude-agent-sdk@0.3.289` and then `Installing Claude
+    Code v2.1.289 … Version: 2.1.289`: the CLI the action bundled at the
+    pinned `claude-code-action` v1.0.241. The smokes and the labeler had
+    pinned 2.1.280, so they move up to what the cells run, and a smoke now
+    tests the version production uses.
+  - **Codex 0.144.1** and **Gemini CLI 0.49.0.** The cells already pinned
+    these literally (`codex-version`, and the Gemini install step).
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live: the first predict round after the
+  carrying merge writes `usage.json` files whose `engine_version` reads
+  `2.1.289`, `0.144.1` or `0.49.0` by engine, for example `jq -r
+  '.engine + " " + (.engine_version // "none")'` over that round's
+  `usage.json` files; and a claude cell's job log shows the action using the
+  supplied executable rather than installing its own.

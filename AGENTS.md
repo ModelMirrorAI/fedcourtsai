@@ -99,8 +99,9 @@ non-interactive** container. Two consequences shape everything you do:
   description.
   **Five kinds of change still wait for the maintainer even into `staging`**,
   because a green gate is weakest evidence exactly where they are strongest
-  risk: anything under `.github/workflows/` or `.github/actions/` (the
-  permission surface), `SECURITY.md` or the security posture it describes, the
+  risk: anything under `.github/workflows/`, `.github/actions/` or
+  `.github/engines/` (the permission surface, and the engine CLIs every agent
+  cell executes), `SECURITY.md` or the security posture it describes, the
   promotion gate itself (`scripts/promotion-gate.sh`, `promote.yml`,
   `sync-staging.yml`, ci.yml's gate jobs, and the lane machinery that decides
   which of the gate's checks a change gets: `scripts/gate.sh`,

@@ -544,9 +544,11 @@ required set is the deliberate maintainer edit described two paragraphs below.
 Dispatch a scenario around the changes it guards: **before and after any
 change to corpus access** (the read seams, `corpus_ranged`, the sidecar
 composites, the blob's physical layout) **or to a corpus-consuming workflow**,
-**engine-smoke around any engine CLI version bump or sandbox/permission/config
-change, and engine-actions-smoke around any bump to an engine action, to a
-cell's `with:` block, or to the codex permission profile the cells select**,
+**both engine smokes around any engine CLI version bump (a change to
+`.github/engines/<engine>/`, the one pin every cell installs), engine-smoke
+around any sandbox/permission/config change, and engine-actions-smoke around
+any bump to an engine action, to a cell's `with:` block, or to the codex
+permission profile the cells select**,
 **collect around any change to the `collect-run` composite or the collect
 jobs that call it**, **qp-topic around any change to the `qp-topic-measure`
 composite, the labeling job, or the `qp_topics` module — and before any paid

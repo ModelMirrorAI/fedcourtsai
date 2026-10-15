@@ -1812,6 +1812,42 @@ maintainer's admin role keeping a recovery bypass: until then any credential wit
 `contents: write` can plant a canonical name first, which the workflow then
 refuses to adopt.
 
+### Engine CLI updates
+
+The engine CLIs every cell, smoke and labeler runs — Claude Code, Codex and the
+Gemini CLI — are pinned once each, in `.github/engines/<engine>/` (an exact
+version and its lockfile), and installed from there by the `engine-cli` action
+with `npm ci` into a prefix outside the checkout. The claude cells hand
+`claude-code-action` that binary (`path_to_claude_code_executable`) and
+`codex-action` takes its `codex-version` from the same pin, so an engine
+action's own bump changes the wrapper and never the engine a cell runs. One
+skew follows from that: a Claude Code bump can run ahead of the agent SDK the
+pinned `claude-code-action` bundles until the action itself is bumped, and the
+`engine-actions-smoke` leg is what catches a combination that breaks.
+
+Dependabot checks the engines daily and proposes each release as its own PR
+against `staging` about three days after it ships (its `cooldown`): prompt
+enough that updates land rather than accumulate, late enough that a hijacked or
+withdrawn publish is usually caught upstream first. One PR per
+engine keeps each change legible in the record: under an unchanged process
+digest an engine update is **composition**, not a series break, and every
+cell's `usage.json` carries the `engine_version` its binary reported, so a
+reading can cut by it. A **model** change is different — it moves the digest
+and is a new label.
+
+Before merging an engine bump, run both smokes for that engine on its branch,
+since one drives the CLI directly and the other drives it through the action
+the cells use (`<engine>` is `claude-code`, `codex` or `gemini`; `-f
+scenario=gate` runs both for all three):
+
+```bash
+gh workflow run integration-test.yml --ref <bump-branch> -f scenario=engine-smoke -f engine=<engine>
+gh workflow run integration-test.yml --ref <bump-branch> -f scenario=engine-actions-smoke -f engine=<engine>
+```
+
+A bump that fails either smoke stays unmerged until the engine or the harness
+is fixed; one that passes rides the next promotion like any other change.
+
 ### Adding a required status check
 
 The ordering is forced, and getting it wrong stops data production rather than

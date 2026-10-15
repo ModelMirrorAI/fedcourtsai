@@ -460,6 +460,7 @@ from .usage import (
     parse_claude_usage,
     parse_codex_usage,
     parse_gemini_usage,
+    resolve_engine_version,
     resolve_pipeline_sha,
 )
 from .validate import (
@@ -7105,6 +7106,27 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             "then the local git HEAD, else omitted."
         ),
     ] = "",
+    engine_version: Annotated[
+        str,
+        typer.Option(
+            help="The engine binary's own `--version` output, read at install before "
+            "any agent ran; its first dotted version is recorded."
+        ),
+    ] = "",
+    engine_version_after: Annotated[
+        str,
+        typer.Option(
+            help="The same `--version` output read after the run: the recorded version "
+            "where there is no install-time read, else a cross-check."
+        ),
+    ] = "",
+    engine_pin: Annotated[
+        str,
+        typer.Option(
+            help="The exact version the workflow installed from; a read that "
+            "differs from it is recorded as a discrepancy."
+        ),
+    ] = "",
 ) -> None:
     """Record one run's measured token usage and estimated cost to ``usage.json``.
 
@@ -7143,6 +7165,11 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             typer.echo(f"run-id '{run_id}' is not a timestamp; pass --created-at.", err=True)
             raise typer.Exit(code=2) from exc
 
+    recorded_version, discrepancy = resolve_engine_version(
+        engine_version, engine_version_after, engine_pin
+    )
+    if discrepancy is not None:
+        typer.echo(f"::warning::engine version for {actor} on {event}: {discrepancy}")
     record = ModelUsage(
         case_id=ids.case_id(court, docket),
         event_id=event,
@@ -7153,6 +7180,8 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         model=resolved_model,
         created_at=when,
         pipeline_sha=resolve_pipeline_sha(pipeline_sha),
+        engine_version=recorded_version,
+        engine_version_discrepancy=discrepancy,
         input_tokens=counts.input_tokens,
         output_tokens=counts.output_tokens,
         cache_read_input_tokens=counts.cache_read_input_tokens,

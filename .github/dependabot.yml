@@ -23,6 +23,27 @@ updates:
         patterns:
           - "*"
 
+  # The engine CLIs every cell runs, each pinned in .github/engines/<engine>/
+  # (an exact version and its lockfile). Checked daily and ungrouped, so each
+  # engine release arrives as its own PR — an engine change under an unchanged
+  # process digest is composition, recorded per cell, and one engine per PR
+  # keeps that composition legible. The cooldown holds a release back three
+  # days before proposing it: prompt enough to keep the engines current, and
+  # long enough for a hijacked or withdrawn publish to be caught upstream first.
+  # Dispatch `integration-test` `engine-smoke` and `engine-actions-smoke` for
+  # the engine on the bump's branch before merging; see docs/pipeline.md.
+  - package-ecosystem: npm
+    directories:
+      - /.github/engines/claude-code
+      - /.github/engines/codex
+      - /.github/engines/gemini
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 3
+    target-branch: staging
+    versioning-strategy: increase
+
   # Python dependencies, resolved from pyproject.toml + uv.lock.
   - package-ecosystem: uv
     directory: /

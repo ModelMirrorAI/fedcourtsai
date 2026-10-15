@@ -1,0 +1,8 @@
+{
+  "name": "fedcourtsai-engine-gemini",
+  "private": true,
+  "description": "The pin of the Gemini CLI every gemini cell, smoke and back-test runs. Installed by .github/actions/engine-cli with npm ci against the lockfile beside it; bumped by Dependabot.",
+  "dependencies": {
+    "@google/gemini-cli": "0.49.0"
+  }
+}
