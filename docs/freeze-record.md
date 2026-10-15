@@ -9088,3 +9088,129 @@ freeze commit is recorded here.
   .tool == "read_document" or .tool == "get_endpoint_item" or .tool ==
   "get_more_results" or .tool == "analyze_citations")` prints nothing.
   `fedcourts tool-usage` over that round shows non-zero codex MCP calls.
+
+- **An order on a side motion, in a closed list of shapes, no longer reads as an
+  interim disposal, so a pending application whose docket carries one is
+  predicted again, 2026-10-15.** A **provisioning** change that alters which
+  forward interim cells mint. It moves no digest, no constant and no window:
+  `uv run fedcourts process-digest --all` prints the same `proc-v9` digests,
+  and what a minted cell reads is unchanged.
+
+  **The defect it closes.** On an application docket, the high-recall interim
+  disposal scan (`pipeline.outcome.interim_disposal_signal`) diverts the docket
+  from the forward queue (`predict_skipped_decided`), drops its owed events
+  from the predict backlog, and refuses forward-cell provisioning. All three
+  read it through `forward_leakage`, as does the pre-mint poll. Before this
+  entry the scan was one pattern,
+  `\b(?:applications?|stays?|injunctions?|vacaturs?|motions?)\b[^.]{0,200}?\b(?:granted|denied|dismissed|withdrawn)\b`
+  (case-insensitive), run over every entry. Its "motion" arm matched an order
+  on a side motion — "Motion for leave to file amicus brief granted", "Motion
+  to file under seal granted", "Motion to expedite consideration … granted" —
+  so the application read as decided while it was pending. Side-motion orders
+  are routine on contested emergency applications, which are the dockets the
+  interim reserve selects. How many dockets and applications this parked is
+  not counted here: the census needs the corpus and had not run when this
+  entry was written.
+
+  **The rule.** From this entry's carrying merge, the scan is unchanged except
+  for one carve-out. An entry the pattern above does not match never fires, so
+  the new scan never fires where the old one did not. Within a matching entry,
+  each clause (split at `.`, `;` and `:`, with "et al." kept whole) is set
+  aside only when the **whole** clause is a side-motion order of a closed
+  shape: an optional "the", an optional `joint`, `emergency`, `unopposed`,
+  `renewed` or `consent`, then "motion" or "motions", an optional "of"
+  followed by a movant, an ask from a closed list, an optional "filed by"
+  followed by a movant, and then `granted`, `denied` or `withdrawn`, with
+  nothing after it before the clause ends. A movant span runs at most 120
+  characters with no `.`, `;`, `:` or parenthesis, and refuses anything that
+  reads as a second ask: a relief word, "leave", "and" or "or" or a comma
+  followed by "for" or "to", "for" followed by "a", "an", "the", "release",
+  "bail", "interim" or "emergency", and "seeking", "requesting" or
+  "pending". A name with "for" in it ("Center for Individual Rights") still
+  reads as a movant. The closed list is: leave to file an amicus brief or a
+  brief as amicus curiae; to file a document under seal, or to seal or unseal
+  one; leave to file a reply, sur-reply, response or supplemental brief; leave
+  to exceed the word limits; divided argument; to expedite consideration; an
+  extension of time; leave to intervene; leave to proceed in forma pauperis;
+  to withdraw as counsel; and to dispense with printing. A clause is never set
+  aside when it carries "moot"; a coordinator ("and", a comma, "as well as",
+  "together with", "which") followed anywhere by a relief word (application,
+  cross-application, stay, injunction, enjoin, restraining, relief, vacate,
+  dismiss, withdraw the application, mandate, judgment, recall); a relief or
+  order noun followed by "vacated", "dissolved" or "lifted"; or a second
+  "leave to". No clause of an entry is set aside when the entry anywhere
+  carries a Justice's notation that they would (or would have) granted,
+  denied, dismissed or vacated, or that they dissent, whichever sentence it
+  sits in. The clauses not set aside are scanned with the same pattern, and
+  they are also read for a stay, injunction, vacatur, order, judgment or
+  mandate followed by "vacated", "dissolved", "lifted" or "entered", a
+  disposing participle the pattern has no verb for.
+  The pattern itself, the resolver, the cert-shaped terminal scan and the
+  record gate are untouched. A routine side motion off the closed list (a
+  motion to consolidate, for example) still parks its application's cells.
+
+  **Which cells it admitted.** The admitted set is the forward interim cells
+  after the carrying merge, built by the registered ancestry test on
+  `process_version.pipeline_sha`, whose provisioned snapshot the pre-change
+  pattern quoted above fires on. The ledger alone cannot rebuild it, since a
+  cell's provisioned record is runner-local and never committed: the set is
+  rebuilt by joining the ledger to the corpus snapshot at (case,
+  `context.snapshot_date`). That join is exact except where a later pull on
+  the same day overwrote that day's stored payload, in which case the set is
+  a superset.
+
+  **What it selects.** Refusal is a membership rule, so this widens forward
+  interim membership by the cells it stops refusing. The added cells are on
+  applications that drew side-motion practice. One hypothesis, which nothing
+  here tests, is that such practice concentrates on contested applications
+  and so on grant-weighted ones. That would run opposite to the pre-mint
+  poll's refusal, which plausibly removes denial-weighted cells. The
+  resolved-application census (old and new scan on each resolved substantive
+  application's last pre-resolution snapshot, the outcome split for freed,
+  still parked and never fired, each with n, and the corpus vintage) goes on
+  the next line, which must stay one line of plain prose with no angle
+  bracket or backtick:
+  <FILL: resolved-application census, old vs new scan, outcome split freed, still parked and never fired with n, corpus vintage>
+
+  **Not comparable across either boundary.** Forward interim figures are not
+  comparable across this entry's carrying merge, or across the boundary of the
+  entry above, *A forward predict cell is refused when a pre-mint poll finds
+  its event already decided*. Both rules move which forward interim cells
+  exist, in plausibly opposite directions, and neither size is measured.
+  "Not comparable" is guidance no figure applies yet. A refusal leaves no
+  cell, and under the 2026-10-11 pooled rule the default figure spans this
+  merge silently, with no side of it. The only cut is the admitted set above.
+  A pending harness boundary with an interim-scoped reach would be the clean
+  route to a per-side `n`; whether to register one is the maintainer's call,
+  and this entry registers none. The pre-mint poll entry above is on `staging` and
+  not yet on `main`; if both ride one promotion their boundaries coincide, and
+  they separate only through this entry's admitted set and the pre-mint
+  refusal roll-up.
+
+  **The first round after the merge.** Applications parked since their first
+  side-motion order become owed at once. So the first forward round after the
+  carrying merge can mint a burst of late cells. The burst is the admitted
+  set restricted to that first forward round. Its cells are predicted from
+  snapshots carrying later docket development than an on-time cell's, and
+  are not comparable to on-time cells.
+
+  **Not an independent backstop.** The pre-mint poll runs the same scan on the
+  live docket, so it shares this carve-out and cannot catch a disposal the
+  carve-out sets aside. If the closed shape were too wide, a cell whose
+  snapshot shows its outcome would mint, and only the judges' leakage bit
+  would mark it. A null leakage bit means the cell was not assessed, not that
+  it was clean. It de-counts nothing already committed.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live, from a checkout of the carrying
+  merge with the corpus pulled: `uv run fedcourts predict-plan` lists, on its
+  stderr `Predict backlog: dropped …` lines, no application whose only
+  disposition-shaped entry is a side-motion order of the closed shape; such an
+  application's owed interim cells appear in the plan's would-mint cells
+  instead. Diffing that plan against one from the commit before the merge,
+  both read from one pulled blob, shows the admitted applications: the
+  merge's `Predict backlog: dropped` lines are a subset of the earlier
+  plan's. In the first `run-pull` window after the
+  merge, the same applications are absent from `predict_skipped_decided`.

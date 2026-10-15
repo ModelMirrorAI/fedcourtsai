@@ -439,6 +439,141 @@ _INTERIM_DISPOSAL_RE = re.compile(
     re.IGNORECASE,
 )
 
+# The cheap failure stops being cheap where it is routine: a contested
+# application's docket carries orders on side motions (leave to file an amicus
+# brief, to seal, to expedite), each of which the scan above reads as a
+# disposal. So one exception is carved out, and it is deliberately narrow: a
+# clause is set aside only when the WHOLE clause is a side-motion order of a
+# closed shape — "[the] [joint|emergency|unopposed|renewed|consent] motion(s)
+# [of <movant>] <ask from the closed list> [is|are] granted|denied|withdrawn",
+# and nothing else before the clause ends. Anything outside that shape is
+# scanned as before, so an unforeseen wording parks a cell (the cheap failure)
+# rather than minting one whose snapshot shows its outcome.
+_SIDE_MOTION_ASKS = (
+    # amicus briefs
+    r"(?:for\s+leave\s+)?to\s+file\s+(?:an?\s+|the\s+)?(?:amicus\s+(?:curiae\s+)?briefs?"
+    r"|briefs?\s+(?:as\s+)?amic(?:us|i)\s+curiae)"
+    r"(?:\s+in\s+support\s+of\s+(?:the\s+)?(?:applicants?|respondents?|application))?",
+    # sealing
+    r"(?:for\s+leave\s+)?to\s+file\s+(?:(?:an?|the|its|their)\s+)?"
+    r"(?:(?:application|response|reply|appendix|exhibits?|brief)\s+)?under\s+seal"
+    r"(?:\s+with\s+redacted\s+copies(?:\s+for\s+the\s+public\s+record)?)?",
+    r"to\s+(?:seal|unseal)(?:\s+the\s+(?:application|response|reply|record|appendix|exhibits?))?",
+    # further briefing
+    r"(?:for\s+leave\s+)?to\s+file\s+(?:an?\s+|the\s+)?"
+    r"(?:reply(?:\s+brief)?|sur-?reply|supplemental\s+brief|response)"
+    r"(?:\s+in\s+support\s+of\s+the\s+application(?:\s+for\s+(?:a\s+)?stay)?)?",
+    r"(?:for\s+leave\s+)?to\s+exceed\s+(?:the\s+)?word\s+limits?",
+    # scheduling and argument
+    r"for\s+divided\s+argument",
+    r"to\s+expedite(?:\s+consideration(?:\s+of\s+the\s+application(?:\s+for\s+(?:a\s+)?stay)?)?)?",
+    r"for\s+(?:an?\s+)?extension\s+of\s+time"
+    r"(?:\s+to\s+file\s+(?:an?\s+|the\s+|its\s+)?(?:response|reply|brief)"
+    r"(?:\s+to\s+the\s+application)?)?",
+    # parties and counsel
+    r"(?:for\s+leave\s+)?to\s+intervene",
+    r"(?:for\s+leave\s+)?to\s+proceed\s+in\s+forma\s+pauperis",
+    r"to\s+withdraw\s+as\s+counsel(?:\s+of\s+record)?",
+    r"to\s+dispense\s+with\s+printing(?:\s+the\s+(?:application|appendix))?",
+)
+_RELIEF_WORD = (
+    r"\b(?:(?:cross-)?applications?|stays?|injunctions?|injunctive|enjoin\w*|restraining"
+    r"|relief|vacat\w*|dismiss\w*|withdraw\s+the\s+application|mandate|judgment|recall)\b"
+)
+# A movant names a party, and a span that reads as a second ask is never read
+# as one: relief vocabulary, "leave", a coordinated ask ("and for", "or to",
+# ", for"), "for" before an article or a relief noun ("for a TRO", "for release
+# on bail", "for interim protection"), or "seeking", "requesting" or "pending"
+# ("Motion of applicant for a TRO and for leave to file under seal"). A name
+# with "for" in it ("Center for Individual Rights") still reads as a movant.
+_SIDE_MOTION_MOVANT = (
+    rf"(?:(?!{_RELIEF_WORD}|\bleave\b|(?:\b(?:and|or)|,)\s+(?:for|to)\b"
+    r"|\bfor\s+(?:an?|the|release|bail|interim|emergency)\b"
+    r"|\b(?:seeking|requesting|pending)\b)[^.;:()]){1,120}?"
+)
+_SIDE_MOTION_CLAUSE_RE = re.compile(
+    r"^\s*(?:the\s+)?(?:(?:joint|emergency|unopposed|renewed|consent)\s+)?motions?\s+"
+    rf"(?:of\s+{_SIDE_MOTION_MOVANT}\s+)?"
+    rf"(?:{'|'.join(_SIDE_MOTION_ASKS)})"
+    rf"(?:\s+filed\s+by\s+{_SIDE_MOTION_MOVANT})?"
+    r",?\s+(?:(?:is|are)\s+)?(?:granted|denied|withdrawn)\s*$",
+    re.IGNORECASE,
+)
+# Refusals checked on the clause as a whole, independent of how the shape
+# matched: mootness (a side motion mooted by the application's own fate), a
+# coordinator carrying relief ("... and for an administrative stay"), a relief
+# noun with a disposing participle, and a second "leave to" (an ask the closed
+# list did not read).
+_SIDE_MOTION_REFUSALS = (
+    re.compile(r"\bmoot\b", re.IGNORECASE),
+    re.compile(
+        rf"(?:\b(?:and|as\s+well\s+as|together\s+with|which)\b|,).*{_RELIEF_WORD}",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:stays?|injunctions?|orders?|judgments?|mandates?)\b.*"
+        r"\b(?:vacated|dissolved|lifted)\b",
+        re.IGNORECASE,
+    ),
+    # The shape admits one "leave to", the listed ask's own; the movant span
+    # excludes the word, so this only restates the closed list as a refusal.
+    re.compile(r"\bleave\s+to\b.*\bleave\s+to\b", re.IGNORECASE),
+)
+# What a masked entry's remaining text is also read for: a relief or order
+# noun with a disposing participle ("the administrative stay ... is vacated",
+# "Judgment below vacated", "Stay entered"), which the scan above has no verb
+# for. The noun set matches the clause refusal's above.
+_RELIEF_PARTICIPLE_RE = re.compile(
+    r"\b(?:stays?|injunctions?|vacaturs?|orders?|judgments?|mandates?)\b[^.]{0,200}?"
+    + r"\b(?:vacated|dissolved|lifted|entered)\b",
+    re.IGNORECASE,
+)
+# A Justice's notation that they would (have) granted, denied, dismissed or
+# vacated, or that they dissent, reads a disposal into the whole entry,
+# whichever sentence it sits in ("Motion for leave to file amicus brief
+# granted. Justice Alito would deny the application."), so no clause of such
+# an entry is set aside.
+_WOULD_DISPOSE_RE = re.compile(
+    r"\bwould\s+(?:have\s+)?(?:grant|deni|deny|dismiss|vacat)\w*|\bdissent\w*",
+    re.IGNORECASE,
+)
+# Clause boundaries. "et al." is a name, not a sentence end. Other abbreviations
+# ("U.S.", "Inc.", "No.", "v.") split a clause, which only ever keeps it from
+# matching the side-motion shape, so the error is toward firing.
+_CLAUSE_SPLIT_RE = re.compile(r"((?<!\bet al)[.;:])", re.IGNORECASE)
+
+
+def _is_side_motion_clause(clause: str) -> bool:
+    """Whether a whole clause is a side-motion order of the closed shape."""
+    if _SIDE_MOTION_CLAUSE_RE.match(clause) is None:
+        return False
+    return not any(refusal.search(clause) for refusal in _SIDE_MOTION_REFUSALS)
+
+
+def _reads_as_interim_disposal(description: str) -> bool:
+    """Whether one entry reads as an interim disposal, side-motion clauses aside.
+
+    An entry the unmasked scan does not match never reads as a disposal, so the
+    result is never wider than that scan. An entry with no side-motion clause
+    reads exactly as the scan reads it. Where one is set aside, the rest of the
+    entry is scanned with its clause boundaries kept, and is also read for a
+    disposing participle. An entry carrying a Justice's "would grant/deny/
+    dismiss/vacate" notation sets no clause aside.
+    """
+    if _INTERIM_DISPOSAL_RE.search(description) is None:
+        return False
+    if _WOULD_DISPOSE_RE.search(description) is not None:
+        return True
+    parts = _CLAUSE_SPLIT_RE.split(description)
+    kept = ["" if _is_side_motion_clause(part) else part for part in parts]
+    if kept == parts:
+        return True
+    remainder = "".join(kept)
+    return (
+        _INTERIM_DISPOSAL_RE.search(remainder) is not None
+        or _RELIEF_PARTICIPLE_RE.search(remainder) is not None
+    )
+
 
 def interim_disposal_signal(docket: Mapping[str, Any]) -> str | None:
     """An interim disposal legible **anywhere** in an application docket's payload.
@@ -449,9 +584,14 @@ def interim_disposal_signal(docket: Mapping[str, Any]) -> str | None:
     provisioning refusal on application dockets only (the caller keys on
     :func:`fedcourtsai.corpus.is_scotus_application_form`). Pure, over either
     payload shape (:func:`entry_descriptions`).
+
+    A clause that is wholly a side-motion order of the closed shape
+    (:data:`_SIDE_MOTION_CLAUSE_RE`, e.g. "Motion for leave to file amicus
+    brief granted.") is not a disposal; any other clause of the same entry is
+    still read.
     """
     for description in entry_descriptions(docket):
-        if _INTERIM_DISPOSAL_RE.search(description):
+        if _reads_as_interim_disposal(description):
             return f"snapshot entry reads as an interim disposal: {description!r}"
     return None
 
