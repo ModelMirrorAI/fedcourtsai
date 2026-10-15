@@ -1,13 +1,13 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 987.7,
+    "actions_minutes": 1487.0,
     "actions_monthly_usd": 0.0,
-    "estimated_monthly_usd": 1547.85,
+    "estimated_monthly_usd": 1582.18,
     "fixed_monthly_usd": 115.0,
-    "model_cost_usd": 4391.444976,
-    "model_monthly_usd": 1432.85,
-    "window_days": 1.4
+    "model_cost_usd": 4545.296999,
+    "model_monthly_usd": 1467.18,
+    "window_days": 1.3
   },
   "data_health": {
     "corpus": {
@@ -21,15 +21,15 @@
           "problems": []
         },
         {
-          "checked": 2153472,
-          "detail": "2153472 rows vs baseline 2153472",
+          "checked": 2153508,
+          "detail": "2153508 rows vs baseline 2153508",
           "failures": 0,
           "name": "row_count_monotonic",
           "passed": true,
           "problems": []
         },
         {
-          "checked": 4310190,
+          "checked": 4310264,
           "detail": "",
           "failures": 0,
           "name": "required_columns_non_empty",
@@ -37,7 +37,7 @@
           "problems": []
         },
         {
-          "checked": 2153472,
+          "checked": 2153508,
           "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
           "failures": 0,
           "name": "docket_numbers_carry_no_capital_marking",
@@ -46,7 +46,7 @@
         },
         {
           "checked": 3073,
-          "detail": "as of 2026-10-14",
+          "detail": "as of 2026-10-15",
           "failures": 0,
           "name": "snapshot_not_future_dated",
           "passed": true,
@@ -54,15 +54,15 @@
         },
         {
           "checked": 662,
-          "detail": "granted before 2024-10-14 (730 days); 18 resolved by termination (1 abated, 1 dismissed-moot, 1 grant-vacated, 10 judgment-issued, 5 voluntary-dismissal); excepted (terminal off-docket): scotus/72466202, scotus/72466229, scotus/72466705",
+          "detail": "granted before 2024-10-15 (730 days); 18 resolved by termination (1 abated, 1 dismissed-moot, 1 grant-vacated, 10 judgment-issued, 5 voluntary-dismissal); excepted (terminal off-docket): scotus/72466202, scotus/72466229, scotus/72466705",
           "failures": 0,
           "name": "no_stale_unparsed_grants",
           "passed": true,
           "problems": []
         },
         {
-          "checked": 2153472,
-          "detail": "0 future-dated, 33 decided-before-filed vs accepted baseline 50 (as of 2026-10-14); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
+          "checked": 2153508,
+          "detail": "0 future-dated, 33 decided-before-filed vs accepted baseline 50 (as of 2026-10-15); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
           "failures": 33,
           "name": "case_dates_ordered",
           "passed": true,
@@ -90,7 +90,7 @@
           ]
         },
         {
-          "checked": 4307117,
+          "checked": 4307191,
           "detail": "",
           "failures": 0,
           "name": "domain_values_valid",
@@ -98,7 +98,7 @@
           "problems": []
         },
         {
-          "checked": 4310190,
+          "checked": 4310264,
           "detail": "",
           "failures": 0,
           "name": "no_duplicate_cases_or_events",
@@ -106,7 +106,7 @@
           "problems": []
         },
         {
-          "checked": 15832,
+          "checked": 16050,
           "detail": "",
           "failures": 0,
           "name": "ledger_references_exist",
@@ -114,7 +114,7 @@
           "problems": []
         },
         {
-          "checked": 153,
+          "checked": 155,
           "detail": "",
           "failures": 0,
           "name": "minted_moments_defined_in_ledger",
@@ -122,7 +122,7 @@
           "problems": []
         },
         {
-          "checked": 26888,
+          "checked": 26950,
           "detail": "",
           "failures": 0,
           "name": "event_dirs_hold_only_ledger_entries",
@@ -130,7 +130,7 @@
           "problems": []
         },
         {
-          "checked": 1296,
+          "checked": 1464,
           "detail": "",
           "failures": 0,
           "name": "evaluation_targets_prediction",
@@ -138,7 +138,7 @@
           "problems": []
         },
         {
-          "checked": 897,
+          "checked": 1038,
           "detail": "",
           "failures": 0,
           "name": "base_rate_basis_carries_version",
@@ -146,7 +146,7 @@
           "problems": []
         },
         {
-          "checked": 2494,
+          "checked": 2582,
           "detail": "",
           "failures": 0,
           "name": "prediction_docs_exist",
@@ -154,7 +154,7 @@
           "problems": []
         },
         {
-          "checked": 1042,
+          "checked": 1086,
           "detail": "",
           "failures": 0,
           "name": "prediction_claims_scoreable",
@@ -162,7 +162,7 @@
           "problems": []
         },
         {
-          "checked": 129,
+          "checked": 132,
           "detail": "",
           "failures": 0,
           "name": "prediction_semantic_claims_conform",
@@ -178,7 +178,7 @@
           "problems": []
         },
         {
-          "checked": 129,
+          "checked": 132,
           "detail": "",
           "failures": 0,
           "name": "merits_predictions_carry_judgment",
@@ -186,7 +186,7 @@
           "problems": []
         },
         {
-          "checked": 1296,
+          "checked": 1464,
           "detail": "",
           "failures": 0,
           "name": "vote_accuracy_only_on_merits_events",
@@ -194,7 +194,7 @@
           "problems": []
         },
         {
-          "checked": 13084,
+          "checked": 13090,
           "detail": "",
           "failures": 0,
           "name": "outcome_votes_await_a_registered_source",
@@ -202,7 +202,7 @@
           "problems": []
         },
         {
-          "checked": 411,
+          "checked": 489,
           "detail": "",
           "failures": 0,
           "name": "evaluation_correct_agrees",
@@ -210,7 +210,7 @@
           "problems": []
         },
         {
-          "checked": 13084,
+          "checked": 13090,
           "detail": "",
           "failures": 0,
           "name": "judgment_only_on_merits_outcomes",
@@ -218,14 +218,14 @@
           "problems": []
         }
       ],
-      "corpus_events": 2153645,
-      "corpus_rows": 2153472,
+      "corpus_events": 2153683,
+      "corpus_rows": 2153508,
       "ok": true,
       "schema_version": "1.0",
       "skipped": false
     },
     "ledger": {
-      "checked": 36286,
+      "checked": 36913,
       "invalid": 0,
       "ok": true,
       "problems": []
@@ -233,427 +233,421 @@
     "ok": true
   },
   "flags": {
-    "archived": 467,
-    "blockers": 0,
-    "cells": 239,
-    "infos": 254,
+    "archived": 494,
+    "blockers": 1,
+    "cells": 244,
+    "infos": 246,
     "recent": [
       {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/73514289",
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9526000477",
         "flags": [
           {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The provisioned petition is marked truncated and its first explicit appendix omission begins partway through page 37a of the lower-court opinion, removing the end of the alternative deliberate-indifference analysis central to vehicle quality. I used the retained pages and both parties' untruncated briefs, identified their competing accounts, and did not treat the omitted pages as independently reviewed. Preserving the complete appealed opinion ahead of other appendix items would help.",
+            "category": "other",
+            "event_id": "evt-brief-response-disposition",
+            "message": "Web search returned news articles summarizing the procedural history of this dispute up to October 8, including the Supreme Court's September 4th stay of the initial Fourth Circuit ruling and the October 8th administrative stay. This provided crucial context for the prediction, but did not reveal the final disposition of the specific stay application being predicted.",
             "severity": "info"
           }
         ],
         "role": "predictor",
-        "run_id": "20261013T174813Z",
+        "run_id": "20261014T174020Z",
         "schema_version": "1.0"
       },
       {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/73369985",
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000146",
         "flags": [
           {
             "category": "data-quality",
             "event_id": "evt-petition-disposition",
-            "message": "The provisioned appendix is truncated at the 150,000-character cap, ending within the Thapar/Hermandorfer rehearing dissent and omitting the later Bush and Readler opinions. Their positions were considered only as characterized in the provisioned petition and reply. No body-camera recordings were viewed; the forecast relies on the competing filing descriptions and panel treatment. These limitations reduce confidence in the proposed summary-reversal vehicle; they do not block prediction.",
+            "message": "The record/documents/ directory and documents.json do not exist, so no provisioned documents (petition text, questions presented) were available.",
+            "severity": "warning"
+          },
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "message": "The salience band assigned is 'state', but the petitioner is the Solicitor General (US DOJ), which is classically 'federal'. Predicted based on 'state' anchor as instructed, but adjusted for the actual party.",
             "severity": "info"
           }
         ],
         "role": "predictor",
-        "run_id": "20261013T174813Z",
+        "run_id": "20261014T174020Z",
         "schema_version": "1.0"
       },
       {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/9026000087",
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000145",
         "flags": [
           {
             "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The provisioned snapshot dates the petition filing September 6, 2025, but gives docketing July 21, 2026, a Term 2026 docket, July 2026 petition-link timestamps, and an August 2026 response deadline; the event also opens July 21, 2026. Lower-court decision and rehearing dates are in 2025. Please review date provenance. The forecast retains authoritative Term 2026 and the frozen one-distribution baseline, and does not infer untimeliness or a jurisdictional defect from this inconsistency. No outcome was retrieved.",
+            "event_id": null,
+            "message": "The case is a petition by the Solicitor General (Warden, a federal officer), so the caption class is `federal`. However, context.json assigns it the `baseline` band instead of the `federal` salience band, which is a mismatch under sal-v4.",
             "severity": "warning"
           }
         ],
         "role": "predictor",
-        "run_id": "20261012T143556Z",
+        "run_id": "20261014T174020Z",
         "schema_version": "1.0"
       },
       {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/9026000071",
+        "actor_id": "codex-judge",
+        "case_id": "scotus/9026000221",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-arrival-disposition",
+            "message": "Case identity conflict blocks substantive evaluation of gemini-baseline, claude-baseline, and codex-baseline. event.yaml names Mara Nathan v. Alamo Heights ISD; all three August 20, 2026 forecasts analyze the Texas Ten Commandments/Fifth Circuit dispute. The provisioned record/snapshots/2026-10-13.json instead identifies Theodore James Purdy v. Kansas, No. 26-221, from the Kansas Court of Appeals and records an October 13 denial. Current petition.txt and questions-presented.txt concern Purdy's Confrontation Clause claim; documents.json records an October 5 fetch and 140 pages, whereas candidates describe a 314-page Nathan petition. Original prediction-time snapshots are not staged, so the cause cannot be assigned and Nathan's actual outcome is unknown here. Required correct/Brier fields mechanically compare to the supplied denial (0/0.81 for gemini-baseline, 0/0.5184 for claude-baseline and codex-baseline); these are not reliable matched-case performance. reasoning_quality is null for each, with details in evaluation.md. Reconcile case/event/document/outcome association and reevaluate before treating these cells as scored performance. This is not evidence of leakage, and leakage_suspected was not used as a substitute data-quality exclusion.",
+            "severity": "blocker"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261014T154957Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-judge",
+        "case_id": "scotus/9026000221",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-arrival-disposition",
+            "message": "Predictions and outcome concern different petitions. All three predictions were provisioned (2026-08-21 truncated snapshot) with Nathan v. Alamo Heights ISD (en banc CA5, Ten Commandments; 26A15 extension in its proceedings), and this event's event.yaml carries that title. Docket 9026000221 / No. 26-221 as now stored (2026-10-13 snapshot) is Purdy v. Kansas (Kansas Ct. App., Confrontation Clause), denied 2026-10-13, and the sibling event evt-petition-disposition carries the Purdy title. outcome.json records Purdy's denial. The evaluations were scored mechanically against it (correct 0, Brier p^2), but these scores do not measure forecast skill on the petition that was forecast. Recommend checking the live-channel docket-number mapping and the arrival event's provisioning, and excluding or re-grading this cell.",
+            "severity": "warning"
+          }
+        ],
+        "role": "evaluator",
+        "run_id": "20261014T154957Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-judge",
+        "case_id": "scotus/73281386",
         "flags": [
           {
             "category": "data-quality",
             "event_id": "evt-petition-disposition",
-            "message": "Conditioning caution: the frozen elevated band and distribution_count=2 include a pre-conference reschedule, not an observed post-conference relist. The September 30 distribution for October 16 was rescheduled October 6, then distributed October 7 for November 6; both conferences postdate the October 11 snapshot. Context is as-stored with no cutoff. I retained the supplied band and count but discounted any inference of prior conference consideration.",
-            "severity": "info"
-          },
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "A material positive signal is the provisioned September 30 reply's report that the Solicitor General urged review in related Nwauzor litigation and referenced this case. This is pre-snapshot advocacy, not an outcome. I did not independently retrieve that brief or either case's later history; the forecast distinguishes related federal support from a CVSG or grant recommendation on this docket.",
+            "message": "All three scored predictions froze sal-v4 band 'baseline' (snapshot 2026-09-15), but the petitioners (U.S. DOGE Service, OMB, NARA) are federal and represented by the Solicitor General; the decided-docket context now carries 'elevated'. The stamped segment base rate for this cell therefore anchors a federal petition to the private baseline pool (~5%), which makes any skill score here look large. Worth checking the sal-v4 federal-party matcher against the 'U.S. Doge Service' caption.",
             "severity": "info"
           }
         ],
-        "role": "predictor",
-        "run_id": "20261011T142504Z",
+        "role": "evaluator",
+        "run_id": "20261014T154957Z",
         "schema_version": "1.0"
       },
       {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/9026000071",
+        "actor_id": "codex-judge",
+        "case_id": "scotus/73281346",
         "flags": [
           {
-            "category": "other",
+            "category": "data-quality",
             "event_id": "evt-petition-disposition",
-            "message": "Decisive forward signal: in companion No. 25-828 (Nwauzor), the SG filed a brief on 2026-09-15 recommending a grant (cited in the provisioned cert reply). The context's distribution_count=2 includes a reschedule before the first conference, not a real relist.",
+            "message": "gemini-baseline retrieval.md states no retrieval beyond provisioned inputs, but its harness log records an attempted generic corpus GVR query filtered for qualified immunity at 2026-09-16T18:26:07.680Z. The result is unobserved, so success, returned content, and transfer cannot be established. This is a retrieval-reporting mismatch, not evidence of outcome leakage; the query predates the October 13 resolution and does not target this petition. Details are in gemini-baseline evaluation.md.",
             "severity": "info"
           }
         ],
-        "role": "predictor",
-        "run_id": "20261011T142504Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/9026000443",
-        "flags": [
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "Decisive forward signal from outside the provisioned baseline: this petition asks to be held for Nos. 26-360 (FedEx v. Watt) and 26-387 (Kellogg v. Reichert), both from the Sixth Circuit's Reichert decision; supremecourt.gov shows respondent waivers in both (Sept 24 and 25, 2026) and no distribution yet. The corpus carries both as open evt-petition-disposition events (dockets 9026000360 and 9026000387), so the three cells' outcomes are coupled and should be read together when scored.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20261010T142428Z",
+        "role": "evaluator",
+        "run_id": "20261014T154957Z",
         "schema_version": "1.0"
       },
       {
         "actor_id": "codex-baseline",
-        "case_id": "scotus/9526000416",
+        "case_id": "scotus/9526000477",
         "flags": [
           {
             "category": "data-quality",
             "event_id": "evt-brief-response-disposition",
-            "message": "The response-filed snapshot records the October 8 opposition and links its PDF, but documents.json provisions only the application. Recovered and read relevant opposition sections directly from that exact official pre-decision PDF; this did not block prediction. Provisioning the response text would make this moment's distinguishing evidence available without an additional retrieval.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20261009T143059Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/9026000436",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The document manifest marks the 180-page petition source truncated. The questions presented and the relevant Second Circuit preservation analysis in Appendix A are available and support a forecast, but the complete trial record and appendix were not assumed available. No BIO is provisioned; the snapshot records the respondent's waiver. See reasoning.md for the resulting vehicle-assessment limits.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20261009T143059Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/9026000464",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-arrival-disposition",
-            "message": "The supplied 19-page petition text ends at its signed conclusion and does not contain the Federal Circuit and Board opinions referenced as appendices, although the manifest correctly describes the fetched text as nonempty and untruncated. The prediction relies on the petition's attributed descriptions, including its acknowledgment of forfeiture, without independently verifying those opinions. No case outcome was retrieved or encountered.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20261008T143010Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/9026000462",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The 46-page petition is marked empty_text=true and ocr_derived=false; petition.txt contains only whitespace and no questions-presented text was provisioned. The exact petition PDF web lookup yielded no readable content, and a date-bounded MCP search for the lower-court opinion returned no results. The prediction therefore rests on procedural inputs and base rates, not the legal question. Stakes are explicitly null rather than inferred from the caption; readable petition text or OCR would materially improve this cell.",
+            "message": "The provisioned October 10 opposition asks at pages 3 and 29 to lift/terminate an administrative stay, but the October 11 snapshot contains no administrative-stay entry. This is a pre-decision record discrepancy, not discovery of this application's terminal disposition. I treated the stay as reported in advocacy only, retained the frozen not-yet-referred state, and did not count temporary administrative relief as the predicted substantive grant. Please check completeness of the provisioned proceedings.",
             "severity": "warning"
           },
           {
-            "category": "ambiguous-event",
-            "event_id": "evt-petition-disposition",
-            "message": "The frozen distribution_count=1 appears to count the September 9 distribution for the September 28 conference on linked sealing motion 26M22, granted October 5, before this petition was docketed October 7. The distribution-stage cell has null cutoff/cut_kind. This may be a motion distribution misattributed to the cert moment; it is not a known cert outcome. I retain the supplied baseline band/count and predict a high count increment because the next entry may be the first substantive cert distribution, not a true relist. Please review event-moment attribution.",
+            "category": "other",
+            "event_id": "evt-brief-response-disposition",
+            "message": "The September 4, 2026 stay in related application 26A274, discussed in both provisioned briefs, is a major upward signal. It predates this event and is not the outcome being forecast. I did not seek or encounter the ultimate disposition of 26A477; the probability discounts the distinction between the earlier vacatur and the present mandamus order.",
+            "severity": "info"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261014T142540Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9526000477",
+        "flags": [
+          {
+            "category": "other",
+            "event_id": "evt-motion-disposition",
+            "message": "The provisioned October 8 application and its appendix discuss a September 4 Supreme Court stay in the related proceeding (26A274). This pre-application intervention is decisive positive signal for the present forecast, not the disposition of target application 26A477. No target outcome or subsequent history was retrieved.",
+            "severity": "info"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261014T142540Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9526000477",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-response-requested-disposition",
+            "message": "The event declares moment=response-requested and opened_at=2026-10-08, but the dated snapshot contains only the application submission, and context.response_requested is false. Context also reports no referral and zero amici. Forecast increments use that frozen state; the event label is not treated as independent evidence of an observed request. Please check moment provisioning and response-request detection. No inputs or harness stamps were changed.",
+            "severity": "warning"
+          },
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-response-requested-disposition",
+            "message": "The October 8 application requests administrative relief before noon October 9, 2026, but this forward prediction is generated October 14 from an October 8 snapshot with cutoff October 9. The elapsed deadline creates material uncertainty about unobserved procedural developments. No disposition or subsequent history was sought or encountered; this is not a finding that the application is already decided.",
             "severity": "warning"
           }
         ],
         "role": "predictor",
-        "run_id": "20261008T143010Z",
+        "run_id": "20261014T142540Z",
         "schema_version": "1.0"
       },
       {
         "actor_id": "claude-baseline",
-        "case_id": "scotus/9026000462",
+        "case_id": "scotus/9526000477",
         "flags": [
           {
             "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The provisioned petition (46 pages) was fetched with empty_text: true, so no text could be extracted and no questions-presented.txt exists. The forecast rests on the docket snapshot and the district-court docket retrieved through CourtListener, not on the petition's own questions.",
-            "severity": "info"
-          },
-          {
-            "category": "ambiguous-event",
-            "event_id": "evt-petition-disposition",
-            "message": "context.json freezes distribution_count: 1, but the only distribution on the docket (Sep 9, 2026, for the Sep 28 conference) carried the linked motion 26M22 to file a supplemental appendix under seal; the petition itself was docketed Oct 7 after that motion was granted, and has not yet been distributed. The relist-increment claim here therefore measures the petition's first distribution, not a relist in the statpack's sense, and the cell was opened at a moment that predates the petition's first conference.",
+            "event_id": "evt-brief-response-disposition",
+            "message": "Snapshot 2026-10-11 shows no administrative-stay entry, but the provisioned response (filed in Nos. 26A476 & 26A477) asks the Court to lift an existing administrative stay; the companion United States application 26A476 is not linked in RelatedCaseNumber. Disposition may be entered jointly across both dockets.",
             "severity": "info"
           }
         ],
         "role": "predictor",
-        "run_id": "20261008T143010Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/9026000461",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The sole frozen distribution (September 2 for the September 28 conference) appears to concern sealing motion 26M17, granted October 5, before October 7 petition docketing; the petition response is due November 6. Retained the supplied count=1 and baseline band, but did not interpret this as cert consideration. P(further distribution)=0.96 largely forecasts ordinary first distribution of the petition from this frozen count. Please review distribution/moment attribution to collateral motions. The sealing-motion grant was not treated as the petition outcome.",
-            "severity": "warning"
-          },
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The 47-page petition is marked empty_text=true and its provisioned text is unusable; no QP or BIO text was provisioned. Opening the exact petition PDF through the web tool returned no readable content. Forecast completed from the snapshot, committed base rates, and the pre-petition September 30, 2025 D.C. Circuit opinion retrieved through MCP; exact petition framing and opposition arguments remain unassessed.",
-            "severity": "warning"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20261008T143010Z",
+        "run_id": "20261014T142540Z",
         "schema_version": "1.0"
       },
       {
         "actor_id": "claude-baseline",
-        "case_id": "scotus/9026000461",
+        "case_id": "scotus/9526000477",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-response-requested-disposition",
+            "message": "Event is moment=response-requested (opened 2026-10-08) but the frozen context has response_requested=false and the snapshot (2026-10-08, cutoff 2026-10-09, date cut) shows only the application entry \u2014 the response-request entry is missing from the baseline. The response-requested-increment claim may therefore resolve as a non-vacuous 'increment' for a rung that defined this cell.",
+            "severity": "warning"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261014T142540Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9526000458",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-brief-response-disposition",
+            "message": "Input coverage limitation, not a missing-record failure: application.txt is marked truncated and ends within the district-court appendix before the complete Ninth Circuit order. The snapshot records three October 13 responses, while application-response.txt contains only the first (Puyallup School District), consistent with the manifest's first-response selection rule. The forecast uses both available parties' accounts of the appellate ruling and does not purport to have read the separate WIAA or state responses.",
+            "severity": "info"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261014T142540Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000274",
         "flags": [
           {
             "category": "data-quality",
             "event_id": "evt-petition-disposition",
-            "message": "context.json freezes distribution_count=1, but the only DISTRIBUTED entry on this docket (Sep 2, 2026, Conference of 9/28/2026) is the distribution of motion 26M17 (leave to file the petition under seal with redacted copies), granted Oct 5. The petition itself was docketed Oct 7 with a response due Nov 6 and has not been distributed. The `moment: distribution` event therefore opened on a motion's distribution rather than the petition's, and the relist-increment claim is anchored on a count the petition has not actually reached. I forecast from the frozen count as instructed; a maintainer may want the distribution parser to ignore distributions of linked motions.",
+            "message": "The provisioned petition is marked truncated, and its appendix specifically omits material from partway through page 49a through page 53a, cutting off the lower court's discussion of the production/enticement double-jeopardy claim. The retained opinion establishes plain-error review and the central elements holding, but not the complete rationale. Prediction proceeds conservatively without reconstructing the missing pages; preserving the issue-relevant appellate opinion would improve the cell's inputs.",
+            "severity": "warning"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261014T142540Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000274",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "message": "Context band is 'baseline' although the docket shows a Court-requested response (Oct 1 2026) after the SG's waiver; sal-v4 appears not to treat a called-for response as a salience signal. Prediction adjusted up from the baseline anchor on that basis.",
+            "severity": "info"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261014T142540Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000176",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "message": "The event declares moment=distribution, but context.cutoff and context.cut_kind are null and snapshot_provenance is as-stored. The October 14 baseline includes an October 1 response request after the September 23 first distribution. I used that supplied request as legitimate forward evidence, retained the frozen state band and distribution_count=1, and did not infer later docket events. This note makes the unbounded baseline visible for moment comparability; no current disposition was encountered.",
+            "severity": "info"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261014T142540Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000146",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "message": "Frozen context assigns sal-v4 band state, but the snapshot identifies the United States Solicitor General as petitioners' counsel and the matched lower-court opinion concerns federal immigration officials. I preserved the frozen conditioning and anchored on its prior-Term reached rate, then adjusted for federal sponsorship and the circuit conflict. Please review the caption classification; I made no change to context or source data.",
             "severity": "warning"
           },
           {
             "category": "data-quality",
             "event_id": "evt-petition-disposition",
-            "message": "petition.txt is empty_text: true (47-page scan, no text layer), so no questions-presented.txt was derived. The public copy on supremecourt.gov is image-only, as are the redacted stay application and reply in No. 25A1448. My reading of the questions presented comes from the respondent's July 1, 2026 stay opposition (text-extractable) and the D.C. Circuit opinion, not from the petition; the brief in opposition, when filed, is likely to be text-extractable.",
+            "message": "No petition, questions-presented extract, BIO, or document manifest was provisioned. I reconstructed the legal issue from the matched November 3, 2025 Tenth Circuit opinion and checked the contrary Fifth Circuit holding. The forecast does not claim to quote the petition or to have assessed opposition arguments. The snapshot records paper-only filing and a response deadline extended to November 23, 2026.",
+            "severity": "info"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261014T142540Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000146",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "message": "Frozen band is 'state' (sal-v4), but the petitioner is a federal warden represented by the Solicitor General, with no state party in the caption. The caption-class rule would place this as 'federal'. I anchored on the federal floor (~70% pooled reached) instead of state (~23.5%).",
+            "severity": "warning"
+          },
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "message": "No record/documents/ were provisioned (no petition/QP/BIO text). Also, CourtListener opinion 10729625 (Daley v. Choate, 10th Cir. 24-1191) serves the text of an unrelated district-court order.",
+            "severity": "info"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261014T142540Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000145",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "message": "The sal-v4 context freezes band=baseline, but the provisioned petition expressly identifies the Solicitor General as petitioning for federal officials including the Attorney General and DHS officials. This appears inconsistent with a federal-petitioner classification. I retained the frozen band, calculated its prior-Term reached benchmark, and treated government-party status as substantive evidence rather than rewriting context. Please review classification of warden-led captions.",
+            "severity": "warning"
+          },
+          {
+            "category": "other",
+            "event_id": "evt-petition-disposition",
+            "message": "Decisive companion-case information is already in the provisioned petition at pages 5-6: it reports a June 29, 2026 cert grant in Montoya Palacios v. Liggins, No. 25-1223, and expressly requests a hold. I used that pre-snapshot representation to forecast a hold and likely GVR, without retrieving the companion's current status or merits outcome. This reveals no disposition of the target petition.",
+            "severity": "info"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261014T142540Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000145",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "message": "Petitioner is represented by the Solicitor General (federal government), but sal-v4 banded the caption 'Warden, Moshannon Valley Correctional Center, et al.' as baseline rather than federal, probably because the facility is contractor-run. Frozen band used as given.",
             "severity": "info"
           },
           {
             "category": "other",
             "event_id": "evt-petition-disposition",
-            "message": "Forward-signal disclosure: the Court denied Herridge's stay application (No. 25A1448) on July 2, 2026 with Justice Kavanaugh noting he would grant. This is public information that predates the snapshot and bears directly on grant likelihood; it was decisive in holding the number near the band anchor rather than well above it. No material about this petition's own disposition was encountered; none exists.",
+            "message": "Hold petition: the SG asks the Court to hold pending Montoya Palacios v. Liggins, No. 25-1223 (cert granted 2026-06-29). The outcome here will track that merits decision (GVR vs deny), not ordinary cert-worthiness, so the band base rate is a poor anchor for this cell.",
             "severity": "info"
           }
         ],
         "role": "predictor",
-        "run_id": "20261008T143010Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/9026000457",
-        "flags": [
-          {
-            "category": "other",
-            "event_id": "evt-petition-arrival-disposition",
-            "message": "Forward signal predating the snapshot shaped this forecast: PhRMA's time to petition from the Fifth Circuit's published Louisiana 340B decision (AbbVie v. Murrill) was extended to 2026-11-03 (application 26A356), and the Fourth Circuit granted rehearing en banc in PhRMA v. McCuskey on 2026-05-28. The grant probability here is mostly the chance this petition rides a grant or hold of the Louisiana companion; it is not this case's disposition and nothing retrieved revealed one.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20261008T143010Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/9026000339",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The docket shows 'Response Requested' on 2026-10-06 after both respondents waived, but the frozen context carries band 'baseline' under sal-v4 (relists, CVSG, circuit only) and response_requested is null (an interim-docket field). The call for a response is the dominant grant signal on this docket and the band does not encode it, so this cell's number sits well above the baseline reached-rate anchor it is scored against by design, not by error. A cert-stage call-for-response cut in the statpack, or a band feature for it, would make the anchor comparable.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20261008T143010Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/9026000240",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The provisioned petition manifest reports truncated=true for a 219-page filing. The questions presented, substantive petition, and relevant district-court opinion excerpts are available, so the forecast is completed, but it does not assume access to the full appendix. No BIO is provisioned; the snapshot places the requested response deadline on November 4, 2026, after this prediction.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20261008T143010Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/9026000240",
-        "flags": [
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "Decisive forward signal from outside the provisioned record: the companion petition Hall v. Fleming (No. 26-193, same respondent, same Locke v. Davey question) has its brief in opposition due 2026-10-14 after an extension and thirteen amicus briefs, and the Fourth Circuit appeal underlying this cert-before-judgment petition (No. 26-1437) remains undecided with argument tentatively set for December 2026. Both predate the snapshot and shaped the forecast; neither reveals this petition's disposition.",
-            "severity": "info"
-          },
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The statpack publishes no cut for a Court-requested response after a respondent waiver, which is the strongest docket signal on this record (Oct 5, 2026 entry). The adjustment from the 5.0% baseline band anchor rests on judgment rather than a committed rate; a response-requested cut on the paid scored segment would make this class of cell anchorable.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20261008T143010Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/9026000226",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "The manifest marks the 134-page petition document truncated; supplied text ends mid-sentence at appendix App. 66. The substantive petition and appellate majority/dissent are available and informed the forecast, but the remaining district-court appendix was not available. No BIO is provisioned, consistent with the respondent's recorded waiver. This limitation did not block prediction.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20261008T143010Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/9026000187",
-        "flags": [
-          {
-            "category": "ambiguous-event",
-            "event_id": "evt-petition-disposition",
-            "message": "The snapshot's single distribution (for the 10/16/2026 conference) was superseded by the Oct. 5, 2026 call for a response (due Nov. 4, 2026): the petition will not be considered at that conference and will be redistributed once the response and reply are in. The frozen distribution_count of 1 is therefore a conference the petition never reaches, and the relist-increment claim (0.96) is stated from that state; the near-certain redistribution is a mechanical consequence of the response request, not a relist signal. The salience band stayed at baseline despite the response request, so the evaluator's yardstick (baseline reached rate, ~5.0% pooled OT2017-OT2025) does not price that signal; the forecast does.",
-            "severity": "info"
-          },
-          {
-            "category": "other",
-            "event_id": "evt-petition-disposition",
-            "message": "Forward signal from public dockets predating the snapshot, used in the forecast: the Court has already declined this exact question at least four times since Kingsley (Cope v. Cogdill, No. 21-783; Jordan v. Howell, No. 23-210, response requested, then held and dismissed under Rule 46; Lewis County v. Helphenstine, No. 23-259, response requested, three amici, denied Jan. 22, 2024; Hartman v. Short, No. 23-1097, denied June 10, 2024 at its first conference). No disposition of this petition exists; the live supremecourt.gov docket for 26-187 read on Oct. 8, 2026 matches the provisioned snapshot entry for entry.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20261008T143010Z",
-        "schema_version": "1.0"
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/9026000022",
-        "flags": [
-          {
-            "category": "data-quality",
-            "event_id": "evt-petition-disposition",
-            "message": "Material advocacy/source distinction: the petition invokes Judge VanDyke's rehearing statement in support of review, but its own Appendix F at 61a and 67a\u201370a expressly agrees with the panel's mootness result and explains that a new abortion statute would not be restrained by the old injunction. Forecast follows the appended statement, not an inference that it dissented from the disposition. Appendix B also records Rule 60 burden/forfeiture issues. This is not a provisioning failure or outcome leakage; reasoning.md details the distinction.",
-            "severity": "info"
-          }
-        ],
-        "role": "predictor",
-        "run_id": "20261008T143010Z",
+        "run_id": "20261014T142540Z",
         "schema_version": "1.0"
       }
     ],
-    "total": 323,
-    "warnings": 69,
+    "total": 325,
+    "warnings": 78,
     "window_days": 14
   },
-  "generated_at": "2026-10-14T08:13:48.615894+00:00",
+  "generated_at": "2026-10-15T08:13:32.927021+00:00",
   "health": [
     {
-      "failures": 15,
+      "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-14T07:45:20Z",
-      "median_seconds": 166,
-      "p95_seconds": 488,
-      "runs_considered": 71,
-      "success_rate": 0.7887323943661971,
-      "successes": 56,
+      "last_run_at": "2026-10-14T20:04:01Z",
+      "median_seconds": 210,
+      "p95_seconds": 305,
+      "runs_considered": 3,
+      "success_rate": 1.0,
+      "successes": 3,
+      "workflow": "Dependabot Updates"
+    },
+    {
+      "failures": 23,
+      "last_conclusion": "success",
+      "last_run_at": "2026-10-15T07:44:28Z",
+      "median_seconds": 321,
+      "p95_seconds": 506,
+      "runs_considered": 75,
+      "success_rate": 0.6933333333333334,
+      "successes": 52,
       "workflow": "ci"
     },
     {
-      "failures": 4,
+      "failures": 5,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-14T07:45:20Z",
-      "median_seconds": 211,
-      "p95_seconds": 224,
-      "runs_considered": 73,
-      "success_rate": 0.9452054794520548,
-      "successes": 69,
+      "last_run_at": "2026-10-15T07:44:28Z",
+      "median_seconds": 214,
+      "p95_seconds": 238,
+      "runs_considered": 75,
+      "success_rate": 0.9333333333333333,
+      "successes": 70,
       "workflow": "codeql"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-13T17:23:06Z",
-      "median_seconds": 140,
-      "p95_seconds": 768,
-      "runs_considered": 2,
+      "last_run_at": "2026-10-14T11:54:38Z",
+      "median_seconds": 114,
+      "p95_seconds": 114,
+      "runs_considered": 1,
       "success_rate": 1.0,
-      "successes": 2,
-      "workflow": "integration-test"
-    },
-    {
-      "failures": 5,
-      "last_conclusion": "success",
-      "last_run_at": "2026-10-14T05:23:28Z",
-      "median_seconds": 33,
-      "p95_seconds": 38,
-      "runs_considered": 14,
-      "success_rate": 0.6428571428571429,
-      "successes": 9,
-      "workflow": "lint-actions"
-    },
-    {
-      "failures": 1,
-      "last_conclusion": "success",
-      "last_run_at": "2026-10-13T17:44:38Z",
-      "median_seconds": 22,
-      "p95_seconds": 28,
-      "runs_considered": 2,
-      "success_rate": 0.5,
       "successes": 1,
-      "workflow": "promote"
+      "workflow": "integration-test"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-14T05:22:37Z",
-      "median_seconds": 43,
-      "p95_seconds": 51,
+      "last_run_at": "2026-10-14T23:47:31Z",
+      "median_seconds": 32,
+      "p95_seconds": 37,
+      "runs_considered": 18,
+      "success_rate": 1.0,
+      "successes": 18,
+      "workflow": "lint-actions"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-10-15T05:22:45Z",
+      "median_seconds": 51,
+      "p95_seconds": 54,
       "runs_considered": 2,
       "success_rate": 1.0,
       "successes": 2,
@@ -662,31 +656,31 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-14T04:46:50Z",
+      "last_run_at": "2026-10-15T04:44:38Z",
       "median_seconds": 53,
-      "p95_seconds": 272,
-      "runs_considered": 3,
+      "p95_seconds": 55,
+      "runs_considered": 2,
       "success_rate": 1.0,
-      "successes": 3,
+      "successes": 2,
       "workflow": "run-analytics"
     },
     {
-      "failures": 0,
-      "last_conclusion": "success",
-      "last_run_at": "2026-10-13T15:50:00Z",
-      "median_seconds": 58,
-      "p95_seconds": 58,
+      "failures": 1,
+      "last_conclusion": "failure",
+      "last_run_at": "2026-10-14T15:49:15Z",
+      "median_seconds": 8925,
+      "p95_seconds": 8925,
       "runs_considered": 1,
-      "success_rate": 1.0,
-      "successes": 1,
+      "success_rate": 0.0,
+      "successes": 0,
       "workflow": "run-evaluate"
     },
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-10-14T08:12:43Z",
-      "median_seconds": 57,
-      "p95_seconds": 57,
+      "last_run_at": "2026-10-15T08:12:38Z",
+      "median_seconds": 79,
+      "p95_seconds": 79,
       "runs_considered": 2,
       "success_rate": 1.0,
       "successes": 1,
@@ -695,41 +689,30 @@
     {
       "failures": 1,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-13T17:47:22Z",
-      "median_seconds": 1076,
-      "p95_seconds": 1485,
-      "runs_considered": 3,
-      "success_rate": 0.6666666666666666,
-      "successes": 2,
+      "last_run_at": "2026-10-14T17:39:16Z",
+      "median_seconds": 3059,
+      "p95_seconds": 6633,
+      "runs_considered": 2,
+      "success_rate": 0.5,
+      "successes": 1,
       "workflow": "run-predict"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-14T07:32:31Z",
-      "median_seconds": 867,
-      "p95_seconds": 969,
-      "runs_considered": 12,
+      "last_run_at": "2026-10-15T07:31:49Z",
+      "median_seconds": 873,
+      "p95_seconds": 1223,
+      "runs_considered": 10,
       "success_rate": 1.0,
-      "successes": 12,
+      "successes": 10,
       "workflow": "run-pull"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-13T19:12:57Z",
-      "median_seconds": 282,
-      "p95_seconds": 2004,
-      "runs_considered": 5,
-      "success_rate": 1.0,
-      "successes": 5,
-      "workflow": "run-repair"
-    },
-    {
-      "failures": 0,
-      "last_conclusion": "success",
-      "last_run_at": "2026-10-14T02:43:52Z",
-      "median_seconds": 318,
+      "last_run_at": "2026-10-15T02:44:38Z",
+      "median_seconds": 375,
       "p95_seconds": 947,
       "runs_considered": 5,
       "success_rate": 1.0,
@@ -739,9 +722,9 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-10-14T03:50:02Z",
-      "median_seconds": 2895,
-      "p95_seconds": 2895,
+      "last_run_at": "2026-10-15T03:50:29Z",
+      "median_seconds": 19931,
+      "p95_seconds": 19931,
       "runs_considered": 2,
       "success_rate": 1.0,
       "successes": 1,
@@ -750,32 +733,32 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-14T03:28:50Z",
-      "median_seconds": 30,
-      "p95_seconds": 38,
-      "runs_considered": 3,
+      "last_run_at": "2026-10-15T03:28:30Z",
+      "median_seconds": 25,
+      "p95_seconds": 26,
+      "runs_considered": 2,
       "success_rate": 1.0,
-      "successes": 3,
+      "successes": 2,
       "workflow": "sync-staging"
     }
   ],
   "leakage": {
-    "assessed": 1050,
+    "assessed": 1182,
     "flagged": [],
     "likely": 0,
-    "none": 108,
-    "not_applicable": 940,
+    "none": 107,
+    "not_applicable": 1073,
     "possible": 2,
     "window_days": 14
   },
   "open_triggers": [],
   "schema_version": "1.0",
   "spend": {
-    "estimated_cost_usd": 4391.444976,
-    "mean_cost_usd_per_run": 2.325977,
-    "runs": 1888,
-    "total_tokens": 2950065002,
-    "window_days": 91.9450462962963
+    "estimated_cost_usd": 4545.296999,
+    "mean_cost_usd_per_run": 2.286367,
+    "runs": 1988,
+    "total_tokens": 3075463320,
+    "window_days": 92.93957175925927
   },
   "substance": {
     "calibration": {
@@ -808,24 +791,24 @@
       ]
     },
     "cells": {
-      "evaluations_forward": 945,
-      "evaluations_forward_delta": 447,
+      "evaluations_forward": 1107,
+      "evaluations_forward_delta": 162,
       "evaluations_retrospective": 40,
       "evaluations_retrospective_delta": 0,
-      "events_predicted": 358,
-      "predicted_resolved": 165,
-      "predicted_resolved_delta": 26,
-      "predictions": 1452,
-      "predictions_delta": 84
+      "events_predicted": 373,
+      "predicted_resolved": 168,
+      "predicted_resolved_delta": 29,
+      "predictions": 1496,
+      "predictions_delta": 122
     },
     "forward_claim": {
       "by_predictor": {},
-      "claimed_forward": 987,
+      "claimed_forward": 1149,
       "excluded": 0,
       "policy": "exclude"
     },
     "leakage_exclusion": {
-      "assessed": 987,
+      "assessed": 1149,
       "by_predictor": {
         "gemini-baseline": 2
       },
@@ -935,7 +918,7 @@
         },
         {
           "conference": "2026-10-09",
-          "petitions": 28
+          "petitions": 30
         },
         {
           "conference": "2026-10-16",
@@ -943,37 +926,52 @@
         },
         {
           "conference": "2026-11-06",
-          "petitions": 106
+          "petitions": 129
         }
       ],
-      "documents_provisioned": 126,
-      "generated_on": "2026-10-14",
+      "documents_provisioned": 132,
+      "generated_on": "2026-10-15",
       "next_conference": "2026-10-16",
       "next_conference_petitions": 97,
       "schema_version": "1.0",
       "skipped": false,
-      "watchlist": 397
+      "watchlist": 422
     },
     "predictor_scores": [
       {
-        "accuracy": 0.9909,
-        "accuracy_scored": 330,
-        "evaluations": 330,
-        "median": 0.86,
+        "accuracy": 0.9818,
+        "accuracy_scored": 384,
+        "evaluations": 384,
+        "median": 0.85,
         "p25": 0.82,
         "p75": 0.9,
         "predictor_id": "claude-baseline",
         "process_window": null,
         "rubrics": [
           {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 25
+          },
+          {
             "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
             "evaluator_id": "claude-judge",
             "n": 110
           },
           {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 25
+          },
+          {
             "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
             "evaluator_id": "codex-judge",
             "n": 110
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 4
           },
           {
             "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
@@ -983,31 +981,46 @@
         ],
         "windows": [
           {
-            "n": 330,
+            "n": 384,
             "opens": "2026-09-16T00:26:04Z",
             "process_window": "proc-v8"
           }
         ]
       },
       {
-        "accuracy": 0.9545,
-        "accuracy_scored": 330,
-        "evaluations": 330,
-        "median": 0.89,
+        "accuracy": 0.9557,
+        "accuracy_scored": 384,
+        "evaluations": 384,
+        "median": 0.88,
         "p25": 0.84,
-        "p75": 0.92,
+        "p75": 0.91,
         "predictor_id": "codex-baseline",
         "process_window": null,
         "rubrics": [
           {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 25
+          },
+          {
             "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
             "evaluator_id": "claude-judge",
             "n": 110
           },
           {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 25
+          },
+          {
             "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
             "evaluator_id": "codex-judge",
             "n": 110
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 4
           },
           {
             "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
@@ -1017,26 +1030,36 @@
         ],
         "windows": [
           {
-            "n": 330,
+            "n": 384,
             "opens": "2026-09-16T00:26:04Z",
             "process_window": "proc-v8"
           }
         ]
       },
       {
-        "accuracy": 0.9169,
-        "accuracy_scored": 325,
-        "evaluations": 325,
-        "median": 0.6,
+        "accuracy": 0.9129,
+        "accuracy_scored": 379,
+        "evaluations": 379,
+        "median": 0.58,
         "p25": 0.5,
         "p75": 0.7,
         "predictor_id": "gemini-baseline",
         "process_window": null,
         "rubrics": [
           {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 25
+          },
+          {
             "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
             "evaluator_id": "claude-judge",
             "n": 109
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 25
           },
           {
             "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
@@ -1044,6 +1067,11 @@
             "n": 107
           },
           {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 4
+          },
+          {
             "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
             "evaluator_id": "gemini-judge",
             "n": 109
@@ -1051,7 +1079,7 @@
         ],
         "windows": [
           {
-            "n": 325,
+            "n": 379,
             "opens": "2026-09-16T00:26:04Z",
             "process_window": "proc-v8"
           }
@@ -1060,24 +1088,39 @@
     ],
     "predictor_scores_by_protocol": [
       {
-        "accuracy": 0.9909,
-        "accuracy_scored": 330,
-        "evaluations": 330,
-        "median": 0.86,
+        "accuracy": 0.9818,
+        "accuracy_scored": 384,
+        "evaluations": 384,
+        "median": 0.85,
         "p25": 0.82,
         "p75": 0.9,
         "predictor_id": "claude-baseline",
         "process_window": "proc-v8",
         "rubrics": [
           {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 25
+          },
+          {
             "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
             "evaluator_id": "claude-judge",
             "n": 110
           },
           {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 25
+          },
+          {
             "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
             "evaluator_id": "codex-judge",
             "n": 110
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 4
           },
           {
             "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
@@ -1087,24 +1130,39 @@
         ]
       },
       {
-        "accuracy": 0.9545,
-        "accuracy_scored": 330,
-        "evaluations": 330,
-        "median": 0.89,
+        "accuracy": 0.9557,
+        "accuracy_scored": 384,
+        "evaluations": 384,
+        "median": 0.88,
         "p25": 0.84,
-        "p75": 0.92,
+        "p75": 0.91,
         "predictor_id": "codex-baseline",
         "process_window": "proc-v8",
         "rubrics": [
           {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 25
+          },
+          {
             "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
             "evaluator_id": "claude-judge",
             "n": 110
           },
           {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 25
+          },
+          {
             "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
             "evaluator_id": "codex-judge",
             "n": 110
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 4
           },
           {
             "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
@@ -1114,24 +1172,39 @@
         ]
       },
       {
-        "accuracy": 0.9169,
-        "accuracy_scored": 325,
-        "evaluations": 325,
-        "median": 0.6,
+        "accuracy": 0.9129,
+        "accuracy_scored": 379,
+        "evaluations": 379,
+        "median": 0.58,
         "p25": 0.5,
         "p75": 0.7,
         "predictor_id": "gemini-baseline",
         "process_window": "proc-v8",
         "rubrics": [
           {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 25
+          },
+          {
             "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
             "evaluator_id": "claude-judge",
             "n": 109
           },
           {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 25
+          },
+          {
             "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
             "evaluator_id": "codex-judge",
             "n": 107
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 4
           },
           {
             "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
@@ -1144,20 +1217,16 @@
     "process_scope": "frozen"
   },
   "tooling": {
-    "base_rate_uses": 659,
-    "corpus_query_uses": 126,
+    "base_rate_uses": 678,
+    "corpus_query_uses": 118,
     "gaps": [
       {
         "count": 6,
         "label": "Web attempts returned no usable content"
       },
       {
-        "count": 6,
+        "count": 5,
         "label": "Web calls returned no usable content."
-      },
-      {
-        "count": 3,
-        "label": "Web attempts returned no usable content."
       },
       {
         "count": 2,
@@ -1166,6 +1235,10 @@
       {
         "count": 2,
         "label": "Rounded statpack percentages limit baseline precision"
+      },
+      {
+        "count": 2,
+        "label": "Web attempts returned no usable content."
       },
       {
         "count": 2,
@@ -1191,7 +1264,15 @@
     "helpful": [
       {
         "count": 11,
+        "label": "run_shell_command"
+      },
+      {
+        "count": 11,
         "label": "statpack"
+      },
+      {
+        "count": 10,
+        "label": "Blinded candidate artifacts"
       },
       {
         "count": 10,
@@ -1199,15 +1280,7 @@
       },
       {
         "count": 10,
-        "label": "run_shell_command"
-      },
-      {
-        "count": 9,
         "label": "statpack.md"
-      },
-      {
-        "count": 8,
-        "label": "Blinded candidate artifacts"
       },
       {
         "count": 8,
@@ -1233,190 +1306,164 @@
     "recent": [
       {
         "actor_id": "gemini-baseline",
-        "case_id": "scotus/9026000034",
+        "case_id": "scotus/9526000477",
         "gaps": [],
         "helpful": [
-          "The statpack.md file was very helpful for anchoring the base rates based on the state band and relist count."
+          "google_web_search was essential for understanding the context and procedural history of the dispute.",
+          "statpack.md was useful for establishing a baseline for the interim docket."
         ],
-        "notes": "The prompt contract and AGENTS.md provided clear guidance.",
+        "notes": "CourtListener tools had trouble finding the specific stay application docket (26A477), likely because it is a very recent or administrative docket number. Web search successfully found the context.",
         "role": "predictor",
-        "run_id": "20261013T174813Z",
+        "run_id": "20261014T174020Z",
         "schema_version": "1.0",
         "tool_manifest": null,
         "tools_used": [
-          "read_file",
-          "grep_search",
-          "run_shell_command",
-          "list_directory"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/9026000034",
-        "gaps": [
-          "Web calls returned no usable content in this run.",
-          "Published terminal relist/CVSG cuts do not provide conditional transition rates from the frozen state."
-        ],
-        "helpful": [
-          "The opposition and reply expose the disputed circuit split and alternative-ground vehicle issue.",
-          "The petition appendix retains the relevant lower-court rulings despite truncation of later material.",
-          "Exact state-band reached denominators in statpack JSON permit correct prior-Term pooling."
-        ],
-        "notes": "The default CLI cache directory was read-only; a temporary writable cache resolved it. The CourtListener search verified a historical precedent's metadata only. No current-case docket or disposition retrieval was attempted. The committed statpack's artifact vintage is stated separately from unverified underlying corpus freshness.",
-        "role": "predictor",
-        "run_id": "20261013T174813Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "provisioned snapshot and document text",
-          "committed statpack markdown and JSON",
-          "fedcourts paths",
-          "CourtListener MCP opinion citation search",
-          "web.run historical-precedent searches and PDF open attempt"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/9026000034",
-        "gaps": [
-          "A cut of grant rate conditional on exactly one post-conference relist (distinguishing reschedules from relists) would sharpen this cell"
-        ],
-        "helpful": [
-          "Salience band table with reached figures",
-          "Relist-count cut"
-        ],
-        "notes": "Provisioned BIO and cert reply were sufficient; no live retrieval needed.",
-        "role": "predictor",
-        "run_id": "20261013T174813Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "metrics/statpack.md",
-          "provisioned documents"
+          "mcp_courtlistener_call_endpoint",
+          "mcp_courtlistener_search",
+          "google_web_search"
         ],
         "used_base_rates": true,
         "used_corpus_query": false
       },
       {
         "actor_id": "gemini-baseline",
-        "case_id": "scotus/73514289",
+        "case_id": "scotus/9526000477",
+        "gaps": [],
+        "helpful": [
+          "metrics/statpack.md provided clear baseline rates for the interim docket"
+        ],
+        "notes": "The synthetic docket number 26A274 wasn't found in CourtListener, which is expected for test cases, but meant I relied entirely on the provisioned application text.",
+        "role": "predictor",
+        "run_id": "20261014T174020Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "mcp_courtlistener_search",
+          "run_shell_command"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": false
+      },
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9526000477",
+        "gaps": [
+          "CourtListener search tool didn't return results for the docket number, likely due to indexing delays for brand-new emergency applications."
+        ],
+        "helpful": [
+          "google_web_search was essential for finding the context of the emergency application since the snapshot was bare."
+        ],
+        "notes": "Had to rely on web search to understand the underlying dispute because the application was just filed.",
+        "role": "predictor",
+        "run_id": "20261014T174020Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "google_web_search",
+          "read_file",
+          "run_shell_command"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000285",
+        "gaps": [
+          "None"
+        ],
+        "helpful": [
+          "The CourtListener MCP tools were very helpful in identifying the lower court's reliance on McIntosh and retrieving the First Circuit's opinion."
+        ],
+        "notes": "fedcourts query does not support free-text search, so CourtListener MCP tools were required to find the lower court opinion.",
+        "role": "predictor",
+        "run_id": "20261014T174020Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "mcp_courtlistener_search",
+          "mcp_courtlistener_search_document",
+          "mcp_courtlistener_read_document"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": false
+      },
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000274",
+        "gaps": [],
+        "helpful": [
+          "statpack.md"
+        ],
+        "notes": "fedcourts query command was not found in the environment, so fell back to CourtListener MCP search.",
+        "role": "predictor",
+        "run_id": "20261014T174020Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "mcp_courtlistener_search",
+          "read_file"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": false
+      },
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000223",
+        "gaps": [],
+        "helpful": [
+          "The statpack base rates for the salience bands provide a solid anchor."
+        ],
+        "notes": null,
+        "role": "predictor",
+        "run_id": "20261014T174020Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts query",
+          "metrics/statpack.md"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000184",
+        "gaps": [
+          "Would be helpful to have a query tool that searches by case name for corpus matching."
+        ],
+        "helpful": [
+          "Provisioned documents like questions-presented.txt were very helpful for understanding the core legal issues and split."
+        ],
+        "notes": "MCP search provided insight into the 3rd/5th Circuit procedural history for Defense Distributed.",
+        "role": "predictor",
+        "run_id": "20261014T174020Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "mcp_courtlistener_search",
+          "read_file",
+          "run_shell_command"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": false
+      },
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000180",
         "gaps": [],
         "helpful": [],
         "notes": null,
         "role": "predictor",
-        "run_id": "20261013T174813Z",
+        "run_id": "20261014T174020Z",
         "schema_version": "1.0",
         "tool_manifest": null,
         "tools_used": [],
-        "used_base_rates": true,
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/73514289",
-        "gaps": [
-          "The petition text cap removes part of the appended opinion's dispositive alternative-ground analysis.",
-          "General-precedent web requests returned no usable content."
-        ],
-        "helpful": [
-          "Opposition and cert reply exposed both sides of the independent-ground vehicle objection.",
-          "Frozen conditioning prevented duplicate entries for the same conference from becoming an extra relist.",
-          "JSON risk-set denominators allowed exact pooling rather than averaging rounded percentages.",
-          "Targeted CourtListener opinion snippets verified the general precedent without retrieving the forecast case."
-        ],
-        "notes": "The initial CLI call hit a read-only default cache; using a writable temporary cache resolved it. The initial citation-only MCP search was imprecise, while a court/name/date-constrained search found the intended precedent. No corpus retrieval was attempted. Provisioned case facts and committed aggregate context were sufficient.",
-        "role": "predictor",
-        "run_id": "20261013T174813Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "provisioned documents",
-          "committed statpack",
-          "fedcourts paths",
-          "CourtListener MCP search",
-          "CourtListener MCP search_document",
-          "web search/open",
-          "fedcourts validate"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "claude-baseline",
-        "case_id": "scotus/73514289",
-        "gaps": [
-          "A statpack cut conditioned on current distribution count (forward hazard from 3 distributions) rather than terminal relist bucket"
-        ],
-        "helpful": [
-          "Provisioned BIO and cert reply made the independent-ground vehicle problem visible directly"
-        ],
-        "notes": null,
-        "role": "predictor",
-        "run_id": "20261013T174813Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "metrics/statpack.md",
-          "provisioned snapshot and documents"
-        ],
-        "used_base_rates": true,
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "gemini-baseline",
-        "case_id": "scotus/73369985",
-        "gaps": [
-          "ability to read amicus brief texts (not provisioned)"
-        ],
-        "helpful": [
-          "statpack.md"
-        ],
-        "notes": null,
-        "role": "predictor",
-        "run_id": "20261013T174813Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [],
-        "used_base_rates": true,
-        "used_corpus_query": false
-      },
-      {
-        "actor_id": "codex-baseline",
-        "case_id": "scotus/73369985",
-        "gaps": [
-          "The appendix cap omits later rehearing dissents; separate complete opinion sections would help.",
-          "No body-camera video was reviewed, although competing interpretations of it are central.",
-          "Web calls returned no usable content; the MCP precedent path worked."
-        ],
-        "helpful": [
-          "Provisioned petition, BIO, reply, and panel opinion enabled an adversarial assessment of the cert vehicle.",
-          "Frozen sal-v4 high band and JSON reached denominators permitted exact prior-Term pooling.",
-          "CourtListener provided targeted general precedent without retrieving this case's outcome."
-        ],
-        "notes": "No corpus query was necessary. The default uv cache was read-only; a temporary writable cache allowed the required commands. Relist, CVSG, and denial-writing probabilities are judgmental because the statpack does not supply forward hazards for this exact state.",
-        "role": "predictor",
-        "run_id": "20261013T174813Z",
-        "schema_version": "1.0",
-        "tool_manifest": null,
-        "tools_used": [
-          "shell",
-          "jq",
-          "fedcourts paths",
-          "CourtListener search",
-          "CourtListener read_document",
-          "CourtListener search_document",
-          "web.run",
-          "fedcourts validate"
-        ],
         "used_base_rates": true,
         "used_corpus_query": false
       }
     ],
-    "reports": 671,
+    "reports": 733,
     "window_days": 14
   }
 }
