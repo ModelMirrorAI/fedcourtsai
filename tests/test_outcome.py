@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -24,6 +25,7 @@ from fedcourtsai.pipeline.outcome import (
     detect_resolution,
     disposition_basis,
     disposition_route,
+    forward_leakage,
     granted_flag,
     interim_disposal_signal,
     interim_resolution_signals,
@@ -290,6 +292,227 @@ def test_interim_disposal_signal_reads_relief_named_disposals() -> None:
         ]
     }
     assert interim_disposal_signal(pending) is None
+
+
+def _application_entries(*texts: str) -> dict[str, Any]:
+    return {
+        "CaseNumber": "25A100",
+        "ProceedingsandOrder": [{"Text": text} for text in texts],
+    }
+
+
+# Orders on side motions: routine on a contested application's docket, and none
+# disposes of anything the application asked for.
+_SIDE_MOTION_ORDERS = [
+    "Motion for leave to file amicus brief filed by Cato Institute GRANTED.",
+    "Motion for leave to file amicus brief granted.",
+    "Motion of Center for Individual Rights for leave to file brief as amicus curiae " + "GRANTED.",
+    "Motions of Ohio, et al. for leave to file briefs as amici curiae granted.",
+    "The motion of respondent for leave to file a sur-reply is granted.",
+    "Motion to file under seal granted.",
+    "Motion of applicant for leave to file the application under seal with redacted copies "
+    + "GRANTED.",
+    "Motion to unseal the application GRANTED.",
+    "Motion of applicant to expedite consideration of the application GRANTED.",
+    "Motion for leave to file a reply in support of the application granted.",
+    "Motion for an extension of time to file a response to the application granted.",
+    "Motion of respondents for divided argument granted.",
+    "Motion for leave to intervene denied.",
+    "Motion to withdraw as counsel granted.",
+    "Motion for leave to file a supplemental brief granted.",
+    "Joint motion for divided argument granted.",
+    "Unopposed motion for an extension of time granted.",
+    "Motion for leave to file a brief as amicus curiae in support of applicants granted.",
+    "Motion for leave to proceed in forma pauperis granted.",
+    "Motion for leave to exceed the word limits granted.",
+    "Motion to expedite consideration of the application for a stay granted.",
+    "Motion for leave to file a reply in support of the application for a stay granted.",
+    "Motion to expedite consideration of the application for stay granted.",
+    "Motion to dispense with printing granted.",
+    "Motion for leave to file under seal with redacted copies for the public record " + "GRANTED.",
+    "Motion to intervene denied.",
+    "Motion of applicants to expedite consideration GRANTED.",
+    "The motion for divided argument is granted.",
+]
+
+# Dispositions of the application or its relief, including an entry that
+# grants a side motion and disposes of the application in the same order, and
+# every shape a side-motion mask must refuse: mootness, relief coordinated into
+# the clause, a leave-to ask off the closed list, a disposing participle.
+_RELIEF_DISPOSALS = [
+    "Motion for leave to file amicus brief granted. Justice Thomas would have granted "
+    + "the application.",
+    "Motion for leave to file amicus brief granted. Justice Thomas would have denied "
+    + "the application.",
+    "Motion for leave to file amicus brief granted. Justice Alito dissents.",
+    "Motion to expedite granted. Justice Gorsuch dissents from the denial of the application.",
+    "Motion to expedite granted. The order heretofore entered by Justice Kagan is vacated.",
+    "Motion for leave to file amicus brief granted. Judgment below vacated and remanded.",
+    "Motion to expedite granted. Stay entered.",
+    "Motion for leave to file amicus brief granted. Administrative stay entered by The "
+    + "Chief Justice.",
+    "Application (24A650) denied by Justice Kagan.",
+    "Application for a stay and motion for leave to file under seal granted.",
+    "Application for injunction withdrawn.",
+    "Motion for a stay pending appeal granted.",
+    "Motion for administrative stay granted.",
+    "Motion for an extension of time to respond to the application, and the application "
+    + "itself, denied.",
+    "Motion for divided argument granted. Application for stay granted pending disposition.",
+    "Motion for leave to dismiss the application granted.",
+    "Motion for leave to file a brief as amicus curiae in support of applicants granted, "
+    + "with the stay entered on May 1 vacated.",
+    "Motion for leave to file a reply, treated as a renewed application, denied.",
+    "Motion for leave to file a response to the application and for an administrative stay "
+    + "granted.",
+    "Motion for leave to file amicus brief DISMISSED as moot.",
+    "Motion for leave to file amicus brief and the application for a stay are granted.",
+    "Motion for leave to file amicus brief denied as moot because the application has been "
+    + "withdrawn",
+    "Motion for leave to file amicus brief dismissed as moot in light of the Court's order "
+    + "denying the application",
+    "Motion for leave to file amicus brief dismissed as moot, the application having been "
+    + "denied by the Court",
+    "Motion for leave to file amicus brief granted (Justice Alito would deny the "
+    + "application).",
+    "Motion for leave to file amicus brief granted, with the stay entered on May 1 vacated.",
+    "Motion for leave to file amicus brief granted. The administrative stay entered on May "
+    + "1 is vacated.",
+    "Motion for leave to file amicus brief in support of the application for a stay is "
+    + "granted, and the application for stay is denied.",
+    "Motion for leave to file under seal and for a temporary administrative stay granted.",
+    "Motion for leave to file under seal granted: application for stay denied.",
+    "Motion for leave to intervene and to dismiss the application granted.",
+    "Motion for leave to intervene and to dismiss the pending application granted.",
+    "Motion for leave to withdraw the application granted.",
+    "Motion of applicant for a stay pending the filing of a motion for leave to file " + "granted.",
+    "Motion of applicant for a TRO and for leave to file under seal granted.",
+    "Motions of applicant for a TRO and to expedite are granted.",
+    "Motion of applicant for a TRO, for leave to file under seal granted.",
+    "Motion of applicant for a writ of mandamus and for leave to file under seal granted.",
+    "Motion of applicant for a writ of prohibition and to expedite granted.",
+    "Motion of applicant for release on bail and for leave to proceed in forma pauperis denied.",
+    "Motion of applicants for an order suspending enforcement and to expedite granted.",
+    "Motion of applicant to hold the case in abeyance and to expedite granted.",
+    "Motion of applicant to suspend the order below and to expedite granted.",
+    "Motion of applicant for an administrative hold and to expedite granted.",
+    "Motion of applicant for interim protection and for leave to file under seal granted.",
+    "Motion to expedite filed by applicant and for a TRO granted.",
+    "Motion to expedite consideration filed by applicant seeking a TRO, denied.",
+    "Motion for leave to file amicus brief granted. Justice Alito would deny the application.",
+    "Motion of applicant for a temporary restraining order and for leave to file under "
+    + "seal granted.",
+    "Motion of applicant for emergency relief pending appeal and for leave to file under "
+    + "seal granted.",
+    "Motion of applicant for leave to file a supplemental brief GRANTED and stay pending "
+    + "appeal DENIED",
+    "Motion of applicant for leave to vacate the stay granted.",
+    "Motion of applicant for recall of the mandate and to expedite granted.",
+    "Motion of applicants for leave to withdraw the application GRANTED.",
+    "Motion of applicants to expedite consideration DENIED as moot.",
+    "Motion of applicants to withdraw the application granted.",
+    "Motion to expedite and for a stay pending appeal granted.",
+    "Motion to expedite and for a temporary restraining order granted.",
+    "Motion to expedite and for a writ of injunction granted.",
+    "Motion to expedite and for an immediate administrative stay granted.",
+    "Motion to expedite and for emergency relief granted.",
+    "Motion to expedite and for interim relief pending appeal denied.",
+    "Motion to expedite and the Government's application for a stay are granted.",
+    "Motion to expedite and the respondent's cross-application are denied.",
+    "Motion to expedite and to enjoin enforcement of the rule granted.",
+    "Motion to expedite as well as the application for a stay are granted.",
+    "Motion to expedite consideration GRANTED, and the application is denied.",
+    "Motion to expedite consideration of the application DISMISSED as moot.",
+    "Motion to expedite consideration of the application, which application is denied.",
+    "Motion to expedite granted; stay lifted.",
+    "Motion to expedite is granted and the administrative stay entered on May 1 is vacated.",
+    "Motion to expedite together with the application is denied.",
+    "Motion to expedite, for a stay, and for leave to file under seal granted.",
+    "Motion to file a reply brief granted, the application is denied.",
+    "Motion to file a response under seal and to vacate the administrative stay granted.",
+    "Motion to file a stipulation of dismissal of the application granted.",
+    "Motion to intervene and to vacate the stay granted.",
+    "Motion to substitute party granted and application dismissed.",
+    "Motion to supplement the record granted, and the application referred to the Court is "
+    + "denied.",
+    "Motion to vacate stay denied.",
+    "Motion to vacate the stay entered by the court of appeals granted.",
+    "Motion to withdraw as counsel and to withdraw the application granted.",
+    "Motions of Ohio, et al. for leave to file briefs as amici curiae granted. Application "
+    + "denied.",
+    "Request to withdraw the application granted.",
+    "Stay granted pending disposition.",
+    "Stay of execution granted by The Chief Justice pending further order.",
+    "The application for stay presented to Justice Alito and by him referred to the Court "
+    + "is granted.",
+    "The motion for an injunction pending appeal is denied.",
+    "The motion for leave to file a brief as amicus curiae is granted. The application for "
+    + "stay is denied.",
+    "The motion for leave to file amicus brief is granted; the application is denied.",
+]
+
+
+@pytest.mark.parametrize("text", _SIDE_MOTION_ORDERS)
+def test_interim_disposal_signal_ignores_side_motion_orders(text: str) -> None:
+    # A side-motion order is not a disposal: read as one, it parks every pending
+    # contested application — the dockets the interim reserve selects.
+    docket = _application_entries(
+        "Application (25A100) for a stay, submitted to The Chief Justice.",
+        "Response to application (25A100) requested by The Chief Justice.",
+        text,
+    )
+    assert interim_disposal_signal(docket) is None
+    assert forward_leakage(docket, "scotus", "evt-motion-disposition") is None
+
+
+@pytest.mark.parametrize("text", _RELIEF_DISPOSALS)
+def test_interim_disposal_signal_still_reads_relief_disposals(text: str) -> None:
+    # The leakage guard keeps every disposal phrasing, alone or beside a
+    # side-motion order in the same entry.
+    docket = _application_entries(
+        "Application (25A100) for a stay, submitted to The Chief Justice.", text
+    )
+    signal = interim_disposal_signal(docket)
+    assert signal is not None and text in signal
+    assert forward_leakage(docket, "scotus", "evt-motion-disposition") is not None
+
+
+def test_a_side_motion_order_does_not_hide_a_later_disposal() -> None:
+    docket = _application_entries(
+        "Motion for leave to file amicus brief filed by Cato Institute GRANTED.",
+        "Motion to expedite consideration of the application GRANTED.",
+        "Application (25A100) denied by the Court.",
+    )
+    signal = interim_disposal_signal(docket)
+    assert signal is not None and "denied by the Court" in signal
+
+
+# Strings outside both lists that probe the carve-out's edges: entries the
+# unmasked scan does not match (a bare disposing participle, a side motion with
+# no disposing verb) and side-motion shapes split by an abbreviation or a
+# parenthesis.
+_CARVE_OUT_PROBES = [
+    "Stay lifted.",
+    "The administrative stay is dissolved.",
+    "Motion for leave to file amicus brief submitted.",
+    "Motion of U.S. to expedite granted; application denied.",
+    "Motion of Smith v. Jones for leave to file under seal granted, application denied.",
+    "Motion of applicant (for a stay (pending appeal)) to expedite granted.",
+    "Motion for leave to file amicus brief filed by X GRANTED; Justice Alito would grant "
+    + "the application.",
+    "Motion to expedite GRANTED.  Application DENIED",
+    "Motion to expedite consideration of the application for a stay granted\nApplication "
+    + "denied",
+]
+
+
+@pytest.mark.parametrize("text", _SIDE_MOTION_ORDERS + _RELIEF_DISPOSALS + _CARVE_OUT_PROBES)
+def test_the_side_motion_carve_out_never_widens_the_scan(text: str) -> None:
+    # The carve-out only removes hits: wherever the scan fires, the unmasked
+    # pattern matches the same entry, even where the remainder check would read
+    # a disposing participle the pattern has no verb for.
+    if interim_disposal_signal(_application_entries(text)) is not None:
+        assert outcome_module._INTERIM_DISPOSAL_RE.search(text) is not None
 
 
 def test_tolerant_application_spelling_is_also_guarded() -> None:
