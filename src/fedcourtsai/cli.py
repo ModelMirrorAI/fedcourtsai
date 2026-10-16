@@ -313,6 +313,7 @@ from .pipeline.documents import (
     questions_presented_extract,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
+from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.lineup import WritingKind
 from .pipeline.live import live_poll_all
@@ -1284,6 +1285,60 @@ def rederive_amicus_briefs_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
+
+
+@app.command("interim-reading-census")
+def interim_reading_census_cmd() -> None:
+    """Census the stored application rows the finer interim reading names partial or moot.
+
+    Read-only, and the measurement the 2026-10-16 interim partial-grant and moot
+    freeze-record entry asks for (`pipeline.interim_reading_census`). It reports
+    the statpack's substantive interim counts per application Term beside the
+    subset it re-reads — the resolved, application-parsed, live-slice rows with a
+    stored snapshot — and the gap (`unobservable`, `non_live`). Each re-read
+    snapshot is read under the **registered** reading, confirming the stored
+    label, and under the **finer** one (`interim_signals.read_interim_disposition`),
+    listing the rows it names `granted-in-part` or `dismissed-moot` by Term and
+    ask. It also lists stored `denied` rows whose disposing entry holds an
+    application clause that grants with no denial in it — the registered
+    reading's known side-motion misreading — and the committed interim outcomes
+    on the named rows, which stay as recorded. Nothing stored, scored or
+    cell-facing moves. Run where the corpus is pulled with the content store
+    addressed; read `unobservable` first. Prints an `InterimReadingCensus`.
+    Exits 1 when the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the interim reading census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+    elif settings.corpus_pointer is None:
+        pointer_file = corpus_remote.pointer_path_for(db_path)
+        corpus_sha = (
+            corpus_ranged.read_index_pointer(pointer_file).sha256 if pointer_file.is_file() else ""
+        )
+    else:
+        corpus_sha = corpus.resolve_read_pointer(db_path).sha256
+    with corpus.connect(db_path) as conn:
+        result = interim_reading_census(conn, settings.data_root, corpus_sha256=corpus_sha)
+    typer.echo(
+        f"interim-reading-census: {len(result.rows)} of {result.observable} readable resolved "
+        f"application(s) carry partial-grant or mootness order text (by Term and ask: "
+        f"{result.by_term}); {result.unobservable} unobservable, {result.non_live} "
+        f"outside the live slice; {len(result.registered_plain_grant_misreads)} stored "
+        "denial(s) whose application clause grants; "
+        f"{len(result.registered_disagreements)} stored label(s) the registered reading does "
+        f"not reproduce; {len(result.committed_outcomes)} committed interim outcome(s) on "
+        "those rows. Nothing written; no stored, scored or cell-facing label moves.",
+        err=True,
+    )
+    typer.echo(result.model_dump_json())
 
 
 @app.command("reconcile-salience-selection")

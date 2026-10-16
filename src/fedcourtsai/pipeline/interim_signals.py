@@ -144,6 +144,92 @@ _INTERIM_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
 )
 
 
+# The finer reading (`read_interim_disposition`) works on the application's own
+# clause. A clause opens on the word "application" only where it is the
+# subject — "The motion to expedite consideration of the application is denied
+# as moot." rules on the motion, so an "application" behind a preposition opens
+# none — and runs to the end of its sentence, a semicolon, or a conjunction
+# that hands the sentence to another subject: "The application for a stay is
+# granted, and the request for an administrative stay is dismissed as moot."
+# rules on two things, and only the first is the application's. Each of the
+# reading's two forms qualifies a verb, and a qualifier on another subject's
+# verb says nothing about the application.
+_APPLICATION_WORD_RE = re.compile(r"\bapplications?\b", re.I)
+_NOT_SUBJECT_RE = re.compile(
+    r"\b(?:of|for|to|on|in|with|from|regarding|concerning|connection)\s+"
+    r"(?:(?:the|this|that|an?|said|its|their)\s+)?$",
+    re.I,
+)
+_CLAUSE_END_RE = re.compile(
+    r"[.;]|,\s+and\s+(?:the|a|an|its|his|her|their|this)\b"
+    r"|\s+and\s+the\s+(?:motions?|petitions?|requests?)\b",
+    re.I,
+)
+
+# A disposing verb limited to part of the relief: "is granted in part", "granted
+# as to …", "granted insofar as …", "granted to the extent …", "granted except
+# …". The qualifier sits directly after the verb (an optional comma, "but
+# only"), which is what keeps a scope phrase elsewhere in the clause — "the
+# application for a stay as to the injunction is granted" — reading as the
+# grant it is.
+_PART_QUALIFIER = (
+    r"\s*,?\s+(?:(?:but\s+)?only\s+)?"
+    r"(?:in\s+part|as\s+to|insofar\s+as|to\s+the\s+extent|except)\b"
+)
+_QUALIFIED_GRANT_RE = re.compile(r"\bgranted" + _PART_QUALIFIER, re.I)
+_QUALIFIED_DENIAL_RE = re.compile(r"\bdenied" + _PART_QUALIFIER, re.I)
+_GRANT_VERB_RE = re.compile(r"\bgranted\b", re.I)
+
+# The application dismissed or denied **as moot** — "Application (25A1229)
+# denied as moot by Justice Thomas.", "The application … is dismissed as moot."
+# A short gap between the verb and "as moot" admits "denied without prejudice as
+# moot"; a comma ends it, so a later clause's mootness never reaches back.
+_MOOT_RE = re.compile(r"\b(?:denied|dismissed)\b[^,;]{0,40}?\bas\s+moot\b", re.I)
+
+
+def application_clauses(text: str) -> list[str]:
+    """Each clause in ``text`` whose subject is an application (see the comment above).
+
+    Descriptive: the finer reading and the interim reading census read it,
+    and nothing stored or scored does.
+    """
+    clauses: list[str] = []
+    for match in _APPLICATION_WORD_RE.finditer(text):
+        if _NOT_SUBJECT_RE.search(text[: match.start()]):
+            continue
+        end = _CLAUSE_END_RE.search(text, match.end())
+        clauses.append(text[match.start() : end.start() if end else len(text)])
+    return clauses
+
+
+def clause_reads_plain_grant(text: str) -> bool:
+    """Whether an application clause in ``text`` grants with no denial beside it.
+
+    The census's probe for the registered scan's known misreading: "The
+    application for stay is granted, and the motion to expedite is denied as
+    moot." reads ``denied`` under :func:`match_interim_disposition`, whose
+    denial pattern is not clause-scoped, while the application's own clause
+    grants. Descriptive only.
+    """
+    return any(
+        _GRANT_VERB_RE.search(clause) and not re.search(r"\bdenied\b", clause, re.I)
+        for clause in application_clauses(text)
+    )
+
+
+def _partial_grant(clause: str) -> bool:
+    """Whether one application clause grants part of the relief asked.
+
+    A qualified grant is one on its own. A qualified *denial* is one only beside
+    a grant verb in the same clause — "denied insofar as it seeks X, and
+    otherwise granted" — because a denial limited to one ask with no grant
+    beside it ("denied as to the second applicant") grants nothing.
+    """
+    if _QUALIFIED_GRANT_RE.search(clause):
+        return True
+    return bool(_QUALIFIED_DENIAL_RE.search(clause) and _GRANT_VERB_RE.search(clause))
+
+
 def match_interim_disposition(text: str) -> tuple[Disposition, str] | None:
     """The disposition an entry records for its application, or ``None``.
 
@@ -157,11 +243,64 @@ def match_interim_disposition(text: str) -> tuple[Disposition, str] | None:
     for an application the Court has *deferred* — "referred to the Court is
     deferred pending oral argument" decides nothing, and the disposition arrives
     in a later entry, sometimes months later and after argument.
+
+    This is the **registered** reading, and the one every stored, scored and
+    cell-facing interim label comes from: it collapses a mixed partial
+    disposition denial-first and reads a dismissal or denial as moot by its
+    verb (``docs/salience.md``, *The interim docket*). The finer reading of
+    those two forms is :func:`read_interim_disposition`, which is descriptive
+    only and feeds nothing a cell reads or a score uses.
     """
     for pattern, disposition, label in _INTERIM_SIGNALS:
         if pattern.search(text):
             return disposition, label
     return None
+
+
+class InterimReading(StrEnum):
+    """The finer interim reading — the registered labels plus the two forms they collapse.
+
+    Deliberately **not** :class:`~fedcourtsai.schemas.Disposition`: that is the
+    vocabulary outcomes record and predictions emit, and these labels are
+    descriptive only (``docs/freeze-record.md``, the 2026-10-16 interim
+    partial-grant and moot entry). Five values share a spelling with a
+    ``Disposition`` member — ``granted-in-part`` among them, which the cert
+    vocabulary already carries on the granted side — and only
+    ``dismissed-moot``, an application dismissed or denied as moot, has no
+    ``Disposition`` counterpart. Sharing a spelling is not sharing a meaning:
+    no interim outcome records ``granted-in-part``, because the registered
+    interim reading never produces it.
+    """
+
+    granted = "granted"
+    granted_in_part = "granted-in-part"
+    denied = "denied"
+    dismissed_moot = "dismissed-moot"
+    withdrawn = "withdrawn"
+    dismissed = "dismissed"
+
+
+def read_interim_disposition(text: str) -> InterimReading | None:
+    """The finer reading of one entry's disposition, or ``None`` where nothing is disposed.
+
+    Two readings run first, each scoped to the application's own clause, because
+    both forms carry a word the registered reading latches the wrong way. A
+    **partial grant** ("granted in part and denied in part", "granted as to …",
+    "granted insofar as …") is ``granted-in-part``; a **moot dismissal**
+    ("denied as moot", "dismissed as moot") is ``dismissed-moot``. The partial
+    reading wins over the moot one, so "granted in part and otherwise dismissed
+    as moot" records the relief that was granted. Anything else is
+    :func:`match_interim_disposition`'s label, unchanged.
+
+    Descriptive only: nothing stored, scored or provisioned reads it.
+    """
+    clauses = application_clauses(text)
+    if any(_partial_grant(clause) for clause in clauses):
+        return InterimReading.granted_in_part
+    if any(_MOOT_RE.search(clause) for clause in clauses):
+        return InterimReading.dismissed_moot
+    matched = match_interim_disposition(text)
+    return None if matched is None else InterimReading(matched[0].value)
 
 
 def referral_posture(entry_texts: list[str]) -> ReferralPosture:

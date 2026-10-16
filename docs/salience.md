@@ -1813,7 +1813,26 @@ disposition — "granted in part and denied in part", a real shadow-docket
 shape — currently reads **denial-first** through the interim vocabulary and
 lands as `denied` / ungranted; if that collapse proves material once volume
 exists, changing it is a new reading applied forward, never a silent
-relabel. The floor, the estimator, and the collapses are fixed here, before
+relabel. A finer, descriptive reader
+(`interim_signals.read_interim_disposition`) names a partial grant
+`granted-in-part` and an application dismissed or denied as moot
+`dismissed-moot`, and nothing stored, scored or provisioned reads it: the
+corpus label, every outcome, the claims, this estimator and a cell's
+retrievable priors all keep the registered collapse, and
+`fedcourts interim-reading-census` measures what the finer reader names. A new
+interim reading is the next process label's to register, in its own
+freeze-record entry (the 2026-10-16 entry records the decision and what that
+entry must settle); nothing here binds its terms. Three shapes are read wrongly
+today. Under the **registered** scan, whose denial pattern is not
+clause-scoped, an order granting the application while denying a side request
+as moot ("…is granted, and the motion to expedite is denied as moot.") reads
+`denied`; the census lists the stored denials whose application clause grants,
+and the finer reader falls back to the same label. Under the **finer** reader,
+a partial stay worded only in a later sentence ("The application is granted.
+The order is stayed insofar as …") reads as a plain grant, and a filing that
+merely asks for partial relief ("Reply … asks that the application be granted
+in part") reads `granted-in-part`, since the reader keys on the clause and not
+on who is speaking. The floor, the estimator, and the collapses are fixed here, before
 any interim cell has been scored, so none can be tuned to a result. The
 **merits** stage's baseline is registered the same way and likewise wired — the
 statpack merits section's disturbed rate pooled strictly-prior
