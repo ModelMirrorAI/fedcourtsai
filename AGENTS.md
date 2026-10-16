@@ -84,7 +84,7 @@ non-interactive** container. Two consequences shape everything you do:
   Into `main`, never: `main` is the pre-registration record and reaches it only
   through a maintainer-merged promotion batch. (The data-run
   `collect` jobs are the standing exception, opening their per-run PR to `main`
-  with auto-merge, still gated on the same required checks.)
+  and merging it themselves once the same required checks pass.)
   Your own changes travel by PR on both branches — "you may merge" never means
   "you may skip the PR". The rulesets require one, with two documented bypasses
   that are not your lane: the data App's deterministic writers push to `main`

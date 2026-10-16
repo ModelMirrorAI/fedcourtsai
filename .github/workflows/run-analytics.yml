@@ -851,9 +851,10 @@ jobs:
     # required `paths` check, which runs the tested `assert-board-paths` jail on
     # this branch: the board's two files, written, and nothing else. The
     # gate still decides: the dev App bypasses no required check (only
-    # `main`'s approval rule), so auto-merge waits on the same required
-    # checks a reviewed PR would. Where the platform refuses to arm it, the PR
-    # stays open for a manual merge rather than failing the run.
+    # `main`'s approval rule), so the job's own merge waits on the same
+    # required checks a reviewed PR would. Where the merge does not land, the PR
+    # stays open, auto-merge armed, for a manual merge rather than failing the
+    # run.
     if: >-
       ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '36 ')) ||
       inputs.mode == 'big-cases')
@@ -861,13 +862,16 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # The regeneration takes a few minutes; the rest is the merge's wait for
+    # the PR's required checks, which the merge script bounds at 20.
+    timeout-minutes: 35
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
       group: run-analytics-big-cases-${{ github.ref_name }}
       cancel-in-progress: false
     permissions:
       contents: read
+      checks: read # the merge lists the board PR's check runs (GITHUB_TOKEN)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -923,6 +927,9 @@ jobs:
         if: ${{ github.ref == 'refs/heads/main' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Checks read for the merge's check-run listing, so the dev App needs
+          # none.
+          CHECKS_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           BRANCH: metrics/big-cases
         run: |
@@ -952,7 +959,7 @@ jobs:
           {
             printf '%s\n\n' "Deterministic re-roll of \`metrics/big-cases.{json,md}\` from the committed ledger by \`fedcourts big-cases\`: ${cases} case(s) ranked over ${reads} scored stakes read(s) of ${total}; the rest carry no score and are excluded from every mean rather than imputed."
             printf '%s\n\n' "**Not a performance surface.** A stakes read is neither scored nor ranked: it resolves against nothing, so no figure in this diff is a forecast, an accuracy or a skill number, and the mean says nothing about how likely a case is to be granted. The board reads the ledger directly and applies neither the forward-claim nor the leakage exclusion — a wider population than the scored boards. The artifact's own provenance block and \`metrics/README.md\` carry the reading rules."
-            printf '%s\n\n' "The board is a byte-stable pure function of \`data/\`, so this PR exists only because the ledger moved; a day that changed nothing opens nothing. Auto-merge is armed on the same required checks a reviewed PR faces."
+            printf '%s\n\n' "The board is a byte-stable pure function of \`data/\`, so this PR exists only because the ledger moved; a day that changed nothing opens nothing. It merges unattended once the same required checks a reviewed PR faces pass."
             printf '%s\n' "Run: ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}"
           } > pr-body.md
           git checkout -q -b "$BRANCH"
@@ -988,6 +995,16 @@ jobs:
             echo "Auto-merge could not be enabled on ${url}; merge it by hand." \
               >> "$GITHUB_STEP_SUMMARY"
           }
+          # Then land it. Armed auto-merge never exercises the dev App's
+          # approval bypass on `main` — it waits for an approval like any other
+          # PR — so this job merges the PR itself once the platform accepts it,
+          # pinned to the commit just pushed. The bypass covers the approval rule
+          # alone: `main: require PR`'s required `gate` and `paths` checks still
+          # refuse the merge until they pass. The script is read from this job's
+          # own commit, as the collect jobs read it.
+          script="${RUNNER_TEMP}/merge-when-green.sh"
+          git show "${GITHUB_SHA}:scripts/merge-when-green.sh" > "$script"
+          bash "$script" "${url##*/}" "$(git rev-parse HEAD)" < /dev/null
 
       # The rehearsal's boundary, stated where the operator reads, and on every
       # outcome the runner survives rather than only success.

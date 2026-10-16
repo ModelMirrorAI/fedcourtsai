@@ -407,7 +407,7 @@ queues behind the production run of the same mode. The modes:
   [metrics/README.md](../metrics/README.md)'s section for the board; the short
   version is that a stakes read is neither scored nor ranked.
 
-  It is the **one PR lane here that auto-merges**, and the argument is about the
+  It is the **one PR lane here that merges unattended**, and the argument is about the
   artifact rather than the cadence. The board is a byte-stable pure function of
   the committed ledger, so a day that changed nothing opens nothing; a day that
   changed something re-rolls committed cells by a tested command that the PR's
@@ -417,8 +417,11 @@ queues behind the production run of the same mode. The modes:
   judgement in such a diff for a reviewer to exercise, while a queue of unread
   daily PRs is how a published surface goes stale. The gate still decides: the
   dev App bypasses no required check — only `main`'s approval requirement — so
-  auto-merge waits on the same required checks a reviewed PR faces, and where the platform declines to
-  arm it the PR simply stays open for a manual merge.
+  the job's own merge (`scripts/merge-when-green.sh`, pinned to the commit it
+  pushed) waits on the same required checks a reviewed PR faces. GitHub's
+  auto-merge would not do: it never exercises a bypass, so an armed bot PR
+  waits for an approval. The job arms it anyway, so where its own merge gives
+  up the PR stays open and lands on the maintainer's approval.
 - **`tool-usage`** (dispatch) rolls every committed `retrieval_log.json` into an
   **offered-vs-called** report: which configured MCP tools were never called,
   which are used by some engines and not others, and call counts per tool /
@@ -2652,8 +2655,10 @@ run that looks green and quietly drops a scoring block.
 How a cell's output becomes a PR is the same across **run-predict** and
 **run-evaluate**: each cell validates its own output and
 uploads it (plus a status file) as an artifact rather than opening a PR, and a
-final **`collect`** job unions the run's artifacts into **one PR** — auto-merged
-once `gate` + `paths` are green — with
+final **`collect`** job unions the run's artifacts into **one PR** — merged by
+the job itself once `gate` + `paths` are green (`scripts/merge-when-green.sh`,
+pinned to the commit it pushed; armed auto-merge alone would wait for an
+approval, since it exercises no bypass) — with
 any salvageable partial output split into a single companion **draft** PR. So a
 fan-out of dozens of cells yields one (or two) PRs for the run, not one per cell.
 The append-only `data/` path jail (`fedcourts assert-paths`) is enforced in

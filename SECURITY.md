@@ -501,8 +501,9 @@ runbook, [docs/security.md](docs/security.md).
   by identity, since the agent workflows authenticate as a separate **dev
   App** that bypasses no required check. `main: require approval` requires
   one approving review, which only the `maintainers` team can give, and
-  bypasses it for the dev App's pull requests (what lets its two auto-merged
-  lanes land; still bound by the checks), for the data App, and for any pull request an
+  bypasses it for the dev App's pull requests (what lets its two unattended
+  lanes land, by the jobs' own merge call — GitHub's auto-merge never
+  exercises a bypass; still bound by the checks), for the data App, and for any pull request an
   admin merges (how the maintainer's own lands, since GitHub does not let an
   author approve their own). So a promotion — opened by the dev App — merges
   on the maintainer's approval of its head or through a recorded bypass: the

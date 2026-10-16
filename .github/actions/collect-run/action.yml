@@ -1,7 +1,7 @@
 name: Collect a matrix run into one PR
 description: >
   Download every cell artifact for a `run-predict` / `run-evaluate` fan-out, union
-  the ready cells into one auto-merging PR and any salvageable partial output into
+  the ready cells into one unattended-merge PR and any salvageable partial output into
   one draft PR, and surface the run's stalls, secret-scan hits, and agent flags.
 
   The single writer for a run's agent output. Shared verbatim by run-predict and
@@ -72,6 +72,15 @@ inputs:
       files before anything is pushed.
     required: false
     default: ''
+
+outputs:
+  merge-targets:
+    description: >
+      One `<pr-number> <head-sha>` line per PR this run armed for auto-merge
+      (the ready PR, or the facts-only PR), empty when none. The caller's merge
+      step lands each once its required checks pass — armed auto-merge alone
+      waits for an approval the dev App's bypass would have skipped.
+    value: ${{ steps.aggregate.outputs.merge-targets }}
 
 runs:
   using: composite
@@ -243,6 +252,7 @@ runs:
         fi
 
     - name: Aggregate the run into one PR
+      id: aggregate
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}
@@ -371,6 +381,7 @@ runs:
         # so it runs the same three gates and auto-merges like `ready` — but it
         # closes nothing — the cells it records are still owed, and the next
         # round is what re-derives them.
+        merge_targets=""
         for kind in ready partial facts_only; do
           pr=$(jq -c ".${kind}" <<<"$plan")
           [ "$pr" = "null" ] && continue
@@ -517,8 +528,21 @@ runs:
           if [ "$draft" != "true" ] && [ "$auto" = "true" ]; then
             gh pr merge --auto --squash "$url" \
               || echo "::warning::could not enable auto-merge on ${url}"
+            # Hand the caller's merge step this PR and the exact commit just
+            # pushed. Armed auto-merge never exercises the dev App's approval
+            # bypass, so the caller merges it explicitly once the required
+            # checks pass (scripts/merge-when-green.sh); the sha pins that merge
+            # to what this loop jailed, validated and scanned. A step output,
+            # not a workspace file: the tree has held cell artifacts by now.
+            pushed=$(git rev-parse HEAD)
+            merge_targets+="${url##*/} ${pushed}"$'\n'
           fi
         done
+        {
+          echo 'merge-targets<<MERGE_TARGETS_EOF'
+          printf '%s' "$merge_targets"
+          echo 'MERGE_TARGETS_EOF'
+        } >> "$GITHUB_OUTPUT"
         # Publish the run's flag roll-up only when no branch tripped the
         # secret scan and the roll-up text itself scans clean: flags are
         # agent free text, and with no PR to carry them they would

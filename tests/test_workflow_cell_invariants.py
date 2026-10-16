@@ -4237,7 +4237,9 @@ def test_the_big_case_board_job_reaches_nothing_but_the_ledger_and_its_own_pr() 
     corpus-settled window. The one credential it holds is the PR token, which
     the fence test above already keeps on `main`-ref runs."""
     job = _load("run-analytics.yml")["jobs"]["big-cases"]
-    assert job["permissions"] == {"contents": "read"}, (
+    # `checks: read` is the merge's check-run listing; every write stays on the
+    # App token.
+    assert job["permissions"] == {"contents": "read", "checks": "read"}, (
         "the board job's job-level permissions widened; the PR write lives on the "
         "App token, not on GITHUB_TOKEN"
     )
