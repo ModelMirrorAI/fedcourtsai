@@ -9214,3 +9214,255 @@ freeze commit is recorded here.
   merge's `Predict backlog: dropped` lines are a subset of the earlier
   plan's. In the first `run-pull` window after the
   merge, the same applications are absent from `predict_skipped_decided`.
+
+- **The replay clock on `fedcourts query` withholds a retrieved prior's
+  post-clock decision record and tracking stamps under an unchanged process
+  digest; recorded 2026-10-15.** A **masking-surface** entry, and, because
+  forward cells run the clock too, a **harness boundary under the 2026-10-11
+  pooled rule**. It is recorded ahead of the promotion that carries the
+  change and of the first report it governs. It is the same class as the
+  2026-10-01 party-and-counsel entry, narrows the same surface further, and
+  closes the gap that entry named as still open.
+
+  **What moved.** Under a replay clock, every prior `fedcourts query` admits
+  now comes back with more of its last-pull state held to the clock, in three
+  classes. Each class is a set in `src/fedcourtsai/corpus.py`.
+  - **Always reset** (`REPLAY_MASKED_UNDATED_COLUMNS`). `citation_count` and
+    the pipeline's tracking stamps join the party and counsel lists. The
+    stamps are `last_pulled`, `last_live_polled`,
+    `opinion_enrich_attempted_at`, `document_floor_probed_at`,
+    `predict_queued_at` and `evaluate_queued_at`. A citing count keeps growing
+    after any clock, so it has no as-at-clock reading. A tracking stamp dates
+    the pipeline's last touch of the row, which is after any clock.
+    `last_live_polled` keeps moving while the live channel follows a granted
+    prior through its merits stage.
+  - **The opinion cluster** (`REPLAY_DECISION_RECORD_COLUMNS`): `citations`,
+    `summary`, `precedential_status`, `has_opinion` and `opinion_text`, so the
+    `--full` body too. None carries a date of its own. They come back only
+    where the decision they record is dated before the clock: the row carries
+    `date_decided` or `merits_decided`, and every one it carries clears every
+    bar the clock sets. Otherwise they are reset, an undated decision
+    included.
+  - **Date-tested** (`REPLAY_DATE_TESTED_COLUMNS`): `date_decided` (on a
+    granted SCOTUS prior, the termination at the merits judgment),
+    `merits_brief_filed` and `distributed_for_conference`. Each comes back
+    only where its own date clears every bar, and as `null` otherwise.
+
+  A reset column takes its no-reading value: `[]`, `null` or `false`. Both
+  halves of the clock trigger the mask, the Term (`--decided-before YYYY`)
+  and the day (`--decided-before YYYY-MM-DD`, or `REPLAY_CUTOFF`). It applies
+  to every admitted row, whatever its court or channel.
+
+  Which priors are returned, and in what order, does not move. Admission and
+  the recency ranking read the stored row, and the mask is applied to the
+  rows already chosen. A test pins a clocked query's rows and order to the
+  forward query's, minus the rows the clock does not admit, including a row
+  whose ranking date the mask nulls. One filter does read the masked row.
+  Under the clock a `--citation` filter overlaps the cites the prior comes
+  back with, so it cannot return a prior by a cite the clock withholds, and a
+  clocked `--citation` query can come back empty for that reason. The offline
+  `prior-vote` index applies the same gate to a citation match, so its parity
+  with `query` holds. `prior-vote` passes no citation filter, so its votes do
+  not move.
+
+  **What still passes as stored.** Every other column a `query` row carries:
+  - the identity and caption fields: `case_id`, `court`, `docket_number`,
+    `case_name`, `petitioner_title`, `topic`, `application_kind`,
+    `capital_case`, `originating_court`, `originating_court_name` and
+    `originating_docket_number`;
+  - the cert-stage resolution the clock admits the row on: `date_filed`,
+    `date_cert_granted`, `date_cert_denied` and `disposition`;
+  - the bench, `judges` and `panel`. The `--judge` filter and the prior-vote
+    index key on them, so masking them would move which priors return. They
+    name who sat, not how the matter came out;
+  - the other live-channel signals: `distribution_count`, `cvsg_date`,
+    `response_requested`, `response_requested_at`, `response_filed_at`,
+    `referred_to_court` and `amicus_briefs`. Some of these are dated or
+    accrue after the clock;
+  - the derived fields: `salience_score`, `salience_version`,
+    `salience_selected`, `predict_eligible`, `predict_excluded` and
+    `sample_weight`.
+
+  `merits_argued` and `merits_decision_method` never leave a `query` row,
+  clock or not. The derived `era` is read off the returned row. The clock
+  never nulls the date it comes from, since a row is admitted only where that
+  date clears the clock. The clock is still not a full as-at-clock view of a
+  prior.
+
+  **Who runs the clock.** Not only replay cells. A forward predict cell's
+  agent may pass `--decided-before` itself, usually with the day it ran, and
+  that query is masked exactly as a replay cell's is. On `origin/main` at
+  `457b395cb`, 110 committed predict cells' `retrieval_log.json` record an
+  executed shell call running `fedcourts query … --decided-before <value>`.
+  That counts one cell once however many such calls it made. Of these, 95
+  stamp `context.mode: forward`, and the other 15 carry no stamp. By engine
+  and process:
+  - `gemini-baseline`: 108 cells. `proc-v9` 9, `proc-v8` 67 (21 of them run
+    on or after 2026-10-01), `proc-v3` 15, `proc-v5` 2, unstamped 15;
+  - `claude-baseline`: 1 cell, `proc-v8`;
+  - `codex-baseline`: 1 cell, `proc-v8`.
+
+  Two of the 110 passed `--citation` and three passed `--full`. One example
+  is `data/cases/scotus/73500214/events/evt-petition-disposition/predictions/gemini-baseline/20261006T142731Z`,
+  which ran `query --court scotus --disposition granted --decided-before
+  2026-10-06`. A forward clock of today admits nearly every resolved prior,
+  but under it the change resets the citing count and tracking stamps on
+  every prior returned, and the opinion cluster on every prior whose decision
+  is undated. So a forward cell's information set moves. The counts were read
+  with `git grep -l -e '--decided-before' 457b395cb -- 'data/cases/**/retrieval_log.json'`
+  (114 files), keeping a cell where a logged call by a shell tool
+  (`run_shell_command`, `exec_command` or `Bash`) has a command that runs
+  `fedcourts query` with the flag and a value. The flag's text also appears
+  in `write_file` calls and in search patterns, which that filter drops.
+
+  **The harness boundary.** The change moves what a forward predict cell
+  reads under unchanged digests, so under the pooled-rule declaration's
+  *harness boundaries* bullet it is composition, not a cut. The pooled
+  default and the paired figure keep both sides and list each engine's `n`
+  before and after. It cuts only a figure that reads its own effect.
+  - **The registry row.** The boundary is `query-clock-prior-last-pull-mask`,
+    reach `all`, every predictor, not gradual. Whether a cell clocked its own
+    query is not decidable from its mode, so no narrower reach is
+    sound. The row is registered **pending** in this change's own PR
+    (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration. Its `merge` and `at` are null until the promotion merge that
+    carries it to `main` stamps them. Until then it is left out of
+    `process_version.HARNESS_BOUNDARIES`, so no cell has a side of it.
+  - **The side test** is the registered one. A stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`. A cell with no `pipeline_sha` is counted
+    on neither side, and its number is listed.
+  - **Exposure is an upper bound.** The after-side `n` counts every cell that
+    could have read the change, not the cells that ran a clocked query. On
+    the record above the exposure falls almost entirely on gemini. A
+    per-engine forward comparison across this merge therefore compares two
+    information sets for gemini and, in practice, one for claude and codex.
+
+  **A correction to two earlier entries.** The 2026-10-01 party-and-counsel
+  entry and the 2026-09-29 cutoff-day screen entry each say forward cells
+  never set the clock and no counted cell is affected. Both are false for
+  the same reason as above: the harness sets no clock on a forward cell, but
+  a forward agent may pass `--decided-before` itself.
+  - The 2026-10-01 entry's counsel mask reached the gemini forward cells
+    that clocked their own query from `b09c2d0bb` on. Of the 110 cells
+    above, 30 (all gemini) carry a `pipeline_sha` descending from
+    `b09c2d0bb`, another 65 precede it, and 15 carry none. The 30 are an
+    upper bound on the cells it reached: a cell was moved only where a prior
+    it was returned carried counsel.
+  - The 2026-09-29 entry's day bar reached any forward agent that passed an
+    ISO day from `a2f84f2ee` on. Under a today clock it drops only priors
+    resolved on or after that day and strips only merits judgments dated on
+    or after it, so its practical reach on forward cells is negligible.
+
+  Both entries stand as written; this paragraph corrects them. Whether to
+  register a stamped harness boundary at `b09c2d0bb` for the counsel mask is
+  the maintainer's call.
+
+  **Size.** Not measured in the authoring session, which had no corpus
+  access. Expect it to bite widely on SCOTUS priors. A read-only
+  measurement taken when this gap was first written down, on 2026-10-01 and
+  recorded in no earlier entry, found that on the blob whose newest pull is
+  2026-09-29 (index sha256 `ce9359e9…`), 0 of 656 granted rows with a cert
+  date also carried `date_decided`. The opinion cluster passes only where a
+  decision date is present and clears the clock, so it is **reset** on most
+  granted SCOTUS priors that carry it: at that vintage, on every one lacking
+  `merits_decided`. That holds under any clock,
+  a forward cell's today clock included. The census is SCOTUS-only, so the
+  circuit rows' opinion clusters go uncounted. At the carrying promotion's
+  vintage the replay census is `<FILL: replay census line from the check
+  below>`, and the forward census is `<FILL: forward census line from the
+  check below>`, both read from the blob whose `fedcourts corpus-info`
+  freshness line is `<FILL: corpus-info freshness line>`.
+
+  The census, from a dev checkout over a pulled corpus, run once on the
+  promotion's first parent and once on its merge. `mask-census.jq` is this
+  program:
+  `(INDEX($s[]; .case_id)) as $o | map({c: ., o: $o[.case_id]}) as $r | def
+  n(f): [$r[] | select(f)] | length; def op(x): x.has_opinion or
+  (x.citations | length) > 0; def dt(x): (x.date_decided // x.merits_decided)
+  != null; {admitted: ($r | length), citation_count: {stored:
+  n(.o.citation_count != null), returned: n(.c.citation_count != null)},
+  cluster_dated: {stored: n(op(.o) and dt(.o)), passed: n(op(.o) and dt(.o)
+  and op(.c))}, cluster_undated: {stored: n(op(.o) and (dt(.o) | not)),
+  passed: n(op(.o) and (dt(.o) | not) and op(.c))}} + (["date_decided",
+  "merits_brief_filed", "distributed_for_conference", "last_live_polled"] |
+  map(. as $k | {key: $k, value: {stored: n(.o[$k] != null), nulled:
+  n(.o[$k] != null and .c[$k] == null)}}) | from_entries)`.
+  - The stored rows: `uv run fedcourts query --court scotus --disposition
+    granted --limit 5000 > stored.jsonl`. With no clock, this is the stored
+    value of every column.
+  - The replay census: `REPLAY_CUTOFF=2026-06-30 uv run fedcourts query
+    --court scotus --disposition granted --decided-before 2026 --limit 5000
+    | jq -c -s --slurpfile s stored.jsonl -f mask-census.jq`.
+  - The forward census: the same with `--decided-before $(date +%F)` and no
+    `REPLAY_CUTOFF`.
+
+  Each census prints, over the rows admitted, joined on `case_id` to the
+  stored rows:
+  - how many carry a non-null `citation_count` stored and returned;
+  - how many carry the opinion cluster, split by whether the row carries a
+    decision date, and how many of each pass;
+  - for each date-tested column and `last_live_polled`, how many carry it
+    stored and how many the mask nulls.
+
+  On the first parent every `returned` and `passed` equals its `stored`, and
+  every `nulled` is 0. On the merge, `citation_count.returned` and
+  `cluster_undated.passed` are 0, and `last_live_polled.nulled` equals its
+  `stored`.
+
+  **Where it landed.** Merged to `staging` as `<FILL: staging merge commit>`
+  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`). At that
+  promotion's first parent, `src/fedcourtsai/corpus.py` has no
+  `REPLAY_DECISION_RECORD_COLUMNS`; at its merge commit it does.
+
+  **What did not move.** No digest input. The change touches no prompt
+  template, neither `config/predictors.yaml` nor `config/evaluators.yaml`, and
+  not `src/fedcourtsai/process_version.py`. `uv run fedcourts process-digest
+  --all` prints the same output on either side of the change: `proc-v9` and
+  the six digests `605201bd…` (claude-baseline), `70fee158…`
+  (codex-baseline), `a9033e56…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `18a76b93…` (codex-judge) and `22558044…` (gemini-judge).
+  A forward `query` with no clock returns the stored row untouched. **Nor did
+  the prompt.** The predict prompt still does not tell a cell that an empty
+  or null value in a withheld column means masked under the clock. Saying so
+  is a prompt change, and so a digest move, and it waits for the next
+  re-bless.
+
+  **The reading rule.** Two cert back-test reports whose cells ran on either
+  side of `<FILL: merge hash>` ran under different replay masks, even where
+  their provenance blocks and `provenance.clocks` agree. Neither field can
+  see this change, so no engine row's series spans the boundary. The
+  committed `metrics/cert-backtest.json` (run `20261003T115301Z`) is
+  pre-boundary. Its engine rows (`n=10` each; 0.700 against the 0.600
+  always-deny floor, one petition of lift) may not pool with a report run after it. Its
+  `prior-vote` (0.600) and `constant-denied` rows may. The always-deny floor
+  is a property of the labels. The offline `prior-vote` row votes on
+  dispositions with no citation filter. Both are unaffected.
+
+  Every report before the boundary could retrieve priors carrying their
+  current opinion, citations, summary, precedential status, citing count,
+  termination date, merits-brief date, conference date and tracking stamps,
+  wherever a cell ran a clocked `query` and the prior carried them. That is
+  post-clock information about the priors, mainly that a prior granted
+  before the clock went on to a merits decision and how that decision came
+  out. It is never information about the replayed petition itself. Its
+  effect on a score has no known sign.
+
+  After the boundary, a clocked `query` withholds those facts where they
+  postdate the clock, and an unclocked one does not. On that surface a
+  replay figure understates the same predictor's unclocked information set,
+  as it already does on the snapshot. The cell's open-web and CourtListener
+  tools reach a prior's current docket and opinion on both sides of the
+  change. The back-test report's provenance does not record the masked
+  column sets: they are code constants, so the carrying merge already dates
+  them, and a provenance field would only restate this entry.
+
+  The runnable effect check once it is live, beyond the census above:
+  - `uv run pytest tests/test_corpus.py -k "replay_clock"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    six digests above;
+  - on `main` once the boundary row is stamped, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('query-clock-prior-last-pull-mask' in {b.name for b in H})"`
+    prints `True`.

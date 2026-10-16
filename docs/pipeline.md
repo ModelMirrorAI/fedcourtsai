@@ -2307,12 +2307,25 @@ misplaced-write probe is unaffected — an engine following the prompt template'
 The fence reaches the priors a cell retrieves as well. Every `fedcourts query`
 on a dated or truncated cell runs under its replay clock, as does every query a
 blind cell makes with `--decided-before`; the clock drops the priors that do not
-provably precede it and, on the ones it admits, withholds the merits pair
-unless it is dated before the clock, `merits_terminated`, and the `counsel`,
-`parties` and `attorneys` lists, which accrue amici after a grant and carry no
-date to test. It is not a full as-at-clock view of a prior: its other
-retrievable columns, citations and opinion presence among them, come back as stored at the
-last pull. The full rule is the `query` row in [cli.md](cli.md).
+provably precede it and, on the ones it admits, withholds the last-pull
+state that cannot prove it came first: the merits pair unless
+`merits_decided` is dated before the clock; the opinion cluster (citations,
+summary, precedential status, the opinion and its presence bit) unless every
+decision date the row carries (`date_decided`, `merits_decided`) is; the termination
+date, the merits-brief date and the conference-distribution date unless each
+is, and always `merits_terminated`, the citing count, the pipeline's tracking
+stamps (`last_pulled`, `last_live_polled`, `opinion_enrich_attempted_at`,
+`document_floor_probed_at`, `predict_queued_at`, `evaluate_queued_at`) and the
+`counsel`, `parties` and `attorneys` lists, which accrue after a grant and
+carry no date to test. Which priors return, and in what order, does not move,
+except that a `--citation` filter matches only the cites a prior comes back
+with.
+It is not a full as-at-clock view of a prior: the caption and identity fields,
+the cert-stage dates and disposition, the bench (`judges`, `panel`, which the
+`--judge` filter keys on), the other live-channel signals (the distribution
+count, CVSG date, response request and filing, referral, amicus count) and the
+derived salience and scope fields come back as stored at the last pull. The
+full rule, column by column, is the `query` row in [cli.md](cli.md).
 
 The big-case board, `metrics/big-cases.json` and `metrics/big-cases.md`,
 leaves the tree with the ledger on the same terms. Its decided cases are among

@@ -1945,33 +1945,59 @@ the rendered table) and
   query on the dated and truncated arms, which carry `REPLAY_CUTOFF`, and on
   the blind arm the queries that pass `--decided-before` as the prompt asks —
   some of them are withheld: the merits pair unless `merits_decided` clears
-  every bar the clock sets, `merits_terminated` always, and the party and
-  counsel lists (`counsel`, `parties`, `attorneys`) always, emptied to `[]`.
-  The lists go whole because no entry in them is dated and they accrue after
-  a grant (amici, overwhelmingly), the same reason `redact_snapshot` strips
-  the replayed petition's own party and counsel blocks. Under the clock `[]`
-  means masked, not "no counsel of record"; a cell cannot tell the two apart,
-  so nothing may be read from an empty list there. **The mask is not
-  complete.** A prior's other last-pull columns still reach a replay cell as
-  stored — among them its own `citations`, `citation_count`, `summary`,
-  `precedential_status`, `has_opinion` and the opinion body under `--full`,
-  `merits_brief_filed`, and `date_decided`, which on a granted SCOTUS prior
-  is the termination at the merits judgment — so a prior granted before the
-  clock can still show, through them, that its merits stage went on past it.
-  That is post-clock information about the prior, not the petition, and it
-  stands in every replay report. Read two consequences of what is masked. A
-  replay cell's `query` returns no counsel on any prior, which a forward
-  cell's does, so on that surface a replay figure understates the same
-  predictor's forward information set, as it does on the snapshot; the cell's
-  open-web and CourtListener tools still reach a prior's current docket either
-  way. And a report whose cells ran before the list mask reached `main` could
-  retrieve priors carrying their full current lists, amicus entries filed
-  after the clock included — post-clock facts about the priors, never about
-  the petition itself — so no **engine row's** series spans that boundary,
-  which `docs/freeze-record.md` dates. Provenance agreement cannot see it. The
-  always-deny floor (a property of the labels) and the offline `prior-vote`
-  row (which votes on dispositions, not counsel) are unaffected and compare
-  across it as before.
+  every bar the clock sets; the opinion cluster (`citations`, `summary`,
+  `precedential_status`, `has_opinion` and the opinion body under `--full`)
+  unless the decision it records is dated before the clock by every one of
+  `date_decided` and `merits_decided` the row carries; `date_decided` (on a
+  granted SCOTUS prior, the termination at the merits judgment),
+  `merits_brief_filed` and `distributed_for_conference` unless each one's
+  own date clears the clock; and always `merits_terminated`,
+  `citation_count`, the pipeline's tracking stamps (`last_pulled`,
+  `last_live_polled`, `opinion_enrich_attempted_at`,
+  `document_floor_probed_at`, `predict_queued_at`, `evaluate_queued_at`) and
+  the party and counsel lists (`counsel`, `parties`, `attorneys`). A withheld
+  column comes back at
+  its no-reading value (`[]`, `null`, `false`). The lists go whole because no
+  entry in them is dated and they accrue after a grant (amici,
+  overwhelmingly), the same reason `redact_snapshot` strips the replayed
+  petition's own party and counsel blocks; a citing count grows after any
+  clock; a tracking stamp dates the pipeline's last touch of the row, after
+  any clock. Under the clock an empty or null value in a withheld column means
+  masked as readily as "nothing recorded" — `[]` counsel is not "no counsel
+  of record" — and a cell cannot tell the two apart, so nothing may be read
+  from one there. Which priors return, and in what order, the mask does not
+  move, except that a `--citation` filter matches only the cites a prior
+  comes back with. **The mask is still not a full as-at-clock view.** Every other
+  column comes back as stored at the last pull: the caption and identity
+  fields, the cert-stage dates and disposition the clock admits the row on,
+  the bench (`judges`, `panel`, which the `--judge` filter and the
+  prior-vote index key on, so masking them would move which priors return),
+  the other live-channel signals (`distribution_count`, `cvsg_date`,
+  `response_requested`, `response_requested_at`, `response_filed_at`,
+  `referred_to_court`, `amicus_briefs`) and the derived salience and scope
+  fields; `docs/cli.md`'s `query` row lists them by name. Read two
+  consequences of what is masked. A replay cell's `query` returns no counsel
+  on any prior, no citing count, and no opinion on a prior decided after the
+  clock or undated, all of which an unclocked query's does, so on that surface a replay
+  figure understates the same predictor's unclocked information set, as it
+  does on the snapshot; the cell's open-web and CourtListener tools still
+  reach a prior's current docket and opinion either way. And the mask moved
+  twice, each move dated in `docs/freeze-record.md`: a report whose cells ran
+  before the list mask reached `main` could retrieve priors carrying their
+  full current lists, amicus entries filed after the clock included, and one
+  whose cells ran before the decision-record mask reached `main` could
+  retrieve a prior's post-clock opinion, citations, summary, citing count,
+  termination date, merits-brief date, conference date and tracking stamps
+  — post-clock facts about the priors, never about the petition itself. No
+  **engine row's** series spans either boundary. The committed
+  `cert-backtest.json` (run `20261003T115301Z`, its engine rows at `n=10`
+  each, 0.700 against the 0.600 always-deny floor, one petition of lift) ran before the
+  decision-record mask, so its engine rows may not pool with a report run
+  after it; its `prior-vote` (0.600) and `constant-denied` rows may. Provenance agreement cannot see them. The always-deny
+  floor (a property of the labels) and the offline `prior-vote` row are
+  unaffected and compare across both as before: `prior-vote` votes on
+  dispositions, and passes no citation filter, so the citation gate its
+  index carries for parity with `query` never runs for it.
 
   **The review PR's headline names a tie as one.** Entries scored over the
   whole set share one floor, so equal accuracy is equal lift; the board breaks
