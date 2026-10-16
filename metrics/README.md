@@ -1588,9 +1588,10 @@ exist:
   own dated freeze-record entry, and the list is closed once the census reports
   no owed row with the guard live.
 
-`excluded` is stage-blind and counted after the three exclusions, so a grading
-those rules dropped is never counted here, and it is never netted against a
-stage-scoped total. The published Release 1 artifacts are built without the
+`set_aside.excluded` is counted after the three exclusions, so a grading those
+rules dropped is never counted here. On the leaderboard it is stage-blind and
+never netted against a stage-scoped total; on `claim-scores.json` it covers
+cert's first moment only, the board's own population. The published Release 1 artifacts are built without the
 set-aside (`release-sensitivity`, the cohort cut and the dataset export pass
 `apply_set_aside=False`), so re-running them reproduces what was published;
 the release's own post-conference sensitivity line is that population read the

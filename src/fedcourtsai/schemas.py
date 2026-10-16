@@ -4784,7 +4784,9 @@ class SetAsideRecord(_Strict):
         description="How many in-scope gradings the shared `store.stratify` pass set "
         "aside — counted after the run collapse, the void, the forward-claim rule and "
         "the leakage bit, so a grading those rules already dropped is never counted "
-        "here; stage-blind, so never subtracted from a stage-scoped total beside it",
+        "here. On the leaderboard it is stage-blind, so never subtracted from a "
+        "stage-scoped total beside it; on the claim-score board it covers cert's "
+        "first moment only, the board's own population",
     )
     by_reason: dict[str, int] = Field(
         default_factory=dict,

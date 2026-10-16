@@ -9580,7 +9580,7 @@ freeze commit is recorded here.
   default therefore removes codex's and gemini's correct call on the rare
   event and claude's miss, favouring claude relative to codex and gemini on
   this slice. Default then with the set-aside counted, over 327 then 348
-  gradings on 110 then 117 events, with 6 then 7 realized grants and an
+  gradings per predictor on 110 then 117 events, with 6 then 7 realized grants and an
   always-deny floor of 0.945 then 0.940:
 
   | Predictor | Accuracy | Lift over floor | Mean Brier | Population Brier skill |

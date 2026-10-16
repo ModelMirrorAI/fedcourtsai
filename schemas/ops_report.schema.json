@@ -1001,7 +1001,7 @@
           "type": "array"
         },
         "excluded": {
-          "description": "How many in-scope gradings the shared `store.stratify` pass set aside \u2014 counted after the run collapse, the void, the forward-claim rule and the leakage bit, so a grading those rules already dropped is never counted here; stage-blind, so never subtracted from a stage-scoped total beside it",
+          "description": "How many in-scope gradings the shared `store.stratify` pass set aside \u2014 counted after the run collapse, the void, the forward-claim rule and the leakage bit, so a grading those rules already dropped is never counted here. On the leaderboard it is stage-blind, so never subtracted from a stage-scoped total beside it; on the claim-score board it covers cert's first moment only, the board's own population",
           "minimum": 0,
           "title": "Excluded",
           "type": "integer"
