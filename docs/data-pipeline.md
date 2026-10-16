@@ -908,9 +908,10 @@ eventually retrieve case records from CourtListener itself at run time instead
 of a provisioned store read; the corpus would remain the system of record for
 ingestion, analytics, and back-testing.
 
-### Developer access (Codespaces)
+### Developer access (Codespaces and Claude cloud sessions)
 
-Interactive data discovery belongs in a codespace, not a workflow. The remote
+Interactive data discovery belongs in a codespace or a Claude cloud session,
+not a workflow. The remote
 serves it in two modes, both strictly **read-only** (see
 [security.md](security.md)): **ranged queries** for quick lookups
 (`--corpus-backend ranged` on `query` / `open-events` / `corpus-info` —
@@ -924,7 +925,8 @@ rows, so under the split it is a content-store manifest round trip each plus a
 full text body per stored document. Both belong with the scan-heavy work
 rather than with the lookups) and **a deliberate full pull** for scan-heavy
 exploration (`uv run fedcourts corpus-pull`). Default to ranged:
-Codespaces runs on Azure, so every full pull is cross-cloud S3 egress.
+Codespaces runs on Azure and cloud sessions on Anthropic's hosts, so every full
+pull from either is S3 egress.
 Absent the override, either mode reads the blob the checkout's committed
 pointer names, so a checkout on an old commit — or a branch off `staging`
 between syncs, since data commits land on `main` only — reads an old corpus:
@@ -949,10 +951,29 @@ index remote's own URL otherwise — exactly the env contract the workflows
 use; absent secrets it prints a note and succeeds — the offline fixture loop
 and the full gate need no remote.
 
+**Claude cloud sessions** (the Claude app's coding sessions, which run on
+Anthropic-hosted VMs) read the corpus through a dedicated **personal cloud
+environment**, chosen when the session starts, whose variables carry the same
+env contract the codespace hook exports: `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY` for a dedicated read-only IAM user, `AWS_REGION`, and
+`CORPUS_BASE_URL`. That user is separate from the contributor user but holds
+the same production-only read policy, so both modes above work as they do in a
+codespace. The environment's default network level reaches every
+`*.amazonaws.com` host, which is what lets the reads through and also why the
+session's egress cannot be fenced to these buckets. The key is readable by the model and by every command in
+such a session, which is why it lives in that one environment rather than the
+default (a session working on anything else never carries it), why it reads
+production only and can write nothing, and why it is rotated and revoked by
+the runbook in [security.md](security.md) (*S3 / the private stores*). A
+session in that environment quotes a figure it reads with `corpus-info`'s
+vintage, as any session with corpus access does. A session that has not been
+started there has no corpus access; it asks the corpus-check lane
+([corpus-check.md](corpus-check.md)) instead.
+
 The **staging pair** (the lean real-slice corpus of
 [security.md](security.md)'s staging-corpus runbook) is served by the same
-read-only role — the maintainer's role-assumed flow; the contributor IAM
-user stays scoped to production — and its address arrives as a further
+read-only role — the maintainer's role-assumed flow; neither developer IAM
+user is extended to it — and its address arrives as a further
 user-scoped secret, `STAGING_CORPUS_BASE_URL` (or, for a pair named half by
 half, `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`, which the
 switcher still accepts): the base URL is the same name the `staging` Actions
