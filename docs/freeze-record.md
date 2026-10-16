@@ -8473,13 +8473,13 @@ freeze commit is recorded here.
   evaluations carrying a `proc-v9` judge digest (`167b7d71`, `18a76b93`,
   `22558044`).
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`). At the carrying merge,
-  predictions carrying `605201bd`: `<FILL: census predictions digest=605201bd>`;
+  Carried to `main` by `promotion/2026-10-15` (merge commit
+  `1850188d9e7ff698d3146f55e27e5a5ac7cb7c5c`, merged `2026-10-15T19:14:30Z`). At the carrying merge,
+  predictions carrying `605201bd`: `32`;
   predictions carrying a digest carried from `proc-v8`:
-  `<FILL: census predictions digest=70fee158,a9033e56>`; evaluations carrying
+  `567`; evaluations carrying
   a `proc-v9` judge digest:
-  `<FILL: census evaluations digest=167b7d71,18a76b93,22558044>`.
+  `252`.
 
   The runnable effect check once it is live: on `main`,
   `jq .merge_stamping_declared src/fedcourtsai/process_registry.json` prints
@@ -8533,8 +8533,8 @@ freeze commit is recorded here.
   - **Codex 0.144.1** and **Gemini CLI 0.49.0.** The cells already pinned
     these literally (`codex-version`, and the Gemini install step).
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-15` (merge commit
+  `1850188d9e7ff698d3146f55e27e5a5ac7cb7c5c`, merged `2026-10-15T19:14:30Z`).
 
   The runnable effect check once it is live: the first predict round after the
   carrying merge writes `usage.json` files whose `engine_version` reads
@@ -8671,8 +8671,8 @@ freeze commit is recorded here.
   carrying merge carry no poll, and their ordering on a decision day stays
   unresolvable.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-15` (merge commit
+  `1850188d9e7ff698d3146f55e27e5a5ac7cb7c5c`, merged `2026-10-15T19:14:30Z`).
 
   The runnable effect check once it is live: the first predict round after the
   carrying merge writes forward-cell `usage.json` files with both polls, for
