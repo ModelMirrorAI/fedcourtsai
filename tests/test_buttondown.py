@@ -278,3 +278,33 @@ def test_a_draft_without_the_tag_in_its_answer_fails_the_run() -> None:
     with _client(found) as client, pytest.raises(ButtondownError, match="em_old"):
         post_draft(client, subject=SUBJECT, body="Body.", tag_name="weekly-scotus", sleep=_no_sleep)
     assert found.posts() == []
+
+
+def test_a_tag_id_skips_the_tag_listing() -> None:
+    fake = FakeButtondown(tags=[])
+    with _client(fake) as client:
+        draft = post_draft(
+            client, subject=SUBJECT, body="Body.", tag_id_value=TAG_ID, sleep=_no_sleep
+        )
+    assert draft.created
+    assert not [r for r in fake.requests if r.url.path == "/v1/tags"]
+    (payload,) = fake.posts()
+    assert payload["filters"] == tag_filter(TAG_ID)
+
+
+def test_exactly_one_of_a_tag_name_or_id_and_never_an_empty_id() -> None:
+    fake = FakeButtondown()
+    with _client(fake) as client:
+        for kwargs in ({}, {"tag_name": "weekly-scotus", "tag_id_value": TAG_ID}):
+            with pytest.raises(ButtondownError, match="exactly one"):
+                post_draft(client, subject=SUBJECT, body="Body.", sleep=_no_sleep, **kwargs)
+        with pytest.raises(ButtondownError, match="empty tag id"):
+            post_draft(client, subject=SUBJECT, body="Body.", tag_id_value="  ", sleep=_no_sleep)
+    assert fake.posts() == []
+
+
+def test_cli_needs_exactly_one_of_tag_or_tag_id(tmp_path: Path) -> None:
+    env = {"FEDCOURTS_DATA_ROOT": str(tmp_path / "data")}
+    for args in ([], ["--tag", "weekly-scotus", "--tag-id", TAG_ID], ["--tag-id", " "]):
+        result = runner.invoke(app, ["post-public-update", "--week", "2026-W41", *args], env=env)
+        assert result.exit_code == 2, args

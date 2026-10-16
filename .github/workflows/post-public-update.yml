@@ -23,7 +23,7 @@ on:
     # resolutions. Off the hour, where scheduled runs are least often delayed
     # or dropped; a missed Monday is recovered by dispatching with `week`,
     # which is safe because the post is idempotent per week.
-    - cron: "57 11 * * 1"
+    - cron: "57 12 * * 1"
   workflow_dispatch:
     inputs:
       week:
@@ -116,6 +116,10 @@ jobs:
       - name: Create the week's draft
         env:
           BUTTONDOWN_API_KEY: ${{ secrets.BUTTONDOWN_API_KEY }}
+          # The weekly-scotus tag's Buttondown id, a plain variable on the
+          # website environment. Given by id, the post needs no permission
+          # beyond emails; an unset variable refuses the post.
+          TAG_ID: ${{ vars.WEEKLY_SCOTUS_TAG_ID }}
           WEEK: ${{ inputs.week }}
         run: |
           set -euo pipefail
@@ -124,7 +128,7 @@ jobs:
           # exit codes. 3 means the week had nothing to send, which is a
           # success for this job, not a failure.
           set +e
-          uv run fedcourts post-public-update --tag weekly-scotus --week "${WEEK}" > post.txt
+          uv run fedcourts post-public-update --tag-id "${TAG_ID}" --week "${WEEK}" > post.txt
           status=$?
           set -e
           if [ "$status" -eq 3 ]; then

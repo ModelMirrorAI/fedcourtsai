@@ -9,9 +9,11 @@ the status fixed rather than passed in.
 Three rules shape the rest:
 
 * **A draft always targets one tag.** The recipients are the subscribers
-  carrying a named tag, resolved to Buttondown's tag id before anything is
-  written. A tag that does not exist refuses the post: a draft without a filter
-  would go to the whole list when sent.
+  carrying one tag, given by its id — the form Buttondown's filter takes, and
+  one that needs no permission beyond emails — or by name, resolved to the id
+  by listing the account's tags before anything is written. An empty id, or a
+  name that matches no tag or several, refuses the post: a draft without a
+  filter would go to the whole list when sent.
 * **One draft per subject.** The subject names the week, so before creating a
   draft the module looks for any email with that exact subject that is not
   deleted — a draft, a scheduled send or one already sent — and returns it
@@ -213,18 +215,33 @@ def post_draft(
     *,
     subject: str,
     body: str,
-    tag_name: str,
+    tag_name: str | None = None,
+    tag_id_value: str | None = None,
     sleep: Callable[[float], None] = time.sleep,
 ) -> Draft:
-    """Create the week's draft for ``tag_name``'s subscribers, or return the one already there."""
+    """Create the week's draft for one tag's subscribers, or return the one already there.
+
+    The tag is given by id (``tag_id_value``), which needs no read beyond
+    emails, or by name (``tag_name``), which lists the account's tags to
+    resolve it. Exactly one of the two.
+    """
+    if (tag_name is None) == (tag_id_value is None):
+        raise ButtondownError("name exactly one of a tag name or a tag id")
     if body.lstrip().startswith("---"):
         raise ButtondownError("the body opens with a front-matter fence, which Buttondown refuses")
-    tag = tag_id(client, tag_name, sleep=sleep)
+    if tag_id_value is not None:
+        if not tag_id_value.strip():
+            raise ButtondownError("an empty tag id; refusing an untargeted draft")
+        tag = tag_id_value.strip()
+    else:
+        assert tag_name is not None  # the exactly-one check above
+        tag = tag_id(client, tag_name, sleep=sleep)
+    label = tag_name if tag_name is not None else tag
     found = existing_email(client, subject, sleep=sleep)
     if found is not None:
         if found.get("status") == DRAFT_STATUS and not targets(found, tag):
             raise ButtondownError(
-                f"the week's draft {found.get('id')!r} is not addressed to {tag_name!r}; "
+                f"the week's draft {found.get('id')!r} is not addressed to {label!r}; "
                 "fix or delete it in Buttondown before sending"
             )
         return _draft(found, created=False)
@@ -250,7 +267,7 @@ def post_draft(
         )
     if not targets(created, tag):
         raise ButtondownError(
-            f"Buttondown created draft {created.get('id')!r} without the {tag_name!r} "
+            f"Buttondown created draft {created.get('id')!r} without the {label!r} "
             "filter in its answer; fix or delete it in Buttondown before sending"
         )
     return _draft(created, created=True)

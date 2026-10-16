@@ -1207,21 +1207,22 @@ Configure it with:
   environment. The job's first step also refuses any ref but `main`. That
   step is a backstop for an unedited copy of the workflow on another ref, such
   as `staging`; a branch that edits the workflow can delete it.
-- **one secret**: the Buttondown API key, with the permissions below. No
-  variables and no required reviewers: the draft is the hold, since nothing is
-  sent until the maintainer presses send in Buttondown.
+- **one secret**: the Buttondown API key, with the permissions below.
+- **one variable**: the Buttondown id of the `weekly-scotus` tag the draft is
+  addressed to. It is not a secret; it lives here so the job that uses it is
+  the only one that reads it. No required reviewers: the draft is the hold,
+  since nothing is sent until the maintainer presses send in Buttondown.
 
-The key's Buttondown permissions are **emails: write** and **tags: read**,
-and **none** on every other category. Emails write is what creating a draft
-needs; tags read resolves the audience tag's name to the id a draft's
-recipient filter takes. Buttondown has no draft-only level, so emails write
-could also send, schedule or edit an email. The guard is the code:
+The key's Buttondown permission is **emails: write**, and **none** on every
+other category. Emails write is what creating a draft needs. The draft's
+audience is the tag id from the variable, so the key never lists tags or reads
+subscribers. Buttondown has no draft-only level, so emails write could also
+send, schedule or edit an email. The guard is the code:
 `fedcourtsai.buttondown` writes exactly one request, a create with the status
-fixed to `draft`, and refuses to create a draft whose audience tag it cannot
-resolve, so no draft can default to the whole list. It then checks that the
-draft Buttondown returns names that tag in its filters, and fails the run if
-not, so a filter Buttondown dropped surfaces before anyone presses send.
-Subscribers are never read.
+fixed to `draft`, and refuses an empty tag id, so no draft can default to the
+whole list. It then checks that the draft Buttondown returns names that tag in
+its filters, and fails the run if not, so a filter Buttondown dropped surfaces
+before anyone presses send. Subscribers are never read.
 
 Rotate the key in Buttondown and replace the secret; nothing else holds it. A
 leaked key reaches the list's emails and tag names, not its subscribers.

@@ -9970,8 +9970,18 @@ def post_public_update_cmd(
     *,
     tag: Annotated[
         str,
-        typer.Option(help="Buttondown tag whose subscribers the draft is addressed to."),
-    ],
+        typer.Option(
+            help="Buttondown tag name whose subscribers the draft is addressed to; "
+            "resolving a name lists the account's tags. Or give --tag-id."
+        ),
+    ] = "",
+    tag_id: Annotated[
+        str,
+        typer.Option(
+            "--tag-id",
+            help="Buttondown tag id the draft is addressed to; needs no read beyond emails.",
+        ),
+    ] = "",
     week: Annotated[
         str,
         typer.Option(
@@ -9995,6 +10005,9 @@ def post_public_update_cmd(
     """
     settings = get_settings()
     chosen = week or last_complete_week(datetime.now(UTC))
+    if bool(tag.strip()) == bool(tag_id.strip()):
+        typer.echo("post-public-update: give exactly one of --tag or --tag-id.", err=True)
+        raise typer.Exit(code=2)
     try:
         week_bounds(chosen)
     except ValueError as exc:
@@ -10007,7 +10020,7 @@ def post_public_update_cmd(
     subject = public_update_subject(update)
     body = render_public_update(update, title=False)
     if dry_run:
-        typer.echo(f"Subject: {subject}\nTag: {tag}\n\n{body}", nl=False)
+        typer.echo(f"Subject: {subject}\nTag: {tag.strip() or tag_id.strip()}\n\n{body}", nl=False)
         return
     api_key = os.environ.get(API_KEY_ENV, "")
     if not api_key.strip():
@@ -10017,7 +10030,13 @@ def post_public_update_cmd(
         raise typer.Exit(code=2)
     try:
         with make_client(api_key) as client:
-            draft = post_draft(client, subject=subject, body=body, tag_name=tag)
+            draft = post_draft(
+                client,
+                subject=subject,
+                body=body,
+                tag_name=tag.strip() or None,
+                tag_id_value=tag_id.strip() or None,
+            )
     except ButtondownError as exc:
         typer.echo(f"post-public-update: {exc}", err=True)
         raise typer.Exit(code=1) from exc
