@@ -15,7 +15,10 @@ log tool calls in the same places their token usage lives:
   with a ``call_id`` their ``*_output`` items echo. An MCP item is the shape
   that breaks the echo: the Responses API settles it *on the call item*, with
   the answer in the item's own ``output`` (or ``error``) and no ``*_output``
-  sibling to pair, so it is paired from the item itself. The hosted
+  sibling to pair, so it is paired from the item itself. A manifest call
+  can also arrive as a plain ``function_call`` under its bare tool name
+  (``search``); it is named as the manifest call only where the cell's
+  offered ``<server>.<tool>`` set says it is one. The hosted
   ``web_search_call`` is the other exception: it runs provider-side and carries
   a query but no ``call_id`` and no output item, so such a row records what was
   asked and never what came back. A **code-mode** model is a third: it is given
@@ -83,6 +86,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Sequence
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -494,8 +498,17 @@ _CODEX_OUTPUT_SUFFIX = "_output"
 _CODEX_INLINE_RESULT_FIELDS = ("output", "error", "result")
 
 
-def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
-    """Tool calls from the newest Codex rollout JSONL under ``sessions_dir``."""
+def parse_codex_retrieval(
+    sessions_dir: Path, *, offered: Sequence[str] = ()
+) -> list[RetrievalCall]:
+    """Tool calls from the newest Codex rollout JSONL under ``sessions_dir``.
+
+    ``offered`` is the cell's offered manifest set in the ``<server>.<tool>``
+    spelling the log's own ``mcp_tools`` snapshot carries; it is what lets a
+    manifest call the rollout names by its bare tool name be told from a
+    builtin (:func:`_resolve_codex_bare_name`). Empty means offered-unknown,
+    and every bare name then stays as logged.
+    """
     rollout = _newest_rollout(sessions_dir)
     if rollout is None:
         return []
@@ -540,7 +553,7 @@ def parse_codex_retrieval(sessions_dir: Path) -> list[RetrievalCall]:
         text = _result_text(result) if result is not None else ""
         # The composed, redacted name the row will carry — the same string the
         # manifest-tool gate and the rollup's exclusion both key on.
-        tool = _tool_name(_codex_tool(payload))
+        tool = _tool_name(_codex_tool(payload, offered))
         # Both halves, so a `function_call` that merely shares the name cannot
         # take the freeform path: code mode arrives as a custom tool call.
         is_code_mode = tool == _CODEX_CODE_MODE_TOOL and payload.get("type") == "custom_tool_call"
@@ -733,7 +746,7 @@ def _codex_inline_result(payload: dict[str, Any]) -> tuple[str, Any] | None:
     return None
 
 
-def _codex_tool(payload: dict[str, Any]) -> Any:
+def _codex_tool(payload: dict[str, Any], offered: Sequence[str] = ()) -> Any:
     """A Codex call item's tool name, in the spelling the rollup normalizes.
 
     An MCP item names the server and the bare tool in two fields —
@@ -749,12 +762,71 @@ def _codex_tool(payload: dict[str, Any]) -> Any:
     composition honest about an unknown server: a manifest's server ids are
     schema-constrained to lowercase, so anything else lands as the literal
     string the transcript carried rather than as a quietly normalized id.
+
+    An item can also carry a manifest call under its bare tool name with no
+    server field — a namespaced ``function_call``, whose server (where the
+    engine records one at all) sits in a separate ``namespace`` field. Such a
+    name is composed only where the cell's offered set says it is a manifest
+    tool (:func:`_resolve_codex_bare_name`), whatever the item's type, because
+    the committed rows that show the seam do not record which type they came
+    from and the offered set is the authority either way.
     """
     name = payload.get("name") or payload.get("tool")
     server = payload.get("server_label") or payload.get("server")
     if name and server:
         return f"mcp__{server}__{name}"
+    if name:
+        resolved = _resolve_codex_bare_name(str(name), payload.get("namespace"), offered)
+        if resolved is not None:
+            return resolved
     return name or payload["type"]
+
+
+def _resolve_codex_bare_name(name: str, namespace: Any, offered: Sequence[str]) -> str | None:
+    """A bare ``function_call`` name as ``mcp__<server>__<tool>``, where the offered set says so.
+
+    Codex hands a manifest tool to the model as a namespaced function, and its
+    rollout records the call as a ``function_call`` whose ``name`` is the
+    tool's own (``search``) — no ``mcp`` prefix and no server. Read as logged,
+    every such row is a builtin to :func:`~fedcourtsai.schemas.normalize_call`,
+    so the call never reaches the offered denominator, and the throttle
+    predicate, which runs only behind that gate, never reads its result: a
+    CourtListener 429 is minted ``ok``.
+
+    The authority is the cell's own offered set, the ``<server>.<tool>``
+    snapshot the log records as ``mcp_tools``, not a pattern on the name: a
+    name is resolved only where a pinned server advertises exactly it. Where
+    the item carries a non-empty ``namespace``, it alone decides: it resolves
+    when it names an offered server advertising the name — matched after
+    dropping an ``mcp__`` prefix and trailing underscores, since the spelling
+    of the namespace is the engine's and not pinned here — and resolves
+    nothing otherwise. Only where no namespace was recorded must the name
+    belong to exactly one offered server. An offered set that is empty or
+    ambiguous resolves nothing: the row keeps its bare name and stays a
+    builtin, so the counts this feeds miss a call rather than invent one.
+
+    The offered set is empty when ``record-retrieval`` could not resolve the
+    actor's registry entry (its attribution fallback); every bare name then
+    stays a builtin, and the log's own empty ``mcp_tools`` marks it.
+
+    One residual is not closed: a codex builtin that shares a bare name with a
+    manifest tool would be counted as the manifest call. No builtin the
+    committed codex logs carry does.
+    """
+    servers = sorted(
+        server
+        for server, _, tool in (entry.partition(".") for entry in offered)
+        if tool == name and server
+    )
+    if isinstance(namespace, str) and namespace:
+        # A namespace the engine did record is the engine's word on the
+        # server; one naming no offered server is not overridden by the
+        # single-server fallback below, which would invent the attribution.
+        wanted = namespace.removeprefix("mcp__").strip("_")
+        return f"mcp__{wanted}__{name}" if wanted in servers else None
+    if len(servers) == 1:
+        return f"mcp__{servers[0]}__{name}"
+    return None
 
 
 def _maybe_json(params: Any) -> Any:

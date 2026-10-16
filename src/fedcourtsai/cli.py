@@ -9243,6 +9243,35 @@ def assert_promotion_record_diff_cmd(
     typer.echo(f"promotion record diff ok: {', '.join(changed) or 'no change'}")
 
 
+def _harvest_retrieval_calls(
+    actor: str,
+    offered: list[str],
+    claude_execution_file: Path | None,
+    codex_sessions_dir: Path | None,
+    gemini_telemetry_file: Path | None,
+) -> list[RetrievalCall]:
+    """The tool calls from the first engine log named, parsed against ``offered``.
+
+    The offered set is what tells a manifest call codex logged under its bare
+    tool name from a builtin of the same spelling. Without it every such call
+    stays a builtin, so a codex parse with no offered set says so where the run
+    is read.
+    """
+    if claude_execution_file is not None:
+        return retrieval.parse_claude_retrieval(claude_execution_file)
+    if codex_sessions_dir is not None:
+        if not offered:
+            typer.echo(
+                f"::warning::record-retrieval: no offered tool set resolved for {actor}; "
+                "codex manifest calls logged under a bare name stay builtins in this log",
+                err=True,
+            )
+        return retrieval.parse_codex_retrieval(codex_sessions_dir, offered=offered)
+    if gemini_telemetry_file is not None:
+        return retrieval.parse_gemini_retrieval(gemini_telemetry_file)
+    return []
+
+
 @app.command("record-retrieval")
 def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     *,
@@ -9341,14 +9370,6 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         )
         mode = ""
     recorded_mode = cast(CellMode, mode) if mode else None
-    calls: list[RetrievalCall] = []
-    if claude_execution_file is not None:
-        calls = retrieval.parse_claude_retrieval(claude_execution_file)
-    elif codex_sessions_dir is not None:
-        calls = retrieval.parse_codex_retrieval(codex_sessions_dir)
-    elif gemini_telemetry_file is not None:
-        calls = retrieval.parse_gemini_retrieval(gemini_telemetry_file)
-
     registry_file = settings.config_root / (
         "predictors.yaml" if role == UsageRole.predictor else "evaluators.yaml"
     )
@@ -9370,6 +9391,10 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         # harvested calls (the plan already validated the registry).
         labels = []
         offered = []
+
+    calls = _harvest_retrieval_calls(
+        actor, offered, claude_execution_file, codex_sessions_dir, gemini_telemetry_file
+    )
 
     record = RetrievalLog(
         case_id=ids.case_id(court, docket),
