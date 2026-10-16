@@ -52,7 +52,6 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-import fedcourtsai.casestore  # noqa: F401  (registers the content-store read source)
 from fedcourtsai import corpus
 from fedcourtsai.config import get_settings
 from fedcourtsai.pipeline.documents import (
