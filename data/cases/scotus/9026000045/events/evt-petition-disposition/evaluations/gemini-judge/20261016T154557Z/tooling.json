@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000045",
+  "run_id": "20261016T154557Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["cat", "ls", "grep", "mkdir"],
+  "helpful": [],
+  "gaps": [],
+  "notes": "Used basic shell commands to review the provisioned documents, candidates, and logs. No live retrieval was required for this task."
+}
