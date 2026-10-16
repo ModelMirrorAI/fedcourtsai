@@ -680,18 +680,25 @@ of run-pull so the backfill runs on a denser schedule (four dead-zone windows a
 day); it shares the `corpus-write` concurrency group, so it still serializes with
 run-pull's forward writers. **run-pull**'s **pull** job does targeted
 CourtListener enrichment from the rate-limited **REST API** (the live job owns
-SCOTUS freshness for free). One other consumer shares that REST budget:
-**run-pull**'s dispatch-only **enrich** job (`mode=enrich-opinions`, sized by
-the `max_cases` input) walks granted SCOTUS rows to their published opinion
-cluster and lands the reporter citations and opinion body
+SCOTUS freshness for free). The opinion enrichment pass
 (`fedcourts enrich-opinions`; scope, walk order and arithmetic in
-[data-pipeline.md](data-pipeline.md)). It is the pass's only production lane —
-never scheduled, and dispatched into a dead zone between pull windows so it
+[data-pipeline.md](data-pipeline.md)) shares that REST budget, in two lanes.
+**run-pull**'s dispatch-only **enrich** job (`mode=enrich-opinions`, sized by
+the `max_cases` input) walks the granted SCOTUS backlog to its published
+opinion clusters and lands the reporter citations and opinion bodies. It is
+never scheduled, and is dispatched into a dead zone between pull windows so it
 neither queues on the corpus-write lock nor stacks API spend onto a pull
 window's. The job carries `max_cases` and nothing else: the walk orders itself
 ledger-first, so the cases the pipeline is waiting on reach the head without a
 dispatch naming them, and the CLI's `--case` targeting stays a local
-maintenance tool rather than a dispatch input. run-seed also runs eleven
+maintenance tool rather than a dispatch input. The **live** job runs the second
+lane on every window, one bounded step after the poll: `enrich-opinions
+--awaiting-grading --max-cases 8` walks only the merits cases decided within
+the evaluate lane's opinion-hold window, so a just-decided case's body usually
+lands before the next evaluate tick (*The evaluate queue is level-triggered
+too*, below). That step alone in the live job holds the CourtListener token,
+and it is `continue-on-error`: a failed or slow enrichment never fails the live
+pull, whose facts the push and commit carry either way. run-seed also runs eleven
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
@@ -2165,7 +2172,7 @@ because the backlog the round declined to work is re-derived on the next tick.
 Approve one held run at a time, and treat a hold older than a day as a
 stale plan to reject and let re-derive rather than release: the plan-time gates —
 predict's already-predicted gate and stranded-run guard, evaluate's
-predictionless and already-graded drops — were all evaluated when the plan
+predictionless and already-graded drops and its opinion hold — were all evaluated when the plan
 was minted, so a long
 hold un-anchors them — two simultaneously held plans over overlapping
 events were each minted before the other spent, and releasing both
@@ -3477,6 +3484,39 @@ deliberate similarity:
   owed case daily). That column is scheduling metadata — the backlog itself is
   re-derivable from git — so losing it costs at most a duplicate round, never a
   grading.
+
+**A decided merits event waits for its opinion body — for a bounded time.** The
+live poll writes a merits `outcome.json` the day the judgment latches, so the
+next daily tick would otherwise grade the event before the opinion reaches the
+corpus, and every semantic claim would mask on `not-ingested` — a grade about
+the pipeline's coverage, not the opinion. So `evaluate-matrix` **holds** a
+decided merits event (a declared merits moment whose committed outcome records a
+judgment) while its case's corpus row carries no `has_opinion` bit, for up to
+`OPINION_HOLD_DAYS` (14) days after the outcome's `resolved_at`
+(`matrix.opinion_hold`). It waits only for a body that can arrive: a DIG or an
+equally divided affirmance publishes no majority opinion
+(`matrix.BODILESS_JUDGMENTS`), and a row the enrichment pass can never walk —
+no cert grant on record, or a live-channel docket id that addresses nothing
+upstream — gets no body from it (`matrix.awaited_presence`), so neither is held. The moment the body lands it is graded on the next
+tick; on the release day it is graded regardless, masking on `not-ingested` if
+the body never came. The hold, and the backlog derivation under it, are counted
+on the run id's day, so the plan report re-derives exactly the cases and held
+cells the matrix step derived; `--force` does
+not lift it, since a re-grade inside the window would read the same empty slot;
+and a row the plan cannot read is not held, so a read fault grades as before
+rather than delaying. `evaluate-plan` lists every held cell under
+`held_awaiting_opinion`, each with a `held: awaiting opinion` reason naming the
+resolution date and the release day, and counts them in
+`counts.cell_ledger.held_awaiting_opinion_cells`. The deriver lists a case whose
+every owed event is held but gives it no `backlog_cases_per_cycle` slot — it
+mints nothing that cycle, and since the stamp-free deriver re-derives the same
+head every cycle, counting it would starve every other owed grading for the
+whole window. What usually ends a hold early is the live job's scoped
+enrichment step (`enrich-opinions --awaiting-grading`, above), which fetches the
+body within hours of the latch and retries each window until it lands. The hold
+moves *when* a decided merits event is first graded, never what it is graded
+against; its pre-registration standing is a dated entry in
+[freeze-record.md](freeze-record.md).
 
 Because the gate reads *committed* state, it cannot see a round whose collect PR
 has not merged. What bounds a second derivation there is `run-evaluate`'s

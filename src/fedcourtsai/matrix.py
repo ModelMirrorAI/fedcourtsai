@@ -36,9 +36,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
@@ -50,8 +50,9 @@ from .paths import CasePaths
 from .pipeline.moments import declares
 from .pricing import DEFAULT_MODELS
 from .registry import enabled_evaluators, enabled_predictors
-from .schemas import Stage
+from .schemas import Judgment, Outcome, Stage
 from .store import predictor_holds_no_counted_prediction
+from .supremecourt import is_live_docket_id
 from .voids import is_voided
 
 _JSON_BLOCK = re.compile(r"```json\s*(.+?)\s*```", re.S)
@@ -1048,6 +1049,179 @@ def cell_failure_count(
     return sum(1 for _ in root.glob(f"{actor}/*/attempt.json"))
 
 
+#: How long a decided merits event waits for its opinion body before it is
+#: graded regardless, counted in days from the outcome's ``resolved_at``.
+#:
+#: The live poll writes a merits ``outcome.json`` the day the judgment latches,
+#: and the evaluate lane derives that grading on its next daily tick — usually
+#: before the opinion body reaches the corpus. Graded then, every semantic claim
+#: masks on ``not-ingested``, a grade about the pipeline's coverage rather than
+#: about the opinion, and the honest grade needs a re-grade once the body lands.
+#: The hold trades that for a bounded delay. Two weeks is long enough for the
+#: live window's enrichment step (which retries four times a day over this same
+#: window) or an operator's enrich dispatch to land a body that exists upstream,
+#: and short enough that a body which never arrives despite being expected (a
+#: per curiam upstream carries no opinion for, a cluster the pass refuses as
+#: ambiguous) costs a fortnight's delay on the event's grading rather than a
+#: grading that never happens. A body known never to arrive is not waited for
+#: at all (:data:`BODILESS_JUDGMENTS`, :func:`awaited_presence`).
+OPINION_HOLD_DAYS = 14
+
+#: Judgments that publish no majority opinion for a grader to read, so a merits
+#: event resolved to one is never held: a dismissal as improvidently granted
+#: dissolves the writ, usually by a one-line order, and an equally divided Court
+#: affirms by operation of law without an opinion. Waiting for either would only
+#: delay its grading by the whole window and then mask. Both are *undisturbed*
+#: on the merits binary, so holding them would also delay exactly the outcomes
+#: on one side of it.
+BODILESS_JUDGMENTS: frozenset[Judgment] = frozenset({Judgment.dig, Judgment.equally_divided})
+
+
+@dataclass(frozen=True)
+class OpinionHold:
+    """Why a decided merits event's grading is deferred, and until when.
+
+    ``resolved_at`` is the committed outcome's date, the clock the window counts
+    from; ``release_on`` is the first day the event is graded with or without a
+    body. The two dates are the reason, so :attr:`reason` is the one sentence
+    every surface prints.
+    """
+
+    resolved_at: date
+    release_on: date
+
+    @property
+    def reason(self) -> str:
+        """The plan's reason string: what is awaited, and when the wait ends."""
+        return (
+            "held: awaiting opinion — the merits event resolved "
+            + f"{self.resolved_at.isoformat()} and the corpus row carries no opinion "
+            + "body yet, so a grading now would mask every semantic claim on "
+            + f"not-ingested; graded from {self.release_on.isoformat()} with or without one"
+        )
+
+
+def decided_merits_resolution(
+    data_root: Path, court: str, docket: int, event_id: str
+) -> date | None:
+    """The ``resolved_at`` of this event's committed merits outcome, or ``None``.
+
+    ``None`` unless all three hold: the event is a declared merits moment
+    (:func:`fedcourtsai.pipeline.moments.declares`), the ledger holds its
+    ``outcome.json``, and that outcome records a ``judgment`` outside
+    :data:`BODILESS_JUDGMENTS` — the Court decided the case in a form that
+    publishes an opinion, so a body is expected. A merits outcome with no
+    judgment, or a DIG or an equally divided affirmance, has no opinion body to
+    wait for.
+
+    An unreadable or invalid outcome answers ``None``, which grades the event
+    exactly as it would be graded without the hold: ``validate`` is where a
+    malformed outcome fails, and a hold that raised here would take a whole
+    plan down over one bad file.
+    """
+    if not declares(event_id, Stage.merits):
+        return None
+    path = CasePaths(data_root, court, docket).event(event_id).outcome
+    try:
+        outcome = Outcome.model_validate_json(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if outcome.judgment is None or outcome.judgment in BODILESS_JUDGMENTS:
+        return None
+    return outcome.resolved_at
+
+
+def awaited_presence(docket: int, *, has_opinion: bool, cert_granted: bool) -> bool | None:
+    """The presence bit the hold keys on, or ``None`` where no body can ever arrive.
+
+    The enrichment pass is the only channel that lands an opinion body, and it
+    walks only rows carrying ``date_cert_granted`` whose docket id names a
+    CourtListener docket (a live-channel reserved-range mint addresses nothing
+    upstream, so the pass counts it ``live_only`` and never walks it). A case
+    outside that reach would sit the whole window and then mask, so it is
+    answered ``None``, which :func:`opinion_hold` never holds on — exactly as
+    it treats an unreadable row.
+    """
+    if not cert_granted or is_live_docket_id(docket):
+        return None
+    return has_opinion
+
+
+def opinion_hold(
+    data_root: Path,
+    court: str,
+    docket: int,
+    event_id: str,
+    *,
+    has_opinion: bool | None,
+    today: date,
+) -> OpinionHold | None:
+    """Whether this event's grading waits for its opinion body, and why.
+
+    Held exactly when the event is a decided merits moment
+    (:func:`decided_merits_resolution`), the corpus row's ``has_opinion`` bit is
+    clear, and ``today`` falls fewer than :data:`OPINION_HOLD_DAYS` days after
+    the outcome's ``resolved_at``. From the release day the event is graded with
+    or without a body, masking on ``not-ingested`` if it is still absent; the
+    moment the bit is set it is graded at once, however early in the window.
+
+    ``has_opinion=None`` means no body is awaitable — the caller could not read
+    the row (no corpus row for the case, or a read that failed), or the row is
+    one enrichment can never reach (:func:`awaited_presence`) — and is not held:
+    such an event is graded exactly as an unheld one, so neither a read fault
+    nor an unreachable case can delay anything.
+
+    The hold moves *when* a decided merits event is first graded, never what it
+    is graded against: the grader reads the same outcome and the same staged
+    opinion slot either way, and the slot is simply more often full.
+    """
+    if has_opinion is None or has_opinion:
+        return None
+    resolved_at = decided_merits_resolution(data_root, court, docket, event_id)
+    if resolved_at is None:
+        return None
+    release_on = resolved_at + timedelta(days=OPINION_HOLD_DAYS)
+    if today >= release_on:
+        return None
+    return OpinionHold(resolved_at=resolved_at, release_on=release_on)
+
+
+def cases_awaiting_opinion(data_root: Path, *, today: date) -> frozenset[str]:
+    """Every case holding a decided merits outcome still inside the opinion-hold window.
+
+    The case-grain twin of :func:`opinion_hold`, without the presence bit: the
+    scope the live window's enrichment step walks, so a body is fetched for
+    exactly the cases the evaluate lane is holding or about to hold, and for no
+    longer than the hold waits for it. The caller's own eligibility predicate
+    supplies the presence half (a row already carrying a body is not walked).
+    One glob over the ledger's committed outcomes; an absent ``data_root``
+    yields the empty set.
+    """
+    found: set[str] = set()
+    for path in (data_root / "cases").glob("*/*/events/*/outcome.json"):
+        # `<court>/<docket>/events/<event>/outcome.json`: parents[0] is the
+        # event, parents[2] the docket, parents[3] the court.
+        court, docket = path.parents[3].name, int(path.parents[2].name)
+        resolved_at = decided_merits_resolution(data_root, court, docket, path.parents[0].name)
+        if resolved_at is not None and today < resolved_at + timedelta(days=OPINION_HOLD_DAYS):
+            found.add(case_id(court, docket))
+    return frozenset(found)
+
+
+def run_day(run_id: str) -> date:
+    """The UTC day a run id names, or today's UTC day where it names none.
+
+    The opinion hold's clock. Keying it on the run id rather than the wall
+    clock is what makes ``evaluate-matrix`` and the ``evaluate-plan`` report
+    that re-derives it under the same id agree on every held cell, even when
+    the two invocations straddle midnight.
+    """
+    try:
+        return parse_run_id(run_id).date()
+    except ValueError:
+        return datetime.now(UTC).date()
+
+
 def evaluate_matrix(
     evaluators_path: Path,
     cases: list[CaseRequest],
@@ -1055,11 +1229,12 @@ def evaluate_matrix(
     data_root: Path | None = None,
     *,
     skip_evaluated: bool = True,
+    opinion_present: Mapping[str, bool] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Build the evaluator x case x event matrix, dropping cells with nothing to do.
 
-    With ``data_root``, two deterministic gates run before any agent cell is
-    minted, so neither costs model spend:
+    With ``data_root``, deterministic gates run before any agent cell is
+    minted, so none costs model spend:
 
     * **predictionless** — an event with no committed prediction has nothing to
       score (:func:`event_has_predictions`).
@@ -1077,8 +1252,24 @@ def evaluate_matrix(
       grading supersedes rather than reweighting the standings. See
       :func:`event_has_evaluations` for the grain this gate works at, and the
       coverage gap that follows from it.
+    * **held: awaiting opinion** — given ``opinion_present`` (each case id's
+      awaited presence bit, :func:`awaited_presence`; a case whose body
+      enrichment can never land is left out), a decided merits event whose case carries no
+      opinion body is deferred for up to :data:`OPINION_HOLD_DAYS` days after
+      its ``resolved_at`` (:func:`opinion_hold`), so its first grading is not
+      the ``not-ingested`` availability mask. A deferral rather than a drop:
+      the event stays owed, and the backlog re-derives it every cycle until the
+      body lands or the window closes. A case absent from the mapping is not
+      held. The window is counted on :func:`run_day`, so a plan re-derived
+      under the same run id holds the same cells. It applies under
+      ``skip_evaluated=False`` too, since a deliberate re-grade inside the
+      window would be graded against the same empty opinion slot. The hold is
+      per event, but the idempotency gate is per judge, so the judges of one
+      event can still read different slots: on the release day a judge whose
+      cell lands grades against an empty slot, and one whose cell failed is
+      re-minted later, after the body may have landed.
 
-    ``data_root=None`` skips both (callers that assemble their own ledger).
+    ``data_root=None`` skips all three (callers that assemble their own ledger).
     ``skip_evaluated=False`` keeps the second gate off for a deliberate
     re-grade — a prompt or rubric change, where the point *is* to score an
     already-graded event again — so that never requires deleting committed
@@ -1090,6 +1281,7 @@ def evaluate_matrix(
     """
     evaluators = enabled_evaluators(evaluators_path)
     include: list[dict[str, Any]] = []
+    today = run_day(run_id)
     for case in cases:
         cid = case_id(case.court, case.docket)
         for event_id in case.events:
@@ -1102,6 +1294,20 @@ def evaluate_matrix(
             # backlog — since a grading could only score another petition's
             # outcome (`fedcourtsai.voids`).
             if is_voided(cid, event_id):
+                continue
+            if (
+                data_root is not None
+                and opinion_present is not None
+                and opinion_hold(
+                    data_root,
+                    case.court,
+                    case.docket,
+                    event_id,
+                    has_opinion=opinion_present.get(cid),
+                    today=today,
+                )
+                is not None
+            ):
                 continue
             for evaluator in fanout_order(evaluators, run_id=run_id, case=cid, event_id=event_id):
                 if (

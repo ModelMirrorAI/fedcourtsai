@@ -10,7 +10,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sqlite3
 import subprocess
+import sys
 from pathlib import Path
 
 import boto3
@@ -621,3 +623,86 @@ def test_cli_corpus_pull_warns_when_the_pointer_differs_from_main(
     overridden = CliRunner().invoke(app, ["corpus-pull"])
     assert overridden.exit_code == 0, overridden.output
     assert "origin/main" not in overridden.stderr
+
+
+# --- a killed writer's hot journal is settled before a push, or the push refused ---
+
+#: A writer that dies mid-transaction: a small page cache forces the update's
+#: pages to spill into the database file, and `os._exit` skips every cleanup,
+#: so the rollback journal is left hot beside a file holding uncommitted pages.
+_KILLED_WRITER = (
+    "import os, sqlite3, sys\n"
+    + "c = sqlite3.connect(sys.argv[1], isolation_level=None)\n"
+    + "c.execute('PRAGMA cache_size = 1')\n"
+    + "c.execute('BEGIN')\n"
+    + "c.execute(\"UPDATE t SET x = 'torn'\")\n"
+    + "os._exit(0)\n"
+)
+
+
+def _db_with_rows(path: Path) -> Path:
+    conn = sqlite3.connect(path)
+    conn.execute("PRAGMA journal_mode = DELETE")
+    conn.execute("CREATE TABLE t (x TEXT)")
+    conn.executemany("INSERT INTO t VALUES (?)", [("kept" + "." * 500,)] * 2000)
+    conn.commit()
+    conn.close()
+    return path
+
+
+def _journal(db: Path) -> Path:
+    return db.with_name(db.name + "-journal")
+
+
+def test_a_killed_writers_hot_journal_is_rolled_back(tmp_path: Path) -> None:
+    db = _db_with_rows(tmp_path / "corpus.db")
+    subprocess.run([sys.executable, "-I", "-c", _KILLED_WRITER, str(db)], check=True)
+    assert _journal(db).is_file(), "the probe must leave a journal to settle"
+
+    assert corpus.settle_hot_journal(db) is True
+
+    assert not _journal(db).exists()
+    conn = sqlite3.connect(db)
+    torn = conn.execute("SELECT count(*) FROM t WHERE x = 'torn'").fetchone()[0]
+    conn.close()
+    assert torn == 0
+
+
+def test_a_journal_that_will_not_clear_is_refused(tmp_path: Path) -> None:
+    # A zero-filled journal is not hot, so SQLite leaves it: the file's state is
+    # then unknown, and the caller must not publish it.
+    db = _db_with_rows(tmp_path / "corpus.db")
+    _journal(db).write_bytes(b"\0" * 512)
+
+    with pytest.raises(corpus.HotJournalError, match="must not be published"):
+        corpus.settle_hot_journal(db)
+
+
+def test_no_journal_settles_nothing_and_creates_nothing(tmp_path: Path) -> None:
+    db = _db_with_rows(tmp_path / "corpus.db")
+    before = db.read_bytes()
+    assert corpus.settle_hot_journal(db) is False
+    assert db.read_bytes() == before
+    # An absent database is never created (the open is `mode=rw`, never `rwc`).
+    missing = tmp_path / "absent.db"
+    assert corpus.settle_hot_journal(missing) is False
+    assert not missing.exists()
+
+
+def test_cli_corpus_push_refuses_a_journal_that_will_not_clear(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    corpus_root = tmp_path / "corpus"
+    corpus_root.mkdir()
+    db = _db_with_rows(corpus_root / "corpus.db")
+    _journal(db).write_bytes(b"\0" * 512)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_REMOTE_URL", REMOTE_URL)
+    monkeypatch.delenv("FEDCOURTS_CORPUS_POINTER", raising=False)
+    monkeypatch.delenv("CORPUS_POINTER", raising=False)
+
+    result = CliRunner().invoke(app, ["corpus-push"])
+
+    assert result.exit_code == 1
+    assert "must not be published" in result.stderr
+    assert not corpus_remote.pointer_path_for(db).exists()

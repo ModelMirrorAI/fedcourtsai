@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus
@@ -25,6 +26,7 @@ from fedcourtsai.courtlistener import (
     RateLimiter,
     default_rate_limiter,
 )
+from fedcourtsai.matrix import OPINION_HOLD_DAYS
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.opinion_enrichment import (
     MAX_OPINION_CHARS,
@@ -39,6 +41,8 @@ from fedcourtsai.pipeline.opinion_enrichment import (
     resource_id,
 )
 from fedcourtsai.supremecourt import live_docket_id
+from tests.conftest import seed_merits_outcome
+from tests.workflow_argv import command_argv
 
 _BASE = "https://www.courtlistener.com/api/rest/v4/"
 # The date the tests pin the walk's cursor stamp to, so an assertion about the
@@ -1514,3 +1518,69 @@ def test_the_command_refuses_a_blank_case_in_its_own_words() -> None:
     plain = " ".join(re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", result.output).split())
     assert "--case was given no case id" in plain
     assert "--dockets" not in plain
+
+
+def test_the_awaiting_grading_scope_walks_only_the_held_decisions(tmp_path: Path) -> None:
+    """The live window's scope: the decided merits cases the evaluate lane's
+    opinion hold is waiting on, and nothing else — not the standing backlog of
+    older grants, and not a decision the hold has already released."""
+    db = _priority_seeded(
+        tmp_path,
+        {
+            "scotus/101": {},
+            "scotus/700": {"merits_judgment": "reversed"},
+            "scotus/800": {"merits_judgment": "affirmed"},
+        },
+    )
+    data_root = _ledger(tmp_path, "scotus/700", "scotus/800")
+    seed_merits_outcome(data_root, "scotus", 700, resolved_at=_TODAY - timedelta(days=1))
+    seed_merits_outcome(
+        data_root, "scotus", 800, resolved_at=_TODAY - timedelta(days=OPINION_HOLD_DAYS)
+    )
+    upstream = _linkless(101, 700, 800)
+
+    result = _run(
+        db,
+        upstream,
+        apply=True,
+        max_cases=5,
+        today=_TODAY,
+        data_root=data_root,
+        awaiting_grading=True,
+    )
+
+    assert upstream.paths == ["/api/rest/v4/dockets/700/"]
+    assert result.eligible == 1
+    assert _cursor(db, "scotus/101") is None
+    assert _cursor(db, "scotus/800") is None
+
+
+def test_the_awaiting_grading_scope_needs_the_ledger(tmp_path: Path) -> None:
+    db = _priority_seeded(tmp_path, {"scotus/101": {}})
+    with pytest.raises(ValueError, match="data_root"):
+        _run(db, _linkless(101), apply=False, today=_TODAY, awaiting_grading=True)
+
+
+def test_the_live_windows_enrich_step_names_flags_the_cli_accepts() -> None:
+    """The live job runs the CLI binary directly (so `timeout` interrupts Python
+    once), which the `uv run fedcourts` parity helpers do not match. Parse its
+    argv here: Click validates every option before `--help` fires, so a renamed
+    flag is exit 2 rather than a step that fails in production every window."""
+    workflow = yaml.safe_load(
+        (Path(__file__).resolve().parent.parent / ".github/workflows/run-pull.yml").read_text()
+    )
+    step = next(s for s in workflow["jobs"]["live"]["steps"] if s.get("id") == "enrich-awaiting")
+    calls = command_argv(step["run"], (".venv/bin/fedcourts",))
+    assert calls == [["enrich-opinions", "--apply", "--awaiting-grading", "--max-cases", "8"]]
+    result = CliRunner().invoke(app, [*calls[0], "--help"])
+    assert result.exit_code == 0, result.output
+
+
+def test_the_command_refuses_awaiting_grading_with_a_named_case() -> None:
+    result = CliRunner().invoke(
+        app, ["enrich-opinions", "--awaiting-grading", "--case", "scotus/101"]
+    )
+
+    assert result.exit_code == 2
+    plain = " ".join(re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", result.output).split())
+    assert "does not take --case" in plain

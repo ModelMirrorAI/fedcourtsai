@@ -11,8 +11,13 @@ name: run-pull
 # - `live` (the `47 *` crons or dispatch mode=live): the SCOTUS live channel
 #   (docs/live-sources.md) — `fedcourts live-poll` probes supremecourt.gov
 #   docket JSON for newly docketed petitions (persisted per-Term cursor) and
-#   re-polls the pending watchlist. No CourtListener token, no API budget; the
-#   same corpus-writer plumbing (corpus push, pointer commit, queue routing).
+#   re-polls the pending watchlist, spending no API budget; the same
+#   corpus-writer plumbing (corpus push, pointer commit, queue routing). One
+#   bounded, failure-tolerant step after the poll is the exception: a scoped
+#   `enrich-opinions --awaiting-grading` pass fetches the opinion body of a
+#   merits case decided within the evaluate lane's opinion-hold window (a few
+#   CourtListener requests a case, capped per window), the only step in this
+#   job that holds the CourtListener token.
 # - `enrich` (dispatch mode=enrich-opinions only, never scheduled): walks
 #   granted SCOTUS rows to their published opinion cluster and lands the
 #   reporter citations and the opinion body (`fedcourts enrich-opinions`,
@@ -487,7 +492,9 @@ jobs:
     needs: [authorize]
     # The SCOTUS live channel (docs/live-sources.md): `fedcourts live-poll`
     # probes supremecourt.gov docket JSON for newly docketed petitions and
-    # re-polls the pending watchlist — no CourtListener token, no API budget.
+    # re-polls the pending watchlist, spending no API budget — except the one
+    # bounded opinion-enrichment step after the poll, which alone holds the
+    # CourtListener token (see that step).
     # Same corpus-writer shape, privileges (App token + the read-write corpus
     # role) and trigger surface as `pull` — schedule and dispatch, both already
     # gated by the platform, so this job needs no authorization step either.
@@ -504,8 +511,9 @@ jobs:
     # to a soft wall-clock budget (`--max-run-seconds` below), committing progress
     # so far and resuming next cycle, so a big watchlist can never overrun this
     # hard cap — which stays above the soft budget with margin for the fixed
-    # setup (checkout + corpus-pull) before the poll and the push after it.
-    timeout-minutes: 35
+    # setup (checkout + corpus-pull) before the poll, the opinion-enrichment
+    # step's own 6-minute cap after it, and the push.
+    timeout-minutes: 40
     environment: prod
     # Whether this window committed a forecast-relevant change, for the
     # `chain-predict` job.
@@ -592,15 +600,69 @@ jobs:
         # into the client; caps come from tracking.yaml's `live:` section.
         # --max-run-seconds is the soft wall-clock budget: the cycle stops
         # cleanly and commits progress so far when reached, so even a peak
-        # watchlist stays under the job's 35 min timeout-minutes with room for
-        # the fixed setup and the push (1500s = 25 min; the next cycle resumes
-        # the rotation where it left off).
+        # watchlist stays under the job's 40 min timeout-minutes with room for
+        # the fixed setup, the enrichment step below and the push (1500s = 25
+        # min; the next cycle resumes the rotation where it left off).
         run: |
           uv run fedcourts live-poll \
             --max-run-seconds 1500 \
             --out predict-queue.json \
             --evaluate-out evaluate-queue.json \
             --unrecorded-out unrecorded-queue.json
+
+      # The opinion body of a merits case decided within the evaluate lane's
+      # opinion-hold window (`fedcourts enrich-opinions --awaiting-grading`;
+      # `matrix.OPINION_HOLD_DAYS`), fetched here so it usually lands before the
+      # next daily evaluate tick and the event's first grading reads the opinion
+      # rather than masking on `not-ingested`. The poll above has just latched
+      # today's judgments and written their outcomes into the working tree, which
+      # is the ledger the scope reads; a case whose body is not upstream yet is
+      # retried every live window until it lands or the hold releases it.
+      #
+      # Bounded and failure-tolerant, because nothing about the live pull may
+      # depend on it: `--max-cases 8` caps a window at ~32 CourtListener
+      # requests (four a case at most) on the same governor and tier knobs as
+      # the pull job, so a peak decision day costs a sliver of the daily ceiling;
+      # and `continue-on-error` lets the push and the commit below carry the
+      # poll's facts whatever happens here. The wall clock is bounded twice. The
+      # inner `timeout` runs the CLI binary directly (the env setup-python-env
+      # synced), not through `uv run`: `timeout` signals its whole process
+      # group, so a `uv` wrapper would forward a second SIGINT into the Python
+      # it is already interrupting. Python gets exactly one, raises
+      # KeyboardInterrupt, and rolls back an open per-case transaction on the
+      # way out; the group-wide SIGKILL 30s later bounds a pass that ignores
+      # it. A harder kill can still leave a hot journal, which `corpus-push`
+      # settles (rolls back) before it publishes, refusing a journal that will
+      # not clear. The step's own timeout is the outer backstop. The token is
+      # step-scoped: no other step in this job holds it.
+      - name: Enrich newly decided merits cases with their opinion
+        id: enrich-awaiting
+        continue-on-error: true
+        timeout-minutes: 6
+        env:
+          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # Same tier knobs and fallbacks as the pull job's refresh step.
+          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '25' }}
+          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '300' }}
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
+        run: |
+          # No -e: a failed pass must still write its ledger to the summary and
+          # its warning below, then exit with the pass's own status.
+          set -uo pipefail
+          status=0
+          timeout --signal=INT --kill-after=30 240 \
+            .venv/bin/fedcourts enrich-opinions --apply --awaiting-grading --max-cases 8 \
+            | tee awaiting-enrich.txt || status=$?
+          {
+            echo "### Opinion enrichment for decisions awaiting grading"
+            echo '```'
+            cat awaiting-enrich.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::the awaiting-grading opinion enrichment failed (exit ${status}); the live pull carries on, and the next live window retries"
+          fi
+          exit "$status"
 
       - name: Push the corpus blob to the remote
         run: |
@@ -654,6 +716,10 @@ jobs:
         if: success() || failure()
         env:
           COMMITTED: ${{ steps.commit.outputs.committed }}
+          # The enrichment step's own outcome — `failure` even though
+          # continue-on-error kept the job green — so a failing pass is a row
+          # here on every window it fails, not only an annotation.
+          ENRICH_OUTCOME: ${{ steps.enrich-awaiting.outcome }}
         run: |
           set -euo pipefail
           count() {
@@ -682,6 +748,7 @@ jobs:
             echo "| predict backlog cases queued | ${predict} |"
             echo "| evaluate backlog cases owed | ${evaluate} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
+            echo "| opinion enrichment (awaiting grading) | ${ENRICH_OUTCOME:-—} |"
           } >> "$GITHUB_STEP_SUMMARY"
           # Per-case triage list — see the pull job's copy for the rationale.
           triage=$(jq -r '.[] | "- `\(.court)/\(.docket)` — \(.reason)"' \

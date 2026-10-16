@@ -32,9 +32,11 @@ from .. import corpus, ids
 from ..config import PredictScope
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_transient
 from ..matrix import (
+    awaited_presence,
     cell_failure_count,
     event_has_evaluations,
     event_has_predictions,
+    opinion_hold,
     predicted_case_ids,
 )
 from ..registry import enabled_evaluators, enabled_predictors
@@ -478,6 +480,16 @@ def derive_evaluate_backlog(
     derivation re-presents them. For SCOTUS, where
     ``evt-petition-disposition`` is typically the sole event, the case rarely
     has other owed events at all.
+
+    A case whose every owed event is a decided merits moment under the opinion
+    hold (:func:`fedcourtsai.matrix.opinion_hold`, read on the row's awaited
+    presence bit, :func:`fedcourtsai.matrix.awaited_presence`, and ``today``)
+    is listed but takes no ``cap`` slot: the
+    fan-out mints nothing for it this cycle, and since the deriver re-derives the
+    same head every cycle, counting it would let the held cases crowd out every
+    other owed grading for the whole window. So ``entries`` can exceed ``cap``
+    by the held cases met before the cap fills, and a held case past that point
+    is not listed at all, which costs nothing because it would mint nothing.
     """
     day = today or date.today()
     if cap <= 0:
@@ -517,8 +529,16 @@ def derive_evaluate_backlog(
     candidates.sort(key=lambda r: (r.evaluate_queued_at or date.min, r.case_id))
 
     entries: list[BacklogEntry] = []
+    # The cap counts entries with an event the fan-out will grade this cycle. A
+    # case whose every owed event is under the opinion hold
+    # (`fedcourtsai.matrix.opinion_hold`) is still listed, so the plan names the
+    # deferral, but takes no slot: the deriver is stamp-free and so re-derives
+    # the same head every cycle, and a fortnight of held merits decisions at the
+    # head of a `case_id`-ordered queue would otherwise starve every other
+    # owed grading behind them for as long as they wait.
+    counted = 0
     for row in candidates:
-        if len(entries) >= cap:
+        if counted >= cap:
             break
         court, docket_str = row.case_id.split("/", 1)
         docket = int(docket_str)
@@ -544,6 +564,15 @@ def derive_evaluate_backlog(
         entries.append(
             BacklogEntry(case_id=row.case_id, court=court, docket=docket, events=tuple(owed))
         )
+        presence = awaited_presence(
+            docket, has_opinion=row.has_opinion, cert_granted=row.date_cert_granted is not None
+        )
+        if any(
+            opinion_hold(data_root, court, docket, event_id, has_opinion=presence, today=day)
+            is None
+            for event_id in owed
+        ):
+            counted += 1
 
     return EvaluateBacklog(entries=tuple(entries), day=day)
 

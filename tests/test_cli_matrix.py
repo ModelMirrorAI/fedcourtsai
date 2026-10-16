@@ -22,7 +22,7 @@ from fedcourtsai.review_hold import ReviewHoldConfig
 from fedcourtsai.review_hold import decide as decide_hold
 from fedcourtsai.schemas import Disposition, Engine, EventKind, ModelUsage, Stage, UsageRole
 from fedcourtsai.serialize import write_json
-from tests.conftest import seed_evaluation, seed_prediction
+from tests.conftest import MERITS_EVENT, seed_evaluation, seed_merits_outcome, seed_prediction
 
 runner = CliRunner()
 
@@ -1997,6 +1997,7 @@ def _assert_evaluate_balances(plan: dict[str, Any]) -> None:
         c["candidate_cells"]
         - c["dropped_predictionless_cells"]
         - c["dropped_already_evaluated_cells"]
+        - c["held_awaiting_opinion_cells"]
         == c["would_mint_cells"]
     )
 
@@ -2307,6 +2308,105 @@ def test_evaluate_plan_reports_already_graded_cells_and_what_force_would_change(
     assert forced_plan["dropped_already_evaluated"] == []
     assert forced_plan["counts"]["cell_ledger"]["would_mint_cells"] == 6
     _assert_evaluate_balances(forced_plan)
+
+
+def test_evaluate_plan_names_a_decided_merits_case_held_for_its_opinion(
+    tmp_path: Path,
+) -> None:
+    # The promotion's effect check at plan grain: a decided merits case whose
+    # row carries no opinion body is listed `held: awaiting opinion` and mints
+    # nothing, the minting command agrees under the same run id, and the moment
+    # the body lands the same plan grades it.
+    body = tmp_path / "issue-body.md"
+    body.write_text(
+        f'```json\n{{"court": "scotus", "docket": 24001, "events": ["{MERITS_EVENT}"]}}\n```\n'
+    )
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    data_root = Path(env["FEDCOURTS_DATA_ROOT"])
+    seed_prediction(data_root, "scotus", 24001, MERITS_EVENT)
+    seed_merits_outcome(data_root, "scotus", 24001, resolved_at=date(2026, 12, 9))
+    _grant_row(env, "scotus/24001")
+    run_id = "20261210T153900Z"
+    plan_args = ["evaluate-plan", "--body-file", str(body), "--run-id", run_id]
+
+    planned = runner.invoke(app, plan_args, env=env)
+    minted = runner.invoke(
+        app, ["evaluate-matrix", "--body-file", str(body), "--run-id", run_id], env=env
+    )
+
+    assert planned.exit_code == 0, planned.output
+    plan = _plan(planned.stdout)
+    ledger = plan["counts"]["cell_ledger"]
+    assert ledger["held_awaiting_opinion_cells"] == 3
+    assert ledger["would_mint_cells"] == 0
+    assert {d["event_id"] for d in plan["held_awaiting_opinion"]} == {MERITS_EVENT}
+    assert all(
+        d["reason"].startswith("held: awaiting opinion") for d in plan["held_awaiting_opinion"]
+    )
+    assert "2026-12-23" in plan["held_awaiting_opinion"][0]["reason"]
+    _assert_evaluate_balances(plan)
+    assert minted.exit_code == 0, minted.output
+    assert _cells(minted.stdout) == []
+    assert "held 3 cell(s)" in minted.stderr
+
+    # The body lands (an enriched row is a decided one): graded at once.
+    with corpus.connect(corpus.corpus_db_path(Path(env["FEDCOURTS_CORPUS_ROOT"]))) as conn:
+        row = corpus.get_row(conn, "scotus/24001")
+        assert row is not None
+        corpus.upsert_rows(
+            conn, [row.model_copy(update={"has_opinion": True, "date_decided": date(2026, 12, 9)})]
+        )
+    landed = _plan(runner.invoke(app, plan_args, env=env).stdout)
+    assert landed["held_awaiting_opinion"] == []
+    assert landed["counts"]["cell_ledger"]["would_mint_cells"] == 3
+    _assert_evaluate_balances(landed)
+
+
+def _grant_row(env: dict[str, str], case_id: str) -> None:
+    """Give the case the cert grant enrichment needs before it can walk the row."""
+    with corpus.connect(corpus.corpus_db_path(Path(env["FEDCOURTS_CORPUS_ROOT"]))) as conn:
+        row = corpus.get_row(conn, case_id)
+        assert row is not None
+        corpus.upsert_rows(conn, [row.model_copy(update={"date_cert_granted": date(2026, 1, 9)})])
+
+
+def test_a_failed_presence_read_warns_and_grades_unheld(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The hold is a deferral, so a fault reading the bit it keys on must grade
+    # the event as an unheld one, loudly, rather than take the round down. Under
+    # the `all` scope the presence read is the run's only corpus read, so failing
+    # every read fails exactly that one.
+    body = tmp_path / "issue-body.md"
+    body.write_text(
+        f'```json\n{{"court": "scotus", "docket": 24001, "events": ["{MERITS_EVENT}"]}}\n```\n'
+    )
+    env = _env(tmp_path, scope="all", cases=("scotus/24001",), seed_predictions=False)
+    data_root = Path(env["FEDCOURTS_DATA_ROOT"])
+    seed_prediction(data_root, "scotus", 24001, MERITS_EVENT)
+    seed_merits_outcome(data_root, "scotus", 24001, resolved_at=date(2026, 12, 9))
+    _grant_row(env, "scotus/24001")
+
+    def _refuse(*_args: object, **_kwargs: object) -> None:
+        raise OSError("corpus unreadable")
+
+    monkeypatch.setattr(corpus, "connect_readonly", _refuse)
+    run_id = "20261210T153900Z"
+    minted = runner.invoke(
+        app, ["evaluate-matrix", "--body-file", str(body), "--run-id", run_id], env=env
+    )
+    planned = runner.invoke(
+        app, ["evaluate-plan", "--body-file", str(body), "--run-id", run_id], env=env
+    )
+
+    assert minted.exit_code == 0, minted.output
+    assert len(_cells(minted.stdout)) == 3
+    assert "::warning::evaluate-matrix: could not read the opinion presence bit" in minted.stderr
+    assert planned.exit_code == 0, planned.output
+    assert _plan(planned.stdout)["held_awaiting_opinion"] == []
+    # A plan publishes its own record, so it carries no workflow annotation.
+    assert "warning: evaluate-plan: could not read the opinion presence bit" in planned.stderr
+    assert "::warning::" not in planned.stderr
 
 
 def test_the_planning_rate_table_matches_the_per_event_totals() -> None:

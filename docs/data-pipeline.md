@@ -798,6 +798,30 @@ read is one glob over the committed tree, with
 [`pipeline/moments.py`](../src/fedcourtsai/pipeline/moments.py)'s declared
 merits moments as the vocabulary.
 
+The pass has **two production lanes**, and the second is scoped to the cases a
+grading is waiting on. Every scheduled `run-pull` **live** window runs it as
+`enrich-opinions --apply --awaiting-grading --max-cases 8`, right after the poll
+that latches the day's judgments: the walk narrows to the cases whose committed
+merits outcome records a judgment that publishes an opinion (not a DIG or an
+equally divided affirmance) and resolved fewer than
+`OPINION_HOLD_DAYS` (14) days ago — exactly the cases `run-evaluate`'s opinion
+hold is holding or about to hold ([pipeline.md](pipeline.md#the-evaluate-queue-is-level-triggered-too)) — and
+everything else stands: eligibility, the order, the cursor, the cap. So a
+body upstream already carries usually lands before the next daily evaluate tick,
+one upstream has not published yet is retried every live window, and a case the
+hold has released is never walked from there again. Its spend is bounded the
+same way the dispatch's is, at a fraction of the size: at most 32 requests a
+window (eight cases at four), only on a day with that many decisions still
+missing a body, against the ≈360 a day the pull windows commit. It runs on the
+same per-process governor and tier knobs as the pull job, in the live job's own
+slot on the `corpus-write` lock, so it never stacks onto a pull window's spend.
+The step is failure-tolerant by construction — `continue-on-error`, an inner
+SIGINT timeout that unwinds an open transaction, and `corpus-push` settling (or
+refusing) any hot journal a harder kill left before it publishes — so nothing
+about the live pull depends on it, and the live summary carries the step's
+outcome as a row on every window. The dispatched **enrich** job stays the lane
+for the standing backlog.
+
 `--case <court>/<docket>` (repeatable) narrows the walk to named cases, and it
 is a **diagnostic rather than a second way in**: the applied lane is the
 dispatched enrich job, which names no case, and a dev checkout's corpus role is

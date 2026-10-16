@@ -691,8 +691,10 @@ The automated consumer stays within CourtListener's published API limits by desi
 - **Opinion enrichment shares that budget**, through the same client and the
   same configured ceilings; the `enrich-opinions` scope, its per-case request
   count, and the headroom arithmetic are owned by
-  [data-pipeline.md](data-pipeline.md) and stated only there. What belongs to
-  the terms question is the boundary: opinion coverage at bulk scale is not a
+  [data-pipeline.md](data-pipeline.md) and stated only there. Its live-window
+  step's requests count against the same account limits but not against the
+  pull governor's per-process tally, since each process counts only its own.
+  What belongs to the terms question is the boundary: opinion coverage at bulk scale is not a
   REST problem, the **database replication** channel named above remains the
   intended route to opinion bodies across the whole corpus, and nothing here is
   a step toward reading them out of the API instead.

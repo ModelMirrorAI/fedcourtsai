@@ -209,17 +209,20 @@ from .matrix import (
     GuardedMatrix,
     StrandedCell,
     StrandedReason,
+    awaited_presence,
     cap_predict_cells,
     classify_stranded_cells,
     drop_stranded_cells,
     evaluate_matrix,
     event_has_evaluations,
     event_has_predictions,
+    opinion_hold,
     parse_cases,
     predict_matrix,
     read_collect_prs,
     read_stranded_census,
     reopened_for,
+    run_day,
 )
 from .merits_event_migration import (
     backfill_event_moments,
@@ -500,6 +503,7 @@ from .validate import (
     run_scope_audit,
     validate_ledger,
 )
+from .voids import is_voided
 from .vote_writer import (
     SweepSlice,
     VoteDocketNumbers,
@@ -2426,6 +2430,15 @@ def enrich_opinions_cmd(
             help="Restrict the walk to this `court/docket` case; repeatable.",
         ),
     ] = None,
+    awaiting_grading: Annotated[
+        bool,
+        typer.Option(
+            "--awaiting-grading",
+            help="Restrict the walk to the decided merits cases the evaluate lane's "
+            "opinion hold is waiting on (a committed merits outcome with a judgment, "
+            "resolved within the hold window). The live window's scope; not with --case.",
+        ),
+    ] = False,
 ) -> None:
     """Fill each granted SCOTUS case's reporter cites and opinion body from REST.
 
@@ -2482,7 +2495,8 @@ def enrich_opinions_cmd(
 
     `--case court/docket` (repeatable) narrows the walk to named cases. It is a
     **diagnostic**, not a way to prioritise a case into production: the applied
-    lane is the dispatched enrich job, which names no case, and a dev checkout's
+    lanes are the dispatched enrich job and the live window's scoped step,
+    neither of which names a case, and a dev checkout's
     corpus role is read-only, so a local `--apply` cannot be pushed. What it
     answers is what one case costs and where it stops — does either route reach
     a cluster, is the cluster ambiguous, does the opinion carry text — without
@@ -2507,11 +2521,28 @@ def enrich_opinions_cmd(
     about the docket (a 5xx, a transport failure, an unparseable body, or a
     4xx on a collection query — the question refused, not the case).
 
+    `--awaiting-grading` is the **live window's** scope, not a diagnostic: it
+    narrows the walk to the decided merits cases the evaluate lane's opinion
+    hold is waiting on — a committed merits outcome recording a judgment that
+    publishes an opinion (not a DIG or an equally divided affirmance),
+    resolved within the hold's `OPINION_HOLD_DAYS` (14) days — so a body is
+    fetched within hours of the latch and retried each live window until it
+    lands or the hold releases the case. Everything else stands: eligibility,
+    the order, the cursor and `--max-cases`. It names no case, so it combines
+    with `--case` only as a contradiction, and is refused with it.
+
     Dry-run by default (the requests are spent either way — the dry run is how
     the spend is inspected, and it moves no cursor); run where the corpus is
     pulled, `corpus-push` after an `--apply`. Fails loud if the corpus is
     absent.
     """
+    if awaiting_grading and case is not None:
+        typer.echo(
+            "enrich-opinions: --awaiting-grading derives its own scope from the ledger, "
+            "so it does not take --case",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     named: list[str] | None = None
     if case is not None:
         # The slice is refused before anything is opened: a typo is an argument
@@ -2546,12 +2577,14 @@ def enrich_opinions_cmd(
             max_cases=max_cases,
             data_root=settings.data_root,
             cases=named,
+            awaiting_grading=awaiting_grading,
         )
     if apply:
         _ensure_corpus_layout(db_path)
     verb = "enriched" if apply else "would enrich"
+    mode = ("applied" if apply else "dry-run") + (", awaiting-grading" if awaiting_grading else "")
     typer.echo(
-        f"enrich-opinions ({'applied' if apply else 'dry-run'}): "
+        f"enrich-opinions ({mode}): "
         f"{result.eligible} granted case(s) without an opinion — walked "
         f"{result.considered}, {verb} {result.enriched}, "
         f"{result.no_cluster} with no linked cluster, {result.no_body} with no body; "
@@ -5285,6 +5318,12 @@ def corpus_push() -> None:
     pointer after this command returns. Rebuilds the file to the ranged-read
     layout first if it drifted (the same guarantee every writer command gives).
 
+    Before any of that it settles a hot journal (:func:`corpus.settle_hot_journal`):
+    a writer killed mid-transaction leaves ``corpus.db-journal`` beside a file
+    that may hold half-written pages, which opening the file read-write rolls
+    back. A journal that will not clear is refused with exit 1 rather than
+    published, so ``corpus-push`` never publishes a torn file.
+
     Refuses to run while the out-of-band pointer override is set: a writer
     owns the *committed* pointer, and an environment that overrides reads is
     not reading the pair it would be publishing to.
@@ -5302,8 +5341,16 @@ def corpus_push() -> None:
     db_path = corpus.corpus_db_path(settings.corpus_root)
     remote_url = _require_corpus_remote_url()
     try:
+        # A writer killed mid-transaction leaves a hot journal the upload below
+        # would not see (it digests the file without opening it), so settle it
+        # first, and refuse to publish a file whose journal will not clear.
+        if corpus.settle_hot_journal(db_path):
+            typer.echo(f"corpus-push: rolled back a hot journal beside {db_path}")
         _ensure_corpus_layout(db_path)
         pointer = corpus_remote.upload_index(db_path, remote_url)
+    except corpus.HotJournalError as exc:
+        typer.echo(f"corpus-push: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
     except (corpus_remote.CorpusRemoteError, corpus_ranged.RangedBackendError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
@@ -15867,7 +15914,9 @@ def _warn_prefix(findings: _BacklogFindings | None) -> str:
     return "::warning::" if findings is None else "warning: "
 
 
-def _evaluate_backlog_cases(findings: _BacklogFindings | None = None) -> list[CaseRequest]:
+def _evaluate_backlog_cases(
+    findings: _BacklogFindings | None = None, *, day: date | None = None
+) -> list[CaseRequest]:
     """The evaluate stage's own case set, derived from the corpus-level backlog.
 
     What a scheduled evaluate run fans out over when no trigger names its cases:
@@ -15911,6 +15960,12 @@ def _evaluate_backlog_cases(findings: _BacklogFindings | None = None) -> list[Ca
     backlog cannot see these at all: it derives only events that hold a
     prediction to grade. ``findings`` receives the report for a plan that
     publishes it (``evaluate-plan``), and turns the annotations off there.
+
+    ``day`` is the deriver's clock — the run id's day
+    (:func:`fedcourtsai.matrix.run_day`), passed by both ``evaluate-matrix``
+    and ``evaluate-plan`` so the two select the same cases under one run id
+    even across midnight: the opinion hold's slot accounting and the debounce
+    both read it.
     """
     settings = get_settings()
     evaluate_cfg = load_evaluate_config(settings.config_root)
@@ -15936,6 +15991,7 @@ def _evaluate_backlog_cases(findings: _BacklogFindings | None = None) -> list[Ca
             settings.config_root / "evaluators.yaml",
             cap=evaluate_cfg.backlog_cases_per_cycle,
             max_attempts=evaluate_cfg.max_attempts_per_cell,
+            today=day,
         )
         today = date.today()
         prefix = _warn_prefix(findings)
@@ -16288,6 +16344,7 @@ def _requested_cases(
     backlog: Literal["predict", "evaluate"],
     force: bool = False,
     derived: _BacklogFindings | None = None,
+    day: date | None = None,
 ) -> list[CaseRequest]:
     """Cases to fan out over, from a batch body file, single-case flags, or the backlog.
 
@@ -16317,7 +16374,8 @@ def _requested_cases(
 
     ``derived`` receives what the backlog mode's derivation found beyond its
     case list (:class:`_BacklogFindings`), and stays empty in the named-case
-    modes, where nothing is derived.
+    modes, where nothing is derived. ``day`` is the evaluate deriver's clock
+    (see :func:`_evaluate_backlog_cases`); the predict deriver does not take it.
     """
     if body_file is not None:
         return parse_cases(body_file.read_text())
@@ -16338,7 +16396,7 @@ def _requested_cases(
         )
     if backlog == "predict":
         return _predict_backlog_cases(derived)
-    return _evaluate_backlog_cases(derived)
+    return _evaluate_backlog_cases(derived, day=day)
 
 
 def _spend_gate_or_empty(stage: str) -> SpendVerdict:
@@ -17200,9 +17258,11 @@ def predict_matrix_cmd(
 class _EvaluateFanout:
     """One pass of the evaluate planning pipeline, recorded step by step.
 
-    The two cell-grain drop classes stay apart — one is a cost gate (nothing to
-    score) and the other an idempotency gate (already scored) — because
-    collapsed, a fully-graded re-queue reads as a run with no predictions.
+    The cell-grain drop classes stay apart — a cost gate (nothing to score), an
+    idempotency gate (already scored) and a deferral (a decided merits event
+    held for its opinion body) — because collapsed, a fully-graded re-queue
+    reads as a run with no predictions, and a held decision reads as one
+    nobody owes.
     """
 
     requested: list[CaseRequest]
@@ -17211,8 +17271,61 @@ class _EvaluateFanout:
     resolution: _ResolveReport
     predictionless: tuple[_DropRecord, ...]
     already_evaluated: tuple[_DropRecord, ...]
+    held_awaiting_opinion: tuple[_DropRecord, ...]
     candidates: int
     matrix: dict[str, list[dict[str, Any]]]
+
+
+def _opinion_presence(
+    cases: Sequence[CaseRequest], *, stage: str, findings: _BacklogFindings | None
+) -> dict[str, bool]:
+    """Each requested case's awaited presence bit, for the opinion hold.
+
+    Read only for a case carrying a declared merits moment, since no other event
+    can be held, so a fan-out with none opens no connection at all. A case the
+    corpus holds no row for is left out of the mapping, which the hold reads as
+    unknown and does not hold on, and so is a row enrichment can never reach
+    (:func:`fedcourtsai.matrix.awaited_presence`: no cert grant, or a
+    live-channel docket id), whose body would never arrive. A failed read
+    degrades the same way, with a warning (``::warning::`` for the minting
+    command, a plain marker for a plan, :func:`_warn_prefix`): the hold is a
+    deferral, and a fault reading the bit it keys on must grade the events
+    exactly as unheld events are graded rather than take the round down.
+    """
+    wanted = [
+        case
+        for case in cases
+        if any(moments.declares(event_id, Stage.merits) for event_id in case.events)
+    ]
+    if not wanted:
+        return {}
+    settings = get_settings()
+    presence: dict[str, bool] = {}
+    try:
+        with corpus.connect_readonly(
+            corpus.corpus_db_path(settings.corpus_root), backend=settings.corpus_backend
+        ) as conn:
+            for case in wanted:
+                cid = ids.case_id(case.court, case.docket)
+                row = corpus.get_row(conn, cid)
+                if row is None:
+                    continue
+                awaited = awaited_presence(
+                    case.docket,
+                    has_opinion=row.has_opinion,
+                    cert_granted=row.date_cert_granted is not None,
+                )
+                if awaited is not None:
+                    presence[cid] = awaited
+    except Exception as exc:  # any read failure degrades to no hold, loudly
+        typer.echo(
+            f"{_warn_prefix(findings)}{stage}: could not read the opinion presence bit, so no "
+            f"decided merits event is held for its opinion this round: "
+            f"{_one_line(f'{type(exc).__name__}: {exc}')}",
+            err=True,
+        )
+        return {}
+    return presence
 
 
 def _evaluate_fanout(
@@ -17222,8 +17335,9 @@ def _evaluate_fanout(
     stage: str,
     force: bool,
     report: bool,
+    findings: _BacklogFindings | None = None,
 ) -> _EvaluateFanout:
-    """Run the evaluate planning pipeline: scope, resolution, and the two gates.
+    """Run the evaluate planning pipeline: scope, resolution, and the plan-time gates.
 
     The one definition of what an evaluate run would mint, shared by
     ``evaluate-matrix`` and ``evaluate-plan``, so the dry run cannot describe a
@@ -17234,9 +17348,14 @@ def _evaluate_fanout(
     which is its single stderr voice.
 
     ``candidates`` is the opening balance — every evaluator x case x event cell
-    the resolved request spans, before either gate — so a reader can reconcile
+    the resolved request spans, before any gate — so a reader can reconcile
     the drops against the surviving set rather than take the difference on
     trust.
+
+    The opinion hold (:func:`fedcourtsai.matrix.opinion_hold`) runs on the
+    corpus's ``has_opinion`` bit (:func:`_opinion_presence`) and the run id's
+    day, so the minting command and a plan re-derived under the same run id
+    hold the same cells.
     """
     settings = get_settings()
     scope = load_predict_config(settings.config_root).scope
@@ -17258,22 +17377,32 @@ def _evaluate_fanout(
         report=report,
         report_out=resolution,
     )
-    # Two plan-time gates, both before any model spend: an event with no
-    # committed prediction has nothing to score, and a judge that already graded
-    # the event is not re-minted. See `evaluate_matrix`.
+    # Three plan-time gates, all before any model spend: an event with no
+    # committed prediction has nothing to score, a decided merits event whose
+    # opinion body has not landed is held for it, and a judge that already
+    # graded the event is not re-minted. See `evaluate_matrix`.
     evaluators_path = settings.config_root / "evaluators.yaml"
+    presence = _opinion_presence(cases, stage=stage, findings=findings)
     matrix = evaluate_matrix(
-        evaluators_path, cases, run_id, data_root=settings.data_root, skip_evaluated=not force
+        evaluators_path,
+        cases,
+        run_id,
+        data_root=settings.data_root,
+        skip_evaluated=not force,
+        opinion_present=presence,
     )
     evaluators = [e for e in load_evaluators(evaluators_path) if e.enabled]
-    # Report the two gates separately: one is a cost gate (nothing to score) and
-    # the other an idempotency gate (already scored). Collapsed, a fully-graded
-    # re-queue would read as a run with no predictions. Each is counted from the
-    # same predicate the gate uses rather than by subtracting one from the total,
-    # so the arithmetic does not silently depend on the order the gates run in
-    # `evaluate_matrix` — reordering them there would otherwise print a negative.
+    today = run_day(run_id)
+    # Report the gates separately: a cost gate (nothing to score), a deferral
+    # (held for the opinion) and an idempotency gate (already scored). Collapsed,
+    # a fully-graded re-queue would read as a run with no predictions. Each is
+    # counted from the same predicate the gate uses rather than by subtracting
+    # one from the total, so the arithmetic does not silently depend on the order
+    # the gates run in `evaluate_matrix` — reordering them there would otherwise
+    # print a negative.
     predictionless: list[_DropRecord] = []
     already: list[_DropRecord] = []
+    held: list[_DropRecord] = []
     for case in cases:
         case_id = ids.case_id(case.court, case.docket)
         for event_id in case.events:
@@ -17290,8 +17419,21 @@ def _evaluate_fanout(
                     for evaluator in evaluators
                 )
                 continue
-            if force:
-                continue
+            graded = (
+                set()
+                if force
+                else {
+                    evaluator.id
+                    for evaluator in evaluators
+                    if event_has_evaluations(
+                        settings.data_root,
+                        case.court,
+                        case.docket,
+                        event_id,
+                        evaluator_id=evaluator.id,
+                    )
+                }
+            )
             already.extend(
                 _DropRecord(
                     case_id,
@@ -17300,18 +17442,35 @@ def _evaluate_fanout(
                     actor_id=evaluator.id,
                 )
                 for evaluator in evaluators
-                if event_has_evaluations(
-                    settings.data_root,
-                    case.court,
-                    case.docket,
-                    event_id,
-                    evaluator_id=evaluator.id,
-                )
+                if evaluator.id in graded
             )
+            hold = opinion_hold(
+                settings.data_root,
+                case.court,
+                case.docket,
+                event_id,
+                has_opinion=presence.get(case_id),
+                today=today,
+            )
+            # A held event mints nothing, so every judge the idempotency gate
+            # did not already account for is a held cell. A voided event is the
+            # void registry's drop, not a deferral, so it is never reported held.
+            if hold is not None and not is_voided(case_id, event_id):
+                held.extend(
+                    _DropRecord(case_id, hold.reason, event_id=event_id, actor_id=evaluator.id)
+                    for evaluator in evaluators
+                    if evaluator.id not in graded
+                )
     if report and predictionless:
         typer.echo(f"{stage}: dropped {len(predictionless)} predictionless cell(s)", err=True)
     if report and already:
         typer.echo(f"{stage}: dropped {len(already)} already-evaluated cell(s)", err=True)
+    if report and held:
+        typer.echo(
+            f"{stage}: held {len(held)} cell(s) on decided merits events awaiting their "
+            "opinion body",
+            err=True,
+        )
     return _EvaluateFanout(
         requested=requested_cases,
         resolved=cases,
@@ -17319,6 +17478,7 @@ def _evaluate_fanout(
         resolution=resolution,
         predictionless=tuple(predictionless),
         already_evaluated=tuple(already),
+        held_awaiting_opinion=tuple(held),
         candidates=len(evaluators) * sum(len(case.events) for case in cases),
         matrix=matrix,
     )
@@ -17373,9 +17533,25 @@ def evaluate_matrix_cmd(
     backlog mode re-plan the same backlog without re-minting a graded cell.
     ``--force`` disables it for a deliberate re-grade, which otherwise would
     need committed artifacts deleted to get a cell minted.
+
+    A third gate defers rather than drops: a decided merits event whose case's
+    corpus row carries no opinion body is **held** for up to
+    ``OPINION_HOLD_DAYS`` (14) days after its outcome's ``resolved_at``, then
+    graded with or without one, so its first grading is not the
+    ``not-ingested`` availability mask (:func:`fedcourtsai.matrix.opinion_hold`).
+    It is graded at once when the body lands, ``--force`` does not lift it, and
+    the window counts on the run id's day.
     """
     fanout = _evaluate_fanout(
-        _requested_cases(body_file, court, docket, event, backlog="evaluate", force=force),
+        _requested_cases(
+            body_file,
+            court,
+            docket,
+            event,
+            backlog="evaluate",
+            force=force,
+            day=run_day(run_id),
+        ),
         run_id,
         stage="evaluate-matrix",
         force=force,
@@ -17767,6 +17943,10 @@ _APPROVAL_DROP_CLASSES: tuple[tuple[str, str], ...] = (
     ("dropped_already_predicted", "cell(s) dropped as already predicted by that predictor"),
     ("dropped_predictionless", "cell(s) dropped as having no committed prediction to score"),
     ("dropped_already_evaluated", "cell(s) dropped as already graded by that judge"),
+    (
+        "held_awaiting_opinion",
+        "cell(s) held: a decided merits event awaiting its opinion body (graded later)",
+    ),
     ("withheld_stranded", "cell(s) withheld by the stranded-run guard"),
 )
 
@@ -18508,9 +18688,12 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
 ) -> None:
     """Report the evaluate cells a run would mint, step by step, spending nothing.
 
-    The dry run of ``evaluate-matrix``, through the same pipeline and its two
+    The dry run of ``evaluate-matrix``, through the same pipeline and its
     plan-time gates — an event with no committed prediction has nothing to
-    score, and a judge that already graded the event is not re-minted. Same
+    score, a judge that already graded the event is not re-minted, and a
+    decided merits event still awaiting its opinion body is held, each held
+    cell listed under ``held_awaiting_opinion`` with a ``held: awaiting
+    opinion`` reason naming the day it is graded regardless. Same
     grain-split ``counts``, stdout/stderr split, and spend-gate reading as
     ``predict-plan``: the backstop's verdict is reported, never applied.
 
@@ -18559,11 +18742,13 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
             backlog="evaluate",
             force=force,
             derived=derived,
+            day=run_day(planned_run_id),
         ),
         planned_run_id,
         stage="evaluate-plan",
         force=force,
         report=False,
+        findings=derived,
     )
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
     would_mint = [
@@ -18593,10 +18778,11 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
             },
             "cell_ledger": {
                 # The opening balance, so the drops below reconcile: candidates
-                # - predictionless - already_evaluated == would_mint.
+                # - predictionless - already_evaluated - held == would_mint.
                 "candidate_cells": fanout.candidates,
                 "dropped_predictionless_cells": len(fanout.predictionless),
                 "dropped_already_evaluated_cells": len(fanout.already_evaluated),
+                "held_awaiting_opinion_cells": len(fanout.held_awaiting_opinion),
                 "would_mint_cells": len(would_mint),
                 "would_mint_cells_after_spend_gate": (0 if verdict.breached else len(would_mint)),
             },
@@ -18619,6 +18805,7 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
         "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
         "dropped_predictionless": [r.as_json() for r in fanout.predictionless],
         "dropped_already_evaluated": [r.as_json() for r in fanout.already_evaluated],
+        "held_awaiting_opinion": [r.as_json() for r in fanout.held_awaiting_opinion],
         "spend_gate": _spend_verdict_json(verdict),
         "would_mint": would_mint,
         **_plan_spend(would_mint, seam="evaluate", breached=verdict.breached),

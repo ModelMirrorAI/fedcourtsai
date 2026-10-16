@@ -153,7 +153,7 @@ import sqlite3
 from collections.abc import Container, Mapping, Sequence
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
-from datetime import date
+from datetime import UTC, date, datetime
 from functools import partial
 from pathlib import Path
 from typing import Any, Final
@@ -164,7 +164,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_throttled
-from ..matrix import merits_event_case_ids
+from ..matrix import cases_awaiting_opinion, merits_event_case_ids
 from ..supremecourt import is_live_docket_id
 
 # A modest default: the pass is a standing maintenance step, not a bulk load,
@@ -210,7 +210,8 @@ class OpinionEnrichmentResult(BaseModel):
     eligible: int = Field(
         ge=0,
         description="Addressable granted SCOTUS rows still lacking a body — within the "
-        "named slice where the run named one, since that is the queue the run had",
+        "named slice where the run named one, and within the awaiting-grading scope "
+        "where the run was scoped to it, since that is the queue the run had",
     )
     considered: int = Field(ge=0, description="Eligible rows the per-run cap admitted")
     promoted: int = Field(
@@ -801,6 +802,7 @@ def _candidates(
     *,
     ledger_cases: Container[str] = frozenset(),
     named: frozenset[str] | None = None,
+    within: Container[str] | None = None,
 ) -> _Queue:
     """The walk's queue in walk order, and what it turned away.
 
@@ -819,6 +821,10 @@ def _candidates(
     corpus holds no SCOTUS row for is reported the same way. ``None`` (the
     default) walks the whole slice and reports nothing, since outside a named
     slice a non-matching row is not news.
+
+    ``within`` is a silent scope: rows outside it are not candidates and are not
+    reported, because unlike a named slice it is the pass's own derived scope
+    (the awaiting-grading cases), not a question a caller asked about each case.
     """
     queue: list[tuple[corpus.CorpusRow, int]] = []
     live_only = 0
@@ -830,6 +836,8 @@ def _candidates(
             ineligible.append({"case_id": case_id, "reason": reason})
 
     for row in corpus.iter_rows(conn, court="scotus"):
+        if within is not None and row.case_id not in within:
+            continue
         if named is not None:
             if row.case_id not in named:
                 continue
@@ -869,6 +877,7 @@ def enrich_opinions(
     today: date | None = None,
     data_root: Path | None = None,
     cases: Sequence[str] | None = None,
+    awaiting_grading: bool = False,
 ) -> OpinionEnrichmentResult:
     """Walk the cert-granted rows that carry no opinion to their clusters and bodies.
 
@@ -922,20 +931,42 @@ def enrich_opinions(
     the reason — a named case that quietly did nothing would be the one failure
     mode naming a case exists to rule out.
 
+    ``awaiting_grading`` narrows the walk to the cases the evaluate lane's
+    opinion hold is waiting on — a committed merits outcome recording a
+    judgment that publishes an opinion (not one of
+    :data:`~fedcourtsai.matrix.BODILESS_JUDGMENTS`), resolved fewer than
+    :data:`~fedcourtsai.matrix.OPINION_HOLD_DAYS` days before ``today``
+    (:func:`fedcourtsai.matrix.cases_awaiting_opinion`) — and changes nothing
+    else: the eligibility predicate, the ledger-first order, the cursor and
+    ``max_cases`` all still apply. It is the live window's scope, so the body
+    of a just-decided case is fetched within hours of the latch and retried
+    every window until it lands, and a case the hold has released is never
+    walked from there again. It needs ``data_root``, since the scope is a
+    ledger read.
+
     Dry-run by default: ``apply`` gates only the writes — the cursor stamp
     included, so a dry run reports what an applied run would walk without
     moving the queue — and the request spend and the coverage report are
     identical either way, which is what the dry run is inspected for.
     """
+    # UTC, the clock the ledger's outcome dates and the evaluate lane's run ids
+    # share, so the awaiting-grading scope ends the day the hold releases.
+    stamp = today or datetime.now(UTC).date()
+    if awaiting_grading and data_root is None:
+        raise ValueError("awaiting_grading scopes the walk by the git ledger, so needs data_root")
     ledger = merits_event_case_ids(data_root) if data_root is not None else frozenset()
     queue = _candidates(
         conn,
         ledger_cases=ledger,
         named=frozenset(cases) if cases is not None else None,
+        within=(
+            cases_awaiting_opinion(data_root, today=stamp)
+            if awaiting_grading and data_root is not None
+            else None
+        ),
     )
     candidates = queue.candidates
     admitted = candidates[: max(max_cases, 0)]
-    stamp = today or date.today()
     walk = _Walk(client, conn)
 
     def record(attempted: corpus.CorpusRow) -> None:

@@ -23,12 +23,15 @@ from fedcourtsai import casestore, corpus, fixture, process_version
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import documents
 from fedcourtsai.pipeline import salience as salience_module
+from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.pipeline.salience import SalienceScorer
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import (
     CountingWindow,
     Disposition,
     Evaluation,
+    Judgment,
+    Outcome,
     Prediction,
     ProcessVersion,
 )
@@ -299,6 +302,38 @@ def seed_evaluation(
             run_id=run_id,
             created_at=datetime(2026, 1, 1, tzinfo=UTC),
             correct=1,
+        ),
+    )
+
+
+#: The merits moment the opinion-hold tests decide — the grant-moment merits
+#: event, a declared `Stage.merits` moment.
+MERITS_EVENT = MERITS_EVENT_ID
+
+
+def seed_merits_outcome(
+    data_root: Path,
+    court: str,
+    docket: int,
+    *,
+    resolved_at: date,
+    event_id: str = MERITS_EVENT,
+    judgment: Judgment | None = Judgment.reversed,
+) -> None:
+    """Commit one merits ``outcome.json`` — a decided case, unless ``judgment`` is None.
+
+    The ledger half of the evaluate lane's opinion hold, which counts its window
+    from this ``resolved_at`` and holds only an outcome recording a judgment.
+    """
+    write_json(
+        CasePaths(data_root, court, docket).event(event_id).outcome,
+        Outcome(
+            case_id=f"{court}/{docket}",
+            event_id=event_id,
+            resolved_at=resolved_at,
+            actual_disposition=Disposition.other,
+            actual_granted=1 if judgment is not None else 0,
+            judgment=judgment,
         ),
     )
 

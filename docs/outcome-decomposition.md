@@ -1800,7 +1800,13 @@ grade needs. In dependency order, most binding first, what is still owed:
    against text that is not there, and no amount of methodology substitutes:
    every declared claim requires a majority opinion, so almost every unit masks
    — on `not-ingested`, which is exactly the shape a coverage gap should leave
-   in the census.
+   in the census. For a newly decided case, the timing half of that gap
+   is closed structurally rather than by dispatch: the live window fetches a
+   just-decided case's body in a scoped enrichment step, and the evaluate lane
+   holds a decided merits event for up to 14 days until the body lands
+   ([pipeline.md](pipeline.md#the-evaluate-queue-is-level-triggered-too)), so a
+   `not-ingested` mask on a newly decided case means the body did not reach the
+   corpus within the window, not that the grading outran it.
 3. **Any baseline.** Left open as an empirical question above.
 4. **An argument date.** `majority-ground`'s forecastability decays across the
    Term and no artifact records the vantage, so the caveat above travels as
