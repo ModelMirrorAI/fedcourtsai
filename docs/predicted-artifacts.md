@@ -504,7 +504,16 @@ directory without knowing which part is which invites trusting the wrong half.
   order was unpublished: an order list or a press account can precede the
   docket JSON, so leakage is still judged from the retrieval log. A missing
   poll reads as unknown whatever the cell's date, because the usage capture is
-  best-effort.
+  best-effort. A poll that read the docket's proceedings also records, under
+  `signals`, whether each increment signal the cell's claims forecast was
+  already there — on an application a response request and a referral to the
+  full Court, on a petition a CVSG — with the entry date the ingest parser
+  reads. It is record-only; the claim scorer reads the pre-mint one to mask an
+  increment claim whose signal was on the docket before the cell ran, and the
+  boards' `stratify` pass reads the post-run one, where the pre-mint poll read
+  the signal absent, to set aside a claim whose signal landed while the cell
+  ran
+  ([outcome-decomposition.md](outcome-decomposition.md)).
 - **`retrieval_log.json`** — the tool-call transcript, captured harness-side
   from the engine's own log: tool names, query slices, and document dates where
   legible. It is the cross-evaluator's leakage evidence precisely because the

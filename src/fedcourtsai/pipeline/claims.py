@@ -13,7 +13,9 @@ mechanical family's moving parts:
   frozen ``context``, the outcome's stage-appropriate signals block) to
   0 / 1 / ``None``,
   where ``None`` is the availability mask: the record does not disclose what
-  the claim needs, a property of the record and never of the predictor;
+  the claim needs, a property of the record and never of the predictor (one
+  mask, the increment claims' run-timing mask, reads when the cell ran and is
+  applied by :func:`score_claims` with its own ``mask_reason``);
 - the **baselines** — strictly-prior-Term rates from the committed statpack,
   conditioned on the state the prediction's frozen context disclosed, never
   the predictor's number;
@@ -37,7 +39,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable, Mapping
-from typing import Protocol
+from typing import Literal, Protocol
 
 from ..ids import parse_event_kind
 from ..schemas import (
@@ -52,6 +54,7 @@ from ..schemas import (
     PredictionContext,
     StatPack,
 )
+from ..set_aside import IncrementTiming
 from . import moments
 from .base_rates import (
     claim_score,
@@ -305,7 +308,9 @@ def _resolve_cvsg_increment(context: PredictionContext, outcome: Outcome) -> int
     does not call for the Solicitor General's views, so the claim is
     structurally near zero and stating it would score as free skill rather than
     a forecast. :func:`resolve_claim` masks it there (``federal_party``, see
-    :data:`_FEDERAL_PARTY_VACUOUS`).
+    :data:`_FEDERAL_PARTY_VACUOUS`). A fifth reads when the cell ran rather than
+    what it froze — a CVSG already on the docket at the run — and
+    :func:`score_claims` applies it (``increment_timing``).
     """
     if outcome.signals is None or not context.signals_observable:
         return None
@@ -459,7 +464,9 @@ def _resolve_response_requested_increment(
     unobservable cannot tell "no request yet" from "nobody looked", so its null
     flag fixes no prediction-time state; and a request already on the docket at
     prediction time makes the increment vacuous — the flag is max-latched and,
-    once true, stays true, so there is nothing left to forecast.
+    once true, stays true, so there is nothing left to forecast. A request
+    already on the docket when the cell *ran*, though not at its cut, is the
+    run-timing mask :func:`score_claims` applies (``increment_timing``).
     """
     if (
         outcome.interim_signals is None
@@ -477,7 +484,8 @@ def _resolve_referral_increment(context: PredictionContext, outcome: Outcome) ->
 
     The same three-way mask and the same vacuity arm as the response-requested
     increment, over the referral flag: a referral is never undone, so a context
-    that already discloses one leaves nothing to forecast.
+    that already discloses one leaves nothing to forecast. The run-timing mask
+    reaches it as it does the response request (:func:`score_claims`).
     """
     if (
         outcome.interim_signals is None
@@ -879,6 +887,7 @@ def score_claims(
     lookback_terms: int,
     grant_term: int | None = None,
     federal_party: bool = False,
+    increment_timing: Callable[[str], IncrementTiming | None] | None = None,
 ) -> ClaimScoreBlock | None:
     """Assemble the claim-score block for one prediction, or ``None`` for none.
 
@@ -906,6 +915,20 @@ def score_claims(
     of the control that reports every scored claim's baseline — identically
     zero, computed rather than asserted, because ``claim_score(b, y, b) == 0``
     exactly; ``lift`` is total minus floor.
+
+    **The run-timing mask.** ``increment_timing`` answers, per claim id, how
+    the cell's run sat against that increment claim's signal
+    (:func:`fedcourtsai.set_aside.increment_timing`, which the caller binds to
+    the scored prediction, its pre-mint and post-run polls and the signal's
+    committed date). A claim it reads ``signal-before-run`` — the signal was
+    already on the docket when the cell ran, so stating it forecast nothing —
+    is masked: its outcome is ``None`` and its row's ``mask_reason`` says why,
+    since unlike every other mask it is conditioned on when the cell ran rather
+    than on the frozen record. It only ever masks a claim the record would
+    resolve. A ``signal-during-run`` or ``signal-on-run-day`` reading is left
+    resolved here; the boards set that claim aside
+    (:func:`fedcourtsai.set_aside.claim_set_aside_reason`).
+    Omitted, nothing is masked on timing.
     """
     declared = declared_claim_set(prediction.event_id)
     if declared is None or prediction.claims is None or prediction.context is None:
@@ -929,6 +952,13 @@ def score_claims(
     for claim_id in claim_ids:
         probability = stated[claim_id]
         resolved = resolve_claim(claim_id, prediction.context, outcome, federal_party=federal_party)
+        mask_reason: Literal["signal-before-run"] | None = None
+        if (
+            resolved is not None
+            and increment_timing is not None
+            and increment_timing(claim_id) == "signal-before-run"
+        ):
+            resolved, mask_reason = None, "signal-before-run"
         baseline = claim_baseline(
             claim_id,
             prediction.context,
@@ -947,6 +977,7 @@ def score_claims(
                 probability=probability,
                 baseline=baseline,
                 outcome=resolved,
+                mask_reason=mask_reason,
                 score=score,
             )
         )

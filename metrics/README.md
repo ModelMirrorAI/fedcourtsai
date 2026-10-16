@@ -1179,8 +1179,12 @@ stays outside the gate:
   differential absence selects the pair set on difficulty; the counts cover
   committed cells only — a cell that failed outright commits nothing and
   stays invisible, upstream of them; and a block whose every claim is masked
-  is the availability mask at work — a property of the record, never of the
-  predictor — counted separately.
+  is counted separately. That is almost always the availability mask at work
+  — a property of the record, never of the predictor — but one mask reads when
+  the cell ran rather than what it froze: the increment claims' run-timing
+  mask (`ClaimScore.mask_reason: signal-before-run`), which follows when the
+  cell ran (its poll, else its harness clock) and so is a property of the run,
+  still never of the predictor's number.
 
 **Semantic grades publish nothing today, and this is the contract for when they
 do.** No artifact here carries a semantic claim grade. The merits moments
@@ -1547,8 +1551,8 @@ aside, the paired figure the ranks are read off), on `claim-scores.json` the
 cert-stage claim stratum. The `by_protocol` cut is default-only: it carries no
 sensitivity line, so a per-window figure is read without the set-aside cells. The default is
 the headline; a sensitivity line is a disclosure, never a rank key, and never
-stacked with another departure. Each reason is a dated freeze-record entry. Two
-exist:
+stacked with another departure. Each reason is a dated freeze-record entry.
+Two cell-grain reasons exist, and one claim-grain reason (below):
 
 - **`interim-decision-day`** — a forward interim cell whose harness clock,
   dated in Court time (America/New_York, the clock `resolved_at` is dated in),
@@ -1587,6 +1591,43 @@ exist:
   of its last census: a row the census later finds owed is appended with its
   own dated freeze-record entry, and the list is closed once the census reports
   no owed row with the guard live.
+
+**`increment-run-day`**, the claim grain. One claim inside a cell is set aside
+and the cell stays counted: a resolved `cvsg-increment`,
+`response-requested-increment` or `referral-increment` claim on a forward cell
+whose run the record cannot order against the signal
+(`set_aside.claim_set_aside_reason`) — either the pre-mint poll read the signal
+absent and the post-run poll read it present, so it landed while the cell ran,
+or, with no usable pre-mint poll, the signal's committed docket date is the
+cell's run day in Court time. Either way the claim may be a forecast or an
+observation. One the pre-mint poll read present, or, unpolled, dated before
+the run, is not set aside but masked by the scorer (`ClaimScore.mask_reason`,
+docs/outcome-decomposition.md); one the pre-mint poll read absent and the
+post-run poll did not read present stays a forecast. The mask applies at stamp
+time: a block stamped without it keeps its resolution, neither masked nor set
+aside, until `stamp-cell --regrade` re-stamps it. On
+`claim-scores.json` the set-aside claims' scores leave every default figure —
+block totals, per-claim means and the judge validation's pairs — and the board
+publishes `claim_set_aside`, counted in **claim units** (a prediction's claim
+once, with the gradings carrying it and how many of the claims carry a score
+beside it), and `claim_set_aside_sensitivity`, one line per (reason, predictor,
+stratum) recomputed with **that reason's** claims counted back and nothing
+else. The board's population is cert's first moment, where only
+`cvsg-increment` can be reached, and while that claim has no baseline its
+set-aside moves no figure; the two interim claims sit on no claim surface yet,
+so their set-aside is recorded in the pass (`StratifiedRun.claim_set_aside`)
+and moves nothing published. Each sensitivity line also counts the
+`scored_claims` it puts back: zero means its figure equals the default — the
+claims are set aside, and none of them moved anything. No committed artifact
+dates a referral, so the rule cannot reach a `referral-increment` claim on any
+cell without a usable pre-mint poll reading of the referral: a poll carrying no
+`signals`, one that recorded no reading of the referral (an `unavailable`
+poll, a docket with no proceedings, a failed signal reading), or no
+`usage.json` at all. Such claims must not enter any scored figure without a
+corpus-dated reading (`interim_signals.referral_date`). `relist-increment` and
+`amicus-increment` are outside the rule: the post-conference set-aside above
+brackets a relist, and the amicus count has no single signal date (the
+2026-10-16 freeze-record entry states both, and their residuals).
 
 `set_aside.excluded` is counted after the three exclusions, so a grading those
 rules dropped is never counted here. On the leaderboard it is stage-blind and
@@ -2345,7 +2386,11 @@ the rendered table) and
   observe is the *intervening docket* — it retrieves without restriction, so at
   weeks of lag an **increment** claim (a relist landing, a CVSG arriving, the
   amicus wave) can be read off a docket that moved since the cutoff, where a
-  same-day cell's is a forecast.
+  same-day cell's is a forecast. Three of those increments — the CVSG, the
+  response request and the referral — are read against the run itself,
+  masked where the record shows the signal came first and set aside where it
+  cannot order the two (`increment-run-day`, under *The set-aside, and its sensitivity reading*
+  above); the relist and amicus increments are not.
 
   So the obligation binds the placed moments' increment totals, per stratum —
   which on the published surfaces means the unranked `stages` blocks and the

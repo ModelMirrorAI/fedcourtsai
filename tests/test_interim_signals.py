@@ -22,6 +22,7 @@ from fedcourtsai.pipeline.interim_signals import (
     interim_disposition_date,
     is_predictable_application,
     match_interim_disposition,
+    referral_date,
     referral_posture,
     response_filed_date,
     response_requested,
@@ -645,6 +646,26 @@ def test_a_respondent_name_carrying_periods_still_reads_as_filed() -> None:
         ("Aug 1 2025", "Response to application from respondents Michael Williams, et al. filed.")
     )
     assert response_filed_date(entries) == date(2025, 8, 1)
+
+
+def test_the_referral_is_dated_by_the_entry_its_flag_reads() -> None:
+    entries = _entries(
+        ("Sep 30 2026", "Application (26A477) for a stay, submitted to Justice Kagan."),
+        ("Oct 3 2026", "Application (26A477) referred to the Court by Justice Kagan."),
+        (
+            "Oct 9 2026",
+            "Application (26A477) presented to Justice Kagan and by her referred to the "
+            + "Court is denied.",
+        ),
+    )
+    assert referral_posture([text for text, _ in entries]) is ReferralPosture.referred_to_court
+    assert referral_date(entries) == date(2026, 10, 3)
+
+
+def test_an_undated_referral_sets_the_flag_and_yields_no_date() -> None:
+    entries: list[tuple[str, str | None]] = [("Application (26A477) referred to the Court.", None)]
+    assert referral_posture([text for text, _ in entries]) is ReferralPosture.referred_to_court
+    assert referral_date(entries) is None
 
 
 def test_a_request_alone_yields_no_filing_date() -> None:

@@ -107,8 +107,11 @@ from .cert_backtest import (
 from .claim_metrics import (
     agreement_summary,
     build_claim_scores,
+    claim_set_aside_record,
     claim_set_aside_sensitivity,
+    claim_set_aside_sensitivity_lines,
     claim_surface_set_aside,
+    without_set_aside_claims,
 )
 from .cohort_cut import counted_by_conference
 from .collect import (
@@ -449,17 +452,20 @@ from .schemas import (
     self_provisioned_fetches,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
+from .set_aside import IncrementTiming, increment_timing
 from .slug_migration import converge_event_slugs
 from .spend import SpendVerdict, check_spend, spend_over, verdict_over
 from .store import (
     StratifiedRun,
     cases_due_for_pull,
     cell_census,
+    cell_polls,
     evaluation_key,
     event_has_claimable_prediction,
     forecastable_events,
     forward_refusal_reason,
     forward_refusal_reason_from_parts,
+    increment_signal_day,
     iter_evaluations,
     iter_flags,
     iter_predicted_events,
@@ -5752,14 +5758,29 @@ def claim_scores_command(
             cell_windows=run.cell_windows,
         )
 
-    board = surface_over(run.cells)
+    # Every figure, default and sensitivity alike, is built with the claim-grain
+    # set-aside applied; only that reason's own lines count its claims back.
+    board = surface_over(without_set_aside_claims(run.cells, run.claim_set_aside))
     if claim_surface_set_aside(run.set_aside):
         # The sensitivity reading beside the default, exactly as the leaderboard's.
         board = board.model_copy(
             update={
                 "set_aside": set_aside_record(claim_surface_set_aside(run.set_aside)),
                 "set_aside_sensitivity": claim_set_aside_sensitivity(
-                    run.set_aside, surface_over(run.sensitivity_cells())
+                    run.set_aside,
+                    surface_over(
+                        without_set_aside_claims(run.sensitivity_cells(), run.claim_set_aside)
+                    ),
+                ),
+            }
+        )
+    claim_record = claim_set_aside_record(run.cells, run.claim_set_aside)
+    if claim_record is not None:
+        board = board.model_copy(
+            update={
+                "claim_set_aside": claim_record,
+                "claim_set_aside_sensitivity": claim_set_aside_sensitivity_lines(
+                    run.cells, run.claim_set_aside, surface_over
                 ),
             }
         )
@@ -8484,6 +8505,17 @@ def _claim_scores_for(
     latest = _scored_prediction_for(event_paths, evaluation)
     if outcome is None or statpack is None or latest is None:
         return None
+    poll, post_poll = cell_polls(event_paths.prediction_dir(latest.predictor_id, latest.run_id))
+
+    def timing(claim_id: str) -> IncrementTiming | None:
+        return increment_timing(
+            claim_id,
+            latest,
+            poll,
+            functools.partial(increment_signal_day, event_paths.base, claim_id, outcome),
+            post_poll=post_poll,
+        )
+
     return score_claims(
         latest,
         outcome,
@@ -8491,6 +8523,7 @@ def _claim_scores_for(
         lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
         grant_term=_grant_term_for(event_paths),
         federal_party=_names_federal_party(event_paths),
+        increment_timing=timing,
     )
 
 

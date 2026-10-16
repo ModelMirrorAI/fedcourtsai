@@ -28,6 +28,8 @@ from fedcourtsai.schemas import (
     BaseRateBucket,
     ClaimProbability,
     Disposition,
+    DocketPollRecord,
+    Engine,
     Evaluation,
     EventKind,
     FlagCategory,
@@ -35,8 +37,11 @@ from fedcourtsai.schemas import (
     InterimResolutionSignals,
     Judgment,
     JusticeVote,
+    ModelUsage,
     Moment,
     Outcome,
+    PolledIncrementSignals,
+    PolledSignal,
     PredictableEvent,
     Prediction,
     PredictionContext,
@@ -356,6 +361,122 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
         row["claim_id"]: row for row in json.loads(eval_path.read_text())["claim_scores"]["claims"]
     }
     assert unparsed["cvsg-increment"]["outcome"] == 0
+
+
+@pytest.mark.parametrize(
+    ("cvsg_date", "polled_present", "outcome", "mask_reason"),
+    [
+        # Unpolled, dated the day before the run (2026-01-09): masked by the date.
+        (date(2026, 1, 8), None, None, "signal-before-run"),
+        # A poll that read the CVSG present masks it, though its date is after the run.
+        (date(2026, 1, 12), True, None, "signal-before-run"),
+        # A poll that read it absent keeps the claim, though its date is before the run.
+        (date(2026, 1, 8), False, 1, None),
+    ],
+)
+def test_stamp_evaluator_reads_an_increments_run_timing_poll_first(
+    _data_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cvsg_date: date,
+    polled_present: bool | None,
+    outcome: int | None,
+    mask_reason: str | None,
+) -> None:
+    """A CVSG resolves 1 on the record, but a forward cell could read it off the
+    live docket if it was there when the cell ran. The pre-mint poll decides
+    where one read the signal, and the committed date only where none did; a
+    masked claim carries its own reason and every other claim is left as it was."""
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-petition-writ-of-certiorari"
+    event_paths = CasePaths(_data_root, "scotus", 3).event(event)
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/3",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            model="claude-fable-5",
+            run_id="RID",
+            created_at=datetime(2026, 1, 9, 18, 0, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-05.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+            context=PredictionContext(
+                mode="forward",
+                snapshot_date=date(2026, 1, 5),
+                signals_observable=True,
+                distribution_count=1,
+                term=2025,
+            ),
+            claims=[
+                ClaimProbability(claim_id="disposition", probability=0.2),
+                ClaimProbability(claim_id="relist-increment", probability=0.5),
+                ClaimProbability(claim_id="cvsg-increment", probability=0.9),
+            ],
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/3",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.denied,
+            actual_granted=0,
+            signals=ResolutionSignals(
+                distribution_count=3,
+                distribution_parse=DEFAULT_DISTRIBUTION_PARSE,
+                cvsg_date=cvsg_date,
+            ),
+        ),
+    )
+    if polled_present is not None:
+        write_json(
+            event_paths.prediction_usage("claude-baseline", "RID"),
+            ModelUsage(
+                case_id="scotus/3",
+                event_id=event,
+                run_id="RID",
+                role=UsageRole.predictor,
+                actor_id="claude-baseline",
+                engine=Engine.claude_code,
+                model="claude-fable-5",
+                created_at=datetime(2026, 1, 9, 18, 0, tzinfo=UTC),
+                input_tokens=1,
+                output_tokens=1,
+                estimated_cost_usd=0.0,
+                pre_mint_poll=DocketPollRecord(
+                    polled_at=datetime(2026, 1, 9, 17, 50, tzinfo=UTC),
+                    docket_number="25-3",
+                    state="open",
+                    signals=PolledIncrementSignals(cvsg=PolledSignal(present=polled_present)),
+                ),
+            ),
+        )
+    write_json(tmp_path / "metrics" / "statpack.json", StatPack(corpus_rows=1, terms=[]))
+    seed_evaluation(
+        _data_root,
+        "scotus",
+        3,
+        event,
+        evaluator_id="claude-judge",
+        predictor_id="claude-baseline",
+        run_id="RID",
+    )
+
+    result = _stamp("evaluator", "claude-judge", 3, event, "RID")
+    assert result.exit_code == 0, result.output
+
+    eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    rows = {
+        row["claim_id"]: row for row in json.loads(eval_path.read_text())["claim_scores"]["claims"]
+    }
+    assert rows["cvsg-increment"]["outcome"] == outcome
+    assert rows["cvsg-increment"].get("mask_reason") == mask_reason
+    assert "mask_reason" not in rows["disposition"]
 
 
 def test_stamp_evaluator_clears_claim_scores_where_nothing_supports_a_block(

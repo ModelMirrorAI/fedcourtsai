@@ -118,6 +118,69 @@
       "title": "ClaimMeanScore",
       "type": "object"
     },
+    "ClaimScoreClaimSetAsideLine": {
+      "additionalProperties": false,
+      "description": "One claim-score figure recomputed with one claim-grain reason's claims counted back.\n\nPer reason and never stacked: the default cells with that reason's claims\nscored again, every other set-aside and departure left as the default\napplies it. Never a headline and never a rank key.",
+      "properties": {
+        "claims": {
+          "description": "Set-aside claims this line counts back in",
+          "minimum": 1,
+          "title": "Claims",
+          "type": "integer"
+        },
+        "including": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClaimScoreStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The pooled entry's stratum with the reason's claims counted back; null only where the entry has no figure in that stratum and none of the line's claims carries a score, so nothing it counts back could give it one"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "reason": {
+          "description": "The claim-grain reason counted back",
+          "enum": [
+            "interim-decision-day",
+            "post-conference-first-forecast",
+            "increment-run-day"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "scored_claims": {
+          "description": "Of `claims`, those carrying a score \u2014 the ones that move a figure. Zero means the line's `including` equals the default figure: the claims are set aside, and none of them moved anything",
+          "minimum": 0,
+          "title": "Scored Claims",
+          "type": "integer"
+        },
+        "stratum": {
+          "description": "The stratum the set-aside claims sit in",
+          "enum": [
+            "forward",
+            "retrospective",
+            "procedural"
+          ],
+          "title": "Stratum",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason",
+        "predictor_id",
+        "stratum",
+        "claims",
+        "scored_claims",
+        "including"
+      ],
+      "title": "ClaimScoreClaimSetAsideLine",
+      "type": "object"
+    },
     "ClaimScoreEntry": {
       "additionalProperties": false,
       "description": "One predictor's claim-score aggregates, per stratum, in id order.\n\nEntries carry no rank on purpose: a claim total is never a rank key, so\nthe artifact orders predictors alphabetically and assigns no standings. A\nboard's ``entries`` are the pooled default \u2014 one per predictor, over every\ncounted cell in every non-revoked window, with ``windows`` stating the\nmakeup \u2014 and its ``by_protocol`` list carries the per-window cut.",
@@ -345,6 +408,69 @@
         "scored_events"
       ],
       "title": "ClaimScoreStratum",
+      "type": "object"
+    },
+    "ClaimSetAsideRecord": {
+      "additionalProperties": false,
+      "description": "The claims a claim-score build set aside inside its default cells, and why.\n\nThe claim grain of :class:`SetAsideRecord`: a claim-grain reason\n(`increment-run-day`) takes one claim's score out of the default figures and\nleaves the cell, and its other claims, counted. Counted in **claim units** \u2014\na prediction's claim once, however many judges graded the cell \u2014 with the\ngradings they sit in beside them, because a cell count would misstate how\nmuch of a total moved. Omitted where nothing in scope is set aside.",
+      "properties": {
+        "by_claim": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Set-aside claims keyed by claim id",
+          "title": "By Claim",
+          "type": "object"
+        },
+        "by_predictor": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Set-aside claims keyed by predictor id",
+          "title": "By Predictor",
+          "type": "object"
+        },
+        "by_reason": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Set-aside claims keyed by reason (`SetAsideReason`)",
+          "title": "By Reason",
+          "type": "object"
+        },
+        "claims": {
+          "description": "Distinct (case, event, predictor, claim) rows set aside, over this surface's own population (cert's first moment) and its default cells only",
+          "minimum": 0,
+          "title": "Claims",
+          "type": "integer"
+        },
+        "events": {
+          "description": "The set-aside claims, as '<case_id> <event_id> <claim_id> <reason>', sorted and deduplicated",
+          "items": {
+            "type": "string"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "gradings": {
+          "description": "In-scope gradings carrying a set-aside claim",
+          "minimum": 0,
+          "title": "Gradings",
+          "type": "integer"
+        },
+        "scored_claims": {
+          "description": "Of `claims`, those carrying a score \u2014 the ones that move a total; a claim with no baseline is set aside but moves no figure",
+          "minimum": 0,
+          "title": "Scored Claims",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "claims",
+        "scored_claims",
+        "gradings"
+      ],
+      "title": "ClaimSetAsideRecord",
       "type": "object"
     },
     "CountingWindow": {
@@ -740,6 +866,26 @@
       "minimum": 0,
       "title": "Cells With Claims",
       "type": "integer"
+    },
+    "claim_set_aside": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ClaimSetAsideRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The claims this build set aside inside its default cells by a claim-grain reason, in claim units (`set_aside.claim_set_aside_reason`); omitted where nothing in scope is set aside"
+    },
+    "claim_set_aside_sensitivity": {
+      "description": "Each claim figure a claim-grain set-aside moved, recomputed with that reason's claims counted back and nothing else, sorted by reason, predictor, then stratum; omitted while it lists nothing",
+      "items": {
+        "$ref": "#/$defs/ClaimScoreClaimSetAsideLine"
+      },
+      "title": "Claim Set Aside Sensitivity",
+      "type": "array"
     },
     "entries": {
       "description": "The pooled default: one entry per predictor with at least one block-carrying cell, over every counted cell in every non-revoked window, ordered by predictor_id \u2014 never ranked",

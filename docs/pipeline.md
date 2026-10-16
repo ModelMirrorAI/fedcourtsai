@@ -2401,9 +2401,11 @@ first. Just before writing the record, `run-predict` passes `--pre-mint-poll`:
 provisioning fetches the docket's current JSON from the Court through a bounded
 client (short timeouts, one retry, a total deadline, no politeness pause) and runs the same outcome
 scan on it. A disposed event refuses the cell. Otherwise the poll's result
-(`polled_at`, the docket number, `open` or `unavailable`, and why) reaches the
-cell's `usage.json` as `pre_mint_poll`, through a step output fixed before any
-agent runs. After the engine step ends, a second poll (`poll-docket`) records
+(`polled_at`, the docket number, `open` or `unavailable`, and why, with the
+record-only `signals` reading of each increment signal the cell's claims
+forecast) reaches the cell's `usage.json` as `pre_mint_poll`, through a step
+output fixed before any agent runs. The payload itself is read and discarded,
+never the cell's input. After the engine step ends, a second poll (`poll-docket`) records
 `post_run_poll` the same way, against the docket number the first poll named;
 it is record-only and never refuses or removes a cell. `open` means the docket
 JSON as served carried no disposition the scan recognises at that moment, not

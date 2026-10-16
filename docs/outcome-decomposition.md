@@ -713,7 +713,8 @@ margin; it is unearned score. The cut that would retire it is exactly the one
 
 **The availability mask is a property of the record, never of the predictor.**
 A claim is unresolvable — `outcome: null` on its row, excluded from the total —
-only where the committed record does not disclose what it needs: an outcome
+only where the committed record does not disclose what it needs (save the
+run-timing mask below): an outcome
 without a `signals` block, a context whose signals were unobservable, a CVSG
 already on the docket making the increment vacuous. A predictor cannot decline
 its way into the mask, and every declared claim is answered regardless of
@@ -727,6 +728,41 @@ misreport. False and unobserved are
 different facts and the record keeps them apart, the same line
 `signals_observable` draws on the prediction side and `Outcome.signals`'s own
 absence draws on the resolution side.
+
+**One mask reads when the cell ran, not what it was provisioned.** The three
+increment flags — `cvsg-increment` here, `response-requested-increment` and
+`referral-increment` on the interim set — forecast a signal the frozen context
+did not show. A forward cell runs some time after its record was cut and may
+read the live docket, so the signal can already be there when it runs, and a
+near-certain "yes" then states an observation rather than a forecast. The scorer
+reads the cell's run against the signal (`set_aside.increment_timing`): the
+pre-mint poll, which records what the served docket showed of each signal just
+before the cell was minted, decides where it read one, with the post-run poll
+beside it where it read the signal absent; without one, the
+signal's committed docket date is compared with the cell's run day in Court
+time — the response-requested moment's `opened_at`, the outcome's
+`signals.cvsg_date`. A signal on the docket before the run masks the claim
+(`outcome: null`, `mask_reason: signal-before-run`) — its own reason, since it
+is conditioned on run timing rather than on the frozen record and so is not the
+vacuous mask. A signal the record cannot order against the run — read absent
+by the pre-mint poll and present by the post-run poll, or, unpolled, dated the
+run day itself — leaves the claim resolved, and the boards' `stratify` pass
+sets it aside from their default figures under `increment-run-day`, with a
+sensitivity line counting it back (metrics/README.md). On `claim-scores.json`
+only `cvsg-increment` is affected; `response-requested-increment` and
+`referral-increment` sit on no claim surface. No committed artifact dates a
+referral, so without a usable pre-mint poll reading of the referral a
+`referral-increment` claim's timing is unassessable and the claim keeps the
+resolution its record gives it. Such claims — on any cell whose pre-mint poll
+carries no `signals`, recorded no reading of the referral (an `unavailable`
+poll, a docket with no proceedings, a failed signal reading), or is missing
+(no `usage.json`) — stay unguarded by this rule and must not enter any
+scored figure without a corpus-dated reading (`interim_signals.referral_date`). Any baseline later added for the three
+claims is computed over the run-time population the mask leaves in, never the
+cut-conditioned one, or the mask re-bases skill rather than removing
+observations. The mask and the set-aside are plausibly
+correlated with the outcome: an application the Court acts on within days of
+arrival is the contested kind.
 
 **The two additions, against the eight tests.** The same eight drawn from the
 withdrawn set above, in the list's order.

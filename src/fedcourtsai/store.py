@@ -51,6 +51,7 @@ from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
     CountingWindow,
+    DocketPollRecord,
     Evaluation,
     EventKind,
     ModelUsage,
@@ -64,7 +65,7 @@ from .schemas import (
     Stratum,
 )
 from .serialize import read_model
-from .set_aside import set_aside_reason
+from .set_aside import TIMED_INCREMENT_CLAIMS, claim_set_aside_reason, set_aside_reason
 from .voids import voided_reason
 
 
@@ -1125,13 +1126,114 @@ class SetAsideCell(NamedTuple):
     reason: SetAsideReason
 
 
-def _pre_mint_poll_state(cell_dir: Path) -> str | None:
-    """A prediction cell's ``usage.json`` ``pre_mint_poll.state``, or ``None`` where absent."""
+def cell_polls(cell_dir: Path) -> tuple[DocketPollRecord | None, DocketPollRecord | None]:
+    """A prediction cell's ``usage.json`` ``(pre_mint_poll, post_run_poll)``, ``None`` where absent.
+
+    One read for both, since the increment-timing rule asks the post-run poll
+    exactly where it has the pre-mint one in hand.
+    """
     path = cell_dir / "usage.json"
     if not path.is_file():
-        return None
-    poll = read_model(path, ModelUsage).pre_mint_poll
+        return None, None
+    usage = read_model(path, ModelUsage)
+    return usage.pre_mint_poll, usage.post_run_poll
+
+
+def pre_mint_poll(cell_dir: Path) -> DocketPollRecord | None:
+    """A prediction cell's ``usage.json`` ``pre_mint_poll``, or ``None`` where absent."""
+    return cell_polls(cell_dir)[0]
+
+
+def post_run_poll(cell_dir: Path) -> DocketPollRecord | None:
+    """A prediction cell's ``usage.json`` ``post_run_poll``, or ``None`` where absent."""
+    return cell_polls(cell_dir)[1]
+
+
+def _pre_mint_poll_state(cell_dir: Path) -> str | None:
+    """A prediction cell's ``usage.json`` ``pre_mint_poll.state``, or ``None`` where absent."""
+    poll = pre_mint_poll(cell_dir)
     return poll.state if poll is not None else None
+
+
+#: The interim moment a response request opens, whose committed ``opened_at`` is
+#: the request's docket date (the ingest parse's ``response_requested_at``).
+_RESPONSE_REQUESTED_EVENT_ID: str = next(
+    spec.event_id
+    for spec in moments.moments_for(Stage.interim)
+    if spec.moment == Moment.response_requested
+)
+
+
+def increment_signal_day(event_dir: Path, claim_id: str, outcome: Outcome | None) -> date | None:
+    """The committed docket date of an increment claim's signal, or ``None`` where none is.
+
+    What :func:`fedcourtsai.set_aside.increment_timing` reads when a cell carries
+    no usable pre-mint poll, from the ledger alone:
+
+    * ``cvsg-increment`` — the outcome's ``signals.cvsg_date``, the CVSG's date
+      frozen at resolution;
+    * ``response-requested-increment`` — the ``opened_at`` of the case's
+      response-requested moment, which is minted dated by the request entry;
+      ``None`` where that moment was never minted;
+    * ``referral-increment`` — always ``None``: no committed artifact dates a
+      referral (the outcome's flag carries no date and no moment opens on one),
+      so an unpolled cell's referral timing is unassessable from the ledger.
+    """
+    if claim_id == "cvsg-increment":
+        if outcome is None or outcome.signals is None:
+            return None
+        return outcome.signals.cvsg_date
+    if claim_id == "response-requested-increment":
+        path = event_dir.parent / _RESPONSE_REQUESTED_EVENT_ID / "event.yaml"
+        if not path.is_file():
+            return None
+        return read_model(path, PredictableEvent).opened_at
+    return None
+
+
+def claim_set_asides(
+    prediction: Prediction,
+    evaluation: Evaluation,
+    event_dir: Path,
+    cell_dir: Path,
+    outcome: Outcome,
+) -> Mapping[str, SetAsideReason]:
+    """The claim-grain set-asides inside one graded cell, keyed by claim id.
+
+    :func:`fedcourtsai.set_aside.claim_set_aside_reason` over each row of the
+    grading's committed claim block, with the two polls and the signal date
+    read lazily — only for a forward cell's timed increment claim the record
+    resolved. Empty for a cell with no block.
+    """
+    block = evaluation.claim_scores
+    if block is None:
+        return MappingProxyType({})
+    polls_read: list[tuple[DocketPollRecord | None, DocketPollRecord | None]] = []
+
+    def polls() -> tuple[DocketPollRecord | None, DocketPollRecord | None]:
+        if not polls_read:
+            polls_read.append(cell_polls(cell_dir))
+        return polls_read[0]
+
+    held: dict[str, SetAsideReason] = {}
+    for row in block.claims:
+        if row.outcome is None or row.claim_id not in TIMED_INCREMENT_CLAIMS:
+            continue
+        context = prediction.context
+        if context is None or context.mode != "forward":
+            continue
+        pre, post = polls()
+        reason = claim_set_aside_reason(
+            row.claim_id,
+            row.outcome,
+            prediction,
+            pre,
+            partial(increment_signal_day, event_dir, row.claim_id, outcome),
+            post_poll=post,
+        )
+        if reason is not None:
+            held[row.claim_id] = reason
+    return MappingProxyType(held)
 
 
 def scored_prediction(
@@ -1279,6 +1381,13 @@ class StratifiedRun(NamedTuple):
     pass's cells in path order with them counted, which a sensitivity figure
     is built over (:meth:`sensitivity_cells`). Asked last, of a cell every
     other rule kept, so a cell is never in two ledgers for one fact.
+
+    ``claim_set_aside`` is the claim grain beside it: for each joined cell
+    (:func:`evaluation_key`) — default or cell-grain set-aside alike — the
+    claims inside its block a claim-grain reason sets aside
+    (:func:`claim_set_asides`). The cell stays where the cell-grain rules put
+    it; a claim surface takes those claims' scores out of its default figures
+    and counts them back only in that reason's own sensitivity line.
     """
 
     cells: list[StratifiedCell]
@@ -1291,6 +1400,7 @@ class StratifiedRun(NamedTuple):
     voided: Sequence[ExcludedCell] = ()
     set_aside: Sequence[SetAsideCell] = ()
     with_set_aside: Sequence[StratifiedCell] = ()
+    claim_set_aside: Mapping[EvaluationKey, Mapping[str, SetAsideReason]] = MappingProxyType({})
 
     def sensitivity_cells(self) -> Sequence[StratifiedCell]:
         """The default cells with every set-aside cell put back, in path order.
@@ -1431,8 +1541,11 @@ def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window
     (:func:`fedcourtsai.set_aside.set_aside_reason`), lands in ``set_aside``
     with its stratum rather than in ``cells``, and ``with_set_aside`` holds the
     pass's cells with it counted, for the sensitivity figure beside each
-    default it moves. ``apply_set_aside=False`` keeps every such cell in
-    ``cells`` and leaves both empty — the computation the published Release 1
+    default it moves. The claim grain rides the same pass: the claims inside
+    each joined cell's block that a claim-grain reason sets aside are listed in
+    ``claim_set_aside``, and the cell itself stays where the cell rules put it.
+    ``apply_set_aside=False`` keeps every such cell in ``cells`` and leaves all
+    three empty — the computation the published Release 1
     artifacts were built under, which their own commands
     (``release-sensitivity``, the cohort cut, the dataset export) keep, so a
     re-run of them reproduces what was published.
@@ -1443,6 +1556,7 @@ def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window
     cells: list[StratifiedCell] = []
     with_set_aside: list[StratifiedCell] = []
     set_aside: list[SetAsideCell] = []
+    claim_set_aside: dict[EvaluationKey, Mapping[str, SetAsideReason]] = {}
     excluded: list[ExcludedCell] = []
     leaked: list[ExcludedCell] = []
     leakage_assessed = 0
@@ -1550,6 +1664,10 @@ def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window
             if apply_set_aside
             else None
         )
+        if apply_set_aside:
+            held = claim_set_asides(scored, evaluation, event_dir, poll_dir, outcome)
+            if held:
+                claim_set_aside[evaluation_key(evaluation)] = held
         if reason is not None:
             set_aside.append(SetAsideCell(joined, reason))
             continue
@@ -1565,6 +1683,7 @@ def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window
         voided,
         set_aside,
         with_set_aside if set_aside else [],
+        MappingProxyType(claim_set_aside),
     )
 
 
