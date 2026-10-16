@@ -176,6 +176,21 @@ def referral_posture(entry_texts: list[str]) -> ReferralPosture:
     return ReferralPosture.circuit_justice
 
 
+def referral_date(entries: list[tuple[str, str | None]]) -> date | None:
+    """When the application was referred to the full Court, or ``None``.
+
+    The dated sibling of :func:`referral_posture`, over the same pattern, so
+    the flag and the date cannot disagree about which entry is the referral.
+    The earliest dated match wins: a referral is entered once and a later
+    full-Court disposition recites it ("... referred to the Court is
+    denied"), so the first match is the referral itself wherever the Clerk
+    entered it separately, and the disposition where the two share one entry.
+    An undated referral sets the flag and yields no date, exactly as
+    :func:`response_requested_date` treats an undated request.
+    """
+    return _first_dated(entries, _REFERRED_RE)
+
+
 def is_predictable_application(kind: ApplicationKind) -> bool:
     """Whether an application belongs in the predicted interim population.
 

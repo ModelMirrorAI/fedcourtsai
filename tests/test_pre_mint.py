@@ -1,19 +1,23 @@
 import json
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, Literal
 
 import httpx
 import pytest
 
+from fedcourtsai.pipeline import pre_mint
 from fedcourtsai.pipeline.pre_mint import (
     POLL_DEADLINE_SECONDS,
     DocketFetcher,
     DocketPoll,
+    IncrementSignals,
+    SignalSeen,
     bounded_client,
     docket_coordinates,
     poll_docket,
 )
+from fedcourtsai.schemas import DocketPollRecord
 from fedcourtsai.supremecourt import SupremeCourtClient
 
 _NOON = datetime(2026, 10, 14, 12, 0, tzinfo=UTC)
@@ -65,14 +69,96 @@ def test_an_open_docket_records_the_fetch_time_and_open() -> None:
 
     poll = _poll(fetcher)
 
-    assert poll == DocketPoll(_NOON, "26A477", "open")
+    assert poll == DocketPoll(
+        _NOON,
+        "26A477",
+        "open",
+        signals=IncrementSignals(
+            response_requested=SignalSeen(True, None),
+            referred_to_court=SignalSeen(False, None),
+        ),
+    )
     assert fetcher.calls == [(26, 477, "application")]
     assert poll.as_record() == {
         "polled_at": "2026-10-14T12:00:00Z",
         "docket_number": "26A477",
         "state": "open",
         "reason": None,
+        "signals": {
+            "response_requested": {"present": True, "entry_date": None},
+            "referred_to_court": {"present": False, "entry_date": None},
+            "cvsg": None,
+        },
     }
+
+
+def test_an_application_poll_records_each_signal_and_its_ingest_date() -> None:
+    payload = {
+        "CaseNumber": "26A477 ",
+        "ProceedingsandOrder": [
+            {"Date": "Sep 30 2026", "Text": "Application (26A477) for a stay, submitted."},
+            {
+                "Date": "Oct 02 2026",
+                "Text": "Response to application (26A477) requested by Justice Kagan, due "
+                + "Oct 9.",
+            },
+            {
+                "Date": "Oct 03 2026",
+                "Text": "Application (26A477) referred to the Court by Justice Kagan.",
+            },
+        ],
+    }
+
+    poll = _poll(_Fetcher(_response(payload)))
+
+    assert poll.state == "open"
+    assert poll.signals == IncrementSignals(
+        response_requested=SignalSeen(True, date(2026, 10, 2)),
+        referred_to_court=SignalSeen(True, date(2026, 10, 3)),
+    )
+    record = DocketPollRecord.model_validate(poll.as_record())
+    assert record.signals is not None and record.signals.referred_to_court is not None
+    assert record.signals.referred_to_court.entry_date == date(2026, 10, 3)
+    assert record.signals.cvsg is None
+
+
+def test_a_cert_poll_records_the_cvsg_and_nothing_interim() -> None:
+    payload = {
+        "CaseNumber": "26-221 ",
+        "ProceedingsandOrder": [
+            {"Date": "Oct 05 2026", "Text": "DISTRIBUTED for Conference of 10/9/2026."},
+            {
+                "Date": "Oct 13 2026",
+                "Text": "The Solicitor General is invited to file a brief in this case "
+                + "expressing the views of the United States.",
+            },
+        ],
+    }
+
+    poll = poll_docket("scotus", "26-221", "evt-petition-disposition", _Fetcher(_response(payload)))
+
+    assert poll.signals == IncrementSignals(cvsg=SignalSeen(True, date(2026, 10, 13)))
+
+
+def test_a_payload_without_proceedings_records_no_signals() -> None:
+    poll = _poll(_Fetcher(_response({"CaseNumber": "26A477"})))
+
+    assert poll.signals is None
+    assert "signals" not in poll.as_record()
+
+
+def test_a_signal_reading_that_fails_never_unrefuses_a_decided_docket(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def boom(_payload: object, _form: object) -> None:
+        raise RuntimeError("parser broke")
+
+    monkeypatch.setattr(pre_mint, "read_increment_signals", boom)
+
+    poll = _poll(_Fetcher(_response(_DECIDED_APPLICATION)))
+
+    assert poll.state == "decided"
+    assert poll.signals is None
 
 
 def test_a_docket_already_showing_the_outcome_reads_decided() -> None:

@@ -28,6 +28,18 @@
           "description": "Why the poll read decided or unavailable; null when open",
           "title": "Reason"
         },
+        "signals": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PolledIncrementSignals"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Record-only: what the served docket showed at `polled_at` of each increment signal the cell's claims forecast, with the entry date the ingest parser reads. The claim scorer reads a pre-mint poll's reading to mask an increment claim whose signal was already on the docket before the cell ran (`set_aside.increment_timing`). Omitted where the poll read no proceedings list (an `unavailable` poll, a payload without one), and on polls taken before the field existed"
+        },
         "state": {
           "description": "open: the docket JSON as served carried no disposition the forward outcome scan recognises; decided: it did; unavailable: the poll could not answer (no docket served, a body that is not JSON, a timeout, an error)",
           "enum": [
@@ -56,6 +68,80 @@
       ],
       "title": "Engine",
       "type": "string"
+    },
+    "PolledIncrementSignals": {
+      "additionalProperties": false,
+      "description": "The increment signals a harness docket poll read off the served docket.\n\nRecord-only: the poll's verdict is the outcome scan's alone, and the payload\nstays read-and-discard, never the cell's input. An application docket fills\n`response_requested` and `referred_to_court`, a petition docket `cvsg`; a\nsignal the docket's form cannot carry is null, never absent.",
+      "properties": {
+        "cvsg": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PolledSignal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the Solicitor General had been invited to file (`cert_signals.CVSG_RE` / `snapshot_cvsg_date`); null on an application docket"
+        },
+        "referred_to_court": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PolledSignal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the application had been referred to the full Court (`interim_signals.referral_posture` / `referral_date`); null on a petition docket"
+        },
+        "response_requested": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PolledSignal"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the Court (or a Circuit Justice) had requested a response to the application (`interim_signals.response_requested` / `response_requested_date`); null on a petition docket"
+        }
+      },
+      "title": "PolledIncrementSignals",
+      "type": "object"
+    },
+    "PolledSignal": {
+      "additionalProperties": false,
+      "description": "One increment signal as a harness docket poll's served docket showed it.",
+      "properties": {
+        "entry_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The signal entry's date, by the parser that dates it at ingest; null where the signal is absent or its entry carries no full date",
+          "title": "Entry Date"
+        },
+        "present": {
+          "description": "Whether the served docket carried the signal's entry, by the reading that sets its ingest flag",
+          "title": "Present",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "present"
+      ],
+      "title": "PolledSignal",
+      "type": "object"
     },
     "UsageRole": {
       "description": "Which agentic stage a usage record belongs to.",

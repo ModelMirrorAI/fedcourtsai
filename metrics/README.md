@@ -1547,8 +1547,8 @@ aside, the paired figure the ranks are read off), on `claim-scores.json` the
 cert-stage claim stratum. The `by_protocol` cut is default-only: it carries no
 sensitivity line, so a per-window figure is read without the set-aside cells. The default is
 the headline; a sensitivity line is a disclosure, never a rank key, and never
-stacked with another departure. Each reason is a dated freeze-record entry. Two
-exist:
+stacked with another departure. Each reason is a dated freeze-record entry.
+Two cell-grain reasons exist, and one claim-grain reason (below):
 
 - **`interim-decision-day`** — a forward interim cell whose harness clock,
   dated in Court time (America/New_York, the clock `resolved_at` is dated in),
@@ -1587,6 +1587,26 @@ exist:
   of its last census: a row the census later finds owed is appended with its
   own dated freeze-record entry, and the list is closed once the census reports
   no owed row with the guard live.
+
+**`increment-run-day`**, the claim grain. One claim inside a cell is set aside
+and the cell stays counted: a `cvsg-increment`, `response-requested-increment`
+or `referral-increment` claim on a forward cell with no usable pre-mint poll,
+whose signal's committed docket date is the cell's run day in Court time
+(`set_aside.claim_set_aside_reason`). Nothing in the record orders the signal
+and the run on that day, so the claim may be a forecast or an observation; one
+whose signal is dated before the run is not set aside but masked by the scorer
+(`ClaimScore.mask_reason`, docs/outcome-decomposition.md). On
+`claim-scores.json` the set-aside claims' scores leave every default figure —
+block totals, per-claim means and the judge validation's pairs — and the board
+publishes `claim_set_aside`, counted in **claim units** (a prediction's claim
+once, with the gradings carrying it and how many of the claims carry a score
+beside it), and `claim_set_aside_sensitivity`, one line per (reason, predictor,
+stratum) recomputed with **that reason's** claims counted back and nothing
+else. The board's population is cert's first moment, where only
+`cvsg-increment` can be reached, and while that claim has no baseline its
+set-aside moves no figure; the two interim claims sit on no claim surface yet,
+so their set-aside is recorded in the pass (`StratifiedRun.claim_set_aside`)
+and moves nothing published.
 
 `set_aside.excluded` is counted after the three exclusions, so a grading those
 rules dropped is never counted here. On the leaderboard it is stage-blind and

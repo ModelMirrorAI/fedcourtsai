@@ -358,6 +358,81 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
     assert unparsed["cvsg-increment"]["outcome"] == 0
 
 
+def test_stamp_evaluator_masks_an_increment_whose_signal_preceded_the_run(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A CVSG dated before the forward cell's run day resolves 1 on the record,
+    but the cell could read it off the live docket: the stamp masks the claim
+    with its own reason and leaves every other claim as it was."""
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event = "evt-petition-writ-of-certiorari"
+    event_paths = CasePaths(_data_root, "scotus", 3).event(event)
+    write_json(
+        event_paths.prediction("claude-baseline", "RID"),
+        Prediction(
+            case_id="scotus/3",
+            event_id=event,
+            predictor_id="claude-baseline",
+            engine="claude-code",
+            model="claude-fable-5",
+            run_id="RID",
+            created_at=datetime(2026, 1, 9, 18, 0, tzinfo=UTC),
+            input_snapshot="record/snapshots/2026-01-05.json",
+            granted=0,
+            probability=0.2,
+            predicted_disposition=Disposition.denied,
+            context=PredictionContext(
+                mode="forward",
+                snapshot_date=date(2026, 1, 5),
+                signals_observable=True,
+                distribution_count=1,
+                term=2025,
+            ),
+            claims=[
+                ClaimProbability(claim_id="disposition", probability=0.2),
+                ClaimProbability(claim_id="relist-increment", probability=0.5),
+                ClaimProbability(claim_id="cvsg-increment", probability=0.9),
+            ],
+        ),
+    )
+    write_json(
+        event_paths.outcome,
+        Outcome(
+            case_id="scotus/3",
+            event_id=event,
+            resolved_at=date(2026, 5, 1),
+            actual_disposition=Disposition.denied,
+            actual_granted=0,
+            signals=ResolutionSignals(
+                distribution_count=3,
+                distribution_parse=DEFAULT_DISTRIBUTION_PARSE,
+                cvsg_date=date(2026, 1, 8),
+            ),
+        ),
+    )
+    write_json(tmp_path / "metrics" / "statpack.json", StatPack(corpus_rows=1, terms=[]))
+    seed_evaluation(
+        _data_root,
+        "scotus",
+        3,
+        event,
+        evaluator_id="claude-judge",
+        predictor_id="claude-baseline",
+        run_id="RID",
+    )
+
+    result = _stamp("evaluator", "claude-judge", 3, event, "RID")
+    assert result.exit_code == 0, result.output
+
+    eval_path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    rows = {
+        row["claim_id"]: row for row in json.loads(eval_path.read_text())["claim_scores"]["claims"]
+    }
+    assert rows["cvsg-increment"]["outcome"] is None
+    assert rows["cvsg-increment"]["mask_reason"] == "signal-before-run"
+    assert "mask_reason" not in rows["disposition"]
+
+
 def test_stamp_evaluator_clears_claim_scores_where_nothing_supports_a_block(
     _data_root: Path,
 ) -> None:

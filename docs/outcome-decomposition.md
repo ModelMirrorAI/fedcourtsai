@@ -728,6 +728,29 @@ different facts and the record keeps them apart, the same line
 `signals_observable` draws on the prediction side and `Outcome.signals`'s own
 absence draws on the resolution side.
 
+**One mask reads when the cell ran, not what it was provisioned.** The three
+increment flags — `cvsg-increment` here, `response-requested-increment` and
+`referral-increment` on the interim set — forecast a signal the frozen context
+did not show. A forward cell runs some time after its record was cut and may
+read the live docket, so the signal can already be there when it runs, and a
+near-certain "yes" then states an observation rather than a forecast. The scorer
+reads the cell's run against the signal (`set_aside.increment_timing`): the
+pre-mint poll, which records what the served docket showed of each signal just
+before the cell was minted, decides where it read one; without one, the
+signal's committed docket date is compared with the cell's run day in Court
+time — the response-requested moment's `opened_at`, the outcome's
+`signals.cvsg_date`. A signal on the docket before the run masks the claim
+(`outcome: null`, `mask_reason: signal-before-run`) — its own reason, since it
+is conditioned on run timing rather than on the frozen record and so is not the
+vacuous mask. A signal dated the run day itself, with no poll to order the two,
+leaves the claim resolved, and the claim-score board sets it aside from its
+default figures under `increment-run-day`, with a sensitivity line counting it
+back (metrics/README.md). No committed artifact dates a referral, so an
+unpolled cell's `referral-increment` timing is unassessable and the claim keeps
+the resolution its record gives it. The mask and the set-aside are plausibly
+correlated with the outcome: an application the Court acts on within days of
+arrival is the contested kind.
+
 **The two additions, against the eight tests.** The same eight drawn from the
 withdrawn set above, in the list's order.
 

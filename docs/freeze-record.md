@@ -9665,3 +9665,151 @@ freeze commit is recorded here.
   - once the guard is live and every owed row is appended,
     `scripts/checks/post_conference_census.py` reports 0 census events not
     listed. Until it does, the list is complete only as of its last census.
+
+- **An increment claim whose signal was on the docket before its forward cell
+  ran is masked, one dated the run day with nothing to order the two is set
+  aside from the claim figures, and the pre-mint poll records each increment
+  signal it saw, 2026-10-16.** A **scoring change** (which scored claims
+  count) and a **membership rule** at the claim grain, under unchanged
+  digests: `uv run fedcourts process-digest --all` prints `proc-v9` and the
+  six digests `605201bd…` (claude-baseline), `70fee158…` (codex-baseline),
+  `a9033e56…` (gemini-baseline), `167b7d71…` (claude-judge), `18a76b93…`
+  (codex-judge) and `22558044…` (gemini-judge) on either side of the change.
+
+  **The problem.** An increment claim (`response-requested-increment`,
+  `referral-increment`, cert `cvsg-increment`) forecasts a signal the frozen
+  context did not show. A forward cell runs some days after its record was
+  cut and may read the live docket, so the signal can already be there when
+  it runs, and a near-certain "yes" then resolves 1 as a correct forecast of
+  something the cell could read. The existing vacuous mask reads only the
+  frozen context, so it never caught this.
+
+  **The poll extension.** The pre-mint poll already fetched the Court's
+  docket JSON at `polled_at` just before minting. It now also records, under
+  `pre_mint_poll.signals` in the cell's `usage.json`, whether each increment
+  signal was on the served docket and the entry date the ingest parser reads:
+  on an application `response_requested` (`interim_signals.response_requested`
+  and `response_requested_date`) and `referred_to_court`
+  (`interim_signals.referral_posture` and the new `referral_date`, over the
+  same pattern), on a petition `cvsg` (`cert_signals.CVSG_RE` and
+  `snapshot_cvsg_date`). It is record-only: the poll's verdict is still the
+  outcome scan's alone, a failed signal reading leaves the verdict standing
+  and records nothing, and the payload is still read and discarded, never
+  the cell's input. The record travels in the same step output as before,
+  so this changes what `usage.json` records and not what a cell reads. **No
+  harness boundary is registered**: a forward cell may read the live docket
+  without restriction, and the poll adds nothing to its inputs.
+
+  **The mask.** At the evaluator stamp (`score_claims`, through
+  `set_aside.increment_timing`), on a `forward` cell, an increment claim the
+  record would resolve is masked (`outcome: null`) with its own
+  `ClaimScore.mask_reason`, `signal-before-run`, when **(a)** its pre-mint
+  poll read open and recorded the signal present, or **(b)** with no usable
+  poll (none, `unavailable`, or one written before the signal reading), the
+  signal's committed docket date is strictly before the cell's run day — its
+  harness clock (`integrity.cell_clock`) in Court time (America/New_York), as
+  the 2026-10-15 and `interim-decision-day` entries date a cell. A poll that
+  read the signal absent keeps the claim scored whatever day the signal
+  later landed. The committed dates are the response-requested moment's
+  `opened_at` (minted dated by the request entry) and the outcome's
+  `signals.cvsg_date`. **No committed artifact dates a referral**, so an
+  unpolled cell's `referral-increment` is unassessable and keeps the
+  resolution its record gives it. Replay cells are not read: their run
+  postdates their cut by design. It is not the vacuous mask, because it is
+  conditioned on when the cell ran and not on what it was provisioned.
+
+  **The set-aside, `increment-run-day`.** The one claim-grain
+  `SetAsideReason`: a resolved increment claim on an unpolled forward cell
+  whose signal is dated the run day itself — the same-day policy the
+  `interim-decision-day` reason applies to a cell: nothing in the record
+  orders the two, so the claim may be a forecast or an observation.
+  Computed at the board from the committed ledger alone, in the same
+  `store.stratify` pass (`StratifiedRun.claim_set_aside`), never stamped. On
+  `metrics/claim-scores.json` the claim's score leaves every default figure —
+  the block total, floor and lift, the per-claim means, and the judge
+  validation's pairs — and the cell stays counted. The board publishes
+  `claim_set_aside` in claim units (each prediction's claim once, with the
+  gradings carrying it and how many carried a score) and
+  `claim_set_aside_sensitivity`, one line per (reason, predictor, stratum)
+  recomputed with that reason's claims counted back and nothing else, never
+  stacked with the cell-grain set-aside or another departure. The cell-grain
+  sensitivity lines are built with the claim-grain set-aside applied.
+  `release-sensitivity`, the cohort cut and the export still build without
+  either set-aside.
+
+  **Counts.** Recounted from the committed ledger at `staging` `10cf97c36`,
+  over every process-stamped forward cell, live claims only (the frozen
+  context not already showing the signal), run day in Court time. None of
+  them carries a pre-mint poll, so every reading is by date:
+  - `response-requested-increment`: 68 live claims, 47 resolved. **24** had
+    their request strictly before the run day, 15 resolved — `scotus/9526000370`
+    (requested 09-18, ran 09-27), `scotus/9526000382` (09-23, 09-27),
+    `scotus/9526000406` (09-24, 09-27), and `scotus/9526000477`'s
+    `evt-motion-disposition` and `evt-order-response-requested-disposition`
+    (10-08, 10-14), three engines each — and 9 unresolved, on
+    `scotus/9526000416` (09-28, 09-29), `scotus/9526000458` (10-06, 10-07) and
+    `scotus/9526000499` (10-14, 10-15). **3** are same-day, all resolved:
+    `scotus/9526000446` `evt-motion-disposition` (10-02). Every one of the 24
+    and the 3 has a committed request date; none is unassessable.
+  - `referral-increment`: 144 live claims, 108 resolved; **66** resolved 1 on
+    22 events, all unassessable from the ledger.
+  - `cvsg-increment`: 739 live claims, 385 resolved; **0** with a CVSG on or
+    before the run day.
+
+  This moves the 2026-10-05 measurement in two ways. It counts later cells
+  (`26A458`, `26A477`, `26A499`), and it dates the run in Court time, where
+  that measurement used the UTC date of `created_at`: `scotus/9526000275`'s
+  cells ran at 01:42Z on 09-01, the evening of 08-31 in Court time, and its
+  request is dated 09-01, so they are not same-day and are untouched.
+
+  **What it moves.** No published figure today. The mask is applied at the
+  stamp, so it reaches blocks stamped (or re-stamped with `stamp-cell
+  --regrade`) from the carrying merge; committed blocks keep the resolution
+  they were stamped with, and the boards do not re-resolve them. A re-stamp
+  of the committed ledger would mask the 15 resolved claims above, 45
+  gradings. None of the three increment claims has a baseline, so none of
+  them carries a score, and the two interim claims sit on no claim surface:
+  `claim-scores.json` covers cert's first moment, where only
+  `cvsg-increment` lives and none is reached. The run-day set-aside reaches
+  the 3 `scotus/9526000446` claims (9 frozen-scope gradings, all forward at
+  `interim@arrival`), which are recorded in the pass and move nothing
+  published. The claim-score board carries no `claim_set_aside` block at
+  this ledger. The rule binds once a baseline lands for an increment claim
+  or an interim claim surface exists, and from then on removes forecasts the
+  cells could read off the docket.
+
+  **Outcome correlation.** The mask and the set-aside are plausibly
+  correlated with the outcome. An application the Court acts on within days
+  of arrival is the contested kind, and every masked or set-aside claim here
+  sits on an `interim@arrival` cell (or on `scotus/9526000477`'s
+  response-requested cell, whose context froze before the request). Of the
+  five resolved applications, four were denied and `scotus/9526000406` was
+  granted. Removing them removes a selected population, so a claim figure
+  read without them can move in either direction.
+
+  **The corpus check.** `scripts/checks/increment_timing_census.py` reads
+  every live claim twice, from the ledger (the rule above) and from the
+  corpus (`response_requested_at`, `cvsg_date`, and the earliest dated
+  referral entry on the latest live payload), and counts where they
+  disagree. Stored payloads are as of their pull, and a same-day pull
+  overwrites that day's, so a referral entered after the latest pull is
+  missing from it; the census counts such a referral unreadable where the
+  corpus row records one. Read at the carrying head:
+  <FILL: increment timing census at the carrying head as one plain line, before-run and run-day counts per claim by both readings, referral claims dated before or on the run day, unreadable referrals, and the corpus vintage>.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - the first forward predict cell minted after the carrying merge carries
+    `pre_mint_poll.signals` in its `usage.json`:
+    `jq '.pre_mint_poll.signals' data/cases/scotus/*/events/*/predictions/*/<run>/usage.json`
+    is non-null on an open poll;
+  - `uv run pytest tests/test_increment_timing.py tests/test_pre_mint.py` is
+    green;
+  - after the first metrics refresh on `main`, `jq '.claim_set_aside'
+    metrics/claim-scores.json` prints `null` until a cert first-moment
+    `cvsg-increment` claim is dated its unpolled cell's run day;
+  - the first evaluator stamp of an interim cell whose request preceded its
+    run writes `"mask_reason": "signal-before-run"` on its
+    `response-requested-increment` row.
