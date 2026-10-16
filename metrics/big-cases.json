@@ -1,14 +1,14 @@
 {
-  "cases": 300,
+  "cases": 303,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
     {
-      "cases": 267,
+      "cases": 271,
       "n": 3
     },
     {
-      "cases": 31,
+      "cases": 30,
       "n": 2
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 897,
+  "current_reads": 907,
   "declared_no_view": 18,
   "frozen_process": {
     "digests": [
@@ -64,7 +64,7 @@
     ]
   },
   "median_adjacent_gap": 0.0033,
-  "median_score_range": 0.205,
+  "median_score_range": 0.21,
   "missing_reads": 14,
   "predictors": [
     "claude-baseline",
@@ -2013,6 +2013,122 @@
       "score_min": 0.85,
       "score_range": 0.1,
       "short_caption": "Brumley v. Roake",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Department of Health and Human Services",
+      "caption": "Department of Health and Human Services, et al. v. Texas Medical Association, et al.",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000491",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Whether APA 706(2) authorizes universal vacatur governs the remedy in essentially every APA challenge to a federal rule; it is the question Trump v. CASA left open.",
+          "big_case_score": 0.85,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        },
+        {
+          "big_case_rationale": "The question concerns the availability and scope of universal vacatur under the APA across federal regulatory litigation, far beyond the immediate medical-payment rules. A decision could substantially alter remedies against federal agencies.",
+          "big_case_score": 0.9,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        },
+        {
+          "big_case_rationale": null,
+          "big_case_score": 0.95,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        }
+      ],
+      "docket_id": 9026000491,
+      "docket_number": "26-491",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-491.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Whether APA 706(2) authorizes universal vacatur governs the remedy in essentially every APA challenge to a federal rule; it is the question Trump v. CASA left open.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000491/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000491/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261015T142602Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.72,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "The question concerns the availability and scope of universal vacatur under the APA across federal regulatory litigation, far beyond the immediate medical-payment rules. A decision could substantially alter remedies against federal agencies.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000491/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000491/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000491/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000491/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.9,
+              "run_id": "20261015T142602Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Department of Health and Human Services, et al. v. Texas Medical Association, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.9,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-10-14",
+      "n": 3,
+      "other_party": "Texas Medical Association",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up the Department of Health and Human Services' case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "The Department of Health and Human Services' petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.95,
+      "score_min": 0.85,
+      "score_range": 0.1,
+      "short_caption": "Department of Health and Human Services v. Texas Medical Association",
       "status": "pending"
     },
     {
@@ -5996,7 +6112,7 @@
               "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000477/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261014T174020Z",
               "confidence": null,
               "granted": 1,
-              "leakage_suspected": false,
+              "leakage_suspected": true,
               "mode": "forward",
               "predicted_disposition": "granted",
               "predictor_id": "gemini-baseline",
@@ -10666,199 +10782,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "K.M.K.",
-      "caption": "K.M.K., By Her Next Friend and Mother, Stephanie Lynne Brown v. Washington Interscholastic Activities Association, et al.",
-      "caption_event_id": "evt-brief-response-disposition",
-      "case_id": "scotus/9526000458",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Transgender participation in girls' school sports after West Virginia v. B.P.J. is a nationally watched issue, but this is an interlocutory request for a narrow opt-out/notice injunction on an undeveloped record, so stakes as a vehicle are moderate.",
-          "big_case_score": 0.55,
-          "event_id": "evt-brief-response-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261014T142540Z"
-        },
-        {
-          "big_case_rationale": "The application implicates nationwide disputes over transgender participation in school sports, Title IX, parental authority, and emergency injunction standards, despite its individual-athlete posture.",
-          "big_case_score": 0.79,
-          "event_id": "evt-brief-response-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261014T142540Z"
-        }
-      ],
-      "docket_id": 9526000458,
-      "docket_number": "26A458",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a458.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-response-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Transgender participation in girls' school sports after West Virginia v. B.P.J. is a nationally watched issue, but this is an interlocutory request for a narrow opt-out/notice injunction on an undeveloped record, so stakes as a vehicle are moderate.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/9526000458/events/evt-brief-response-disposition/predictions/claude-baseline/20261014T142540Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-brief-response-disposition/predictions/claude-baseline/20261014T142540Z",
-              "confidence": 0.8,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.04,
-              "run_id": "20261014T142540Z"
-            },
-            {
-              "big_case_rationale": "The application implicates nationwide disputes over transgender participation in school sports, Title IX, parental authority, and emergency injunction standards, despite its individual-athlete posture.",
-              "big_case_score": 0.79,
-              "cell_path": "data/cases/scotus/9526000458/events/evt-brief-response-disposition/predictions/codex-baseline/20261014T142540Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-brief-response-disposition/predictions/codex-baseline/20261014T142540Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.24,
-              "run_id": "20261014T142540Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "K.M.K., By Her Next Friend and Mother, Stephanie Lynne Brown v. Washington Interscholastic Activities Association, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-motion-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "First post-B.P.J. emergency application asking the Court to hold that a gender-identity participation policy itself violates Title IX, with a parental-rights claim riding Mirabelli; nationally watched subject, ADF counsel, but interim relief in one student's case rather than a merits ruling.",
-              "big_case_score": 0.7,
-              "cell_path": "data/cases/scotus/9526000458/events/evt-motion-disposition/predictions/claude-baseline/20261007T142810Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-motion-disposition/predictions/claude-baseline/20261007T142810Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.2,
-              "run_id": "20261007T142810Z"
-            },
-            {
-              "big_case_rationale": "The application implicates transgender participation in school sports, Title IX, parental opt-outs, and the mandatory-injunction standard, with potentially broad consequences despite its individual emergency posture.",
-              "big_case_score": 0.74,
-              "cell_path": "data/cases/scotus/9526000458/events/evt-motion-disposition/predictions/codex-baseline/20261007T142810Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-motion-disposition/predictions/codex-baseline/20261007T142810Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.3,
-              "run_id": "20261007T142810Z"
-            },
-            {
-              "big_case_rationale": "High-profile dispute over Title IX and transgender athletes in women's sports.",
-              "big_case_score": 0.85,
-              "cell_path": "data/cases/scotus/9526000458/events/evt-motion-disposition/predictions/gemini-baseline/20261007T142810Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-motion-disposition/predictions/gemini-baseline/20261007T142810Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.05,
-              "run_id": "20261007T142810Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "K.M.K., By Her Next Friend and Mother, Stephanie Lynne Brown v. Washington Interscholastic Activities Association, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-response-requested-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Emergency application to enjoin a state athletic association's gender-identity participation policy for one wrestler, months after B.P.J. reserved whether Title IX forbids such policies and Mirabelli granted parents interim relief; egregious facts, elite movement counsel, a 9-2 circuit split on the mandatory-injunction standard, and 22 states with similar policies raise the stakes, but the relief sought is individual rather than programmatic.",
-              "big_case_score": 0.7,
-              "cell_path": "data/cases/scotus/9526000458/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261007T142810Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261007T142810Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.35,
-              "run_id": "20261007T142810Z"
-            },
-            {
-              "big_case_rationale": "The application concerns transgender participation in school athletics, parental notice and opt-out rights, and the standard for mandatory injunctions. These questions have substantial national implications, although the immediate requested protection concerns an individual student.",
-              "big_case_score": 0.76,
-              "cell_path": "data/cases/scotus/9526000458/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261007T142810Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261007T142810Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.38,
-              "run_id": "20261007T142810Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": 0.8,
-              "cell_path": "data/cases/scotus/9526000458/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261007T142810Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261007T142810Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.75,
-              "run_id": "20261007T142810Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "K.M.K., By Her Next Friend and Mother, Stephanie Lynne Brown v. Washington Interscholastic Activities Association, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.67,
-      "moment": "evt-brief-response-disposition",
-      "moment_opened_at": "2026-10-13",
-      "n": 2,
-      "other_party": "Washington Interscholastic Activities Association",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "K.M.K. gets the relief requested, for now; the case continues in the lower courts.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "K.M.K. does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.79,
-      "score_min": 0.55,
-      "score_range": 0.24,
-      "short_caption": "K.M.K. v. Washington Interscholastic Activities Association",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "United States",
       "caption": "United States v. Charles Hembree",
       "caption_event_id": "evt-petition-disposition",
@@ -11087,6 +11010,222 @@
       "score_min": 0.45,
       "score_range": 0.4,
       "short_caption": "BMG Rights Management v. Vetter",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "K.M.K.",
+      "caption": "K.M.K., By Her Next Friend and Mother, Stephanie Lynne Brown v. Washington Interscholastic Activities Association, et al.",
+      "caption_event_id": "evt-brief-response-disposition",
+      "case_id": "scotus/9526000458",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Transgender participation in girls' school sports after West Virginia v. B.P.J. is a nationally watched issue, but this is an interlocutory request for a narrow opt-out/notice injunction on an undeveloped record, so stakes as a vehicle are moderate.",
+          "big_case_score": 0.55,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261014T142540Z"
+        },
+        {
+          "big_case_rationale": "The application implicates nationwide disputes over transgender participation in school sports, Title IX, parental authority, and emergency injunction standards, despite its individual-athlete posture.",
+          "big_case_score": 0.79,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261014T142540Z"
+        },
+        {
+          "big_case_rationale": "High-profile cultural issue regarding transgender athlete participation, although presented in an emergency posture with an undeveloped record.",
+          "big_case_score": 0.65,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        }
+      ],
+      "docket_id": 9526000458,
+      "docket_number": "26A458",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a458.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Transgender participation in girls' school sports after West Virginia v. B.P.J. is a nationally watched issue, but this is an interlocutory request for a narrow opt-out/notice injunction on an undeveloped record, so stakes as a vehicle are moderate.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9526000458/events/evt-brief-response-disposition/predictions/claude-baseline/20261014T142540Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-brief-response-disposition/predictions/claude-baseline/20261014T142540Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.04,
+              "run_id": "20261014T142540Z"
+            },
+            {
+              "big_case_rationale": "The application implicates nationwide disputes over transgender participation in school sports, Title IX, parental authority, and emergency injunction standards, despite its individual-athlete posture.",
+              "big_case_score": 0.79,
+              "cell_path": "data/cases/scotus/9526000458/events/evt-brief-response-disposition/predictions/codex-baseline/20261014T142540Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-brief-response-disposition/predictions/codex-baseline/20261014T142540Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261014T142540Z"
+            },
+            {
+              "big_case_rationale": "High-profile cultural issue regarding transgender athlete participation, although presented in an emergency posture with an undeveloped record.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9526000458/events/evt-brief-response-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-brief-response-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.04,
+              "run_id": "20261015T142602Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "K.M.K., By Her Next Friend and Mother, Stephanie Lynne Brown v. Washington Interscholastic Activities Association, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "First post-B.P.J. emergency application asking the Court to hold that a gender-identity participation policy itself violates Title IX, with a parental-rights claim riding Mirabelli; nationally watched subject, ADF counsel, but interim relief in one student's case rather than a merits ruling.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9526000458/events/evt-motion-disposition/predictions/claude-baseline/20261007T142810Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-motion-disposition/predictions/claude-baseline/20261007T142810Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.2,
+              "run_id": "20261007T142810Z"
+            },
+            {
+              "big_case_rationale": "The application implicates transgender participation in school sports, Title IX, parental opt-outs, and the mandatory-injunction standard, with potentially broad consequences despite its individual emergency posture.",
+              "big_case_score": 0.74,
+              "cell_path": "data/cases/scotus/9526000458/events/evt-motion-disposition/predictions/codex-baseline/20261007T142810Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-motion-disposition/predictions/codex-baseline/20261007T142810Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.3,
+              "run_id": "20261007T142810Z"
+            },
+            {
+              "big_case_rationale": "High-profile dispute over Title IX and transgender athletes in women's sports.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9526000458/events/evt-motion-disposition/predictions/gemini-baseline/20261007T142810Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-motion-disposition/predictions/gemini-baseline/20261007T142810Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.05,
+              "run_id": "20261007T142810Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "K.M.K., By Her Next Friend and Mother, Stephanie Lynne Brown v. Washington Interscholastic Activities Association, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-response-requested-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Emergency application to enjoin a state athletic association's gender-identity participation policy for one wrestler, months after B.P.J. reserved whether Title IX forbids such policies and Mirabelli granted parents interim relief; egregious facts, elite movement counsel, a 9-2 circuit split on the mandatory-injunction standard, and 22 states with similar policies raise the stakes, but the relief sought is individual rather than programmatic.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9526000458/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261007T142810Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261007T142810Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.35,
+              "run_id": "20261007T142810Z"
+            },
+            {
+              "big_case_rationale": "The application concerns transgender participation in school athletics, parental notice and opt-out rights, and the standard for mandatory injunctions. These questions have substantial national implications, although the immediate requested protection concerns an individual student.",
+              "big_case_score": 0.76,
+              "cell_path": "data/cases/scotus/9526000458/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261007T142810Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261007T142810Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.38,
+              "run_id": "20261007T142810Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9526000458/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261007T142810Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000458/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261007T142810Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.75,
+              "run_id": "20261007T142810Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "K.M.K., By Her Next Friend and Mother, Stephanie Lynne Brown v. Washington Interscholastic Activities Association, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6633,
+      "moment": "evt-brief-response-disposition",
+      "moment_opened_at": "2026-10-13",
+      "n": 3,
+      "other_party": "Washington Interscholastic Activities Association",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "K.M.K. gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "K.M.K. does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.79,
+      "score_min": 0.55,
+      "score_range": 0.24,
+      "short_caption": "K.M.K. v. Washington Interscholastic Activities Association",
       "status": "pending"
     },
     {
@@ -18432,6 +18571,172 @@
       "score_range": 0.25,
       "short_caption": "Wealthy v. Cornelia",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Louisiana",
+      "caption": "Louisiana, et al. v. Devon Energy Production Company, L.P.",
+      "caption_event_id": "evt-order-response-requested-disposition",
+      "case_id": "scotus/9526000499",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A real, acknowledged circuit split on whether a post-transmittal federal-officer remand appeal automatically stays state-court proceedings. It recurs in the climate/coastal/opioid removal wave, but it is a procedural federal-courts question rather than a merits blockbuster.",
+          "big_case_score": 0.35,
+          "event_id": "evt-order-response-requested-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        },
+        {
+          "big_case_rationale": "The automatic-stay question affects federal-officer removal litigation and state judicial authority beyond this coastal-enforcement suit. Those systemic stakes are substantial, but this interim application does not itself determine environmental liability or the merits of removal.",
+          "big_case_score": 0.57,
+          "event_id": "evt-order-response-requested-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        },
+        {
+          "big_case_rationale": "Involves a circuit split on a recurring jurisdictional issue (federal-officer removal and Griggs automatic stays) with broader federalism implications.",
+          "big_case_score": 0.7,
+          "event_id": "evt-order-response-requested-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        }
+      ],
+      "docket_id": 9526000499,
+      "docket_number": "26A499",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a499.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring procedural question (whether a post-transmittal \u00a71447(d) appeal automatically stays a remand under Griggs) with a real circuit split and federalism stakes across the Louisiana coastal suits, but technical and low-salience outside that litigation.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/claude-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/claude-baseline/20261015T142602Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.09,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "The application concerns control of state-court litigation during federal-officer remand appeals, with implications beyond this coastal-restoration suit. Significant federalism and environmental-enforcement stakes, but the immediate relief is procedural rather than a final liability judgment.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/codex-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/codex-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.27,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "High-profile federalism issue regarding whether Coinbase/Griggs automatic stays apply to remand orders already transmitted to state courts, involving climate-related litigation against energy companies.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/gemini-baseline/20261015T173805Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/gemini-baseline/20261015T173805Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.35,
+              "run_id": "20261015T173805Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Louisiana, et al. v. Devon Energy Production Company, L.P."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-response-requested-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A real, acknowledged circuit split on whether a post-transmittal federal-officer remand appeal automatically stays state-court proceedings. It recurs in the climate/coastal/opioid removal wave, but it is a procedural federal-courts question rather than a merits blockbuster.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261015T142602Z",
+              "confidence": 0.7,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.14,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "The automatic-stay question affects federal-officer removal litigation and state judicial authority beyond this coastal-enforcement suit. Those systemic stakes are substantial, but this interim application does not itself determine environmental liability or the merits of removal.",
+              "big_case_score": 0.57,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.28,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "Involves a circuit split on a recurring jurisdictional issue (federal-officer removal and Griggs automatic stays) with broader federalism implications.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.15,
+              "run_id": "20261015T142602Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Louisiana, et al. v. Devon Energy Production Company, L.P."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.54,
+      "moment": "evt-order-response-requested-disposition",
+      "moment_opened_at": "2026-10-14",
+      "n": 3,
+      "other_party": "Devon Energy Production",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Louisiana gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Louisiana does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.7,
+      "score_min": 0.35,
+      "score_range": 0.35,
+      "short_caption": "Louisiana v. Devon Energy Production",
+      "status": "pending"
     },
     {
       "asking_declined": "short_form",
@@ -27341,7 +27646,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-221.html",
       "events": [
         {
-          "actual_disposition": "denied",
+          "actual_disposition": null,
           "event_id": "evt-petition-arrival-disposition",
           "reads": [
             {
@@ -27387,7 +27692,7 @@
               "run_id": "20260820T231432Z"
             }
           ],
-          "resolved_at": "2026-10-13",
+          "resolved_at": null,
           "title": "Mara Nathan, Individually and on Behalf of Her Minor Child, M. N., et al. v. Alamo Heights Independent School District, et al."
         },
         {
@@ -27463,7 +27768,7 @@
       "score_min": 0.2,
       "score_range": 0.22,
       "short_caption": "Theodore James Purdy v. Kansas",
-      "status": "resolved"
+      "status": "partly_resolved"
     },
     {
       "asking_declined": null,
@@ -29698,122 +30003,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Mike Singh Sethi",
-      "caption": "Mike Singh Sethi v. United States Court of Appeals for the Ninth Circuit, et al.",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000296",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "One lawyer's six-month circuit suspension; the AI-hallucination backdrop is newsworthy, but a decision would set at most a procedural-notice rule for federal bar discipline, not a broad doctrine.",
-          "big_case_score": 0.15,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        },
-        {
-          "big_case_rationale": "Potential guidance on notice in federal attorney discipline and AI-source disclosure has profession-wide significance, but this vehicle concerns one lawyer's suspension and fact-specific candor findings.",
-          "big_case_score": 0.4,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        },
-        {
-          "big_case_rationale": "Novel issue regarding attorney discipline for AI-hallucinated citations, will attract legal press but is a fact-bound disciplinary matter.",
-          "big_case_score": 0.15,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        }
-      ],
-      "docket_id": 9026000296,
-      "docket_number": "26-296",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-296.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "One lawyer's six-month circuit suspension; the AI-hallucination backdrop is newsworthy, but a decision would set at most a procedural-notice rule for federal bar discipline, not a broad doctrine.",
-              "big_case_score": 0.15,
-              "cell_path": "data/cases/scotus/9026000296/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000296/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
-              "confidence": 0.8,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.012,
-              "run_id": "20260927T182226Z"
-            },
-            {
-              "big_case_rationale": "Potential guidance on notice in federal attorney discipline and AI-source disclosure has profession-wide significance, but this vehicle concerns one lawyer's suspension and fact-specific candor findings.",
-              "big_case_score": 0.4,
-              "cell_path": "data/cases/scotus/9026000296/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000296/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.03,
-              "run_id": "20260927T182226Z"
-            },
-            {
-              "big_case_rationale": "Novel issue regarding attorney discipline for AI-hallucinated citations, will attract legal press but is a fact-bound disciplinary matter.",
-              "big_case_score": 0.15,
-              "cell_path": "data/cases/scotus/9026000296/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000296/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.02,
-              "run_id": "20260927T182226Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Mike Singh Sethi v. United States Court of Appeals for the Ninth Circuit, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.2333,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-09-08",
-      "n": 3,
-      "other_party": "United States Court of Appeals",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Mike Singh Sethi's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Mike Singh Sethi's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.4,
-      "score_min": 0.15,
-      "score_range": 0.25,
-      "short_caption": "Mike Singh Sethi v. United States Court of Appeals",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Rahdar",
       "caption": "Fred Rahdar, et al. v. City of Friendswood, Texas, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -31589,6 +31778,172 @@
       "score_min": 0.05,
       "score_range": 0.35,
       "short_caption": "John Torsten Loop v. Washington",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Mike Singh Sethi",
+      "caption": "Mike Singh Sethi v. United States Court of Appeals for the Ninth Circuit, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000296",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A published circuit sanction for AI-hallucinated citations is topical, but the questions are fact-bound applications of In re Ruffalo notice and FRAP 46/47 to one attorney, with no split and no broad legal consequence.",
+          "big_case_score": 0.12,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        },
+        {
+          "big_case_rationale": "A ruling could shape federal attorney-discipline notice requirements and correction duties for AI-generated citations nationwide, but this is a fact-specific professional suspension rather than a broad challenge to AI use or immigration policy.",
+          "big_case_score": 0.38,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        },
+        {
+          "big_case_rationale": "Narrow, fact-bound attorney discipline case.",
+          "big_case_score": 0.05,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        }
+      ],
+      "docket_id": 9026000296,
+      "docket_number": "26-296",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-296.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "One lawyer's six-month circuit suspension; the AI-hallucination backdrop is newsworthy, but a decision would set at most a procedural-notice rule for federal bar discipline, not a broad doctrine.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000296/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000296/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.012,
+              "run_id": "20260927T182226Z"
+            },
+            {
+              "big_case_rationale": "Potential guidance on notice in federal attorney discipline and AI-source disclosure has profession-wide significance, but this vehicle concerns one lawyer's suspension and fact-specific candor findings.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/9026000296/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000296/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.03,
+              "run_id": "20260927T182226Z"
+            },
+            {
+              "big_case_rationale": "Novel issue regarding attorney discipline for AI-hallucinated citations, will attract legal press but is a fact-bound disciplinary matter.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000296/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000296/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.02,
+              "run_id": "20260927T182226Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Mike Singh Sethi v. United States Court of Appeals for the Ninth Circuit, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A published circuit sanction for AI-hallucinated citations is topical, but the questions are fact-bound applications of In re Ruffalo notice and FRAP 46/47 to one attorney, with no split and no broad legal consequence.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000296/events/evt-petition-disposition/predictions/claude-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000296/events/evt-petition-disposition/predictions/claude-baseline/20261015T142602Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.012,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "A ruling could shape federal attorney-discipline notice requirements and correction duties for AI-generated citations nationwide, but this is a fact-specific professional suspension rather than a broad challenge to AI use or immigration policy.",
+              "big_case_score": 0.38,
+              "cell_path": "data/cases/scotus/9026000296/events/evt-petition-disposition/predictions/codex-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000296/events/evt-petition-disposition/predictions/codex-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.025,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "Narrow, fact-bound attorney discipline case.",
+              "big_case_score": 0.05,
+              "cell_path": "data/cases/scotus/9026000296/events/evt-petition-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000296/events/evt-petition-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.005,
+              "run_id": "20261015T142602Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Mike Singh Sethi v. United States Court of Appeals for the Ninth Circuit, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1833,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-08",
+      "n": 3,
+      "other_party": "United States Court of Appeals",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Mike Singh Sethi's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Mike Singh Sethi's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.38,
+      "score_min": 0.05,
+      "score_range": 0.33,
+      "short_caption": "Mike Singh Sethi v. United States Court of Appeals",
       "status": "pending"
     },
     {
@@ -33551,36 +33906,36 @@
       "asking_declined": null,
       "asking_party": "Rubicon Real Estate Holdings",
       "caption": "Rubicon Real Estate Holdings, LLC, et al. v. City of Pontiac, Michigan, et al.",
-      "caption_event_id": "evt-petition-arrival-disposition",
+      "caption_event_id": "evt-petition-disposition",
       "case_id": "scotus/9026000359",
       "court_id": "scotus",
       "current_reads": [
         {
-          "big_case_rationale": "A fact-bound local zoning and licensing dispute over medical-marijuana facilities in one Michigan city; the constitutional theories are framed as error correction, so even a decision would carry little beyond the parties.",
-          "big_case_score": 0.05,
-          "event_id": "evt-petition-arrival-disposition",
+          "big_case_rationale": "A fact-bound dispute between a private developer and one city over permitting delays for a medical-marijuana project; the legal doctrines (due process, takings, First Amendment retaliation, Monell) are applied, not unsettled.",
+          "big_case_score": 0.06,
+          "event_id": "evt-petition-disposition",
           "leakage_suspected": false,
           "predictor_id": "claude-baseline",
           "process_window": null,
-          "run_id": "20260927T182226Z"
+          "run_id": "20261015T142602Z"
         },
         {
-          "big_case_rationale": "The asserted interference with land development and retaliation for litigation raise meaningful property and speech interests, but the presented dispute depends heavily on local licensing rules, particular delays, and municipal policymaking authority rather than a clearly demonstrated nationwide conflict.",
+          "big_case_rationale": "Meaningful property-rights and retaliation issues arising from a failed local development, with potential implications for municipal liability; the fact-bound licensing dispute and diffuse questions limit broader significance.",
           "big_case_score": 0.3,
-          "event_id": "evt-petition-arrival-disposition",
+          "event_id": "evt-petition-disposition",
           "leakage_suspected": false,
           "predictor_id": "codex-baseline",
           "process_window": null,
-          "run_id": "20260927T182226Z"
+          "run_id": "20261015T142602Z"
         },
         {
-          "big_case_rationale": "An unpublished local property dispute over takings and due process. Very low stakes.",
+          "big_case_rationale": null,
           "big_case_score": 0.05,
-          "event_id": "evt-petition-arrival-disposition",
+          "event_id": "evt-petition-disposition",
           "leakage_suspected": false,
           "predictor_id": "gemini-baseline",
           "process_window": null,
-          "run_id": "20260927T182226Z"
+          "run_id": "20261015T142602Z"
         }
       ],
       "docket_id": 9026000359,
@@ -33637,11 +33992,61 @@
           ],
           "resolved_at": null,
           "title": "Rubicon Real Estate Holdings, LLC, et al. v. City of Pontiac, Michigan, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A fact-bound dispute between a private developer and one city over permitting delays for a medical-marijuana project; the legal doctrines (due process, takings, First Amendment retaliation, Monell) are applied, not unsettled.",
+              "big_case_score": 0.06,
+              "cell_path": "data/cases/scotus/9026000359/events/evt-petition-disposition/predictions/claude-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000359/events/evt-petition-disposition/predictions/claude-baseline/20261015T142602Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.005,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "Meaningful property-rights and retaliation issues arising from a failed local development, with potential implications for municipal liability; the fact-bound licensing dispute and diffuse questions limit broader significance.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000359/events/evt-petition-disposition/predictions/codex-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000359/events/evt-petition-disposition/predictions/codex-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.012,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.05,
+              "cell_path": "data/cases/scotus/9026000359/events/evt-petition-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000359/events/evt-petition-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.005,
+              "run_id": "20261015T142602Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Rubicon Real Estate Holdings, LLC, et al. v. City of Pontiac, Michigan, et al."
         }
       ],
       "leakage_suspected": false,
-      "mean_big_case_score": 0.1333,
-      "moment": "evt-petition-arrival-disposition",
+      "mean_big_case_score": 0.1367,
+      "moment": "evt-petition-disposition",
       "moment_opened_at": "2026-09-16",
       "n": 3,
       "other_party": "City of Pontiac",
@@ -33894,6 +34299,172 @@
       "score_range": 0.2,
       "short_caption": "William David Jones v. Defense Supply Center",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Quaid",
+      "caption": "Randy Quaid, et ux. v. Craig Granet, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000249",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Fact-bound application of California's litigation privilege to one plaintiff's privacy claims, reviewed from an unpublished memorandum; the celebrity petitioner draws attention, but the legal stakes are low.",
+          "big_case_score": 0.04,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        },
+        {
+          "big_case_rationale": "The boundary between litigation privilege and unauthorized acquisition of government-held personal information has meaningful privacy stakes, but the petition presents a narrow California-law dispute through an unpublished, fact-specific decision and a procedurally limited vehicle.",
+          "big_case_score": 0.22,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        },
+        {
+          "big_case_rationale": null,
+          "big_case_score": 0.1,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        }
+      ],
+      "docket_id": 9026000249,
+      "docket_number": "26-249",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-249.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Celebrity petitioner guarantees minor tabloid coverage, but the dispute is personal fact-bound litigation over a long-sold house with no doctrinal stakes.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9026000249/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260827T155120Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000249/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260827T155120Z",
+              "confidence": 0.85,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.003,
+              "run_id": "20260827T155120Z"
+            },
+            {
+              "big_case_rationale": "A private property-related dispute with a highly case-specific procedural history and no visible broader institutional stakes.",
+              "big_case_score": 0.06,
+              "cell_path": "data/cases/scotus/9026000249/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260827T155120Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000249/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260827T155120Z",
+              "confidence": 0.78,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.0025,
+              "run_id": "20260827T155120Z"
+            },
+            {
+              "big_case_rationale": "Pro se petition alleging misapplication of state litigation privilege; very low national significance.",
+              "big_case_score": 0.01,
+              "cell_path": "data/cases/scotus/9026000249/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260828T012943Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000249/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260828T012943Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.001,
+              "run_id": "20260828T012943Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Randy Quaid, et ux. v. Craig Granet, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fact-bound application of California's litigation privilege to one plaintiff's privacy claims, reviewed from an unpublished memorandum; the celebrity petitioner draws attention, but the legal stakes are low.",
+              "big_case_score": 0.04,
+              "cell_path": "data/cases/scotus/9026000249/events/evt-petition-disposition/predictions/claude-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000249/events/evt-petition-disposition/predictions/claude-baseline/20261015T142602Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "The boundary between litigation privilege and unauthorized acquisition of government-held personal information has meaningful privacy stakes, but the petition presents a narrow California-law dispute through an unpublished, fact-specific decision and a procedurally limited vehicle.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/9026000249/events/evt-petition-disposition/predictions/codex-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000249/events/evt-petition-disposition/predictions/codex-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.005,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9026000249/events/evt-petition-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000249/events/evt-petition-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.005,
+              "run_id": "20261015T142602Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Randy Quaid, et ux. v. Craig Granet, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.12,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-08-27",
+      "n": 3,
+      "other_party": "Granet",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Quaid's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Quaid's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.22,
+      "score_min": 0.04,
+      "score_range": 0.18,
+      "short_caption": "Quaid v. Granet",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -34744,6 +35315,122 @@
       "score_min": 0.05,
       "score_range": 0.18,
       "short_caption": "Hamp's Construction v. Telle",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Ekladyous",
+      "caption": "Albert Ekladyous v. National Highway Traffic Safety Administration, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000314",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se challenge to NHTSA's adaptive-driving-beam rule dismissed in an unpublished timeliness order; the headlamp-standard question has some regulatory interest but the case as postured is narrow and fact-bound.",
+          "big_case_score": 0.05,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        },
+        {
+          "big_case_rationale": "The proposed agency-inaction rule could affect judicial review beyond automotive lighting, and the underlying standard concerns nationwide road safety. But this unpublished jurisdictional dismissal is a narrow vehicle, and the record does not establish wider institutional attention.",
+          "big_case_score": 0.28,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        },
+        {
+          "big_case_rationale": "A pro se petition challenging an unpublished untimeliness dismissal by the D.C. Circuit; raises no issues of national importance.",
+          "big_case_score": 0.001,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261015T142602Z"
+        }
+      ],
+      "docket_id": 9026000314,
+      "docket_number": "26-314",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-314.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se challenge to NHTSA's adaptive-driving-beam rule dismissed in an unpublished timeliness order; the headlamp-standard question has some regulatory interest but the case as postured is narrow and fact-bound.",
+              "big_case_score": 0.05,
+              "cell_path": "data/cases/scotus/9026000314/events/evt-petition-disposition/predictions/claude-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000314/events/evt-petition-disposition/predictions/claude-baseline/20261015T142602Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "The proposed agency-inaction rule could affect judicial review beyond automotive lighting, and the underlying standard concerns nationwide road safety. But this unpublished jurisdictional dismissal is a narrow vehicle, and the record does not establish wider institutional attention.",
+              "big_case_score": 0.28,
+              "cell_path": "data/cases/scotus/9026000314/events/evt-petition-disposition/predictions/codex-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000314/events/evt-petition-disposition/predictions/codex-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.008,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "A pro se petition challenging an unpublished untimeliness dismissal by the D.C. Circuit; raises no issues of national importance.",
+              "big_case_score": 0.001,
+              "cell_path": "data/cases/scotus/9026000314/events/evt-petition-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000314/events/evt-petition-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.001,
+              "run_id": "20261015T142602Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Albert Ekladyous v. National Highway Traffic Safety Administration, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1103,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-09",
+      "n": 3,
+      "other_party": "National Highway Traffic Safety Administration",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Ekladyous' case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Ekladyous' petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.28,
+      "score_min": 0.001,
+      "score_range": 0.279,
+      "short_caption": "Ekladyous v. National Highway Traffic Safety Administration",
       "status": "pending"
     },
     {
@@ -36870,122 +37557,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Quaid",
-      "caption": "Randy Quaid, et ux. v. Craig Granet, et al.",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000249",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Celebrity petitioner guarantees minor tabloid coverage, but the dispute is personal fact-bound litigation over a long-sold house with no doctrinal stakes.",
-          "big_case_score": 0.1,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260827T155120Z"
-        },
-        {
-          "big_case_rationale": "A private property-related dispute with a highly case-specific procedural history and no visible broader institutional stakes.",
-          "big_case_score": 0.06,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260827T155120Z"
-        },
-        {
-          "big_case_rationale": "Pro se petition alleging misapplication of state litigation privilege; very low national significance.",
-          "big_case_score": 0.01,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260828T012943Z"
-        }
-      ],
-      "docket_id": 9026000249,
-      "docket_number": "26-249",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-249.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Celebrity petitioner guarantees minor tabloid coverage, but the dispute is personal fact-bound litigation over a long-sold house with no doctrinal stakes.",
-              "big_case_score": 0.1,
-              "cell_path": "data/cases/scotus/9026000249/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260827T155120Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000249/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260827T155120Z",
-              "confidence": 0.85,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.003,
-              "run_id": "20260827T155120Z"
-            },
-            {
-              "big_case_rationale": "A private property-related dispute with a highly case-specific procedural history and no visible broader institutional stakes.",
-              "big_case_score": 0.06,
-              "cell_path": "data/cases/scotus/9026000249/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260827T155120Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000249/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260827T155120Z",
-              "confidence": 0.78,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.0025,
-              "run_id": "20260827T155120Z"
-            },
-            {
-              "big_case_rationale": "Pro se petition alleging misapplication of state litigation privilege; very low national significance.",
-              "big_case_score": 0.01,
-              "cell_path": "data/cases/scotus/9026000249/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260828T012943Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000249/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260828T012943Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.001,
-              "run_id": "20260828T012943Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Randy Quaid, et ux. v. Craig Granet, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.0567,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-08-27",
-      "n": 3,
-      "other_party": "Granet",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Quaid's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Quaid's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.1,
-      "score_min": 0.01,
-      "score_range": 0.09,
-      "short_caption": "Quaid v. Granet",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Adkins",
       "caption": "Dora L. Adkins v. Rosslyn Syndicate, LC",
       "caption_event_id": "evt-petition-disposition",
@@ -38230,5 +38801,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.2",
-  "scored_reads": 865
+  "scored_reads": 875
 }
