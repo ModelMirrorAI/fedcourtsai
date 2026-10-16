@@ -19272,19 +19272,35 @@ def assert_website_environment_cmd(
     variables_file: Annotated[
         Path, typer.Option(help="Its `variables` listing (admin read); absent means unread.")
     ],
+    repository_secrets_file: Annotated[
+        Path,
+        typer.Option(help="`GET /repos/{repo}/actions/secrets` (admin read); absent means unread."),
+    ],
+    organization_secrets_file: Annotated[
+        Path,
+        typer.Option(
+            help="`GET /repos/{repo}/actions/organization-secrets` (admin read); "
+            + "absent means unread."
+        ),
+    ],
 ) -> None:
     """Check the `website` environment still keeps the Buttondown key on `main`.
 
     Requires the environment to exist, its deployment branches to be a custom
     policy of exactly `main`, and it to hold exactly the Buttondown API key and
-    the weekly tag id — no other secret or variable. Names each problem and
-    exits non-zero if there is any; an unread listing is a problem.
+    the weekly tag id — no other secret or variable — and no repository or
+    organization secret to share the key's name, since a workflow on any
+    branch reads one. Names each problem and exits non-zero if there is any; an
+    unread listing is a problem.
     """
     problems = environment_checks.website_problems(
         _read_document(environment_file),
         _read_document(branch_policies_file),
         _read_document(secrets_file),
         _read_document(variables_file),
+    ) + environment_checks.shadow_secret_problems(
+        _read_document(repository_secrets_file),
+        _read_document(organization_secrets_file),
     )
     for problem in problems:
         typer.echo(f"::error::website environment: {problem}", err=True)

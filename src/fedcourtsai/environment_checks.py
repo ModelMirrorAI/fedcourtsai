@@ -1,4 +1,6 @@
-"""Whether the `corpus-check` environment still gates what its trust hands out.
+"""Whether the gated deployment environments still hold their controls.
+
+The `corpus-check` environment gates what its trust hands out.
 
 The read-only role's OIDC trust names `environment:corpus-check`, so the
 environment's own settings are the gate on that role: a job binding it holds
@@ -38,8 +40,9 @@ CORPUS_CHECK_ENVIRONMENT = "corpus-check"
 #: job is handed, so anything else here would be handed to it.
 CORPUS_CHECK_VARIABLES = frozenset({"AWS_ROLE_TO_ASSUME_READONLY", "AWS_REGION", "CORPUS_BASE_URL"})
 
-#: The one branch the environment admits: the lane's triggers run `main`'s file.
-CORPUS_CHECK_BRANCH = "main"
+#: The one branch either environment admits: the triggers of the workflows that
+#: bind them run `main`'s file.
+MAIN_BRANCH = "main"
 
 
 def _items(document: Mapping[str, Any] | None, key: str) -> list[Mapping[str, Any]] | None:
@@ -118,10 +121,10 @@ def _main_only_problems(
     policies = _items(branch_policies, "branch_policies")
     if policies is None:
         problems.append("the deployment branch policies were unread")
-    elif [(p.get("name"), p.get("type")) for p in policies] != [(CORPUS_CHECK_BRANCH, "branch")]:
+    elif [(p.get("name"), p.get("type")) for p in policies] != [(MAIN_BRANCH, "branch")]:
         names = ", ".join(sorted(str(p.get("name")) for p in policies)) or "none"
         problems.append(
-            f"the branch policy must admit exactly `{CORPUS_CHECK_BRANCH}` (branch); "
+            f"the branch policy must admit exactly `{MAIN_BRANCH}` (branch); "
             + f"it admits: {names}"
         )
     return problems
@@ -223,4 +226,34 @@ def website_problems(
     problems = _main_only_problems(environment, branch_policies)
     problems.extend(_exact_names_problems(secrets, "secrets", WEBSITE_SECRETS))
     problems.extend(_exact_names_problems(variables, "variables", WEBSITE_VARIABLES))
+    return problems
+
+
+def shadow_secret_problems(
+    repository_secrets: Mapping[str, Any] | None,
+    organization_secrets: Mapping[str, Any] | None,
+    names: frozenset[str] = WEBSITE_SECRETS,
+) -> list[str]:
+    """A copy of an environment's secret at repository or organization level.
+
+    A workflow's `secrets.NAME` falls back to a repository or organization
+    secret of the same name, which no deployment-branch policy guards: a copy
+    there reaches a workflow run off any branch. So neither listing may name
+    one of ``names``, and an unread listing is a problem.
+    """
+    problems: list[str] = []
+    for scope, listing in (
+        ("repository", repository_secrets),
+        ("organization (shared with this repository)", organization_secrets),
+    ):
+        items = _items(listing, "secrets")
+        if items is None:
+            problems.append(f"the {scope} secrets were unread")
+            continue
+        shadowed = sorted(names & {str(item.get("name")) for item in items})
+        if shadowed:
+            problems.append(
+                f"the {scope} secrets hold {', '.join(shadowed)}, which any branch's "
+                + "workflow can read; keep it in the environment alone"
+            )
     return problems

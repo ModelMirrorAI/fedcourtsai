@@ -46,8 +46,8 @@
 /src/fedcourtsai/required_checks.py @modelmirror
 /src/fedcourtsai/ruleset_checks.py @modelmirror
 /tests/test_ruleset_checks.py @modelmirror
-# The corpus-check environment check the same stage runs, which the lane's
-# plan job also reads before it plans anything.
+# The environment checks the same stage runs — corpus-check, which the lane's
+# plan job also reads before it plans anything, and website.
 /src/fedcourtsai/environment_checks.py @modelmirror
 /tests/test_environment_checks.py @modelmirror
 /src/fedcourtsai/collect.py @modelmirror

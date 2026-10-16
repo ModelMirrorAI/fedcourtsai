@@ -488,9 +488,12 @@ contexts() {
   # The website environment, unconditionally: it holds the Buttondown API key
   # from the moment it is configured, whether or not main's workflows bind it
   # yet, and its `main`-only branch policy is the one thing keeping that key
-  # from a workflow run off any other ref. Required: the environment exists,
-  # admits `main` alone, and holds exactly the key and the weekly tag id. The
-  # decision is tested Python (tests/test_environment_checks.py).
+  # from a workflow run off any other ref — so long as the key lives nowhere
+  # else, since a workflow's secret falls back to a repository or organization
+  # secret of the same name. Required: the environment exists, admits `main`
+  # alone, holds exactly the key and the weekly tag id, and no repository or
+  # organization secret shares the key's name. The decision is tested Python
+  # (tests/test_environment_checks.py).
   local web_dir="${workdir}/website-environment" web_base
   web_base="repos/${REPO}/environments/website"
   mkdir -p "$web_dir"
@@ -502,11 +505,18 @@ contexts() {
     || rm -f "${web_dir}/secrets.json"
   gh api "${web_base}/variables?per_page=30" >"${web_dir}/variables.json" 2>/dev/null \
     || rm -f "${web_dir}/variables.json"
+  gh api "repos/${REPO}/actions/secrets?per_page=100" \
+    >"${web_dir}/repository-secrets.json" 2>/dev/null || rm -f "${web_dir}/repository-secrets.json"
+  gh api "repos/${REPO}/actions/organization-secrets?per_page=100" \
+    >"${web_dir}/organization-secrets.json" 2>/dev/null \
+    || rm -f "${web_dir}/organization-secrets.json"
   if uv run fedcourts assert-website-environment \
     --environment-file "${web_dir}/environment.json" \
     --branch-policies-file "${web_dir}/branch-policies.json" \
     --secrets-file "${web_dir}/secrets.json" \
-    --variables-file "${web_dir}/variables.json"; then
+    --variables-file "${web_dir}/variables.json" \
+    --repository-secrets-file "${web_dir}/repository-secrets.json" \
+    --organization-secrets-file "${web_dir}/organization-secrets.json"; then
     echo "contexts: the website environment admits main alone and holds only the Buttondown key and the tag id"
   else
     echo "::error::contexts: fix the website environment before promoting — its branch policy is what keeps the Buttondown key on main (docs/security.md)"

@@ -301,6 +301,8 @@ def test_the_website_gate_cli_reads_the_four_listings(tmp_path: Path) -> None:
         "branch-policies": MAIN_ONLY,
         "secrets": WEBSITE_SECRETS,
         "variables": WEBSITE_VARIABLES,
+        "repository-secrets": NO_SECRETS,
+        "organization-secrets": NO_SECRETS,
     }
     for name, document in files.items():
         (tmp_path / f"{name}.json").write_text(json.dumps(document))
@@ -314,6 +316,10 @@ def test_the_website_gate_cli_reads_the_four_listings(tmp_path: Path) -> None:
         str(tmp_path / "secrets.json"),
         "--variables-file",
         str(tmp_path / "variables.json"),
+        "--repository-secrets-file",
+        str(tmp_path / "repository-secrets.json"),
+        "--organization-secrets-file",
+        str(tmp_path / "organization-secrets.json"),
     ]
     runner = CliRunner()
     passed = runner.invoke(app, args)
@@ -328,9 +334,14 @@ def test_the_promotion_gate_checks_the_website_environment_unconditionally() -> 
     check does not wait for a workflow binding it to reach `main`."""
     script = (Path(__file__).resolve().parent.parent / "scripts" / "promotion-gate.sh").read_text()
     contexts = script[script.index("\ncontexts() {") : script.index("\nregistry() {")]
-    tail = contexts[contexts.index("The website environment") :]
-    assert 'web_base="repos/${REPO}/environments/website"' in tail
-    for listing in ("deployment-branch-policies", "secrets", "variables"):
+    tail = contexts[contexts.index('web_base="repos/${REPO}/environments/website"') :]
+    for listing in (
+        "deployment-branch-policies",
+        "secrets",
+        "variables",
+        "actions/secrets",
+        "actions/organization-secrets",
+    ):
         assert listing in tail
     assert "uv run fedcourts assert-website-environment" in tail
     assert "fail=1" in tail
@@ -346,3 +357,23 @@ def test_the_website_names_are_the_ones_the_workflow_reads() -> None:
     ).read_text()
     assert set(re.findall(r"secrets\.([A-Z0-9_]+)", workflow)) == set(ec.WEBSITE_SECRETS)
     assert set(re.findall(r"vars\.([A-Z0-9_]+)", workflow)) == set(ec.WEBSITE_VARIABLES)
+
+
+@pytest.mark.parametrize("scope", ["repository", "organization"])
+def test_a_shadow_copy_of_the_key_is_refused(scope: str) -> None:
+    """`secrets.NAME` falls back to a repository or organization secret, which
+    no branch policy guards."""
+    shadow = {"secrets": [{"name": "BUTTONDOWN_API_KEY"}, {"name": "UNRELATED"}]}
+    listings = {"repository": NO_SECRETS, "organization": NO_SECRETS, scope: shadow}
+    problems = ec.shadow_secret_problems(listings["repository"], listings["organization"])
+    assert len(problems) == 1
+    assert "BUTTONDOWN_API_KEY" in problems[0] and "UNRELATED" not in problems[0]
+
+
+def test_unrelated_repository_secrets_pass_and_unread_ones_fail() -> None:
+    other = {"secrets": [{"name": "UNRELATED"}]}
+    assert ec.shadow_secret_problems(other, other) == []
+    assert any(
+        "repository secrets were unread" in p for p in ec.shadow_secret_problems(None, other)
+    )
+    assert any("organization" in p for p in ec.shadow_secret_problems(other, None))
