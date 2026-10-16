@@ -35,7 +35,7 @@ the corpus, and hands nothing to the stage after it — a maintainer's
 the two chain jobs that start a predict round when a pull window commits or a
 capped round's output lands. The
 judgment-heavy stages delegate to **multiple competing coding agents** (Claude
-Code, Codex, and Gemini), whose artifacts land as auto-merge-gated pull
+Code, Codex, and Gemini), whose artifacts land as check-gated pull
 requests.
 
 | Trigger        | Workflow        | Does                                                                 | Engine |

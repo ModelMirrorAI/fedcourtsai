@@ -420,7 +420,8 @@ queues behind the production run of the same mode. The modes:
   the job's own merge (`scripts/merge-when-green.sh`, pinned to the commit it
   pushed) waits on the same required checks a reviewed PR faces. GitHub's
   auto-merge would not do: it never exercises a bypass, so an armed bot PR
-  waits for an approval. The job arms it anyway, so where its own merge gives
+  waits for an approval. (That the job's own call does exercise it is
+  unverified until its first production run; its summary says which.) The job arms it anyway, so where its own merge gives
   up the PR stays open and lands on the maintainer's approval.
 - **`tool-usage`** (dispatch) rolls every committed `retrieval_log.json` into an
   **offered-vs-called** report: which configured MCP tools were never called,
@@ -1279,7 +1280,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  → approval (the review hold: required
                                  │           reviewers release the spend)
                                  → predict[matrix] (artifact per cell)
-                                 └─ collect → one auto-merged PR per run (+ a draft for partials;
+                                 └─ collect → one PR per run, merged when green (+ a draft for partials;
                                               a facts-only PR when a run lands nothing)
    daily    → run-evaluate → plan (derive the evaluate backlog from committed state,
                                  │       build the matrix, render the plan report)
@@ -1420,7 +1421,7 @@ pattern rather than rediscovering it:
 - **A required check skips with an `if:`, never with a trigger filter.** A
   `paths:` / `paths-ignore:` filter on a trigger leaves the context
   unproduced, and a required context nothing produces keeps the PR pending
-  forever — the auto-merging collect PRs first. A job-level `if:` reports the
+  forever — the unattended collect PRs first. A job-level `if:` reports the
   context `skipped`; a step-level `if:` skips the step and lets the job
   conclude `success`; either satisfies the requirement. The corollary is that a
   wrong skip passes silently, so the condition has to fail closed: `ci.yml`'s
@@ -1858,7 +1859,7 @@ protection*); and add `promotion-gate` — and, once the *Adding a required
 status check* procedure below clears it, `main-base` — to `main`'s required
 checks alongside `gate` and `paths`. Each reports `skipped`, which satisfies
 the requirement, on every PR it does not gate; requiring a context before its
-producing job reaches `main` strands every collect auto-merge PR, which is
+producing job reaches `main` strands every unattended collect PR, which is
 what the procedure's ordering prevents.
 
 The `staging` *deployment environment* the freshness runs deploy to
@@ -1948,7 +1949,7 @@ is fixed; one that passes rides the next promotion like any other change.
 
 The ordering is forced, and getting it wrong stops data production rather than
 failing loudly: a context nothing on `main` produces leaves every PR into
-`main` pending forever, and the auto-merging collect PRs hang first.
+`main` pending forever, and the unattended collect PRs hang first.
 
 ```bash
 scripts/promotion-gate.sh contexts <candidate>   # the context you want to require
@@ -1974,7 +1975,7 @@ report an advisory fact. Run it with your own token.
    require*.
 3. Confirm a real PR of the kind you are gating reports the context. For a
    context that must report on the bot lanes, that means watching one of their
-   PRs, since those auto-merge and are what a mistake strands.
+   PRs, since those merge unattended and are what a mistake strands.
 4. Add the context to the ruleset. Re-run step 2 afterwards: it now checks the
    context you just added.
 5. Update the surfaces that record the required set — the pinned list in
@@ -2663,7 +2664,7 @@ any salvageable partial output split into a single companion **draft** PR. So a
 fan-out of dozens of cells yields one (or two) PRs for the run, not one per cell.
 The append-only `data/` path jail (`fedcourts assert-paths`) is enforced in
 `collect` before the commit and again as the required `paths` check, so an
-auto-merged PR can only add artifacts under `data/`, and never an agent
+unattended PR can only add artifacts under `data/`, and never an agent
 instruction file or config directory (`CLAUDE.md`, `AGENTS.md`, `.claude/` and
 the like) a later cell would load from the ledger as instructions; a schema re-validation and a
 secret scan (`fedcourts scan-diff-for-secrets`) run beside it producer-side —
@@ -3012,7 +3013,7 @@ property to lean on — not a run PR's appearance of completeness, which is why
 `collect` names what it could not collect in the body and the run log.
 
 A **wholesale-failed run** — every cell died, so no ready or partial PR opens —
-still records one `attempt.json` fact per failed cell via a small auto-merging
+still records one `attempt.json` fact per failed cell via a small unattended
 **facts-only PR** (`<role>/run-<run_id>-facts`, carrying facts alone and closing
 nothing). That is what lets the per-cell attempt cap advance
 for a persistently-failing cell even when the run itself produced nothing.
@@ -3330,7 +3331,7 @@ What salvage looks like is uniform across **run-predict** and
 **run-evaluate**: each cell records its status and uploads its output
 (`if: !cancelled()`); the `collect` job then routes a cell that did not finish
 cleanly — or whose output failed schema validation — into the run's **draft** PR
-(never the auto-merging ready one), and a cell that produced nothing is warned
+(never the unattended ready one), and a cell that produced nothing is warned
 about rather than committed. A run that finished cleanly is
 unaffected: the draft path only triggers when the agent stopped early.
 

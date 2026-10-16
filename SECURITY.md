@@ -503,7 +503,8 @@ runbook, [docs/security.md](docs/security.md).
   one approving review, which only the `maintainers` team can give, and
   bypasses it for the dev App's pull requests (what lets its two unattended
   lanes land, by the jobs' own merge call — GitHub's auto-merge never
-  exercises a bypass; still bound by the checks), for the data App, and for any pull request an
+  exercises a bypass, and the call's doing so is unverified until its first
+  production run; still bound by the checks), for the data App, and for any pull request an
   admin merges (how the maintainer's own lands, since GitHub does not let an
   author approve their own). So a promotion — opened by the dev App — merges
   on the maintainer's approval of its head or through a recorded bypass: the

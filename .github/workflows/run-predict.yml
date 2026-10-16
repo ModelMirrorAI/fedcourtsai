@@ -3,7 +3,8 @@ name: run-predict
 # The predict stage's own lane. Fans out over every enabled predictor x open
 # event and runs the matching coding agent. The agent only writes files; each
 # cell uploads its output as an artifact and the `collect` job aggregates the
-# whole run into one auto-merged PR (plus a draft PR for any partial output).
+# whole run into one PR it merges when green (plus a draft PR for any partial
+# output).
 # See docs/pipeline.md.
 #
 # One way in, and it names no cases: the **schedule** (and its on-demand
@@ -1962,7 +1963,8 @@ jobs:
     # step outliving the hour trades a clean timeout-cancel for a 401
     # mid-push; 50 buys the measured aggregation while keeping the
     # credentialed tail inside the hour. The job's cap adds the three report
-    # steps' own bounds and the merge step's, which mints a token of its own. A cap kill either side of the push — mid-aggregation, or after a
+    # steps' own bounds and the merge step's, which mints a token of its own.
+    # A cap kill either side of the push — mid-aggregation, or after a
     # push and before its PR — costs a maintainer round trip while the
     # artifacts live (rerunning collect is the documented idempotent
     # recovery). If 50 proves short, the durable fixes are re-minting the
@@ -2142,10 +2144,11 @@ jobs:
       # merge is refused until they pass. Pinned to the commit the collect step
       # pushed; the script says what else stops it. A fresh token, because the
       # first was minted at job start and the collect step can spend most of its
-      # hour.
+      # hour. Gated on the collect step alone: a report step that failed on an
+      # API blip changes nothing that was pushed, and should not strand it.
       - name: Mint merge token
         id: merge-token
-        if: ${{ success() && steps.collect.outputs.merge-targets != '' }}
+        if: ${{ !cancelled() && steps.collect.outcome == 'success' && steps.collect.outputs.merge-targets != '' }}
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DEV_APP_CLIENT_ID }}
@@ -2154,7 +2157,7 @@ jobs:
           permission-pull-requests: write
 
       - name: Merge the run PR once its checks pass
-        if: ${{ success() && steps.collect.outputs.merge-targets != '' }}
+        if: ${{ !cancelled() && steps.collect.outcome == 'success' && steps.collect.outputs.merge-targets != '' }}
         # The script waits up to 20 minutes; the required checks on a run PR
         # take a few.
         timeout-minutes: 25

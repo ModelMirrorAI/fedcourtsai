@@ -498,7 +498,9 @@ runs:
           title=$(jq -r '.title' <<<"$pr")
           # Find-or-update: `gh pr create` errors on an existing open PR for the
           # same head, which would abort the rerun under `set -e`.
-          url=$(gh pr list --repo "$REPO" --head "$branch" --state open \
+          # `--base main` as well as `--head`: the PR found here may be merged
+          # unattended, and a same-named head into some other base is not ours.
+          url=$(gh pr list --repo "$REPO" --head "$branch" --base main --state open \
             --json url --jq '.[0].url // empty')
           if [ -z "$url" ]; then
             flags=()

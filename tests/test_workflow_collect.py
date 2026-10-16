@@ -665,7 +665,12 @@ def test_the_run_pr_is_merged_by_the_job_not_left_to_auto_merge() -> None:
         mint, merge = steps[-2], steps[-1]
         assert mint.get("name") == "Mint merge token" and mint.get("id") == "merge-token"
         assert merge.get("name") == "Merge the run PR once its checks pass"
-        gate = "${{ success() && steps.collect.outputs.merge-targets != '' }}"
+        # On the collect step alone, so a report step's API blip cannot strand
+        # a pushed, jailed PR.
+        gate = (
+            "${{ !cancelled() && steps.collect.outcome == 'success' "
+            + "&& steps.collect.outputs.merge-targets != '' }}"
+        )
         assert mint["if"] == gate and merge["if"] == gate
         assert merge["env"]["GH_TOKEN"] == "${{ steps.merge-token.outputs.token }}"
         assert merge["env"]["CHECKS_TOKEN"] == "${{ github.token }}"

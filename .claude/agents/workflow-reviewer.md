@@ -76,7 +76,8 @@ read the diff, run the linters, and report findings with a clear verdict. You do
   bypasses branch protection.
 - **Secrets.** Never `echo`/print/write a secret or token; `persist-credentials: false`
   on checkout; OIDC roles read-only unless a write is required and justified.
-- **Auto-merge blast radius.** If the PR a job opens auto-merges, confirm the required
+- **Unattended-merge blast radius.** If the PR a job opens can land without a human —
+  armed auto-merge, or the job's own merge (`scripts/merge-when-green.sh`) — confirm the required
   path-jail check (`assert-paths` / `assert-cleanup-paths` / `assert-board-paths`) covers its branch pattern.
 
 ## Repo-style checklist

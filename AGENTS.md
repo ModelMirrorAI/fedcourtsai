@@ -122,7 +122,8 @@ non-interactive** container. Two consequences shape everything you do:
   `src/fedcourtsai/registry_gate.py`, `src/fedcourtsai/promotion_record.py`,
   `src/fedcourtsai/process_registration.py` and their tests — a registration
   is a pre-registration, and the promotion record is what a bypass writer may
-  push to `main`), `config/predictors.yaml` /
+  push to `main`; and the unattended merge, `scripts/merge-when-green.sh` and
+  its test, which decides what the dev App's approval bypass lands on `main`), `config/predictors.yaml` /
   `config/evaluators.yaml` (what agents are and what they may reach — and,
   with them, `config/corpus-check.yaml`, `src/fedcourtsai/corpus_check.py` and
   its tests, which decide whose PR code the corpus-check lane runs with the

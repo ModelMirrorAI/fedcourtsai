@@ -38,11 +38,11 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #   - big-cases:       regenerate the case-centric big-case board alone
 #                      (`fedcourts big-cases`) — which cases the predictors think
 #                      matter, and where they disagree — and land any change as an
-#                      **auto-merging** PR. Reads `data/` only, like tool-usage, so
+#                      **unattended** PR. Reads `data/` only, like tool-usage, so
 #                      it needs no corpus and no cloud credential; it is the daily
 #                      cron's job, because a website renders this board off `main`
 #                      and a weekly cadence would publish a stale one six days in
-#                      seven. The auto-merge is argued at the job.
+#                      seven. The unattended merge is argued at the job.
 #   - tool-usage:      roll the committed retrieval logs into an offered-vs-called
 #                      report (`fedcourts tool-usage`) — which configured MCP
 #                      tools cells actually call. Reads `data/` only, so unlike
@@ -841,7 +841,7 @@ jobs:
     # nothing else. That is also why it can run daily at no cost and outside the
     # corpus-settled window the weekly refresh waits for.
     #
-    # It is the one PR lane here that **auto-merges**, and the reason is the
+    # It is the one PR lane here that **merges unattended**, and the reason is the
     # artifact rather than the schedule. The board is a byte-stable pure function
     # of the committed ledger, so a day that changed nothing opens nothing, and a
     # day that changed something re-rolls committed cells by a command whose own

@@ -38,7 +38,7 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   `run-evaluate`, the reviewed-PR openers (`run-backtest`, and
   `run-analytics`'s metrics-refresh and qp-topic-label jobs, and
   `summarize`'s publish job),
-  `run-analytics`'s big-cases job (the one PR opener here that auto-merges),
+  `run-analytics`'s big-cases job (the one PR opener here that merges its own PR unattended),
   `sync-staging`, and `promotion-prep`.
   Its client id
   is the `DEV_APP_CLIENT_ID`
@@ -46,7 +46,8 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   **not** a bypass actor on any ruleset that carries a required check, so
   nothing it holds can reach `main` except through a PR that satisfies them;
   its one bypass is `main: require approval`'s, for pull requests only, which
-  is what lets the auto-merged lanes land without a human approval.
+  is what lets the unattended lanes land without a human approval, through
+  the jobs' own merge call (GitHub's auto-merge does not exercise a bypass).
 - **dispatch App** — used only by the two drain-chain jobs, `run-pull`'s
   `chain-predict` and `run-predict`'s `chain`, each of which starts an
   input-less `run-predict` round on `main`. Its client id is the
@@ -329,7 +330,7 @@ with the maintainers team and the two Apps resolved by name at run time. It
 runs only when the maintainer runs it, so an edit between runs goes unseen. Every require-PR ruleset pins
 `allowed_merge_methods` to **`merge, squash`**: `merge` because the sync and the
 promotion must keep `main` and `staging` sharing history, `squash` because the
-data-run `collect` PRs auto-merge with it, and no rebase because replaying
+data-run `collect` PRs are merged with it, and no rebase because replaying
 commits onto either branch would break that shared history and rewrite the
 pre-registration record's commit ids.
 
@@ -353,7 +354,7 @@ pre-registration record's commit ids.
     runs — and fails — only on a PR to `main` whose head
     is not a same-repo `staging` or non-feature lane, so a feature PR
     cannot ride around the promotion path by mistake. Those lanes are all
-    reviewed except the big-case board's, which auto-merges behind the `paths`
+    reviewed except the big-case board's, which merges unattended behind the `paths`
     jail below. Rulesets cannot constrain
     a PR's source branch, which is why it is a check rather than a rule. Its
     job definition lives in `main`'s own `ci.yml`, so the context reports on
@@ -457,7 +458,10 @@ pre-registration record's commit ids.
     does not list it. They land by the job's own merge call
     (`scripts/merge-when-green.sh`), not by GitHub's auto-merge, which never
     exercises a bypass: an armed bot PR waits for an approval with every check
-    green. The call is pinned to the commit the job pushed, so a later push
+    green. That the merge call does exercise it is unverified until the first
+    production run — the merge step's summary reports either the merge or the
+    platform's refusal, and a refusal leaves the PR armed for approval. The
+    call is pinned to the commit the job pushed, so a later push
     onto the branch leaves the PR for review; the jobs still arm auto-merge,
     so a PR the call gives up on lands on the maintainer's approval. Its
     reviewed lanes (the metrics refresh, the backtest, the summaries, the
@@ -586,7 +590,7 @@ comment with the job's **ambient `GITHUB_TOKEN`** (job-scoped **`issues: write`*
 in this repository keys on `issues: labeled` at all, so labeling triggers
 nothing), which is the only reason a workflow here ever reaches for the App
 token — so issue-write deliberately stays **off** the App token that
-carries `contents: write` and opens the auto-merging PR. This mirrors `run-ops`,
+carries `contents: write` and opens and merges the run PR. This mirrors `run-ops`,
 which posts its `data-validation` / `daily-digest` /
 `weekly-digest` issues with the same ambient token — each of those labels
 non-triggering, so a reporting job opening an issue can never start a spending
@@ -1679,7 +1683,7 @@ branch every 02:31 window. The
 allow-list is short and pinned rather than the opt-out list, because a job can
 be worth poisoning for reasons its credentials do not show: `ci.yml`'s `gate`,
 `paths` and `cleanup-paths` hold no credential, but their verdicts are required
-checks — the path jail among them gates every data PR's auto-merge to `main` —
+checks — the path jail among them gates every data PR's unattended merge to `main` —
 and `integration-test`'s `collect-scenario` produces the freshness evidence the
 promotion gate reads, so a poisoned cache in any of them could forge a passing
 result. So a new job opts out until someone allows it with the reason it is
