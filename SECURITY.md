@@ -282,9 +282,11 @@ runbook, [docs/security.md](docs/security.md).
   environment.
   Per-workflow role assignments and policies:
   [docs/security.md](docs/security.md).
-- **No agent process holds a cloud credential.** An agent runs over
+- **No pipeline agent process holds a cloud credential.** An agent runs over
   third-party docket text, so no corpus credential reaches the process that
-  reads it — but the enforcement differs by job, and the guarantee is about the
+  reads it — the one exception being an interactive Claude cloud session
+  started in the dedicated corpus environment, which holds a read-only key by
+  design and is bounded as the developer-access bullet below states — but the enforcement differs by job, and the guarantee is about the
   process, not the step. In a predict/evaluate cell the read-only role's
   credentials never enter the agent *step* at all: they ride the provisioning
   and sidecar-launch steps as masked step outputs, and the agent reaches corpus
@@ -316,15 +318,27 @@ runbook, [docs/security.md](docs/security.md).
   role also reads the staging pair — and contributors via a dedicated
   read-only IAM user provisioned on demand, scoped to the production stores
   alone. From Claude cloud sessions, through the variables of one dedicated
-  personal cloud environment: a second, separate read-only IAM user, scoped to
-  the production stores alone by the same policy, with an explicit deny on
-  writes. That key is visible to the model and to every command in a session
-  of that environment, so a prompt injection in docket text the session reads
-  could print or send it; it is kept out of every other environment, rotated
-  on a schedule, and revoked by deactivating it alone. The exposure a leaked
-  key of either user could buy is deliberately small: the corpus is public
-  court data, no developer principal can write or delete anything, and a
-  billing alarm bounds egress abuse. See *Developer access* in
+  personal cloud environment: a second, separate read-only IAM user, under a
+  production-only read policy that carries an explicit deny on writes and
+  deletes, and that a contributor user is given too. Those sessions act on
+  GitHub as the agent account, never with the maintainer's credentials. The
+  key is visible to the model and to every command in a session of that
+  environment, and Anthropic's environment configuration holds it. So a
+  prompt injection — in docket text the session reads, or in web content it
+  fetches — could print or send the key, and could also read stored corpus
+  content with the commands the session legitimately holds and move it out:
+  over the network, since the environment's default level reaches every
+  `*.amazonaws.com` host and so any S3 bucket, and over GitHub, where the
+  agent account can push branches and post public text. No control fences
+  that egress; what bounds it is that the environment is chosen only for
+  corpus work (discipline, not a control — any task can be started in it),
+  AGENTS.md's rule that stored text never leaves the session, and the key's
+  reach: it reads production only and can write nothing. It is rotated and
+  revoked by its own runbook (docs/security.md). The exposure a leaked key of
+  either user could buy is a republication of access-gated court data the
+  pipeline does not itself republish (docs/data-sources.md), not a write: no
+  developer principal can write or delete anything, and a billing alarm bounds
+  egress abuse. See *Developer access* in
   [docs/data-pipeline.md](docs/data-pipeline.md).
 - **The trigger surface is the trust boundary, and the platform holds it.** No
   **privileged** workflow — one that mints a token, assumes a role, or runs an

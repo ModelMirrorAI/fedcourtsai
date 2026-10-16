@@ -1288,12 +1288,28 @@ backlog derivations and the whole-corpus scanners (`run-analytics` and
 Developer access is separate from the workflow roles: the maintainer uses IAM
 Identity Center SSO, a contributor gets an on-demand IAM user scoped
 read-only to the production stores, and Claude cloud sessions get a second,
-separate IAM user under the same production-only read policy. Those two users'
-keys are the system's only static credentials. Each is its own principal so
-it is revoked, rotated and audited (CloudTrail names the user) without
-touching the other; the shared customer-managed policy keeps their reach
-identical, and an explicit deny on object writes and deletes backs the
-missing grant.
+separate IAM user. Those users' keys are the system's only static AWS
+credentials. Both hold one customer-managed policy, `fedcourtsai-corpus-read-prod`:
+`s3:ListBucket` and `s3:GetObject` on the two production stores (and
+`kms:Decrypt` where the stores use a KMS key), plus an explicit deny on object
+writes and deletes and on bucket policy and lifecycle changes, which backs the
+missing grant. Each is its own principal so it is revoked, rotated and
+audited (CloudTrail names the user) without touching the other.
+
+The cloud-session user's runbook (maintainer):
+
+- **Provision.** An IAM user with no console password and nothing attached but
+  that policy; one access key of type "application running outside AWS",
+  entered as the variables of one personal Claude cloud environment kept for
+  corpus work alone, never the default environment or an organization-shared
+  one. The environment's variables are readable by the model and every
+  command in its sessions, so the key is treated as exposed to them.
+- **Rotate every 90 days.** Create a second key, replace the environment's
+  variables, start a session there and run `fedcourts corpus-info --corpus-backend
+  ranged`, then deactivate and delete the old key.
+- **Watch.** The key's last-used date in IAM, and CloudTrail's S3 data events
+  for the user where they are enabled.
+- **Revoke.** Deactivate the key in IAM; nothing else depends on it.
 
 The code holds the same line without relying on the credential. A corpus
 write mirrors to the content store only inside a GitHub Actions job (a marker
@@ -1336,8 +1352,11 @@ the write side by construction — no environment names two write-capable roles,
 and no write-capable role names two environments — so "who can write which
 store" is answerable from the trust statements without reading a policy.
 
-**Agent shells hold no cloud credential; the residual is a localhost query
-surface.** A predict/evaluate cell runs an agent over third-party snapshot
+**Pipeline agent shells hold no cloud credential; the residual is a localhost
+query surface.** (An interactive Claude cloud session in the dedicated corpus
+environment is the one agent shell that holds a read key, by design; its
+bounds are in [SECURITY.md](../SECURITY.md)'s developer-access bullet and the
+cloud-session user's runbook above.) A predict/evaluate cell runs an agent over third-party snapshot
 text — prompt injection in a docket must be assumed — but the read-only role's
 credentials never enter an agent step's environment: the `corpus-sidecar`
 composite takes them as masked step *outputs* (`output-credentials`, with the
@@ -1679,9 +1698,10 @@ before anything is read. The source is pinned on the command line — dedicated
 production-source variables in the workflow, explicit options in a shell —
 never resolved from the ambient environment, so repointing the environment's
 corpus variables moves neither what the seeder reads nor what its rail
-compares against. Codespaces stays read-only: against production for
-both developer flows, and against the staging pair for the maintainer's
-role-assumed flow, whose read-only role's policy also reads it (see
+compares against. Developer access stays read-only: against production for
+all three developer flows (two from Codespaces, one from Claude cloud
+sessions), and against the staging pair for the maintainer's role-assumed
+flow alone, whose read-only role's policy also reads it (see
 [data-pipeline.md](data-pipeline.md)'s *Developer access* for the
 `scripts/corpus-env` switch). A dev checkout can dry-run the seeder against
 the read-only role, and its write half exists nowhere but the workflow below.
@@ -1945,7 +1965,7 @@ mirrored from its production statements (where the explicit write/delete deny
 names resources, the staging pair joins that list too). The refresh lane does
 not need it; two consumers do. It serves the maintainer's developer reads of
 the pair from Codespaces ([data-pipeline.md](data-pipeline.md)'s *Developer
-access*; neither developer IAM user is extended, so the system's static
+access*; neither developer IAM user is extended, so the system's static AWS
 credentials stay scoped to production), and step 5
 requires it for the repointed scenarios — landing it early turns a step-5
 prerequisite into a done item. It stays inside step 1's "no wider read
