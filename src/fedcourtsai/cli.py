@@ -19325,7 +19325,7 @@ def assert_board_paths_cmd(
 ) -> None:
     """Enforce the big-case board's path jail; exit non-zero on any violation.
 
-    The board PR auto-merges, so what stands in for a reviewer is the bound on
+    The board PR merges unattended, so what stands in for a reviewer is the bound on
     its diff: `metrics/big-cases.json` and `metrics/big-cases.md`, written, and
     nothing else. CI runs this as a required status check on the PR, independently
     of the workflow that produced the branch.

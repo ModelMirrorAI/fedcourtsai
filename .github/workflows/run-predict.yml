@@ -3,7 +3,8 @@ name: run-predict
 # The predict stage's own lane. Fans out over every enabled predictor x open
 # event and runs the matching coding agent. The agent only writes files; each
 # cell uploads its output as an artifact and the `collect` job aggregates the
-# whole run into one auto-merged PR (plus a draft PR for any partial output).
+# whole run into one PR it merges when green (plus a draft PR for any partial
+# output).
 # See docs/pipeline.md.
 #
 # One way in, and it names no cases: the **schedule** (and its on-demand
@@ -1941,7 +1942,7 @@ jobs:
     # would fire this writer on a rejected hold (predict merely skipped) and
     # spin up the collect machinery over a run that spent nothing. This is the
     # only writer: it unions the cells' artifacts into one
-    # PR per run (auto-merged when green) plus, if any cell left salvageable
+    # PR per run (merged by this job when green) plus, if any cell left salvageable
     # partial output, one draft PR a maintainer finishes.
     if: >-
       ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success'
@@ -1956,28 +1957,32 @@ jobs:
     # 34-event trigger — at 5-10s per download) spends 3-5 minutes before
     # aggregation begins, an all-retry pass approaches 20, and the
     # aggregation after it was still running at 30 minutes on the first
-    # post-freeze full-width run with every cell green. The cap's ceiling is
-    # the App token's one-hour life, minted at job start and spent at the
-    # very end — the push, the PR, the auto-merge — so a job outliving the
-    # hour trades a clean timeout-cancel for a 401 mid-push; 50 buys the
-    # measured aggregation while keeping the credentialed tail inside the
-    # hour. A cap kill either side of the push — mid-aggregation, or after a
+    # post-freeze full-width run with every cell green. The collect step's own
+    # cap of 50 is set by the App token's one-hour life, minted at job start and
+    # spent at that step's end — the push, the PR, the auto-merge arm — so a
+    # step outliving the hour trades a clean timeout-cancel for a 401
+    # mid-push; 50 buys the measured aggregation while keeping the
+    # credentialed tail inside the hour. The job's cap adds the three report
+    # steps' own bounds and the merge step's, which mints a token of its own.
+    # A cap kill either side of the push — mid-aggregation, or after a
     # push and before its PR — costs a maintainer round trip while the
     # artifacts live (rerunning collect is the documented idempotent
     # recovery). If 50 proves short, the durable fixes are re-minting the
     # token between download and aggregation, or scoping the per-kind
     # validate to the run's changed paths — not a bigger number.
-    timeout-minutes: 50
+    timeout-minutes: 105
     environment: prod
     permissions:
       contents: write # commit the run's predictions to a branch
-      pull-requests: write # open the run PR and enable auto-merge
+      pull-requests: write # open the run PR, arm auto-merge (App token)
+      checks: read # the merge step lists the run PR's check runs (GITHUB_TOKEN)
       issues: write # GITHUB_TOKEN posts flags to the agent-feedback issue (not the App token)
       actions: read # fetch this run's cell artifacts (repo-wide read; collect runs no agent code)
     steps:
-      # The collect job opens the PR with the dev App token. The dev App bypasses
-      # no required check (see docs/security.md) — only `main`'s approval rule —
-      # so its auto-merge is bound by the required `gate` + `paths` checks.
+      # The collect job opens and merges the PR with the dev App token. The dev
+      # App bypasses no required check (see docs/security.md) — only `main`'s
+      # approval rule — so its merge is bound by the required `gate` + `paths`
+      # checks.
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -2003,6 +2008,9 @@ jobs:
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
       - name: Collect the run into one PR
+        id: collect
+        # The token-life bound; see the job's cap above.
+        timeout-minutes: 50
         uses: ./.github/actions/collect-run
         with:
           role: predict
@@ -2127,6 +2135,49 @@ jobs:
           set -euo pipefail
           [ -s feedback-comment.md ] || exit 0
           uv run fedcourts post-agent-feedback --repo "$REPO" --body-file feedback-comment.md
+
+      # Land the run PR. Armed auto-merge never exercises the dev App's
+      # approval bypass on `main` — it waits for an approval like any other PR —
+      # so this job merges the PR itself once the platform accepts it. The bypass
+      # covers the approval rule alone: `main: require PR`, which carries the
+      # required `gate` and `paths` checks, does not list the dev App, so the
+      # merge is refused until they pass. Pinned to the commit the collect step
+      # pushed; the script says what else stops it. A fresh token, because the
+      # first was minted at job start and the collect step can spend most of its
+      # hour. Gated on the collect step alone: a report step that failed on an
+      # API blip changes nothing that was pushed, and should not strand it.
+      - name: Mint merge token
+        id: merge-token
+        if: ${{ !cancelled() && steps.collect.outcome == 'success' && steps.collect.outputs.merge-targets != '' }}
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Merge the run PR once its checks pass
+        if: ${{ !cancelled() && steps.collect.outcome == 'success' && steps.collect.outputs.merge-targets != '' }}
+        # The script waits up to 20 minutes; the required checks on a run PR
+        # take a few.
+        timeout-minutes: 25
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.merge-token.outputs.token }}
+          # Checks read for the check-run listing, so the dev App needs none.
+          CHECKS_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          MERGE_TARGETS: ${{ steps.collect.outputs.merge-targets }}
+        run: |
+          set -euo pipefail
+          # The script as this job's own commit holds it, never the working
+          # tree, which has held cell artifacts by now.
+          script="${RUNNER_TEMP}/merge-when-green.sh"
+          git show "${GITHUB_SHA}:scripts/merge-when-green.sh" > "$script"
+          while read -r pr sha; do
+            [ -n "${pr:-}" ] || continue
+            bash "$script" "$pr" "$sha" < /dev/null
+          done <<<"$MERGE_TARGETS"
 
   # The drain chain. A round that a cap stopped short of the backlog
   # (`hold-decision`'s `drain_more`) dispatches the next round itself rather than

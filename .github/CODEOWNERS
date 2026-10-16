@@ -41,7 +41,7 @@
 /tests/conftest.py @modelmirror
 # The gate's Python halves: the required-contexts and ruleset checks
 # `promotion-gate.sh` runs, and the path jail behind the required `paths` check
-# (which keeps an auto-merged agent PR inside `data/`). `collect.py` is owned
+# (which keeps an unattended agent PR inside `data/`). `collect.py` is owned
 # whole because the jail lives in it.
 /src/fedcourtsai/required_checks.py @modelmirror
 /src/fedcourtsai/ruleset_checks.py @modelmirror
@@ -51,6 +51,10 @@
 /src/fedcourtsai/environment_checks.py @modelmirror
 /tests/test_environment_checks.py @modelmirror
 /src/fedcourtsai/collect.py @modelmirror
+# The unattended merge: what the dev App's approval bypass lands on `main`
+# without a human, and when it gives up.
+/scripts/merge-when-green.sh @modelmirror
+/tests/test_merge_when_green.py @modelmirror
 # The process registry: the record a registration edits (a pre-registration),
 # the Step 0 checks `promotion-gate.sh registry` runs on it, and the plan and
 # jail deciding what a promotion merge may stamp and push to `main`.

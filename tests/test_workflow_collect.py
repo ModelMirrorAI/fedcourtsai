@@ -169,6 +169,9 @@ def test_the_caller_keeps_the_security_posture_visible() -> None:
             "issues": "write",
             # Read-only, and only to list/fetch this run's own cell artifacts.
             "actions": "read",
+            # Read-only, and only for the merge step's check-run listing, so the
+            # dev App token needs no checks permission.
+            "checks": "read",
         }
 
 
@@ -642,3 +645,57 @@ def test_the_cli_is_pinned_to_the_checkout_not_to_the_branch_the_tree_sits_on() 
         if stripped.startswith("#"):
             continue  # the comments explain the rule
         assert "uv run fedcourts" not in stripped, f"call the pinned CLI, not `uv run`: {stripped}"
+
+
+MERGE_SCRIPT_FROM_COMMIT = 'git show "${GITHUB_SHA}:scripts/merge-when-green.sh"'
+
+
+def test_the_run_pr_is_merged_by_the_job_not_left_to_auto_merge() -> None:
+    """Armed auto-merge never exercises the dev App's approval bypass, so each
+    collect job ends by merging the PRs its collect step armed: a fresh token,
+    the targets read from the composite's step output (never a workspace file),
+    and the merge script read from the job's own commit rather than a working
+    tree that has held cell artifacts."""
+    for workflow in FAN_OUTS:
+        steps = _steps(_collect_job(workflow))
+        names = [s.get("name") for s in steps]
+        collect = steps[names.index("Collect the run into one PR")]
+        assert collect.get("id") == "collect"
+        assert collect.get("timeout-minutes") == 50, "the collect step carries the token-life cap"
+        mint, merge = steps[-2], steps[-1]
+        assert mint.get("name") == "Mint merge token" and mint.get("id") == "merge-token"
+        assert merge.get("name") == "Merge the run PR once its checks pass"
+        # On the collect step alone, so a report step's API blip cannot strand
+        # a pushed, jailed PR.
+        gate = (
+            "${{ !cancelled() && steps.collect.outcome == 'success' "
+            + "&& steps.collect.outputs.merge-targets != '' }}"
+        )
+        assert mint["if"] == gate and merge["if"] == gate
+        assert merge["env"]["GH_TOKEN"] == "${{ steps.merge-token.outputs.token }}"
+        assert merge["env"]["CHECKS_TOKEN"] == "${{ github.token }}"
+        assert merge["env"]["MERGE_TARGETS"] == "${{ steps.collect.outputs.merge-targets }}"
+        assert MERGE_SCRIPT_FROM_COMMIT in merge["run"]
+        assert 'scripts/merge-when-green.sh"' not in merge["run"].replace(
+            MERGE_SCRIPT_FROM_COMMIT, ""
+        ), "the merge script must not be run from the working tree"
+
+
+def test_the_composite_hands_merge_targets_through_a_step_output() -> None:
+    action = _load(COLLECT_ACTION)
+    assert (
+        action["outputs"]["merge-targets"]["value"]
+        == "${{ steps.aggregate.outputs.merge-targets }}"
+    )
+    aggregate = next(s for s in action["runs"]["steps"] if s.get("id") == "aggregate")
+    assert "merge-targets<<MERGE_TARGETS_EOF" in aggregate["run"]
+    # Only an armed PR is a target: the line sits inside the auto-merge branch.
+    armed = aggregate["run"].split('gh pr merge --auto --squash "$url"', 1)[1]
+    assert armed.index("merge_targets+=") < armed.index("\n  fi\n")
+
+
+def test_the_board_job_merges_its_pr_with_the_committed_script() -> None:
+    job = _load(WORKFLOWS / "run-analytics.yml")["jobs"]["big-cases"]
+    step = next(s for s in _steps(job) if s.get("name") == "Open or update the board PR")
+    assert MERGE_SCRIPT_FROM_COMMIT in step["run"]
+    assert step["env"]["CHECKS_TOKEN"] == "${{ github.token }}"
