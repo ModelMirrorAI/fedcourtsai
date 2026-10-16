@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import public_update
+from fedcourtsai import public_update, set_aside
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.public_update import (
@@ -25,6 +25,7 @@ from fedcourtsai.schemas import (
     Prediction,
     PredictionContext,
     ProcessVersion,
+    SetAsideEvent,
     Stage,
 )
 from fedcourtsai.serialize import write_json, write_yaml
@@ -336,3 +337,40 @@ def test_a_corrupt_ledger_file_is_not_reported_as_a_bad_week(tmp_path: Path) -> 
         env={"FEDCOURTS_DATA_ROOT": str(data)},
     )
     assert result.exit_code not in (0, 2, 3)
+
+
+def _listed(case_id: str) -> dict[tuple[str, str], SetAsideEvent]:
+    return {
+        (case_id, PETITION): SetAsideEvent(
+            case_id=case_id,
+            event_id=PETITION,
+            reason="post-conference-first-forecast",
+            conference=date(2026, 9, 28),
+            first_forward_run_id="20261004T201824Z",
+            declared=date(2026, 10, 16),
+        )
+    }
+
+
+def test_a_set_aside_event_is_never_shown_as_forecast_in_advance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A listed set-aside event leaves both sections; an unlisted one beside it stays."""
+    data = tmp_path / "data"
+    base = _base()
+    resolved_on = (base + timedelta(days=3)).date()
+    for docket, title in ((401, "Iota v. Kappa"), (402, "Lambda v. Mu")):
+        _event(data, docket, title)
+        _forecast(data, docket, at=base, probability=0.6)
+        _outcome(data, docket, on=resolved_on, disposition=Disposition.granted)
+    _event(data, 403, "Nu v. Xi")
+    _forecast(data, 403, at=base, probability=0.2)
+    monkeypatch.setattr(
+        set_aside, "SET_ASIDE_EVENTS", {**_listed("scotus/401"), **_listed("scotus/403")}
+    )
+
+    resolved = build_public_update(data, _week_of(resolved_on))
+    assert [item.case_id for item in resolved.resolved] == ["scotus/402"]
+
+    new = build_public_update(data, _week_of(base.date()))
+    assert [item.case_id for item in new.new] == ["scotus/402"]

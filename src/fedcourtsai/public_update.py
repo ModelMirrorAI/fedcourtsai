@@ -16,8 +16,12 @@ never appear), in ``forward`` mode, on an event that is not voided
 (:func:`fedcourtsai.voids.is_voided`). Beside a resolution, a forecast is shown
 only where it falls in the forward stratum as the scored boards draw it —
 committed before the outcome existed, on an outcome that is not
-mootness-basis, with no breach of its own forward claim — and the same rule
-keeps a cell stamped on or after its outcome out of the new-forecasts list.
+mootness-basis, with no breach of its own forward claim, and not set aside
+(:func:`fedcourtsai.set_aside.set_aside_reason`): a cell the record cannot show
+was made before its outcome was public is left out of the default figures, so it
+is never presented here as a forecast made in advance. The same rules keep a
+cell stamped on or after its outcome, and a cell on a listed set-aside event,
+out of the new-forecasts list.
 
 The update **computes no score**. It states a forecast and an outcome side by
 side and links the committed cell; any accuracy figure belongs to a committed
@@ -34,9 +38,10 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Final
 
+from . import set_aside
 from .analytics import DEFAULT_REPO_TREE_URL
 from .integrity import FORWARD, cell_clock, classify_stratum, forward_claim_breach
-from .paths import CasePaths
+from .paths import CasePaths, EventPaths
 from .schemas import Disposition, Judgment, Moment, Outcome, PredictableEvent, Stage
 from .serialize import read_model
 from .short_caption import short_caption
@@ -47,6 +52,7 @@ from .store import (
     ledger_counts,
     normalized_moment,
     normalized_stage,
+    pre_mint_poll,
 )
 from .supremecourt import reserved_docket_number
 from .voids import is_voided
@@ -227,8 +233,13 @@ def build_public_update(data_root: Path, week: str) -> PublicUpdate:
         outcome = (
             read_model(event_paths.outcome, Outcome) if event_paths.outcome.is_file() else None
         )
+        stage = normalized_stage(event.kind, event.stage)
         if outcome is not None and start <= outcome.resolved_at <= end:
-            before = [row for row in event_rows if _in_advance(row, outcome)]
+            before = [
+                row
+                for row in event_rows
+                if _in_advance(row, outcome) and not _set_aside(row, outcome, stage, event_paths)
+            ]
             if before:
                 resolved.append(_item(first, event, before, outcome=outcome))
         # A cell stamped on or after its outcome is retrospective whatever its
@@ -238,6 +249,7 @@ def build_public_update(data_root: Path, week: str) -> PublicUpdate:
             for row in event_rows
             if start <= cell_clock(row.prediction).date() <= end
             and (outcome is None or _in_advance(row, outcome))
+            and not _set_aside(row, outcome, stage, event_paths)
         ]
         if fresh:
             new.append(_item(first, event, fresh, outcome=None))
@@ -283,6 +295,33 @@ def _in_advance(row: LedgerPrediction, outcome: Outcome) -> bool:
     if forward_claim_breach(row.prediction, outcome) is not None:
         return False
     return classify_stratum(cell_clock(row.prediction), outcome.resolved_at) == FORWARD
+
+
+def _set_aside(
+    row: LedgerPrediction, outcome: Outcome | None, stage: Stage | None, event_paths: EventPaths
+) -> bool:
+    """Whether the scored boards set this cell aside from their default figures.
+
+    With an outcome, the boards' own rule (:func:`fedcourtsai.set_aside.set_aside_reason`),
+    reading the cell's pre-mint poll as :func:`fedcourtsai.store.stratify` does.
+    Behind :func:`_in_advance` only its listed reason can fire, since a cell
+    stamped on its interim decision's day is already retrospective there; the
+    whole rule is asked so the two stay in step if a reason is added. Without an
+    outcome, only a listed event can be known to be set aside, since that reason
+    keys on the event alone.
+    """
+    if outcome is None:
+        return (row.case_id, row.event_id) in set_aside.SET_ASIDE_EVENTS
+    cell_dir = event_paths.prediction_dir(row.predictor_id, row.run_id)
+
+    def poll_state() -> str | None:
+        poll = pre_mint_poll(cell_dir)
+        return poll.state if poll is not None else None
+
+    reason = set_aside.set_aside_reason(
+        row.case_id, row.event_id, row.prediction, outcome, stage, poll_state
+    )
+    return reason is not None
 
 
 def _order(item: EventItem) -> tuple[str, str, str]:
