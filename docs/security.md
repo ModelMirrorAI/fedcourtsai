@@ -1212,9 +1212,12 @@ Configure it with:
 
 - **deployment branches**: a custom policy of exactly `main`. That policy is
   the control: it is what keeps the key from a workflow a write holder runs
-  from their own branch, and the promotion gate does not read it (it reads
-  `corpus-check`'s alone), so check it by hand after any change to the
-  environment. The job's first step also refuses any ref but `main`. That
+  from their own branch. The promotion gate's admin-read `contexts` stage
+  checks it on every promotion, unconditionally, together with the contents
+  below (`fedcourts assert-website-environment`): exactly `main`, exactly the
+  one secret and the one variable, and nothing else, since anything added
+  here is handed to the same job. Required reviewers are not checked. The
+  job's first step also refuses any ref but `main`. That
   step is a backstop for an unedited copy of the workflow on another ref, such
   as `staging`; a branch that edits the workflow can delete it.
 - **one secret**: the Buttondown API key, with the permissions below.

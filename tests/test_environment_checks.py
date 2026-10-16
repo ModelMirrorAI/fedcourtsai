@@ -8,6 +8,7 @@ branch policy or a stray secret hands that role out. The promotion gate's
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -222,3 +223,126 @@ def test_a_second_reviewer_rule_counts_toward_the_set() -> None:
         }
     )
     assert _gate(environment=environment)
+
+
+# The `website` environment: the Buttondown key `post-public-update` drafts with.
+
+WEBSITE_SECRETS: dict[str, Any] = {"total_count": 1, "secrets": [{"name": "BUTTONDOWN_API_KEY"}]}
+WEBSITE_VARIABLES: dict[str, Any] = {
+    "total_count": 1,
+    "variables": [{"name": "WEEKLY_SCOTUS_TAG_ID"}],
+}
+
+
+def _website(**overrides: Any) -> list[str]:
+    values: dict[str, Any] = {
+        # No required reviewers: the draft is the hold.
+        "environment": _environment(reviewers=[]),
+        "branch_policies": MAIN_ONLY,
+        "secrets": WEBSITE_SECRETS,
+        "variables": WEBSITE_VARIABLES,
+    }
+    values.update(overrides)
+    return ec.website_problems(
+        values["environment"], values["branch_policies"], values["secrets"], values["variables"]
+    )
+
+
+def test_the_configured_website_environment_passes() -> None:
+    assert _website() == []
+    # A reviewer only adds a wait, so it is not a problem either.
+    assert _website(environment=_environment()) == []
+
+
+@pytest.mark.parametrize(
+    ("overrides", "fragment"),
+    [
+        ({"environment": None}, "does not exist"),
+        ({"environment": _environment(reviewers=[], custom=False)}, "custom branch policy"),
+        (
+            {"environment": _environment(reviewers=[], protected_branches=True)},
+            "custom branch policy",
+        ),
+        ({"branch_policies": None}, "branch policies were unread"),
+        (
+            {
+                "branch_policies": {
+                    "branch_policies": [
+                        {"name": "main", "type": "branch"},
+                        {"name": "staging", "type": "branch"},
+                    ]
+                }
+            },
+            "admits: main, staging",
+        ),
+        ({"branch_policies": {"branch_policies": [{"name": "main", "type": "tag"}]}}, "exactly"),
+        ({"secrets": None}, "secrets were unread"),
+        (
+            {"secrets": {"secrets": [{"name": "BUTTONDOWN_API_KEY"}, {"name": "OTHER_KEY"}]}},
+            "outside ['BUTTONDOWN_API_KEY']: OTHER_KEY",
+        ),
+        ({"secrets": NO_SECRETS}, "lacks its secrets: BUTTONDOWN_API_KEY"),
+        ({"variables": None}, "variables were unread"),
+        (
+            {"variables": {"variables": [{"name": "WEEKLY_SCOTUS_TAG_ID"}, {"name": "X"}]}},
+            "outside ['WEEKLY_SCOTUS_TAG_ID']: X",
+        ),
+        ({"variables": {"variables": []}}, "lacks its variables: WEEKLY_SCOTUS_TAG_ID"),
+    ],
+)
+def test_each_website_weakening_is_named(overrides: dict[str, Any], fragment: str) -> None:
+    problems = _website(**overrides)
+    assert any(fragment in problem for problem in problems), problems
+
+
+def test_the_website_gate_cli_reads_the_four_listings(tmp_path: Path) -> None:
+    files = {
+        "environment": _environment(reviewers=[]),
+        "branch-policies": MAIN_ONLY,
+        "secrets": WEBSITE_SECRETS,
+        "variables": WEBSITE_VARIABLES,
+    }
+    for name, document in files.items():
+        (tmp_path / f"{name}.json").write_text(json.dumps(document))
+    args = [
+        "assert-website-environment",
+        "--environment-file",
+        str(tmp_path / "environment.json"),
+        "--branch-policies-file",
+        str(tmp_path / "branch-policies.json"),
+        "--secrets-file",
+        str(tmp_path / "secrets.json"),
+        "--variables-file",
+        str(tmp_path / "variables.json"),
+    ]
+    runner = CliRunner()
+    passed = runner.invoke(app, args)
+    assert passed.exit_code == 0, passed.output
+    # An absent listing is an unread one, and fails.
+    (tmp_path / "variables.json").unlink()
+    assert runner.invoke(app, args).exit_code == 1
+
+
+def test_the_promotion_gate_checks_the_website_environment_unconditionally() -> None:
+    """The key is reachable from the moment the environment holds it, so the
+    check does not wait for a workflow binding it to reach `main`."""
+    script = (Path(__file__).resolve().parent.parent / "scripts" / "promotion-gate.sh").read_text()
+    contexts = script[script.index("\ncontexts() {") : script.index("\nregistry() {")]
+    tail = contexts[contexts.index("The website environment") :]
+    assert 'web_base="repos/${REPO}/environments/website"' in tail
+    for listing in ("deployment-branch-policies", "secrets", "variables"):
+        assert listing in tail
+    assert "uv run fedcourts assert-website-environment" in tail
+    assert "fail=1" in tail
+    assert "grep -rq" not in tail
+
+
+def test_the_website_names_are_the_ones_the_workflow_reads() -> None:
+    """The gate's expected secret and variable are exactly what the job that
+    binds `website` reads, so a rename in one cannot leave the other checking
+    a name nothing uses."""
+    workflow = (
+        Path(__file__).resolve().parent.parent / ".github" / "workflows" / "post-public-update.yml"
+    ).read_text()
+    assert set(re.findall(r"secrets\.([A-Z0-9_]+)", workflow)) == set(ec.WEBSITE_SECRETS)
+    assert set(re.findall(r"vars\.([A-Z0-9_]+)", workflow)) == set(ec.WEBSITE_VARIABLES)

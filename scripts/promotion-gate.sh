@@ -484,6 +484,34 @@ contexts() {
     echo "::error::contexts: fix the corpus-check environment before promoting — the read-only role's trust names it (docs/security.md)"
     fail=1
   fi
+
+  # The website environment, unconditionally: it holds the Buttondown API key
+  # from the moment it is configured, whether or not main's workflows bind it
+  # yet, and its `main`-only branch policy is the one thing keeping that key
+  # from a workflow run off any other ref. Required: the environment exists,
+  # admits `main` alone, and holds exactly the key and the weekly tag id. The
+  # decision is tested Python (tests/test_environment_checks.py).
+  local web_dir="${workdir}/website-environment" web_base
+  web_base="repos/${REPO}/environments/website"
+  mkdir -p "$web_dir"
+  gh api "$web_base" >"${web_dir}/environment.json" 2>/dev/null \
+    || rm -f "${web_dir}/environment.json"
+  gh api "${web_base}/deployment-branch-policies?per_page=100" \
+    >"${web_dir}/branch-policies.json" 2>/dev/null || rm -f "${web_dir}/branch-policies.json"
+  gh api "${web_base}/secrets?per_page=100" >"${web_dir}/secrets.json" 2>/dev/null \
+    || rm -f "${web_dir}/secrets.json"
+  gh api "${web_base}/variables?per_page=30" >"${web_dir}/variables.json" 2>/dev/null \
+    || rm -f "${web_dir}/variables.json"
+  if uv run fedcourts assert-website-environment \
+    --environment-file "${web_dir}/environment.json" \
+    --branch-policies-file "${web_dir}/branch-policies.json" \
+    --secrets-file "${web_dir}/secrets.json" \
+    --variables-file "${web_dir}/variables.json"; then
+    echo "contexts: the website environment admits main alone and holds only the Buttondown key and the tag id"
+  else
+    echo "::error::contexts: fix the website environment before promoting — its branch policy is what keeps the Buttondown key on main (docs/security.md)"
+    fail=1
+  fi
 }
 
 registry() {

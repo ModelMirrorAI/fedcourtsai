@@ -19257,6 +19257,42 @@ def assert_corpus_check_environment_cmd(
     )
 
 
+@app.command("assert-website-environment")
+def assert_website_environment_cmd(
+    environment_file: Annotated[
+        Path,
+        typer.Option(help="`GET /repos/{repo}/environments/website`; absent means unread."),
+    ],
+    branch_policies_file: Annotated[
+        Path, typer.Option(help="Its `deployment-branch-policies`; absent means unread.")
+    ],
+    secrets_file: Annotated[
+        Path, typer.Option(help="Its `secrets` listing (admin read); absent means unread.")
+    ],
+    variables_file: Annotated[
+        Path, typer.Option(help="Its `variables` listing (admin read); absent means unread.")
+    ],
+) -> None:
+    """Check the `website` environment still keeps the Buttondown key on `main`.
+
+    Requires the environment to exist, its deployment branches to be a custom
+    policy of exactly `main`, and it to hold exactly the Buttondown API key and
+    the weekly tag id — no other secret or variable. Names each problem and
+    exits non-zero if there is any; an unread listing is a problem.
+    """
+    problems = environment_checks.website_problems(
+        _read_document(environment_file),
+        _read_document(branch_policies_file),
+        _read_document(secrets_file),
+        _read_document(variables_file),
+    )
+    for problem in problems:
+        typer.echo(f"::error::website environment: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo("the website environment admits main alone and holds only its key and tag id")
+
+
 @app.command("finalize-produced")
 def finalize_produced_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],

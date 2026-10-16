@@ -18,6 +18,11 @@ the same predicate:
   the job's `actions: read` grant: the approver as sole reviewer and the
   `main`-only policy, so the lane plans nothing while they are missing. It cannot see
   secrets or variables, which is why the gate is the check that holds.
+
+The same stage checks the `website` environment (:func:`website_problems`),
+which holds the Buttondown API key `post-public-update` drafts the weekly
+update with: its `main`-only policy is what keeps the key from any other ref,
+and nothing else reads that policy.
 """
 
 from __future__ import annotations
@@ -90,6 +95,19 @@ def protection_problems(
             f"the required reviewers must be exactly `{approver_login}`; "
             + f"the rule names {len(reviewers)}"
         )
+    problems.extend(_main_only_problems(environment, branch_policies))
+    return problems
+
+
+def _main_only_problems(
+    environment: Mapping[str, Any], branch_policies: Mapping[str, Any] | None
+) -> list[str]:
+    """What keeps the environment from being a custom policy admitting `main` alone.
+
+    A tag policy is listed with its type, so one named `main` cannot pass for
+    the branch.
+    """
+    problems: list[str] = []
     policy = environment.get("deployment_branch_policy")
     if not (
         isinstance(policy, Mapping)
@@ -106,6 +124,26 @@ def protection_problems(
             f"the branch policy must admit exactly `{CORPUS_CHECK_BRANCH}` (branch); "
             + f"it admits: {names}"
         )
+    return problems
+
+
+def _exact_names_problems(
+    listing: Mapping[str, Any] | None, key: str, expected: frozenset[str]
+) -> list[str]:
+    """A listing of secrets or variables that is unread, or names other than ``expected``."""
+    items = _items(listing, key)
+    if items is None:
+        return [f"the environment's {key} were unread"]
+    names = {str(item.get("name")) for item in items}
+    problems: list[str] = []
+    extra = sorted(names - expected)
+    if extra:
+        problems.append(
+            f"the environment holds {key} outside {sorted(expected)}: {', '.join(extra)}"
+        )
+    missing = sorted(expected - names)
+    if missing:
+        problems.append(f"the environment lacks its {key}: {', '.join(missing)}")
     return problems
 
 
@@ -150,4 +188,39 @@ def environment_problems(
                 "the environment holds variables outside "
                 + f"{sorted(CORPUS_CHECK_VARIABLES)}: {', '.join(extra)}"
             )
+    return problems
+
+
+#: The environment `post-public-update`'s `post` job binds.
+WEBSITE_ENVIRONMENT = "website"
+
+#: Its one secret, the Buttondown API key the weekly draft is created with.
+WEBSITE_SECRETS = frozenset({"BUTTONDOWN_API_KEY"})
+
+#: Its one variable, the Buttondown id of the tag the draft is addressed to.
+WEBSITE_VARIABLES = frozenset({"WEEKLY_SCOTUS_TAG_ID"})
+
+
+def website_problems(
+    environment: Mapping[str, Any] | None,
+    branch_policies: Mapping[str, Any] | None,
+    secrets: Mapping[str, Any] | None,
+    variables: Mapping[str, Any] | None,
+) -> list[str]:
+    """Everything the promotion gate requires of the `website` environment.
+
+    The environment holds the Buttondown API key, which can create, send or
+    edit the list's emails, and its deployment-branch policy is what keeps that
+    key from a workflow a write holder runs from their own branch. So: it
+    exists, its deployment branches are a custom policy of exactly `main`, and
+    it holds exactly the key and the tag id, nothing else — a secret added
+    here would be handed to the same job. Required reviewers are not checked:
+    the draft is the hold, and a reviewer only adds a wait. An unread listing
+    is a problem, never a pass.
+    """
+    if environment is None:
+        return [f"the `{WEBSITE_ENVIRONMENT}` environment does not exist or was unread"]
+    problems = _main_only_problems(environment, branch_policies)
+    problems.extend(_exact_names_problems(secrets, "secrets", WEBSITE_SECRETS))
+    problems.extend(_exact_names_problems(variables, "variables", WEBSITE_VARIABLES))
     return problems
