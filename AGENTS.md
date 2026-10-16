@@ -446,8 +446,11 @@ same PR.
 - **Keep environment variables out of PR and issue text.** Refer to a var by
   its role, not its name or value. Secrets never appear anywhere.
 - **Don't commit personal or organizational email addresses.** Commit identity
-  must be a GitHub `noreply` address; point to GitHub-native channels instead
-  of contact emails. A task that seems to need one → stop and confirm first.
+  must be a no-reply address: a GitHub `noreply` address, or
+  `noreply@anthropic.com` for a commit made from a Claude session hosted by
+  Anthropic, which signs its commits under that address so GitHub shows them
+  as verified. Point to GitHub-native channels instead of contact emails. A
+  task that seems to need one → stop and confirm first.
 
 ## Change review
 
