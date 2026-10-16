@@ -1286,12 +1286,39 @@ def test_replay_clock_masked_key_set_is_pinned(tmp_path: Path) -> None:
     # The whole set of `query` fields the replay clock rewrites, pinned: a
     # column joining or leaving it changes a replay cell's information set, so
     # it is a deliberate edit here (and a freeze-record entry), never a drift.
-    # The fixture fills the outcome-bearing last-pull columns the docs name as
-    # unmasked, so a mask joining or leaving any of them moves `changed`.
-    assert frozenset({"counsel", "parties", "attorneys"}) == corpus.REPLAY_MASKED_UNDATED_COLUMNS
+    # The fixture fills every outcome-bearing last-pull column, so a mask
+    # joining or leaving any of them moves `changed`.
+    assert (
+        frozenset(
+            {
+                "counsel",
+                "parties",
+                "attorneys",
+                "citation_count",
+                *_TRACKING_STAMPS,
+            }
+        )
+        == corpus.REPLAY_MASKED_UNDATED_COLUMNS
+    )
+    assert (
+        frozenset({"citations", "summary", "precedential_status", "has_opinion", "opinion_text"})
+        == corpus.REPLAY_DECISION_RECORD_COLUMNS
+    )
+    assert (
+        frozenset({"date_decided", "merits_brief_filed", "distributed_for_conference"})
+        == corpus.REPLAY_DATE_TESTED_COLUMNS
+    )
     db = tmp_path / "corpus.db"
+    prior = _counselled_prior().model_copy(
+        update={
+            "date_decided": date(1999, 6, 1),
+            "has_opinion": True,
+            "distributed_for_conference": date(1999, 1, 8),
+            **dict.fromkeys(_TRACKING_STAMPS, date(2026, 9, 1)),
+        }
+    )
     with corpus.connect(db) as conn:
-        corpus.upsert_rows(conn, [_counselled_prior()])
+        corpus.upsert_rows(conn, [prior])
         corpus.set_merits_termination(conn, "scotus/1", MeritsTermination.judgment_issued)
         (masked,) = corpus.retrieve_priors(
             conn, corpus.PriorQuery(court="scotus", decided_before=1998), limit=10
@@ -1299,28 +1326,283 @@ def test_replay_clock_masked_key_set_is_pinned(tmp_path: Path) -> None:
         (forward,) = corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=10)
     masked_payload = corpus.prior_payload(masked, full=True)
     forward_payload = corpus.prior_payload(forward, full=True)
-    # The last-pull columns the clock leaves alone are filled, so they are
+    clock_columns = {
+        *corpus.REPLAY_MASKED_UNDATED_COLUMNS,
+        *corpus.REPLAY_DECISION_RECORD_COLUMNS,
+        *corpus.REPLAY_DATE_TESTED_COLUMNS,
+    }
+    # The last-pull columns the clock can touch are filled, so each is
     # genuinely in the comparison rather than equal by being empty.
-    for key in (
-        "citations",
-        "citation_count",
-        "summary",
-        "precedential_status",
-        "has_opinion",
-        "opinion_text",
-        "merits_brief_filed",
-    ):
+    for key in clock_columns:
         assert forward_payload[key], key
     assert set(masked_payload) == set(forward_payload)
     changed = {key for key in forward_payload if masked_payload[key] != forward_payload[key]}
-    assert changed == {
-        "merits_judgment",
-        "merits_decided",
-        "merits_terminated",
-        "counsel",
-        "parties",
-        "attorneys",
+    assert changed == {"merits_judgment", "merits_decided", "merits_terminated", *clock_columns}
+    # Reset to each column's no-reading value, never to a fabricated one.
+    assert masked_payload["citations"] == []
+    assert masked_payload["has_opinion"] is False
+    for key in (
+        "citation_count",
+        "summary",
+        "precedential_status",
+        "opinion_text",
+        "date_decided",
+        "merits_brief_filed",
+        "distributed_for_conference",
+        *_TRACKING_STAMPS,
+    ):
+        assert masked_payload[key] is None, key
+
+
+#: The pipeline's tracking stamps, which date the corpus's own activity on a
+#: row and are always after a replay clock.
+_TRACKING_STAMPS = (
+    "last_pulled",
+    "last_live_polled",
+    "opinion_enrich_attempted_at",
+    "document_floor_probed_at",
+    "predict_queued_at",
+    "evaluate_queued_at",
+)
+
+
+def _decided_prior(
+    case_id: str, docket_number: str, decided: date | None, **kw: object
+) -> corpus.CorpusRow:
+    # A granted SCOTUS petition carrying its opinion cluster and a merits
+    # brief, its cert grant well before any clock below.
+    base: dict[str, object] = {
+        "court": "scotus",
+        "docket_number": docket_number,
+        "date_filed": date(1993, 11, 1),
+        "date_cert_granted": date(1994, 1, 10),
+        "date_decided": decided,
+        "citations": ["510 U.S. 1"],
+        "citation_count": 50,
+        "precedential_status": "Published",
+        "summary": "Reversed",
+        "opinion_text": "the merits opinion",
+        "has_opinion": True,
+        "merits_brief_filed": date(1994, 3, 1),
     }
+    base.update(kw)
+    return _row(case_id=case_id, **base)
+
+
+@pytest.mark.parametrize(
+    ("decided_before", "decided_before_day"),
+    [(1998, None), (None, date(1998, 1, 1)), (1998, date(1998, 1, 1))],
+    ids=["term", "day", "term-and-day"],
+)
+def test_replay_clock_passes_a_decision_record_only_when_its_decision_preceded_it(
+    tmp_path: Path, decided_before: int | None, decided_before_day: date | None
+) -> None:
+    # A prior's opinion cluster carries no date of its own: it is passed only
+    # where the decision it records is dated before the clock, by every
+    # decision date the row carries; an undated decision proves nothing.
+    db = tmp_path / "corpus.db"
+    rows = [
+        _decided_prior("scotus/1", "93-1", date(1994, 6, 1)),  # decided pre-clock
+        _decided_prior("scotus/2", "93-2", date(1999, 6, 1)),  # decided post-clock
+        _decided_prior("scotus/3", "93-3", None),  # undated decision
+        # Termination pre-clock but a merits judgment dated after it: the
+        # opinion on the row is a post-clock document, so the later date wins.
+        _decided_prior(
+            "scotus/4",
+            "93-4",
+            date(1994, 6, 1),
+            merits_judgment="reversed",
+            merits_decided=date(1999, 6, 1),
+        ),
+        # No termination date, but a merits judgment dated pre-clock.
+        _decided_prior(
+            "scotus/5",
+            "93-5",
+            None,
+            merits_judgment="affirmed",
+            merits_decided=date(1994, 6, 1),
+        ),
+    ]
+    clocked = corpus.PriorQuery(
+        court="scotus", decided_before=decided_before, decided_before_day=decided_before_day
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        got = {r.case_id: r for r in corpus.retrieve_priors(conn, clocked, limit=10)}
+    assert set(got) == {r.case_id for r in rows}  # the mask removes values, never rows
+    passed = {cid for cid, r in got.items() if r.citations}
+    assert passed == {"scotus/1", "scotus/5"}
+    for cid, row in got.items():
+        recorded = cid in passed
+        assert row.has_opinion is recorded, cid
+        assert (row.opinion_text is not None) is recorded, cid
+        assert (row.summary is not None) is recorded, cid
+        assert (row.precedential_status is not None) is recorded, cid
+        assert row.citation_count is None, cid  # undated accrual: always reset
+        assert row.merits_brief_filed == date(1994, 3, 1), cid  # its own date clears
+    assert got["scotus/1"].date_decided == date(1994, 6, 1)
+    assert got["scotus/2"].date_decided is None
+    assert got["scotus/4"].date_decided == date(1994, 6, 1)  # its own date clears
+
+
+def test_replay_clock_date_tests_date_decided_and_the_merits_brief(tmp_path: Path) -> None:
+    # A prior admitted on its cert-stage date keeps a termination or merits
+    # brief that postdates the day bar only where that date itself clears it.
+    db = tmp_path / "corpus.db"
+    row = _decided_prior(
+        "scotus/1",
+        "25-1",
+        date(2026, 6, 1),
+        date_filed=date(2025, 9, 1),
+        date_cert_granted=date(2026, 1, 9),
+        merits_brief_filed=date(2026, 3, 1),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        (early,) = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", decided_before_day=date(2026, 2, 1)), limit=5
+        )
+        (later,) = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", decided_before_day=date(2026, 4, 1)), limit=5
+        )
+    assert (early.date_decided, early.merits_brief_filed) == (None, None)
+    assert (later.date_decided, later.merits_brief_filed) == (None, date(2026, 3, 1))
+    assert later.citations == []  # the decision postdates even the later day
+
+
+@pytest.mark.parametrize(
+    ("decided_before", "decided_before_day"),
+    [(1998, None), (None, date(1998, 1, 1)), (1998, date(1998, 1, 1))],
+    ids=["term", "day", "term-and-day"],
+)
+def test_replay_clock_resets_the_tracking_stamps(
+    tmp_path: Path, decided_before: int | None, decided_before_day: date | None
+) -> None:
+    # A tracking stamp dates the pipeline's last touch, not the case: under
+    # either half of the clock it is reset on every admitted prior, a pre-clock
+    # prior's included; with no clock it passes as stored.
+    db = tmp_path / "corpus.db"
+    stamped = _decided_prior(
+        "scotus/1",
+        "93-1",
+        date(1994, 6, 1),
+        **dict.fromkeys(_TRACKING_STAMPS, date(2026, 9, 1)),
+    )
+    clocked = corpus.PriorQuery(
+        court="scotus", decided_before=decided_before, decided_before_day=decided_before_day
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [stamped])
+        (masked,) = corpus.retrieve_priors(conn, clocked, limit=5)
+        (forward,) = corpus.retrieve_priors(conn, corpus.PriorQuery(court="scotus"), limit=5)
+    for column in _TRACKING_STAMPS:
+        assert getattr(forward, column) == date(2026, 9, 1), column
+        assert getattr(masked, column) is None, column
+    assert masked.citations == ["510 U.S. 1"]  # the pre-clock decision still passes
+
+
+def test_replay_clock_date_tests_the_conference_distribution(tmp_path: Path) -> None:
+    # The latest conference the live channel saw a prior distributed for is a
+    # dated fact that can fall after the prior's cert-stage resolution (the
+    # latest entry wins): it passes only where its own date clears the clock.
+    db = tmp_path / "corpus.db"
+    row = _decided_prior(
+        "scotus/1",
+        "25-1",
+        None,
+        date_filed=date(2025, 9, 1),
+        date_cert_granted=date(2026, 1, 12),
+        distributed_for_conference=date(2026, 3, 6),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        (early,) = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", decided_before_day=date(2026, 2, 1)), limit=5
+        )
+        (later,) = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", decided_before_day=date(2026, 4, 1)), limit=5
+        )
+        (term,) = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", decided_before=2026), limit=5
+        )
+    assert early.distributed_for_conference is None
+    assert later.distributed_for_conference == date(2026, 3, 6)
+    assert term.distributed_for_conference is None  # its year is not before the Term
+
+
+def test_replay_clock_does_not_move_which_priors_return_or_their_order(tmp_path: Path) -> None:
+    # Admission and the recency order read the stored row, so nulling a
+    # post-clock `date_decided` on output never re-ranks the priors: a clocked
+    # query returns the forward query's rows, in the forward query's order,
+    # minus only the ones the clock does not admit — on both retrieval paths.
+    db = tmp_path / "corpus.db"
+    # A Term-2023 docket with no cert date, ranked by its 2026 termination: the
+    # Term clock admits it and nulls that date on output, so ranking it off
+    # the masked row would drop it from first to last.
+    late = _row(
+        case_id="scotus/e-late",
+        court="scotus",
+        docket_number="23-500",
+        date_cert_granted=None,
+        date_decided=date(2026, 2, 1),
+    )
+    rows = [*_recency_fixture_rows(), late]
+    unclocked = {"decided_before": None, "decided_before_day": None}
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        for clock in (
+            corpus.PriorQuery(court="scotus", decided_before=2026),
+            corpus.PriorQuery(court="scotus", decided_before_day=date(2025, 3, 1)),
+        ):
+            forward = corpus.retrieve_priors(conn, clock.model_copy(update=unclocked), limit=10)
+            clocked = corpus.retrieve_priors(conn, clock, limit=10)
+            admitted = {r.case_id for r in rows if corpus._precedes_replay_clock(r, clock)}
+            expected = [r.case_id for r in forward if r.case_id in admitted]
+            assert expected  # the comparison is over something
+            assert [r.case_id for r in clocked] == expected
+            # The scored path, made relevance-uniform, agrees on bytes.
+            slow = corpus.retrieve_priors(
+                conn, clock.model_copy(update={"judges": ["smith"]}), limit=10
+            )
+            assert [r.model_dump(mode="json") for r in slow] == [
+                r.model_dump(mode="json") for r in clocked if "smith" in r.judges
+            ]
+        (first, *_) = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", decided_before=2026), limit=10
+        )
+    assert first.case_id == "scotus/e-late"
+    assert first.date_decided is None
+
+
+def test_a_clocked_citation_filter_cannot_match_a_masked_cite(tmp_path: Path) -> None:
+    # A citation filter overlaps what the cell is handed: a prior whose cite
+    # belongs to a post-clock decision does not match it, so no clocked query
+    # can confirm a post-clock reporter cite by returning the row.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _decided_prior("scotus/1", "93-1", date(1994, 6, 1)),
+                _decided_prior("scotus/2", "93-2", date(1999, 6, 1), citations=["527 U.S. 1"]),
+            ],
+        )
+        forward = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="scotus", citations=["527 U.S. 1"]), limit=5
+        )
+        clocked = corpus.retrieve_priors(
+            conn,
+            corpus.PriorQuery(court="scotus", citations=["527 U.S. 1"], decided_before=1998),
+            limit=5,
+        )
+        pre_clock = corpus.retrieve_priors(
+            conn,
+            corpus.PriorQuery(court="scotus", citations=["510 U.S. 1"], decided_before=1998),
+            limit=5,
+        )
+    assert [r.case_id for r in forward] == ["scotus/2"]
+    assert clocked == []
+    assert [r.case_id for r in pre_clock] == ["scotus/1"]
 
 
 def _application_slice() -> list[corpus.CorpusRow]:
@@ -1834,6 +2116,128 @@ def test_events_upsert_never_reopens_a_resolved_event(tmp_path: Path) -> None:
         fetched = corpus.events_for_case(conn, "ca9/123")
     assert fetched[0].resolved is True  # resolution preserved
     assert fetched[0].title == "re-ingested"  # other fields still refresh
+
+
+def _no_outcome_closure(title: str = "Doe v. Roe") -> corpus.CorpusEvent:
+    """The shape a first mint on an already-decided row carries."""
+    return _event(
+        title=title,
+        resolved=True,
+        resolved_without_outcome=True,
+        resolved_without_outcome_reason=corpus.NO_OUTCOME_INGESTED_DECIDED,
+    )
+
+
+def test_a_no_outcome_closure_lands_on_an_insert(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_no_outcome_closure()])
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.resolved, event.resolved_without_outcome) == (True, True)
+    assert event.resolved_without_outcome_reason == corpus.NO_OUTCOME_INGESTED_DECIDED
+
+
+def test_a_re_extraction_never_closes_a_stored_open_event(tmp_path: Path) -> None:
+    # The shape that would lose an outcome: a re-extraction of a decided docket arrives
+    # as a no-outcome closure, and on a stored event it must change nothing —
+    # the event stays open for detection, and carries no mark.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event(resolved=False)])
+        corpus.upsert_events(conn, [_no_outcome_closure(title="re-extracted")])
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.resolved, event.resolved_without_outcome) == (False, False)
+    assert event.resolved_without_outcome_reason is None
+    assert event.title == "re-extracted"  # the other columns still refresh
+
+
+def test_an_upsert_never_rewrites_the_no_outcome_mark(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_no_outcome_closure()])
+        corpus.upsert_events(conn, [_event(resolved=False)])
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.resolved, event.resolved_without_outcome) == (True, True)
+
+
+def test_recording_an_outcome_clears_the_no_outcome_mark(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_no_outcome_closure()])
+        corpus.set_event_resolved(conn, "ca9/123", "evt-appeal-disposition")
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.resolved, event.resolved_without_outcome) == (True, False)
+    assert event.resolved_without_outcome_reason is None
+
+
+def test_mark_resolved_without_outcome_closes_and_names_why(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event(resolved=False)])
+        corpus.mark_resolved_without_outcome(conn, "ca9/123", "evt-appeal-disposition", "declined")
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+        with pytest.raises(ValueError, match="unknown no-outcome reason"):
+            corpus.mark_resolved_without_outcome(
+                conn, "ca9/123", "evt-appeal-disposition", "free text"
+            )
+    assert (event.resolved, event.resolved_without_outcome) == (True, True)
+    assert event.resolved_without_outcome_reason == "declined"
+
+
+def test_rename_event_carries_the_no_outcome_mark(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_no_outcome_closure()])
+        corpus.rename_event(
+            conn,
+            "ca9/123",
+            "evt-appeal-disposition",
+            _event(event_id="evt-motion-disposition", kind=EventKind.motion, resolved=False),
+        )
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.event_id, event.resolved, event.resolved_without_outcome) == (
+        "evt-motion-disposition",
+        True,
+        True,
+    )
+    assert event.resolved_without_outcome_reason == corpus.NO_OUTCOME_INGESTED_DECIDED
+
+
+def test_rename_event_fold_marks_the_closure_it_carries(tmp_path: Path) -> None:
+    # Folding a marked closure onto an open row closes it through the latch, so
+    # the mark comes with it; a target closed by a recorded outcome keeps its own.
+    db = tmp_path / "corpus.db"
+    new_id = "evt-motion-disposition"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [_no_outcome_closure(), _event(event_id=new_id, kind=EventKind.motion)],
+        )
+        corpus.rename_event(
+            conn,
+            "ca9/123",
+            "evt-appeal-disposition",
+            _event(event_id=new_id, kind=EventKind.motion),
+        )
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.resolved, event.resolved_without_outcome) == (True, True)
+    assert event.resolved_without_outcome_reason == corpus.NO_OUTCOME_INGESTED_DECIDED
+
+    other = tmp_path / "other.db"
+    with corpus.connect(other) as conn:
+        corpus.upsert_events(
+            conn,
+            [_no_outcome_closure(), _event(event_id=new_id, kind=EventKind.motion)],
+        )
+        corpus.set_event_resolved(conn, "ca9/123", new_id)
+        corpus.rename_event(
+            conn,
+            "ca9/123",
+            "evt-appeal-disposition",
+            _event(event_id=new_id, kind=EventKind.motion),
+        )
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.resolved, event.resolved_without_outcome) == (True, False)
 
 
 def test_multiple_events_per_case(tmp_path: Path) -> None:
@@ -3294,6 +3698,10 @@ def test_migrate_events_adds_the_stage_column(tmp_path: Path) -> None:
     assert len(events) == 1
     assert events[0].stage is None
     assert events[0].moment is None
+    # The no-outcome mark migrates in unset: no stored closure is asserted to
+    # lack an outcome until a writer says so.
+    assert events[0].resolved_without_outcome is False
+    assert events[0].resolved_without_outcome_reason is None
 
 
 def test_events_schema_and_migration_ddl_agree(tmp_path: Path) -> None:
@@ -3463,3 +3871,33 @@ def test_merits_pair_moves_as_a_pair_on_a_fresh_parse(tmp_path: Path) -> None:
     assert stored is not None
     assert stored.merits_judgment == "vacated"
     assert stored.merits_decided is None
+
+
+@pytest.mark.parametrize(
+    ("decided_before", "decided_before_day"),
+    [(2000, None), (None, date(2000, 1, 1)), (2000, date(2000, 1, 1))],
+    ids=["term", "day", "term-and-day"],
+)
+def test_replay_clock_mask_leaves_the_era_of_an_admitted_prior(
+    tmp_path: Path, decided_before: int | None, decided_before_day: date | None
+) -> None:
+    # `era` is derived from the row `prior_payload` is handed, the masked one.
+    # A prior dated only by its termination keeps it: the clock admits such a
+    # row only where that date clears the clock, so the mask never nulls the
+    # date the era is read from.
+    db = tmp_path / "corpus.db"
+    row = _row(
+        case_id="ca9/1",
+        court="ca9",
+        docket_number="99-1",
+        date_filed=None,
+        date_decided=date(1999, 6, 1),
+    )
+    clocked = corpus.PriorQuery(
+        court="ca9", decided_before=decided_before, decided_before_day=decided_before_day
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        (masked,) = corpus.retrieve_priors(conn, clocked, limit=5)
+    assert masked.date_decided == date(1999, 6, 1)
+    assert corpus.prior_payload(masked)["era"] == "1990s"

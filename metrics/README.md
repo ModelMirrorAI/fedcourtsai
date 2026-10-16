@@ -1179,8 +1179,12 @@ stays outside the gate:
   differential absence selects the pair set on difficulty; the counts cover
   committed cells only — a cell that failed outright commits nothing and
   stays invisible, upstream of them; and a block whose every claim is masked
-  is the availability mask at work — a property of the record, never of the
-  predictor — counted separately.
+  is counted separately. That is almost always the availability mask at work
+  — a property of the record, never of the predictor — but one mask reads when
+  the cell ran rather than what it froze: the increment claims' run-timing
+  mask (`ClaimScore.mask_reason: signal-before-run`), which follows when the
+  cell ran (its poll, else its harness clock) and so is a property of the run,
+  still never of the predictor's number.
 
 **Semantic grades publish nothing today, and this is the contract for when they
 do.** No artifact here carries a semantic claim grade. The merits moments
@@ -1255,6 +1259,24 @@ existed where one grader says it read one. The bias therefore runs one way and
 should be read that way: the split can under-state what an opinion said and
 never over-state it, and nothing in the artifact bounds how many units were
 resolved rather than agreed.
+
+**`not-ingested` on a newly decided case is bounded by a grading-timing rule.**
+The evaluate lane holds a decided merits event for up to 14 days after its
+outcome resolves while the case's corpus row carries no opinion body, and grades
+it the moment one lands ([pipeline.md](../docs/pipeline.md#the-evaluate-queue-is-level-triggered-too));
+a DIG, an equally divided affirmance, and a row enrichment cannot walk are never
+held, since no body will come. For a merits grading made after the promotion
+that carried the hold, `not-ingested` ordinarily reads *the body did not reach
+the corpus within two weeks of the decision*; a round that could not read the
+presence bit grades unheld, and the artifact does not record which applied. The
+bucket also holds events that were never held (body-less judgments and rows
+enrichment cannot walk), and the artifact does not record which reading applies
+to a given grading. The
+ground itself remains the grader's word, not a harness fact. The hold begins at
+that promotion's merge, which the freeze-record entry dated 2026-10-16 records.
+The ledger held no merits grading at all when that entry was written (0), so
+every merits grading it gains after the merge sits on the hold's side. The hold moves only when a decided event is
+first graded, never what it is graded against.
 
 **No mask total here has grounds behind it yet, because no mask exists here
 yet.** `SemanticGrade.mask_ground` is elicited — the evaluate prompt asks a
@@ -1530,6 +1552,111 @@ see — but only the all-versions build ever reaches one: no row-blind or
 half-blind prediction carries a frozen digest, so the frozen boards exclude
 them a gate earlier. The [freeze record](../docs/freeze-record.md) fixes their
 number, in the ledger and after the run collapse, and dates the rule.
+
+**The set-aside, and its sensitivity reading.** A cell every rule above kept,
+but whose record **cannot show it was made before its outcome was public**, is
+set aside from the default figures (`fedcourtsai.set_aside`, applied by the same
+`store.stratify` pass). Unlike the three exclusions it is not "an observation of
+nothing" — the cell may be a genuine forecast — so it is **put back in a
+sensitivity figure published beside each default it moved**: the board's
+`set_aside` block counts the set-aside gradings by reason, by predictor and by
+event, over that board's own population (on `claim-scores.json`, cert's first
+moment only), and `set_aside_sensitivity` carries, for each (population,
+predictor, stratum) a set-aside moved, the **pooled entry's** figure
+recomputed by the same code with the set-aside gradings counted — on the
+leaderboard the pooled entry's stratum (and, where a ranked-board cell was set
+aside, the paired figure the ranks are read off), on `claim-scores.json` the
+cert-stage claim stratum. The `by_protocol` and `by_band` cuts are
+default-only, and so are `claim-scores.json`'s judge-agreement pairs
+(`forward_agreement`): none carries a sensitivity line, so a per-window,
+per-band or judge-agreement figure is read without the set-aside cells. The default is
+the headline; a sensitivity line is a disclosure, never a rank key, and never
+stacked with another departure. Each reason is a dated freeze-record entry.
+Two cell-grain reasons exist, and one claim-grain reason (below):
+
+- **`interim-decision-day`** — a forward interim cell whose harness clock,
+  dated in Court time (America/New_York, the clock `resolved_at` is dated in),
+  falls on or after its outcome's `resolved_at`, unless the harness's
+  `usage.json` `pre_mint_poll.state` reads `open`. An application can be
+  decided within hours and `resolved_at` has no time of day, so only the
+  pre-mint poll can show such a cell began first; a cell with no poll, or one
+  reading `unavailable`, is set aside. Computed from the committed ledger
+  alone. A line counting these cells back is retrospective, unclaimable
+  iteration signal, read beside its always-deny floor like any other. Because
+  a same-day tie already reads retrospective on the harness
+  clock's UTC day and a later day already breaches the forward claim, these
+  cells reach no forward figure under either rule; what the set-aside moves is
+  the retrospective stratum of the interim stage blocks, where a cell that
+  claimed forward and retrieved unrestricted on a decision day would otherwise
+  sit as iteration signal. An open poll does not move a same-day cell into the
+  forward stratum: the stratum boundary is unchanged.
+- **`post-conference-first-forecast`** — every cell on a cert distribution
+  event whose first forward frozen-scope cell (by harness `run_id`) ran on or
+  after the day the conference that **actually considered** the petition sat
+  (`cert_signals.considering_conference` reads `sat`: a reschedule or a call
+  for response entered before the conference removes it, and a relist moves
+  it to the next conference only where the relist was docketed by the first
+  cell's run day — `cert_signals.relisted_past`, a date-dependent carve-out the
+  census counts). The reading needs the petition's docket entries, which live in
+  the corpus, so these events are **listed** in
+  `src/fedcourtsai/set_aside_events.json` from a corpus census
+  (`scripts/checks/post_conference_census.py`, which also reports any census
+  event the list lacks), keeping the boards offline and deterministic. An
+  undisposed petition after its grant list is almost always denied on the next
+  order list, so these cells sit in the forward stratum forecasting an answer
+  the grant list has largely implied, and their removal is plausibly outcome-correlated — which is why the
+  reading with them counted is published beside the default rather than
+  withheld. The fan-out does not mint such a cell
+  (`store.distribution_conference_considered`). The list is complete only as
+  of its last census: a row the census later finds owed is appended with its
+  own dated freeze-record entry, and the list is closed once the census reports
+  no owed row with the guard live.
+
+**`increment-run-day`**, the claim grain. One claim inside a cell is set aside
+and the cell stays counted: a resolved `cvsg-increment`,
+`response-requested-increment` or `referral-increment` claim on a forward cell
+whose run the record cannot order against the signal
+(`set_aside.claim_set_aside_reason`) — either the pre-mint poll read the signal
+absent and the post-run poll read it present, so it landed while the cell ran,
+or, with no usable pre-mint poll, the signal's committed docket date is the
+cell's run day in Court time. Either way the claim may be a forecast or an
+observation. One the pre-mint poll read present, or, unpolled, dated before
+the run, is not set aside but masked by the scorer (`ClaimScore.mask_reason`,
+docs/outcome-decomposition.md); one the pre-mint poll read absent and the
+post-run poll did not read present stays a forecast. The mask applies at stamp
+time: a block stamped without it keeps its resolution, neither masked nor set
+aside, until `stamp-cell --regrade` re-stamps it. On
+`claim-scores.json` the set-aside claims' scores leave every default figure —
+block totals, per-claim means and the judge validation's pairs — and the board
+publishes `claim_set_aside`, counted in **claim units** (a prediction's claim
+once, with the gradings carrying it and how many of the claims carry a score
+beside it), and `claim_set_aside_sensitivity`, one line per (reason, predictor,
+stratum) recomputed with **that reason's** claims counted back and nothing
+else. The board's population is cert's first moment, where only
+`cvsg-increment` can be reached, and while that claim has no baseline its
+set-aside moves no figure; the two interim claims sit on no claim surface yet,
+so their set-aside is recorded in the pass (`StratifiedRun.claim_set_aside`)
+and moves nothing published. Each sensitivity line also counts the
+`scored_claims` it puts back: zero means its figure equals the default — the
+claims are set aside, and none of them moved anything. No committed artifact
+dates a referral, so the rule cannot reach a `referral-increment` claim on any
+cell without a usable pre-mint poll reading of the referral: a poll carrying no
+`signals`, one that recorded no reading of the referral (an `unavailable`
+poll, a docket with no proceedings, a failed signal reading), or no
+`usage.json` at all. Such claims must not enter any scored figure without a
+corpus-dated reading (`interim_signals.referral_date`). `relist-increment` and
+`amicus-increment` are outside the rule: the post-conference set-aside above
+brackets a relist, and the amicus count has no single signal date (the
+2026-10-16 freeze-record entry states both, and their residuals).
+
+`set_aside.excluded` is counted after the three exclusions, so a grading those
+rules dropped is never counted here. On the leaderboard it is stage-blind and
+never netted against a stage-scoped total; on `claim-scores.json` it covers
+cert's first moment only, the board's own population. The published Release 1 artifacts are built without the
+set-aside (`release-sensitivity`, the cohort cut and the dataset export pass
+`apply_set_aside=False`), so re-running them reproduces what was published;
+the release's own post-conference sensitivity line is that population read the
+other way round.
 
 **The procedural stratum.** A cell whose outcome was mootness practice — a
 Munsingwear vacatur ("granted", but the wording tracks the Court's vacatur
@@ -1945,33 +2072,59 @@ the rendered table) and
   query on the dated and truncated arms, which carry `REPLAY_CUTOFF`, and on
   the blind arm the queries that pass `--decided-before` as the prompt asks —
   some of them are withheld: the merits pair unless `merits_decided` clears
-  every bar the clock sets, `merits_terminated` always, and the party and
-  counsel lists (`counsel`, `parties`, `attorneys`) always, emptied to `[]`.
-  The lists go whole because no entry in them is dated and they accrue after
-  a grant (amici, overwhelmingly), the same reason `redact_snapshot` strips
-  the replayed petition's own party and counsel blocks. Under the clock `[]`
-  means masked, not "no counsel of record"; a cell cannot tell the two apart,
-  so nothing may be read from an empty list there. **The mask is not
-  complete.** A prior's other last-pull columns still reach a replay cell as
-  stored — among them its own `citations`, `citation_count`, `summary`,
-  `precedential_status`, `has_opinion` and the opinion body under `--full`,
-  `merits_brief_filed`, and `date_decided`, which on a granted SCOTUS prior
-  is the termination at the merits judgment — so a prior granted before the
-  clock can still show, through them, that its merits stage went on past it.
-  That is post-clock information about the prior, not the petition, and it
-  stands in every replay report. Read two consequences of what is masked. A
-  replay cell's `query` returns no counsel on any prior, which a forward
-  cell's does, so on that surface a replay figure understates the same
-  predictor's forward information set, as it does on the snapshot; the cell's
-  open-web and CourtListener tools still reach a prior's current docket either
-  way. And a report whose cells ran before the list mask reached `main` could
-  retrieve priors carrying their full current lists, amicus entries filed
-  after the clock included — post-clock facts about the priors, never about
-  the petition itself — so no **engine row's** series spans that boundary,
-  which `docs/freeze-record.md` dates. Provenance agreement cannot see it. The
-  always-deny floor (a property of the labels) and the offline `prior-vote`
-  row (which votes on dispositions, not counsel) are unaffected and compare
-  across it as before.
+  every bar the clock sets; the opinion cluster (`citations`, `summary`,
+  `precedential_status`, `has_opinion` and the opinion body under `--full`)
+  unless the decision it records is dated before the clock by every one of
+  `date_decided` and `merits_decided` the row carries; `date_decided` (on a
+  granted SCOTUS prior, the termination at the merits judgment),
+  `merits_brief_filed` and `distributed_for_conference` unless each one's
+  own date clears the clock; and always `merits_terminated`,
+  `citation_count`, the pipeline's tracking stamps (`last_pulled`,
+  `last_live_polled`, `opinion_enrich_attempted_at`,
+  `document_floor_probed_at`, `predict_queued_at`, `evaluate_queued_at`) and
+  the party and counsel lists (`counsel`, `parties`, `attorneys`). A withheld
+  column comes back at
+  its no-reading value (`[]`, `null`, `false`). The lists go whole because no
+  entry in them is dated and they accrue after a grant (amici,
+  overwhelmingly), the same reason `redact_snapshot` strips the replayed
+  petition's own party and counsel blocks; a citing count grows after any
+  clock; a tracking stamp dates the pipeline's last touch of the row, after
+  any clock. Under the clock an empty or null value in a withheld column means
+  masked as readily as "nothing recorded" — `[]` counsel is not "no counsel
+  of record" — and a cell cannot tell the two apart, so nothing may be read
+  from one there. Which priors return, and in what order, the mask does not
+  move, except that a `--citation` filter matches only the cites a prior
+  comes back with. **The mask is still not a full as-at-clock view.** Every other
+  column comes back as stored at the last pull: the caption and identity
+  fields, the cert-stage dates and disposition the clock admits the row on,
+  the bench (`judges`, `panel`, which the `--judge` filter and the
+  prior-vote index key on, so masking them would move which priors return),
+  the other live-channel signals (`distribution_count`, `cvsg_date`,
+  `response_requested`, `response_requested_at`, `response_filed_at`,
+  `referred_to_court`, `amicus_briefs`) and the derived salience and scope
+  fields; `docs/cli.md`'s `query` row lists them by name. Read two
+  consequences of what is masked. A replay cell's `query` returns no counsel
+  on any prior, no citing count, and no opinion on a prior decided after the
+  clock or undated, all of which an unclocked query's does, so on that surface a replay
+  figure understates the same predictor's unclocked information set, as it
+  does on the snapshot; the cell's open-web and CourtListener tools still
+  reach a prior's current docket and opinion either way. And the mask moved
+  twice, each move dated in `docs/freeze-record.md`: a report whose cells ran
+  before the list mask reached `main` could retrieve priors carrying their
+  full current lists, amicus entries filed after the clock included, and one
+  whose cells ran before the decision-record mask reached `main` could
+  retrieve a prior's post-clock opinion, citations, summary, citing count,
+  termination date, merits-brief date, conference date and tracking stamps
+  — post-clock facts about the priors, never about the petition itself. No
+  **engine row's** series spans either boundary. The committed
+  `cert-backtest.json` (run `20261003T115301Z`, its engine rows at `n=10`
+  each, 0.700 against the 0.600 always-deny floor, one petition of lift) ran before the
+  decision-record mask, so its engine rows may not pool with a report run
+  after it; its `prior-vote` (0.600) and `constant-denied` rows may. Provenance agreement cannot see them. The always-deny
+  floor (a property of the labels) and the offline `prior-vote` row are
+  unaffected and compare across both as before: `prior-vote` votes on
+  dispositions, and passes no citation filter, so the citation gate its
+  index carries for parity with `query` never runs for it.
 
   **The review PR's headline names a tie as one.** Entries scored over the
   whole set share one floor, so equal accuracy is equal lift; the board breaks
@@ -2123,14 +2276,24 @@ the rendered table) and
   declared moment carries the same `dated`/`truncated` split, so no forward
   figure over placed cells may be published without those counts stated inline.
   The split is not cosmetic on either axis. It is **selected**: `dated` needs a
-  pull that landed on the trigger day, which the live poller does for
+  pull that landed on the trigger day — and, on the `cvsg`,
+  `response-requested` and `response-filed` moments, one carrying the trigger
+  entry dated on the day the event opened — which the live poller does for
   watchlisted and salient dockets and not for the rest, so the residual
   concentrates in the `truncated` arm rather than spreading evenly. And the two
   arms err in opposite directions — `dated` brackets the moment from below (it
   is the docket as pulled, so it can miss entries filed later the same day),
   `truncated` from above (it reconstructs to the cutoff but carries the undated
   counsel/amici blocks as at a much later pull). Pooling them averages a
-  selected mixture of two different biases.
+  selected mixture of two different biases. On those three trigger moments a
+  cell no stored payload places is refused rather than placed, so placed-cell
+  counts exclude it, and the refused count is not derivable from the ledger:
+  the refusal writes no cause into the cell's status, and `collect` books it as
+  an ordinary no-output cell. The `dated` arm on those moments also changes
+  meaning at the carrying merge of the exact-trigger rule (before it, a pull
+  from the trigger day sufficed); no context field separates the two sides, and
+  the split is the stamp's `process_version.pipeline_sha` (see the freeze
+  record), so a figure over that arm does not pool across it.
 
   **A third number is owed with them: the placement lag.** Provenance says how
   the snapshot was built; it does not say how old the moment was when the cell
@@ -2243,7 +2406,11 @@ the rendered table) and
   observe is the *intervening docket* — it retrieves without restriction, so at
   weeks of lag an **increment** claim (a relist landing, a CVSG arriving, the
   amicus wave) can be read off a docket that moved since the cutoff, where a
-  same-day cell's is a forecast.
+  same-day cell's is a forecast. Three of those increments — the CVSG, the
+  response request and the referral — are read against the run itself,
+  masked where the record shows the signal came first and set aside where it
+  cannot order the two (`increment-run-day`, under *The set-aside, and its sensitivity reading*
+  above); the relist and amicus increments are not.
 
   So the obligation binds the placed moments' increment totals, per stratum —
   which on the published surfaces means the unranked `stages` blocks and the
@@ -2751,8 +2918,8 @@ the rendered table) and
   a case sitting at a cert **arrival** moment or at either **merits** moment is
   never refilled however long it waits. Those are a floor rather than the whole
   of it: a pending case at a moment the rule does re-owe can still sit outside,
-  because a distribution is re-owed only while a conference is still ahead of it
-  and because a re-owed cell has to be minted and land before it counts.
+  because a distribution is re-owed only until the conference it was distributed
+  for has considered it, and because a re-owed cell has to be minted and land before it counts.
 
   Measured over the ledger at `64e8568b7`, the frozen build **removes 76 of the
   193 rows** — including the whole of the `all` board's top 20, since the frozen
@@ -3195,7 +3362,10 @@ every per-engine cut this touches — the observability rate, the mean call
 counts, and which engines appear in the offered-vs-called table at all — as
 **scoped to the logs that could express it**, since a lifted row exists only
 where capture minted one. A code-mode engine appearing to call no manifest
-tool over a stretch of the ledger is a capture fact, not a behavioural one.
+tool over a stretch of the ledger is a capture fact, not a behavioural one —
+and so is codex appearing to make no manifest call over the bare-name stretch
+the throttle-coverage reading below names, whose calls are counted as
+builtins.
 Which idioms the lift matches decides how many rows a program leaves behind, so
 a ledger-wide cut over a code-mode engine pools logs captured under whatever
 lift each was minted with — exactly as a throttle count pools predicates, and
@@ -3248,8 +3418,21 @@ in what could be seen, not only in what happened, and only one of the three
 supplies a real denominator at all. And the denominator moves with capture: a
 log carrying no lifted rows is one capture never minted them for, not a cell
 that made no manifest call, so a ledger-wide cut pools stretches with
-categorically different coverage. Read a per-engine throttle number as scoped
-to the logs that could express one.
+categorically different coverage. A further case, codex-only, is a naming
+one. Codex logs written from `20260916T170237Z` until bare-name resolution
+reached capture record each manifest call under its bare tool name
+(`search`). Those rows count as builtins: their result condition was never
+read, and the MCP counts, the offered-vs-called table and the per-actor MCP
+column all miss them. So over that stretch every manifest-gated codex figure
+is **unknown, not zero**, and stays so, because no committed log is
+re-derived. Codex's earlier manifest rows, from `20260820` to `20260901`, are
+all code-mode lifts and so `unobserved`, so they add calls but no throttle
+denominator. Codex's throttle figure is therefore capture-blind until logs
+captured after the resolution arrive. Its call counts are those earlier
+lifted rows plus the later resolved ones, two capture regimes. A move in
+either figure across the resolution is a capture change, not a behavioural
+one (`docs/freeze-record.md` dates it). Read a per-engine throttle number as scoped to the logs that could
+express one.
 
 **What may be claimed from `self_provisioned_fetches`: a described share and a
 common-record comparison on the leaderboard, never a rank, a headline figure or

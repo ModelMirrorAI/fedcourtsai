@@ -8682,3 +8682,1654 @@ freeze commit is recorded here.
   at mint shows `refusing to provision forward cell … the live docket polled at
   …` in its job log, no committed output, and a row under *Pre-mint refusals*
   in the round's run PR body or agent-feedback comment.
+
+- **A Court docket that withholds the petitioner's counsel block is read as
+  self-represented on the petitioner side by both contact scrubs,
+  2026-10-15.** A **conditioning** entry in the *what the pipeline provisions*
+  class. The docket-level trigger (`unrepresented_sides`) reads an absent side
+  as **unknown**, which the 2026-09-21 entry registered so that the
+  CourtListener REST shape, which carries no counsel blocks anywhere, is not
+  scrubbed because of its payload shape. The Court serves a pseudonymous
+  self-represented petitioner's docket the same way it serves any other
+  docket, except that the `Petitioner` key is missing. That petitioner's
+  staged petition therefore stayed unscrubbed. This was observed in evaluate
+  run `20261005T221055Z` on `scotus/73372297` (No. 25-1300). Its provisioned
+  `petition.txt` carried two email-pattern matches with
+  `contact_scrubbed: false`, and claude-judge flagged it. The committed
+  ledger for that case holds no email match. The staged text is runner-local
+  and never committed, so nothing was published.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v9` and
+  the six digests `605201bd…` (claude-baseline), `70fee158…`
+  (codex-baseline), `a9033e56…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `18a76b93…` (codex-judge) and `22558044…` (gemini-judge).
+
+  **What changes.** One absence is now read as evidence
+  (`withholds_petitioner_block`). A payload qualifies when all three of
+  these hold:
+  - it is the Court's own docket shape, meaning it carries
+    `ProceedingsandOrder`, which a CourtListener REST docket never does;
+  - it carries the respondent side's counsel key, meaning the `Respondent`
+    key or its `AttorneyHeaderRespondent` heading;
+  - it carries **no** `Petitioner` key.
+
+  All three are tests of **key presence**, never of a key's value. A payload
+  carrying `ProceedingsandOrder` and an empty `Respondent` list therefore
+  qualifies. The error this admits is an over-scrub, which withholds counsel's
+  professional details and never stages a filer's own.
+
+  Such a payload reads `Petitioner` in `unrepresented_sides`. Every reader of
+  that trigger moves with it:
+  - **The staged documents** get the shape pass. No petitioner block is
+    served, so there is no value to key the value pass on. The manifest reads
+    `contact_scrub_passes` `["shape"]`. Where the payload also qualifies on
+    its `Other` list alone, the documents move from `["value"]` to
+    `["value", "shape"]`.
+  - **The staged snapshot** has no petitioner block to withhold. The
+    respondent's counsel block stays as served, and the run log echoes `0
+    value(s) withheld on 0 petitioner-side block(s)`.
+  - **A consolidated member's borrow** refuses a lead that withholds its
+    petitioner block, as it already refuses a lead whose party side reads
+    self-represented. The member then stages none of that lead's merits
+    filings.
+
+  The following stay as they were:
+  - a `Petitioner` key served empty or null, which is still read as nothing;
+  - a CourtListener REST docket;
+  - a Court docket carrying neither side's counsel key;
+  - every docket that serves a petitioner block.
+
+  **A known residual.** The third item above is not closed. A pseudonymous
+  self-represented petitioner whose docket the Court serves with no counsel key
+  on either side, typically before the respondent appears, still stages its
+  text as filed. On that payload nothing tells a withheld block apart from a
+  docket the Court has not yet populated. The census below counts these
+  dockets, so the residual is sized rather than assumed.
+
+  **The trade.** The shape pass runs over every staged document on such a
+  docket, including a brief in opposition filed by the respondent's counsel,
+  as it already does on any docket read as self-represented on a party side.
+  That counsel's professional contact details are withheld, and legal prose
+  the shape pass misreads is withheld with them.
+
+  **The population.** Triage counted **76** SCOTUS rows in blob `c85bda09…`
+  (newest pull stamp `2026-10-05`) that carry counsel but no petitioner-role
+  block. **14** of them are salience-selected and **4** are pending. That
+  figure was read off the corpus row's counsel, not by running this predicate
+  over each row's latest payload. The real-predicate read is a read-only
+  script in the carrying PR's description, run over the latest live snapshot
+  and stored documents of every SCOTUS row. For each class (newly scrubbed,
+  value-only to value+shape, or unchanged) it gives the number of dockets,
+  how many are selected and how many pending, and the total spans the scrub
+  withholds. It also counts the residual above, Court-shaped payloads with
+  neither counsel key, split into selected and pending. It prints no value.
+  Its summary counts, with the blob's sha and its `corpus-info` vintage, go
+  on the next line, which must stay one line of plain prose with no angle
+  bracket or backtick:
+  <FILL: census summary counts, blob sha and vintage, as one plain line>
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut. The pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row.** The boundary is `scrub-withheld-petitioner-block`.
+    It applies to every predictor, its reach is `self-represented dockets`,
+    and it is not gradual: provisioning reads the payload already stored, so
+    the next cell provisioned on an affected docket reads the change, with no
+    back-fill needed. The row is registered **pending** in the change's own
+    PR (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration. Its `merge` and `at` are null until the promotion merge that
+    carries it to `main` stamps them with that merge's SHA and committer time
+    (`promotion-record`). Until then the row is left out of
+    `process_version.HARNESS_BOUNDARIES`, so no cell has a side of it. A board
+    built meanwhile names it under `frozen_process.pending`.
+  - **The side test** is the registered one. A stamped cell is after the change
+    if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`. A cell with no `pipeline_sha` is counted on
+    neither side, and its number is listed.
+  - **Exposure is an upper bound,** as for the earlier scrub boundaries. Whether
+    a docket withholds its petitioner block lives only in the corpus, so the
+    after-side `n` counts the cells that could have read the change, not the
+    cells that did.
+
+  **What a post-change cell reads.** On an affected docket, the cell reads a
+  subset of the pre-change document text and the same snapshot. Its
+  `documents.json` reads `contact_scrubbed: true` with `contact_scrub_passes`
+  `["shape"]`, where before it read `false` with `[]`. That holds on every
+  staged document, including one whose text does not change. On a
+  consolidated member whose lead withholds its petitioner block, the borrowed
+  merits filings are no longer staged. No skill movement is predicted. A
+  movement in **either** direction across this boundary may not be read as a
+  model effect.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves. Nothing is written to the corpus. The corpus row,
+  the content-store payload and the source PDF are untouched. The three lanes
+  that stage through this provisioning narrow the same way from the carrying
+  promotion on: predict cells, evaluate cells and the case-summary lane's
+  `summary-stage`. Summaries that already exist are not re-derived, and a
+  summary's record digest is taken from the corpus payload, so the change
+  moves no digest and re-owes no summary. Cells already run on an affected
+  docket stay as they are. They read the filer's details as filed, which is
+  more information, not leaked information.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py tests/test_cli_provision.py -k
+    withholding_the_petitioner` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    six digests above;
+  - `uv run fedcourts provision-snapshot --court scotus --docket 73372297`
+    (with the data root pointed at a scratch directory) echoes `contact
+    scrub: N detail(s) withheld across M staged document(s) (no attorney
+    named for the petitioner; passes: shape only)` with a non-zero `N`, while
+    its latest payload still serves no `Petitioner` key;
+  - on `main` once the boundary row is stamped, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('scrub-withheld-petitioner-block' in {b.name for b in H})"` prints
+    `True`.
+
+- **A placed cell on a moment whose trigger is one docket entry must carry that
+  entry, dated on the day its event opened, 2026-10-15.** A **provisioning
+  cutoff** change and a **membership rule**. It moves which stored snapshot a
+  cell on the `cvsg`, `response-requested` or `response-filed` moment is placed
+  on, and it refuses the cell where no stored payload carries the trigger. It
+  moves no digest, no constant and no window: `uv run fedcourts process-digest
+  --all` prints the same `proc-v9` digests.
+
+  **The defect it closes.** A stored snapshot from before the cutoff was taken
+  as `dated` wherever it carried any entry from the trigger day. A day can
+  carry more than one entry, so a pull taken on the trigger day before the
+  trigger was docketed passed. On `scotus/9526000477`
+  (`evt-order-response-requested-disposition`, opened 2026-10-08), predict runs
+  `20261014T142540Z` (claude-baseline, codex-baseline) and `20261014T174020Z`
+  (gemini-baseline) placed all three engines' cells on the 2026-10-08 pull,
+  which held only the application docketed that day. Each context froze
+  `response_requested=false`, `referred_to_court=false` and `amicus_briefs=0`
+  for a cell filed under the response-requested moment.
+
+  **The three committed cells.** They are `proc-v9` frozen-stratum forward
+  cells, graded on evaluate `20261015T154823Z` by three judges: claude-judge
+  and codex-judge each flagged the missing trigger, and gemini-judge wrote no
+  `flags.json`. Against the outcome (denied, 2026-10-14; `interim_signals`
+  `response_requested`, `referred_to_court` true, `amicus_briefs` 1), the
+  `response-requested-increment` claim resolved 1 on the request that defined
+  the cell; it carries `score` null only because its baseline returns `None`
+  (`claims._baseline_response_requested_increment`). A later entry registering
+  that baseline must address these three cells or void them, or they score as
+  skill on their own trigger. The `amicus-increment` claim also resolved 1, off
+  the amicus brief docketed the same day as the request, and is likewise
+  unscored only for want of a baseline. The scored `interim-disposition` claim
+  stays counted: the missing entries are signals, not the outcome.
+
+  **Census.** On `origin/main` at `457b395cb` (2026-10-15T20:40:31Z), over
+  every committed `prediction.json`:
+
+  - **response-requested:** 38 predictions (23 `dated`, 13 `truncated`, 2
+    `as-stored`). Those three are the only ones whose context carries
+    `response_requested=false`, which is the trigger's absence.
+  - **cvsg:** 78 predictions (12 `dated`, 66 `truncated`). None carries a null
+    `cvsg_date`, and a non-null one proves the invitation was on the placed
+    payload, so **0 are affected**.
+  - **response-filed:** 32 predictions (23 `dated`, 6 `truncated`, 3
+    `as-stored`). No context field records a filed response, so the 23 `dated`
+    cells cannot be screened from the ledger. By label they are `proc-v9` 3,
+    `proc-v8` 12, `proc-v5` 5, `proc-v3` 3. How many lacked their response is
+    unmeasured here; the check is below.
+
+  **The rule.** From this entry's carrying merge, `provision-snapshot` reads the
+  trigger entry of those three moments with the same parse that dated the
+  event's `opened_at` at ingest (`cert_signals.snapshot_cvsg_date`,
+  `interim_signals.response_requested_date`,
+  `interim_signals.response_filed_date`; `provision.TRIGGER_READERS`). Each
+  takes the first dated matching entry and parses its date strictly.
+
+  - A stored snapshot from before the cutoff is taken as `dated` only where
+    that parse finds the trigger **on the day the event opened**
+    (`provision.dated_from_trigger`). One carrying an older matching entry and
+    nothing from that day is refused as `dated`, as the trigger-day rule
+    refused it.
+  - Otherwise the cell is reconstructed from the latest payload as before
+    (`truncated`). The reconstruction must carry a matching entry strictly
+    before the cutoff (`provision.carries_trigger`). The bound is looser here on
+    purpose: a cut of the latest payload has no lower-bound problem, and a
+    trigger dated earlier than the event is the moment having happened by the
+    cutoff, a disagreement no later pull would resolve.
+  - If the reconstruction does not carry the trigger either, the cell is
+    refused (exit 5, nothing written) in either `--mode`.
+  - Every other moment keeps the trigger-day rule.
+
+  A trigger whose date the strict parse cannot read is treated as absent, which
+  reconstructs or refuses rather than placing a cell.
+
+  **A boundary on the `dated` arm.** On these three moments,
+  `snapshot_provenance: dated` changes meaning at the carrying merge. Before
+  it, the value meant a pull with any entry from the trigger day. After it, the
+  value means a pull carrying the trigger entry dated on that day. No context
+  field separates the two sides, which is the shape
+  [process-version.md](process-version.md) names for a redefinition of an
+  existing value. The split is the cell's stamp: a cell whose
+  `process_version.pipeline_sha` descends from the carrying merge is after it.
+  No figure over those moments' `dated` arm pools across it. The
+  harness-boundary row `single-entry-trigger-placement` (reach `all`, every
+  predictor) is registered pending in this entry's carrying PR, and the
+  carrying merge stamps it, so it joins `HARNESS_BOUNDARIES` with that merge
+  as its carrying commit.
+
+  **What the refusal selects.** The refusal is a membership rule, and on the
+  interim moments it is plausibly correlated with the outcome:
+
+  - A refused cell is owed again by a later round. If the application is
+    decided in the meantime, the forward gate refuses it there, so quick
+    dispositions are under-represented among placed cells — the same direction
+    as the pre-mint refusal above.
+  - Where the stored latest payload disagrees with the event's date, or carries
+    degraded proceedings, the refusal never clears. `run-predict` treats exit 5
+    as a refusal and runs no agent, but `collect` does not exempt it from the
+    attempt cap as it exempts a pre-mint refusal, so after enough rounds the cap
+    retires the cell.
+  - The refused count is unmeasured. No artifact records the cause: exit 5
+    writes no cause into the cell's `status.json`, and `collect` books it as an
+    ordinary no-output cell.
+  - Engines provision independently, so a pull landing between two engines'
+    provisioning steps can refuse one engine and place another. A per-engine
+    figure is read beside that, as with the pre-mint refusal.
+  - A cell refused until a pull stores its trigger is forecast later than one
+    placed at once, which the placement lag (`integrity.context_lag_days`)
+    shows.
+
+  **What it does not do.** It de-counts nothing already committed: the three
+  cells above stay as they are. Whether an increment claim should be scored as
+  skill when its signal predates the run is a separate scoring decision this
+  entry does not make.
+
+  **Reconstructing the affected set.** For each committed `dated`
+  response-filed cell, load the stored snapshot that `input_snapshot` names from
+  the corpus, and apply the moment's `provision.TRIGGER_READERS` reader. A cell
+  is moved if the reader does not return the event's `opened_at`. Count it moved
+  either way it lands under the rule, whether `truncated` or refused (exit 5).
+
+  One residual bounds that check. The stored snapshot for a day may not be the
+  pull the cell read. `corpus.upsert_snapshot` overwrites a second pull on the
+  same day ("a second pull on the same day overwrites that day's snapshot"),
+  and `casestore.write_snapshot` writes the same key again. Its docstring calls
+  the object "immutable per day", which that overwrite contradicts. So a cell
+  that read an early pull can find a later same-day pull stored in its place.
+  The check then reads the cell as unmoved when it was moved, so its count is a
+  lower bound.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **The runnable effect check once it is live.** Take the first predict round
+  after the carrying merge that places a `response-requested` cell, and run
+  `jq -r '.context.response_requested'` over that round's
+  `evt-order-response-requested-disposition/predictions/*/<run>/prediction.json`.
+  It prints at least one `true` and no `false`. A cell refused under the rule
+  shows `refusing to provision … no stored snapshot carries the docket entry
+  that opened the moment` and `exit 5` in its job log, with no committed
+  output.
+
+- **A codex manifest call logged under its bare tool name is captured under
+  the manifest spelling, 2026-10-15.** A **capture** change of the
+  masking-surface class. No digest, constant, window or membership moves, and
+  `uv run fedcourts process-digest --all` prints the same `proc-v9` digests.
+  Codex's rollout logs a CourtListener call as an item named by the bare tool
+  name (`search`), with no `mcp` prefix and no server field. Capture now
+  renames such a name to `mcp__<server>__<tool>`, but only where the cell's
+  offered set allows it. The offered set is the `mcp_tools` snapshot the same
+  log records. If the item records a namespace, the name is renamed only when
+  the namespace names an offered server that has the tool. If it records
+  none, exactly one offered server must have the tool. Any other name keeps
+  its logged spelling. So does every name in a log whose offered set is
+  empty, which happens when `record-retrieval` cannot resolve the actor's
+  registry entry; it warns when that happens. Claude and gemini rows are
+  unchanged, because their logs already carry the `mcp` prefix.
+
+  **Where the bare names start.** The 2026-08-20 to 2026-09-01 codex logs
+  carry their manifest calls only as rows lifted out of code-mode programs.
+  Those rows are spelled `mcp__<server>__<tool>`; all 170 carry `call_source`
+  `code_mode_source`. From `20260916T170237Z` on, codex calls its tools as
+  direct items, and the manifest ones arrive under the bare name. The
+  regime change follows the `codex-action` pin, and shows two days before the
+  first bare-name row, in `codex-judge` logs:
+  - `20260902T185700Z` ran at `pipeline_sha` `45d32a37b`, which pins
+    `codex-action` v1.11. It still carries `code_mode_source` rows.
+  - `20260914T195025Z` ran at `ba603cd0d`, which pins v1.12. Every row is
+    `transcript_item`.
+
+  Both shas pin codex CLI `0.144.1`, so the CLI did not change. The v1.12
+  bump is the likeliest carrier of codex dropping code mode. That is an
+  inference, since no committed `usage.json` stamps an engine version. The
+  re-derivable facts are each cell's `pipeline_sha`, the `codex-action` pin
+  at that sha, and its rows' `call_source` and spelling.
+
+  **What the bare-name stretch distorted.** It runs from `20260916T170237Z`
+  to the carrying merge. On `main` at `457b395cb` it holds 212 codex logs:
+  211 `codex-baseline` predict logs and one `codex-judge` evaluate log
+  (`20261007T185906Z`). Those logs carry 653 bare-named manifest rows: 324
+  `search`, 237 `search_document`, 81 `read_document`, 5 `get_endpoint_item`,
+  4 `get_more_results` and 2 `analyze_citations`. Each is a builtin to every
+  manifest-gated reader, with `result_status` `ok` whatever came back. So
+  over that stretch every manifest-gated codex figure is **unknown, not
+  zero**. That holds on each published surface:
+  - **The tool-usage rollup's throttle cut and the log's `throttled_calls`.**
+    No codex 429 in the stretch was read as one. The worked case is
+    `scotus/73280380` `evt-petition-disposition` run `20260916T170237Z`: its
+    `flags.json` reports a CourtListener 429 that its log records as `ok`.
+    A codex cell's own `flags.json` is the only record of a throttle it hit
+    there.
+  - **The substitution signal**, which counts cells that searched the web
+    without calling the MCP. Codex shows 285 such cells. Read with the bare
+    names resolved, only 73 remain, so at least 212 of the 285 are capture
+    artifacts.
+  - **The call-volume-against-Brier table.** Codex's mean MCP calls print 0.0
+    beside its Brier. Over this stretch that figure is unknown, not zero.
+  - **The offered-vs-called table.** It reads `analyze_citations` and
+    `get_more_results` as never called by codex. Codex called both: 2 and 4
+    times.
+  - **The per-actor MCP column.** It reads `codex-judge` at 0, which is
+    unknown over this stretch.
+
+  Over codex logs captured from `20260916T170237Z` to the carrying merge, MCP
+  call counts and throttle status are **missing, not low**, and remain so.
+  The rename runs at capture, not when a log is read, and those cells'
+  rollouts are gone. The result text a status would be read from was
+  digested away at capture, so a read-time rename could recover the names
+  but not the statuses. Codex's ledger MCP **call counts** are therefore the
+  `20260820`–`20260901` stretch plus the logs captured after the carrying
+  merge. Those two stretches are two capture regimes: lifted code-mode rows,
+  and resolved direct items. Codex's **throttle** figure has no such earlier
+  stretch. Every one of the 170 prefixed rows from `20260820`–`20260901` is a
+  code-mode lift and `unobserved`, so none enters the throttle denominator.
+  That figure stays capture-blind until logs captured after the carrying merge
+  arrive. A move in any codex figure across the merge is a capture change, not
+  a behavioural one. `self_provisioned_fetches` does not
+  move: respelling the bare rows of all 542 committed codex logs that carry
+  `mcp_tools` changes no log's count.
+
+  **What it reaches through the blinded log.** The blinding mask stages a
+  bare-named row as `other`. After the change it stages it as
+  `mcp:courtlistener:<tool>`, which is what a claude or gemini call to the
+  same tool stages as. So every evaluator now sees, on a codex candidate, the
+  server and method of each CourtListener call, under unchanged evaluator
+  digests. That class is what graders read when they form the
+  `leakage_suspected` bit, and the bit gates which cells every rank key and
+  scored aggregate counts, published as `leakage_exclusion`. So codex's
+  `leakage_exclusion` spans two staging regimes in the middle of the
+  `proc-v9` window. The reach is bounded, because the bit rarely fires on the
+  forward cells that make up the scored population.
+
+  **Why no label bump and no harness-boundary row.** No digest moves, so a
+  label bump would partition nothing. The boundary already exists in the
+  data. The exact test of which rule minted a log is the ancestry of the
+  cell's `pipeline_sha` (its `usage.json` / `process_version` stamp) against
+  the carrying merge. The log itself carries no sha. A row's spelling is only a hint. A log
+  captured after the merge with an empty offered set keeps its bare names,
+  and a cell that called no manifest tool looks the same under either rule.
+  Nor is it a `process_version.HARNESS_BOUNDARIES` change, which registers
+  changes to what a predict cell reads. No predict cell reads anything
+  different, because capture runs after the engine, on its own log.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **Effect check.** On `main`, once a run-predict round after the carrying
+  merge has landed codex cells that called CourtListener, `jq -r '.calls[] |
+  select(.tool | startswith("mcp__courtlistener__")) | .tool'` over those
+  cells' `retrieval_log.json` prints one line per manifest call. The same
+  jq with `select(.tool == "search" or .tool == "search_document" or
+  .tool == "read_document" or .tool == "get_endpoint_item" or .tool ==
+  "get_more_results" or .tool == "analyze_citations")` prints nothing.
+  `fedcourts tool-usage` over that round shows non-zero codex MCP calls.
+
+- **An order on a side motion, in a closed list of shapes, no longer reads as an
+  interim disposal, so a pending application whose docket carries one is
+  predicted again, 2026-10-15.** A **provisioning** change that alters which
+  forward interim cells mint. It moves no digest, no constant and no window:
+  `uv run fedcourts process-digest --all` prints the same `proc-v9` digests,
+  and what a minted cell reads is unchanged.
+
+  **The defect it closes.** On an application docket, the high-recall interim
+  disposal scan (`pipeline.outcome.interim_disposal_signal`) diverts the docket
+  from the forward queue (`predict_skipped_decided`), drops its owed events
+  from the predict backlog, and refuses forward-cell provisioning. All three
+  read it through `forward_leakage`, as does the pre-mint poll. Before this
+  entry the scan was one pattern,
+  `\b(?:applications?|stays?|injunctions?|vacaturs?|motions?)\b[^.]{0,200}?\b(?:granted|denied|dismissed|withdrawn)\b`
+  (case-insensitive), run over every entry. Its "motion" arm matched an order
+  on a side motion — "Motion for leave to file amicus brief granted", "Motion
+  to file under seal granted", "Motion to expedite consideration … granted" —
+  so the application read as decided while it was pending. Side-motion orders
+  are routine on contested emergency applications, which are the dockets the
+  interim reserve selects. How many dockets and applications this parked is
+  not counted here: the census needs the corpus and had not run when this
+  entry was written.
+
+  **The rule.** From this entry's carrying merge, the scan is unchanged except
+  for one carve-out. An entry the pattern above does not match never fires, so
+  the new scan never fires where the old one did not. Within a matching entry,
+  each clause (split at `.`, `;` and `:`, with "et al." kept whole) is set
+  aside only when the **whole** clause is a side-motion order of a closed
+  shape: an optional "the", an optional `joint`, `emergency`, `unopposed`,
+  `renewed` or `consent`, then "motion" or "motions", an optional "of"
+  followed by a movant, an ask from a closed list, an optional "filed by"
+  followed by a movant, and then `granted`, `denied` or `withdrawn`, with
+  nothing after it before the clause ends. A movant span runs at most 120
+  characters with no `.`, `;`, `:` or parenthesis, and refuses anything that
+  reads as a second ask: a relief word, "leave", "and" or "or" or a comma
+  followed by "for" or "to", "for" followed by "a", "an", "the", "release",
+  "bail", "interim" or "emergency", and "seeking", "requesting" or
+  "pending". A name with "for" in it ("Center for Individual Rights") still
+  reads as a movant. The closed list is: leave to file an amicus brief or a
+  brief as amicus curiae; to file a document under seal, or to seal or unseal
+  one; leave to file a reply, sur-reply, response or supplemental brief; leave
+  to exceed the word limits; divided argument; to expedite consideration; an
+  extension of time; leave to intervene; leave to proceed in forma pauperis;
+  to withdraw as counsel; and to dispense with printing. A clause is never set
+  aside when it carries "moot"; a coordinator ("and", a comma, "as well as",
+  "together with", "which") followed anywhere by a relief word (application,
+  cross-application, stay, injunction, enjoin, restraining, relief, vacate,
+  dismiss, withdraw the application, mandate, judgment, recall); a relief or
+  order noun followed by "vacated", "dissolved" or "lifted"; or a second
+  "leave to". No clause of an entry is set aside when the entry anywhere
+  carries a Justice's notation that they would (or would have) granted,
+  denied, dismissed or vacated, or that they dissent, whichever sentence it
+  sits in. The clauses not set aside are scanned with the same pattern, and
+  they are also read for a stay, injunction, vacatur, order, judgment or
+  mandate followed by "vacated", "dissolved", "lifted" or "entered", a
+  disposing participle the pattern has no verb for.
+  The pattern itself, the resolver, the cert-shaped terminal scan and the
+  record gate are untouched. A routine side motion off the closed list (a
+  motion to consolidate, for example) still parks its application's cells.
+
+  **Which cells it admitted.** The admitted set is the forward interim cells
+  after the carrying merge, built by the registered ancestry test on
+  `process_version.pipeline_sha`, whose provisioned snapshot the pre-change
+  pattern quoted above fires on. The ledger alone cannot rebuild it, since a
+  cell's provisioned record is runner-local and never committed: the set is
+  rebuilt by joining the ledger to the corpus snapshot at (case,
+  `context.snapshot_date`). That join is exact except where a later pull on
+  the same day overwrote that day's stored payload, in which case the set is
+  a superset.
+
+  **What it selects.** Refusal is a membership rule, so this widens forward
+  interim membership by the cells it stops refusing. The added cells are on
+  applications that drew side-motion practice. One hypothesis, which nothing
+  here tests, is that such practice concentrates on contested applications
+  and so on grant-weighted ones. That would run opposite to the pre-mint
+  poll's refusal, which plausibly removes denial-weighted cells. The
+  resolved-application census (old and new scan on each resolved substantive
+  application's last pre-resolution snapshot, the outcome split for freed,
+  still parked and never fired, each with n, and the corpus vintage) goes on
+  the next line, which must stay one line of plain prose with no angle
+  bracket or backtick:
+  <FILL: resolved-application census, old vs new scan, outcome split freed, still parked and never fired with n, corpus vintage>
+
+  **Not comparable across either boundary.** Forward interim figures are not
+  comparable across this entry's carrying merge, or across the boundary of the
+  entry above, *A forward predict cell is refused when a pre-mint poll finds
+  its event already decided*. Both rules move which forward interim cells
+  exist, in plausibly opposite directions, and neither size is measured.
+  "Not comparable" is guidance no figure applies yet. A refusal leaves no
+  cell, and under the 2026-10-11 pooled rule the default figure spans this
+  merge silently, with no side of it. The only cut is the admitted set above.
+  A pending harness boundary with an interim-scoped reach would be the clean
+  route to a per-side `n`; whether to register one is the maintainer's call,
+  and this entry registers none. The pre-mint poll entry above is on `staging` and
+  not yet on `main`; if both ride one promotion their boundaries coincide, and
+  they separate only through this entry's admitted set and the pre-mint
+  refusal roll-up.
+
+  **The first round after the merge.** Applications parked since their first
+  side-motion order become owed at once. So the first forward round after the
+  carrying merge can mint a burst of late cells. The burst is the admitted
+  set restricted to that first forward round. Its cells are predicted from
+  snapshots carrying later docket development than an on-time cell's, and
+  are not comparable to on-time cells.
+
+  **Not an independent backstop.** The pre-mint poll runs the same scan on the
+  live docket, so it shares this carve-out and cannot catch a disposal the
+  carve-out sets aside. If the closed shape were too wide, a cell whose
+  snapshot shows its outcome would mint, and only the judges' leakage bit
+  would mark it. A null leakage bit means the cell was not assessed, not that
+  it was clean. It de-counts nothing already committed.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live, from a checkout of the carrying
+  merge with the corpus pulled: `uv run fedcourts predict-plan` lists, on its
+  stderr `Predict backlog: dropped …` lines, no application whose only
+  disposition-shaped entry is a side-motion order of the closed shape; such an
+  application's owed interim cells appear in the plan's would-mint cells
+  instead. Diffing that plan against one from the commit before the merge,
+  both read from one pulled blob, shows the admitted applications: the
+  merge's `Predict backlog: dropped` lines are a subset of the earlier
+  plan's. In the first `run-pull` window after the
+  merge, the same applications are absent from `predict_skipped_decided`.
+
+- **The replay clock on `fedcourts query` withholds a retrieved prior's
+  post-clock decision record and tracking stamps under an unchanged process
+  digest; recorded 2026-10-15.** A **masking-surface** entry, and, because
+  forward cells run the clock too, a **harness boundary under the 2026-10-11
+  pooled rule**. It is recorded ahead of the promotion that carries the
+  change and of the first report it governs. It is the same class as the
+  2026-10-01 party-and-counsel entry, narrows the same surface further, and
+  closes the gap that entry named as still open.
+
+  **What moved.** Under a replay clock, every prior `fedcourts query` admits
+  now comes back with more of its last-pull state held to the clock, in three
+  classes. Each class is a set in `src/fedcourtsai/corpus.py`.
+  - **Always reset** (`REPLAY_MASKED_UNDATED_COLUMNS`). `citation_count` and
+    the pipeline's tracking stamps join the party and counsel lists. The
+    stamps are `last_pulled`, `last_live_polled`,
+    `opinion_enrich_attempted_at`, `document_floor_probed_at`,
+    `predict_queued_at` and `evaluate_queued_at`. A citing count keeps growing
+    after any clock, so it has no as-at-clock reading. A tracking stamp dates
+    the pipeline's last touch of the row, which is after any clock.
+    `last_live_polled` keeps moving while the live channel follows a granted
+    prior through its merits stage.
+  - **The opinion cluster** (`REPLAY_DECISION_RECORD_COLUMNS`): `citations`,
+    `summary`, `precedential_status`, `has_opinion` and `opinion_text`, so the
+    `--full` body too. None carries a date of its own. They come back only
+    where the decision they record is dated before the clock: the row carries
+    `date_decided` or `merits_decided`, and every one it carries clears every
+    bar the clock sets. Otherwise they are reset, an undated decision
+    included.
+  - **Date-tested** (`REPLAY_DATE_TESTED_COLUMNS`): `date_decided` (on a
+    granted SCOTUS prior, the termination at the merits judgment),
+    `merits_brief_filed` and `distributed_for_conference`. Each comes back
+    only where its own date clears every bar, and as `null` otherwise.
+
+  A reset column takes its no-reading value: `[]`, `null` or `false`. Both
+  halves of the clock trigger the mask, the Term (`--decided-before YYYY`)
+  and the day (`--decided-before YYYY-MM-DD`, or `REPLAY_CUTOFF`). It applies
+  to every admitted row, whatever its court or channel.
+
+  Which priors are returned, and in what order, does not move. Admission and
+  the recency ranking read the stored row, and the mask is applied to the
+  rows already chosen. A test pins a clocked query's rows and order to the
+  forward query's, minus the rows the clock does not admit, including a row
+  whose ranking date the mask nulls. One filter does read the masked row.
+  Under the clock a `--citation` filter overlaps the cites the prior comes
+  back with, so it cannot return a prior by a cite the clock withholds, and a
+  clocked `--citation` query can come back empty for that reason. The offline
+  `prior-vote` index applies the same gate to a citation match, so its parity
+  with `query` holds. `prior-vote` passes no citation filter, so its votes do
+  not move.
+
+  **What still passes as stored.** Every other column a `query` row carries:
+  - the identity and caption fields: `case_id`, `court`, `docket_number`,
+    `case_name`, `petitioner_title`, `topic`, `application_kind`,
+    `capital_case`, `originating_court`, `originating_court_name` and
+    `originating_docket_number`;
+  - the cert-stage resolution the clock admits the row on: `date_filed`,
+    `date_cert_granted`, `date_cert_denied` and `disposition`;
+  - the bench, `judges` and `panel`. The `--judge` filter and the prior-vote
+    index key on them, so masking them would move which priors return. They
+    name who sat, not how the matter came out;
+  - the other live-channel signals: `distribution_count`, `cvsg_date`,
+    `response_requested`, `response_requested_at`, `response_filed_at`,
+    `referred_to_court` and `amicus_briefs`. Some of these are dated or
+    accrue after the clock;
+  - the derived fields: `salience_score`, `salience_version`,
+    `salience_selected`, `predict_eligible`, `predict_excluded` and
+    `sample_weight`.
+
+  `merits_argued` and `merits_decision_method` never leave a `query` row,
+  clock or not. The derived `era` is read off the returned row. The clock
+  never nulls the date it comes from, since a row is admitted only where that
+  date clears the clock. The clock is still not a full as-at-clock view of a
+  prior.
+
+  **Who runs the clock.** Not only replay cells. A forward predict cell's
+  agent may pass `--decided-before` itself, usually with the day it ran, and
+  that query is masked exactly as a replay cell's is. On `origin/main` at
+  `457b395cb`, 110 committed predict cells' `retrieval_log.json` record an
+  executed shell call running `fedcourts query … --decided-before <value>`.
+  That counts one cell once however many such calls it made. Of these, 95
+  stamp `context.mode: forward`, and the other 15 carry no stamp. By engine
+  and process:
+  - `gemini-baseline`: 108 cells. `proc-v9` 9, `proc-v8` 67 (21 of them run
+    on or after 2026-10-01), `proc-v3` 15, `proc-v5` 2, unstamped 15;
+  - `claude-baseline`: 1 cell, `proc-v8`;
+  - `codex-baseline`: 1 cell, `proc-v8`.
+
+  Two of the 110 passed `--citation` and three passed `--full`. One example
+  is `data/cases/scotus/73500214/events/evt-petition-disposition/predictions/gemini-baseline/20261006T142731Z`,
+  which ran `query --court scotus --disposition granted --decided-before
+  2026-10-06`. A forward clock of today admits nearly every resolved prior,
+  but under it the change resets the citing count and tracking stamps on
+  every prior returned, and the opinion cluster on every prior whose decision
+  is undated. So a forward cell's information set moves. The counts were read
+  with `git grep -l -e '--decided-before' 457b395cb -- 'data/cases/**/retrieval_log.json'`
+  (114 files), keeping a cell where a logged call by a shell tool
+  (`run_shell_command`, `exec_command` or `Bash`) has a command that runs
+  `fedcourts query` with the flag and a value. The flag's text also appears
+  in `write_file` calls and in search patterns, which that filter drops.
+
+  **The harness boundary.** The change moves what a forward predict cell
+  reads under unchanged digests, so under the pooled-rule declaration's
+  *harness boundaries* bullet it is composition, not a cut. The pooled
+  default and the paired figure keep both sides and list each engine's `n`
+  before and after. It cuts only a figure that reads its own effect.
+  - **The registry row.** The boundary is `query-clock-prior-last-pull-mask`,
+    reach `all`, every predictor, not gradual. Whether a cell clocked its own
+    query is not decidable from its mode, so no narrower reach is
+    sound. The row is registered **pending** in this change's own PR
+    (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration. Its `merge` and `at` are null until the promotion merge that
+    carries it to `main` stamps them. Until then it is left out of
+    `process_version.HARNESS_BOUNDARIES`, so no cell has a side of it.
+  - **The side test** is the registered one. A stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`. A cell with no `pipeline_sha` is counted
+    on neither side, and its number is listed.
+  - **Exposure is an upper bound.** The after-side `n` counts every cell that
+    could have read the change, not the cells that ran a clocked query. On
+    the record above the exposure falls almost entirely on gemini. A
+    per-engine forward comparison across this merge therefore compares two
+    information sets for gemini and, in practice, one for claude and codex.
+
+  **A correction to two earlier entries.** The 2026-10-01 party-and-counsel
+  entry and the 2026-09-29 cutoff-day screen entry each say forward cells
+  never set the clock and no counted cell is affected. Both are false for
+  the same reason as above: the harness sets no clock on a forward cell, but
+  a forward agent may pass `--decided-before` itself.
+  - The 2026-10-01 entry's counsel mask reached the gemini forward cells
+    that clocked their own query from `b09c2d0bb` on. Of the 110 cells
+    above, 30 (all gemini) carry a `pipeline_sha` descending from
+    `b09c2d0bb`, another 65 precede it, and 15 carry none. The 30 are an
+    upper bound on the cells it reached: a cell was moved only where a prior
+    it was returned carried counsel.
+  - The 2026-09-29 entry's day bar reached any forward agent that passed an
+    ISO day from `a2f84f2ee` on. Under a today clock it drops only priors
+    resolved on or after that day and strips only merits judgments dated on
+    or after it, so its practical reach on forward cells is negligible.
+
+  Both entries stand as written; this paragraph corrects them. Whether to
+  register a stamped harness boundary at `b09c2d0bb` for the counsel mask is
+  the maintainer's call.
+
+  **Size.** Not measured in the authoring session, which had no corpus
+  access. Expect it to bite widely on SCOTUS priors. A read-only
+  measurement taken when this gap was first written down, on 2026-10-01 and
+  recorded in no earlier entry, found that on the blob whose newest pull is
+  2026-09-29 (index sha256 `ce9359e9…`), 0 of 656 granted rows with a cert
+  date also carried `date_decided`. The opinion cluster passes only where a
+  decision date is present and clears the clock, so it is **reset** on most
+  granted SCOTUS priors that carry it: at that vintage, on every one lacking
+  `merits_decided`. That holds under any clock,
+  a forward cell's today clock included. The census is SCOTUS-only, so the
+  circuit rows' opinion clusters go uncounted. At the carrying promotion's
+  vintage the replay census is `<FILL: replay census line from the check
+  below>`, and the forward census is `<FILL: forward census line from the
+  check below>`, both read from the blob whose `fedcourts corpus-info`
+  freshness line is `<FILL: corpus-info freshness line>`.
+
+  The census, from a dev checkout over a pulled corpus, run once on the
+  promotion's first parent and once on its merge. `mask-census.jq` is this
+  program:
+  `(INDEX($s[]; .case_id)) as $o | map({c: ., o: $o[.case_id]}) as $r | def
+  n(f): [$r[] | select(f)] | length; def op(x): x.has_opinion or
+  (x.citations | length) > 0; def dt(x): (x.date_decided // x.merits_decided)
+  != null; {admitted: ($r | length), citation_count: {stored:
+  n(.o.citation_count != null), returned: n(.c.citation_count != null)},
+  cluster_dated: {stored: n(op(.o) and dt(.o)), passed: n(op(.o) and dt(.o)
+  and op(.c))}, cluster_undated: {stored: n(op(.o) and (dt(.o) | not)),
+  passed: n(op(.o) and (dt(.o) | not) and op(.c))}} + (["date_decided",
+  "merits_brief_filed", "distributed_for_conference", "last_live_polled"] |
+  map(. as $k | {key: $k, value: {stored: n(.o[$k] != null), nulled:
+  n(.o[$k] != null and .c[$k] == null)}}) | from_entries)`.
+  - The stored rows: `uv run fedcourts query --court scotus --disposition
+    granted --limit 5000 > stored.jsonl`. With no clock, this is the stored
+    value of every column.
+  - The replay census: `REPLAY_CUTOFF=2026-06-30 uv run fedcourts query
+    --court scotus --disposition granted --decided-before 2026 --limit 5000
+    | jq -c -s --slurpfile s stored.jsonl -f mask-census.jq`.
+  - The forward census: the same with `--decided-before $(date +%F)` and no
+    `REPLAY_CUTOFF`.
+
+  Each census prints, over the rows admitted, joined on `case_id` to the
+  stored rows:
+  - how many carry a non-null `citation_count` stored and returned;
+  - how many carry the opinion cluster, split by whether the row carries a
+    decision date, and how many of each pass;
+  - for each date-tested column and `last_live_polled`, how many carry it
+    stored and how many the mask nulls.
+
+  On the first parent every `returned` and `passed` equals its `stored`, and
+  every `nulled` is 0. On the merge, `citation_count.returned` and
+  `cluster_undated.passed` are 0, and `last_live_polled.nulled` equals its
+  `stored`.
+
+  **Where it landed.** Merged to `staging` as `<FILL: staging merge commit>`
+  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`). At that
+  promotion's first parent, `src/fedcourtsai/corpus.py` has no
+  `REPLAY_DECISION_RECORD_COLUMNS`; at its merge commit it does.
+
+  **What did not move.** No digest input. The change touches no prompt
+  template, neither `config/predictors.yaml` nor `config/evaluators.yaml`, and
+  not `src/fedcourtsai/process_version.py`. `uv run fedcourts process-digest
+  --all` prints the same output on either side of the change: `proc-v9` and
+  the six digests `605201bd…` (claude-baseline), `70fee158…`
+  (codex-baseline), `a9033e56…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `18a76b93…` (codex-judge) and `22558044…` (gemini-judge).
+  A forward `query` with no clock returns the stored row untouched. **Nor did
+  the prompt.** The predict prompt still does not tell a cell that an empty
+  or null value in a withheld column means masked under the clock. Saying so
+  is a prompt change, and so a digest move, and it waits for the next
+  re-bless.
+
+  **The reading rule.** Two cert back-test reports whose cells ran on either
+  side of `<FILL: merge hash>` ran under different replay masks, even where
+  their provenance blocks and `provenance.clocks` agree. Neither field can
+  see this change, so no engine row's series spans the boundary. The
+  committed `metrics/cert-backtest.json` (run `20261003T115301Z`) is
+  pre-boundary. Its engine rows (`n=10` each; 0.700 against the 0.600
+  always-deny floor, one petition of lift) may not pool with a report run after it. Its
+  `prior-vote` (0.600) and `constant-denied` rows may. The always-deny floor
+  is a property of the labels. The offline `prior-vote` row votes on
+  dispositions with no citation filter. Both are unaffected.
+
+  Every report before the boundary could retrieve priors carrying their
+  current opinion, citations, summary, precedential status, citing count,
+  termination date, merits-brief date, conference date and tracking stamps,
+  wherever a cell ran a clocked `query` and the prior carried them. That is
+  post-clock information about the priors, mainly that a prior granted
+  before the clock went on to a merits decision and how that decision came
+  out. It is never information about the replayed petition itself. Its
+  effect on a score has no known sign.
+
+  After the boundary, a clocked `query` withholds those facts where they
+  postdate the clock, and an unclocked one does not. On that surface a
+  replay figure understates the same predictor's unclocked information set,
+  as it already does on the snapshot. The cell's open-web and CourtListener
+  tools reach a prior's current docket and opinion on both sides of the
+  change. The back-test report's provenance does not record the masked
+  column sets: they are code constants, so the carrying merge already dates
+  them, and a provenance field would only restate this entry.
+
+  The runnable effect check once it is live, beyond the census above:
+  - `uv run pytest tests/test_corpus.py -k "replay_clock"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    six digests above;
+  - on `main` once the boundary row is stamped, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('query-clock-prior-last-pull-mask' in {b.name for b in H})"`
+    prints `True`.
+
+- **A forward cell the record cannot show to be forward is set aside from the
+  ongoing boards' default figures, with a sensitivity reading beside them, and
+  a distribution cell is never first-minted after its conference considered
+  the petition, 2026-10-16.** Two **membership rules**, one on the scored
+  figures and one on cell minting, recorded together because they bound one
+  population from its two sides. Neither moves a digest: `uv run fedcourts
+  process-digest --all` prints `proc-v9` and the six digests `605201bd…`
+  (claude-baseline), `70fee158…` (codex-baseline), `a9033e56…`
+  (gemini-baseline), `167b7d71…` (claude-judge), `18a76b93…` (codex-judge)
+  and `22558044…` (gemini-judge) on either side of the change.
+
+  **The set-aside.** On the ongoing boards — `metrics/leaderboard.json`,
+  `metrics/claim-scores.json`, and every surface reading the same
+  `store.stratify` pass (the ops report's substance funnel, which prints a
+  one-line count, and the semantic census) — a scored cell whose record
+  cannot show it was made before its outcome was public leaves the
+  **default** figures and is counted back in a **sensitivity** figure
+  published beside each pooled figure it moved. The board's `set_aside` block
+  counts the set-aside gradings by reason, predictor and event, over that
+  board's own population (the claim-score board counts only cert's first
+  moment). `set_aside_sensitivity` carries each moved (population, predictor,
+  stratum) **pooled entry's** figure recomputed by the same code with them
+  counted, and on the leaderboard the paired figure the ranks are read off
+  where a ranked-board cell was set aside. The `by_protocol` cut is
+  default-only and carries no sensitivity line. The default is the headline.
+  The rule is asked last, of a cell the void, the forward-claim rule and the
+  leakage bit all kept, so no grading is counted in two ledgers. The board's
+  `big_case` and `evaluator_agreement` views and `big-cases.json` read the
+  ledger by their own path and do not apply it, for the reason they do not
+  apply the other exclusions. Each reason is a value of `SetAsideReason`
+  (`fedcourtsai.set_aside`); two are registered here.
+
+  **`interim-decision-day`.** A forward interim cell whose harness clock
+  (`integrity.cell_clock`), dated in Court time (America/New_York, as the
+  2026-10-15 pre-mint entry dated it), falls on or after its outcome's
+  `resolved_at`, unless its `usage.json` `pre_mint_poll.state` reads `open`.
+  A missing poll or one reading `unavailable` sets the cell aside: every cell
+  written before the poll existed carries none. Computed from the committed
+  ledger alone. Counted on the ledger at `staging` `44b2c9d1a` (whose
+  predictions, outcomes and evaluations are those of `main` `338630861`), the
+  2026-10-15 recount holds: 26 of the 108 resolved forward interim
+  predictions were written on or after their decision date in Court time, 23
+  on the day and 3 after, and 0 of the 394 resolved forward cert predictions
+  were; none of the 108 carries a pre-mint poll. In the frozen scope the rule
+  sets aside the 23 same-day cells, 66 gradings on eight events
+  (`scotus/9526000428` `evt-motion-disposition` and
+  `evt-brief-response-disposition`, `scotus/9526000434`, `scotus/9526000437`,
+  `scotus/9526000447`, and `scotus/9526000477`'s three interim events), by
+  moment 40 at `interim@arrival`, 18 at `interim@response-filed` and 8 at
+  `interim@response-requested`, by predictor claude 24, codex 24, gemini 18.
+  The 3 later cells (`scotus/9526000256`, `proc-v4`/`proc-v5`) are outside
+  every frozen scope and breach the forward claim in the all-versions scope,
+  so the rule reaches none of them. **What it moves.** No forward figure:
+  Court time is never ahead of UTC, so a cell on or after its decision day in
+  Court time is on or after it on the harness clock's UTC day too, and
+  `classify_stratum` already puts a same-day tie in the retrospective stratum
+  while `forward_claim_breach` excludes a later day. None of the 26 was ever a
+  forward observation on any board. What the rule moves is the retrospective
+  stratum — unclaimable iteration signal, never a skill figure — of the three
+  interim blocks, which at this ledger holds only these cells and so reads
+  null in the default; with them counted, `interim@arrival` claude reads 15
+  retrospective gradings over 5 events at accuracy 0.80 against an always-deny
+  floor of 0.80 (4 of the 5 applications denied). An open poll does not move
+  a same-day cell into the forward stratum; the stratum boundary is
+  unchanged.
+
+  **`post-conference-first-forecast`.** Every cell on a cert distribution
+  event whose first forward frozen-scope cell (by harness `run_id`) ran on or
+  after the day the conference that actually considered the petition sat:
+  `cert_signals.considering_conference` reads `sat`. A petition the
+  conference did not consider stays in. A call for response or a reschedule
+  entered between the distribution and the conference takes the petition off
+  it (the shape of `scotus/9026000018`, `scotus/9026000023`,
+  `scotus/9026000060` and `scotus/73500284`). A relist is a date-dependent
+  carve-out: a petition distributed again for a later conference is read
+  against that conference only where the relist entry was docketed by the
+  first cell's run day (`cert_signals.relisted_past`); a cell run between the
+  conference and the relist's docketing reads the conference that sat. The
+  reading needs the petition's docket entries, which live in the corpus, so
+  these events are **listed**, append only, and the boards stay offline.
+  `src/fedcourtsai/set_aside_events.json` lists, as it lands, the 16 events
+  the release's post-conference census named at corpus newest pull 2026-10-09,
+  all considered at the 2026-09-28 conference: `scotus/9026000066`
+  `evt-petition-disposition`, `scotus/9026000079` `evt-petition-disposition`,
+  `scotus/9026000080` `evt-petition-disposition`, `scotus/9026000095`
+  `evt-petition-disposition`, `scotus/9026000121` `evt-petition-disposition`,
+  `scotus/9026000183` `evt-petition-disposition`, `scotus/73500246`
+  `evt-petition-disposition`, `scotus/73529868` `evt-petition-disposition`,
+  `scotus/9026000130` `evt-petition-disposition`, `scotus/73292081`
+  `evt-petition-disposition`, `scotus/73500240` `evt-petition-disposition`,
+  `scotus/9026000043` `evt-petition-disposition`, `scotus/73500214`
+  `evt-petition-disposition`, `scotus/73500290` `evt-petition-disposition`,
+  `scotus/9026000461` `evt-petition-disposition` and `scotus/9026000462`
+  `evt-petition-disposition`. **The list is complete as of that vintage
+  only.** A cell first minted after a later conference sat and before the
+  admission guard below went live is a row the list owes; each such row is
+  appended with its own dated freeze-record entry naming it (the registry's
+  binding test refuses a row no entry of its date names), and it moves the
+  default from that entry on. The census that reconciles the list with the
+  corpus, `scripts/checks/post_conference_census.py`, also counts the events
+  a relist kept in. Read at the carrying head: <FILL: post-conference census at the carrying head as one plain line, census events, listed, owed, relist keep-ins, unreadable, and the corpus vintage>.
+
+  **What it moves.** At the ledger above 7 of the listed events are resolved
+  and graded, 63 frozen-scope gradings (7 events by 9 gradings, 21 per
+  predictor), all forward at `cert@distribution`: 6 denied on 2026-10-05 and
+  No. 25-1343 (`scotus/73500246`) granted on 2026-10-13. That grant is the
+  only one among the set-aside events, and it decides most of the
+  difference: claude forecast it at 0.38 (denied), and claude's cell says in
+  its `flags.json` that it conditioned on the petition not being granted in
+  the first tranche, while codex forecast 0.78 and gemini 0.85 (granted). The
+  default therefore removes codex's and gemini's correct call on the rare
+  event and claude's miss, favouring claude relative to codex and gemini on
+  this slice. Default then with the set-aside counted, over 327 then 348
+  gradings per predictor on 110 then 117 events, with 6 then 7 realized grants and an
+  always-deny floor of 0.945 then 0.940:
+
+  | Predictor | Accuracy | Lift over floor | Mean Brier | Population Brier skill |
+  | --- | --- | --- | --- | --- |
+  | claude-baseline | 0.982 then 0.974 | +0.037 then +0.034 | 0.0186 then 0.0209 | 0.652 then 0.590 |
+  | codex-baseline | 0.972 then 0.974 | +0.028 then +0.034 | 0.0228 then 0.0220 | 0.573 then 0.569 |
+  | gemini-baseline | 0.927 then 0.931 | −0.018 then −0.009 | 0.0512 then 0.0484 | 0.042 then 0.050 |
+
+  The paired figure is the same population at this ledger (every engine
+  holds every event, 110 then 117), and its rank key is forward accuracy,
+  then mean Brier. The order claude, codex, gemini holds on both readings,
+  but with the set-aside counted claude and codex tie on accuracy at 0.974
+  and the order between them is decided by mean Brier, 0.0209 against
+  0.0220.
+
+  **Each consequence's outcome correlation, by direction.** The set-aside's
+  removals are plausibly correlated with the outcome: an undisposed petition
+  after its grant list is almost always denied on the next order list, and
+  the six interim applications with an exposed cell split 5 denied / 1
+  granted (the 2026-10-15 entry). Removing them takes out a selected
+  population, and at this ledger its one cert grant moves the engines
+  differently, so a figure read without them can move in either direction;
+  that is why both readings are published and neither is withheld. The
+  admission guard's three consequences each select too:
+  - the first-time fan-out stops minting post-conference distribution cells,
+    which removes forecasts of a mostly denial-bound population — the same
+    direction as the set-aside;
+  - the re-predict path now re-owes a petition a call for response took off
+    its conference, and such petitions plausibly grant above their band's
+    rate — the **opposite** direction, adding grant-weighted cells. How many
+    it re-owes is unmeasured; the first predict-plan after the carrying merge
+    shows it, and until a later entry records that count it is unverified;
+  - the re-predict path now refuses a distribution on its conference day,
+    which it admitted, and every plan refuses a past-conference distribution
+    whose live payload it cannot read; both defer cells rather than remove
+    them, and their selection is unmeasured.
+
+  **The admission guard.** From the carrying merge, a distribution-moment
+  cell is never minted, on the first-time fan-out or the re-predict path, for
+  a conference that has passed **and** considered the petition. One predicate
+  serves both (`store.distribution_conference_considered`, read by
+  `forecastable_event_ids` and by `pipeline.pull._reopenable_moment`), with
+  the same reading of "considered" as the set-aside: the row's
+  `distributed_for_conference` decides while it is ahead of the day; once it
+  is not, the case's latest live payload decides, and only a call for
+  response or a reschedule entered before the conference, or a relist
+  docketed by the day, keeps the event open. A payload read that fails
+  refuses rather than raising, and is logged.
+
+  **No harness boundary is registered.** The set-aside reads only committed
+  facts and a committed list, and applies to every cell whenever it ran, so
+  no figure depends on which side of the carrying merge a cell was minted;
+  the admission guard changes who is minted, not what a minted cell reads,
+  and the cells it would have refused before the merge are the listed
+  reason's population, row by row as the census finds them. Neither side
+  needs its own `n`.
+
+  **Release 1 is unchanged.** `release-sensitivity`, the cohort cut, the
+  dataset export and a revoked window's record build without the set-aside
+  (`stratify(..., apply_set_aside=False)`), so re-running them reproduces the
+  published figures, and the release's post-conference sensitivity line
+  remains that population read the other way round. The export carries no
+  set-aside column yet; one is owed before the next release is cut. The
+  committed boards change at the next metrics refresh after the carrying
+  merge; a board built before it and one built after are over different
+  populations and are compared only through the sensitivity lines.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - after the first metrics refresh on `main`, `jq '.set_aside.by_reason'
+    metrics/leaderboard.json metrics/claim-scores.json` prints
+    `interim-decision-day` and `post-conference-first-forecast` with nonzero
+    counts on the leaderboard and only the second on the claim-score board,
+    which is cert-stage, and `jq '.set_aside_sensitivity.lines | length'
+    metrics/leaderboard.json` is nonzero;
+  - on the next `predict-plan`, no derived case carries an
+    `evt-petition-disposition` whose row's `distributed_for_conference` is on
+    or before the plan day unless its docket shows a call for response or a
+    reschedule before that conference, or a relist docketed by the plan day;
+  - once the guard is live and every owed row is appended,
+    `scripts/checks/post_conference_census.py` reports 0 census events not
+    listed. Until it does, the list is complete only as of its last census.
+
+- **An increment claim whose signal was on the docket before its forward cell
+  ran is masked, one the record cannot order against the run is set aside
+  from the claim figures, and the pre-mint poll records each increment signal
+  it saw, 2026-10-16.** A **scoring change** (which scored claims
+  count) and a **membership rule** at the claim grain, under unchanged
+  digests: `uv run fedcourts process-digest --all` prints `proc-v9` and the
+  six digests `605201bd…` (claude-baseline), `70fee158…` (codex-baseline),
+  `a9033e56…` (gemini-baseline), `167b7d71…` (claude-judge), `18a76b93…`
+  (codex-judge) and `22558044…` (gemini-judge) on either side of the change.
+
+  **The problem.** An increment claim (`response-requested-increment`,
+  `referral-increment`, cert `cvsg-increment`) forecasts a signal the frozen
+  context did not show. A forward cell runs some days after its record was
+  cut and may read the live docket, so the signal can already be there when
+  it runs, and a near-certain "yes" then resolves 1 as a correct forecast of
+  something the cell could read. The existing vacuous mask reads only the
+  frozen context, so it never caught this.
+
+  **The poll extension.** The pre-mint poll already fetched the Court's
+  docket JSON at `polled_at` just before minting. It now also records, under
+  `pre_mint_poll.signals` in the cell's `usage.json`, whether each increment
+  signal was on the served docket and the entry date the ingest parser reads:
+  on an application `response_requested` (`interim_signals.response_requested`
+  and `response_requested_date`) and `referred_to_court`
+  (`interim_signals.referral_posture` and the new `referral_date`, over the
+  same pattern), on a petition `cvsg` (`cert_signals.CVSG_RE` and
+  `snapshot_cvsg_date`). It is record-only: the poll's verdict is still the
+  outcome scan's alone, a failed signal reading leaves the verdict standing
+  and records nothing, and the payload is still read and discarded, never
+  the cell's input. The post-run poll is the same `poll-docket` read
+  (`pre_mint.poll_docket`), so it records `post_run_poll.signals` the same
+  way. The record travels in the same step output as before, so this changes
+  what `usage.json` records and not what a cell reads. **No
+  harness boundary is registered**: a forward cell may read the live docket
+  without restriction, and the poll adds nothing to its inputs.
+
+  **The mask.** At the evaluator stamp (`score_claims`, through
+  `set_aside.increment_timing`), on a `forward` cell, an increment claim the
+  record would resolve is masked (`outcome: null`) with its own
+  `ClaimScore.mask_reason`, `signal-before-run`, when **(a)** its pre-mint
+  poll read open and recorded the signal present, or **(b)** with no usable
+  poll (none, `unavailable`, or one that recorded no reading of that signal), the
+  signal's committed docket date is strictly before the cell's run day — its
+  harness clock (`integrity.cell_clock`) in Court time (America/New_York), as
+  the 2026-10-15 and `interim-decision-day` entries date a cell. A poll that
+  read the signal absent never masks the claim; the post-run poll then
+  decides between a forecast and the set-aside below. The committed dates
+  are the response-requested moment's `opened_at` (minted dated by the
+  request entry) and the outcome's `signals.cvsg_date`. **No committed artifact dates a referral**, so an
+  unpolled cell's `referral-increment` is unassessable and keeps the
+  resolution its record gives it. Replay cells are not read: their run
+  postdates their cut by design. It is not the vacuous mask, because it is
+  conditioned on when the cell ran and not on what it was provisioned. Two
+  residuals stand on the date path (b), both leaning toward a mask and both
+  reaching unpolled cells only: `cell_clock` reads the stamp's `stamped_at`,
+  written after the engine finishes, so a run that crosses Court midnight
+  takes its end day as its run day and a signal dated its start day reads
+  before the run; and a docket entry's date can be earlier than the day it
+  appeared on the served docket, so a signal posted late under an earlier
+  date reads before a run that could not have seen it.
+
+  **The set-aside, `increment-run-day`.** The one claim-grain
+  `SetAsideReason`: a resolved increment claim on a forward cell whose run
+  the record cannot order against its signal, so the claim may be a
+  forecast or an observation. Two arms reach it. **(a)** The pre-mint poll
+  read open and recorded the signal absent, and the post-run poll — the same
+  `poll_docket` read taken after the engine stopped, against the docket
+  number the first poll named, its signal reading standing whatever its
+  verdict short of `unavailable` — recorded it present: the signal landed
+  inside the window the two polls bracket, while the cell ran and could read
+  the live docket. **(b)** With no usable pre-mint poll, the signal is dated
+  the run day itself — the same-day policy the `interim-decision-day` reason
+  applies to a cell. A pre-mint poll that read the signal absent with a
+  post-run poll that read it absent too, or recorded no reading, or is
+  missing, keeps the claim as a forecast. Computed at the board from the
+  committed ledger alone, in the same
+  `store.stratify` pass (`StratifiedRun.claim_set_aside`), never stamped. On
+  `metrics/claim-scores.json` the claim's score leaves every default figure —
+  the block total, floor and lift, the per-claim means, and the judge
+  validation's pairs — and the cell stays counted. The board publishes
+  `claim_set_aside` in claim units (each prediction's claim once, with the
+  gradings carrying it and how many carried a score) and
+  `claim_set_aside_sensitivity`, one line per (reason, predictor, stratum)
+  recomputed with that reason's claims counted back and nothing else, never
+  stacked with the cell-grain set-aside or another departure. The cell-grain
+  sensitivity lines are built with the claim-grain set-aside applied.
+  `release-sensitivity`, the cohort cut and the export still build without
+  either set-aside.
+
+  **Counts.** Recounted from the committed ledger at `staging` `10cf97c36`,
+  over every process-stamped forward cell under any process label (proc-v8
+  and proc-v9 alike, not a frozen-scope cut), live claims only (the frozen
+  context not already showing the signal), run day in Court time. None of
+  them carries a pre-mint or a post-run poll, so every reading is by date and
+  the post-run arm moves no count; the recount at this entry's own head
+  reproduces every figure below:
+  - `response-requested-increment`: 68 live claims, 47 resolved. **24** had
+    their request strictly before the run day, 15 resolved — `scotus/9526000370`
+    (requested 09-18, ran 09-27), `scotus/9526000382` (09-23, 09-27),
+    `scotus/9526000406` (09-24, 09-27), and `scotus/9526000477`'s
+    `evt-motion-disposition` and `evt-order-response-requested-disposition`
+    (10-08, 10-14), three engines each — and 9 unresolved, on
+    `scotus/9526000416` (09-28, 09-29), `scotus/9526000458` (10-06, 10-07) and
+    `scotus/9526000499` (10-14, 10-15). Of the 24, 15 sit on proc-v8 cells (9
+    resolved) and 9 on proc-v9 cells (6 resolved, all `scotus/9526000477`).
+    The three unresolved events are each dated exactly one day before the run,
+    the margin at which a posting lag (the second residual above) could carry
+    the entry onto the docket only after the cell ran. **3** are same-day, all
+    resolved, on proc-v8 cells: `scotus/9526000446` `evt-motion-disposition`
+    (10-02). None of the 68 live response-requested claims is unassessable.
+  - `referral-increment`: 144 live claims, 108 resolved; **66** resolved 1 on
+    22 events, all unassessable from the ledger. The ledger dates no
+    referral, so a `referral-increment` claim on any cell without a usable
+    pre-mint poll reading of the referral stays unguarded by this rule: every
+    cell minted before the poll recorded signals, and any later cell whose
+    pre-mint poll recorded no reading of it (an `unavailable` poll, a docket
+    with no proceedings, a failed signal reading, or no `usage.json`). Such
+    claims must not enter any scored figure without a corpus-dated reading of
+    the referral (`interim_signals.referral_date`, which the census below
+    computes).
+  - `cvsg-increment`: 739 live claims, 385 resolved; **0** with a CVSG on or
+    before the run day.
+
+  The run day is read in Court time, not as a UTC date:
+  `scotus/9526000275`'s cells ran at 01:42Z on 09-01, the evening of 08-31 in
+  Court time, and its request is dated 09-01, so they are not same-day and
+  are untouched.
+
+  **What it moves.** No published figure today. The mask is applied at the
+  stamp, so it reaches blocks stamped (or re-stamped with `stamp-cell
+  --regrade`) from the carrying merge; committed blocks keep the resolution
+  they were stamped with, and the boards do not re-resolve them. A re-stamp
+  of the committed ledger would mask the 15 resolved claims above, 45
+  gradings. None of the three increment claims has a baseline, so none of
+  them carries a score, and the two interim claims sit on no claim surface:
+  `claim-scores.json` covers cert's first moment, where only
+  `cvsg-increment` lives and none is reached. The run-day set-aside reaches
+  the 3 `scotus/9526000446` claims (9 frozen-scope gradings, all forward at
+  `interim@arrival`), which are recorded in the pass and move nothing
+  published. The claim-score board carries no `claim_set_aside` block at
+  this ledger. The rule moves a figure once a baseline lands for an increment
+  claim or an interim claim surface exists, and from then on removes claims
+  the record shows, or cannot rule out, were read rather than forecast. Any
+  baseline later added for these three claims must be computed over the
+  run-time population the mask leaves in, never the cut-conditioned one:
+  scored against a rate that still counts the overtaken signals, the
+  surviving forecasts would be measured against a base they were never drawn
+  from and the mask would re-base skill rather than remove observations (the
+  segment-conditioned base-rate standard, docs/salience.md, *Base rates &
+  baselines for the predicted segment*).
+
+  **Out of scope.** Two increment claims are not read. `relist-increment` on
+  the cert first moment, the one claim surface, is bracketed by the
+  post-conference set-aside: that moment is not cut at its opening, so the
+  context carries the distribution and relist history of the provisioned
+  snapshot, and a relist only follows a conference that sat, while an event
+  whose first forward cell ran on or after that conference is set aside
+  whole. Its residual is any petition distribution docketed after the
+  snapshot's pull and by the run day — a relist, a redistribution after a
+  call for response, or a redistribution after a reschedule.
+  `cert_signals.considering_conference` reads the latest petition
+  distribution filed by the run day, so such an entry naming a conference
+  still ahead moves the considering conference ahead and keeps the cell,
+  while `distribution_count` counts distinct conferences, so the same entry
+  is a rise the claim resolves on and a count its context lacks. The window
+  is bounded by the snapshot's age, and its size is unmeasured.
+  `amicus-increment` is a count claim, resolved by strict comparison of
+  the two committed counts, so any brief after the cut moves it and no single
+  signal entry dates it; the poll records no amicus count, and its run-timing
+  exposure is unmeasured.
+
+  **Outcome correlation.** The mask and the set-aside are plausibly
+  correlated with the outcome. An application the Court acts on within days
+  of arrival is the contested kind, and every masked or set-aside claim here
+  sits on an `interim@arrival` cell (or on `scotus/9526000477`'s
+  response-requested cell, whose context froze before the request it was
+  minted by — a provisioning anomaly the mask hides and does not explain). Of
+  the five resolved applications, four were denied and `scotus/9526000406`
+  was granted; a response-requested application is granted at about 37.0%
+  against a 7.8% base (the 219-application measurement
+  `pipeline.outcome` quotes), and at n=5 one grant is indistinguishable from
+  that rate. Removing them removes a selected population, so a claim figure
+  read without them can move in either direction.
+
+  **The corpus check.** `scripts/checks/increment_timing_census.py` reads
+  every live claim twice, from the ledger (the rule above) and from the
+  corpus (`response_requested_at`, `cvsg_date`, and the earliest dated
+  referral entry on the latest live payload), and counts where they
+  disagree. Stored payloads are as of their pull, and a same-day pull
+  overwrites that day's, so a referral entered after the latest pull is
+  missing from it; the census counts such a referral unreadable where the
+  corpus row records one. Read at the PR head the corpus-check lane answered at:
+  <FILL: increment timing census at the PR head the corpus-check lane answered at as one plain line, before-run, during-run and run-day counts per claim by both readings, referral claims dated before or on the run day, unreadable referrals, and the corpus vintage>.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - the first forward predict cell minted after the carrying merge carries
+    `pre_mint_poll.signals` in its `usage.json`:
+    `jq '.pre_mint_poll.signals' data/cases/scotus/*/events/*/predictions/*/<run>/usage.json`
+    is non-null on an open poll;
+  - `uv run pytest tests/test_increment_timing.py tests/test_pre_mint.py` is
+    green;
+  - after the first metrics refresh on `main`, `jq '.claim_set_aside'
+    metrics/claim-scores.json` prints `null` until a resolved cert
+    first-moment `cvsg-increment` claim is dated its unpolled cell's run day,
+    or sits on a polled cell whose post-run poll reads the CVSG its pre-mint
+    poll read absent;
+  - the first evaluator stamp of an interim cell whose request preceded its
+    run writes `"mask_reason": "signal-before-run"` on its
+    `response-requested-increment` row.
+
+- **A decided merits event is held for its opinion body before it is first
+  graded, and the live window fetches that body; recorded 2026-10-16.** A
+  **grading-timing rule** under unchanged digests. It is recorded before any
+  cell it can reach exists, and before any outcome it can reach is observable.
+
+  **What moved.** Two halves, one clock.
+  - **The hold.** `evaluate-matrix` defers a decided merits event while its
+    case's corpus row carries no `has_opinion` bit
+    (`matrix.opinion_hold`). "Decided merits event" means a declared merits
+    moment whose committed `outcome.json` records a `judgment`. The deferral
+    lasts up to `OPINION_HOLD_DAYS` = 14 days after that outcome's
+    `resolved_at`. The event is graded on the first run after the body lands,
+    and on day 14 regardless, masking on `not-ingested` if the body never
+    came. Only a body that can arrive is waited for. A DIG or an equally
+    divided affirmance publishes no majority opinion
+    (`matrix.BODILESS_JUDGMENTS`), so neither is held. Nor is a row the
+    enrichment pass can never walk, one with no cert grant on record or a
+    live-channel docket id (`matrix.awaited_presence`); reachability is fixed
+    by the cert grant and the docket id before any decision, so it selects on
+    case type, never on outcome. The window, and the
+    backlog derivation under it, count on the run id's UTC day. `--force` does
+    not lift it. A row the planner cannot read is not held. `evaluate-plan`
+    lists each held cell under `held_awaiting_opinion` with a `held: awaiting
+    opinion` reason. The backlog deriver gives a case whose every owed event
+    is held no `backlog_cases_per_cycle` slot.
+  - **The fetch.** Every `run-pull` live window runs `enrich-opinions --apply
+    --awaiting-grading --max-cases 8` after its poll. The walk is scoped to the
+    cases the hold is waiting on: a committed merits outcome with a judgment,
+    resolved fewer than 14 days ago, DIGs and equally divided affirmances
+    excluded. The step is `continue-on-error` and holds the CourtListener
+    token step-scoped. `corpus-push`, which every corpus writer runs, now
+    rolls back a hot journal a killed writer left and refuses to publish when
+    one will not clear.
+
+  **What did not move.** No digest input. The change touches no prompt
+  template, neither `config/predictors.yaml` nor `config/evaluators.yaml`, and
+  not `src/fedcourtsai/process_version.py`. `uv run fedcourts process-digest
+  --all` prints the same output on either side of the change: `proc-v9` and
+  the six digests `605201bd…` (claude-baseline), `70fee158…`
+  (codex-baseline), `a9033e56…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `18a76b93…` (codex-judge) and `22558044…` (gemini-judge).
+  What a grader is graded against does not move either. It reads the same
+  committed outcome, and the same `provision-opinion` step stages the same
+  slot from the same row. The hold changes only how often that slot is full
+  when the event is first graded. No predict cell reads anything new, so this
+  is not a harness boundary. Every held event is still graded: once it
+  becomes eligible, no later than its first backlog slot from day 14. So no
+  cell enters or leaves a published population, and this is not a membership
+  rule.
+
+  **Why it is recorded anyway.** Two published readings depend on when a
+  decided merits event is first graded.
+  - **The semantic census.** `semantic-summary` reads one grading per (case,
+    event, predictor, evaluator), the newest. Nothing re-grades an event
+    unprompted, so the first grading is ordinarily the one counted. Under the
+    hold, `not-ingested` on a newly decided case ordinarily reads *the body
+    did not reach the corpus within 14 days of the decision*. A round that
+    could not read the presence bit grades unheld, and the artifact does not
+    record which applied. The bucket also holds events that were never held:
+    body-less judgments (DIGs and equally divided affirmances) and rows
+    enrichment cannot walk, and the artifact does not record which reading
+    applies to a given grading. Without the hold, the same bucket
+    mostly read *the grading ran ahead of ingestion*. A `not_addressed_by_ground`
+    split pooled across the boundary mixes the two readings.
+    `metrics/README.md` states the rule in place.
+  - **Board cuts near a decision.** A board or a release cut built within 14
+    days of a decision can lack that decision's gradings, since an event that
+    is not graded is not scored. That covers the mechanical merits claims and
+    the leaderboard's merits Brier, not only the semantic grades. The hold
+    excludes at the source the dispositions known to publish no opinion. DIGs
+    and equally divided affirmances both score *undisturbed* on the merits
+    binary, so holding them would have kept undisturbed outcomes out of a cut
+    for the whole window and overstated the disturbed rate inside it. What
+    remains held longest is an expected body that does not land: a per curiam
+    upstream carries no opinion text for, or a cluster the enrichment pass
+    refuses (several candidate clusters, as consolidated cases can carry, or a
+    cluster naming another docket). Whether those lean disturbed or
+    undisturbed is **unknown**, and this entry claims no direction. The
+    population is small and the deferral is bounded, but a cut made inside
+    the window may still be missing a non-random subset. The safe reading is
+    to quote a merits figure only from a cut built 14 or more days after the
+    last decision it covers, or to name the held events beside it;
+    `evaluate-plan` lists them.
+
+  A grading that lands later can also land on the other side of a later
+  evaluator re-bless than it would have. The `graded_post_freeze` /
+  `graded_in_window` gates key on the grading's own stamp, so such a grading
+  counts under the rubric it ran under, as any late grading does. The hold is
+  per event and the idempotency gate per judge, so one event's judges can
+  read different slots. On release day a judge whose cell lands reads the
+  empty slot, while one whose cell failed is re-minted later, possibly after
+  the body has landed.
+
+  **The census at authoring.** On `origin/main` at `5bc3c8a2a1d9`, the ledger
+  holds 61 committed merits event definitions, 0 merits `outcome.json` files
+  and 0 evaluations of a merits event, from `git ls-tree -r --name-only
+  origin/main -- data/cases` filtered to the two declared merits moments. So
+  no cell is held, released or graded differently at this entry. Both sides
+  of the boundary are empty for merits gradings. The first cell the hold can
+  reach is the first OT2026 merits decision, December 2026 at the earliest.
+
+  **Where it landed.** Carried to `main` by the promotion tagged
+  `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged
+  `<FILL: merged-at>`). At that promotion's first parent
+  `src/fedcourtsai/matrix.py` has no `OPINION_HOLD_DAYS`; at its merge commit
+  it does.
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_matrix.py tests/test_evaluate_backlog.py
+    tests/test_opinion_enrichment.py -k "hold or held or awaiting"` and
+    `uv run pytest tests/test_corpus_remote.py -k journal` are green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    six digests above;
+  - after the first OT2026 merits decision on a predicted case, and before
+    its body lands, `uv run fedcourts evaluate-plan` (backlog mode, where the
+    corpus is pulled) lists that case's event under `held_awaiting_opinion`
+    with a reason opening `held: awaiting opinion`. The first live window
+    after the decision prints an `enrich-opinions (applied, awaiting-grading)`
+    line on its step summary with `walked` at least 1.
+
+- **A finer, descriptive reading of interim partial grants and moot dismissals
+  is added; every scored and cell-facing interim reading is unchanged under
+  `proc-v9`; recorded 2026-10-16.** A **parser** entry that moves no value. It
+  also records a maintainer decision about the next process label, without
+  registering that label's terms.
+
+  **What was added.** `pipeline.interim_signals.read_interim_disposition`
+  returns an `InterimReading`, a descriptive vocabulary kept apart from
+  `Disposition`.
+  - Five of its six values share a spelling with a `Disposition` member.
+    `granted-in-part` is one of them; the cert vocabulary already carries it,
+    on the granted side.
+  - Only `dismissed-moot` is new, and it is no `Disposition` value. No interim
+    outcome records `granted-in-part`, because the registered reading never
+    produces it.
+
+  The reader works on the application's own clause. A clause opens on
+  "application" only where the word is the subject, so not after a
+  preposition such as "of the" or "for the". It runs to the end of its
+  sentence, a semicolon, ", and" followed by an article or possessive, or
+  "and the motion", "and the petition" or "and the request".
+  - A **partial grant** is `granted-in-part`. The clause carries "granted"
+    followed directly (an optional comma, an optional "but only") by "in
+    part", "as to", "insofar as", "to the extent" or "except". Or it carries
+    "denied" followed the same way, beside a "granted" anywhere in the
+    clause.
+  - A **moot dismissal** is `dismissed-moot`. The clause carries "denied" or
+    "dismissed" followed within 40 characters, with no comma or semicolon,
+    by "as moot".
+  - The partial reading wins over the moot one. Anything else takes the
+    registered label.
+
+  `pipeline.ingest.interim_reading` applies the reader on the
+  last-disposing-entry rule. `fedcourts interim-reading-census`
+  (`pipeline.interim_reading_census`, read-only) measures it, and is
+  described below.
+
+  **What did not move: the registered collapse is honoured.**
+  - `match_interim_disposition`, which ingest stores, is the registered
+    reading unchanged. A mixed partial disposition reads denial-first:
+    "granted in part and denied in part" is `denied`, and a qualified grant
+    with no "denied" in it is `granted`. A dismissal or denial as moot reads
+    by its verb, as `denied` or `dismissed`.
+  - Every scored and cell-facing reading takes the stored registered label
+    and none reads the finer one. That covers the corpus `disposition`
+    column, an outcome's `actual_disposition`, `actual_granted` and
+    `disposition_basis`, the Brier, `correct`, the claim block, the stratum,
+    the statpack's interim counts, the interim base rate, `stamp-cell`, and a
+    `fedcourts query` prior's label.
+  - Tests pin this:
+    - the record ingest writes for a partial and for a moot application is
+      byte-identical when the finer reader is made to fail;
+    - an AST scan allows the finer names only in the defining module, in
+      ingest's two read-only wrappers, in the census module, and in the CLI
+      as the census's sole caller;
+    - the census leaves the corpus file, every stored row and the committed
+      outcomes byte-identical.
+  - No committed `outcome.json` is relabeled. The committed interim events
+    whose evaluations quote a moot order, `26A139` (`scotus/9526000139`) and
+    `26A477` (`scotus/9526000477`), keep `denied` and their 78 scored
+    `interim-disposition` claims as registered. Read at `origin/main`
+    `338630861`, that is 6 events, 18 predictions and 81 evaluation records.
+  - The `Disposition` vocabulary, every schema, the predict and evaluate
+    prompts and every digest are unchanged. `uv run fedcourts process-digest
+    --all` prints `proc-v9` and the same six digests as the entry above.
+  - No harness boundary is registered, because no cell-facing surface
+    changes.
+
+  **A known misreading in the registered reading, under `proc-v9`.** The
+  registered denial pattern is not clause-scoped. "The application for stay
+  is granted, and the motion to expedite is denied as moot." therefore reads
+  `denied`, though the application was granted. This entry does not change
+  that reading. Its prevalence is unknown. The census lists the stored
+  `denied` rows whose disposing entry holds an application clause that
+  grants with no denial in it (`registered_plain_grant_misreads`). That count
+  is a probe of this shape, not a census of every misreading, and it holds
+  candidates rather than confirmed misreads: a disposing entry with two
+  application clauses (a stay denied, an administrative stay granted) is
+  counted though its stored `denied` is right for the main application.
+
+  **The decision for the next process label.** The maintainer decided that
+  the next process label registers a new interim reading **in its own
+  freeze-record entry**. In outline, partial relief counts as a grant, and a
+  moot dismissal leaves the scored set and the base-rate denominator. This
+  entry registers none of that, and nothing here binds its terms. That entry
+  must settle, before activation:
+  - **Separate outcome fields** beside the registered ones. One
+    `outcome.json` serves every prediction on its event, whatever label
+    stamped it, so `actual_disposition`, `actual_granted` and
+    `disposition_basis` are never overwritten.
+  - **The reader keyed on the scored prediction's label**, across the Brier,
+    `correct`, the claim block, the stratum, `segment_base_rate`,
+    `stamp-cell` and `validate`'s `evaluation_correct_agrees`.
+  - **Whether a moot dismissal is truly unscored or scored in an unranked
+    stratum.** The procedural stratum is scored, and a top-level probability
+    is Brier-scored wherever it is, so these differ. The entry must also give
+    the claim mask its own reason. A mask conditioned on the outcome is not
+    "vacuous".
+  - **The probability target.** With moot dismissals out of the scored set
+    it is conditional: P(relief in whole or in part | not dismissed or
+    denied as moot).
+  - **`correct`**: whether it stays a label comparison or follows the
+    binary under partial grants.
+  - **The vocabulary**: a `Disposition` member and schema change for
+    `dismissed-moot`, or dropping it as a predictable label.
+  - **Whether a withdrawn or dismissed application not dismissed as moot**
+    stays ungranted, as the interim reading in `docs/salience.md` registers
+    today.
+  - **How the per-pool floor applies** once moot dismissals leave the
+    finer count, so a cell's baseline can be lost where today's would keep it.
+  - **How skill is read across the label change**, given that the base rate
+    is re-based on each side of it.
+
+  **The census.** It reports the statpack's substantive resolved and granted
+  counts per application Term, exactly as the interim section counts them;
+  a fixture test pins the equality. Beside them it reports the subset it
+  re-reads: resolved, application-parsed, live-slice rows with a stored
+  snapshot. It counts per Term the rows it cannot re-read, `unobservable`
+  and `non_live`. Within the re-read subset it gives the rows the finer
+  reading names, by Term, ask and label, and the committed interim outcomes
+  on them. Its result goes on the next line, one line of plain prose with no
+  angle bracket or backtick:
+  <FILL: interim reading census at corpus sha256 and corpus-info freshness, rows named partial or moot by Term and ask, statpack vs re-read substantive counts by Term with unobservable and non-live counts, registered disagreements, stored denials with a granting application clause as unconfirmed candidates for a side-motion misread, committed outcomes on the named rows>
+
+  **Residuals of the finer reading.**
+  - A partial stay worded only in a later sentence ("The application is
+    granted. The order is stayed insofar as …") reads as a plain grant.
+  - A filing that asks for partial relief ("Reply … asks that the
+    application be granted in part") reads `granted-in-part`. The reader
+    keys on the clause, not on who speaks.
+  - A grant "but only to the extent" reads `granted-in-part`, so a partial
+    stay the record holds as `granted` (the party-rates replication names
+    `24A884`) is named partial.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live, from a checkout of the carrying
+  merge:
+  - `uv run pytest tests/test_interim_signals.py tests/test_interim_reading_census.py`
+    is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    six digests above;
+  - with the corpus pulled and the content store addressed,
+    `uv run fedcourts interim-reading-census` reports
+    `stored_labels_written` 0 and an empty `registered_disagreements`, or
+    only drift that predates this change.
+
+- **Outcome detection becomes the only writer that closes a declared moment,
+  the lost outcomes on selected rows are recorded, and attribution refuses a
+  moment opened after its decision, 2026-10-16.** A **membership** change to
+  which events carry ground truth and which merits cases are forecast, and an
+  **attribution** change to which moment an outcome may attach to. It moves no
+  digest: no prompt template, neither agent config and not
+  `src/fedcourtsai/process_version.py` changes, and `uv run fedcourts
+  process-digest --all` prints `proc-v9` and the six digests the previous
+  entry lists. The registered interim disposition reading is untouched.
+
+  **The rules.** From this entry's carrying merge:
+  1. *One writer.* Re-extraction (`pipeline.ingest.default_event`) never
+     closes a stored event; it carries the stored `resolved` flag forward.
+     Before this entry it set `resolved` from the row's disposition on every
+     re-extraction, so a moment detection declined was closed with no
+     `outcome.json`. A stored declared moment now closes only in
+     `pipeline.outcome.record_outcomes`, beside its outcome. A baseline first
+     minted on a row already decided lands closed and marked
+     `resolved_without_outcome` (`ingested-decided`), a new corpus column with
+     a fixed-vocabulary reason column beside it.
+  2. *Open is not pending.* Because a declined moment now stays open on a
+     decided row, every reader of "still live" also asks the row whether the
+     event's stage is decided (`corpus.stage_shows_decided`): the case-baseline
+     and interim queue arms of the predict fan-out refuse such a moment (the
+     cert and merits arms and the forward gate already did); the CVSG, arrival
+     and interim response mints never mint on a decided row; a cascade cell on
+     one runs in `replay` mode; and the missed-forecast monitor reads it as
+     decided with no outcome record.
+  3. *Opened in time.* An outcome is written to a moment only if the moment's
+     `opened_at` is on or before the outcome's `resolved_at`. A later moment
+     is surfaced for triage instead. This is a refusal rule, and on interim
+     moments it is plausibly outcome-correlated: a fast disposition, which is
+     denial-weighted, is the one most likely to land before a response moment
+     opens.
+  4. *Coverage.* The live cycle's ledger-outcome convergence also retries
+     **open** declared moments on decided selected rows. run-repair's new
+     `lost-outcomes` pass records, at any age, every attributable decided
+     declared moment on a selected row with no ledger outcome. It holds back
+     any case whose gap stage carries a committed prediction, on the undated
+     arm as on the dated one (the live convergence reaches those at any age and
+     routes them to evaluate). It marks the corpus-resolved residue it cannot
+     attribute `resolved_without_outcome`, with reason `no-snapshot`,
+     `undated`, `opened-after-decision` or `declined`. The 12 selected OT25
+     petitions recorded on 2026-09-28 already carry outcomes, so they are
+     outside its population and are not rewritten.
+  5. *Merits mints.* A cert grant either sweep records mints the merits event
+     only when the merits case is still pending and forecastable: no latched
+     judgment, not terminated, inside the stale-grant bound, in predict scope
+     (`store.merits_event_forecastable`). Otherwise the grant outcome is
+     recorded and no merits event is minted; the pass lists each such grant by
+     verdict (`judgment-latched`, `terminated`, `stale`, `out-of-scope`). The
+     standing convergence applies the same rule but does not list or count
+     the grants it records without a merits event, so its share of the skips
+     is not reported.
+
+  **What moves, checked against the committed ledger** (read at the branch
+  head, whose `data/` was synced from `main` on 2026-10-16; 13,090 committed
+  `outcome.json`, 168 of them on events carrying a committed prediction):
+  - *No committed outcome is rewritten.* The convergence and the pass read
+    only moments without a complete ledger pair, and `record_outcomes`
+    writes only what they plan (pinned by
+    `tests/test_outcome.py::test_the_outcome_pass_never_rewrites_a_recorded_outcome`).
+  - *Rule 3 against the ledger:* 9 committed outcomes have an event that
+    opened after their `resolved_at`. All 9 are unpredicted
+    `evt-petition-disposition` outcomes, all 9 are **denials**, and each one's
+    `opened_at` (the docketing date the baseline is stamped with) postdates
+    the recorded cert decision, so 0 scored outcomes are affected and they
+    stay as committed. The same shape on a future gap is refused and marked
+    `opened-after-decision`, so that residue reason is likely denial-heavy.
+  - *Rules 1, 2 and 4 against the corpus:* the predicted events the corpus
+    records resolved with no outcome (selected and unselected rows), and the
+    open declared moments on decided selected rows (predicted and not), are:
+    <FILL: corpus-check sections 2 and 3 counts as one plain line>.
+    A predicted moment there gains an outcome and an owed grade; nothing
+    changes which moment an outcome attaches to.
+  - *Rule 5: new forward merits cells.* Each merits event the pass mints is a
+    **new forward merits cell** for the predict lane — new spend, and a new
+    predicted case, minted long after its grant on a case selected for its
+    cert stage. The dry run's split of the recorded grants is:
+    <FILL: corpus-check section 1 merits split minted-pending, judgment-latched, terminated, stale, out-of-scope as one plain line>.
+    A merits case minted this way is forecast forward like any other, but its
+    cohort entered the merits population at the pass's apply, not at its
+    grant, and a merits figure that counts it reads that beside this entry.
+  - *The pass's population, by disposition,* is the grant-skewed gap
+    measured on the blob pulled 2026-09-27: 1,143 events (1,131 once the 12
+    above were recorded), missing on 45% of granted, 39% of gvr, 32% of
+    dismissed and 31% of denied selected moments. The attributable and
+    residue counts by disposition are:
+    <FILL: corpus-check sections 0 and 1 recorded and residue by disposition as one plain line>.
+    None carries a prediction, so recording them moves no board, export or
+    grade. The residue left unrecorded is not neutral by disposition, and
+    any count of ledger outcomes beyond predicted events reads it beside the
+    coverage rule in `docs/data-pipeline.md` (*Ledger-outcome coverage*).
+  - *Maintenance passes that walk every committed outcome*
+    (`amicus-rederive`, `disposition-convergence`, the GVR label migration,
+    the vote writers) see the pass's new outcomes after its apply, so their
+    dry-run counts move by up to that many without any change of their own.
+
+  **Not a harness boundary.** What a minted cell reads is unchanged. A cell
+  can ask `fedcourts open-events`, which is served from `events.resolved`;
+  after this entry it can list a moment left open on a decided row that the
+  latch would have closed. That adds an event id, never an outcome: the
+  moment's question is answered on the row the cell already reads, and the
+  forward gate and the queue arms refuse to mint a cell on it
+  (`tests/test_live.py::test_a_declined_detection_leaves_the_event_open_through_re_extraction`
+  pins both on a distributed petition).
+
+  **A known misreading kept under proc-v9.** The registered interim
+  disposition reader (`pipeline.interim_signals.match_interim_disposition`)
+  can take a side motion's own order for the application's disposition — an
+  entry such as "Motion … in connection with Application (…) GRANTED." —
+  and, since the last disposing entry wins, a later such order can relabel a
+  decided application. This entry does **not** change that reading: proc-v9's
+  interim reading stays byte-identical, and the misreading is recorded here
+  as known, of unknown prevalence, to be fixed together with the new interim
+  reading at the next process label. The outcome pass records whatever label
+  the row carries, so a lost interim outcome it records inherits the same
+  reading as every interim outcome the poll records. The rows exposed to the
+  shape (selected application rows and committed interim outcomes whose
+  stored proceedings carry it, read-only) are:
+  <FILL: corpus-check section 4 exposure counts as one plain line>.
+
+  **Reading rule.** No scored figure moves at the carrying merge. A tally of
+  ledger outcomes on selected rows taken before the `lost-outcomes` apply
+  counts a grant-skewed subset, and may not be pooled with one taken after it.
+  A tally of merits outcomes from the ledger excludes every grant recorded
+  after its merits case was decided or terminated, since such a grant mints
+  no merits event; the terminated ones lean toward dismissals, so that
+  exclusion is plausibly correlated with the outcome. Against staging as it
+  ran nothing is removed, because those grants were not recorded at all.
+
+  **Where it landed.** Merged to `staging` as `7df996154`
+  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_live.py tests/test_outcome.py tests/test_corpus.py
+    tests/test_missed_forecasts.py
+    -k "declined_detection or first_ingested_decided or outcome_pass or lost_grant or no_outcome or opened_after or open_moment"`
+    is green;
+  - after a `run-repair` `lost-outcomes` dry-run and apply, a second dry-run
+    records nothing and re-plans only the marked residue, to the same marks;
+    and `uv run fedcourts evaluate-plan --missed-since 2026-07-01` lists no
+    `no_outcome_record` event on a selected row other than that marked
+    residue and the open gaps the dry run reported as declined.
+
+  **Placed late in the file.** This entry was written with its change and
+  dropped when the change was rebuilt onto `staging` for its merge, so it is
+  appended after the entries of changes merged later the same day. Its text
+  is the one written before that merge; only the staging merge commit above
+  is filled in.
+
+- **Readings the 2026-10-16 promotion batch owes, recorded 2026-10-16.** No
+  rule moves here; three statements the batch's entries left wrong or
+  unsaid, recorded before the batch reaches `main`.
+
+  **Two interim boundaries, not one.** The side-motion entry above (dated
+  2026-10-15) says the pre-mint poll entry is on `staging` and not yet on
+  `main`, so the two boundaries coincide if both ride one promotion. The
+  pre-mint poll was carried to `main` by `promotion/2026-10-15` (merge
+  `1850188d9`, merged 2026-10-15T19:14:30Z), the batch before the side-motion
+  change. The two fall at different merges, and forward interim figures are
+  not comparable across either.
+
+  **Three readings the set-aside moves with no counted-back line.** The
+  set-aside's sensitivity lines cover the leaderboard's pooled entries and
+  paired figure and `claim-scores.json`'s cert-stage claim stratum. Three
+  further cuts move with it and are default-only, so a figure from any of them
+  quotes the move:
+  - the leaderboard's `by_band` cut: on the ledger at `main` `18780d619`,
+    `sal-v4/federal` falls from 2 events (1 grant) to 1 event (0 grants),
+    the grant removed being No. 25-1343, and `sal-v4/baseline` from 78
+    events to 72;
+  - its `by_protocol` cut, already named default-only;
+  - `claim-scores.json`'s `forward_agreement` judge-agreement pairs: 117 pair
+    events at tau-b 0.1109 with the set-aside counted, 110 at 0.1187 without.
+
+  `metrics/README.md` names all three in place.
+
+  **A rank that rests on the set-aside.** On the same ledger the default
+  forward accuracy reads claude 0.9818 against codex 0.9727, a gap of 3
+  gradings in 330, one event. With the set-aside counted both read 0.9744,
+  and Brier orders them (0.0208 against 0.0219). The set-aside was adopted on
+  2026-10-16, after the 2026-10-13 grant it removes, though its list was fixed
+  by a census whose newest pull is 2026-10-09, before that grant. A claim that
+  ranks claude above codex quotes both readings.

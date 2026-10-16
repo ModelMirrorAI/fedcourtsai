@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -7,8 +7,11 @@ import pytest
 
 from fedcourtsai.blinding import assign_aliases
 from fedcourtsai.matrix import (
+    OPINION_HOLD_DAYS,
     CaseRequest,
+    awaited_presence,
     cap_predict_cells,
+    cases_awaiting_opinion,
     cell_failure_count,
     evaluate_matrix,
     event_has_evaluations,
@@ -16,15 +19,18 @@ from fedcourtsai.matrix import (
     fanout_order,
     last_predicted_dates,
     merits_event_case_ids,
+    opinion_hold,
     parse_cases,
     predict_matrix,
     predicted_case_ids,
+    run_day,
 )
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
-from fedcourtsai.schemas import CellFailure, Disposition, Prediction
+from fedcourtsai.schemas import CellFailure, Disposition, Judgment, Prediction
 from fedcourtsai.serialize import write_json
-from tests.conftest import seed_evaluation, seed_prediction
+from fedcourtsai.supremecourt import LIVE_DOCKET_ID_BASE
+from tests.conftest import MERITS_EVENT, seed_evaluation, seed_merits_outcome, seed_prediction
 
 PREDICTORS = Path("config/predictors.yaml")
 EVALUATORS = Path("config/evaluators.yaml")
@@ -693,3 +699,172 @@ def test_cap_admits_the_same_cases_whatever_the_fanout_order(max_cells: int) -> 
     assert sorted(new.include, key=_cell_identity) == sorted(old.include, key=_cell_identity)
     assert new.dropped_cases == old.dropped_cases
     assert new.dropped_cells == old.dropped_cells
+
+
+# The opinion hold: a decided merits event whose case carries no opinion body is
+# deferred for up to OPINION_HOLD_DAYS after its outcome resolved, so its first
+# grading is not the `not-ingested` availability mask.
+
+_DECIDED = date(2026, 12, 9)
+
+
+def _decided_merits_case(data_root: Path, docket: int = 7) -> list[CaseRequest]:
+    seed_prediction(data_root, "scotus", docket, MERITS_EVENT)
+    seed_merits_outcome(data_root, "scotus", docket, resolved_at=_DECIDED)
+    return [CaseRequest(court="scotus", docket=docket, events=(MERITS_EVENT,))]
+
+
+def _run_id(day: date) -> str:
+    return f"{day:%Y%m%d}T153900Z"
+
+
+def test_a_decided_merits_event_is_held_inside_the_window(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    cases = _decided_merits_case(data_root)
+    for day in (_DECIDED, _DECIDED + timedelta(days=1), _DECIDED + timedelta(days=13)):
+        held = evaluate_matrix(
+            EVALUATORS,
+            cases,
+            _run_id(day),
+            data_root=data_root,
+            opinion_present={"scotus/7": False},
+        )
+        assert held["include"] == [], f"graded on {day} before the body landed"
+
+
+def test_a_held_event_is_graded_once_the_window_closes_with_or_without_a_body(
+    tmp_path: Path,
+) -> None:
+    data_root = tmp_path / "data"
+    cases = _decided_merits_case(data_root)
+    release = _DECIDED + timedelta(days=OPINION_HOLD_DAYS)
+    for day in (release, release + timedelta(days=30)):
+        graded = evaluate_matrix(
+            EVALUATORS,
+            cases,
+            _run_id(day),
+            data_root=data_root,
+            opinion_present={"scotus/7": False},
+        )
+        assert len(graded["include"]) == len(enabled_evaluators(EVALUATORS))
+
+
+def test_a_held_event_is_graded_immediately_once_the_body_exists(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    cases = _decided_merits_case(data_root)
+    graded = evaluate_matrix(
+        EVALUATORS,
+        cases,
+        _run_id(_DECIDED + timedelta(days=1)),
+        data_root=data_root,
+        opinion_present={"scotus/7": True},
+    )
+    assert len(graded["include"]) == len(enabled_evaluators(EVALUATORS))
+
+
+def test_the_hold_never_defers_what_it_cannot_establish(tmp_path: Path) -> None:
+    # An unknown presence bit (no row, a failed read), no presence mapping at
+    # all, a non-merits event, and a merits outcome recording no judgment all
+    # grade exactly as before the hold existed.
+    data_root = tmp_path / "data"
+    cases = _decided_merits_case(data_root)
+    run = _run_id(_DECIDED + timedelta(days=1))
+    everyone = len(enabled_evaluators(EVALUATORS))
+    unknown = evaluate_matrix(EVALUATORS, cases, run, data_root=data_root, opinion_present={})
+    assert len(unknown["include"]) == everyone
+    unwired = evaluate_matrix(EVALUATORS, cases, run, data_root=data_root)
+    assert len(unwired["include"]) == everyone
+
+    seed_prediction(data_root, "scotus", 8, "evt-petition-disposition")
+    cert = [CaseRequest(court="scotus", docket=8, events=("evt-petition-disposition",))]
+    graded = evaluate_matrix(
+        EVALUATORS, cert, run, data_root=data_root, opinion_present={"scotus/8": False}
+    )
+    assert len(graded["include"]) == everyone
+
+    seed_prediction(data_root, "scotus", 9, MERITS_EVENT)
+    seed_merits_outcome(data_root, "scotus", 9, resolved_at=_DECIDED, judgment=None)
+    undecided = [CaseRequest(court="scotus", docket=9, events=(MERITS_EVENT,))]
+    graded = evaluate_matrix(
+        EVALUATORS, undecided, run, data_root=data_root, opinion_present={"scotus/9": False}
+    )
+    assert len(graded["include"]) == everyone
+
+
+def test_force_does_not_lift_the_hold(tmp_path: Path) -> None:
+    # A deliberate re-grade inside the window would be graded against the same
+    # empty opinion slot, so `--force` re-mints graded cells but not held ones.
+    data_root = tmp_path / "data"
+    cases = _decided_merits_case(data_root)
+    forced = evaluate_matrix(
+        EVALUATORS,
+        cases,
+        _run_id(_DECIDED + timedelta(days=2)),
+        data_root=data_root,
+        skip_evaluated=False,
+        opinion_present={"scotus/7": False},
+    )
+    assert forced["include"] == []
+
+
+def test_opinion_hold_names_the_resolution_and_the_release_day(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    seed_merits_outcome(data_root, "scotus", 7, resolved_at=_DECIDED)
+    hold = opinion_hold(data_root, "scotus", 7, MERITS_EVENT, has_opinion=False, today=_DECIDED)
+    assert hold is not None
+    assert hold.release_on == _DECIDED + timedelta(days=OPINION_HOLD_DAYS)
+    assert hold.reason.startswith("held: awaiting opinion")
+    assert "2026-12-09" in hold.reason
+    assert "2026-12-23" in hold.reason
+
+
+def test_cases_awaiting_opinion_is_the_window_at_case_grain(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    seed_merits_outcome(data_root, "scotus", 7, resolved_at=_DECIDED)
+    seed_merits_outcome(data_root, "scotus", 8, resolved_at=_DECIDED - timedelta(days=30))
+    seed_merits_outcome(data_root, "scotus", 9, resolved_at=_DECIDED, judgment=None)
+    assert cases_awaiting_opinion(data_root, today=_DECIDED + timedelta(days=3)) == {"scotus/7"}
+    release = _DECIDED + timedelta(days=OPINION_HOLD_DAYS)
+    assert cases_awaiting_opinion(data_root, today=release) == frozenset()
+    assert cases_awaiting_opinion(tmp_path / "absent", today=_DECIDED) == frozenset()
+
+
+def test_run_day_is_the_run_ids_utc_day() -> None:
+    assert run_day("20261209T235959Z") == date(2026, 12, 9)
+    # A run id that names no day (a test's "RID") falls back to today's UTC day.
+    before = datetime.now(UTC).date()
+    fallback = run_day("RID")
+    after = datetime.now(UTC).date()
+    assert fallback in {before, after}
+
+
+@pytest.mark.parametrize("judgment", [Judgment.dig, Judgment.equally_divided])
+def test_a_judgment_that_publishes_no_opinion_is_never_held(
+    tmp_path: Path, judgment: Judgment
+) -> None:
+    # A DIG or an equally divided affirmance has no majority opinion to wait
+    # for: holding it would only delay its grading by the whole window, and
+    # both sit on the undisturbed side of the merits binary.
+    data_root = tmp_path / "data"
+    seed_prediction(data_root, "scotus", 7, MERITS_EVENT)
+    seed_merits_outcome(data_root, "scotus", 7, resolved_at=_DECIDED, judgment=judgment)
+    cases = [CaseRequest(court="scotus", docket=7, events=(MERITS_EVENT,))]
+    graded = evaluate_matrix(
+        EVALUATORS,
+        cases,
+        _run_id(_DECIDED + timedelta(days=1)),
+        data_root=data_root,
+        opinion_present={"scotus/7": False},
+    )
+    assert len(graded["include"]) == len(enabled_evaluators(EVALUATORS))
+    assert cases_awaiting_opinion(data_root, today=_DECIDED) == frozenset()
+
+
+def test_a_case_enrichment_can_never_reach_has_no_awaited_body() -> None:
+    # The enrichment pass walks only granted rows on a CourtListener docket id,
+    # so a live-channel mint or a row with no cert grant would wait the whole
+    # window for a body nothing will fetch: no awaited bit, so never held.
+    assert awaited_presence(7, has_opinion=False, cert_granted=True) is False
+    assert awaited_presence(7, has_opinion=True, cert_granted=True) is True
+    assert awaited_presence(7, has_opinion=False, cert_granted=False) is None
+    assert awaited_presence(LIVE_DOCKET_ID_BASE, has_opinion=False, cert_granted=True) is None

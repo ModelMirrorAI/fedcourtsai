@@ -30,6 +30,7 @@ from fedcourtsai.store import (
     UNDECLARED_STAGE,
     CellCensusRow,
     cases_due_for_pull,
+    distribution_conference_considered,
     event_has_claimable_prediction,
     event_recorded_closed,
     forecastable_events,
@@ -39,6 +40,7 @@ from fedcourtsai.store import (
     iter_tooling,
     iter_tracked_cases,
     ledger_cell_counts,
+    live_payload_reader,
     normalized_stage,
     open_events,
     recent_cell_census,
@@ -1353,7 +1355,185 @@ def test_the_baseline_waits_for_its_own_moment_on_a_cert_docket(tmp_path: Path) 
             ("scotus/93",),
         )
         conn.commit()
-    assert forecastable_events(db, "scotus", 93) == ["evt-petition-disposition"]
+    assert forecastable_events(db, "scotus", 93, today=date(2026, 9, 20)) == [
+        "evt-petition-disposition"
+    ]
+
+
+def _docket(*entries: tuple[str, str]) -> dict[str, object]:
+    return {"ProceedingsandOrder": [{"Date": d, "Text": t} for d, t in entries]}
+
+
+#: Distributed for the 2026-09-28 conference, which sat on it.
+_SAT = _docket(
+    ("Jun 01 2026", "Petition for a writ of certiorari filed."),
+    ("Aug 12 2026", "DISTRIBUTED for Conference of 9/28/2026."),
+)
+#: The shape of Nos. 26-18, 26-23, 26-60 and 25-1366: a call for response
+#: entered after the distribution took the petition off the conference.
+_CALLED_FOR_RESPONSE = _docket(
+    ("Jun 01 2026", "Petition for a writ of certiorari filed."),
+    ("Aug 12 2026", "DISTRIBUTED for Conference of 9/28/2026."),
+    ("Sep 02 2026", "Response Requested. (Due October 2, 2026)"),
+)
+_RESCHEDULED = _docket(
+    ("Jun 01 2026", "Petition for a writ of certiorari filed."),
+    ("Aug 12 2026", "DISTRIBUTED for Conference of 9/28/2026."),
+    ("Sep 25 2026", "Rescheduled."),
+)
+#: The shape of No. 25-1313: the CVSG came after the conference sat, so it took
+#: nothing off it.
+_CVSG_AFTER = _docket(
+    ("Jun 01 2026", "Petition for a writ of certiorari filed."),
+    ("Aug 12 2026", "DISTRIBUTED for Conference of 9/28/2026."),
+    ("Oct 05 2026", "The Solicitor General is invited to file a brief in this case."),
+)
+
+
+def _distributed_petition(
+    db: Path, docket_id: int, payload: dict[str, object] | None, *, stored: date
+) -> None:
+    """A pending petition the row says is distributed for 2026-09-28."""
+    case_id = f"scotus/{docket_id}"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number=f"26-{docket_id}",
+                    distributed_for_conference=date(2026, 9, 28),
+                    distribution_count=1,
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-petition-disposition",
+                    case_id=case_id,
+                    court="scotus",
+                    kind=EventKind.petition,
+                    stage=Stage.cert,
+                    moment=Moment.distribution,
+                )
+            ],
+        )
+        if payload is not None:
+            corpus.upsert_snapshot(conn, case_id, stored, payload)
+
+
+@pytest.mark.parametrize(
+    ("payload", "today", "admitted"),
+    [
+        # The conference is ahead: open, and no payload is read at all.
+        (None, date(2026, 9, 27), True),
+        # The conference sat on it: the moment is over (the 26-53 … 26-183 run).
+        (_SAT, date(2026, 10, 4), False),
+        # The conference day itself counts as sat.
+        (_SAT, date(2026, 9, 28), False),
+        # Taken off the conference before it sat: legitimately undecided.
+        (_CALLED_FOR_RESPONSE, date(2026, 10, 4), True),
+        (_RESCHEDULED, date(2026, 10, 4), True),
+        # A CVSG entered after the conference sat takes nothing off it.
+        (_CVSG_AFTER, date(2026, 10, 6), False),
+        # No readable docket: no evidence the petition is still open.
+        (None, date(2026, 10, 4), False),
+    ],
+)
+def test_a_distribution_cell_is_never_first_minted_after_its_conference_considered_it(
+    tmp_path: Path, payload: dict[str, object] | None, today: date, admitted: bool
+) -> None:
+    """First-time admission shares the re-predict rule's conference bound, keyed
+    on whether the conference actually considered the petition."""
+    db = corpus.corpus_db_path(tmp_path)
+    _distributed_petition(db, 53, payload, stored=date(2026, 10, 6))
+    found = forecastable_events(db, "scotus", 53, today=today)
+    assert found == (["evt-petition-disposition"] if admitted else [])
+
+
+def test_a_payload_stored_before_the_conference_cannot_show_it_was_taken_off(
+    tmp_path: Path,
+) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    _distributed_petition(db, 54, _CALLED_FOR_RESPONSE, stored=date(2026, 9, 20))
+    assert forecastable_events(db, "scotus", 54, today=date(2026, 10, 4)) == []
+
+
+def test_a_relisted_petition_is_open_against_its_next_conference(tmp_path: Path) -> None:
+    """A later distribution moves the column ahead, so nothing is read."""
+    db = corpus.corpus_db_path(tmp_path)
+    _distributed_petition(db, 55, None, stored=date(2026, 10, 1))
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET distributed_for_conference = '2026-10-09' WHERE case_id = ?",
+            ("scotus/55",),
+        )
+        conn.commit()
+    assert forecastable_events(db, "scotus", 55, today=date(2026, 10, 4)) == [
+        "evt-petition-disposition"
+    ]
+
+
+def test_an_unreadable_content_store_refuses_rather_than_raising(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A store error under the conference bound degrades the decision — the
+    cell is refused and deferred — and never fails the plan or the routing."""
+    db = corpus.corpus_db_path(tmp_path)
+    _distributed_petition(db, 57, _CALLED_FOR_RESPONSE, stored=date(2026, 10, 6))
+
+    def broken(conn: object, case_id: str) -> None:
+        raise RuntimeError("the content store is down")
+
+    monkeypatch.setattr(corpus, "latest_live_snapshot", broken)
+    assert forecastable_events(db, "scotus", 57, today=date(2026, 10, 4)) == []
+
+
+def test_the_payload_reader_reads_each_case_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    reads: list[str] = []
+    real = corpus.latest_live_snapshot
+
+    def counting(conn: corpus.ReadConnection, case_id: str) -> object:
+        reads.append(case_id)
+        return real(conn, case_id)
+
+    monkeypatch.setattr(corpus, "latest_live_snapshot", counting)
+    db = corpus.corpus_db_path(tmp_path)
+    _distributed_petition(db, 58, _SAT, stored=date(2026, 10, 6))
+    with corpus.connect_readonly(db) as conn:
+        reader = live_payload_reader(conn)
+        assert reader("scotus/58") == reader("scotus/58")
+    assert reads == ["scotus/58"]
+    # Both cert-capable arms ask the same case, and it is still read once.
+    reads.clear()
+    forecastable_events(db, "scotus", 58, today=date(2026, 10, 4))
+    assert reads == ["scotus/58"]
+
+
+def test_distribution_conference_considered_reads_the_payload_only_once_past(
+    tmp_path: Path,
+) -> None:
+    reads: list[str] = []
+
+    def payloads(case_id: str) -> tuple[date, dict[str, object]] | None:
+        reads.append(case_id)
+        return date(2026, 10, 6), _SAT
+
+    row = corpus.CorpusRow(
+        case_id="scotus/56",
+        court="scotus",
+        docket_number="26-56",
+        distributed_for_conference=date(2026, 9, 28),
+    )
+    assert not distribution_conference_considered(row, day=date(2026, 9, 27), payloads=payloads)
+    assert reads == []
+    assert distribution_conference_considered(row, day=date(2026, 10, 4), payloads=payloads)
+    assert reads == ["scotus/56"]
 
 
 def _pending_petition(db: Path, docket_id: int) -> None:

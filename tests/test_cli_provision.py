@@ -1752,6 +1752,122 @@ def test_an_unanchorable_arrival_row_refuses_rather_than_taking_the_date_cut(
     assert not paths.snapshot("2026-06-23").exists()
 
 
+# --- a single-entry trigger must be on the placed snapshot --------------------
+
+_RESPONSE_REQUESTED = "Response to application (26A11) requested, due July 2, 2026."
+_REQUEST_DAY = date(2026, 6, 25)
+
+
+def _seed_response_requested_event(fixture_corpus: FixtureCorpus) -> None:
+    """Give the fixture's application docket its response-requested moment."""
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-response-requested-disposition",
+                    case_id="scotus/306",
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.interim,
+                    moment=Moment.response_requested,
+                    title="Marbury Power Cooperative v. Ellison",
+                    decision_target="disposition",
+                    opened_at=_REQUEST_DAY,
+                )
+            ],
+        )
+
+
+def _provision_response_requested(*args: str) -> Result:
+    return runner.invoke(
+        app,
+        [
+            "provision-snapshot",
+            "--court",
+            "scotus",
+            "--docket",
+            "306",
+            "--event",
+            "evt-order-response-requested-disposition",
+            *args,
+        ],
+    )
+
+
+def test_a_trigger_day_pull_without_the_trigger_is_not_taken_as_dated(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A pull taken on the request day, before the request was docketed: it
+    # carries an entry from the trigger day (the application filed that same
+    # day), so the day rule alone would take it as `dated`, and the cell would
+    # be forecast without its own trigger while its increment claim resolved on
+    # that trigger. The latest payload does carry the request, so the cell is
+    # reconstructed from it instead.
+    _seed_response_requested_event(fixture_corpus)
+    _seed_application_snapshot(
+        fixture_corpus, _REQUEST_DAY, [("2026-06-25", _APPLICATION_SUBMITTED)]
+    )
+
+    result = _provision_response_requested()
+
+    assert result.exit_code == 0, result.output
+    context = _application_context(fixture_corpus)
+    assert context["snapshot_provenance"] == "truncated"
+    assert context["cutoff"] == "2026-06-26"
+    assert context["response_requested"] is True
+    payload = json.loads(
+        CasePaths(fixture_corpus.data_root, "scotus", 306).snapshot("2026-06-26").read_text()
+    )
+    assert _RESPONSE_REQUESTED in [e["description"] for e in payload["docket_entries"]]
+
+
+def test_a_dated_pull_carrying_the_trigger_is_still_preferred(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    _seed_response_requested_event(fixture_corpus)
+    _seed_application_snapshot(
+        fixture_corpus,
+        _REQUEST_DAY,
+        [("2026-06-22", _APPLICATION_SUBMITTED), ("2026-06-25", _RESPONSE_REQUESTED)],
+    )
+
+    result = _provision_response_requested()
+
+    assert result.exit_code == 0, result.output
+    context = _application_context(fixture_corpus)
+    assert context["snapshot_provenance"] == "dated"
+    assert context["snapshot_date"] == _REQUEST_DAY.isoformat()
+    assert context["response_requested"] is True
+
+
+@pytest.mark.parametrize("mode", ["forward", "replay"])
+def test_a_trigger_no_stored_snapshot_carries_refuses_the_cell(
+    fixture_corpus: FixtureCorpus, mode: str
+) -> None:
+    # No stored payload shows the request — the event was dated off a pull the
+    # snapshot store does not hold, or the latest pull lost the entry. There is
+    # nothing honest to place the cell on, so it is refused in either mode and
+    # nothing is written.
+    _seed_response_requested_event(fixture_corpus)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        conn.execute("DELETE FROM snapshots WHERE case_id = ?", ("scotus/306",))
+        conn.commit()
+    _seed_application_snapshot(
+        fixture_corpus,
+        date(2026, 7, 14),
+        [("2026-06-22", _APPLICATION_SUBMITTED), ("2026-07-02", "Response to application filed.")],
+    )
+
+    result = _provision_response_requested("--mode", mode)
+
+    assert result.exit_code == 5, result.output
+    assert "opened the moment" in result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 306)
+    assert not paths.cell_context.exists()
+    assert not paths.snapshot("2026-06-26").exists()
+
+
 # --- the ledger: the figures the freeze record cites come from here -----------
 
 
@@ -2233,6 +2349,101 @@ def test_a_represented_dockets_staged_text_is_left_alone(
     assert entry["contact_scrubbed"] is False
     assert entry["contact_replacements"] == 0
     assert entry["contact_scrub_passes"] == []
+
+
+def test_a_court_docket_withholding_the_petitioner_block_is_shape_scrubbed(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The Court serves a pseudonymous self-represented petitioner's docket with
+    # the respondent's counsel list and no petitioner key at all. The petition
+    # is still the filer's own, signed in person: the shape pass runs over it,
+    # and the staged snapshot — which has no petitioner block to withhold —
+    # keeps the respondent's counsel block as served.
+    payload: dict[str, Any] = {
+        "CaseNumber": "25-1300 ",
+        "PetitionerTitle": "Jane Doe, Petitioner",
+        "RespondentTitle": "Agency Roe, Respondent",
+        "AttorneyHeaderRespondent": "Attorneys for Respondent",
+        "Respondent": [
+            {
+                "PartyName": "Agency Roe",
+                "Attorney": "D. John Sauer",
+                "Phone": "202-514-2217",
+                "Email": "SupremeCtBriefs@example.gov",
+            }
+        ],
+        "ProceedingsandOrder": [
+            {"Date": "Jul 01 2026", "Text": "Petition for a writ of certiorari filed."}
+        ],
+    }
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+
+    result = _provision_cell("--no-moment-cutoff")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    staged = paths.document("petition").read_text()
+    assert "jane.doe@example.com" not in staged
+    assert "(713) 555-0147" not in staged
+    assert "1234 Maple Street" not in staged
+    assert "Brady v. Maryland, 373 U.S. 83 (1963)" in staged
+    entry = _documents_manifest(fixture_corpus)["petition"]
+    assert entry["contact_scrubbed"] is True
+    assert entry["contact_replacements"] == 3
+    assert entry["contact_scrub_passes"] == ["shape"]
+    staged_payload = json.loads(paths.snapshot("2026-07-20").read_text())
+    assert "Petitioner" not in staged_payload
+    assert staged_payload["Respondent"] == payload["Respondent"]
+    assert "snapshot contact scrub: 0 value(s) withheld on 0 petitioner-side block(s)" in (
+        result.output
+    )
+    assert "no attorney named for the petitioner; passes: shape only" in result.output
+
+
+def test_a_withheld_petitioner_block_is_still_read_on_a_truncated_placement(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The trigger reads the placed payload, so a moment cut must keep the keys
+    # the withheld-block reading tests: a reconstructed docket that dropped
+    # `ProceedingsandOrder` would silently switch the scrub off.
+    _seed_merits_event(fixture_corpus)
+    payload: dict[str, Any] = {
+        "CaseNumber": "25-1300 ",
+        "AttorneyHeaderRespondent": "Attorneys for Respondent",
+        "Respondent": [{"PartyName": "Agency Roe", "Attorney": "D. John Sauer"}],
+        "ProceedingsandOrder": [
+            {"Date": "Nov 01 2025", "Text": "Petition for a writ of certiorari filed."},
+            {"Date": "Jan 15 2026", "Text": "Petition GRANTED."},
+            {"Date": "Mar 02 2026", "Text": "Brief of petitioner filed."},
+        ],
+    }
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+    _drop_snapshots_before(fixture_corpus, _GRANT_CUTOFF)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind="petition",
+                    url="https://example/petition.pdf",
+                    entry_date="2025-11-01",
+                    fetched_at=date(2025, 11, 2),
+                    text=_SIGNED_IN_PERSON,
+                )
+            ],
+        )
+
+    result = _provision_cell("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    assert _context(fixture_corpus)["snapshot_provenance"] == "truncated"
+    entry = _documents_manifest(fixture_corpus)["petition"]
+    assert entry["contact_scrubbed"] is True
+    assert entry["contact_scrub_passes"] == ["shape"]
+    staged = CasePaths(fixture_corpus.data_root, "scotus", 305).document("petition").read_text()
+    assert "jane.doe@example.com" not in staged
 
 
 def test_a_scrubbed_document_with_nothing_to_withhold_still_says_it_was_scrubbed(
@@ -2941,6 +3152,34 @@ def test_the_cascade_refuses_an_unanchorable_moment_before_any_cell_runs(
             court="scotus",
             docket=306,
             event="evt-motion-disposition",
+            run_id="20260720T120000Z",
+        )
+    assert not list(data_root.rglob("prediction.json"))
+    assert not CasePaths(data_root, "scotus", 306).cell_context.exists()
+
+
+def test_the_cascade_refuses_a_moment_whose_trigger_no_payload_carries(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # The same refusal `provision-snapshot` answers with exit 5, raised while the
+    # cascade places its targets, so nothing is predicted and no record written.
+    _seed_response_requested_event(fixture_corpus)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        conn.execute("DELETE FROM snapshots WHERE case_id = ?", ("scotus/306",))
+        conn.commit()
+    _seed_application_snapshot(
+        fixture_corpus, date(2026, 7, 14), [("2026-06-22", _APPLICATION_SUBMITTED)]
+    )
+    data_root = tmp_path / "cascade"
+
+    with pytest.raises(CascadeError, match="opened the moment"):
+        run_cascade(
+            corpus_db_path=fixture_corpus.db_path,
+            data_root=data_root,
+            config_root=Path("config"),
+            court="scotus",
+            docket=306,
+            event="evt-order-response-requested-disposition",
             run_id="20260720T120000Z",
         )
     assert not list(data_root.rglob("prediction.json"))

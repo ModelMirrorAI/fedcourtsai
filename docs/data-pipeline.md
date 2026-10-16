@@ -689,6 +689,16 @@ instant as `context.cutoff`. On the interim arrival moment that day is only the
 outer bound — the snapshot stops at the docket entry that opened the event, and
 `context.cut_kind` / `context.cut_anchor_index` record that boundary — and a row
 whose opening entry cannot be anchored is refused rather than cut at the date.
+On a moment whose trigger is one docket entry — the CVSG invitation, the
+response request, the filed response — the placed snapshot must carry that
+entry: a stored snapshot is taken as `dated` only where its trigger falls on
+the day the event opened, and a cell no stored payload shows it on is refused.
+The refusal is a membership rule as well as a placement one, and plausibly
+outcome-correlated: a re-owed cell whose application is decided in the
+meantime is then refused by the forward gate, so quick dispositions are
+under-represented. Where the stored latest payload disagrees with the event's
+date or carries degraded proceedings, the refusal never clears and the attempt
+cap retires the cell; no artifact records which cells that was.
 The terminal-refusal gates below run on the latest
 payload first, before any cut — a disposition filed after the cutoff is exactly
 what a cut would otherwise hide. See [cli.md](cli.md) for the flag, the two
@@ -787,6 +797,30 @@ read off the run rather than assumed. The ledger
 read is one glob over the committed tree, with
 [`pipeline/moments.py`](../src/fedcourtsai/pipeline/moments.py)'s declared
 merits moments as the vocabulary.
+
+The pass has **two production lanes**, and the second is scoped to the cases a
+grading is waiting on. Every scheduled `run-pull` **live** window runs it as
+`enrich-opinions --apply --awaiting-grading --max-cases 8`, right after the poll
+that latches the day's judgments: the walk narrows to the cases whose committed
+merits outcome records a judgment that publishes an opinion (not a DIG or an
+equally divided affirmance) and resolved fewer than
+`OPINION_HOLD_DAYS` (14) days ago — exactly the cases `run-evaluate`'s opinion
+hold is holding or about to hold ([pipeline.md](pipeline.md#the-evaluate-queue-is-level-triggered-too)) — and
+everything else stands: eligibility, the order, the cursor, the cap. So a
+body upstream already carries usually lands before the next daily evaluate tick,
+one upstream has not published yet is retried every live window, and a case the
+hold has released is never walked from there again. Its spend is bounded the
+same way the dispatch's is, at a fraction of the size: at most 32 requests a
+window (eight cases at four), only on a day with that many decisions still
+missing a body, against the ≈360 a day the pull windows commit. It runs on the
+same per-process governor and tier knobs as the pull job, in the live job's own
+slot on the `corpus-write` lock, so it never stacks onto a pull window's spend.
+The step is failure-tolerant by construction — `continue-on-error`, an inner
+SIGINT timeout that unwinds an open transaction, and `corpus-push` settling (or
+refusing) any hot journal a harder kill left before it publishes — so nothing
+about the live pull depends on it, and the live summary carries the step's
+outcome as a row on every window. The dispatched **enrich** job stays the lane
+for the standing backlog.
 
 `--case <court>/<docket>` (repeatable) narrows the walk to named cases, and it
 is a **diagnostic rather than a second way in**: the applied lane is the
@@ -898,9 +932,10 @@ eventually retrieve case records from CourtListener itself at run time instead
 of a provisioned store read; the corpus would remain the system of record for
 ingestion, analytics, and back-testing.
 
-### Developer access (Codespaces)
+### Developer access (Codespaces and Claude cloud sessions)
 
-Interactive data discovery belongs in a codespace, not a workflow. The remote
+Interactive data discovery belongs in a codespace or a Claude cloud session,
+not a workflow. The remote
 serves it in two modes, both strictly **read-only** (see
 [security.md](security.md)): **ranged queries** for quick lookups
 (`--corpus-backend ranged` on `query` / `open-events` / `corpus-info` —
@@ -914,7 +949,8 @@ rows, so under the split it is a content-store manifest round trip each plus a
 full text body per stored document. Both belong with the scan-heavy work
 rather than with the lookups) and **a deliberate full pull** for scan-heavy
 exploration (`uv run fedcourts corpus-pull`). Default to ranged:
-Codespaces runs on Azure, so every full pull is cross-cloud S3 egress.
+Codespaces runs on Azure and cloud sessions on Anthropic's hosts, so every full
+pull from either is S3 egress.
 Absent the override, either mode reads the blob the checkout's committed
 pointer names, so a checkout on an old commit — or a branch off `staging`
 between syncs, since data commits land on `main` only — reads an old corpus:
@@ -939,10 +975,29 @@ index remote's own URL otherwise — exactly the env contract the workflows
 use; absent secrets it prints a note and succeeds — the offline fixture loop
 and the full gate need no remote.
 
+**Claude cloud sessions** (the Claude app's coding sessions, which run on
+Anthropic-hosted VMs) read the corpus through a dedicated **personal cloud
+environment**, chosen when the session starts, whose variables carry the same
+env contract the codespace hook exports: `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY` for a dedicated read-only IAM user, `AWS_REGION`, and
+`CORPUS_BASE_URL`. That user is separate from the contributor user but holds
+the same production-only read policy, so both modes above work as they do in a
+codespace. The environment's default network level reaches every
+`*.amazonaws.com` host, which is what lets the reads through and also why the
+session's egress cannot be fenced to these buckets. The key is readable by the model and by every command in
+such a session, which is why it lives in that one environment rather than the
+default (a session working on anything else never carries it), why it reads
+production only and can write nothing, and why it is rotated and revoked by
+the runbook in [security.md](security.md) (*S3 / the private stores*). A
+session in that environment quotes a figure it reads with `corpus-info`'s
+vintage, as any session with corpus access does. A session that has not been
+started there has no corpus access; it asks the corpus-check lane
+([corpus-check.md](corpus-check.md)) instead.
+
 The **staging pair** (the lean real-slice corpus of
 [security.md](security.md)'s staging-corpus runbook) is served by the same
-read-only role — the maintainer's role-assumed flow; the contributor IAM
-user stays scoped to production — and its address arrives as a further
+read-only role — the maintainer's role-assumed flow; neither developer IAM
+user is extended to it — and its address arrives as a further
 user-scoped secret, `STAGING_CORPUS_BASE_URL` (or, for a pair named half by
 half, `STAGING_CORPUS_REMOTE_URL` and `STAGING_CASESTORE_URL`, which the
 switcher still accepts): the base URL is the same name the `staging` Actions
@@ -1073,8 +1128,8 @@ or network.
   `fedcourts historical-terms` in checkpointed chunks — walk the configured
   October Terms' docket serials newest-first from the persisted per-(Term,
   stream) cursors → ingest each decided petition through the shared
-  live path, landing it already resolved (label, snapshot, events latched
-  closed, OT2021+ documents provisioned) → push the corpus and commit the
+  live path, landing it already resolved (label, snapshot, baseline closed
+  and marked `resolved_without_outcome`, OT2021+ documents provisioned) → push the corpus and commit the
   pointer per chunk (under the `corpus-write` lock) → write progress to the
   Actions step summary. Each window is a bounded chunk (≤40 min; the daily sweep window
   walks 25 to fund its trailing sweeps) under one App
@@ -1287,46 +1342,95 @@ or network.
      neither receives the application's disposition nor takes the declared
      interim moments to triage.
 
-     **Ledger-outcome convergence.** The corpus `resolved` flag has a second
-     writer besides detection: re-extraction marks a decided docket's baseline
-     resolved from the row's disposition, whether or not an outcome was
-     recorded, and detection reads open events only. So a baseline detection
-     declined once — a triaged poll, a baseline born in a shape detection did
-     not attribute to, a case first ingested already decided — is closed with
-     no ledger outcome, and nothing grades it or resolves the sibling moments
-     still open beside it. The live cycle therefore ends its polls with a
+     **One writer closes a declared moment.** The corpus `resolved` flag and
+     the ledger `outcome.json` move together: detection's writer
+     (`pipeline.outcome.record_outcomes`) is the only one that closes a stored
+     declared moment, and it does so beside the outcome it writes.
+     Re-extraction never derives the flag from the row's disposition; it
+     carries the stored flag forward, so a moment detection declines — an
+     unreadable or undated disposition, a stage it cannot attribute — stays
+     open rather than closing with no ground truth. Open does not mean
+     pending, so every reader that asks "is this still a live forecast" also
+     asks the row: the predict fan-out's queue arms and the forward gate refuse
+     an open moment whose row records its stage decided, a later moment (CVSG,
+     arrival, the interim response moments) is never minted on a decided row,
+     a cascade cell on one runs in `replay` mode, and the missed-forecast
+     monitor counts it as decided with no outcome record. The one closure
+     without an outcome is visible by construction: a baseline first minted on
+     a row that is already decided (the walker's ingests, a docket discovered
+     after its order) was never open for detection to see, so it lands
+     resolved and marked `resolved_without_outcome` (`ingested-decided`), a
+     mark the events upsert honours on an insert only. An entry-pinned event
+     extraction closes on a citing order is outside this rule: it forecasts
+     its own filing and carries no ledger outcome. Detection writes an outcome
+     to a moment only if the moment opened on or before its `resolved_at`.
+
+     **Ledger-outcome convergence.** The poll rotations skip a decided row, so
+     a moment detection declined on the poll that saw the decision is not
+     tried again by the poll. The live cycle therefore ends its polls with a
      standing sweep (`pipeline.outcome.converge_ledger_outcomes`). Every
-     declared moment on a salience-selected, in-scope SCOTUS row that the
-     corpus records resolved without a complete ledger pair — no
-     `outcome.json`, or no `event.yaml` beside it, so a write interrupted
-     between the two is finished next window — is re-run through the same
-     detection beside the case's open events and recorded by the same writer,
-     which validates both models before writing either. Its open sibling
-     moments resolve from the same disposition in the same call, and a
-     recorded cert grant mints the merits event as the poll does — unless the
-     case already has one, or the grant's basis is mootness. A gap is due when its stage was decided within the last 90 days
-     (inclusive), or at any age when the case holds a committed prediction at
-     that stage — an owed grade does not expire, and a lookback there would drop
-     the late-fixed triage shapes, an outcome-correlated exclusion. The
-     disposition basis and order markers are read from the **latest** stored
-     snapshot, so they can differ from what the resolving poll would have
-     written where later entries change the reading; a case with no stored
-     snapshot, or whose stage carries no decision date, is surfaced on the
-     unrecorded queue and never recorded on a guess.
+     declared moment on a salience-selected, in-scope SCOTUS row whose stage
+     the row records decided, with no complete ledger pair — open, or closed
+     by the corpus without an outcome; no `outcome.json`, or no `event.yaml`
+     beside it, so a write interrupted between the two is finished next
+     window — is re-run through the same detection beside the case's open
+     events and recorded by the same writer, which validates both models
+     before writing either. Its open sibling moments resolve from the same
+     disposition in the same call. A recorded cert grant mints the merits
+     event as the poll does only while its merits case is still pending and
+     forecastable — no latched judgment, not terminated, inside the
+     stale-grant bound, in scope — and never over an existing merits event
+     or on a mootness basis. A gap is due when its stage was decided within
+     the last 90 days (inclusive), or at any age when the case holds a
+     committed prediction at that stage — an owed grade does not expire, and a
+     lookback there would drop the late-fixed triage shapes, an
+     outcome-correlated exclusion. The disposition basis and order markers
+     are read from the **latest** stored snapshot, so they can differ from
+     what the resolving poll would have written where later entries change
+     the reading; a case with no stored snapshot, or whose stage carries no
+     decision date, is surfaced on the unrecorded queue and never recorded on
+     a guess.
 
      Due cases are attempted newest decision first. Per window at most 25
      cases are recorded and 100 attempted; a declined case does not spend the
-     record bound, so fewer than 100 persistent declines cannot starve a recordable gap, and
-     the cases left over carry to the next window. A case whose attempt raises
-     (a content-store read error, say) lands on the window's failed list and
-     the pass continues; if the pass itself raises it is skipped for that
-     window, never taking the window's polls down with it. Its counts
-     (recorded, unrecorded, failed, deferred) print on the live step's output.
-     Idempotent, and routed into the same evaluate / unrecorded queues as a
-     poll result, with a case the window's polls already put on the unrecorded
-     queue listed once. It is not a backfill: unpredicted selected rows
-     decided longer ago were mostly ingested already decided and never
-     forecastable, and writing their ground truth is a population decision.
+     record bound, so fewer than 100 persistent declines cannot starve a
+     recordable gap, and the cases left over carry to the next window. A case
+     whose attempt raises (a content-store read error, say) lands on the
+     window's failed list and the pass continues; if the pass itself raises it
+     is skipped for that window, never taking the window's polls down with
+     it. Its counts (recorded, unrecorded, failed, deferred) print on the live
+     step's output. Idempotent, and routed into the same evaluate / unrecorded
+     queues as a poll result, with a case the window's polls already put on
+     the unrecorded queue listed once; an open moment it keeps declining is
+     re-attempted, and re-listed, on each window it is reached while inside
+     the lookback. Gaps older than the lookback with no prediction are the
+     outcome pass's: run-repair's `lost-outcomes` runs the same detection and
+     writer over every gap at any age, and marks the corpus-resolved ones it
+     cannot attribute `resolved_without_outcome` with the reason
+     (`no-snapshot`, `undated`, `opened-after-decision`, `declined`) — a
+     first-mint `ingested-decided` closure it cannot attribute is re-marked
+     with the pass's own reason, which says why it is still unrecorded.
+
+     **Ledger-outcome coverage.** Two populations, kept two ways. Inside the
+     lookback, and at any age where the stage carries a committed prediction,
+     the live poll and the standing convergence maintain it **continuously**:
+     a decided declared moment on a salience-selected, in-scope SCOTUS row
+     carries an `outcome.json`, or is open and listed on the unrecorded queue
+     each window it is reached. Past the lookback with no prediction, coverage
+     is only as current as the last `lost-outcomes` apply: that dispatch
+     records every attributable gap and marks the corpus-resolved residue
+     `resolved_without_outcome`, and a gap opening there afterwards waits for
+     the next dispatch. So after an apply the ledger carries an outcome for
+     every attributable decided declared moment on a selected row, predicted
+     or not, and a decided moment there without one is either open (its
+     detection declines) or closed and marked with its reason; the
+     missed-forecast monitor's `no_outcome_record` lists both kinds. Outside
+     that population — an unselected row, a circuit appeal, an entry-pinned
+     event — an outcome is recorded only where the poll saw the event open
+     when its disposition landed, so ledger outcomes there are not a census of
+     decided matters. Anything that counts ledger outcomes beyond predicted
+     events counts this population; the corpus, not the ledger, is the
+     complete record of dispositions.
 
 ## Maintenance passes
 
@@ -1428,6 +1532,7 @@ population and apply against another.
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
+| `lost-outcomes` | `record-lost-outcomes` | `--max-cases` (cases written, recorded and marked together: the dry run's `cases_written`) | — | — |
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 | `opinion-votes` | `stamp-opinion-votes` (split: `--emit-corpus-projection`, `--projection --plan-out`, `--from-plan`) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |

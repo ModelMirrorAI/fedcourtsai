@@ -66,6 +66,7 @@ from .schemas import (
     Prediction,
     PredictorScoreRow,
     SalienceReplay,
+    SetAsideRecord,
     SpendSummary,
     Stage,
     StatPack,
@@ -100,6 +101,51 @@ _FAILURE_CONCLUSIONS = frozenset({"failure", "timed_out", "cancelled", "startup_
 # row — a genuinely broken gate must stay visible — and footnotes it, rather than
 # hiding it or letting a reader take it for breakage.
 _GATE_WORKFLOWS = frozenset({"promote"})
+
+# Workflows that poll: a short schedule that usually finds nothing, and whose
+# runs replace one another in a concurrency group's pending slot. `corpus-check`
+# fires every 30 minutes and keeps at most one run pending behind a check
+# waiting on approval, so a replaced poll ends `cancelled` by design. For these,
+# a cancelled run is not an execution — it is excluded from the rate, the
+# percentiles and "Last" like a skip — and only the most recent
+# `_POLL_WINDOW` runs are kept, so a poll's volume cannot crowd every other
+# workflow out of the report's window.
+_POLL_WORKFLOWS = frozenset({"corpus-check"})
+_POLL_WINDOW = 48
+
+# The report's window over everything else: the most recent this many runs.
+RUN_WINDOW = 200
+
+
+def window_runs(runs: Iterable[Mapping[str, object]]) -> list[Mapping[str, object]]:
+    """The runs the report reads: the newest :data:`RUN_WINDOW` of the ordinary
+    workflows plus the newest :data:`_POLL_WINDOW` of each polling one.
+
+    The listing the job hands in is wider than the window, because the polls
+    would otherwise fill it in days; windowing here keeps the ordinary
+    workflows' depth independent of how often a poll fires.
+    """
+
+    def created(run: Mapping[str, object]) -> str:
+        return str(run.get("createdAt") or "")
+
+    ordered = sorted(runs, key=created, reverse=True)
+    ordinary = [r for r in ordered if str(r.get("workflowName") or "") not in _POLL_WORKFLOWS]
+    kept = ordinary[:RUN_WINDOW]
+    for workflow in sorted(_POLL_WORKFLOWS):
+        kept += [r for r in ordered if r.get("workflowName") == workflow][:_POLL_WINDOW]
+    return kept
+
+
+def _executed(run: Mapping[str, object], workflow: str) -> bool:
+    """Whether a completed run did anything: not a skip, nor a replaced poll."""
+    if run.get("status") != "completed":
+        return True
+    conclusion = run.get("conclusion")
+    if conclusion == "skipped":
+        return False
+    return not (workflow in _POLL_WORKFLOWS and conclusion == "cancelled")
+
 
 # Cost constants — the source for this report's non-inference lines (the model
 # rates it applies live in `fedcourtsai.pricing`).
@@ -172,7 +218,8 @@ def summarize_health(runs: Iterable[Mapping[str, object]]) -> list[WorkflowHealt
         conclusive = [
             r
             for r in completed
-            if r.get("conclusion") == "success" or r.get("conclusion") in _FAILURE_CONCLUSIONS
+            if _executed(r, workflow)
+            and (r.get("conclusion") == "success" or r.get("conclusion") in _FAILURE_CONCLUSIONS)
         ]
         successes = sum(1 for r in conclusive if r.get("conclusion") == "success")
         failures = len(conclusive) - successes
@@ -181,11 +228,7 @@ def summarize_health(runs: Iterable[Mapping[str, object]]) -> list[WorkflowHealt
         # time order. Completed skips are ignored here too — "Last" should
         # answer "how did the last real execution end" (an in-progress run
         # still surfaces, as conclusion None).
-        executions = [
-            r
-            for r in workflow_runs
-            if not (r.get("status") == "completed" and r.get("conclusion") == "skipped")
-        ]
+        executions = [r for r in workflow_runs if _executed(r, workflow)]
         recent = max(executions or workflow_runs, key=lambda r: str(r.get("createdAt") or ""))
         health.append(
             WorkflowHealth(
@@ -321,6 +364,7 @@ def summarize_substance(  # noqa: PLR0913 - one keyword per stratify-pass input 
     leakage_exclusion: LeakageExclusionRecord | None = None,
     voided_events: VoidedEventsRecord | None = None,
     cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
+    set_aside: SetAsideRecord | None = None,
 ) -> SubstanceDigest:
     """Roll the committed ledger + metrics artifacts into the substance section.
 
@@ -423,6 +467,7 @@ def summarize_substance(  # noqa: PLR0913 - one keyword per stratify-pass input 
         forward_claim=forward_claim,
         leakage_exclusion=leakage_exclusion,
         voided_events=voided_events,
+        set_aside=set_aside,
         live_frontier=live_frontier,
         process_scope=process_scope,
     )
@@ -476,6 +521,7 @@ def render_substance(digest: SubstanceDigest) -> str:
         # otherwise render as "nothing ran yet".
         and (digest.forward_claim is None or digest.forward_claim.excluded == 0)
         and (digest.leakage_exclusion is None or digest.leakage_exclusion.excluded == 0)
+        and (digest.set_aside is None or digest.set_aside.excluded == 0)
     )
     lines = [
         "## Substance (is it producing?)",
@@ -512,6 +558,14 @@ def render_substance(digest: SubstanceDigest) -> str:
             f"boards (see their `leakage_exclusion` block). Counted separately "
             f"from the forward-claim line — a cell caught by both appears in "
             f"both."
+        )
+    if digest.set_aside is not None and digest.set_aside.excluded:
+        held = digest.set_aside
+        reasons = ", ".join(f"{count} {reason}" for reason, count in held.by_reason.items())
+        lines.append(
+            f"Set aside: **{held.excluded}** graded cell(s) the record cannot show to "
+            f"be forward ({reasons}), out of the counts above; the boards publish "
+            f"each figure they moved with them counted (`set_aside_sensitivity`)."
         )
     if frozen_empty:
         lines.append(
@@ -1940,7 +1994,7 @@ def build_ops_report(  # noqa: PLR0913 - aggregates independent read-only source
     ``tooling`` the committed ``tooling.json`` self-reports it rolls into the
     tooling-feedback digest (each empty when none are committed).
     """
-    run_list = list(runs)
+    run_list = window_runs(runs)
     spend = summarize_spend(usage)
     return OpsReport(
         generated_at=generated_at,

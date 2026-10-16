@@ -266,6 +266,30 @@
       "predictors": null,
       "reach": "granted dockets",
       "gradual": true
+    },
+    {
+      "name": "scrub-withheld-petitioner-block",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "self-represented dockets",
+      "gradual": false
+    },
+    {
+      "name": "single-entry-trigger-placement",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
+    },
+    {
+      "name": "query-clock-prior-last-pull-mask",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
     }
   ]
 }

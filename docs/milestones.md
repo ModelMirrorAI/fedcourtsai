@@ -1,7 +1,7 @@
 # Milestones
 
 Where the project is, and what each increment of funding buys. The scaling
-plan is five milestones taken in order, each with the annual funding level the
+plan is six milestones taken in order, each with the annual funding level the
 project needs to reach **before committing to it**. Dollar figures are rough
 planning estimates built on the rates in [budget.md](budget.md); the ledger
 re-measures them as each step lands. (The project's accountable forecasts are
@@ -33,36 +33,51 @@ Public releases are anchored to the Court's calendar, so predictions publish
 None of the releases depends on the funding below. Funding changes how much of
 the docket, how many moments, and how many models each release covers.
 
+Between releases, the site's email list is planned to carry two optional
+updates a subscriber chooses: a **weekly SCOTUS update** (what resolved against
+what each model forecast, and the forecasts newly committed) and an **AI-cases
+feed** (new filings and rulings on the AI-case watchlist below, with that
+slice's forecasts as an opt-in addition). Each update's body is rendered from
+committed data; the only model-written text is an optional ruling summary,
+labelled with its model. Each send will be a draft a person approves, and
+neither update is scored. They cost almost nothing beyond those summaries, so
+they sit outside the scaling plan.
+
 ## The scaling plan
 
 | Milestone | Model API / yr (cumulative) | Other / yr | **Funding needed / yr** |
 |---|---:|---:|---:|
 | Today — bootstrapping | ≈$15K (of the $24K envelope) | $7K | **≈$31K** |
 | 1. More prediction events | ≈$20K (of the $24K envelope) | $7K | **≈$31K** |
-| 2. All paid cases | ≈$40K | $28K | **≈$68K** |
-| 3. A D.C. Circuit slice | ≈$45K | $28K | **≈$73K** |
-| 4. Seven model developers | ≈$65K | $28K | **≈$93K** |
-| 5. Prompt lenses | up to $120K | $28K | **≈$148K** |
+| 2. The AI-case watchlist | ≈$22K (of the $24K envelope) | $7K | **≈$31K** |
+| 3. All paid cases | ≈$42K | $28K | **≈$70K** |
+| 4. A D.C. Circuit slice | ≈$47K | $28K | **≈$75K** |
+| 5. Seven model developers | ≈$67K | $28K | **≈$95K** |
+| 6. Prompt lenses | up to $120K | $28K | **≈$148K** |
 
 Every column is cumulative: each row is the whole project's annual run rate
-at that milestone, not the increment over the row above. The first two rows
+at that milestone, not the increment over the row above. The first three rows
 sit inside the bootstrapping envelope, so their funding figure is that
 envelope rather than the sum of the row. Other spend is assumed to step from the
-bootstrapping to the scaling level at milestone 2, when volume starts to grow.
+bootstrapping to the scaling level at milestone 3, when volume starts to grow.
 The model-spend column is priced at about $15 per fully evaluated SCOTUS
-event; at the about $10 [budget.md](budget.md) now gives, today's row is
-≈$8.5–11K and milestone 2's ≈$21–25K. The table keeps the higher rate as the
+event and $30–60 per lower-court event; at the about $10 per SCOTUS event
+[budget.md](budget.md) now gives, today's row is ≈$8.5–11K and milestone 3's
+≈$21–27K. The table keeps the higher rate as the
 planning ceiling until a round of measured cells re-anchors it.
 
 The order is deliberate. New moments are cheap and raise the value of every
-case already covered, so they come first. Coverage comes before more models
-because the project's claims are coverage claims, and every later predictor
-multiplies over the events this step buys. The circuit slice follows full
-SCOTUS coverage, so it is measured against a finished baseline, and comes
-before new models, so its sourcing and costs are learned at three predictors
-rather than seven. New developers come before prompt
-variants because a baseline for each model has to exist before a variant of it
-means anything.
+case already covered, so they come first. The AI-case watchlist comes next
+because it costs little and is built for its audience: at most a few dozen
+events a year fit inside the bootstrapping envelope, and it builds the lower-
+court machinery the D.C. Circuit slice reuses. Full SCOTUS coverage comes
+before more models because the project's claims are coverage claims, and every
+later predictor multiplies over the events this step buys. The D.C. Circuit
+slice follows full SCOTUS coverage, so it is measured against a finished
+baseline, and both lower-court slices come before new models, so their
+sourcing and costs are learned at three predictors rather than seven. New
+developers come before prompt variants because a baseline for each model has
+to exist before a variant of it means anything.
 
 ### 1. More prediction events — within bootstrapping (≈$31K / yr)
 
@@ -84,7 +99,49 @@ so the cost is engineering rather than inference: each moment is a
 pre-registered population with its own base rate, and new inputs (argument
 transcripts) move the registered process version.
 
-### 2. All paid cases — ≈$68K / yr
+### 2. The AI-case watchlist — within bootstrapping (≈$31K / yr)
+
+Follow a hand-curated watchlist of 10–20 AI cases — cases where an AI
+developer, or an AI system's training, outputs or deployment, is central to a
+claim or defense — from the district court up. It exists for its audience: the
+evaluation and forecasting communities follow these cases closely, and
+little timestamped, structured coverage of them exists. The list and the rule
+that admits a case are committed, and a case is added on a dated line. Its
+cases carry an `ai` tag that follows them to any appeal or cert petition; the
+tag never changes SCOTUS selection.
+
+What the step adds:
+
+- **A district stage.** Court-agnostic trial-court moments, each opening when a
+  motion is fully briefed: a motion to dismiss, class certification, summary
+  judgment, and final disposition. Outcomes include ruling *in part*, which is
+  the usual result, and *no merits decision* for a settlement or voluntary
+  dismissal. Nothing is voided: a settlement or a mooted motion is something
+  forecasts price in.
+- **The AI-cases feed before any forecast.** New filings and rulings on watchlist
+  dockets, with links to the public record, ship first; forecasts are added
+  once the district moments are registered.
+- **Forecasts on a developer's own case.** Several watchlist cases name as a
+  party the developer of one of the project's predictors. A comparison of how
+  a predictor forecasts its own developer's cases against the other predictors
+  is pre-registered before the first such forecast, reported as descriptive at
+  watchlist size, and every surface discloses which developer is a party.
+- **The lower-court machinery.** Docket ingestion for exactly the listed
+  dockets (the one planned exception to the corpus's exclusion of district
+  courts), documents from the RECAP archive, a prediction scope keyed on a
+  committed slice list, and docket push. The D.C. Circuit slice reuses each.
+
+A case reaches one or two moments in a typical year, so the watchlist is
+roughly 10–40 events a year. Lower-court records are larger than SCOTUS ones,
+so a fully evaluated event is estimated at ≈$30–60, to be re-measured on the
+first events: ≈$1–2K of model spend a year. If every case reached all four
+moments in one year (80 events at $60), it would be ≈$5K and the step would
+outgrow the bootstrapping envelope. Most of these dockets are already well
+covered in RECAP, so document purchases should be rare. Watchlist forecasts
+score in their own stratum and never enter SCOTUS headline figures; the list
+is not a coverage claim.
+
+### 3. All paid cases — ≈$70K / yr
 
 Raise the salience gate's capacity until every paid SCOTUS petition not
 removed by a deterministic filter (such as the in-forma-pauperis exclusion) is
@@ -93,7 +150,7 @@ substantive applications. Roughly 2,100–2,500 events a Term, up from
 ~850–1,100. At this point salience stops being a spend control and survives
 as the public, pre-registered ranking.
 
-### 3. A D.C. Circuit slice — ≈$73K / yr
+### 4. A D.C. Circuit slice — ≈$75K / yr
 
 Forecast a small, pre-registered slice of the U.S. Court of Appeals for the
 D.C. Circuit: on the order of 25–50 argued cases a year, chosen by a rule
@@ -101,12 +158,13 @@ committed before the first forecast. The slice is a test, not a coverage
 claim. It proves circuit sourcing, cost, and resolution end to end before any
 wider lower-court work is planned or priced.
 
-The D.C. Circuit fits a first slice. Its docket leans toward agency and
+The D.C. Circuit fits a first appellate slice. Its docket leans toward agency and
 government cases, which often reach the Supreme Court. It runs CM/ECF on
 PACER, its opinions are free, and it posts argument audio. The corpus already
 ingests `cadc`, so base rates and retrieval history exist.
 
-What the step adds:
+It reuses the lower-court machinery the AI-case watchlist built. What the
+step adds:
 
 - **Three moments per case, around the panel.** A forecast when argument is
   scheduled but the panel is not yet known; another once the court posts the
@@ -131,14 +189,13 @@ What the step adds:
   pending Free Law Project's commercial terms, and getting a real quote is one
   aim of this step.
 
-Circuit records are larger than SCOTUS ones, so a fully evaluated event is
-estimated at ≈$30–60 rather than SCOTUS's ~$10, to be re-measured on the first
-events. Two moments on about 50 cases is about 100 events a year, ≈$5K of
-model spend; the post-argument moment adds about half again, plus
-transcription. Circuit forecasts are scored in their own stratum and never
+At the ≈$30–60 estimated for a fully evaluated lower-court event, two moments
+on about 50 cases is about 100 events a year, ≈$5K of model spend, re-measured
+on the first circuit events; the post-argument moment adds about half again,
+plus transcription. Circuit forecasts are scored in their own stratum and never
 enter SCOTUS headline figures.
 
-### 4. Seven model developers — ≈$93K / yr
+### 5. Seven model developers — ≈$95K / yr
 
 Add a baseline predictor for four more developers — **xAI, Moonshot, Meta, and
 Alibaba** — each running its most capable model inside its own coding harness
@@ -158,7 +215,7 @@ runner, and its own steps in both cell workflows. That adapter work is in none
 of the figures above, and it is why prompt lenses — which are a registry entry plus a prompt template — come
 last.
 
-### 5. Prompt lenses — up to ≈$148K / yr
+### 6. Prompt lenses — up to ≈$148K / yr
 
 Field three **prompt-lens variants** that instruct a model to reason from one
 perspective — **legal/doctrinal, political, economic** — and let the

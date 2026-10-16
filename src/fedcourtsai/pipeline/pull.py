@@ -32,18 +32,23 @@ from .. import corpus, ids
 from ..config import PredictScope
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_transient
 from ..matrix import (
+    awaited_presence,
     cell_failure_count,
     event_has_evaluations,
     event_has_predictions,
+    opinion_hold,
     predicted_case_ids,
 )
 from ..registry import enabled_evaluators, enabled_predictors
 from ..schemas import Moment, Stage
 from ..store import (
+    PayloadReader,
+    distribution_conference_considered,
     event_has_claimable_prediction,
     forecastable_event_ids,
     forecastable_events,
     forward_refusal_reason_from_parts,
+    live_payload_reader,
     predictor_holds_no_counted_prediction,
 )
 from ..voids import is_voided
@@ -111,9 +116,9 @@ def pull_case(
 
     # Detect resolution of any open events: write outcome.json deterministically
     # when the disposition is machine-readable, else surface it unrecorded.
-    # Runs *before* re-extraction: `default_event` marks a decided case's baseline
-    # resolved (from its disposition), so resolution must see the event still open
-    # to record its outcome before extraction latches it closed.
+    # Runs *before* re-extraction, so detection judges the events as they stood
+    # before this refresh's extraction adds any. Re-extraction never closes a
+    # stored event (`default_event`): one detection declines stays open.
     resolution = resolve_case(
         corpus_db_path,
         data_root,
@@ -475,6 +480,16 @@ def derive_evaluate_backlog(
     derivation re-presents them. For SCOTUS, where
     ``evt-petition-disposition`` is typically the sole event, the case rarely
     has other owed events at all.
+
+    A case whose every owed event is a decided merits moment under the opinion
+    hold (:func:`fedcourtsai.matrix.opinion_hold`, read on the row's awaited
+    presence bit, :func:`fedcourtsai.matrix.awaited_presence`, and ``today``)
+    is listed but takes no ``cap`` slot: the
+    fan-out mints nothing for it this cycle, and since the deriver re-derives the
+    same head every cycle, counting it would let the held cases crowd out every
+    other owed grading for the whole window. So ``entries`` can exceed ``cap``
+    by the held cases met before the cap fills, and a held case past that point
+    is not listed at all, which costs nothing because it would mint nothing.
     """
     day = today or date.today()
     if cap <= 0:
@@ -514,8 +529,16 @@ def derive_evaluate_backlog(
     candidates.sort(key=lambda r: (r.evaluate_queued_at or date.min, r.case_id))
 
     entries: list[BacklogEntry] = []
+    # The cap counts entries with an event the fan-out will grade this cycle. A
+    # case whose every owed event is under the opinion hold
+    # (`fedcourtsai.matrix.opinion_hold`) is still listed, so the plan names the
+    # deferral, but takes no slot: the deriver is stamp-free and so re-derives
+    # the same head every cycle, and a fortnight of held merits decisions at the
+    # head of a `case_id`-ordered queue would otherwise starve every other
+    # owed grading behind them for as long as they wait.
+    counted = 0
     for row in candidates:
-        if len(entries) >= cap:
+        if counted >= cap:
             break
         court, docket_str = row.case_id.split("/", 1)
         docket = int(docket_str)
@@ -541,6 +564,15 @@ def derive_evaluate_backlog(
         entries.append(
             BacklogEntry(case_id=row.case_id, court=court, docket=docket, events=tuple(owed))
         )
+        presence = awaited_presence(
+            docket, has_opinion=row.has_opinion, cert_granted=row.date_cert_granted is not None
+        )
+        if any(
+            opinion_hold(data_root, court, docket, event_id, has_opinion=presence, today=day)
+            is None
+            for event_id in owed
+        ):
+            counted += 1
 
     return EvaluateBacklog(entries=tuple(entries), day=day)
 
@@ -641,7 +673,7 @@ def _last_observed(row: corpus.CorpusRow) -> date | None:
 #: * **cert / distribution** — the petition baseline. Open for as long as the
 #:   petition is undistributed-past: the conference it is currently distributed
 #:   for decides it, so the rule additionally refuses one whose conference has
-#:   already passed (:func:`_reopenable_moment`). This is the cohort the rule
+#:   already sat on it (:func:`_reopenable_moment`). This is the cohort the rule
 #:   exists for.
 #: * **cert / cvsg** — forecast after the Court called for the Solicitor
 #:   General's views, an information set that does not expire on a date.
@@ -673,19 +705,25 @@ REPREDICT_MOMENTS: frozenset[tuple[Stage, Moment]] = frozenset(
 )
 
 
-def _reopenable_moment(event_id: str, row: corpus.CorpusRow, *, day: date) -> bool:
+def _reopenable_moment(
+    event_id: str, row: corpus.CorpusRow, *, day: date, payloads: PayloadReader
+) -> bool:
     """Whether ``event_id``'s declared moment is one a re-predict may still target.
 
     :data:`REPREDICT_MOMENTS` plus the one bound that is a date rather than a
     table row: a **distribution** cell forecasts the conference the petition is
-    currently distributed for, so once that conference is past the moment the
-    cohort was forecast at is over — the order list has been issued or the
-    petition relisted, and either way a cell minted now answers a different
-    question from the one the de-counted cells answered. A petition with no
-    conference at all is refused for the same reason the fan-out's own
-    information-set precondition refuses it
-    (:func:`fedcourtsai.store._premature_distribution_cell`): the distribution
-    moment has not happened.
+    currently distributed for, so once that conference has sat on the petition
+    the moment the cohort was forecast at is over — the grant list has issued
+    and the order list follows, and a cell minted now answers a different
+    question from the one the de-counted cells answered. The bound is the
+    first-time admission's own
+    (:func:`fedcourtsai.store.distribution_conference_considered`), so the two
+    paths refuse one population: a conference day counts as sat, and a petition
+    the conference did not consider — taken off it by a call for response or a
+    reschedule — stays open. A petition with no conference at all is refused
+    for the same reason the fan-out's own information-set precondition refuses
+    it (:func:`fedcourtsai.store._premature_distribution_cell`): the
+    distribution moment has not happened.
 
     An **undeclared** event — an entry-pinned motion, a legacy baseline id —
     has no moment to check and is refused. The rule adds cells to a backlog
@@ -696,8 +734,9 @@ def _reopenable_moment(event_id: str, row: corpus.CorpusRow, *, day: date) -> bo
     if spec is None or (spec.stage, spec.moment) not in REPREDICT_MOMENTS:
         return False
     if spec.moment is Moment.distribution:
-        conference = row.distributed_for_conference
-        return conference is not None and conference >= day
+        return row.distributed_for_conference is not None and not (
+            distribution_conference_considered(row, day=day, payloads=payloads)
+        )
     return True
 
 
@@ -1106,8 +1145,8 @@ def _reowed_pre_freeze_events(
        ledger, and a "forward" cell minted on it is a replay in forward
        clothing.
     2. **The moment is still open.** :func:`_reopenable_moment` —
-       :data:`REPREDICT_MOMENTS`, plus the refusal of a distribution event that
-       carries no conference still ahead.
+       :data:`REPREDICT_MOMENTS`, plus the refusal of a distribution event
+       whose conference is missing or has already considered the petition.
     3. **Every existing cell is de-counted, for at least one predictor.**
        :func:`fedcourtsai.store.predictor_holds_no_counted_prediction`, under
        the same per-cell attempt cap the never-predicted arm takes. A predictor
@@ -1136,12 +1175,20 @@ def _reowed_pre_freeze_events(
     alone, so a candidate whose events are all merits, cert/arrival or
     entry-pinned — the common case — pays nothing.
     """
+
     # The moment filter runs first and alone, because it needs only the row and
-    # the register while both gates after it read a store: without this every
+    # the register — plus one live payload, for a distribution event whose
+    # conference the row already names as sat — while both gates after it read
+    # a store: without this every
     # candidate would pay a `events_for_case` query to have all its events
     # refused for being merits, cert/arrival, or entry-pinned — which is the
     # common case, not the rare one.
-    reopenable = [event_id for event_id in events if _reopenable_moment(event_id, row, day=day)]
+    payloads = live_payload_reader(conn)
+    reopenable = [
+        event_id
+        for event_id in events
+        if _reopenable_moment(event_id, row, day=day, payloads=payloads)
+    ]
     if not reopenable:
         return []
     case_events = corpus.events_for_case(conn, row.case_id)

@@ -972,6 +972,47 @@
       "title": "RubricCount",
       "type": "object"
     },
+    "SetAsideRecord": {
+      "additionalProperties": false,
+      "description": "The cells a board's build set aside from its default figures, and why.\n\nA set-aside cell is one the record cannot show to be forward\n(:mod:`fedcourtsai.set_aside`): it leaves the default figures \u2014 every\nstratum, rank key and composition count \u2014 and is put back in the\nsensitivity figures beside them, so the default and the reading with the\ncell counted are both published and the set-aside is never silent. It\nchanges which cells the default figure counts, never what any cell scored.\nOmitted where nothing in scope is set aside.",
+      "properties": {
+        "by_predictor": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Set-aside gradings keyed by predictor id (only predictors with a nonzero count appear)",
+          "title": "By Predictor",
+          "type": "object"
+        },
+        "by_reason": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Set-aside gradings keyed by reason (`SetAsideReason`; only reasons with a nonzero count appear)",
+          "title": "By Reason",
+          "type": "object"
+        },
+        "events": {
+          "description": "The events holding set-aside gradings, as '<case_id> <event_id> <reason>', sorted",
+          "items": {
+            "type": "string"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "excluded": {
+          "description": "How many in-scope gradings the shared `store.stratify` pass set aside \u2014 counted after the run collapse, the void, the forward-claim rule and the leakage bit, so a grading those rules already dropped is never counted here. On the leaderboard it is stage-blind, so never subtracted from a stage-scoped total beside it; on the claim-score board it covers cert's first moment only, the board's own population",
+          "minimum": 0,
+          "title": "Excluded",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "excluded"
+      ],
+      "title": "SetAsideRecord",
+      "type": "object"
+    },
     "SpendSummary": {
       "additionalProperties": false,
       "description": "Model spend rolled up from the recorded ``usage.json`` ledger.",
@@ -1334,6 +1375,18 @@
           ],
           "title": "Process Scope",
           "type": "string"
+        },
+        "set_aside": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SetAsideRecord"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The gradings the shared stratify pass set aside from the scored-cell figures, exactly as the leaderboard records them; the counts above are the default, without them, and the boards carry the reading with them counted. Omitted where nothing in scope is set aside"
         },
         "voided_events": {
           "anyOf": [

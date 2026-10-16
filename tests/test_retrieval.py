@@ -463,6 +463,166 @@ def test_codex_mcp_name_composes_into_the_rollup_s_mcp_spelling(tmp_path: Path) 
     assert normalize_call("search") is None
 
 
+_OFFERED = ("courtlistener.read_document", "courtlistener.search", "courtlistener.search_document")
+
+
+def test_codex_bare_manifest_name_resolves_against_the_offered_set(tmp_path: Path) -> None:
+    # Codex logs a manifest call as a `function_call` under the tool's bare
+    # name, the server (where recorded) in `namespace`. Read as logged, the
+    # row is a builtin, so the call is missing from the MCP counts and its 429
+    # is minted `ok`. The offered set is what tells it from a builtin.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "function_call",
+            "name": "search",
+            "namespace": "mcp__courtlistener",
+            "call_id": "c1",
+            "arguments": json.dumps({"case_name": "Bost v. Illinois State Board"}),
+        },
+        {
+            "type": "function_call_output",
+            "call_id": "c1",
+            "output": "Rate limit exceeded: HTTP 429: {'detail': 'Request was throttled.'}",
+        },
+    )
+    (call,) = parse_codex_retrieval(sessions, offered=_OFFERED)
+    assert call.tool == "mcp__courtlistener__search"
+    assert normalize_call(call.tool) == "courtlistener.search"
+    assert call.result_status == "throttled"
+    log = _log([call])
+    assert log.throttled_calls == 1
+    assert observed_mcp_conditions(log.calls) == [call]
+    # The same rollout with no offered set is the pre-fix reading: a builtin,
+    # whose throttle text the tool gate never reads.
+    (blind,) = parse_codex_retrieval(sessions)
+    assert blind.tool == "search"
+    assert normalize_call(blind.tool) is None
+    assert blind.result_status == "ok"
+
+
+def test_codex_bare_manifest_name_resolves_without_a_namespace(tmp_path: Path) -> None:
+    # The committed rows record no namespace, so the offered set alone decides
+    # where exactly one pinned server advertises the name.
+    sessions = _codex_rollout(
+        tmp_path,
+        {"type": "function_call", "name": "read_document", "call_id": "c1", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": "c1", "output": "{}"},
+    )
+    (call,) = parse_codex_retrieval(sessions, offered=_OFFERED)
+    assert call.tool == "mcp__courtlistener__read_document"
+
+
+def test_codex_builtin_names_are_not_resolved(tmp_path: Path) -> None:
+    # A name no offered server advertises stays as logged — the shell above
+    # all, which is where a codex cell does most of its work.
+    sessions = _codex_rollout(
+        tmp_path,
+        {"type": "function_call", "name": "exec_command", "call_id": "c1", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": "c1", "output": "429 Too Many Requests"},
+    )
+    (call,) = parse_codex_retrieval(sessions, offered=_OFFERED)
+    assert call.tool == "exec_command"
+    assert normalize_call(call.tool) is None
+    assert call.result_status == "ok"
+
+
+def test_codex_bare_name_two_servers_advertise_resolves_only_by_namespace(
+    tmp_path: Path,
+) -> None:
+    # Two pinned servers advertising one bare name: the namespace picks the
+    # server where it names one of them, and without one nothing is guessed.
+    offered = ("courtlistener.search", "otherserver.search")
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "function_call",
+            "name": "search",
+            "namespace": "mcp__otherserver__",
+            "call_id": "c1",
+            "arguments": "{}",
+        },
+        {"type": "function_call", "name": "search", "call_id": "c2", "arguments": "{}"},
+        {
+            "type": "function_call",
+            "name": "search",
+            "namespace": "mcp__unpinned",
+            "call_id": "c3",
+            "arguments": "{}",
+        },
+    )
+    assert [call.tool for call in parse_codex_retrieval(sessions, offered=offered)] == [
+        "mcp__otherserver__search",
+        "search",
+        "search",
+    ]
+
+
+def test_codex_namespace_naming_no_offered_server_is_not_overridden(tmp_path: Path) -> None:
+    # One offered server advertises the name, but the item's namespace names a
+    # different one: the engine's word on the server wins, and the
+    # single-server fallback must not attribute the call to the pinned server.
+    sessions = _codex_rollout(
+        tmp_path,
+        {
+            "type": "function_call",
+            "name": "search",
+            "namespace": "mcp__otherserver",
+            "call_id": "c1",
+            "arguments": "{}",
+        },
+        {"type": "function_call", "name": "search", "namespace": "", "call_id": "c2"},
+    )
+    assert [call.tool for call in parse_codex_retrieval(sessions, offered=_OFFERED)] == [
+        "search",
+        "mcp__courtlistener__search",
+    ]
+
+
+def test_record_retrieval_resolves_codex_bare_names_against_the_registry(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # End to end through the CLI: the offered set the log snapshots is the one
+    # the parse resolved against, so a bare codex manifest call lands in the
+    # MCP gate on the committed record.
+    sessions = _codex_rollout(
+        tmp_path,
+        {"type": "function_call", "name": "search", "call_id": "c1", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": "c1", "output": "{}"},
+    )
+    result = runner.invoke(
+        app,
+        [
+            "record-retrieval",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+            "--run-id",
+            "20260710T120000Z",
+            "--engine",
+            "codex",
+            "--role",
+            "predictor",
+            "--actor",
+            "codex-baseline",
+            "--codex-sessions-dir",
+            str(sessions),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    log_path = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305)
+        .event("evt-petition-disposition")
+        .prediction_retrieval_log("codex-baseline", "20260710T120000Z")
+    )
+    log = RetrievalLog.model_validate_json(log_path.read_text())
+    assert "courtlistener.search" in log.mcp_tools
+    assert [call.tool for call in log.calls] == ["mcp__courtlistener__search"]
+
+
 def test_codex_custom_tool_call_pairs_its_output(tmp_path: Path) -> None:
     sessions = _codex_rollout(
         tmp_path,

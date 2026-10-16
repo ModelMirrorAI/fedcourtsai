@@ -279,9 +279,10 @@ def ingest_live_payload(
             )
     upsert_to_corpus(corpus_db_path, [row], last_live_polled=today, sample_weight=weight)
 
-    # Resolution before re-extraction, exactly as in pull_case: `default_event`
-    # marks a decided case's baseline resolved, so resolution must see the event
-    # still open to record its outcome before extraction latches it closed.
+    # Resolution before re-extraction, exactly as in pull_case, so detection
+    # judges the docket's events as they stood before this poll's extraction
+    # adds any. Re-extraction never closes a stored event (`default_event`): an
+    # event detection declines here stays open and is retried.
     resolution = resolve_case(
         corpus_db_path,
         data_root,

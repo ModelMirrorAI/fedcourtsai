@@ -7,6 +7,7 @@ committed under ``data/`` matches the schema contract.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import logging
@@ -49,12 +50,14 @@ from . import (
     casestore,
     cleanup,
     corpus,
+    corpus_check,
     corpus_index,
     corpus_ranged,
     corpus_remote,
     corpus_seed,
     corpus_service,
     dedupe,
+    environment_checks,
     ids,
     integration_check,
     mcp,
@@ -91,6 +94,7 @@ from .backtest import (
     run_backtest,
     select_backtest_set,
 )
+from .buttondown import API_KEY_ENV, ButtondownError, make_client, post_draft
 from .cert_backtest import (
     CERT_BACKTEST_SCOPES,
     ReplayOutcome,
@@ -100,7 +104,15 @@ from .cert_backtest import (
     replay_predictors,
     run_cert_backtest,
 )
-from .claim_metrics import agreement_summary, build_claim_scores
+from .claim_metrics import (
+    agreement_summary,
+    build_claim_scores,
+    claim_set_aside_record,
+    claim_set_aside_sensitivity,
+    claim_set_aside_sensitivity_lines,
+    claim_surface_set_aside,
+    without_set_aside_claims,
+)
 from .cohort_cut import counted_by_conference
 from .collect import (
     BOARD_ARTIFACTS,
@@ -170,6 +182,7 @@ from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .handoff import HandoffRefused, read_handoff, write_handoff
 from .integrity import (
+    StratifiedCell,
     evaluation_clock,
     forward_claim_record,
     latest_evaluation_runs,
@@ -184,6 +197,8 @@ from .leaderboard import (
     coverage_shortfalls,
     entry_name,
     evaluator_agreement,
+    leaderboard_set_aside_sensitivity,
+    set_aside_record,
     skill_components,
     vote_scores,
 )
@@ -194,17 +209,20 @@ from .matrix import (
     GuardedMatrix,
     StrandedCell,
     StrandedReason,
+    awaited_presence,
     cap_predict_cells,
     classify_stranded_cells,
     drop_stranded_cells,
     evaluate_matrix,
     event_has_evaluations,
     event_has_predictions,
+    opinion_hold,
     parse_cases,
     predict_matrix,
     read_collect_prs,
     read_stranded_census,
     reopened_for,
+    run_day,
 )
 from .merits_event_migration import (
     backfill_event_moments,
@@ -295,6 +313,7 @@ from .pipeline.documents import (
     questions_presented_extract,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
+from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.lineup import WritingKind
 from .pipeline.live import live_poll_all
@@ -311,6 +330,7 @@ from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINIO
 from .pipeline.opinion_enrichment import enrich_opinions
 from .pipeline.outcome import (
     forward_leakage,
+    record_lost_outcomes,
 )
 from .pipeline.party import (
     PARTY_AS_OF_FIELDS,
@@ -352,6 +372,13 @@ from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
 from .planning_rates import price_cells
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .promotion_body import Batch, batch_prs, render, same_body, splice
+from .public_update import (
+    build_public_update,
+    last_complete_week,
+    public_update_subject,
+    render_public_update,
+    week_bounds,
+)
 from .registry import (
     enabled_evaluators,
     enabled_predictors,
@@ -369,6 +396,8 @@ from .release_sensitivity import (
 from .required_checks import produced_contexts
 from .review_hold import decide_from_files as decide_hold_from_files
 from .review_hold import render_summary as render_hold_summary
+from .ruleset_checks import Expected as RulesetExpected
+from .ruleset_checks import ruleset_problems
 from .salience_replay import replay_gate
 from .schemas import (
     EXPORTABLE_MODELS,
@@ -386,6 +415,7 @@ from .schemas import (
     CertBacktestDispatch,
     CertBacktestProvenance,
     ClaimScoreBlock,
+    ClaimScoreBoard,
     ConferenceBucket,
     CorpusValidation,
     CountedConferenceTotal,
@@ -426,17 +456,20 @@ from .schemas import (
     self_provisioned_fetches,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
+from .set_aside import IncrementTiming, increment_timing
 from .slug_migration import converge_event_slugs
 from .spend import SpendVerdict, check_spend, spend_over, verdict_over
 from .store import (
     StratifiedRun,
     cases_due_for_pull,
     cell_census,
+    cell_polls,
     evaluation_key,
     event_has_claimable_prediction,
     forecastable_events,
     forward_refusal_reason,
     forward_refusal_reason_from_parts,
+    increment_signal_day,
     iter_evaluations,
     iter_flags,
     iter_predicted_events,
@@ -471,6 +504,7 @@ from .validate import (
     run_scope_audit,
     validate_ledger,
 )
+from .voids import is_voided
 from .vote_writer import (
     SweepSlice,
     VoteDocketNumbers,
@@ -1251,6 +1285,60 @@ def rederive_amicus_briefs_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
+
+
+@app.command("interim-reading-census")
+def interim_reading_census_cmd() -> None:
+    """Census the stored application rows the finer interim reading names partial or moot.
+
+    Read-only, and the measurement the 2026-10-16 interim partial-grant and moot
+    freeze-record entry asks for (`pipeline.interim_reading_census`). It reports
+    the statpack's substantive interim counts per application Term beside the
+    subset it re-reads — the resolved, application-parsed, live-slice rows with a
+    stored snapshot — and the gap (`unobservable`, `non_live`). Each re-read
+    snapshot is read under the **registered** reading, confirming the stored
+    label, and under the **finer** one (`interim_signals.read_interim_disposition`),
+    listing the rows it names `granted-in-part` or `dismissed-moot` by Term and
+    ask. It also lists stored `denied` rows whose disposing entry holds an
+    application clause that grants with no denial in it — the registered
+    reading's known side-motion misreading — and the committed interim outcomes
+    on the named rows, which stay as recorded. Nothing stored, scored or
+    cell-facing moves. Run where the corpus is pulled with the content store
+    addressed; read `unobservable` first. Prints an `InterimReadingCensus`.
+    Exits 1 when the corpus is absent.
+    """
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the interim reading census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+    elif settings.corpus_pointer is None:
+        pointer_file = corpus_remote.pointer_path_for(db_path)
+        corpus_sha = (
+            corpus_ranged.read_index_pointer(pointer_file).sha256 if pointer_file.is_file() else ""
+        )
+    else:
+        corpus_sha = corpus.resolve_read_pointer(db_path).sha256
+    with corpus.connect(db_path) as conn:
+        result = interim_reading_census(conn, settings.data_root, corpus_sha256=corpus_sha)
+    typer.echo(
+        f"interim-reading-census: {len(result.rows)} of {result.observable} readable resolved "
+        f"application(s) carry partial-grant or mootness order text (by Term and ask: "
+        f"{result.by_term}); {result.unobservable} unobservable, {result.non_live} "
+        f"outside the live slice; {len(result.registered_plain_grant_misreads)} stored "
+        "denial(s) whose application clause grants; "
+        f"{len(result.registered_disagreements)} stored label(s) the registered reading does "
+        f"not reproduce; {len(result.committed_outcomes)} committed interim outcome(s) on "
+        "those rows. Nothing written; no stored, scored or cell-facing label moves.",
+        err=True,
+    )
+    typer.echo(result.model_dump_json())
 
 
 @app.command("reconcile-salience-selection")
@@ -2397,6 +2485,15 @@ def enrich_opinions_cmd(
             help="Restrict the walk to this `court/docket` case; repeatable.",
         ),
     ] = None,
+    awaiting_grading: Annotated[
+        bool,
+        typer.Option(
+            "--awaiting-grading",
+            help="Restrict the walk to the decided merits cases the evaluate lane's "
+            "opinion hold is waiting on (a committed merits outcome with a judgment, "
+            "resolved within the hold window). The live window's scope; not with --case.",
+        ),
+    ] = False,
 ) -> None:
     """Fill each granted SCOTUS case's reporter cites and opinion body from REST.
 
@@ -2453,7 +2550,8 @@ def enrich_opinions_cmd(
 
     `--case court/docket` (repeatable) narrows the walk to named cases. It is a
     **diagnostic**, not a way to prioritise a case into production: the applied
-    lane is the dispatched enrich job, which names no case, and a dev checkout's
+    lanes are the dispatched enrich job and the live window's scoped step,
+    neither of which names a case, and a dev checkout's
     corpus role is read-only, so a local `--apply` cannot be pushed. What it
     answers is what one case costs and where it stops — does either route reach
     a cluster, is the cluster ambiguous, does the opinion carry text — without
@@ -2478,11 +2576,28 @@ def enrich_opinions_cmd(
     about the docket (a 5xx, a transport failure, an unparseable body, or a
     4xx on a collection query — the question refused, not the case).
 
+    `--awaiting-grading` is the **live window's** scope, not a diagnostic: it
+    narrows the walk to the decided merits cases the evaluate lane's opinion
+    hold is waiting on — a committed merits outcome recording a judgment that
+    publishes an opinion (not a DIG or an equally divided affirmance),
+    resolved within the hold's `OPINION_HOLD_DAYS` (14) days — so a body is
+    fetched within hours of the latch and retried each live window until it
+    lands or the hold releases the case. Everything else stands: eligibility,
+    the order, the cursor and `--max-cases`. It names no case, so it combines
+    with `--case` only as a contradiction, and is refused with it.
+
     Dry-run by default (the requests are spent either way — the dry run is how
     the spend is inspected, and it moves no cursor); run where the corpus is
     pulled, `corpus-push` after an `--apply`. Fails loud if the corpus is
     absent.
     """
+    if awaiting_grading and case is not None:
+        typer.echo(
+            "enrich-opinions: --awaiting-grading derives its own scope from the ledger, "
+            "so it does not take --case",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     named: list[str] | None = None
     if case is not None:
         # The slice is refused before anything is opened: a typo is an argument
@@ -2517,12 +2632,14 @@ def enrich_opinions_cmd(
             max_cases=max_cases,
             data_root=settings.data_root,
             cases=named,
+            awaiting_grading=awaiting_grading,
         )
     if apply:
         _ensure_corpus_layout(db_path)
     verb = "enriched" if apply else "would enrich"
+    mode = ("applied" if apply else "dry-run") + (", awaiting-grading" if awaiting_grading else "")
     typer.echo(
-        f"enrich-opinions ({'applied' if apply else 'dry-run'}): "
+        f"enrich-opinions ({mode}): "
         f"{result.eligible} granted case(s) without an opinion — walked "
         f"{result.considered}, {verb} {result.enriched}, "
         f"{result.no_cluster} with no linked cluster, {result.no_body} with no body; "
@@ -3055,6 +3172,126 @@ def converge_disposition_labels_cmd(
         )
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("record-lost-outcomes")
+def record_lost_outcomes_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Record and mark; omit for a dry-run report."),
+    ] = False,
+    max_cases: Annotated[
+        int | None,
+        typer.Option(
+            "--max-cases",
+            help="Blast-radius bound, required with --apply: refuse to write more cases than this.",
+        ),
+    ] = None,
+) -> None:
+    """Record the ledger outcome of every decided selected moment that has none.
+
+    The no-lookback twin of the live cycle's ledger-outcome convergence, run on
+    `run-repair`'s `lost-outcomes` pass. Over every declared moment on a
+    salience-selected, in-scope SCOTUS row whose stage the row records decided
+    and whose ledger pair (`outcome.json` + `event.yaml`) is incomplete, it
+    re-runs the poll's detection and records what detection attributes through
+    the poll's writer. A recorded grant mints the merits event only where the
+    merits case is still pending and forecastable; a grant whose judgment has
+    latched, whose proceeding ended, whose grant is stale or whose row is out of
+    scope is recorded with no merits event, and listed. A case whose gap stage
+    carries a committed prediction is held back for the live convergence, which
+    routes the grade to evaluate.
+
+    What it cannot attribute and the corpus already records resolved is the
+    residue: an apply marks each such moment `resolved_without_outcome` with
+    its reason, so it stays closed and visible. An open gap detection declines
+    stays open and is only reported.
+
+    Dry-run by default. `--apply` requires `--max-cases` — the case count the
+    dry run printed — and refuses, writing nothing, above it. Run where the
+    corpus is pulled; the snapshot read is split-aware. Exits 1 when the corpus
+    is absent or the apply is refused. A case whose attempt raised is reported
+    as a `::warning::` line and does not fail the run, so an apply's successful
+    writes still reach the commit; the failed case stays in the population for
+    the next dispatch.
+    """
+    settings = get_settings()
+    if apply and max_cases is None:
+        typer.echo(
+            "record-lost-outcomes: --apply requires an explicit --max-cases. "
+            "Read the dry run first and pass the case count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the outcome pass.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    result = record_lost_outcomes(db_path, settings.data_root, apply=apply, max_cases=max_cases)
+    if result.refused:
+        typer.echo(
+            f"record-lost-outcomes: refusing to apply {result.cases_written} case write(s) "
+            f"(--max-cases {max_cases}). Re-read the dry run; nothing was written.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "recorded" if apply else "would record"
+    mark = "marked" if apply else "would mark"
+    recorded_events = sum(len(v) for v in result.recorded.values())
+    gap_recorded = sum(result.recorded_by_disposition.values())
+    residue_events = sum(len(v) for v in result.residue.values())
+    typer.echo(
+        f"record-lost-outcomes ({'applied' if apply else 'dry-run'}): "
+        f"population {result.population} gap moment(s); "
+        f"{verb} {recorded_events} outcome(s) on {len(result.recorded)} case(s) "
+        f"({gap_recorded} gap moment(s), the rest open siblings resolved with them; "
+        f"{len(result.merits_minted)} merits event(s) minted, "
+        f"{len(result.merits_not_minted)} grant(s) recorded without one); "
+        f"{mark} {residue_events} moment(s) resolved_without_outcome on "
+        f"{len(result.residue)} case(s); "
+        f"{sum(len(v) for v in result.open_declined.values())} open gap(s) declined; "
+        f"{len(result.held_predicted)} case(s) held back (predicted); "
+        f"{len(result.failed)} failed; cases_written={result.cases_written}"
+    )
+    typer.echo(
+        "  gap moments recorded by disposition: "
+        + (", ".join(f"{k}={v}" for k, v in sorted(result.recorded_by_disposition.items())) or "-")
+    )
+    typer.echo(
+        "  residue by disposition: "
+        + (", ".join(f"{k}={v}" for k, v in sorted(result.residue_by_disposition.items())) or "-")
+    )
+    by_reason: dict[str, int] = {}
+    for marks in result.residue.values():
+        for reason in marks.values():
+            by_reason[reason] = by_reason.get(reason, 0) + 1
+    typer.echo(
+        "  residue by reason: "
+        + (", ".join(f"{k}={v}" for k, v in sorted(by_reason.items())) or "-")
+    )
+    for case_id, event_ids in sorted(result.recorded.items()):
+        typer.echo(f"  {verb} {case_id}: {', '.join(event_ids)}")
+    for case_id, marks in sorted(result.residue.items()):
+        detail = ", ".join(f"{eid} [{why}]" for eid, why in sorted(marks.items()))
+        typer.echo(f"  {mark} {case_id}: {detail}")
+    for case_id, why in sorted(result.merits_not_minted.items()):
+        typer.echo(f"  grant recorded, no merits event [{why}] {case_id}")
+    for case_id in sorted(result.merits_minted):
+        typer.echo(f"  merits event minted (pending) {case_id}")
+    for case_id, event_ids in sorted(result.open_declined.items()):
+        typer.echo(f"  open, declined {case_id}: {', '.join(event_ids)}")
+    for case_id in sorted(result.held_predicted):
+        typer.echo(f"  held back (predicted) {case_id}")
+    for case_id, exc in sorted(result.failed.items()):
+        # One failing case never blocks the pass: the rest of its writes stand
+        # and the case stays in the population for the next dispatch.
+        typer.echo(
+            f"::warning::record-lost-outcomes: {case_id} failed ({exc}); left for the next dispatch"
+        )
 
 
 @app.command("remove-unmintable-events")
@@ -5136,6 +5373,12 @@ def corpus_push() -> None:
     pointer after this command returns. Rebuilds the file to the ranged-read
     layout first if it drifted (the same guarantee every writer command gives).
 
+    Before any of that it settles a hot journal (:func:`corpus.settle_hot_journal`):
+    a writer killed mid-transaction leaves ``corpus.db-journal`` beside a file
+    that may hold half-written pages, which opening the file read-write rolls
+    back. A journal that will not clear is refused with exit 1 rather than
+    published, so ``corpus-push`` never publishes a torn file.
+
     Refuses to run while the out-of-band pointer override is set: a writer
     owns the *committed* pointer, and an environment that overrides reads is
     not reading the pair it would be publishing to.
@@ -5153,8 +5396,16 @@ def corpus_push() -> None:
     db_path = corpus.corpus_db_path(settings.corpus_root)
     remote_url = _require_corpus_remote_url()
     try:
+        # A writer killed mid-transaction leaves a hot journal the upload below
+        # would not see (it digests the file without opening it), so settle it
+        # first, and refuse to publish a file whose journal will not clear.
+        if corpus.settle_hot_journal(db_path):
+            typer.echo(f"corpus-push: rolled back a hot journal beside {db_path}")
         _ensure_corpus_layout(db_path)
         pointer = corpus_remote.upload_index(db_path, remote_url)
+    except corpus.HotJournalError as exc:
+        typer.echo(f"corpus-push: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
     except (corpus_remote.CorpusRemoteError, corpus_ranged.RangedBackendError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
@@ -5438,48 +5689,72 @@ def leaderboard(
     run = stratify(settings.data_root, frozen_only=frozen_only)
     _report_exclusions(run)
     cells = run.cells
+    # Every per-cell input is read over the cells with the set-aside ones put
+    # back — a superset the default board only looks keys up in — so the
+    # sensitivity board below differs from the default by those cells alone.
+    over = run.sensitivity_cells()
     # The realized-Term skill column is scored at render against the committed
     # pack, so every cell on a board shares one vintage. Best-effort like the
     # ops feeds: no pack means the column is absent, never partly computed.
     statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
-    board = build_leaderboard(
-        cells,
-        # The pooled entries read `(predictor, None)`, the cut `(predictor, label)`.
-        big_case={
-            **big_case_agreement(settings.data_root, frozen_only=frozen_only, by_window=False),
-            **(
-                big_case_agreement(settings.data_root, frozen_only=True, by_window=True)
-                if frozen_only
-                else {}
-            ),
-        },
-        evaluators=evaluator_agreement(settings.data_root, frozen_only=frozen_only),
-        process_scope=scope,
-        skills=skill_components(cells, settings.data_root, statpack),
-        forward_claim=_forward_claim_from(run),
-        leakage_exclusion=_leakage_exclusion_from(run),
-        voided_events=_voided_events_from(run),
-        superseded_gradings=run.superseded,
-        # Each cert cell's frozen band and realized outcome: the forward
-        # stratum's per-band cut and the realized always-deny floor beside
-        # accuracy, over the same cells and never a rank key.
-        facts=cell_facts(cells, settings.data_root),
-        # Each merits cell's participating-bench vote accuracy, recomputed
-        # against a complete vote record: what `mean_vote_accuracy` averages,
-        # counted as `vote_cells_scored`.
-        vote_scores=vote_scores(cells, settings.data_root),
-        cell_windows=run.cell_windows,
-        # Each cell's side of every harness boundary that admits it, by ancestry
-        # of its `pipeline_sha` in this checkout (full history required); frozen
-        # builds only, since only a pooled frozen figure lists the boundaries.
-        boundaries=(
-            boundary_sides(cells, settings.data_root, repo=Path.cwd()) if frozen_only else None
+    # The pooled entries read `(predictor, None)`, the cut `(predictor, label)`.
+    big_case = {
+        **big_case_agreement(settings.data_root, frozen_only=frozen_only, by_window=False),
+        **(
+            big_case_agreement(settings.data_root, frozen_only=True, by_window=True)
+            if frozen_only
+            else {}
         ),
-        # Each cell's self-provisioning reading off its own retrieval log: the
-        # entries' and paired engines' counts and the common-record reading,
-        # descriptive only and never a rank key.
-        provisioning=cell_provisioning(cells, settings.data_root),
-    )
+    }
+    evaluators = evaluator_agreement(settings.data_root, frozen_only=frozen_only)
+    skills = skill_components(over, settings.data_root, statpack)
+    # Each cert cell's frozen band and realized outcome: the forward stratum's
+    # per-band cut and the realized always-deny floor beside accuracy, over the
+    # same cells and never a rank key.
+    facts = cell_facts(over, settings.data_root)
+    # Each merits cell's participating-bench vote accuracy, recomputed against a
+    # complete vote record: what `mean_vote_accuracy` averages, counted as
+    # `vote_cells_scored`.
+    votes = vote_scores(over, settings.data_root)
+    # Each cell's side of every harness boundary that admits it, by ancestry of
+    # its `pipeline_sha` in this checkout (full history required); frozen builds
+    # only, since only a pooled frozen figure lists the boundaries.
+    boundaries = boundary_sides(over, settings.data_root, repo=Path.cwd()) if frozen_only else None
+    # Each cell's self-provisioning reading off its own retrieval log: the
+    # entries' and paired engines' counts and the common-record reading,
+    # descriptive only and never a rank key.
+    provisioning = cell_provisioning(over, settings.data_root)
+
+    def board_over(population: Sequence[StratifiedCell]) -> Leaderboard:
+        return build_leaderboard(
+            population,
+            big_case=big_case,
+            evaluators=evaluators,
+            process_scope=scope,
+            skills=skills,
+            forward_claim=_forward_claim_from(run),
+            leakage_exclusion=_leakage_exclusion_from(run),
+            voided_events=_voided_events_from(run),
+            superseded_gradings=run.superseded,
+            facts=facts,
+            vote_scores=votes,
+            cell_windows=run.cell_windows,
+            boundaries=boundaries,
+            provisioning=provisioning,
+        )
+
+    board = board_over(cells)
+    if run.set_aside:
+        # The sensitivity reading: the same build with the set-aside cells
+        # counted, published beside each default figure it moved.
+        board = board.model_copy(
+            update={
+                "set_aside": set_aside_record(run.set_aside),
+                "set_aside_sensitivity": leaderboard_set_aside_sensitivity(
+                    run.set_aside, board_over(over)
+                ),
+            }
+        )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
     # An exclusion-emptied headline is not the shakedown state — the cells
@@ -5487,8 +5762,10 @@ def leaderboard(
     # placeholder stands down whenever either exclusion caught anything. The
     # ops report's `render_substance` guards its own placeholder the same way,
     # and the two surfaces must not describe one build differently.
-    excluded_any = (board.forward_claim is not None and board.forward_claim.excluded) or (
-        board.leakage_exclusion is not None and board.leakage_exclusion.excluded
+    excluded_any = (
+        (board.forward_claim is not None and board.forward_claim.excluded)
+        or (board.leakage_exclusion is not None and board.leakage_exclusion.excluded)
+        or (board.set_aside is not None and board.set_aside.excluded)
     )
     empty_note = (
         "  (frozen headline empty — no frozen-process evaluations yet)"
@@ -5572,14 +5849,43 @@ def claim_scores_command(
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     run = stratify(settings.data_root, frozen_only=not all_versions)
     _report_exclusions(run)
-    board = build_claim_scores(
-        run.cells,
-        process_scope=scope,
-        forward_claim=_forward_claim_from(run),
-        leakage_exclusion=_leakage_exclusion_from(run),
-        voided_events=_voided_events_from(run),
-        cell_windows=run.cell_windows,
-    )
+
+    def surface_over(population: Sequence[StratifiedCell]) -> ClaimScoreBoard:
+        return build_claim_scores(
+            population,
+            process_scope=scope,
+            forward_claim=_forward_claim_from(run),
+            leakage_exclusion=_leakage_exclusion_from(run),
+            voided_events=_voided_events_from(run),
+            cell_windows=run.cell_windows,
+        )
+
+    # Every figure, default and sensitivity alike, is built with the claim-grain
+    # set-aside applied; only that reason's own lines count its claims back.
+    board = surface_over(without_set_aside_claims(run.cells, run.claim_set_aside))
+    if claim_surface_set_aside(run.set_aside):
+        # The sensitivity reading beside the default, exactly as the leaderboard's.
+        board = board.model_copy(
+            update={
+                "set_aside": set_aside_record(claim_surface_set_aside(run.set_aside)),
+                "set_aside_sensitivity": claim_set_aside_sensitivity(
+                    run.set_aside,
+                    surface_over(
+                        without_set_aside_claims(run.sensitivity_cells(), run.claim_set_aside)
+                    ),
+                ),
+            }
+        )
+    claim_record = claim_set_aside_record(run.cells, run.claim_set_aside)
+    if claim_record is not None:
+        board = board.model_copy(
+            update={
+                "claim_set_aside": claim_record,
+                "claim_set_aside_sensitivity": claim_set_aside_sensitivity_lines(
+                    run.cells, run.claim_set_aside, surface_over
+                ),
+            }
+        )
     destination = out if out is not None else settings.metrics_root / "claim-scores.json"
     write_json(destination, board)
     typer.echo(
@@ -5785,7 +6091,9 @@ def release_sensitivity_command(
     except (ExportError, ReleaseSensitivityError) as exc:
         typer.echo(f"release-sensitivity: {exc}", err=True)
         raise typer.Exit(code=2) from exc
-    run = stratify(settings.data_root, frozen_only=True)
+    # The Release 1 computation: the registered headline is the board as
+    # published, so the set-aside cells stay in (`stratify`'s `apply_set_aside`).
+    run = stratify(settings.data_root, frozen_only=True, apply_set_aside=False)
     # The same exclusion notes `leaderboard` prints, since the headline is that board.
     _report_exclusions(run)
     if source.dirty:
@@ -8299,6 +8607,17 @@ def _claim_scores_for(
     latest = _scored_prediction_for(event_paths, evaluation)
     if outcome is None or statpack is None or latest is None:
         return None
+    poll, post_poll = cell_polls(event_paths.prediction_dir(latest.predictor_id, latest.run_id))
+
+    def timing(claim_id: str) -> IncrementTiming | None:
+        return increment_timing(
+            claim_id,
+            latest,
+            poll,
+            functools.partial(increment_signal_day, event_paths.base, claim_id, outcome),
+            post_poll=post_poll,
+        )
+
     return score_claims(
         latest,
         outcome,
@@ -8306,6 +8625,7 @@ def _claim_scores_for(
         lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
         grant_term=_grant_term_for(event_paths),
         federal_party=_names_federal_party(event_paths),
+        increment_timing=timing,
     )
 
 
@@ -9238,6 +9558,35 @@ def assert_promotion_record_diff_cmd(
     typer.echo(f"promotion record diff ok: {', '.join(changed) or 'no change'}")
 
 
+def _harvest_retrieval_calls(
+    actor: str,
+    offered: list[str],
+    claude_execution_file: Path | None,
+    codex_sessions_dir: Path | None,
+    gemini_telemetry_file: Path | None,
+) -> list[RetrievalCall]:
+    """The tool calls from the first engine log named, parsed against ``offered``.
+
+    The offered set is what tells a manifest call codex logged under its bare
+    tool name from a builtin of the same spelling. Without it every such call
+    stays a builtin, so a codex parse with no offered set says so where the run
+    is read.
+    """
+    if claude_execution_file is not None:
+        return retrieval.parse_claude_retrieval(claude_execution_file)
+    if codex_sessions_dir is not None:
+        if not offered:
+            typer.echo(
+                f"::warning::record-retrieval: no offered tool set resolved for {actor}; "
+                "codex manifest calls logged under a bare name stay builtins in this log",
+                err=True,
+            )
+        return retrieval.parse_codex_retrieval(codex_sessions_dir, offered=offered)
+    if gemini_telemetry_file is not None:
+        return retrieval.parse_gemini_retrieval(gemini_telemetry_file)
+    return []
+
+
 @app.command("record-retrieval")
 def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     *,
@@ -9336,14 +9685,6 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         )
         mode = ""
     recorded_mode = cast(CellMode, mode) if mode else None
-    calls: list[RetrievalCall] = []
-    if claude_execution_file is not None:
-        calls = retrieval.parse_claude_retrieval(claude_execution_file)
-    elif codex_sessions_dir is not None:
-        calls = retrieval.parse_codex_retrieval(codex_sessions_dir)
-    elif gemini_telemetry_file is not None:
-        calls = retrieval.parse_gemini_retrieval(gemini_telemetry_file)
-
     registry_file = settings.config_root / (
         "predictors.yaml" if role == UsageRole.predictor else "evaluators.yaml"
     )
@@ -9365,6 +9706,10 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         # harvested calls (the plan already validated the registry).
         labels = []
         offered = []
+
+    calls = _harvest_retrieval_calls(
+        actor, offered, claude_execution_file, codex_sessions_dir, gemini_telemetry_file
+    )
 
     record = RetrievalLog(
         case_id=ids.case_id(court, docket),
@@ -9822,6 +10167,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         leakage_exclusion=_leakage_exclusion_from(stratified_run),
         voided_events=_voided_events_from(stratified_run),
         cell_windows=stratified_run.cell_windows,
+        set_aside=set_aside_record(stratified_run.set_aside),
     )
     report = build_ops_report(
         generated_at=when,
@@ -9882,6 +10228,129 @@ def _prior_digest_bodies(path: Path) -> list[str]:
     if not isinstance(raw, list):
         return []
     return [str(item.get("body", "")) if isinstance(item, dict) else str(item) for item in raw]
+
+
+@app.command("public-update")
+def public_update_cmd(
+    *,
+    week: Annotated[
+        str,
+        typer.Option(
+            help="ISO week to render, as YYYY-Www; defaults to the last complete week (UTC)."
+        ),
+    ] = "",
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Write the Markdown here; omit to print it."),
+    ] = None,
+) -> None:
+    """Render the weekly public update for the email list from the committed ledger.
+
+    Read-only and deterministic: the same tree and week render the same bytes.
+    Exits 3, writing nothing, when the week has nothing resolved and no new
+    forecast, so a poster skips the week rather than sending an empty update.
+    """
+    settings = get_settings()
+    chosen = week or last_complete_week(datetime.now(UTC))
+    try:
+        week_bounds(chosen)
+    except ValueError as exc:
+        typer.echo(f"public-update: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    update = build_public_update(settings.data_root, chosen)
+    if update.empty:
+        typer.echo(f"public-update: nothing to send for {chosen}.", err=True)
+        raise typer.Exit(code=3)
+    text = render_public_update(update)
+    if out is None:
+        typer.echo(text, nl=False)
+    else:
+        write_text(out, text)
+        typer.echo(
+            f"public-update: {chosen}: {len(update.resolved)} resolved, "
+            f"{len(update.new)} newly forecast -> {out}",
+            err=True,
+        )
+
+
+@app.command("post-public-update")
+def post_public_update_cmd(
+    *,
+    tag: Annotated[
+        str,
+        typer.Option(
+            help="Buttondown tag name whose subscribers the draft is addressed to; "
+            "resolving a name lists the account's tags. Or give --tag-id."
+        ),
+    ] = "",
+    tag_id: Annotated[
+        str,
+        typer.Option(
+            "--tag-id",
+            help="Buttondown tag id the draft is addressed to; needs no read beyond emails.",
+        ),
+    ] = "",
+    week: Annotated[
+        str,
+        typer.Option(
+            help="ISO week to post, as YYYY-Www; defaults to the last complete week (UTC)."
+        ),
+    ] = "",
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run", help="Render the subject and body and print them; contact nothing."
+        ),
+    ] = False,
+) -> None:
+    """Create the week's public update as a Buttondown draft for one tag's subscribers.
+
+    Draft only: a person reads it and presses send in Buttondown. Idempotent per
+    week, since an email already carrying the week's subject is returned rather
+    than duplicated. Exits 3 on a week with nothing to send, 2 on a bad week or a
+    missing key, 1 when Buttondown refuses. The key is read from the environment
+    and never printed.
+    """
+    settings = get_settings()
+    chosen = week or last_complete_week(datetime.now(UTC))
+    if bool(tag.strip()) == bool(tag_id.strip()):
+        typer.echo("post-public-update: give exactly one of --tag or --tag-id.", err=True)
+        raise typer.Exit(code=2)
+    try:
+        week_bounds(chosen)
+    except ValueError as exc:
+        typer.echo(f"post-public-update: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    update = build_public_update(settings.data_root, chosen)
+    if update.empty:
+        typer.echo(f"post-public-update: nothing to send for {chosen}.", err=True)
+        raise typer.Exit(code=3)
+    subject = public_update_subject(update)
+    body = render_public_update(update, title=False)
+    if dry_run:
+        typer.echo(f"Subject: {subject}\nTag: {tag.strip() or tag_id.strip()}\n\n{body}", nl=False)
+        return
+    api_key = os.environ.get(API_KEY_ENV, "")
+    if not api_key.strip():
+        typer.echo(
+            f"post-public-update: the {API_KEY_ENV} environment variable is unset.", err=True
+        )
+        raise typer.Exit(code=2)
+    try:
+        with make_client(api_key) as client:
+            draft = post_draft(
+                client,
+                subject=subject,
+                body=body,
+                tag_name=tag.strip() or None,
+                tag_id_value=tag_id.strip() or None,
+            )
+    except ButtondownError as exc:
+        typer.echo(f"post-public-update: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    verb = "created draft" if draft.created else f"already present ({draft.status})"
+    where = f" {draft.url}" if draft.url else ""
+    typer.echo(f"post-public-update: {chosen}: {verb} {draft.email_id}{where}")
 
 
 @app.command("daily-digest")
@@ -12949,7 +13418,9 @@ def _place_at_moment(
 
     Exits 4 where an interim arrival's opening entry cannot be anchored — nothing
     is written, and the caller's cell is refused. ``arrival-cut-ledger`` counts
-    those refusals.
+    those refusals. Exits 5 where the moment's trigger entry is on no stored
+    snapshot (:class:`fedcourtsai.provision.TriggerAbsent`) — nothing is written,
+    and a later round owes the cell again.
     """
     try:
         placement = provision.place_at_moment(
@@ -12964,6 +13435,9 @@ def _place_at_moment(
     except provision.UnanchorableMoment as exc:
         typer.echo(f"::warning::{exc}", err=True)
         raise typer.Exit(code=4) from exc
+    except provision.TriggerAbsent as exc:
+        typer.echo(f"::warning::{exc}", err=True)
+        raise typer.Exit(code=5) from exc
     if cutoff is not None and placement.boundary is not None:
         # Spoken, never written to `context.json`: the cell reads that file, and
         # how much a cut removed separates a grant from a denial about as cleanly
@@ -13161,7 +13635,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     it (:func:`_place_at_moment`). Both gates below run on the latest payload
     first, before any of that.
 
-    Exits non-zero in three ways, kept apart so a refused cell is attributable:
+    Exits non-zero in four ways, kept apart so a refused cell is attributable:
 
     * **1** — the corpus holds no snapshot for the case.
     * **3** — under ``--refuse-terminal`` on a forward cell, the record or the
@@ -13175,6 +13649,12 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
       located, and provisioning on the date rule alone would hand the cell the
       conditioning that rule exists to replace. ``arrival-cut-ledger`` counts
       these.
+    * **5** — a placed cell whose moment's trigger entry (the CVSG invitation,
+      the response request, the filed response) is on no stored snapshot: the
+      dated snapshot from before the cutoff lacks it and so does the latest
+      payload cut to the moment (nothing written). Mode-independent, like exit 4:
+      a cell placed before its own trigger is forecast from the previous moment
+      under this one's name.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -15489,7 +15969,9 @@ def _warn_prefix(findings: _BacklogFindings | None) -> str:
     return "::warning::" if findings is None else "warning: "
 
 
-def _evaluate_backlog_cases(findings: _BacklogFindings | None = None) -> list[CaseRequest]:
+def _evaluate_backlog_cases(
+    findings: _BacklogFindings | None = None, *, day: date | None = None
+) -> list[CaseRequest]:
     """The evaluate stage's own case set, derived from the corpus-level backlog.
 
     What a scheduled evaluate run fans out over when no trigger names its cases:
@@ -15533,6 +16015,12 @@ def _evaluate_backlog_cases(findings: _BacklogFindings | None = None) -> list[Ca
     backlog cannot see these at all: it derives only events that hold a
     prediction to grade. ``findings`` receives the report for a plan that
     publishes it (``evaluate-plan``), and turns the annotations off there.
+
+    ``day`` is the deriver's clock — the run id's day
+    (:func:`fedcourtsai.matrix.run_day`), passed by both ``evaluate-matrix``
+    and ``evaluate-plan`` so the two select the same cases under one run id
+    even across midnight: the opinion hold's slot accounting and the debounce
+    both read it.
     """
     settings = get_settings()
     evaluate_cfg = load_evaluate_config(settings.config_root)
@@ -15558,6 +16046,7 @@ def _evaluate_backlog_cases(findings: _BacklogFindings | None = None) -> list[Ca
             settings.config_root / "evaluators.yaml",
             cap=evaluate_cfg.backlog_cases_per_cycle,
             max_attempts=evaluate_cfg.max_attempts_per_cell,
+            today=day,
         )
         today = date.today()
         prefix = _warn_prefix(findings)
@@ -15910,6 +16399,7 @@ def _requested_cases(
     backlog: Literal["predict", "evaluate"],
     force: bool = False,
     derived: _BacklogFindings | None = None,
+    day: date | None = None,
 ) -> list[CaseRequest]:
     """Cases to fan out over, from a batch body file, single-case flags, or the backlog.
 
@@ -15939,7 +16429,8 @@ def _requested_cases(
 
     ``derived`` receives what the backlog mode's derivation found beyond its
     case list (:class:`_BacklogFindings`), and stays empty in the named-case
-    modes, where nothing is derived.
+    modes, where nothing is derived. ``day`` is the evaluate deriver's clock
+    (see :func:`_evaluate_backlog_cases`); the predict deriver does not take it.
     """
     if body_file is not None:
         return parse_cases(body_file.read_text())
@@ -15960,7 +16451,7 @@ def _requested_cases(
         )
     if backlog == "predict":
         return _predict_backlog_cases(derived)
-    return _evaluate_backlog_cases(derived)
+    return _evaluate_backlog_cases(derived, day=day)
 
 
 def _spend_gate_or_empty(stage: str) -> SpendVerdict:
@@ -16102,8 +16593,9 @@ def _report_uneven_coverage(board: Leaderboard) -> None:
 def _report_exclusions(run: StratifiedRun) -> None:
     """One line per dropped cell, so the boards' counts are never the only record.
 
-    Both of :func:`fedcourtsai.store.stratify`'s exclusions, from one call, so a
-    surface cannot report one rule and stay silent about the other. A cell both
+    Every one of :func:`fedcourtsai.store.stratify`'s ledgers, from one call, so a
+    surface cannot report one rule and stay silent about another — the
+    set-aside cells included, which leave the default figures only. A cell both
     rules caught is named twice — once per reason, which is what the two counts
     on the boards say too.
     """
@@ -16119,6 +16611,13 @@ def _report_exclusions(run: StratifiedRun) -> None:
                 f"{ev.predictor_id} (graded by {ev.evaluator_id}) — {cell.reason}",
                 err=True,
             )
+    for set_aside in run.set_aside:
+        ev = set_aside.cell[0]
+        typer.echo(
+            f"::warning::set aside from the default figures: {ev.case_id} {ev.event_id} "
+            f"{ev.predictor_id} (graded by {ev.evaluator_id}) — {set_aside.reason}",
+            err=True,
+        )
 
 
 def _report_predict_cap(capped: CappedMatrix, max_cells: int) -> None:
@@ -16814,9 +17313,11 @@ def predict_matrix_cmd(
 class _EvaluateFanout:
     """One pass of the evaluate planning pipeline, recorded step by step.
 
-    The two cell-grain drop classes stay apart — one is a cost gate (nothing to
-    score) and the other an idempotency gate (already scored) — because
-    collapsed, a fully-graded re-queue reads as a run with no predictions.
+    The cell-grain drop classes stay apart — a cost gate (nothing to score), an
+    idempotency gate (already scored) and a deferral (a decided merits event
+    held for its opinion body) — because collapsed, a fully-graded re-queue
+    reads as a run with no predictions, and a held decision reads as one
+    nobody owes.
     """
 
     requested: list[CaseRequest]
@@ -16825,8 +17326,61 @@ class _EvaluateFanout:
     resolution: _ResolveReport
     predictionless: tuple[_DropRecord, ...]
     already_evaluated: tuple[_DropRecord, ...]
+    held_awaiting_opinion: tuple[_DropRecord, ...]
     candidates: int
     matrix: dict[str, list[dict[str, Any]]]
+
+
+def _opinion_presence(
+    cases: Sequence[CaseRequest], *, stage: str, findings: _BacklogFindings | None
+) -> dict[str, bool]:
+    """Each requested case's awaited presence bit, for the opinion hold.
+
+    Read only for a case carrying a declared merits moment, since no other event
+    can be held, so a fan-out with none opens no connection at all. A case the
+    corpus holds no row for is left out of the mapping, which the hold reads as
+    unknown and does not hold on, and so is a row enrichment can never reach
+    (:func:`fedcourtsai.matrix.awaited_presence`: no cert grant, or a
+    live-channel docket id), whose body would never arrive. A failed read
+    degrades the same way, with a warning (``::warning::`` for the minting
+    command, a plain marker for a plan, :func:`_warn_prefix`): the hold is a
+    deferral, and a fault reading the bit it keys on must grade the events
+    exactly as unheld events are graded rather than take the round down.
+    """
+    wanted = [
+        case
+        for case in cases
+        if any(moments.declares(event_id, Stage.merits) for event_id in case.events)
+    ]
+    if not wanted:
+        return {}
+    settings = get_settings()
+    presence: dict[str, bool] = {}
+    try:
+        with corpus.connect_readonly(
+            corpus.corpus_db_path(settings.corpus_root), backend=settings.corpus_backend
+        ) as conn:
+            for case in wanted:
+                cid = ids.case_id(case.court, case.docket)
+                row = corpus.get_row(conn, cid)
+                if row is None:
+                    continue
+                awaited = awaited_presence(
+                    case.docket,
+                    has_opinion=row.has_opinion,
+                    cert_granted=row.date_cert_granted is not None,
+                )
+                if awaited is not None:
+                    presence[cid] = awaited
+    except Exception as exc:  # any read failure degrades to no hold, loudly
+        typer.echo(
+            f"{_warn_prefix(findings)}{stage}: could not read the opinion presence bit, so no "
+            f"decided merits event is held for its opinion this round: "
+            f"{_one_line(f'{type(exc).__name__}: {exc}')}",
+            err=True,
+        )
+        return {}
+    return presence
 
 
 def _evaluate_fanout(
@@ -16836,8 +17390,9 @@ def _evaluate_fanout(
     stage: str,
     force: bool,
     report: bool,
+    findings: _BacklogFindings | None = None,
 ) -> _EvaluateFanout:
-    """Run the evaluate planning pipeline: scope, resolution, and the two gates.
+    """Run the evaluate planning pipeline: scope, resolution, and the plan-time gates.
 
     The one definition of what an evaluate run would mint, shared by
     ``evaluate-matrix`` and ``evaluate-plan``, so the dry run cannot describe a
@@ -16848,9 +17403,14 @@ def _evaluate_fanout(
     which is its single stderr voice.
 
     ``candidates`` is the opening balance — every evaluator x case x event cell
-    the resolved request spans, before either gate — so a reader can reconcile
+    the resolved request spans, before any gate — so a reader can reconcile
     the drops against the surviving set rather than take the difference on
     trust.
+
+    The opinion hold (:func:`fedcourtsai.matrix.opinion_hold`) runs on the
+    corpus's ``has_opinion`` bit (:func:`_opinion_presence`) and the run id's
+    day, so the minting command and a plan re-derived under the same run id
+    hold the same cells.
     """
     settings = get_settings()
     scope = load_predict_config(settings.config_root).scope
@@ -16872,22 +17432,32 @@ def _evaluate_fanout(
         report=report,
         report_out=resolution,
     )
-    # Two plan-time gates, both before any model spend: an event with no
-    # committed prediction has nothing to score, and a judge that already graded
-    # the event is not re-minted. See `evaluate_matrix`.
+    # Three plan-time gates, all before any model spend: an event with no
+    # committed prediction has nothing to score, a decided merits event whose
+    # opinion body has not landed is held for it, and a judge that already
+    # graded the event is not re-minted. See `evaluate_matrix`.
     evaluators_path = settings.config_root / "evaluators.yaml"
+    presence = _opinion_presence(cases, stage=stage, findings=findings)
     matrix = evaluate_matrix(
-        evaluators_path, cases, run_id, data_root=settings.data_root, skip_evaluated=not force
+        evaluators_path,
+        cases,
+        run_id,
+        data_root=settings.data_root,
+        skip_evaluated=not force,
+        opinion_present=presence,
     )
     evaluators = [e for e in load_evaluators(evaluators_path) if e.enabled]
-    # Report the two gates separately: one is a cost gate (nothing to score) and
-    # the other an idempotency gate (already scored). Collapsed, a fully-graded
-    # re-queue would read as a run with no predictions. Each is counted from the
-    # same predicate the gate uses rather than by subtracting one from the total,
-    # so the arithmetic does not silently depend on the order the gates run in
-    # `evaluate_matrix` — reordering them there would otherwise print a negative.
+    today = run_day(run_id)
+    # Report the gates separately: a cost gate (nothing to score), a deferral
+    # (held for the opinion) and an idempotency gate (already scored). Collapsed,
+    # a fully-graded re-queue would read as a run with no predictions. Each is
+    # counted from the same predicate the gate uses rather than by subtracting
+    # one from the total, so the arithmetic does not silently depend on the order
+    # the gates run in `evaluate_matrix` — reordering them there would otherwise
+    # print a negative.
     predictionless: list[_DropRecord] = []
     already: list[_DropRecord] = []
+    held: list[_DropRecord] = []
     for case in cases:
         case_id = ids.case_id(case.court, case.docket)
         for event_id in case.events:
@@ -16904,8 +17474,21 @@ def _evaluate_fanout(
                     for evaluator in evaluators
                 )
                 continue
-            if force:
-                continue
+            graded = (
+                set()
+                if force
+                else {
+                    evaluator.id
+                    for evaluator in evaluators
+                    if event_has_evaluations(
+                        settings.data_root,
+                        case.court,
+                        case.docket,
+                        event_id,
+                        evaluator_id=evaluator.id,
+                    )
+                }
+            )
             already.extend(
                 _DropRecord(
                     case_id,
@@ -16914,18 +17497,35 @@ def _evaluate_fanout(
                     actor_id=evaluator.id,
                 )
                 for evaluator in evaluators
-                if event_has_evaluations(
-                    settings.data_root,
-                    case.court,
-                    case.docket,
-                    event_id,
-                    evaluator_id=evaluator.id,
-                )
+                if evaluator.id in graded
             )
+            hold = opinion_hold(
+                settings.data_root,
+                case.court,
+                case.docket,
+                event_id,
+                has_opinion=presence.get(case_id),
+                today=today,
+            )
+            # A held event mints nothing, so every judge the idempotency gate
+            # did not already account for is a held cell. A voided event is the
+            # void registry's drop, not a deferral, so it is never reported held.
+            if hold is not None and not is_voided(case_id, event_id):
+                held.extend(
+                    _DropRecord(case_id, hold.reason, event_id=event_id, actor_id=evaluator.id)
+                    for evaluator in evaluators
+                    if evaluator.id not in graded
+                )
     if report and predictionless:
         typer.echo(f"{stage}: dropped {len(predictionless)} predictionless cell(s)", err=True)
     if report and already:
         typer.echo(f"{stage}: dropped {len(already)} already-evaluated cell(s)", err=True)
+    if report and held:
+        typer.echo(
+            f"{stage}: held {len(held)} cell(s) on decided merits events awaiting their "
+            "opinion body",
+            err=True,
+        )
     return _EvaluateFanout(
         requested=requested_cases,
         resolved=cases,
@@ -16933,6 +17533,7 @@ def _evaluate_fanout(
         resolution=resolution,
         predictionless=tuple(predictionless),
         already_evaluated=tuple(already),
+        held_awaiting_opinion=tuple(held),
         candidates=len(evaluators) * sum(len(case.events) for case in cases),
         matrix=matrix,
     )
@@ -16987,9 +17588,25 @@ def evaluate_matrix_cmd(
     backlog mode re-plan the same backlog without re-minting a graded cell.
     ``--force`` disables it for a deliberate re-grade, which otherwise would
     need committed artifacts deleted to get a cell minted.
+
+    A third gate defers rather than drops: a decided merits event whose case's
+    corpus row carries no opinion body is **held** for up to
+    ``OPINION_HOLD_DAYS`` (14) days after its outcome's ``resolved_at``, then
+    graded with or without one, so its first grading is not the
+    ``not-ingested`` availability mask (:func:`fedcourtsai.matrix.opinion_hold`).
+    It is graded at once when the body lands, ``--force`` does not lift it, and
+    the window counts on the run id's day.
     """
     fanout = _evaluate_fanout(
-        _requested_cases(body_file, court, docket, event, backlog="evaluate", force=force),
+        _requested_cases(
+            body_file,
+            court,
+            docket,
+            event,
+            backlog="evaluate",
+            force=force,
+            day=run_day(run_id),
+        ),
         run_id,
         stage="evaluate-matrix",
         force=force,
@@ -17381,6 +17998,10 @@ _APPROVAL_DROP_CLASSES: tuple[tuple[str, str], ...] = (
     ("dropped_already_predicted", "cell(s) dropped as already predicted by that predictor"),
     ("dropped_predictionless", "cell(s) dropped as having no committed prediction to score"),
     ("dropped_already_evaluated", "cell(s) dropped as already graded by that judge"),
+    (
+        "held_awaiting_opinion",
+        "cell(s) held: a decided merits event awaiting its opinion body (graded later)",
+    ),
     ("withheld_stranded", "cell(s) withheld by the stranded-run guard"),
 )
 
@@ -18122,9 +18743,12 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
 ) -> None:
     """Report the evaluate cells a run would mint, step by step, spending nothing.
 
-    The dry run of ``evaluate-matrix``, through the same pipeline and its two
+    The dry run of ``evaluate-matrix``, through the same pipeline and its
     plan-time gates — an event with no committed prediction has nothing to
-    score, and a judge that already graded the event is not re-minted. Same
+    score, a judge that already graded the event is not re-minted, and a
+    decided merits event still awaiting its opinion body is held, each held
+    cell listed under ``held_awaiting_opinion`` with a ``held: awaiting
+    opinion`` reason naming the day it is graded regardless. Same
     grain-split ``counts``, stdout/stderr split, and spend-gate reading as
     ``predict-plan``: the backstop's verdict is reported, never applied.
 
@@ -18173,11 +18797,13 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
             backlog="evaluate",
             force=force,
             derived=derived,
+            day=run_day(planned_run_id),
         ),
         planned_run_id,
         stage="evaluate-plan",
         force=force,
         report=False,
+        findings=derived,
     )
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
     would_mint = [
@@ -18207,10 +18833,11 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
             },
             "cell_ledger": {
                 # The opening balance, so the drops below reconcile: candidates
-                # - predictionless - already_evaluated == would_mint.
+                # - predictionless - already_evaluated - held == would_mint.
                 "candidate_cells": fanout.candidates,
                 "dropped_predictionless_cells": len(fanout.predictionless),
                 "dropped_already_evaluated_cells": len(fanout.already_evaluated),
+                "held_awaiting_opinion_cells": len(fanout.held_awaiting_opinion),
                 "would_mint_cells": len(would_mint),
                 "would_mint_cells_after_spend_gate": (0 if verdict.breached else len(would_mint)),
             },
@@ -18233,6 +18860,7 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
         "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
         "dropped_predictionless": [r.as_json() for r in fanout.predictionless],
         "dropped_already_evaluated": [r.as_json() for r in fanout.already_evaluated],
+        "held_awaiting_opinion": [r.as_json() for r in fanout.held_awaiting_opinion],
         "spend_gate": _spend_verdict_json(verdict),
         "would_mint": would_mint,
         **_plan_spend(would_mint, seam="evaluate", breached=verdict.breached),
@@ -18266,19 +18894,474 @@ def authorize_trigger_cmd(
     A Bot sender is the trusted App handoff (pinnable to one login via
     ``--bot-actor``); any other actor needs write-or-higher collaborator access
     (looked up via ``gh api``). No workflow calls this, because none carries a
-    trigger an outside actor can fire — every lane here is schedule- or
-    dispatch-only, both gated by the platform (see ``fedcourtsai.authz``). It is
-    what a workflow that gained such a trigger would run *before* it mints a
-    token, assumes the S3 role, or runs an agent. Prints the authorization line
-    and exits 0 when allowed;
-    prints the refusal to stderr and exits 1 otherwise. Needs ``GH_TOKEN`` in
-    the environment for the permission lookup.
+    trigger an outside actor can fire (see ``fedcourtsai.authz``); who may start
+    a dispatch or a re-run is the run gate's (``fedcourtsai.run_gate``). It is what a
+    workflow that gained such a trigger would run *before* it mints a token,
+    assumes the S3 role, or runs an agent. Prints the authorization line and
+    exits 0 when allowed; prints the refusal to stderr and exits 1 otherwise.
+    Needs ``GH_TOKEN`` in the environment for the permission lookup.
     """
     decision = authorize_trigger(sender_type, actor, repo, bot_actor=bot_actor)
     if not decision.authorized:
         typer.echo(f"::error::{decision.message}", err=True)
         raise typer.Exit(code=1)
     typer.echo(decision.message)
+
+
+def _read_listing(path: Path, label: str) -> list[Any]:
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        typer.echo(f"{label}: cannot read {path}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    return list(corpus_check.flatten_pages(document))
+
+
+def _read_document(path: Path | None) -> dict[str, Any] | None:
+    """A JSON object from ``path``, or None when it is absent or unreadable (fails closed)."""
+    if path is None:
+        return None
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return document if isinstance(document, dict) else None
+
+
+def _corpus_check_config(label: str) -> corpus_check.CorpusCheckConfig:
+    try:
+        return corpus_check.load_config(get_settings().config_root)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        typer.echo(f"{label}: cannot read config/corpus-check.yaml: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+
+def _corpus_check_candidates(
+    prs_file: Path, repo: str, label: str
+) -> tuple[list[corpus_check.Request], list[corpus_check.Passed]]:
+    config = _corpus_check_config(label)
+    prs = _read_listing(prs_file, label)
+    return corpus_check.candidate_requests(prs, repo=repo, requesters=config.requesters)
+
+
+@app.command("corpus-check-candidates")
+def corpus_check_candidates_cmd(
+    prs_file: Annotated[
+        Path,
+        typer.Option(
+            "--prs-file",
+            help="The open PRs (REST list; one array or `gh api --paginate --slurp` pages).",
+        ),
+    ],
+    repo: Annotated[str, typer.Option(help="The `owner/name` the lane runs in.")],
+) -> None:
+    """Print `<pr> <head sha>`, one line per PR the corpus-check plan must read.
+
+    A PR is a candidate when it is ready for review (not a draft), its body
+    carries a fenced `corpus-check` block, its head is in this repository, and
+    its author is on `config/corpus-check.yaml`'s requester list — runnable or
+    refused. Reads no network; the plan job fetches each candidate's comments
+    and head commit and hands them to `corpus-check-plan`.
+    """
+    requests, _ = _corpus_check_candidates(prs_file, repo, "corpus-check-candidates")
+    for request in requests:
+        typer.echo(f"{request.pr} {request.sha}")
+
+
+@app.command("corpus-check-plan")
+def corpus_check_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
+    prs_file: Annotated[
+        Path,
+        typer.Option("--prs-file", help="The same PR listing `corpus-check-candidates` read."),
+    ],
+    repo: Annotated[str, typer.Option(help="The `owner/name` the lane runs in.")],
+    comments_dir: Annotated[
+        Path,
+        typer.Option(
+            "--comments-dir",
+            help="One `<pr>.json` per candidate: that PR's issue comments (REST list or pages).",
+        ),
+    ],
+    environment_file: Annotated[
+        Path,
+        typer.Option(
+            "--environment-file",
+            help="`GET /repos/{repo}/environments/corpus-check`; absent means unread.",
+        ),
+    ],
+    branch_policies_file: Annotated[
+        Path,
+        typer.Option(
+            "--branch-policies-file",
+            help="That environment's `deployment-branch-policies`; absent means unread.",
+        ),
+    ],
+    commits_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--commits-dir",
+            help="One `<sha>.json` per candidate head: `GET /repos/{repo}/commits/{sha}`.",
+        ),
+    ] = None,
+    github_output: Annotated[
+        Path | None,
+        typer.Option("--github-output", help="Append the plan's job outputs to this file."),
+    ] = None,
+    summary_file: Annotated[
+        Path | None,
+        typer.Option("--summary-file", help="Append the approver's summary to this file."),
+    ] = None,
+    server_url: Annotated[
+        str, typer.Option(help="The GitHub server URL the summary links into.")
+    ] = "https://github.com",
+) -> None:
+    """Pick the corpus check to answer next and pin its head SHA and command.
+
+    Plans nothing while the `corpus-check` environment lacks its sole required
+    reviewer (`config/corpus-check.yaml`'s `approver`) or its policy admitting
+    `main` alone — the read-only role trusts that environment, so its
+    protection is the gate (`fedcourtsai.environment_checks`). Otherwise the
+    oldest candidate whose head SHA carries no result comment from the
+    workflow's own bot (`github-actions[bot]`; the same marker from anyone else
+    does not count). Prints the plan as JSON, appends `found`, `pr`, `sha`,
+    `author`, `command` and `refusal` to `--github-output`, and the approver's
+    summary — PR, SHA, PR author, the head commit's author, committer and
+    signature, the fenced command and a comparison pinned to the SHA — to
+    `--summary-file`. A candidate whose comments file is missing exits 1 rather
+    than reading as unanswered.
+    """
+    config = _corpus_check_config("corpus-check-plan")
+    problems = environment_checks.protection_problems(
+        _read_document(environment_file),
+        _read_document(branch_policies_file),
+        approver_login=config.approver,
+    )
+    requests, passed = _corpus_check_candidates(prs_file, repo, "corpus-check-plan")
+    chosen = None
+    commit = None
+    if problems:
+        for problem in problems:
+            typer.echo(f"::warning::corpus-check-plan: {problem}", err=True)
+    else:
+        comments = {
+            request.pr: _read_listing(comments_dir / f"{request.pr}.json", "corpus-check-plan")
+            for request in requests
+        }
+        chosen = corpus_check.select_request(requests, comments)
+        if chosen is not None and commits_dir is not None:
+            commit = corpus_check.head_commit(_read_document(commits_dir / f"{chosen.sha}.json"))
+    if github_output is not None:
+        corpus_check.write_outputs(github_output, corpus_check.plan_outputs(chosen))
+    if summary_file is not None:
+        with summary_file.open("a", encoding="utf-8") as handle:
+            handle.write(
+                corpus_check.render_plan_summary(
+                    chosen,
+                    passed,
+                    server_url=server_url,
+                    repo=repo,
+                    candidates=len(requests),
+                    commit=commit,
+                    environment_problems=problems,
+                )
+            )
+    typer.echo(json.dumps(chosen.model_dump() if chosen else None))
+
+
+@app.command("corpus-check-exec")
+def corpus_check_exec_cmd(
+    command: Annotated[str, typer.Option(help="The planned command, re-validated here.")],
+    user: Annotated[
+        str, typer.Option(help="The unprivileged account the install and the check run as.")
+    ],
+    workdir: Annotated[
+        Path,
+        typer.Option(
+            help="The account's copy of the PR head (absolute), where both phases run.",
+        ),
+    ],
+    corpus_root: Annotated[
+        Path,
+        typer.Option("--corpus-root", help="The account's copy of the pulled corpus (absolute)."),
+    ],
+    output_file: Annotated[
+        Path,
+        typer.Option(
+            "--output-file", help="Where both phases' stdout and stderr go (never the job log)."
+        ),
+    ],
+    install_timeout_seconds: Annotated[
+        int,
+        typer.Option(
+            "--install-timeout-seconds", min=1, help="Kill the head's `uv sync` after this long."
+        ),
+    ] = 480,
+    timeout_seconds: Annotated[
+        int, typer.Option("--timeout-seconds", min=1, help="Kill the check after this long.")
+    ] = 1800,
+    github_output: Annotated[
+        Path | None,
+        typer.Option(
+            "--github-output",
+            help="Append `phase`, `exit_code`, `timed_out` and `summary_b64` to this file.",
+        ),
+    ] = None,
+) -> None:
+    """Install a planned PR head and run its corpus check as an unprivileged account.
+
+    Re-validates the command against the two accepted forms, then runs, as
+    `--user` in `--workdir` through `sudo -u` with no shell: an empty
+    `corpus-check-summary.md` (exported as `CHECK_SUMMARY`), the head's
+    `uv sync --locked` under its own timeout, and the command under its own.
+    The account's environment is the read-only session, the corpus base URL,
+    `FEDCOURTS_CORPUS_ROOT` and `CHECK_SUMMARY` alone; output goes to
+    `--output-file`, and every process the account owns is killed after each
+    phase. The summary is read back as the account, the job's credential
+    values and the corpus address redacted, clamped to 50,000 bytes. Prints
+    only sizes and exit codes: the job log is public. Exits 0 whatever the
+    check's own exit code; a command outside the grammar exits 1 unrun, and a
+    process of the account's that survives the kill passes exits 1.
+    """
+    try:
+        argv = corpus_check.parse_command(command)
+    except corpus_check.CommandRefused as exc:
+        typer.echo(f"corpus-check-exec: refused: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    if not workdir.is_absolute() or not corpus_root.is_absolute():
+        typer.echo("corpus-check-exec: --workdir and --corpus-root must be absolute", err=True)
+        raise typer.Exit(code=1)
+    env = corpus_check.check_env(
+        os.environ,
+        summary_path=workdir / corpus_check.SUMMARY_FILENAME,
+        corpus_root=corpus_root,
+    )
+    try:
+        wrap = functools.partial(corpus_check.as_user, user=user, workdir=workdir, env_names=env)
+        reset = [
+            wrap(["/usr/bin/rm", "-rf", "--", corpus_check.SUMMARY_FILENAME]),
+            wrap(["/usr/bin/touch", "--", corpus_check.SUMMARY_FILENAME]),
+        ]
+    except ValueError as exc:
+        typer.echo(f"corpus-check-exec: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    sudo_env = {"PATH": corpus_check.SUDO_PATH, **env}
+    for step in reset:
+        subprocess.run(step, env=sudo_env, cwd="/", check=True, capture_output=True, timeout=60)
+    try:
+        phase = corpus_check.run_phases(
+            install_argv=wrap(list(corpus_check.INSTALL_ARGV)),
+            check_argv=wrap(argv),
+            cwd=Path("/"),
+            env=sudo_env,
+            install_timeout_seconds=install_timeout_seconds,
+            check_timeout_seconds=timeout_seconds,
+            output_path=output_file,
+            kill_user=user,
+        )
+        read = subprocess.run(
+            wrap(
+                [
+                    "/usr/bin/head",
+                    "-c",
+                    str(corpus_check.SUMMARY_READ_BYTES),
+                    "--",
+                    corpus_check.SUMMARY_FILENAME,
+                ]
+            ),
+            env=sudo_env,
+            cwd="/",
+            check=False,
+            capture_output=True,
+            timeout=60,
+        )
+        corpus_check.kill_account(user)
+    except corpus_check.ProcessesSurvived as exc:
+        typer.echo(f"::error::corpus-check-exec: {exc}; failing the run", err=True)
+        raise typer.Exit(code=1) from exc
+    secrets = [os.environ[name] for name in corpus_check.REDACTED_ENV if os.environ.get(name)]
+    summary, clamped = corpus_check.summary_text(
+        read.stdout if read.returncode == 0 else b"", redact=secrets
+    )
+    result = phase.result
+    typer.echo(
+        f"corpus-check-exec: {phase.phase} exit {result.exit_code}"
+        + (" (timed out)" if result.timed_out else "")
+        + f"; {result.output_bytes} byte(s) of output kept off the log; "
+        + f"{len(summary.encode('utf-8'))} byte(s) of summary"
+        + (" (clamped)" if clamped else "")
+    )
+    if github_output is not None:
+        corpus_check.write_outputs(github_output, corpus_check.run_outputs(phase, summary))
+
+
+@app.command("corpus-check-comment")
+def corpus_check_comment_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
+    sha: Annotated[str, typer.Option(envvar="CHECK_SHA", help="The planned head SHA.")],
+    command: Annotated[str, typer.Option(envvar="CHECK_COMMAND", help="The planned command.")] = "",
+    refusal: Annotated[
+        str, typer.Option(envvar="CHECK_REFUSAL", help="The plan's refusal, if any.")
+    ] = "",
+    run_result: Annotated[str, typer.Option(envvar="RUN_RESULT", help="`needs.run.result`.")] = "",
+    phase: Annotated[
+        str, typer.Option(envvar="CHECK_PHASE", help="The run job's last phase.")
+    ] = "check",
+    exit_code: Annotated[
+        str, typer.Option(envvar="CHECK_EXIT_CODE", help="The run job's exit code.")
+    ] = "",
+    timed_out: Annotated[
+        str, typer.Option(envvar="CHECK_TIMED_OUT", help="The run job's timeout flag.")
+    ] = "",
+    summary_b64: Annotated[
+        str, typer.Option(envvar="CHECK_SUMMARY_B64", help="The run job's summary, base64.")
+    ] = "",
+    vintage_b64: Annotated[
+        str, typer.Option(envvar="CHECK_VINTAGE_B64", help="The corpus vintage, base64.")
+    ] = "",
+    run_url: Annotated[str, typer.Option(envvar="RUN_URL", help="This run's URL.")] = "",
+) -> None:
+    """Render the one result comment a corpus check posts on its PR.
+
+    Every value is read as untrusted text — the run job's outputs were written
+    after PR code ran — so each is decoded defensively, fenced with a fence
+    longer than any backtick run inside it, has its mentions broken, and the
+    whole is clamped under GitHub's 65,536-character comment limit. The first
+    line is the hidden marker naming the SHA, which is what tells a later plan
+    this head is answered. Prints the comment; posts nothing.
+    """
+    try:
+        rendered = corpus_check.render_comment(
+            corpus_check.PostInputs(
+                sha=sha,
+                command=command,
+                refusal=refusal,
+                run_result=run_result,
+                exit_code=exit_code,
+                timed_out=timed_out,
+                summary_b64=summary_b64,
+                vintage_b64=vintage_b64,
+                run_url=run_url,
+                phase=phase,
+            )
+        )
+    except ValueError as exc:
+        typer.echo(f"corpus-check-comment: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(rendered, nl=False)
+
+
+@app.command("corpus-check-approver")
+def corpus_check_approver_cmd() -> None:
+    """Print the login `config/corpus-check.yaml` names as the environment's approver.
+
+    The promotion gate resolves it to a user id before checking the
+    `corpus-check` environment's reviewer rule. Exits 1 when none is configured.
+    """
+    approver = _corpus_check_config("corpus-check-approver").approver
+    if not approver:
+        typer.echo("corpus-check-approver: no approver is configured", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(approver)
+
+
+@app.command("assert-corpus-check-environment")
+def assert_corpus_check_environment_cmd(
+    environment_file: Annotated[
+        Path,
+        typer.Option(help="`GET /repos/{repo}/environments/corpus-check`; absent means unread."),
+    ],
+    branch_policies_file: Annotated[
+        Path, typer.Option(help="Its `deployment-branch-policies`; absent means unread.")
+    ],
+    secrets_file: Annotated[
+        Path, typer.Option(help="Its `secrets` listing (admin read); absent means unread.")
+    ],
+    variables_file: Annotated[
+        Path, typer.Option(help="Its `variables` listing (admin read); absent means unread.")
+    ],
+    approver_id: Annotated[
+        int | None,
+        typer.Option(help="The configured approver's user id; omitted means unread."),
+    ] = None,
+) -> None:
+    """Check the `corpus-check` environment still gates the read-only role its trust hands out.
+
+    Requires the environment to exist, its required reviewers to be exactly the
+    approver `config/corpus-check.yaml` configures (by user id; no other user,
+    no team), its
+    deployment branches to be a custom policy of exactly `main`, and it to hold
+    no secret and no variable but the read-only role, the region and the corpus
+    base URL. Names each problem and exits non-zero if there is any; an unread
+    listing is a problem.
+    """
+    config = _corpus_check_config("assert-corpus-check-environment")
+    problems = environment_checks.environment_problems(
+        _read_document(environment_file),
+        _read_document(branch_policies_file),
+        _read_document(secrets_file),
+        _read_document(variables_file),
+        approver_login=config.approver,
+        approver_id=approver_id,
+    )
+    for problem in problems:
+        typer.echo(f"::error::corpus-check environment: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(
+        "the corpus-check environment holds its reviewer, its main-only policy "
+        + "and nothing but the read-only role's variables"
+    )
+
+
+@app.command("assert-website-environment")
+def assert_website_environment_cmd(
+    environment_file: Annotated[
+        Path,
+        typer.Option(help="`GET /repos/{repo}/environments/website`; absent means unread."),
+    ],
+    branch_policies_file: Annotated[
+        Path, typer.Option(help="Its `deployment-branch-policies`; absent means unread.")
+    ],
+    secrets_file: Annotated[
+        Path, typer.Option(help="Its `secrets` listing (admin read); absent means unread.")
+    ],
+    variables_file: Annotated[
+        Path, typer.Option(help="Its `variables` listing (admin read); absent means unread.")
+    ],
+    repository_secrets_file: Annotated[
+        Path,
+        typer.Option(help="`GET /repos/{repo}/actions/secrets` (admin read); absent means unread."),
+    ],
+    organization_secrets_file: Annotated[
+        Path,
+        typer.Option(
+            help="`GET /repos/{repo}/actions/organization-secrets` (admin read); "
+            + "absent means unread."
+        ),
+    ],
+) -> None:
+    """Check the `website` environment still keeps the Buttondown key on `main`.
+
+    Requires the environment to exist, its deployment branches to be a custom
+    policy of exactly `main`, and it to hold exactly the Buttondown API key and
+    the weekly tag id — no other secret or variable — and no repository or
+    organization secret to share the key's name, since a workflow on any
+    branch reads one. Names each problem and exits non-zero if there is any; an
+    unread listing is a problem.
+    """
+    problems = environment_checks.website_problems(
+        _read_document(environment_file),
+        _read_document(branch_policies_file),
+        _read_document(secrets_file),
+        _read_document(variables_file),
+    ) + environment_checks.shadow_secret_problems(
+        _read_document(repository_secrets_file),
+        _read_document(organization_secrets_file),
+    )
+    for problem in problems:
+        typer.echo(f"::error::website environment: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo("the website environment admits main alone and holds only its key and tag id")
 
 
 @app.command("finalize-produced")
@@ -18536,7 +19619,7 @@ def assert_board_paths_cmd(
 ) -> None:
     """Enforce the big-case board's path jail; exit non-zero on any violation.
 
-    The board PR auto-merges, so what stands in for a reviewer is the bound on
+    The board PR merges unattended, so what stands in for a reviewer is the bound on
     its diff: `metrics/big-cases.json` and `metrics/big-cases.md`, written, and
     nothing else. CI runs this as a required status check on the PR, independently
     of the workflow that produced the branch.
@@ -18830,6 +19913,62 @@ def assert_required_contexts_cmd(
         )
         raise typer.Exit(code=1)
     typer.echo(f"required contexts OK ({len(required)} checked)")
+
+
+@app.command("assert-rulesets")
+def assert_rulesets_cmd(
+    rulesets_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Directory of *.json files, one full ruleset document each, as "
+            "GET /repos/{owner}/{repo}/rulesets/{id} returns it (administration read)."
+        ),
+    ],
+    reviewer_team_id: Annotated[
+        int, typer.Option(help="Id of the team whose approval `main` requires (maintainers).")
+    ],
+    data_app_id: Annotated[int, typer.Option(help="The data App's id (its bypass actor id).")],
+    dev_app_id: Annotated[int, typer.Option(help="The dev App's id (its bypass actor id).")],
+    allow_unread_bypass: Annotated[
+        bool,
+        typer.Option(
+            "--allow-unread-bypass",
+            help="Skip bypass-list checks a non-admin read cannot see (a partial check).",
+        ),
+    ] = False,
+) -> None:
+    """Check the review and tag-record rulesets the docs rest on still hold.
+
+    Names each missing or weakened control — the approval `main` requires and
+    who may give it, staging's code-owner review, and the record tags' update,
+    deletion and creation rules — and exits non-zero if there is any.
+    """
+    documents: list[dict[str, Any]] = []
+    for path in sorted(rulesets_dir.glob("*.json")):
+        try:
+            document = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            typer.echo(f"::error::could not read ruleset {path.name}: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        if not isinstance(document, dict):
+            typer.echo(f"::error::{path.name} is not a ruleset object", err=True)
+            raise typer.Exit(code=1)
+        documents.append(document)
+    if not documents:
+        typer.echo(f"::error::no ruleset documents in {rulesets_dir}", err=True)
+        raise typer.Exit(code=1)
+    expected = RulesetExpected(
+        reviewer_team_id=reviewer_team_id,
+        data_app_id=data_app_id,
+        dev_app_id=dev_app_id,
+        require_bypass_lists=not allow_unread_bypass,
+    )
+    problems = ruleset_problems(documents, expected)
+    for problem in problems:
+        typer.echo(f"::error::rulesets: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(f"rulesets OK ({len(documents)} read)")
 
 
 @app.command("cleanup-out-of-scope-predictions")

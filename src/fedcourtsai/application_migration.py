@@ -29,10 +29,10 @@ motion baseline — exactly the target the stage-keyed interim outcome recording
 (:mod:`fedcourtsai.pipeline.outcome`) attributes the row's interim-matched
 disposition to; the form-keyed application guard there keeps every application
 spelling out of the cert rule regardless of its baseline's current shape. Note
-that a decided application's baseline latches ``resolved`` on re-extraction
-(:func:`fedcourtsai.pipeline.ingest.default_event` marks a decided row's
-baseline resolved) even where no outcome was recordable, so any backfill of
-historical interim outcomes must key on the row's disposition, not on open
+that a decided application's baseline can be closed with no outcome behind it
+(a first mint on an already-decided row, or a corpus closure the outcome pass
+could not attribute, both marked ``resolved_without_outcome``), so any backfill
+of historical interim outcomes must key on the row's disposition, not on open
 events.
 """
 

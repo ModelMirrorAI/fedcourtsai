@@ -17,12 +17,12 @@ from fedcourtsai import corpus, leaderboard
 from fedcourtsai.cli import app
 from fedcourtsai.ids import parse_run_id
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.cert_signals import considering_conference
 from fedcourtsai.release_sensitivity import (
     RANKED_ARM,
     GitBuildSource,
     ReleaseSensitivityError,
     StatpackBuild,
-    considering_conference,
     opening_petition,
     release_sensitivity,
 )

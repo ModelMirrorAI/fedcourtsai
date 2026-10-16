@@ -7,21 +7,32 @@ from text that looked like something it was not.
 
 from __future__ import annotations
 
+import ast
 import itertools
+import json
 from datetime import date
+from pathlib import Path
 
+import pytest
+
+from fedcourtsai.pipeline import ingest as ingest_module
+from fedcourtsai.pipeline import interim_signals as interim_signals_module
 from fedcourtsai.pipeline.ingest import default_event, from_live_record, map_live_docket
 from fedcourtsai.pipeline.interim_signals import (
     ApplicationKind,
+    InterimReading,
     ReferralPosture,
     amicus_briefs,
     amicus_briefs_through,
     application_arrival_date,
     application_kind,
+    clause_reads_plain_grant,
     escalation_signals,
     interim_disposition_date,
     is_predictable_application,
     match_interim_disposition,
+    read_interim_disposition,
+    referral_date,
     referral_posture,
     response_filed_date,
     response_requested,
@@ -137,6 +148,276 @@ def test_a_deferred_application_has_not_been_decided() -> None:
         )
         is None
     )
+
+
+# The partial-grant and moot cases below are the order language's shapes rather
+# than verbatim entries: the docket text of the applications behind the readings
+# (24A949 and 25A103 partial, 24A790 moot) lives in the corpus content store,
+# not in this repository, so their exact spellings are read against it by
+# `fedcourts interim-reading-census`, not here. Each case carries the label the
+# **registered** reading gives it, which is what every stored, scored and
+# cell-facing interim label is, and the label the finer reading gives it.
+_PARTIAL_AND_MOOT = [
+    # The mixed form the registered reading collapses denial-first.
+    (
+        "Application (24A949) granted in part and denied in part by the Court.",
+        Disposition.denied,
+        InterimReading.granted_in_part,
+    ),
+    # The full-Court form with a noted vote beside it.
+    (
+        "The application for stay presented to Justice Kagan and by her referred to the Court "
+        + "is granted in part.  Justice Alito would grant the application in full.",
+        Disposition.granted,
+        InterimReading.granted_in_part,
+    ),
+    (
+        "The application for stay is granted as to the first and second paragraphs of the "
+        + "injunction.",
+        Disposition.granted,
+        InterimReading.granted_in_part,
+    ),
+    (
+        "The application is granted insofar as it seeks a stay of the injunction's "
+        + "nationwide scope.",
+        Disposition.granted,
+        InterimReading.granted_in_part,
+    ),
+    (
+        "The application is granted, but only to the extent that the order bars enforcement.",
+        Disposition.granted,
+        InterimReading.granted_in_part,
+    ),
+    (
+        "The application is denied insofar as it seeks a stay of the judgment, and otherwise "
+        + "granted.",
+        Disposition.denied,
+        InterimReading.granted_in_part,
+    ),
+    # A grant in part beats the moot clause beside it: relief was granted.
+    (
+        "The application is granted in part and otherwise dismissed as moot.",
+        Disposition.granted,
+        InterimReading.granted_in_part,
+    ),
+    # The clerk's forms the outcome and provisioning tests already carry.
+    ("Application (25A1229) denied as moot by Justice Thomas.", Disposition.denied, None),
+    ("Application (25A1231) denied as moot.", Disposition.denied, None),
+    ("Application (24A790) dismissed as moot.", Disposition.dismissed, None),
+    (
+        "The application for stay presented to Justice Alito and by him referred to the Court "
+        + "is denied as moot.",
+        Disposition.denied,
+        None,
+    ),
+    ("The application is denied without prejudice as moot.", Disposition.denied, None),
+]
+
+
+@pytest.mark.parametrize(("text", "registered", "partial"), _PARTIAL_AND_MOOT)
+def test_the_registered_reading_still_collapses_both_forms(
+    text: str, registered: Disposition, partial: InterimReading | None
+) -> None:
+    """The registered collapse is honoured: a partial disposition reads
+    denial-first and a moot one by its verb, exactly as before the finer reading
+    existed, so no stored, scored or cell-facing label moves."""
+    assert match_interim_disposition(text) == (registered, registered.value)
+
+
+@pytest.mark.parametrize(("text", "registered", "partial"), _PARTIAL_AND_MOOT)
+def test_the_finer_reading_names_both_forms(
+    text: str, registered: Disposition, partial: InterimReading | None
+) -> None:
+    expected = partial or InterimReading.dismissed_moot
+    assert read_interim_disposition(text) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # A qualifier on another filing's verb says nothing about the application.
+        (
+            "The application for a stay is denied, and the motion to expedite is denied as moot.",
+            InterimReading.denied,
+        ),
+        # A scope phrase before the verb is the ask, not a limit on the grant.
+        ("The application for a stay as to the injunction is granted.", InterimReading.granted),
+        # A denial limited to one ask, with no grant beside it, grants nothing.
+        ("The application is denied as to the second applicant.", InterimReading.denied),
+        # The extension majority keeps its plain grant.
+        (_EXTENSION[-1], InterimReading.granted),
+        ("Application (24A12) dismissed.", InterimReading.dismissed),
+        ("Application (24A12) withdrawn.", InterimReading.withdrawn),
+        ("Response to application from respondent Jeremiah Sweeney filed.", None),
+        # Another subject's verb, after the comma that hands the sentence to it.
+        (
+            "The application for a stay is granted, and the request for an administrative "
+            + "stay is dismissed as moot.",
+            InterimReading.granted,
+        ),
+        (
+            "The application to vacate is denied, and the request for a stay is denied as "
+            + "moot.",
+            InterimReading.denied,
+        ),
+        # An application behind a preposition is not the subject: no clause opens on
+        # it, so the reading falls back to the registered label.
+        (
+            "The motion to expedite consideration of the application is denied as moot.",
+            InterimReading.denied,
+        ),
+    ],
+)
+def test_the_finer_reading_stays_on_the_applications_own_clause(
+    text: str, expected: InterimReading | None
+) -> None:
+    assert read_interim_disposition(text) == expected
+
+
+def _both_shapes_payload() -> dict[str, object]:
+    return {
+        "CaseNumber": "24A949",
+        "ProceedingsandOrder": [
+            {"Date": "Mar 10 2025", "Text": "Application (24A949) for a stay, submitted."},
+            {
+                "Date": "Apr 01 2025",
+                "Text": "Application (24A949) granted in part and denied in part by the Court.",
+            },
+        ],
+    }
+
+
+def _moot_payload() -> dict[str, object]:
+    return {
+        "CaseNumber": "24A790",
+        "ProceedingsandOrder": [
+            {"Date": "Feb 10 2025", "Text": "Application (24A790) for a stay, submitted."},
+            {"Date": "Mar 01 2025", "Text": "Application (24A790) dismissed as moot."},
+        ],
+    }
+
+
+@pytest.mark.parametrize("payload", [_both_shapes_payload(), _moot_payload()])
+def test_the_ingested_record_never_consults_the_finer_reading(
+    payload: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The cell-facing and scored view is byte-identical with or without the finer
+    reading: the record ingest writes for a partial or moot application is the
+    same when the finer reader is made to fail, so nothing stored from it — and
+    nothing read from the store — can carry its labels."""
+    baseline = json.dumps(
+        map_live_docket(payload, 1, form="application"), sort_keys=True, default=str
+    )
+
+    def _refuse(_: str) -> None:
+        raise AssertionError("ingest consulted the finer interim reading")
+
+    monkeypatch.setattr(ingest_module, "read_interim_disposition", _refuse)
+    monkeypatch.setattr(interim_signals_module, "read_interim_disposition", _refuse)
+    again = json.dumps(map_live_docket(payload, 1, form="application"), sort_keys=True, default=str)
+    assert again == baseline
+    assert json.loads(baseline)["disposition"] in {"denied", "dismissed"}
+
+
+#: The finer reading's names: the reader, its vocabulary, ingest's wrapper, the
+#: clause helpers, and the census module that reads them.
+_FINER_NAMES = frozenset(
+    {
+        "read_interim_disposition",
+        "InterimReading",
+        "interim_reading",
+        "interim_disposing_text",
+        "application_clauses",
+        "clause_reads_plain_grant",
+        "interim_reading_census",
+    }
+)
+
+
+def _finer_references(tree: ast.AST) -> set[str]:
+    """Every finer-reading name a module imports, references or reaches by attribute."""
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.module and node.module.rsplit(".", 1)[-1] in _FINER_NAMES:
+                found.add(node.module.rsplit(".", 1)[-1])
+            found |= {alias.name for alias in node.names if alias.name in _FINER_NAMES}
+        elif isinstance(node, ast.Import):
+            found |= {
+                alias.name.rsplit(".", 1)[-1]
+                for alias in node.names
+                if alias.name.rsplit(".", 1)[-1] in _FINER_NAMES
+            }
+        elif isinstance(node, ast.Name) and node.id in _FINER_NAMES:
+            found.add(node.id)
+        elif isinstance(node, ast.Attribute) and node.attr in _FINER_NAMES:
+            found.add(node.attr)
+    return found
+
+
+def test_the_finer_reading_reaches_no_stored_scored_or_cell_facing_reader() -> None:
+    """Parsed, not grepped, so a docstring mention neither trips nor hides it.
+
+    Only the defining module, ingest's wrapper, the census module, and `cli.py`
+    as the census's sole caller may name the finer reading. Any other module
+    that does is a reader the registration has not activated, so it fails here.
+    """
+    src = Path(__file__).resolve().parents[1] / "src" / "fedcourtsai"
+    users = {
+        str(path.relative_to(src)): refs
+        for path in sorted(src.rglob("*.py"))
+        if (refs := _finer_references(ast.parse(path.read_text(encoding="utf-8"))))
+    }
+    assert set(users) == {
+        "cli.py",
+        "pipeline/ingest.py",
+        "pipeline/interim_reading_census.py",
+        "pipeline/interim_signals.py",
+    }
+    # The CLI reaches the census and nothing else of the finer reading.
+    assert users["cli.py"] == {"interim_reading_census"}
+
+
+def test_inside_ingest_only_the_wrappers_touch_the_finer_reading() -> None:
+    """The ingest path that writes a row — `map_live_docket` and everything it
+    calls — never names the reader; only the two read-only wrappers do."""
+    path = Path(__file__).resolve().parents[1] / "src" / "fedcourtsai" / "pipeline" / "ingest.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    touching = {
+        node.name
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and _finer_references(node) - {"interim_reading", "interim_disposing_text"}
+    }
+    assert touching == {"interim_reading"}
+
+
+def test_dismissed_moot_is_no_disposition() -> None:
+    """The one finer label with no `Disposition` counterpart: nothing an outcome
+    records or a prediction emits can carry it."""
+    assert InterimReading.dismissed_moot.value not in {d.value for d in Disposition}
+    assert {r.value for r in InterimReading} - {d.value for d in Disposition} == {"dismissed-moot"}
+
+
+@pytest.mark.parametrize(
+    ("text", "plain_grant"),
+    [
+        (
+            "The application for stay is granted, and the motion to expedite is denied as moot.",
+            True,
+        ),
+        ("Application (24A12) granted by the Court.", True),
+        ("Application (24A949) granted in part and denied in part by the Court.", False),
+        ("Application (24A650) denied by Justice Kagan.", False),
+    ],
+)
+def test_the_census_probe_finds_a_granting_clause_beside_a_side_denial(
+    text: str, plain_grant: bool
+) -> None:
+    """The registered reading's known misreading, as the census probes for it: the
+    first case reads `denied` under the registered scan, which is not clause-scoped,
+    while the application's own clause grants."""
+    assert clause_reads_plain_grant(text) is plain_grant
 
 
 def test_an_ordinary_entry_disposes_of_nothing() -> None:
@@ -645,6 +926,26 @@ def test_a_respondent_name_carrying_periods_still_reads_as_filed() -> None:
         ("Aug 1 2025", "Response to application from respondents Michael Williams, et al. filed.")
     )
     assert response_filed_date(entries) == date(2025, 8, 1)
+
+
+def test_the_referral_is_dated_by_the_entry_its_flag_reads() -> None:
+    entries = _entries(
+        ("Sep 30 2026", "Application (26A477) for a stay, submitted to Justice Kagan."),
+        ("Oct 3 2026", "Application (26A477) referred to the Court by Justice Kagan."),
+        (
+            "Oct 9 2026",
+            "Application (26A477) presented to Justice Kagan and by her referred to the "
+            + "Court is denied.",
+        ),
+    )
+    assert referral_posture([text for text, _ in entries]) is ReferralPosture.referred_to_court
+    assert referral_date(entries) == date(2026, 10, 3)
+
+
+def test_an_undated_referral_sets_the_flag_and_yields_no_date() -> None:
+    entries: list[tuple[str, str | None]] = [("Application (26A477) referred to the Court.", None)]
+    assert referral_posture([text for text, _ in entries]) is ReferralPosture.referred_to_court
+    assert referral_date(entries) is None
 
 
 def test_a_request_alone_yields_no_filing_date() -> None:

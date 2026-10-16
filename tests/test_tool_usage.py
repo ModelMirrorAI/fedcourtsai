@@ -595,6 +595,53 @@ def test_a_capture_blind_engine_gets_a_null_throttle_count_not_a_clean_one(
     assert profile.mcp_throttle_rate is None
 
 
+def test_the_codex_naming_note_asserts_a_ratio_only_where_codex_has_one(
+    tmp_path: Path,
+) -> None:
+    # Codex's ledger can hold only unobserved (code-mode) manifest rows: the
+    # note must then call its throttle figure capture-blind, never a ratio.
+    _log(
+        tmp_path,
+        "x",
+        engine=Engine.codex,
+        actor="x",
+        tools=[],
+        calls=[
+            RetrievalCall(
+                tool="mcp__cl__search",
+                result_capture="unobserved",
+                result_status="unobserved",
+                call_source="code_mode_source",
+            )
+        ],
+    )
+    blind = render_tool_usage_markdown(build_tool_usage(tmp_path))
+    assert "`codex` — (capture-blind)" in blind
+    note = next(line for line in blind.splitlines() if line.startswith("_**codex**"))
+    assert "capture-blind rather than a ratio" in note
+    assert "codex's ratio" not in note
+    # Once a codex manifest result is legible, the same note scopes the ratio.
+    _log(
+        tmp_path,
+        "y",
+        engine=Engine.codex,
+        actor="x",
+        tools=[],
+        calls=[
+            RetrievalCall(
+                tool="mcp__cl__search",
+                result_digest="d1",
+                result_capture="captured",
+                result_status="ok",
+            )
+        ],
+    )
+    observed = render_tool_usage_markdown(build_tool_usage(tmp_path))
+    note = next(line for line in observed.splitlines() if line.startswith("_**codex**"))
+    assert "codex's ratio covers only" in note
+    assert "capture-blind" not in note
+
+
 def test_the_throttling_section_names_the_blind_engine_beside_the_number(
     tmp_path: Path,
 ) -> None:
@@ -624,6 +671,8 @@ def test_the_throttling_section_names_the_blind_engine_beside_the_number(
     assert "`gemini` — (capture-blind)" in md
     assert "0/0" not in md
     assert "capture-blind, not throttle-free" in md
+    # No codex engine in this ledger, so no codex naming note.
+    assert "**codex**" not in md
     # Rendered on a clean ledger too: a reader needs to know the question was
     # asked, which a line that appears only on bad news cannot tell them.
     assert "floor" in md

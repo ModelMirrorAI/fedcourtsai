@@ -194,6 +194,12 @@ of a re-basing, so a membership rule belongs in the freeze record for the same
 reason the baseline does. Its own boundary is the published exclusion block —
 `forward_claim` / `leakage_exclusion` on every board — so, like the provisioning
 cutoff and unlike the baseline, the change is at least visible in the artifact.
+The **set-aside** is the membership rule with a second reading: a cell the
+record cannot show to be forward leaves the default figures by a named reason
+(`fedcourtsai.set_aside`), and the board's `set_aside` block carries both the
+count and each moved figure recomputed with the cell counted, so the rule's
+boundary is published together with what the figure reads on its other side. A
+new reason is one more value in that vocabulary and its own dated entry.
 
 ## The stamp is the harness's word, not the agent's
 

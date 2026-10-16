@@ -108,6 +108,63 @@ def test_a_clocked_query_through_the_service_empties_prior_counsel(tmp_path: Pat
     assert forward["parties"] == ["Doe", "Amicus Society"]
 
 
+def test_a_clocked_full_query_through_the_service_withholds_a_post_clock_opinion(
+    tmp_path: Path,
+) -> None:
+    """A ``--full`` query under the clock hydrates no opinion the clock withholds.
+
+    The handler is where ``full`` hydrates a body, so the decision-record mask
+    is pinned there: a prior decided after the clock comes back with no
+    opinion, citations, summary or termination date, and one decided before it
+    with all of them; forward retrieval returns both whole.
+    """
+    db = tmp_path / "corpus.db"
+
+    def decided(case_id: str, docket: str, when: date) -> corpus.CorpusRow:
+        return corpus.CorpusRow(
+            case_id=case_id,
+            court="scotus",
+            docket_number=docket,
+            case_name="Doe v. Roe",
+            date_filed=date(1993, 11, 1),
+            date_cert_granted=date(1994, 1, 10),
+            date_decided=when,
+            disposition="granted",
+            citations=["510 U.S. 1"],
+            summary="Reversed",
+            opinion_text="the merits opinion",
+            has_opinion=True,
+        )
+
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                decided("scotus/1", "93-1", date(1994, 6, 1)),
+                decided("scotus/2", "93-2", date(1999, 6, 1)),
+            ],
+        )
+    clocked = corpus.PriorQuery(court="scotus", decided_before=1998)
+    with _running_server(db) as url:
+        masked = {
+            r["case_id"]: r
+            for r in corpus_service.client_query(url, clocked, limit=5, full=True).rows
+        }
+        forward = {
+            r["case_id"]: r
+            for r in corpus_service.client_query(
+                url, corpus.PriorQuery(court="scotus"), limit=5, full=True
+            ).rows
+        }
+    post = masked["scotus/2"]
+    assert (post["opinion_text"], post["has_opinion"], post["citations"]) == (None, False, [])
+    assert (post["summary"], post["date_decided"]) == (None, None)
+    pre = masked["scotus/1"]
+    assert (pre["opinion_text"], pre["citations"]) == ("the merits opinion", ["510 U.S. 1"])
+    assert pre["date_decided"] == "1994-06-01"
+    assert forward["scotus/2"]["opinion_text"] == "the merits opinion"
+
+
 def test_query_full_toggles_opinion_text(fixture_corpus: FixtureCorpus) -> None:
     q = corpus.PriorQuery(court="ca1")
     with _running_server(fixture_corpus.db_path) as url:

@@ -376,6 +376,47 @@ contexts() {
     echo "contexts: the review-auto environment is not yet referenced on main; environment check skipped"
   fi
 
+  # The review and tag-record rulesets: the approval `main` requires and who
+  # may give it, staging's code-owner review, and the record tags' update,
+  # deletion and creation rules, each with the bypass list the docs record.
+  # All live in settings, so a promotion would otherwise outlive one being
+  # edited away unnoticed. Each ruleset is fetched whole (the list endpoint
+  # omits rules) and judged by tested Python (tests/test_ruleset_checks.py).
+  # Bypass lists come back only to an admin, so the read must be one; the
+  # identities they must name are resolved here rather than pinned in code.
+  local ruleset_ids id is_admin team_id data_app_id dev_app_id
+  local rulesets_dir="${workdir}/rulesets"
+  is_admin="$(gh api "repos/${REPO}" --jq '.permissions.admin' 2>/dev/null || true)"
+  team_id="$(gh api "orgs/${REPO%%/*}/teams/maintainers" --jq '.id' 2>/dev/null || true)"
+  data_app_id="$(gh api "apps/fedcourtsai-data" --jq '.id' 2>/dev/null || true)"
+  dev_app_id="$(gh api "apps/fedcourtsai-dev" --jq '.id' 2>/dev/null || true)"
+  if [ "$is_admin" != "true" ]; then
+    echo "::error::contexts: the ruleset check needs an admin token — bypass lists are invisible to any other, and a check that cannot see them proves nothing about them"
+    fail=1
+  elif [ -z "$team_id" ] || [ -z "$data_app_id" ] || [ -z "$dev_app_id" ]; then
+    echo "::error::contexts: could not resolve the maintainers team or the data/dev App ids (team: ${team_id:-unread}, data: ${data_app_id:-unread}, dev: ${dev_app_id:-unread})"
+    fail=1
+  elif ruleset_ids="$(gh api --paginate "repos/${REPO}/rulesets" --jq '.[].id' 2>/dev/null)" \
+    && [ -n "$ruleset_ids" ]; then
+    mkdir -p "$rulesets_dir"
+    for id in $ruleset_ids; do
+      if ! gh api "repos/${REPO}/rulesets/${id}" >"${rulesets_dir}/${id}.json" 2>/dev/null; then
+        rm -f "${rulesets_dir}/${id}.json"
+        echo "::error::contexts: could not read ruleset ${id}"
+        fail=1
+      fi
+    done
+    if uv run fedcourts assert-rulesets --rulesets-dir "$rulesets_dir" \
+      --reviewer-team-id "$team_id" --data-app-id "$data_app_id" --dev-app-id "$dev_app_id"; then
+      echo "contexts: the review and tag-record rulesets hold"
+    else
+      fail=1
+    fi
+  else
+    echo "::error::contexts: could not list the repository's rulesets"
+    fail=1
+  fi
+
   # The staging environment's mirror of the same failure mode: the staging
   # read-write role's trust names `environment: staging` — deliberately, so
   # staging rehearses production's provenance model — which makes that
@@ -401,6 +442,86 @@ contexts() {
       fail=1
       ;;
   esac
+
+  # The corpus-check environment, on the staging check's reasoning and just as
+  # unconditional: the read-only role's trust names `environment:corpus-check`,
+  # so an environment that is missing, reviewer-less or open to any branch hands
+  # that role to whatever branch workflow binds it — and GitHub auto-creates a
+  # referenced environment with neither control. Required: the environment
+  # exists, its reviewer rule names the configured approver (resolved to an id
+  # here, as the ruleset check resolves the team and App ids), its branch
+  # policy admits `main` alone, and it holds no secret and no variable but the
+  # read-only role's three. The decision is tested Python
+  # (tests/test_environment_checks.py); this only fetches what it judges.
+  local cc_dir="${workdir}/corpus-check-environment" cc_base approver approver_id
+  cc_base="repos/${REPO}/environments/corpus-check"
+  mkdir -p "$cc_dir"
+  approver="$(uv run fedcourts corpus-check-approver 2>/dev/null || true)"
+  approver_id=""
+  if [ -n "$approver" ]; then
+    approver_id="$(gh api "users/${approver}" --jq '.id' 2>/dev/null || true)"
+  fi
+  gh api "$cc_base" >"${cc_dir}/environment.json" 2>/dev/null \
+    || rm -f "${cc_dir}/environment.json"
+  gh api "${cc_base}/deployment-branch-policies?per_page=100" \
+    >"${cc_dir}/branch-policies.json" 2>/dev/null || rm -f "${cc_dir}/branch-policies.json"
+  gh api "${cc_base}/secrets?per_page=100" >"${cc_dir}/secrets.json" 2>/dev/null \
+    || rm -f "${cc_dir}/secrets.json"
+  gh api "${cc_base}/variables?per_page=30" >"${cc_dir}/variables.json" 2>/dev/null \
+    || rm -f "${cc_dir}/variables.json"
+  local approver_args=()
+  if [ -n "$approver_id" ]; then
+    approver_args=(--approver-id "$approver_id")
+  fi
+  if uv run fedcourts assert-corpus-check-environment \
+    --environment-file "${cc_dir}/environment.json" \
+    --branch-policies-file "${cc_dir}/branch-policies.json" \
+    --secrets-file "${cc_dir}/secrets.json" \
+    --variables-file "${cc_dir}/variables.json" \
+    ${approver_args[@]+"${approver_args[@]}"}; then
+    echo "contexts: the corpus-check environment holds its reviewer, its main-only policy and only the read-only role's variables"
+  else
+    echo "::error::contexts: fix the corpus-check environment before promoting — the read-only role's trust names it (docs/security.md)"
+    fail=1
+  fi
+
+  # The website environment, unconditionally: it holds the Buttondown API key
+  # from the moment it is configured, whether or not main's workflows bind it
+  # yet, and its `main`-only branch policy is the one thing keeping that key
+  # from a workflow run off any other ref — so long as the key lives nowhere
+  # else, since a workflow's secret falls back to a repository or organization
+  # secret of the same name. Required: the environment exists, admits `main`
+  # alone, holds exactly the key and the weekly tag id, and no repository or
+  # organization secret shares the key's name. The decision is tested Python
+  # (tests/test_environment_checks.py).
+  local web_dir="${workdir}/website-environment" web_base
+  web_base="repos/${REPO}/environments/website"
+  mkdir -p "$web_dir"
+  gh api "$web_base" >"${web_dir}/environment.json" 2>/dev/null \
+    || rm -f "${web_dir}/environment.json"
+  gh api "${web_base}/deployment-branch-policies?per_page=100" \
+    >"${web_dir}/branch-policies.json" 2>/dev/null || rm -f "${web_dir}/branch-policies.json"
+  gh api "${web_base}/secrets?per_page=100" >"${web_dir}/secrets.json" 2>/dev/null \
+    || rm -f "${web_dir}/secrets.json"
+  gh api "${web_base}/variables?per_page=30" >"${web_dir}/variables.json" 2>/dev/null \
+    || rm -f "${web_dir}/variables.json"
+  gh api "repos/${REPO}/actions/secrets?per_page=100" \
+    >"${web_dir}/repository-secrets.json" 2>/dev/null || rm -f "${web_dir}/repository-secrets.json"
+  gh api "repos/${REPO}/actions/organization-secrets?per_page=100" \
+    >"${web_dir}/organization-secrets.json" 2>/dev/null \
+    || rm -f "${web_dir}/organization-secrets.json"
+  if uv run fedcourts assert-website-environment \
+    --environment-file "${web_dir}/environment.json" \
+    --branch-policies-file "${web_dir}/branch-policies.json" \
+    --secrets-file "${web_dir}/secrets.json" \
+    --variables-file "${web_dir}/variables.json" \
+    --repository-secrets-file "${web_dir}/repository-secrets.json" \
+    --organization-secrets-file "${web_dir}/organization-secrets.json"; then
+    echo "contexts: the website environment admits main alone and holds only the Buttondown key and the tag id"
+  else
+    echo "::error::contexts: fix the website environment before promoting — its branch policy is what keeps the Buttondown key on main (docs/security.md)"
+    fail=1
+  fi
 }
 
 registry() {

@@ -694,7 +694,25 @@ self-representation would scrub on the strength of a payload shape rather than
 of a fact about the docket, and over the stored payloads in the corpus it would
 take 2,012 of 2,925 cases rather than 654 (pull stamp `2026-09-29`). So the scrub fires on evidence rather
 than on the absence of it, and a docket whose counsel the corpus does not carry
-stages its text as filed. What the scrub
+stages its text as filed.
+
+**One absence is evidence: the Court withholding the petitioner's block.**
+The Court's own docket JSON (it carries `ProceedingsandOrder`) that carries the
+respondent side's counsel key — `Respondent` or its `AttorneyHeaderRespondent`
+heading, tested by presence rather than by a populated list, so the reading
+errs toward scrubbing — and **no** `Petitioner` key at all is how
+the Court serves a pseudonymous self-represented petitioner: the block that
+would name the filer as its own attorney is left off, and the rest of the
+docket is served as usual. That docket reads self-represented on the petitioner
+side. With no petitioner block served there is no value to key on, so the staged
+documents get the shape pass alone and the staged snapshot has no petitioner
+block to withhold; the respondent's counsel block stays as served. A
+`Petitioner` key served empty is not this case, and a CourtListener REST docket
+never is, since it carries no `ProceedingsandOrder`. A Court docket carrying
+neither side's counsel key — a pseudonymous filer's docket before the
+respondent appears — is not read so either, and stages its text as filed: a
+known residual, since nothing on that payload tells a withheld block from a
+docket the Court has not yet populated. What the scrub
 reads is **representation**, which is a different fact from the **fee** class
 the salience gate excludes at tier 0 ([salience.md](salience.md)) — that one is
 read off the docket serial, this one off the counsel blocks — so a paid docket
@@ -1314,7 +1332,8 @@ per-Term **walk complete** signal, and the cursors alone give an exact filings
 census per Term and fee class (paid serials from 1, IFP from 5001) even for the
 serials the sample never ingested. Each kept petition lands through `ingest_live_payload` already
 **resolved** (machine-read label, dated raw-JSON snapshot, its cert event
-latched closed) with filed documents provisioned for OT2021+ (the links'
+closed and marked `resolved_without_outcome` as a first mint on a decided row)
+with filed documents provisioned for OT2021+ (the links'
 retention window), so it provisions replay cells like any other case. Decided
 history must never feed forward prediction: the loader writes **no queue files
 at all**, records with no readable disposition are skipped (pending

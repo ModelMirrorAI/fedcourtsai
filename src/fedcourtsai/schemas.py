@@ -1626,7 +1626,20 @@ class ClaimScore(_Strict):
         "discloses no increment, a context whose signals were unobservable "
         "fixes no prediction-time value, and a CVSG already on the docket at "
         "prediction time, or a federal party named in the case's caption, makes "
-        "the cvsg-increment claim vacuous",
+        "the cvsg-increment claim vacuous. Also None, with `mask_reason` saying so, "
+        "where the run-timing mask applies",
+    )
+    mask_reason: Literal["signal-before-run"] | None = Field(
+        default=None,
+        description="Set where the claim is masked for a reason the frozen record alone "
+        "does not carry, which every other mask does. `signal-before-run`: an increment "
+        "claim (`response-requested-increment`, `referral-increment`, `cvsg-increment`) "
+        "on a forward cell whose signal was already on the docket before the cell ran — "
+        "the cell's pre-mint poll read it present, or, with no usable poll (or one that "
+        "recorded no reading of that signal), its docket date is strictly before the "
+        "cell's run day in Court time (`set_aside.increment_timing`). Conditioned on when "
+        "the cell ran rather than on what it was provisioned, so it is not the vacuous "
+        "mask. Omitted otherwise",
     )
     score: float | None = Field(
         default=None,
@@ -1634,6 +1647,14 @@ class ClaimScore(_Strict):
         "baseline's Brier minus the forecast's (`pipeline.base_rates.claim_score`). "
         "None when outcome or baseline is None",
     )
+
+    @model_serializer(mode="wrap")
+    def _omit_unset_mask_reason(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``mask_reason`` while unset, so a row it does not reach reads as before."""
+        payload = handler(self)
+        if isinstance(payload, dict) and self.mask_reason is None:
+            payload.pop("mask_reason", None)
+        return payload
 
 
 class ClaimScoreBlock(_Strict):
@@ -2057,6 +2078,47 @@ class Evaluation(_Strict):
     )
 
 
+class PolledSignal(_Strict):
+    """One increment signal as a harness docket poll's served docket showed it."""
+
+    present: bool = Field(
+        description="Whether the served docket carried the signal's entry, by the reading "
+        "that sets its ingest flag"
+    )
+    entry_date: date | None = Field(
+        default=None,
+        description="The signal entry's date, by the parser that dates it at ingest; null "
+        "where the signal is absent or its entry carries no full date",
+    )
+
+
+class PolledIncrementSignals(_Strict):
+    """The increment signals a harness docket poll read off the served docket.
+
+    Record-only: the poll's verdict is the outcome scan's alone, and the payload
+    stays read-and-discard, never the cell's input. An application docket fills
+    `response_requested` and `referred_to_court`, a petition docket `cvsg`; a
+    signal the docket's form cannot carry is null, never absent.
+    """
+
+    response_requested: PolledSignal | None = Field(
+        default=None,
+        description="Whether the Court (or a Circuit Justice) had requested a response "
+        "to the application (`interim_signals.response_requested` / "
+        "`response_requested_date`); null on a petition docket",
+    )
+    referred_to_court: PolledSignal | None = Field(
+        default=None,
+        description="Whether the application had been referred to the full Court "
+        "(`interim_signals.referral_posture` / `referral_date`); null on a petition docket",
+    )
+    cvsg: PolledSignal | None = Field(
+        default=None,
+        description="Whether the Solicitor General had been invited to file "
+        "(`cert_signals.CVSG_RE` / `snapshot_cvsg_date`); null on an application docket",
+    )
+
+
 class DocketPollRecord(_Strict):
     """One harness poll of a forward cell's docket, as the cell's usage record carries it.
 
@@ -2080,6 +2142,26 @@ class DocketPollRecord(_Strict):
         default=None,
         description="Why the poll read decided or unavailable; null when open",
     )
+    signals: PolledIncrementSignals | None = Field(
+        default=None,
+        description="Record-only: what the served docket showed at `polled_at` of each "
+        "increment signal the cell's claims forecast, with the entry date the ingest "
+        "parser reads. The claim scorer reads a pre-mint poll's reading to mask an "
+        "increment claim whose signal was already on the docket before the cell ran, and "
+        "the boards' `stratify` pass reads a post-run poll's to set aside one whose signal "
+        "the pre-mint poll read absent and the post-run poll present "
+        "(`set_aside.increment_timing`). Omitted where the poll read no proceedings list "
+        "(an `unavailable` poll, a payload without one) or its signal reading failed; a "
+        "poll carrying no `signals` reads as one that recorded no signal",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_unread_signals(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``signals`` while the poll read none, so such a record reads as before."""
+        payload = handler(self)
+        if isinstance(payload, dict) and self.signals is None:
+            payload.pop("signals", None)
+        return payload
 
 
 class ModelUsage(_Strict):
@@ -4724,6 +4806,127 @@ class VoidedEventsRecord(_Strict):
     )
 
 
+#: Why a scored cell is set aside from a board's default figures
+#: (:mod:`fedcourtsai.set_aside`). A closed vocabulary, so each reason is one
+#: reviewed edit with its own dated freeze-record entry. `increment-run-day` is the
+#: one claim-grain reason: it sets aside a claim inside a cell, never the cell.
+SetAsideReason = Literal[
+    "interim-decision-day", "post-conference-first-forecast", "increment-run-day"
+]
+
+
+class SetAsideEvent(_Strict):
+    """One event whose cells are set aside from the default figures, and the census row behind it.
+
+    The reasons a committed artifact alone cannot decide sit here — the
+    post-conference reason reads the petition's docket entries, which live in
+    the corpus — so the set-aside is a committed fact every offline board reads
+    the same way. A reason the committed ledger decides by itself is computed
+    instead and never listed.
+    """
+
+    case_id: str = Field(pattern=CASE_ID_PATTERN, description="The event's case id")
+    event_id: str = Field(pattern=EVENT_ID_PATTERN, description="The event's id")
+    reason: Literal["post-conference-first-forecast"] = Field(
+        description="Why its cells are set aside. `post-conference-first-forecast`: the "
+        "event's first forward frozen-scope cell (by harness run id) ran on or after the "
+        "day the conference that actually considered the petition sat "
+        "(`cert_signals.considering_conference` reads `sat`)"
+    )
+    conference: date = Field(description="The conference that considered the petition")
+    first_forward_run_id: str = Field(
+        description="The harness run id of the event's first forward frozen-scope cell"
+    )
+    declared: date = Field(description="The date of the freeze-record entry that sets it aside")
+
+
+class SetAsideEventsRegistry(_Strict):
+    """``src/fedcourtsai/set_aside_events.json`` — the listed set-aside events, append-only.
+
+    Data rather than code, so a listed set-aside is a reviewed edit to one file,
+    and a row is never removed: removing one would move a default figure across
+    a dated entry's boundary.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    events: list[SetAsideEvent] = Field(description="The listed events, in the order declared")
+
+
+class SetAsideRecord(_Strict):
+    """The cells a board's build set aside from its default figures, and why.
+
+    A set-aside cell is one the record cannot show to be forward
+    (:mod:`fedcourtsai.set_aside`): it leaves the default figures — every
+    stratum, rank key and composition count — and is put back in the
+    sensitivity figures beside them, so the default and the reading with the
+    cell counted are both published and the set-aside is never silent. It
+    changes which cells the default figure counts, never what any cell scored.
+    Omitted where nothing in scope is set aside.
+    """
+
+    excluded: int = Field(
+        ge=0,
+        description="How many in-scope gradings the shared `store.stratify` pass set "
+        "aside — counted after the run collapse, the void, the forward-claim rule and "
+        "the leakage bit, so a grading those rules already dropped is never counted "
+        "here. On the leaderboard it is stage-blind, so never subtracted from a "
+        "stage-scoped total beside it; on the claim-score board it covers cert's "
+        "first moment only, the board's own population",
+    )
+    by_reason: dict[str, int] = Field(
+        default_factory=dict,
+        description="Set-aside gradings keyed by reason (`SetAsideReason`; only "
+        "reasons with a nonzero count appear)",
+    )
+    by_predictor: dict[str, int] = Field(
+        default_factory=dict,
+        description="Set-aside gradings keyed by predictor id (only predictors with a "
+        "nonzero count appear)",
+    )
+    events: list[str] = Field(
+        default_factory=list,
+        description="The events holding set-aside gradings, as "
+        "'<case_id> <event_id> <reason>', sorted",
+    )
+
+
+class LeaderboardSetAsideLine(_Strict):
+    """One board figure recomputed with its set-aside gradings counted.
+
+    The sensitivity reading beside a default figure: the same pooled entry's
+    stratum, built by the same code over the default cells plus the cells the
+    set-aside removed from it. Only the (population, predictor, stratum)
+    figures a set-aside actually moved get a line. A disclosure, never a
+    result: the default figure stays the headline, and a line is never ranked.
+    """
+
+    population: str = Field(
+        description="The board population: `cert@distribution` for the ranked board's "
+        "entries, otherwise the `stages` key the figure sits under"
+    )
+    predictor_id: str
+    stratum: Stratum = Field(description="The stratum the set-aside gradings sit in")
+    set_aside: int = Field(ge=1, description="Set-aside gradings this line counts back in")
+    including: LeaderboardStratum = Field(
+        description="The pooled entry's stratum with the set-aside gradings counted"
+    )
+
+
+class LeaderboardSetAsideSensitivity(_Strict):
+    """Every leaderboard figure a set-aside moved, recomputed with the set-aside cells counted."""
+
+    lines: list[LeaderboardSetAsideLine] = Field(
+        default_factory=list,
+        description="One line per moved (population, predictor, stratum) figure, sorted",
+    )
+    paired: PairedEvents | None = Field(
+        default=None,
+        description="The ranked board's paired figure — what its ranks are read off — "
+        "with the set-aside gradings counted; null unless a ranked-board grading was "
+        "set aside",
+    )
+
+
 class Leaderboard(_Strict):
     """``metrics/leaderboard.json`` — predictors ranked from the evaluations ledger.
 
@@ -4785,6 +4988,18 @@ class Leaderboard(_Strict):
         description="The voided events this build dropped (`voids.VOIDED_EVENTS`) "
         "and how many gradings they held; omitted where no in-scope grading sits "
         "on a voided event",
+    )
+    set_aside: SetAsideRecord | None = Field(
+        default=None,
+        description="The gradings this build set aside from its default figures "
+        "(`set_aside.set_aside_reason`) and why; omitted where nothing in scope is set "
+        "aside. Every figure above and below is the default, without them",
+    )
+    set_aside_sensitivity: LeaderboardSetAsideSensitivity | None = Field(
+        default=None,
+        description="Each figure the set-aside moved, recomputed with the set-aside "
+        "gradings counted — the sensitivity reading beside the default; omitted where "
+        "nothing in scope is set aside",
     )
     salience_versions: list[str] = Field(
         default_factory=list,
@@ -4924,6 +5139,10 @@ class Leaderboard(_Strict):
                 payload.pop("paired", None)
             if self.voided_events is None:
                 payload.pop("voided_events", None)
+            if self.set_aside is None:
+                payload.pop("set_aside", None)
+            if self.set_aside_sensitivity is None:
+                payload.pop("set_aside_sensitivity", None)
             if not self.salience_versions:
                 payload.pop("salience_versions", None)
         return payload
@@ -5150,6 +5369,88 @@ class ClaimScoreEntry(_Strict):
         return _omit_empty(handler(self), windows=self.windows)
 
 
+class ClaimScoreSetAsideLine(_Strict):
+    """One claim-score figure recomputed with its set-aside gradings counted.
+
+    The claim surface's sensitivity reading, built exactly as
+    :class:`LeaderboardSetAsideLine` is: the same pooled entry's stratum over
+    the default cells plus the set-aside ones, for each (predictor, stratum)
+    figure the set-aside moved. Never a headline and never a rank key.
+    """
+
+    predictor_id: str
+    stratum: Stratum = Field(description="The stratum the set-aside gradings sit in")
+    set_aside: int = Field(ge=1, description="Set-aside gradings this line counts back in")
+    including: ClaimScoreStratum | None = Field(
+        description="The pooled entry's stratum with the set-aside gradings counted; null "
+        "where none of the counted-back gradings carries a claim block, so the entry's "
+        "default figure is unmoved by them"
+    )
+
+
+class ClaimSetAsideRecord(_Strict):
+    """The claims a claim-score build set aside inside its default cells, and why.
+
+    The claim grain of :class:`SetAsideRecord`: a claim-grain reason
+    (`increment-run-day`) takes one claim's score out of the default figures and
+    leaves the cell, and its other claims, counted. Counted in **claim units** —
+    a prediction's claim once, however many judges graded the cell — with the
+    gradings they sit in beside them, because a cell count would misstate how
+    much of a total moved. Omitted where nothing in scope is set aside.
+    """
+
+    claims: int = Field(
+        ge=0,
+        description="Distinct (case, event, predictor, claim) rows set aside, over this "
+        "surface's own population (cert's first moment) and its default cells only",
+    )
+    scored_claims: int = Field(
+        ge=0,
+        description="Of `claims`, those carrying a score — the ones that move a total; a "
+        "claim with no baseline is set aside but moves no figure",
+    )
+    gradings: int = Field(ge=0, description="In-scope gradings carrying a set-aside claim")
+    by_reason: dict[str, int] = Field(
+        default_factory=dict, description="Set-aside claims keyed by reason (`SetAsideReason`)"
+    )
+    by_claim: dict[str, int] = Field(
+        default_factory=dict, description="Set-aside claims keyed by claim id"
+    )
+    by_predictor: dict[str, int] = Field(
+        default_factory=dict, description="Set-aside claims keyed by predictor id"
+    )
+    events: list[str] = Field(
+        default_factory=list,
+        description="The set-aside claims, as '<case_id> <event_id> <claim_id> <reason>', "
+        "sorted and deduplicated",
+    )
+
+
+class ClaimScoreClaimSetAsideLine(_Strict):
+    """One claim-score figure recomputed with one claim-grain reason's claims counted back.
+
+    Per reason and never stacked: the default cells with that reason's claims
+    scored again, every other set-aside and departure left as the default
+    applies it. Never a headline and never a rank key.
+    """
+
+    reason: SetAsideReason = Field(description="The claim-grain reason counted back")
+    predictor_id: str
+    stratum: Stratum = Field(description="The stratum the set-aside claims sit in")
+    claims: int = Field(ge=1, description="Set-aside claims this line counts back in")
+    scored_claims: int = Field(
+        ge=0,
+        description="Of `claims`, those carrying a score — the ones that move a figure. "
+        "Zero means the line's `including` equals the default figure: the claims are set "
+        "aside, and none of them moved anything",
+    )
+    including: ClaimScoreStratum | None = Field(
+        description="The pooled entry's stratum with the reason's claims counted back; null "
+        "only where the entry has no figure in that stratum and none of the line's claims "
+        "carries a score, so nothing it counts back could give it one"
+    )
+
+
 class ClaimScoreBoard(_Strict):
     """``metrics/claim-scores.json`` — the mechanical claim-score surface.
 
@@ -5199,11 +5500,37 @@ class ClaimScoreBoard(_Strict):
         "leaderboard records them; omitted where no in-scope grading sits on a "
         "voided event",
     )
+    set_aside: SetAsideRecord | None = Field(
+        default=None,
+        description="The gradings this build set aside from its default figures, "
+        "counted over this surface's own population (cert's first moment) — so a "
+        "set-aside the leaderboard's stage blocks carry is not counted here; omitted "
+        "where nothing in that population is set aside",
+    )
+    set_aside_sensitivity: list[ClaimScoreSetAsideLine] = Field(
+        default_factory=list,
+        description="Each cert-stage claim figure the set-aside moved, recomputed with "
+        "the set-aside gradings counted, sorted by predictor then stratum; omitted while "
+        "it lists nothing",
+    )
+    claim_set_aside: ClaimSetAsideRecord | None = Field(
+        default=None,
+        description="The claims this build set aside inside its default cells by a "
+        "claim-grain reason, in claim units (`set_aside.claim_set_aside_reason`); omitted "
+        "where nothing in scope is set aside",
+    )
+    claim_set_aside_sensitivity: list[ClaimScoreClaimSetAsideLine] = Field(
+        default_factory=list,
+        description="Each claim figure a claim-grain set-aside moved, recomputed with that "
+        "reason's claims counted back and nothing else, sorted by reason, predictor, then "
+        "stratum; omitted while it lists nothing",
+    )
     evaluations_total: int = Field(
         ge=0,
         description="Cert-stage evaluation cells in scope (after the "
-        "forward-claim exclusion the `forward_claim` block records and the "
-        "leakage exclusion the `leakage_exclusion` block records), with or "
+        "forward-claim exclusion the `forward_claim` block records, the "
+        "leakage exclusion the `leakage_exclusion` block records and the "
+        "set-aside the `set_aside` block records), with or "
         "without a claim block — the surface's population, cert-stage because only "
         "the cert-stage event kinds declare a claim set, so a cell on any "
         "other stage is never owed a block and belongs outside the absence "
@@ -5249,9 +5576,18 @@ class ClaimScoreBoard(_Strict):
     @model_serializer(mode="wrap")
     def _omit_empty_cut(self, handler: SerializerFunctionWrapHandler) -> Any:
         """Drop ``by_protocol`` while it lists nothing (an all-versions build), and
-        ``voided_events`` while no in-scope grading sits on a voided event."""
+        ``voided_events``, the cell-grain set-aside pair (``set_aside`` /
+        ``set_aside_sensitivity``) and the claim-grain pair (``claim_set_aside`` /
+        ``claim_set_aside_sensitivity``) while nothing in scope is voided or set
+        aside."""
         return _omit_empty(
-            handler(self), by_protocol=self.by_protocol, voided_events=self.voided_events
+            handler(self),
+            by_protocol=self.by_protocol,
+            voided_events=self.voided_events,
+            set_aside=self.set_aside,
+            set_aside_sensitivity=self.set_aside_sensitivity,
+            claim_set_aside=self.claim_set_aside,
+            claim_set_aside_sensitivity=self.claim_set_aside_sensitivity,
         )
 
 
@@ -10814,11 +11150,20 @@ class SubstanceDigest(_Strict):
         "scored-cell figures, exactly as the boards record them; omitted where "
         "nothing in scope is voided",
     )
+    set_aside: SetAsideRecord | None = Field(
+        default=None,
+        description="The gradings the shared stratify pass set aside from the "
+        "scored-cell figures, exactly as the leaderboard records them; the counts "
+        "above are the default, without them, and the boards carry the reading "
+        "with them counted. Omitted where nothing in scope is set aside",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_empty_voided(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``voided_events`` while nothing in scope is voided."""
-        return _omit_empty(handler(self), voided_events=self.voided_events)
+        """Drop ``voided_events`` / ``set_aside`` while nothing in scope is voided / set aside."""
+        return _omit_empty(
+            handler(self), voided_events=self.voided_events, set_aside=self.set_aside
+        )
 
 
 class OpsReport(_Strict):
@@ -11479,4 +11824,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "export_manifest": ExportManifest,
     "process_registry": ProcessRegistry,
     "voided_events": VoidedEventsRegistry,
+    "set_aside_events": SetAsideEventsRegistry,
 }

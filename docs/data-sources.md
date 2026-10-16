@@ -691,8 +691,10 @@ The automated consumer stays within CourtListener's published API limits by desi
 - **Opinion enrichment shares that budget**, through the same client and the
   same configured ceilings; the `enrich-opinions` scope, its per-case request
   count, and the headroom arithmetic are owned by
-  [data-pipeline.md](data-pipeline.md) and stated only there. What belongs to
-  the terms question is the boundary: opinion coverage at bulk scale is not a
+  [data-pipeline.md](data-pipeline.md) and stated only there. Its live-window
+  step's requests count against the same account limits but not against the
+  pull governor's per-process tally, since each process counts only its own.
+  What belongs to the terms question is the boundary: opinion coverage at bulk scale is not a
   REST problem, the **database replication** channel named above remains the
   intended route to opinion bodies across the whole corpus, and nothing here is
   a step toward reading them out of the API instead.
@@ -775,7 +777,12 @@ material**:
   **served** block: a payload carrying no counsel on a side is unknown rather
   than unrepresented on that side, and a respondent who has not appeared has no
   block to read, so a docket awaiting its opposition is not scrubbed on that
-  account. The `Other` list — amici and other non-party filers — is read on
+  account. One exception: the Court's own docket JSON (it carries
+  `ProceedingsandOrder`) that carries the respondent side's counsel key but no
+  `Petitioner` key at all is how the Court serves a pseudonymous
+  self-represented petitioner, and it is read as self-represented on the
+  petitioner side; with no block served, the staged text gets the shape pass
+  alone. The `Other` list — amici and other non-party filers — is read on
   the first two arms (no attorney, or the amicus as its own); the
   register-number arm is not asked there, because `PrisonerId` on that list
   holds free text rather than a register number, and only a qualifying

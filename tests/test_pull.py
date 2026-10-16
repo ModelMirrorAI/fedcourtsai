@@ -643,10 +643,12 @@ def test_unrecorded_outcome_docket_skips_the_forward_predict_queue(tmp_path: Pat
         cast(CourtListenerClient, client), db, tmp_path / "data", [("ca9", 64512345)]
     )
     assert queues.unrecorded and queues.predict == []
-    assert [(e["court"], e["docket"]) for e in queues.predict_skipped_decided] == [
-        ("ca9", 64512345)
-    ]
-    assert "could not be recorded" in str(queues.predict_skipped_decided[0]["reason"])
+    # The open baseline sits on a row that records a decision date, so the
+    # queue arm refuses it outright (`store._row_decided`): it never reaches the
+    # decided-guard diversion, and the reconcile on the unrecorded queue is the
+    # one place it is named.
+    assert queues.predict_skipped_decided == []
+    assert [(e["court"], e["docket"]) for e in queues.unrecorded] == [("ca9", 64512345)]
 
 
 def test_pending_docket_still_queues_forward_prediction(tmp_path: Path) -> None:

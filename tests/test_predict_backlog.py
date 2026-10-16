@@ -1256,11 +1256,52 @@ def test_a_distribution_whose_conference_has_passed_is_not_re_owed(tmp_path: Pat
     data = tmp_path / "data"
     _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=PAST_CONFERENCE)
     _decounted_cohort(data, 1)
+    # The docket shows the conference sat on the petition: nothing took it off.
+    _store_docket(db, PAST_CONFERENCE, "DISTRIBUTED for Conference of 7/10/2026.")
 
     assert _backlog(db, data).case_ids == ()
     # …and the same case with the conference still ahead is re-owed, so the
     # refusal is the date and nothing else about the fixture.
     _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
+    assert _backlog(db, data).case_ids == ("scotus/1",)
+
+
+def _store_docket(db: Path, stored: date, *distributions: str, extra: str | None = None) -> None:
+    """Store a live payload for `scotus/1`: the petition, its distributions, one more entry."""
+    entries = [{"Date": "May 01 2026", "Text": "Petition for a writ of certiorari filed."}]
+    entries += [{"Date": "Jun 10 2026", "Text": text} for text in distributions]
+    if extra is not None:
+        entries.append({"Date": "Jun 20 2026", "Text": extra})
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(conn, "scotus/1", stored, {"ProceedingsandOrder": entries})
+
+
+def test_a_distribution_is_not_re_owed_on_its_conference_day(tmp_path: Path) -> None:
+    """The conference day counts as sat, on the re-predict path as on first
+    admission: the conference sits that morning and the cell would run after it."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=TODAY)
+    _decounted_cohort(data, 1)
+    _store_docket(db, TODAY, "DISTRIBUTED for Conference of 7/20/2026.")
+    assert _backlog(db, data).case_ids == ()
+
+
+def test_a_petition_taken_off_its_past_conference_is_still_re_owed(tmp_path: Path) -> None:
+    """The re-predict bound is the first-time admission's own: a conference that
+    did not consider the petition — a call for response entered after the
+    distribution took it off — leaves the distribution moment open."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=PAST_CONFERENCE)
+    _decounted_cohort(data, 1)
+    entries = [
+        {"Date": "May 01 2026", "Text": "Petition for a writ of certiorari filed."},
+        {"Date": "Jun 10 2026", "Text": "DISTRIBUTED for Conference of 7/10/2026."},
+        {"Date": "Jun 20 2026", "Text": "Response Requested. (Due July 20, 2026)"},
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(conn, "scotus/1", PAST_CONFERENCE, {"ProceedingsandOrder": entries})
     assert _backlog(db, data).case_ids == ("scotus/1",)
 
 

@@ -37,7 +37,7 @@ import re
 from collections.abc import Mapping
 from datetime import date, datetime
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Literal
 
 from dateutil import parser as date_parser
 
@@ -714,3 +714,113 @@ def snapshot_cvsg_date(payload: Mapping[str, Any]) -> str | None:
         if CVSG_RE.search(text) and entry_date:
             return entry_date
     return None
+
+
+#: A distribution of the petition itself: the entry-initial parse, which leaves out
+#: an ancillary paper's distribution ("Motion (…) DISTRIBUTED for Conference of …").
+_PETITION_DISTRIBUTED_RE = distribution_pattern("dist-v2")
+#: A call for response: takes a petition off the conference it was distributed for.
+_RESPONSE_REQUESTED_RE = re.compile(r"^\s*response\s+requested\b", re.I)
+#: A bare reschedule entry: takes a petition off the conference it was distributed for.
+_RESCHEDULED_RE = re.compile(r"^\s*rescheduled\b", re.I)
+
+
+def petition_distributions(payload: Mapping[str, Any], *, through: date) -> list[tuple[date, date]]:
+    """Every petition distribution filed on or before ``through``: ``(filed, conference)``.
+
+    In docket order, under the entry-initial parse (``dist-v2``), so an
+    ancillary paper's distribution never appears; an entry whose date or
+    conference will not parse is skipped.
+    """
+    found: list[tuple[date, date]] = []
+    for text, raw in proceedings_entries(payload):
+        filed = entry_date(raw)
+        match = _PETITION_DISTRIBUTED_RE.search(text)
+        if filed is None or match is None or filed > through:
+            continue
+        parsed = conference_date(match.group(1))
+        if parsed is not None:
+            found.append((filed, parsed))
+    return found
+
+
+def relisted_past(payload: Mapping[str, Any], run_day: date) -> bool:
+    """Whether a relist docketed by ``run_day`` moved the petition past a conference that sat.
+
+    The carve-out :func:`considering_conference` makes: a petition whose
+    latest distribution by the run names a conference still ahead, but an
+    earlier one names a conference on or before the run day, is read against
+    the conference ahead — the relist moment, forecast by design. The reading
+    is date-dependent: the relist entry must be docketed by the run day, so a
+    cell run between the conference and the relist's docketing reads the
+    conference that sat.
+    """
+    distributions = petition_distributions(payload, through=run_day)
+    if not distributions or distributions[-1][1] <= run_day:
+        return False
+    return any(conference <= run_day for _filed, conference in distributions[:-1])
+
+
+ConferenceReading = Literal["sat", "ahead", "off", "undistributed", "unknown"]
+
+
+def considering_conference(
+    payload: Mapping[str, Any], payload_date: date, run_day: date
+) -> tuple[date | None, ConferenceReading]:
+    """The conference a cell run on ``run_day`` came after, if one had considered the petition.
+
+    The one reading of "the conference that actually considered the petition",
+    shared by the fan-out's admission guard
+    (:func:`fedcourtsai.store.distribution_conference_considered`), the
+    re-predict rule, the scored-figure set-aside's census and the release's
+    sensitivity line, so the cell that is never minted and the cell that is set
+    aside are one population.
+
+    The conference is the one the petition was distributed for as at the run:
+    the latest **petition** distribution filed on or before ``run_day``, read
+    under the entry-initial parse (``dist-v2``), so a "Motion (…) DISTRIBUTED"
+    entry for an ancillary paper never stands in for the petition's own
+    conference, and never the current ``distributed_for_conference`` column. A
+    later distribution or a reschedule entered before the run moves it. It
+    **sat on the petition** unless a call for response ("Response Requested")
+    or a bare "Rescheduled" entry was filed between that distribution entry and
+    the conference day, that day included: a petition taken off a conference
+    before or as it sat was never considered there. A relist entered after a
+    conference sat moves the reading to the next conference: the petition is
+    then forecast against a conference still ahead, which is the relist moment
+    the pipeline forecasts by design, not a forecast made after the petition's
+    last consideration.
+
+    Returns the conference and ``"sat"`` where it sat on or before ``run_day``
+    (a cell run on the conference day counts as after it). Otherwise the
+    reading says why not: ``"ahead"`` (the conference is after the run),
+    ``"off"`` (taken off before it sat), ``"undistributed"`` (no petition
+    distribution disclosed by the run), or ``"unknown"`` — the payload was
+    stored before the conference day, so whether something took it off cannot
+    be read. Entries are day-grained, so one filed on the run day counts as
+    before the run. ``run_day`` is the caller's: the ledger readers pass the
+    run's UTC day (the harness ``run_id``), which matches the Court's Eastern
+    day for every cell run after 04:00 UTC (05:00 in winter), and the admission
+    guard passes the day it plans for.
+    """
+    entries = [
+        (text, filed)
+        for text, raw in proceedings_entries(payload)
+        if (filed := entry_date(raw)) is not None
+    ]
+    conference: date | None = None
+    distributed: date | None = None
+    for filed, parsed in petition_distributions(payload, through=run_day):
+        conference, distributed = parsed, filed
+    if conference is None or distributed is None:
+        return None, "undistributed"
+    if conference > run_day:
+        return conference, "ahead"
+    if payload_date < conference:
+        return conference, "unknown"
+    for text, filed in entries:
+        if distributed <= filed <= conference and (
+            _RESPONSE_REQUESTED_RE.search(text) or _RESCHEDULED_RE.search(text)
+        ):
+            return conference, "off"
+    return conference, "sat"

@@ -105,9 +105,12 @@ jobs:
           set -euo pipefail
           # shellcheck disable=SC1091  # resolved on the runner; actionlint lints this block out of tree
           source "${GITHUB_WORKSPACE}/scripts/gh_retry.sh"
-          # The health section groups these by workflow; 200 runs is a few weeks
-          # across the daily pipelines.
-          gh_retry gh run list --repo "$REPO" --limit 200 \
+          # The health section groups these by workflow and reads the newest
+          # 200 runs of the ordinary workflows — a few weeks across the daily
+          # pipelines — plus a day of each polling one (`ops.window_runs`).
+          # The listing is wider than that window because corpus-check polls
+          # every 30 minutes and would otherwise fill it in days.
+          gh_retry gh run list --repo "$REPO" --limit 1200 \
             --json workflowName,status,conclusion,createdAt,startedAt,updatedAt \
             > runs.json
 

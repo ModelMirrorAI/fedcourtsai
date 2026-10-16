@@ -728,8 +728,29 @@ exception, `pull_request` on CI, the linters and CodeQL, is held to a shape that
 makes it moot: no environment, no secret, no token mint, no role — the privileged lanes carry
 nothing but the platform-gated `schedule` and `workflow_dispatch` and keep the
 dispatch their recovery path depends on, every privileged job binds a deployment
-environment so a dispatch cannot run it from an arbitrary ref, and every agent
-job waits on the `review` hold), the
+environment so a dispatch cannot run it from an arbitrary ref — a job reaching
+the role through a corpus composite counting as privileged, and `corpus-check`
+admitted for its own workflow alone — every agent
+job waits on the `review` hold, and every workflow that binds an environment
+opens with the run gate — an unprivileged `authorize` job that sparse-checks-out
+and runs `src/fedcourtsai/run_gate.py` by path, which every other job needs
+directly and whose guard ends every other job's condition as a top-level
+conjunct — and closes with the `run-gate` job that needs every job and fails a
+refused re-run, with `config/dispatchers.json` never naming the agent account;
+`tests/workflow_gate.py` holds the guard's text and lets the other shape tests
+read a job's own condition and needs without it, and `test_run_gate` pins the
+decision and that the module imports only the standard library), the cache
+(`test_workflow_cache_restore`: no
+job restores the uv cache unless allowed and holding nothing, no workflow
+or composite restores a cache any other way, and no root `package.json` turns
+on a `setup-node` cache), the corpus-check lane
+(`test_workflow_corpus_check`: each job's grants, the environment and the
+read-only role on the run job alone, the planned head checked out beside the
+run's own ref and after the vintage read, the head's install and check run
+only through the wrapper as the unprivileged account whose separation the job
+proves, no `${{ }}` in any script, no PR code in the post job; and
+`test_environment_checks`: the environment's reviewer, `main`-only policy and
+contents, which the promotion gate checks unconditionally), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants

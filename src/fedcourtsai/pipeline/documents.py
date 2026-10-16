@@ -1387,7 +1387,8 @@ def _lead_merits_refs(lead: Mapping[str, Any], *, member: Mapping[str, Any]) -> 
     - **No self-represented party on the lead.** The contact scrub that runs
       over staged documents is keyed on the *member's* counsel blocks, since
       provisioning reads one case's snapshot; a lead whose party side names
-      nobody but the filer (:func:`unrepresented_sides`) could carry that
+      nobody but the filer, or whose petitioner block the Court withholds
+      (:func:`unrepresented_sides`), could carry that
       filer's own address and telephone in a brief the member's scrub would
       not key on. Such a lead lends nothing, and the run log says so. The
       ``Other`` list does not trigger it: no amicus brief is staged but the
@@ -2505,7 +2506,9 @@ def scrub_contact_details(
 # upstream record, so that self-naming is the marker, read off a **served**
 # block: a block naming no attorney says the same thing, but a payload carrying
 # no block on a side at all says nothing about that side, and is read as
-# nothing.
+# nothing — save the Court's own docket withholding the petitioner key
+# outright, which is how it serves a pseudonymous self-represented filer
+# (`withholds_petitioner_block`).
 
 # A party is served with suffixes an attorney name never carries — the joinder
 # tags a caption uses for a group of petitioners, and an alias clause. Cut the
@@ -2617,7 +2620,8 @@ def unrepresented_sides(payload: Mapping[str, Any]) -> tuple[str, ...]:
     """The counsel-block lists whose served blocks name nobody but the filer.
 
     The question both contact scrubs key on, answered from the docket's own
-    counsel blocks and **only** from them: each of :data:`SCRUBBED_LISTS` — the
+    counsel blocks and only from them, save the one withheld-block reading
+    below, which is read off the payload's keys: each of :data:`SCRUBBED_LISTS` — the
     petitioner side, the respondent side and the ``Other`` list — on which some
     served block names nobody to write to but the filer itself, in
     :data:`SCRUBBED_LISTS` order. A list whose blocks all name an attorney who
@@ -2638,6 +2642,19 @@ def unrepresented_sides(payload: Mapping[str, Any]) -> tuple[str, ...]:
     self-represented on that side. So the scrub fires on
     evidence rather than on the absence of it, and a docket whose counsel the
     corpus does not carry is left exactly as filed.
+
+    One absence is evidence, and it is read as such: a **withheld petitioner
+    block** (:func:`withholds_petitioner_block`). A supremecourt.gov docket
+    that carries the respondent's counsel key but no ``Petitioner`` key at all
+    is the Court leaving a pseudonymous self-represented filer's own block off
+    the public record: the docket has a place to name petitioner's counsel
+    and names nobody there. That docket reads ``Petitioner``. Key presence is
+    what is tested, not a populated list, so the reading errs toward
+    scrubbing. With no block
+    served there is no served value to key on, so the document scrub is the
+    shape pass alone and the staged snapshot has no petitioner block to
+    withhold. An empty ``Petitioner`` list is not this case: the key is served,
+    and an empty list is read as nothing, as above.
 
     Three arms make a block qualify, all of them positive readings of a served
     block, and they are the same on either side:
@@ -2697,6 +2714,33 @@ def unrepresented_sides(payload: Mapping[str, Any]) -> tuple[str, ...]:
         side
         for side in SCRUBBED_LISTS
         if any(_block_qualifies(block, side) for block in _served_blocks(payload, side))
+        or (side == "Petitioner" and withholds_petitioner_block(payload))
+    )
+
+
+def withholds_petitioner_block(payload: Mapping[str, Any]) -> bool:
+    """Whether a supremecourt.gov docket serves its counsel lists but withholds the petitioner's.
+
+    Three facts, all read off which keys the payload carries and never off
+    their values: it is the Court's own docket shape (``ProceedingsandOrder``,
+    the key that tells a supremecourt.gov payload from a CourtListener REST
+    one, which carries ``docket_entries`` instead); it carries the respondent
+    side's counsel key (``Respondent``, or its ``AttorneyHeaderRespondent``
+    heading), so the Court published a counsel section for this docket; and it
+    carries **no** ``Petitioner`` key. Presence alone is tested, so an empty
+    ``Respondent`` list or ``ProceedingsandOrder`` list still reads True: the
+    error that admits is an over-scrub, which costs counsel's professional
+    details, never a filer's own.
+    That is how the Court serves a pseudonymous self-represented petitioner: the
+    filer's block, which would name the filer as its own attorney, is left off,
+    and every other part of the docket is served as usual. A docket with
+    counsel names petitioner's counsel there. A ``Petitioner`` key served empty
+    or malformed is not this shape and reads False.
+    """
+    return (
+        "ProceedingsandOrder" in payload
+        and ("Respondent" in payload or "AttorneyHeaderRespondent" in payload)
+        and "Petitioner" not in payload
     )
 
 

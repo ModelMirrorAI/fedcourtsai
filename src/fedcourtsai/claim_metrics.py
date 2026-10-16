@@ -42,12 +42,13 @@ be duplicated.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime
 from typing import Literal
 
 from .integrity import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell, evaluation_clock
-from .leaderboard import kendall_tau_b
+from .leaderboard import kendall_tau_b, set_aside_moved
+from .pipeline.base_rates import claim_score
 from .pipeline.moments import first_moment
 from .process_version import (
     Series,
@@ -65,17 +66,21 @@ from .schemas import (
     ClaimMeanScore,
     ClaimScoreBlock,
     ClaimScoreBoard,
+    ClaimScoreClaimSetAsideLine,
     ClaimScoreEntry,
+    ClaimScoreSetAsideLine,
     ClaimScoreStratum,
+    ClaimSetAsideRecord,
     CountingWindow,
     Evaluation,
     ForwardClaimRecord,
     LeakageExclusionRecord,
+    SetAsideReason,
     Stage,
     Stratum,
     VoidedEventsRecord,
 )
-from .store import EvaluationKey, evaluation_key
+from .store import EvaluationKey, SetAsideCell, evaluation_key
 
 # The pre-registered suppression threshold for the judge-validation tau-b: below
 # this intersection size the coefficient is withheld and only the counts
@@ -374,3 +379,233 @@ def _is_empty(entry: ClaimScoreEntry) -> bool:
     dropped rather than rendered.
     """
     return entry.forward is None and entry.retrospective is None and entry.procedural is None
+
+
+def claim_surface_set_aside(set_aside: Sequence[SetAsideCell]) -> list[SetAsideCell]:
+    """The set-aside cells this surface's own population holds: cert's first moment.
+
+    What the surface's ``set_aside`` record counts, so the count describes the
+    cells its figures actually left — an interim cell set aside on the
+    leaderboard's stage blocks was never in this surface's population.
+    """
+    population = (Stage.cert, first_moment(Stage.cert))
+    return [held for held in set_aside if (held.cell[2], held.cell[3]) == population]
+
+
+def claim_set_aside_sensitivity(
+    set_aside: Sequence[SetAsideCell], including: ClaimScoreBoard
+) -> list[ClaimScoreSetAsideLine]:
+    """Each claim figure the set-aside moved, read off a surface built with them counted.
+
+    ``including`` is :func:`build_claim_scores` over the same pass's
+    :meth:`~fedcourtsai.store.StratifiedRun.sensitivity_cells`. Only the
+    surface's own population — cert's first moment — has figures here, so a
+    set-aside cell on any other block moves nothing and gets no line.
+
+    A line's figure is null only where none of its counted-back gradings
+    carries a claim block, since such a grading moves no claim figure; a
+    missing figure for gradings that do carry one raises, exactly as the
+    leaderboard's sensitivity does: the including surface is built from a
+    superset of the default's cells, so a figure absent there is a construction
+    error, and a board must never publish a set-aside without its reading.
+    """
+    entries = {entry.predictor_id: entry for entry in including.entries}
+    carrying: dict[tuple[str, Stratum], int] = defaultdict(int)
+    for (evaluation, stratum, _stage, _moment), _reason in claim_surface_set_aside(set_aside):
+        if evaluation.claim_scores is not None:
+            carrying[(evaluation.predictor_id, stratum)] += 1
+    population = f"{Stage.cert}@{first_moment(Stage.cert)}"
+    lines: list[ClaimScoreSetAsideLine] = []
+    for (block, predictor_id, stratum), count in sorted(set_aside_moved(set_aside).items()):
+        if block != population:
+            continue
+        entry = entries.get(predictor_id)
+        figure = getattr(entry, stratum) if entry is not None else None
+        if figure is None and carrying[(predictor_id, stratum)]:
+            raise ValueError(
+                f"the sensitivity surface holds no {stratum} claim figure for "
+                f"{predictor_id}, though {carrying[(predictor_id, stratum)]} set-aside "
+                f"grading(s) carrying a claim block sit there"
+            )
+        lines.append(
+            ClaimScoreSetAsideLine(
+                predictor_id=predictor_id,
+                stratum=stratum,
+                set_aside=count,
+                including=figure,
+            )
+        )
+    return lines
+
+
+#: One pass's claim-grain set-asides: per graded cell, the claims set aside and why.
+ClaimSetAsides = Mapping[EvaluationKey, Mapping[str, SetAsideReason]]
+
+
+def _block_without(block: ClaimScoreBlock, drop: frozenset[str]) -> ClaimScoreBlock:
+    """``block`` with the named claims' scores taken out and its totals re-summed.
+
+    The resolution stays on the row — a set-aside claim is not unresolved — and
+    only its score leaves, so every figure built from the block (the totals, the
+    per-claim means, the judge validation's pairs) reads it as unscored.
+    """
+    rows = [
+        row.model_copy(update={"score": None}) if row.claim_id in drop else row
+        for row in block.claims
+    ]
+    scored = [row for row in rows if row.score is not None]
+    if not scored:
+        return block.model_copy(update={"claims": rows, "total": None, "floor": None, "lift": None})
+    total = sum(row.score for row in scored if row.score is not None)
+    floor = sum(
+        claim_score(row.baseline, row.outcome, row.baseline)
+        for row in scored
+        if row.baseline is not None and row.outcome is not None
+    )
+    return block.model_copy(
+        update={"claims": rows, "total": total, "floor": floor, "lift": total - floor}
+    )
+
+
+def without_set_aside_claims(
+    cells: Iterable[StratifiedCell],
+    claim_set_aside: ClaimSetAsides,
+    *,
+    counting_back: SetAsideReason | None = None,
+) -> list[StratifiedCell]:
+    """``cells`` with every claim-grain set-aside claim's score taken out of its block.
+
+    The population every claim figure is built over: the default when
+    ``counting_back`` is ``None``, and one reason's sensitivity reading when it
+    names that reason — its claims keep their scores and every other reason's
+    still leave, so a line counts one reason back and never stacks two.
+    A cell with nothing to take out passes through unchanged.
+    """
+    out: list[StratifiedCell] = []
+    for cell in cells:
+        evaluation, stratum, stage, moment = cell
+        held = claim_set_aside.get(evaluation_key(evaluation), {})
+        drop = frozenset(cid for cid, reason in held.items() if reason != counting_back)
+        if not drop or evaluation.claim_scores is None:
+            out.append(cell)
+            continue
+        adjusted = evaluation.model_copy(
+            update={"claim_scores": _block_without(evaluation.claim_scores, drop)}
+        )
+        out.append((adjusted, stratum, stage, moment))
+    return out
+
+
+def _surface_claim_set_asides(
+    cells: Iterable[StratifiedCell], claim_set_aside: ClaimSetAsides
+) -> list[tuple[Evaluation, Stratum, str, SetAsideReason]]:
+    """``(grading, stratum, claim id, reason)`` per set-aside claim on this surface's population."""
+    population = (Stage.cert, first_moment(Stage.cert))
+    found: list[tuple[Evaluation, Stratum, str, SetAsideReason]] = []
+    for evaluation, stratum, stage, moment in cells:
+        if (stage, moment) != population:
+            continue
+        held = claim_set_aside.get(evaluation_key(evaluation), {})
+        found.extend((evaluation, stratum, cid, reason) for cid, reason in sorted(held.items()))
+    return found
+
+
+def claim_set_aside_record(
+    cells: Iterable[StratifiedCell], claim_set_aside: ClaimSetAsides
+) -> ClaimSetAsideRecord | None:
+    """The claim-grain set-aside over this surface's default cells, in claim units.
+
+    A claim is a prediction's (case, event, predictor, claim id): every judge
+    grading the cell carries the same row, so it is counted once, with the
+    gradings carrying it beside. ``None`` where nothing is set aside.
+    """
+    found = _surface_claim_set_asides(cells, claim_set_aside)
+    if not found:
+        return None
+    claims: dict[tuple[str, str, str, str], SetAsideReason] = {}
+    scored: set[tuple[str, str, str, str]] = set()
+    gradings: set[EvaluationKey] = set()
+    for evaluation, _stratum, claim_id, reason in found:
+        key = (evaluation.case_id, evaluation.event_id, evaluation.predictor_id, claim_id)
+        claims[key] = reason
+        gradings.add(evaluation_key(evaluation))
+        block = evaluation.claim_scores
+        if block is not None and any(
+            row.claim_id == claim_id and row.score is not None for row in block.claims
+        ):
+            scored.add(key)
+    by_reason: Counter[str] = Counter(claims.values())
+    by_claim: Counter[str] = Counter(key[3] for key in claims)
+    by_predictor: Counter[str] = Counter(key[2] for key in claims)
+    return ClaimSetAsideRecord(
+        claims=len(claims),
+        scored_claims=len(scored),
+        gradings=len(gradings),
+        by_reason=dict(sorted(by_reason.items())),
+        by_claim=dict(sorted(by_claim.items())),
+        by_predictor=dict(sorted(by_predictor.items())),
+        events=sorted({f"{k[0]} {k[1]} {k[3]} {reason}" for k, reason in claims.items()}),
+    )
+
+
+def claim_set_aside_sensitivity_lines(
+    cells: Sequence[StratifiedCell],
+    claim_set_aside: ClaimSetAsides,
+    surface_over: Callable[[Sequence[StratifiedCell]], ClaimScoreBoard],
+) -> list[ClaimScoreClaimSetAsideLine]:
+    """Each claim figure a claim-grain reason moved, with that reason's claims counted back.
+
+    ``cells`` are the default cells (the cell-grain set-aside already out) and
+    ``surface_over`` builds the surface over a population. Per reason, the
+    surface is rebuilt over :func:`without_set_aside_claims` counting that
+    reason back, and each (predictor, stratum) the reason's claims sit in gets
+    a line reading that rebuild's pooled entry — one reason per line, never two
+    stacked, and never with the cell-grain set-aside's cells.
+
+    Each line counts its claims and, of them, the ``scored_claims`` that move a
+    figure, so a line whose figure equals the default reads as nothing scored
+    rather than as a figure that did not move. A missing figure for a line
+    whose claims carry a score raises, as :func:`claim_set_aside_sensitivity`
+    does: the rebuild is over the default's cells with scores put back, so a
+    figure absent there is a construction error, never a reading to publish.
+    """
+    found = _surface_claim_set_asides(cells, claim_set_aside)
+    held: dict[tuple[SetAsideReason, str, Stratum], set[tuple[str, str, str]]] = defaultdict(set)
+    scored: dict[tuple[SetAsideReason, str, Stratum], set[tuple[str, str, str]]] = defaultdict(set)
+    for evaluation, stratum, claim_id, reason in found:
+        key = (reason, evaluation.predictor_id, stratum)
+        claim = (evaluation.case_id, evaluation.event_id, claim_id)
+        held[key].add(claim)
+        block = evaluation.claim_scores
+        if block is not None and any(
+            row.claim_id == claim_id and row.score is not None for row in block.claims
+        ):
+            scored[key].add(claim)
+    lines: list[ClaimScoreClaimSetAsideLine] = []
+    for reason in sorted({reason for reason, _pid, _stratum in held}):
+        including = surface_over(
+            without_set_aside_claims(cells, claim_set_aside, counting_back=reason)
+        )
+        entries = {entry.predictor_id: entry for entry in including.entries}
+        for (line_reason, predictor_id, stratum), claims in sorted(held.items()):
+            if line_reason != reason:
+                continue
+            entry = entries.get(predictor_id)
+            figure = getattr(entry, stratum) if entry is not None else None
+            moving = len(scored[(line_reason, predictor_id, stratum)])
+            if figure is None and moving:
+                raise ValueError(
+                    f"the {reason} sensitivity surface holds no {stratum} claim figure "
+                    f"for {predictor_id}, though {moving} scored set-aside claim(s) sit there"
+                )
+            lines.append(
+                ClaimScoreClaimSetAsideLine(
+                    reason=reason,
+                    predictor_id=predictor_id,
+                    stratum=stratum,
+                    claims=len(claims),
+                    scored_claims=moving,
+                    including=figure,
+                )
+            )
+    return lines

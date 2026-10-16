@@ -4,7 +4,7 @@ The predict/evaluate stages fan out one matrix cell per
 predictor/evaluator x case x event and used to open one PR per cell — dozens a
 day, each merged by hand. They now aggregate: every cell uploads its ``data/``
 output as a build artifact, and a single ``collect`` job unions them into **one
-PR per run** that auto-merges once the required checks are green.
+PR per run** that the job merges once the required checks are green.
 
 Because that PR merges without a human, two controls keep it honest, and both
 live here as small pure functions the CLI wraps so the YAML only runs git/gh:

@@ -1,11 +1,11 @@
 """The label-trigger authorization gate (:mod:`fedcourtsai.authz`).
 
-The security shape — that the gate runs before any privileged step — is locked in
-``test_workflow_auth_gate.py``; this exercises the *decision* the workflow now
-delegates to the ``authorize-trigger`` command: a Bot handoff is trusted, write
-access is required otherwise, and anything else fails closed — plus the default
-lookup's bounded retry, whose one non-negotiable is that no failure path may
-manufacture a permission.
+This exercises the *decision* a workflow with an outside-reachable trigger
+would delegate to the ``authorize-trigger`` command: a Bot handoff is trusted,
+write access is required otherwise, and anything else fails closed — plus the
+default lookup's bounded retry, whose one non-negotiable is that no failure
+path may manufacture a permission. The run gate, which decides who among write
+holders may start or re-run a run, is ``test_run_gate.py``'s.
 """
 
 from __future__ import annotations

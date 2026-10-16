@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -24,6 +25,7 @@ from fedcourtsai.pipeline.outcome import (
     detect_resolution,
     disposition_basis,
     disposition_route,
+    forward_leakage,
     granted_flag,
     interim_disposal_signal,
     interim_resolution_signals,
@@ -49,7 +51,8 @@ from fedcourtsai.schemas import (
     Stage,
 )
 from fedcourtsai.serialize import read_model, write_yaml
-from fedcourtsai.store import _FORECASTABLE_KINDS
+from fedcourtsai.store import _FORECASTABLE_KINDS, forecastable_event_ids
+from tests.conftest import seed_prediction
 
 DECIDED_DOCKET = {
     "id": 64512345,
@@ -290,6 +293,227 @@ def test_interim_disposal_signal_reads_relief_named_disposals() -> None:
         ]
     }
     assert interim_disposal_signal(pending) is None
+
+
+def _application_entries(*texts: str) -> dict[str, Any]:
+    return {
+        "CaseNumber": "25A100",
+        "ProceedingsandOrder": [{"Text": text} for text in texts],
+    }
+
+
+# Orders on side motions: routine on a contested application's docket, and none
+# disposes of anything the application asked for.
+_SIDE_MOTION_ORDERS = [
+    "Motion for leave to file amicus brief filed by Cato Institute GRANTED.",
+    "Motion for leave to file amicus brief granted.",
+    "Motion of Center for Individual Rights for leave to file brief as amicus curiae " + "GRANTED.",
+    "Motions of Ohio, et al. for leave to file briefs as amici curiae granted.",
+    "The motion of respondent for leave to file a sur-reply is granted.",
+    "Motion to file under seal granted.",
+    "Motion of applicant for leave to file the application under seal with redacted copies "
+    + "GRANTED.",
+    "Motion to unseal the application GRANTED.",
+    "Motion of applicant to expedite consideration of the application GRANTED.",
+    "Motion for leave to file a reply in support of the application granted.",
+    "Motion for an extension of time to file a response to the application granted.",
+    "Motion of respondents for divided argument granted.",
+    "Motion for leave to intervene denied.",
+    "Motion to withdraw as counsel granted.",
+    "Motion for leave to file a supplemental brief granted.",
+    "Joint motion for divided argument granted.",
+    "Unopposed motion for an extension of time granted.",
+    "Motion for leave to file a brief as amicus curiae in support of applicants granted.",
+    "Motion for leave to proceed in forma pauperis granted.",
+    "Motion for leave to exceed the word limits granted.",
+    "Motion to expedite consideration of the application for a stay granted.",
+    "Motion for leave to file a reply in support of the application for a stay granted.",
+    "Motion to expedite consideration of the application for stay granted.",
+    "Motion to dispense with printing granted.",
+    "Motion for leave to file under seal with redacted copies for the public record " + "GRANTED.",
+    "Motion to intervene denied.",
+    "Motion of applicants to expedite consideration GRANTED.",
+    "The motion for divided argument is granted.",
+]
+
+# Dispositions of the application or its relief, including an entry that
+# grants a side motion and disposes of the application in the same order, and
+# every shape a side-motion mask must refuse: mootness, relief coordinated into
+# the clause, a leave-to ask off the closed list, a disposing participle.
+_RELIEF_DISPOSALS = [
+    "Motion for leave to file amicus brief granted. Justice Thomas would have granted "
+    + "the application.",
+    "Motion for leave to file amicus brief granted. Justice Thomas would have denied "
+    + "the application.",
+    "Motion for leave to file amicus brief granted. Justice Alito dissents.",
+    "Motion to expedite granted. Justice Gorsuch dissents from the denial of the application.",
+    "Motion to expedite granted. The order heretofore entered by Justice Kagan is vacated.",
+    "Motion for leave to file amicus brief granted. Judgment below vacated and remanded.",
+    "Motion to expedite granted. Stay entered.",
+    "Motion for leave to file amicus brief granted. Administrative stay entered by The "
+    + "Chief Justice.",
+    "Application (24A650) denied by Justice Kagan.",
+    "Application for a stay and motion for leave to file under seal granted.",
+    "Application for injunction withdrawn.",
+    "Motion for a stay pending appeal granted.",
+    "Motion for administrative stay granted.",
+    "Motion for an extension of time to respond to the application, and the application "
+    + "itself, denied.",
+    "Motion for divided argument granted. Application for stay granted pending disposition.",
+    "Motion for leave to dismiss the application granted.",
+    "Motion for leave to file a brief as amicus curiae in support of applicants granted, "
+    + "with the stay entered on May 1 vacated.",
+    "Motion for leave to file a reply, treated as a renewed application, denied.",
+    "Motion for leave to file a response to the application and for an administrative stay "
+    + "granted.",
+    "Motion for leave to file amicus brief DISMISSED as moot.",
+    "Motion for leave to file amicus brief and the application for a stay are granted.",
+    "Motion for leave to file amicus brief denied as moot because the application has been "
+    + "withdrawn",
+    "Motion for leave to file amicus brief dismissed as moot in light of the Court's order "
+    + "denying the application",
+    "Motion for leave to file amicus brief dismissed as moot, the application having been "
+    + "denied by the Court",
+    "Motion for leave to file amicus brief granted (Justice Alito would deny the "
+    + "application).",
+    "Motion for leave to file amicus brief granted, with the stay entered on May 1 vacated.",
+    "Motion for leave to file amicus brief granted. The administrative stay entered on May "
+    + "1 is vacated.",
+    "Motion for leave to file amicus brief in support of the application for a stay is "
+    + "granted, and the application for stay is denied.",
+    "Motion for leave to file under seal and for a temporary administrative stay granted.",
+    "Motion for leave to file under seal granted: application for stay denied.",
+    "Motion for leave to intervene and to dismiss the application granted.",
+    "Motion for leave to intervene and to dismiss the pending application granted.",
+    "Motion for leave to withdraw the application granted.",
+    "Motion of applicant for a stay pending the filing of a motion for leave to file " + "granted.",
+    "Motion of applicant for a TRO and for leave to file under seal granted.",
+    "Motions of applicant for a TRO and to expedite are granted.",
+    "Motion of applicant for a TRO, for leave to file under seal granted.",
+    "Motion of applicant for a writ of mandamus and for leave to file under seal granted.",
+    "Motion of applicant for a writ of prohibition and to expedite granted.",
+    "Motion of applicant for release on bail and for leave to proceed in forma pauperis denied.",
+    "Motion of applicants for an order suspending enforcement and to expedite granted.",
+    "Motion of applicant to hold the case in abeyance and to expedite granted.",
+    "Motion of applicant to suspend the order below and to expedite granted.",
+    "Motion of applicant for an administrative hold and to expedite granted.",
+    "Motion of applicant for interim protection and for leave to file under seal granted.",
+    "Motion to expedite filed by applicant and for a TRO granted.",
+    "Motion to expedite consideration filed by applicant seeking a TRO, denied.",
+    "Motion for leave to file amicus brief granted. Justice Alito would deny the application.",
+    "Motion of applicant for a temporary restraining order and for leave to file under "
+    + "seal granted.",
+    "Motion of applicant for emergency relief pending appeal and for leave to file under "
+    + "seal granted.",
+    "Motion of applicant for leave to file a supplemental brief GRANTED and stay pending "
+    + "appeal DENIED",
+    "Motion of applicant for leave to vacate the stay granted.",
+    "Motion of applicant for recall of the mandate and to expedite granted.",
+    "Motion of applicants for leave to withdraw the application GRANTED.",
+    "Motion of applicants to expedite consideration DENIED as moot.",
+    "Motion of applicants to withdraw the application granted.",
+    "Motion to expedite and for a stay pending appeal granted.",
+    "Motion to expedite and for a temporary restraining order granted.",
+    "Motion to expedite and for a writ of injunction granted.",
+    "Motion to expedite and for an immediate administrative stay granted.",
+    "Motion to expedite and for emergency relief granted.",
+    "Motion to expedite and for interim relief pending appeal denied.",
+    "Motion to expedite and the Government's application for a stay are granted.",
+    "Motion to expedite and the respondent's cross-application are denied.",
+    "Motion to expedite and to enjoin enforcement of the rule granted.",
+    "Motion to expedite as well as the application for a stay are granted.",
+    "Motion to expedite consideration GRANTED, and the application is denied.",
+    "Motion to expedite consideration of the application DISMISSED as moot.",
+    "Motion to expedite consideration of the application, which application is denied.",
+    "Motion to expedite granted; stay lifted.",
+    "Motion to expedite is granted and the administrative stay entered on May 1 is vacated.",
+    "Motion to expedite together with the application is denied.",
+    "Motion to expedite, for a stay, and for leave to file under seal granted.",
+    "Motion to file a reply brief granted, the application is denied.",
+    "Motion to file a response under seal and to vacate the administrative stay granted.",
+    "Motion to file a stipulation of dismissal of the application granted.",
+    "Motion to intervene and to vacate the stay granted.",
+    "Motion to substitute party granted and application dismissed.",
+    "Motion to supplement the record granted, and the application referred to the Court is "
+    + "denied.",
+    "Motion to vacate stay denied.",
+    "Motion to vacate the stay entered by the court of appeals granted.",
+    "Motion to withdraw as counsel and to withdraw the application granted.",
+    "Motions of Ohio, et al. for leave to file briefs as amici curiae granted. Application "
+    + "denied.",
+    "Request to withdraw the application granted.",
+    "Stay granted pending disposition.",
+    "Stay of execution granted by The Chief Justice pending further order.",
+    "The application for stay presented to Justice Alito and by him referred to the Court "
+    + "is granted.",
+    "The motion for an injunction pending appeal is denied.",
+    "The motion for leave to file a brief as amicus curiae is granted. The application for "
+    + "stay is denied.",
+    "The motion for leave to file amicus brief is granted; the application is denied.",
+]
+
+
+@pytest.mark.parametrize("text", _SIDE_MOTION_ORDERS)
+def test_interim_disposal_signal_ignores_side_motion_orders(text: str) -> None:
+    # A side-motion order is not a disposal: read as one, it parks every pending
+    # contested application — the dockets the interim reserve selects.
+    docket = _application_entries(
+        "Application (25A100) for a stay, submitted to The Chief Justice.",
+        "Response to application (25A100) requested by The Chief Justice.",
+        text,
+    )
+    assert interim_disposal_signal(docket) is None
+    assert forward_leakage(docket, "scotus", "evt-motion-disposition") is None
+
+
+@pytest.mark.parametrize("text", _RELIEF_DISPOSALS)
+def test_interim_disposal_signal_still_reads_relief_disposals(text: str) -> None:
+    # The leakage guard keeps every disposal phrasing, alone or beside a
+    # side-motion order in the same entry.
+    docket = _application_entries(
+        "Application (25A100) for a stay, submitted to The Chief Justice.", text
+    )
+    signal = interim_disposal_signal(docket)
+    assert signal is not None and text in signal
+    assert forward_leakage(docket, "scotus", "evt-motion-disposition") is not None
+
+
+def test_a_side_motion_order_does_not_hide_a_later_disposal() -> None:
+    docket = _application_entries(
+        "Motion for leave to file amicus brief filed by Cato Institute GRANTED.",
+        "Motion to expedite consideration of the application GRANTED.",
+        "Application (25A100) denied by the Court.",
+    )
+    signal = interim_disposal_signal(docket)
+    assert signal is not None and "denied by the Court" in signal
+
+
+# Strings outside both lists that probe the carve-out's edges: entries the
+# unmasked scan does not match (a bare disposing participle, a side motion with
+# no disposing verb) and side-motion shapes split by an abbreviation or a
+# parenthesis.
+_CARVE_OUT_PROBES = [
+    "Stay lifted.",
+    "The administrative stay is dissolved.",
+    "Motion for leave to file amicus brief submitted.",
+    "Motion of U.S. to expedite granted; application denied.",
+    "Motion of Smith v. Jones for leave to file under seal granted, application denied.",
+    "Motion of applicant (for a stay (pending appeal)) to expedite granted.",
+    "Motion for leave to file amicus brief filed by X GRANTED; Justice Alito would grant "
+    + "the application.",
+    "Motion to expedite GRANTED.  Application DENIED",
+    "Motion to expedite consideration of the application for a stay granted\nApplication "
+    + "denied",
+]
+
+
+@pytest.mark.parametrize("text", _SIDE_MOTION_ORDERS + _RELIEF_DISPOSALS + _CARVE_OUT_PROBES)
+def test_the_side_motion_carve_out_never_widens_the_scan(text: str) -> None:
+    # The carve-out only removes hits: wherever the scan fires, the unmasked
+    # pattern matches the same entry, even where the remainder check would read
+    # a disposing participle the pattern has no verb for.
+    if interim_disposal_signal(_application_entries(text)) is not None:
+        assert outcome_module._INTERIM_DISPOSAL_RE.search(text) is not None
 
 
 def test_tolerant_application_spelling_is_also_guarded() -> None:
@@ -2049,6 +2273,25 @@ _APPLICATION_DENIAL: dict[str, object] = {
 }
 
 
+def _payload_for(row: corpus.CorpusRow) -> dict[str, object]:
+    """A stored live payload whose interim reading reproduces ``row``'s latched label."""
+    decided = row.date_decided
+    entries: list[dict[str, str]] = [
+        {
+            "Date": "Sep 09 2026",
+            "Text": f"Application ({row.docket_number}) for a stay, submitted to Justice Kagan.",
+        }
+    ]
+    if decided is not None and row.disposition is not None:
+        entries.append(
+            {
+                "Date": decided.strftime("%b %d %Y"),
+                "Text": f"Application ({row.docket_number}) {row.disposition} by the Court.",
+            }
+        )
+    return {"CaseNumber": f"{row.docket_number} ", "ProceedingsandOrder": entries}
+
+
 def _decided_application_row(case_id: str = "scotus/9526000325") -> corpus.CorpusRow:
     return corpus.CorpusRow(
         case_id=case_id,
@@ -2066,7 +2309,11 @@ def _decided_application_row(case_id: str = "scotus/9526000325") -> corpus.Corpu
 
 
 def _interim_event(
-    event_id: str, *, resolved: bool, case_id: str = "scotus/9526000325"
+    event_id: str,
+    *,
+    resolved: bool,
+    case_id: str = "scotus/9526000325",
+    opened_at: date = date(2026, 9, 9),
 ) -> corpus.CorpusEvent:
     spec = moments.spec_for(event_id)
     return corpus.CorpusEvent(
@@ -2078,7 +2325,7 @@ def _interim_event(
         moment=spec.moment if spec is not None else Moment.arrival,
         title="M. W. v. Superior Court",
         docket_entry_id=None if spec is not None else 1,
-        opened_at=date(2026, 9, 9),
+        opened_at=opened_at,
         decision_target="disposition",
         resolved=resolved,
     )
@@ -2105,6 +2352,8 @@ def _seed_application(
         conn.commit()
         corpus.upsert_events(conn, events)
         if payload is not None:
+            if payload is _APPLICATION_DENIAL and row is not None:
+                payload = _payload_for(stored)
             corpus.upsert_snapshot(conn, stored.case_id, date(2026, 9, 27), payload)
     return db
 
@@ -2154,8 +2403,13 @@ def test_resolve_case_resolves_every_application_moment_past_a_pinned_motion(
         tmp_path,
         [_interim_event(eid, resolved=False) for eid in (*_INTERIM_MOMENTS, _PINNED)],
     )
+    # Decided after the moments opened (2026-09-09), as the docket was.
     row = _application_docket("26A325", "denied").model_copy(
-        update={"case_id": "scotus/9526000325", "docket_id": 9526000325}
+        update={
+            "case_id": "scotus/9526000325",
+            "docket_id": 9526000325,
+            "date_decided": date(2026, 9, 22),
+        }
     )
     resolution = resolve_case(db, tmp_path, row, "scotus", 9526000325)
     assert set(resolution.outcomes) == set(_INTERIM_MOMENTS)
@@ -2179,7 +2433,14 @@ def test_convergence_records_a_closed_moment_on_a_case_with_no_ledger_directory(
     )
     db = _seed_application(
         tmp_path,
-        [_interim_event("evt-motion-disposition", resolved=True, case_id=case_id)],
+        [
+            _interim_event(
+                "evt-motion-disposition",
+                resolved=True,
+                case_id=case_id,
+                opened_at=date(2026, 8, 10),
+            )
+        ],
         row=row,
     )
     case = CasePaths(tmp_path, "scotus", 9526000209)
@@ -2280,7 +2541,7 @@ def _add_application(
         corpus.upsert_events(
             conn, [_interim_event("evt-motion-disposition", resolved=True, case_id=case_id)]
         )
-        corpus.upsert_snapshot(conn, case_id, date(2026, 9, 27), _APPLICATION_DENIAL)
+        corpus.upsert_snapshot(conn, case_id, date(2026, 9, 27), _payload_for(row))
     return case_id
 
 
@@ -2301,7 +2562,7 @@ def test_declined_cases_never_starve_a_recordable_one(tmp_path: Path) -> None:
     # declines do not spend the record bound, so the recordable case is reached.
     db = _seed_application(
         tmp_path,
-        [_interim_event("evt-motion-disposition", resolved=True)],
+        [_interim_event("evt-motion-disposition", resolved=True, opened_at=date(2026, 8, 25))],
         row=_decided_application_row().model_copy(update={"date_decided": date(2026, 9, 1)}),
     )
     _add_application(db, 401, decided=date(2026, 9, 25), disposition=Disposition.other)
@@ -2628,3 +2889,296 @@ def test_a_half_written_pair_is_finished_on_the_next_pass(
     assert second.recorded == {"scotus/9526000325": ["evt-motion-disposition"]}
     assert paths.outcome.exists()
     assert paths.event_file.exists()
+
+
+# --- attribution hardening ---------------------------------------------------------
+
+
+def test_a_moment_opened_after_the_decision_never_receives_it() -> None:
+    # The baseline opened before the 2026-09-22 denial and resolves; a later
+    # moment stamped after it forecast nothing the denial answered, so it is
+    # surfaced with the fixed reason instead of inheriting the disposition.
+    row = _decided_application_row()
+    open_ids = list(_INTERIM_MOMENTS)
+    resolution = detect_resolution(
+        row,
+        "scotus",
+        9526000325,
+        open_ids,
+        stages=dict.fromkeys(open_ids, Stage.interim),
+        opened={
+            "evt-motion-disposition": date(2026, 9, 9),
+            "evt-order-response-requested-disposition": date(2026, 9, 22),  # same day: in time
+            "evt-brief-response-disposition": date(2026, 9, 23),
+        },
+    )
+    assert set(resolution.outcomes) == {
+        "evt-motion-disposition",
+        "evt-order-response-requested-disposition",
+    }
+    (late,) = resolution.unrecorded
+    assert late.event_id == "evt-brief-response-disposition"
+    assert late.reason == outcome_module.OPENED_AFTER_DECISION_REASON
+
+
+def test_record_outcomes_refuses_a_moment_opened_after_its_outcome(tmp_path: Path) -> None:
+    db = _seed_application(
+        tmp_path,
+        [_interim_event("evt-motion-disposition", resolved=False, opened_at=date(2026, 9, 23))],
+    )
+    # Built without the opened map, the way only a caller bypassing detection could.
+    resolution = detect_resolution(
+        _decided_application_row(),
+        "scotus",
+        9526000325,
+        ["evt-motion-disposition"],
+        stages={"evt-motion-disposition": Stage.interim},
+    )
+    assert resolution.outcomes
+    with pytest.raises(RuntimeError, match="opened 2026-09-23 after its outcome"):
+        record_outcomes(db, tmp_path, "scotus", 9526000325, resolution)
+    assert not CasePaths(tmp_path, "scotus", 9526000325).base.exists()
+
+
+# --- the gap read covers open moments of a decided stage -------------------------
+
+
+def test_convergence_records_an_open_moment_detection_declined(tmp_path: Path) -> None:
+    # Re-extraction never closes the baseline, so a moment the poll's
+    # detection declined stays open on a decided row; the poll rotations skip
+    # decided rows, so the sweep is what tries it again.
+    db = _seed_application(tmp_path, [_interim_event("evt-motion-disposition", resolved=False)])
+    result = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert result.recorded == {"scotus/9526000325": ["evt-motion-disposition"]}
+    with corpus.connect(db) as conn:
+        (event,) = corpus.events_for_case(conn, "scotus/9526000325")
+    assert event.resolved is True
+
+
+def test_convergence_leaves_an_open_moment_of_an_undecided_stage_alone(tmp_path: Path) -> None:
+    pending = _decided_application_row().model_copy(
+        update={"date_decided": None, "disposition": None}
+    )
+    db = _seed_application(
+        tmp_path, [_interim_event("evt-motion-disposition", resolved=False)], row=pending
+    )
+    result = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert not result.recorded
+    assert not result.unrecorded
+
+
+# --- the outcome pass: every lost outcome, no lookback -----------------------------
+
+
+def _old_gap_db(tmp_path: Path) -> Path:
+    """A selected application decided long before the convergence lookback."""
+    return _seed_application(tmp_path, [_interim_event("evt-motion-disposition", resolved=True)])
+
+
+def test_the_outcome_pass_dry_run_plans_and_writes_nothing(tmp_path: Path) -> None:
+    db = _old_gap_db(tmp_path)
+    # Far past the standing sweep's lookback: that sweep leaves it alone.
+    late = date.fromordinal(date(2026, 9, 22).toordinal() + OUTCOME_CONVERGENCE_LOOKBACK_DAYS + 30)
+    assert not converge_ledger_outcomes(db, tmp_path, today=late).recorded
+
+    plan = outcome_module.record_lost_outcomes(db, tmp_path)
+    assert plan.population == 1
+    assert plan.recorded == {"scotus/9526000325": ["evt-motion-disposition"]}
+    assert plan.recorded_by_disposition == {"denied": 1}
+    assert plan.cases_written == 1
+    assert not plan.residue
+    assert not CasePaths(tmp_path, "scotus", 9526000325).base.exists()
+
+
+def test_the_outcome_pass_apply_needs_and_honours_its_bound(tmp_path: Path) -> None:
+    db = _old_gap_db(tmp_path)
+    with pytest.raises(ValueError, match="requires max_cases"):
+        outcome_module.record_lost_outcomes(db, tmp_path, apply=True)
+    refused = outcome_module.record_lost_outcomes(db, tmp_path, apply=True, max_cases=0)
+    assert refused.refused
+    case = CasePaths(tmp_path, "scotus", 9526000325)
+    assert not case.base.exists()
+
+    applied = outcome_module.record_lost_outcomes(db, tmp_path, apply=True, max_cases=1)
+    assert not applied.refused
+    outcome = read_model(case.event("evt-motion-disposition").outcome, Outcome)
+    assert (outcome.actual_disposition, outcome.resolved_at) == (
+        Disposition.denied,
+        date(2026, 9, 22),
+    )
+    # Idempotent: the recorded moment has left the population.
+    again = outcome_module.record_lost_outcomes(db, tmp_path)
+    assert again.population == 0
+    assert not again.recorded
+
+
+def test_the_outcome_pass_marks_the_closed_residue_with_its_reason(tmp_path: Path) -> None:
+    # No stored snapshot: nothing can be read for the basis, so the closed
+    # moment is marked, not recorded on a guess.
+    db = _seed_application(
+        tmp_path, [_interim_event("evt-motion-disposition", resolved=True)], payload=None
+    )
+    plan = outcome_module.record_lost_outcomes(db, tmp_path)
+    assert plan.residue == {"scotus/9526000325": {"evt-motion-disposition": "no-snapshot"}}
+    assert plan.residue_by_disposition == {"denied": 1}
+
+    outcome_module.record_lost_outcomes(db, tmp_path, apply=True, max_cases=1)
+    with corpus.connect(db) as conn:
+        (event,) = corpus.events_for_case(conn, "scotus/9526000325")
+    assert (event.resolved, event.resolved_without_outcome) == (True, True)
+    assert event.resolved_without_outcome_reason == "no-snapshot"
+    assert not CasePaths(tmp_path, "scotus", 9526000325).event(event.event_id).outcome.exists()
+
+
+def test_the_outcome_pass_marks_a_moment_opened_after_the_decision(tmp_path: Path) -> None:
+    db = _seed_application(
+        tmp_path,
+        [_interim_event("evt-motion-disposition", resolved=True, opened_at=date(2026, 9, 30))],
+    )
+    plan = outcome_module.record_lost_outcomes(db, tmp_path)
+    assert plan.residue == {
+        "scotus/9526000325": {"evt-motion-disposition": "opened-after-decision"}
+    }
+
+
+def test_the_outcome_pass_reports_an_open_decline_and_closes_nothing(tmp_path: Path) -> None:
+    db = _seed_application(
+        tmp_path,
+        [_interim_event("evt-motion-disposition", resolved=False)],
+        row=_decided_application_row().model_copy(update={"disposition": Disposition.other}),
+    )
+    applied = outcome_module.record_lost_outcomes(db, tmp_path, apply=True, max_cases=1)
+    assert applied.open_declined == {"scotus/9526000325": ["evt-motion-disposition"]}
+    assert not applied.residue
+    with corpus.connect(db) as conn:
+        (event,) = corpus.events_for_case(conn, "scotus/9526000325")
+    assert (event.resolved, event.resolved_without_outcome) == (False, False)
+
+
+def test_the_outcome_pass_leaves_a_predicted_gap_to_the_live_convergence(
+    tmp_path: Path,
+) -> None:
+    db = _old_gap_db(tmp_path)
+    seed_prediction(tmp_path, "scotus", 9526000325, "evt-motion-disposition")
+    plan = outcome_module.record_lost_outcomes(db, tmp_path, apply=True, max_cases=1)
+    assert plan.held_predicted == ["scotus/9526000325"]
+    assert not plan.recorded
+    assert (
+        not CasePaths(tmp_path, "scotus", 9526000325)
+        .event("evt-motion-disposition")
+        .outcome.exists()
+    )
+
+
+def test_the_outcome_pass_never_rewrites_a_recorded_outcome(tmp_path: Path) -> None:
+    db = _old_gap_db(tmp_path)
+    outcome_module.record_lost_outcomes(db, tmp_path, apply=True, max_cases=1)
+    path = CasePaths(tmp_path, "scotus", 9526000325).event("evt-motion-disposition").outcome
+    before = path.read_bytes()
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [_decided_application_row().model_copy(update={"disposition": Disposition.granted})],
+        )
+    outcome_module.record_lost_outcomes(db, tmp_path, apply=True, max_cases=1)
+    assert path.read_bytes() == before
+
+
+# --- the outcome pass on a lost cert grant: mint only a pending merits case ---------
+
+
+def _merits_state(db: Path) -> dict[str, bool]:
+    with corpus.connect(db) as conn:
+        return {e.event_id: e.resolved for e in corpus.events_for_case(conn, "scotus/9026000100")}
+
+
+def test_a_lost_grant_on_a_pending_merits_case_mints_its_merits_event(tmp_path: Path) -> None:
+    db = _seed_cert_gap(tmp_path, disposition=Disposition.granted, payload=_PLAIN_GRANT)
+    plan = outcome_module.record_lost_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert plan.merits_minted == ["scotus/9026000100"]
+    assert not plan.merits_not_minted
+    outcome_module.record_lost_outcomes(
+        db, tmp_path, apply=True, max_cases=1, today=date(2026, 9, 28)
+    )
+    assert _merits_state(db) == {"evt-petition-disposition": True, MERITS_EVENT_ID: False}
+    # The minted merits event is open on an undecided merits stage: no gap.
+    again = outcome_module.record_lost_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert (again.population, again.recorded) == (0, {})
+
+
+@pytest.mark.parametrize(
+    ("update", "today", "verdict"),
+    [
+        (
+            "merits_judgment = 'reversed', merits_decided = '2027-03-01'",
+            date(2027, 4, 1),
+            "judgment-latched",
+        ),
+        ("merits_terminated = '2027-01-15'", date(2027, 2, 1), "terminated"),
+        ("merits_judgment = NULL", date(2030, 1, 1), "stale"),
+    ],
+)
+def test_a_lost_grant_on_a_decided_or_stale_merits_case_records_without_minting(
+    tmp_path: Path, update: str, today: date, verdict: str
+) -> None:
+    # A grant recorded long after it issued: its merits case has a latched
+    # judgment, ended without one, or is past the stale-grant bound. The grant
+    # outcome is recorded, no merits event is minted, and a second dry run
+    # records nothing — no minted event is left to resolve at once or never.
+    db = _seed_cert_gap(tmp_path, disposition=Disposition.granted, payload=_PLAIN_GRANT)
+    with corpus.connect(db) as conn:
+        conn.execute(f"UPDATE cases SET {update} WHERE case_id = 'scotus/9026000100'")
+        conn.commit()
+    applied = outcome_module.record_lost_outcomes(
+        db, tmp_path, apply=True, max_cases=1, today=today
+    )
+    assert applied.recorded == {"scotus/9026000100": ["evt-petition-disposition"]}
+    assert applied.merits_not_minted == {"scotus/9026000100": verdict}
+    assert not applied.merits_minted
+    assert _merits_state(db) == {"evt-petition-disposition": True}
+    case = CasePaths(tmp_path, "scotus", 9026000100)
+    assert case.event("evt-petition-disposition").outcome.exists()
+    assert not case.event(MERITS_EVENT_ID).base.exists()
+    again = outcome_module.record_lost_outcomes(db, tmp_path, today=today)
+    assert (again.population, again.recorded) == (0, {})
+
+
+def test_the_outcome_pass_holds_back_a_predicted_undated_gap(tmp_path: Path) -> None:
+    undated = _decided_application_row().model_copy(update={"date_decided": None})
+    db = _seed_application(
+        tmp_path, [_interim_event("evt-motion-disposition", resolved=True)], row=undated
+    )
+    seed_prediction(tmp_path, "scotus", 9526000325, "evt-motion-disposition")
+    plan = outcome_module.record_lost_outcomes(db, tmp_path, apply=True, max_cases=1)
+    assert plan.held_predicted == ["scotus/9526000325"]
+    assert not plan.residue
+    with corpus.connect(db) as conn:
+        (event,) = corpus.events_for_case(conn, "scotus/9526000325")
+    assert event.resolved_without_outcome is False
+
+
+def test_a_later_moment_is_never_minted_on_a_decided_row() -> None:
+    # The baseline can stay open on a decided row, so the open-first-moment
+    # guard alone would let a refresh mint a moment whose question is answered.
+    row = _decided_application_row()
+    assert (
+        outcome_module.interim_response_events_for(
+            row,  # type: ignore[arg-type]
+            ["evt-motion-disposition"],
+        )
+        == []
+    )
+
+
+def test_an_open_interim_baseline_on_a_decided_row_is_not_forecastable(tmp_path: Path) -> None:
+    db = _seed_application(tmp_path, [_interim_event("evt-motion-disposition", resolved=False)])
+    with corpus.connect(db) as conn:
+        assert forecastable_event_ids(conn, "scotus", 9526000325, today=date(2026, 9, 28)) == []
+        conn.execute(
+            "UPDATE cases SET disposition = NULL, date_decided = NULL "
+            "WHERE case_id = 'scotus/9526000325'"
+        )
+        conn.commit()
+        assert forecastable_event_ids(conn, "scotus", 9526000325, today=date(2026, 9, 28)) == [
+            "evt-motion-disposition"
+        ]

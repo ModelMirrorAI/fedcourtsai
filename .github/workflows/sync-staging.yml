@@ -46,7 +46,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The run gate (src/fedcourtsai/run_gate.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.json names. No
+  # environment, no secret, a read-only token, and no project code: a sparse
+  # checkout of the gate and its allow-list alone, run by path with the
+  # runner's Python in isolated mode. Every other job needs this one and checks
+  # the attempt it judged, because re-running some jobs does not re-run this
+  # one; `run-gate` below fails the run when that check refused.
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            src/fedcourtsai/run_gate.py
+            config/dispatchers.json
+          sparse-checkout-cone-mode: false
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          python3 -I -S src/fedcourtsai/run_gate.py --workflow sync-staging.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
   sync:
+    needs: [authorize]
+    if: >-
+      ${{ needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # The App credentials live on the prod environment, like every other
@@ -70,8 +111,11 @@ jobs:
       # The DEV App, deliberately, not the data App: the data App is a bypass
       # actor on `main: require PR`, and a scheduled unattended job must not
       # hold the one identity that can push to main without review — it needs
-      # no main write at all. The dev App is the reviewed-PR opener
-      # (metrics-refresh, cert back-test) and bypasses nothing.
+      # no main write at all. The dev App bypasses no required check, only
+      # `main`'s approval rule for pull requests; contents write is what the
+      # sync's own merge into `staging` needs, and it is also what would let
+      # this token merge a green PR into `main` unapproved, which this job's
+      # code never does (docs/security.md, `main: require approval`).
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -190,3 +234,27 @@ jobs:
             echo "commit(s) of \`main\` into \`staging\`, with auto-merge armed (merge commit,"
             echo "never squash). It lands on its own once \`gate\` and \`paths\` pass."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # The run gate's verdict on the run as a whole. A refused partial re-run
+  # skips every job it re-runs, which alone would leave the earlier attempt's
+  # successes standing and the run concluding `success`. This job needs every
+  # other job, so any re-run re-runs it, and it fails the run when the gate did
+  # not pass or this attempt is neither the one the gate judged nor a re-run by
+  # a login the gate published. No checkout, no token, no environment.
+  run-gate:
+    needs: [authorize, sync]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail a run the gate refused
+        if: >-
+          ${{ needs.authorize.result != 'success'
+          || (needs.authorize.outputs.attempt != github.run_attempt
+          && !contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+        env:
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          echo "::error::The run gate refused this run or re-run (started by ${TRIGGERING_ACTOR}): see the authorize job's log, or config/dispatchers.json for who may re-run."
+          exit 1

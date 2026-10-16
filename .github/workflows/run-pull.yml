@@ -11,8 +11,13 @@ name: run-pull
 # - `live` (the `47 *` crons or dispatch mode=live): the SCOTUS live channel
 #   (docs/live-sources.md) — `fedcourts live-poll` probes supremecourt.gov
 #   docket JSON for newly docketed petitions (persisted per-Term cursor) and
-#   re-polls the pending watchlist. No CourtListener token, no API budget; the
-#   same corpus-writer plumbing (corpus push, pointer commit, queue routing).
+#   re-polls the pending watchlist, spending no API budget; the same
+#   corpus-writer plumbing (corpus push, pointer commit, queue routing). One
+#   bounded, failure-tolerant step after the poll is the exception: a scoped
+#   `enrich-opinions --awaiting-grading` pass fetches the opinion body of a
+#   merits case decided within the evaluate lane's opinion-hold window (a few
+#   CourtListener requests a case, capped per window), the only step in this
+#   job that holds the CourtListener token.
 # - `enrich` (dispatch mode=enrich-opinions only, never scheduled): walks
 #   granted SCOTUS rows to their published opinion cluster and lands the
 #   reporter citations and the opinion body (`fedcourts enrich-opinions`,
@@ -92,19 +97,60 @@ permissions: {}
 # to serialize corpus writers and prevent lost updates.
 # cancel-in-progress is false so a queued run waits rather than being dropped.
 # Every run of this workflow runs exactly one writer job, so every run belongs
-# in the shared group — there is no event class here that spawns a run only to
-# skip it.
+# in the shared group. A dispatch or re-run the run gate refuses still takes
+# the group while it fails (docs/security.md, *The run gate and its
+# allow-list*).
 concurrency:
   group: corpus-write
   cancel-in-progress: false
 
 jobs:
+  # The run gate (src/fedcourtsai/run_gate.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.json names. No
+  # environment, no secret, a read-only token, and no project code: a sparse
+  # checkout of the gate and its allow-list alone, run by path with the
+  # runner's Python in isolated mode. Every other job needs this one and checks
+  # the attempt it judged, because re-running some jobs does not re-run this
+  # one; `run-gate` below fails the run when that check refused.
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            src/fedcourtsai/run_gate.py
+            config/dispatchers.json
+          sparse-checkout-cone-mode: false
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          python3 -I -S src/fedcourtsai/run_gate.py --workflow run-pull.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
   pull:
+    needs: [authorize]
     # One writer job per run: the cron minute (17 = pull, 47 = live) or the
     # dispatch `mode` input selects the job.
     if: >-
-      (github.event_name == 'schedule' && startsWith(github.event.schedule, '17 ')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull')
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '17 ')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'pull'))
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # A single window's refresh (≤ max_cases_per_run dockets ≈ a few dozen
     # CourtListener fetches + S3 corpus transfer) finishes well inside this; the cap
@@ -443,15 +489,21 @@ jobs:
           fi
 
   live:
+    needs: [authorize]
     # The SCOTUS live channel (docs/live-sources.md): `fedcourts live-poll`
     # probes supremecourt.gov docket JSON for newly docketed petitions and
-    # re-polls the pending watchlist — no CourtListener token, no API budget.
+    # re-polls the pending watchlist, spending no API budget — except the one
+    # bounded opinion-enrichment step after the poll, which alone holds the
+    # CourtListener token (see that step).
     # Same corpus-writer shape, privileges (App token + the read-write corpus
     # role) and trigger surface as `pull` — schedule and dispatch, both already
     # gated by the platform, so this job needs no authorization step either.
     if: >-
-      (github.event_name == 'schedule' && startsWith(github.event.schedule, '47 ')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'live')
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '47 ')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'live'))
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The cycle re-polls the pending watchlist and onboards the frontier at ~1
     # req/s, plus document fetches on distribution transitions (which cluster at
@@ -459,8 +511,9 @@ jobs:
     # to a soft wall-clock budget (`--max-run-seconds` below), committing progress
     # so far and resuming next cycle, so a big watchlist can never overrun this
     # hard cap — which stays above the soft budget with margin for the fixed
-    # setup (checkout + corpus-pull) before the poll and the push after it.
-    timeout-minutes: 35
+    # setup (checkout + corpus-pull) before the poll, the opinion-enrichment
+    # step's own 6-minute cap after it, and the push.
+    timeout-minutes: 40
     environment: prod
     # Whether this window committed a forecast-relevant change, for the
     # `chain-predict` job.
@@ -473,8 +526,8 @@ jobs:
     # The ambient GITHUB_TOKEN carries exactly the non-triggering issue write
     # (the failure run-log issue — the doctrine in docs/security.md: issue
     # writes that must trigger nothing stay off the App token). Checkout and the
-    # corpus push run on the App token, and there is no authorize-trigger step
-    # to need a read.
+    # corpus push run on the App token, and the run gate is its own job, so no
+    # step here needs a read.
     permissions:
       contents: read
       issues: write # the failure run-log issue (non-triggering, ambient)
@@ -547,15 +600,69 @@ jobs:
         # into the client; caps come from tracking.yaml's `live:` section.
         # --max-run-seconds is the soft wall-clock budget: the cycle stops
         # cleanly and commits progress so far when reached, so even a peak
-        # watchlist stays under the job's 35 min timeout-minutes with room for
-        # the fixed setup and the push (1500s = 25 min; the next cycle resumes
-        # the rotation where it left off).
+        # watchlist stays under the job's 40 min timeout-minutes with room for
+        # the fixed setup, the enrichment step below and the push (1500s = 25
+        # min; the next cycle resumes the rotation where it left off).
         run: |
           uv run fedcourts live-poll \
             --max-run-seconds 1500 \
             --out predict-queue.json \
             --evaluate-out evaluate-queue.json \
             --unrecorded-out unrecorded-queue.json
+
+      # The opinion body of a merits case decided within the evaluate lane's
+      # opinion-hold window (`fedcourts enrich-opinions --awaiting-grading`;
+      # `matrix.OPINION_HOLD_DAYS`), fetched here so it usually lands before the
+      # next daily evaluate tick and the event's first grading reads the opinion
+      # rather than masking on `not-ingested`. The poll above has just latched
+      # today's judgments and written their outcomes into the working tree, which
+      # is the ledger the scope reads; a case whose body is not upstream yet is
+      # retried every live window until it lands or the hold releases it.
+      #
+      # Bounded and failure-tolerant, because nothing about the live pull may
+      # depend on it: `--max-cases 8` caps a window at ~32 CourtListener
+      # requests (four a case at most) on the same governor and tier knobs as
+      # the pull job, so a peak decision day costs a sliver of the daily ceiling;
+      # and `continue-on-error` lets the push and the commit below carry the
+      # poll's facts whatever happens here. The wall clock is bounded twice. The
+      # inner `timeout` runs the CLI binary directly (the env setup-python-env
+      # synced), not through `uv run`: `timeout` signals its whole process
+      # group, so a `uv` wrapper would forward a second SIGINT into the Python
+      # it is already interrupting. Python gets exactly one, raises
+      # KeyboardInterrupt, and rolls back an open per-case transaction on the
+      # way out; the group-wide SIGKILL 30s later bounds a pass that ignores
+      # it. A harder kill can still leave a hot journal, which `corpus-push`
+      # settles (rolls back) before it publishes, refusing a journal that will
+      # not clear. The step's own timeout is the outer backstop. The token is
+      # step-scoped: no other step in this job holds it.
+      - name: Enrich newly decided merits cases with their opinion
+        id: enrich-awaiting
+        continue-on-error: true
+        timeout-minutes: 6
+        env:
+          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # Same tier knobs and fallbacks as the pull job's refresh step.
+          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '25' }}
+          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '300' }}
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
+        run: |
+          # No -e: a failed pass must still write its ledger to the summary and
+          # its warning below, then exit with the pass's own status.
+          set -uo pipefail
+          status=0
+          timeout --signal=INT --kill-after=30 240 \
+            .venv/bin/fedcourts enrich-opinions --apply --awaiting-grading --max-cases 8 \
+            | tee awaiting-enrich.txt || status=$?
+          {
+            echo "### Opinion enrichment for decisions awaiting grading"
+            echo '```'
+            cat awaiting-enrich.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::the awaiting-grading opinion enrichment failed (exit ${status}); the live pull carries on, and the next live window retries"
+          fi
+          exit "$status"
 
       - name: Push the corpus blob to the remote
         run: |
@@ -609,6 +716,10 @@ jobs:
         if: success() || failure()
         env:
           COMMITTED: ${{ steps.commit.outputs.committed }}
+          # The enrichment step's own outcome — `failure` even though
+          # continue-on-error kept the job green — so a failing pass is a row
+          # here on every window it fails, not only an annotation.
+          ENRICH_OUTCOME: ${{ steps.enrich-awaiting.outcome }}
         run: |
           set -euo pipefail
           count() {
@@ -637,6 +748,7 @@ jobs:
             echo "| predict backlog cases queued | ${predict} |"
             echo "| evaluate backlog cases owed | ${evaluate} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
+            echo "| opinion enrichment (awaiting grading) | ${ENRICH_OUTCOME:-—} |"
           } >> "$GITHUB_STEP_SUMMARY"
           # Per-case triage list — see the pull job's copy for the rationale.
           triage=$(jq -r '.[] | "- `\(.court)/\(.docket)` — \(.reason)"' \
@@ -652,8 +764,8 @@ jobs:
           fi
 
       # Failure-only alarm, mirroring `pull` (see that job's step for the
-      # `cancelled()` and ambient-token rationale; there is no authorize step
-      # here to gate on): an open `live-log` issue means exactly "a live
+      # `cancelled()` and ambient-token rationale; the run gate is its own job,
+      # so no step here gates on it): an open `live-log` issue means exactly "a live
       # window broke"; a human closes it once triaged.
       - name: Open the failure run-log issue
         if: failure() || cancelled()
@@ -712,6 +824,7 @@ jobs:
           fi
 
   enrich:
+    needs: [authorize]
     # Dispatch-only writer: walk granted SCOTUS rows to their published opinion
     # cluster and land the reporter citations and the opinion body
     # (`fedcourts enrich-opinions`; scope and budget arithmetic in
@@ -723,7 +836,11 @@ jobs:
     # one-shot dispatch, unlike a rotation, does not "pick up where it left
     # off"; nothing alarms. Dispatching in a dead zone between the pull
     # windows avoids ever queuing.
-    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'enrich-opinions'
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'enrich-opinions'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # <= max_cases dockets at ~3 CourtListener fetches each plus the corpus S3
     # round-trip finishes well inside this; the cap frees the shared
@@ -862,8 +979,12 @@ jobs:
   # repository-level `DISPATCH_CHAIN_ENABLED` variable is `true` (see
   # run-predict's `chain` job for why the switch is not on `prod`).
   chain-predict:
-    needs: [pull, live]
-    if: ${{ !cancelled() && (needs.pull.outputs.forecast_relevant == 'true' || needs.live.outputs.forecast_relevant == 'true') && vars.DISPATCH_CHAIN_ENABLED == 'true' }}
+    needs: [authorize, pull, live]
+    if: >-
+      ${{ (!cancelled() && (needs.pull.outputs.forecast_relevant == 'true' || needs.live.outputs.forecast_relevant == 'true') && vars.DISPATCH_CHAIN_ENABLED == 'true')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: prod
@@ -908,3 +1029,27 @@ jobs:
             gh workflow run run-predict.yml --repo "$REPO" --ref main
           fi
           echo "## Pull -> predict chain: ${reason}." >> "$GITHUB_STEP_SUMMARY"
+
+  # The run gate's verdict on the run as a whole. A refused partial re-run
+  # skips every job it re-runs, which alone would leave the earlier attempt's
+  # successes standing and the run concluding `success`. This job needs every
+  # other job, so any re-run re-runs it, and it fails the run when the gate did
+  # not pass or this attempt is neither the one the gate judged nor a re-run by
+  # a login the gate published. No checkout, no token, no environment.
+  run-gate:
+    needs: [authorize, pull, live, enrich, chain-predict]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail a run the gate refused
+        if: >-
+          ${{ needs.authorize.result != 'success'
+          || (needs.authorize.outputs.attempt != github.run_attempt
+          && !contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+        env:
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          echo "::error::The run gate refused this run or re-run (started by ${TRIGGERING_ACTOR}): see the authorize job's log, or config/dispatchers.json for who may re-run."
+          exit 1

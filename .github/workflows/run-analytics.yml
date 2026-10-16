@@ -38,11 +38,11 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #   - big-cases:       regenerate the case-centric big-case board alone
 #                      (`fedcourts big-cases`) — which cases the predictors think
 #                      matter, and where they disagree — and land any change as an
-#                      **auto-merging** PR. Reads `data/` only, like tool-usage, so
+#                      **unattended** PR. Reads `data/` only, like tool-usage, so
 #                      it needs no corpus and no cloud credential; it is the daily
 #                      cron's job, because a website renders this board off `main`
 #                      and a weekly cadence would publish a stale one six days in
-#                      seven. The auto-merge is argued at the job.
+#                      seven. The unattended merge is argued at the job.
 #   - tool-usage:      roll the committed retrieval logs into an offered-vs-called
 #                      report (`fedcourts tool-usage`) — which configured MCP
 #                      tools cells actually call. Reads `data/` only, so unlike
@@ -197,8 +197,49 @@ permissions: {}
 # the other.
 
 jobs:
+  # The run gate (src/fedcourtsai/run_gate.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.json names. No
+  # environment, no secret, a read-only token, and no project code: a sparse
+  # checkout of the gate and its allow-list alone, run by path with the
+  # runner's Python in isolated mode. Every other job needs this one and checks
+  # the attempt it judged, because re-running some jobs does not re-run this
+  # one; `run-gate` below fails the run when that check refused.
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            src/fedcourtsai/run_gate.py
+            config/dispatchers.json
+          sparse-checkout-cone-mode: false
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          python3 -I -S src/fedcourtsai/run_gate.py --workflow run-analytics.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
   corpus-stats:
-    if: ${{ inputs.mode == 'corpus-stats' }}
+    needs: [authorize]
+    if: >-
+      ${{ inputs.mode == 'corpus-stats'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -268,6 +309,7 @@ jobs:
             --summary-out "$GITHUB_STEP_SUMMARY"
 
   distribution-census:
+    needs: [authorize]
     # What re-reading the DISTRIBUTED phrase would move, case by case and band by
     # band — the input-level cut a statistical review reads before any salience
     # version pins a new parse (docs/salience.md). Read-only on exactly
@@ -275,7 +317,11 @@ jobs:
     # nothing written to git or to the corpus remote. What it adds is durability
     # — the JSON *is* the review, so it leaves the runner as an artifact rather
     # than living only on a summary page.
-    if: ${{ inputs.mode == 'census' }}
+    if: >-
+      ${{ inputs.mode == 'census'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # What bounds this job is the credential clock, not the wall clock. The
     # census walks the gate's scored segment and, with the corpus-split mode on,
@@ -426,10 +472,15 @@ jobs:
           retention-days: 1
 
   tool-usage:
+    needs: [authorize]
     # Which configured MCP tools cells actually call. Reads `data/` only — no
     # corpus, no network, no credentials — so unlike the sibling jobs it binds
     # no environment and assumes no role: there is nothing for it to reach.
-    if: ${{ inputs.mode == 'tool-usage' }}
+    if: >-
+      ${{ inputs.mode == 'tool-usage'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     concurrency:
@@ -452,6 +503,7 @@ jobs:
           uv run fedcourts tool-usage --markdown-out "$GITHUB_STEP_SUMMARY"
 
   text-coverage:
+    needs: [authorize]
     # Where the document text actually lives, and for which cases it is missing
     # — the store-configured enumeration a dev checkout cannot perform. The two
     # untruncated case-id ledgers (`empty text`; `no petition, queued`) are the
@@ -460,7 +512,11 @@ jobs:
     # where the per-case content store is wired — which is this job's read
     # path. Read-only on exactly corpus-stats's terms: the read-only role, no
     # contents:write, no App token, nothing written to git or the corpus.
-    if: ${{ inputs.mode == 'text-coverage' }}
+    if: >-
+      ${{ inputs.mode == 'text-coverage'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The credential clock bounds this job the census's way: the walk reads the
     # documents of every live-slice case — under the split a content-store
@@ -575,15 +631,20 @@ jobs:
           retention-days: 1
 
   metrics-refresh:
+    needs: [authorize]
     # Runs on the weekly cron, or on dispatch with mode=metrics-refresh — both
-    # trusted surfaces (dispatch is write-gated by GitHub), so no
-    # authorize-trigger gate is needed here. It gates on **which** cron fired
+    # trusted surfaces (dispatch is write-gated by GitHub, and the run gate
+    # above admits only a listed dispatcher), so no sender check is needed
+    # here. It gates on **which** cron fired
     # rather than on the event class: a bare `event_name == 'schedule'` is
     # fail-open on every other entry in the schedule block, which would run this
     # weekly job on the daily board's tick too.
     if: >-
-      (github.event_name == 'schedule' && startsWith(github.event.schedule, '41 ')) ||
-      inputs.mode == 'metrics-refresh'
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '41 ')) ||
+      inputs.mode == 'metrics-refresh')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -603,9 +664,10 @@ jobs:
         with:
           restore-cache: "false"
 
-      # The refresh PR is opened with the dev App token. The dev App is not a
-      # branch-protection bypass actor, so the PR still faces the required `gate`
-      # check, and it is never auto-merged — review is mandatory. The read-only
+      # The refresh PR is opened with the dev App token. The dev App bypasses
+      # no required check, so the PR still faces the required `gate` check,
+      # and it is never auto-merged; a maintainer merging it is what keeps it
+      # read. The read-only
       # analysis modes above hold no write token at all; the only other job that
       # does is qp-topic-label, for the same reason and on the same terms.
       # Minted on `main`-ref runs only: the dev App's credentials live on the
@@ -767,6 +829,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   big-cases:
+    needs: [authorize]
     # The case-centric big-case board (`fedcourts big-cases`) — which cases the
     # predictors think matter, and where they disagree, as `metrics/big-cases.{json,md}`.
     # The website's showcase renders the JSON off `main`, so the board is refreshed
@@ -778,7 +841,7 @@ jobs:
     # nothing else. That is also why it can run daily at no cost and outside the
     # corpus-settled window the weekly refresh waits for.
     #
-    # It is the one PR lane here that **auto-merges**, and the reason is the
+    # It is the one PR lane here that **merges unattended**, and the reason is the
     # artifact rather than the schedule. The board is a byte-stable pure function
     # of the committed ledger, so a day that changed nothing opens nothing, and a
     # day that changed something re-rolls committed cells by a command whose own
@@ -787,21 +850,28 @@ jobs:
     # exactly how a published surface goes stale. What bounds the diff is the
     # required `paths` check, which runs the tested `assert-board-paths` jail on
     # this branch: the board's two files, written, and nothing else. The
-    # gate still decides: the dev App is not a
-    # branch-protection bypass actor, so auto-merge waits on the same required
-    # checks a reviewed PR would. Where the platform refuses to arm it, the PR
-    # stays open for a manual merge rather than failing the run.
+    # gate still decides: the dev App bypasses no required check (only
+    # `main`'s approval rule), so the job's own merge waits on the same
+    # required checks a reviewed PR would. Where the merge does not land, the PR
+    # stays open, auto-merge armed, for a manual merge rather than failing the
+    # run.
     if: >-
-      (github.event_name == 'schedule' && startsWith(github.event.schedule, '36 ')) ||
-      inputs.mode == 'big-cases'
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '36 ')) ||
+      inputs.mode == 'big-cases')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # The regeneration takes a few minutes; the rest is the merge's wait for
+    # the PR's required checks, which the merge script bounds at 20.
+    timeout-minutes: 35
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
       group: run-analytics-big-cases-${{ github.ref_name }}
       cancel-in-progress: false
     permissions:
       contents: read
+      checks: read # the merge lists the board PR's check runs (GITHUB_TOKEN)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -857,6 +927,9 @@ jobs:
         if: ${{ github.ref == 'refs/heads/main' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Checks read for the merge's check-run listing, so the dev App needs
+          # none.
+          CHECKS_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           BRANCH: metrics/big-cases
         run: |
@@ -886,7 +959,7 @@ jobs:
           {
             printf '%s\n\n' "Deterministic re-roll of \`metrics/big-cases.{json,md}\` from the committed ledger by \`fedcourts big-cases\`: ${cases} case(s) ranked over ${reads} scored stakes read(s) of ${total}; the rest carry no score and are excluded from every mean rather than imputed."
             printf '%s\n\n' "**Not a performance surface.** A stakes read is neither scored nor ranked: it resolves against nothing, so no figure in this diff is a forecast, an accuracy or a skill number, and the mean says nothing about how likely a case is to be granted. The board reads the ledger directly and applies neither the forward-claim nor the leakage exclusion — a wider population than the scored boards. The artifact's own provenance block and \`metrics/README.md\` carry the reading rules."
-            printf '%s\n\n' "The board is a byte-stable pure function of \`data/\`, so this PR exists only because the ledger moved; a day that changed nothing opens nothing. Auto-merge is armed on the same required checks a reviewed PR faces."
+            printf '%s\n\n' "The board is a byte-stable pure function of \`data/\`, so this PR exists only because the ledger moved; a day that changed nothing opens nothing. It merges unattended once the same required checks a reviewed PR faces pass."
             printf '%s\n' "Run: ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}"
           } > pr-body.md
           git checkout -q -b "$BRANCH"
@@ -922,6 +995,16 @@ jobs:
             echo "Auto-merge could not be enabled on ${url}; merge it by hand." \
               >> "$GITHUB_STEP_SUMMARY"
           }
+          # Then land it. Armed auto-merge never exercises the dev App's
+          # approval bypass on `main` — it waits for an approval like any other
+          # PR — so this job merges the PR itself once the platform accepts it,
+          # pinned to the commit just pushed. The bypass covers the approval rule
+          # alone: `main: require PR`'s required `gate` and `paths` checks still
+          # refuse the merge until they pass. The script is read from this job's
+          # own commit, as the collect jobs read it.
+          script="${RUNNER_TEMP}/merge-when-green.sh"
+          git show "${GITHUB_SHA}:scripts/merge-when-green.sh" > "$script"
+          bash "$script" "${url##*/}" "$(git rev-parse HEAD)" < /dev/null
 
       # The rehearsal's boundary, stated where the operator reads, and on every
       # outcome the runner survives rather than only success.
@@ -946,12 +1029,17 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   qp-topic-extract:
+    needs: [authorize]
     # First half of the labeling mode, and the only half that holds a cloud
     # credential. `corpus-readonly` exports the assumed role's credentials
     # job-wide, and the second job runs an agent — so the extract is split into
     # its own job rather than sharing an environment with the labeler. What
     # crosses the boundary is one artifact: the texts, and nothing else.
-    if: ${{ inputs.mode == 'qp-topic-label' }}
+    if: >-
+      ${{ inputs.mode == 'qp-topic-label'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -1119,8 +1207,12 @@ jobs:
     # set and writes the artifact. No `id-token: write` and no `corpus-readonly`
     # here — that is the point of the split, and the assertion step below is its
     # tripwire.
-    needs: qp-topic-extract
-    if: ${{ inputs.mode == 'qp-topic-label' }}
+    needs: [authorize, qp-topic-extract]
+    if: >-
+      ${{ inputs.mode == 'qp-topic-label'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     # The step caps have to fit inside this one or the run loses its artifact
     # to the job clock: the 40-minute labeler, the 5-minute CLI install, the
@@ -1916,9 +2008,9 @@ jobs:
       # existing while an agent runs unattended on the same runner, and a token
       # minted at the top of a 75-minute job would spend its whole 1-hour life
       # waiting for a step that may never run — and be dead by the time it
-      # does. The dev App is not a
-      # branch-protection bypass actor, so the PR still faces the required
-      # `gate` check and is never auto-merged.
+      # does. The dev App bypasses no required check, so the PR still faces
+      # the required `gate` check, and it is never auto-merged; a maintainer
+      # merging it is what keeps it read.
       # Minted on `main`-ref runs only: the dev App's credentials live on the
       # prod environment alone, and a rehearsal's labels stay on the runner —
       # the measured block in the step summary and the transcript artifact are
@@ -2116,3 +2208,27 @@ jobs:
         run: |
           echo "qp-topic-label rehearsal: whatever ran above, the labels PR is fenced to main-branch runs — nothing published from this dispatch." \
             | tee -a "$GITHUB_STEP_SUMMARY"
+
+  # The run gate's verdict on the run as a whole. A refused partial re-run
+  # skips every job it re-runs, which alone would leave the earlier attempt's
+  # successes standing and the run concluding `success`. This job needs every
+  # other job, so any re-run re-runs it, and it fails the run when the gate did
+  # not pass or this attempt is neither the one the gate judged nor a re-run by
+  # a login the gate published. No checkout, no token, no environment.
+  run-gate:
+    needs: [authorize, corpus-stats, distribution-census, tool-usage, text-coverage, metrics-refresh, big-cases, qp-topic-extract, qp-topic-label]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail a run the gate refused
+        if: >-
+          ${{ needs.authorize.result != 'success'
+          || (needs.authorize.outputs.attempt != github.run_attempt
+          && !contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+        env:
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          echo "::error::The run gate refused this run or re-run (started by ${TRIGGERING_ACTOR}): see the authorize job's log, or config/dispatchers.json for who may re-run."
+          exit 1

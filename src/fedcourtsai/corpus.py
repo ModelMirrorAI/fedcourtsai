@@ -162,6 +162,49 @@ def ensure_ranged_layout(db_path: Path) -> bool:
     return True
 
 
+class HotJournalError(RuntimeError):
+    """A rollback journal still sits beside the corpus file after settling it."""
+
+
+def settle_hot_journal(db_path: Path) -> bool:
+    """Roll back a hot journal beside ``db_path``; True if there was one to settle.
+
+    A writer killed mid-transaction leaves its rollback journal
+    (``corpus.db-journal``) beside a database file that may hold half-written
+    pages, and only SQLite reading the file through a writable connection
+    replays it. The push digests the file without opening it, so without this
+    a killed writer's torn file is what would be published. Opening the file
+    read-write and reading the schema lets SQLite roll the journal back and
+    delete it.
+
+    The connection is ``mode=rw`` on purpose: never ``rwc``, which would create
+    an empty database where there is none, and never ``ro``, which cannot roll
+    a journal back. A journal still present afterwards (one SQLite does not
+    consider hot, or a rollback that could not complete) raises
+    :class:`HotJournalError`: the file's consistency is then unknown, so the
+    caller must refuse to publish it. An absent database is a no-op.
+    """
+    journal = db_path.with_name(db_path.name + "-journal")
+    if not db_path.is_file() or not journal.exists():
+        return False
+    try:
+        conn = sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=rw", uri=True)
+        try:
+            conn.execute("SELECT count(*) FROM sqlite_master").fetchone()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        raise HotJournalError(
+            f"could not open {db_path} read-write to roll back {journal}: {exc}"
+        ) from exc
+    if journal.exists():
+        raise HotJournalError(
+            f"{journal} is still present after opening {db_path} read-write; the file may "
+            "hold a half-written transaction, so it must not be published"
+        )
+    return True
+
+
 class PanelMember(BaseModel):
     """One judge on a decided case's panel, resolved against the people directory.
 
@@ -685,6 +728,18 @@ class CorpusEvent(BaseModel):
     decision_target: str = "disposition"
     opened_at: date | None = Field(default=None, description="When the event became predictable.")
     resolved: bool = False
+    resolved_without_outcome: bool = Field(
+        default=False,
+        description="Closed with no ledger `outcome.json` behind it, on purpose and visibly: "
+        "the event was first minted on a row already decided, or the outcome pass could "
+        "not attribute the row's disposition to it. Set only beside `resolved`; cleared "
+        "when an outcome is recorded.",
+    )
+    resolved_without_outcome_reason: str | None = Field(
+        default=None,
+        description="Why the event is closed without an outcome, from a fixed vocabulary "
+        "(`NO_OUTCOME_REASONS`); None unless `resolved_without_outcome` is set.",
+    )
 
 
 class CaseDocument(BaseModel):
@@ -909,6 +964,8 @@ CREATE TABLE IF NOT EXISTS events (
     decision_target TEXT NOT NULL DEFAULT 'disposition',
     opened_at       TEXT,
     resolved        INTEGER NOT NULL DEFAULT 0,
+    resolved_without_outcome        INTEGER NOT NULL DEFAULT 0,
+    resolved_without_outcome_reason TEXT,
     PRIMARY KEY (case_id, event_id)
 );
 CREATE INDEX IF NOT EXISTS idx_events_case ON events(case_id);
@@ -1127,6 +1184,8 @@ _EVENTS_COLUMN_DDL: dict[str, str] = {
     "decision_target": "TEXT NOT NULL DEFAULT 'disposition'",
     "opened_at": "TEXT",
     "resolved": "INTEGER NOT NULL DEFAULT 0",
+    "resolved_without_outcome": "INTEGER NOT NULL DEFAULT 0",
+    "resolved_without_outcome_reason": "TEXT",
 }
 
 
@@ -3519,12 +3578,18 @@ class PriorQuery(BaseModel):
         "so the pair is stripped unless `merits_decided` also provably precedes "
         "the cutoff, and `merits_terminated` is stripped unconditionally, since "
         "it carries no date to test and records the very fact — the proceeding "
-        "ended — that the clock exists to hide. The undated party and counsel "
-        "lists (`counsel`, `parties`, `attorneys`) are emptied on every admitted "
-        "row, since they hold the docket's current state, amici filed after the "
-        "clock included; the row's other columns come back as stored. This is "
-        "the back-test replay clock; live (forward) retrieval omits it because "
-        "every resolved prior genuinely precedes an open case.",
+        "ended — that the clock exists to hide. The rest of a qualifying row's "
+        "last-pull state is held to the bar too: the undated accruals and "
+        "tracking stamps (`REPLAY_MASKED_UNDATED_COLUMNS`) are reset on every "
+        "admitted row; the opinion-cluster columns "
+        "(`REPLAY_DECISION_RECORD_COLUMNS`) are reset unless every decision date "
+        "the row carries (`date_decided`, `merits_decided`) provably precedes "
+        "the cutoff; and the dated columns (`REPLAY_DATE_TESTED_COLUMNS`: "
+        "`date_decided`, `merits_brief_filed`, `distributed_for_conference`) are "
+        "each nulled unless their own date does. Which rows qualify, and their "
+        "order, read the stored row. This is the back-test replay clock; the "
+        "forward harness never sets it, but a forward agent may pass it itself "
+        "and is then masked the same way.",
     )
     decided_before_day: date | None = Field(
         default=None,
@@ -3687,42 +3752,178 @@ def _mask_post_clock_merits(
     return row.model_copy(update={"merits_judgment": None, "merits_decided": None})
 
 
-#: The party and counsel lists the replay clock empties on every prior it
-#: admits: each holds the row's *current* state with no date to test against
-#: the clock, and each carries the amicus grant oracle. The set is scoped to
-#: that oracle, not to every last-pull column: among those that still reach a
-#: replay cell as stored are ``citations``, ``citation_count``, ``summary``,
-#: ``precedential_status``, ``has_opinion`` (and the opinion body under
-#: ``full``), ``merits_brief_filed`` and ``date_decided`` (on a granted SCOTUS
-#: prior, the termination at the merits judgment). The SCOTUS
-#: party and counsel blocks accrue over a docket's life — every third-party
-#: filing appends its counsel of record, and amici (``role=other``) pile onto a
-#: petition overwhelmingly after a grant — so a prior that resolved before the
-#: clock still carries, in these lists, filings made after it. ``parties`` and
-#: ``attorneys`` are the flat names read off the same blocks and carry the same
-#: amici, so masking ``counsel`` alone would leave the oracle in plain sight.
-#: Whole lists rather than the ``role=other`` entries: no entry is dated, a
+#: The last-pull columns the replay clock resets on every prior it admits,
+#: whatever their value: each holds the row's *current* state with no date of
+#: its own to test against the clock. The SCOTUS party and counsel blocks
+#: accrue over a docket's life — every third-party filing appends its counsel
+#: of record, and amici (``role=other``) pile onto a petition overwhelmingly
+#: after a grant — so a prior that resolved before the clock still carries, in
+#: these lists, filings made after it. ``parties`` and ``attorneys`` are the
+#: flat names read off the same blocks and carry the same amici, so masking
+#: ``counsel`` alone would leave the amicus grant oracle in plain sight. Whole
+#: lists rather than the ``role=other`` entries: no entry is dated, a
 #: post-clock filing for a named side is as possible as an amicus brief, and
 #: this is the stance the replayed case's own snapshot already takes
 #: (:func:`fedcourtsai.cert_backtest.redact_snapshot` strips every party and
-#: counsel block). Emptied to ``[]``, the value the corpus already uses for "no
-#: reading" (an empty list never overwrites a stored one), and applied to every
-#: admitted row alike so the list's presence carries no signal either. The cost
-#: is the stated one: a replay cell cannot see who appeared on a prior, which a
-#: forward cell can.
-REPLAY_MASKED_UNDATED_COLUMNS: frozenset[str] = frozenset({"counsel", "parties", "attorneys"})
+#: counsel block). ``citation_count`` is the same kind of column: a count of
+#: the later opinions citing this one, which keeps growing after any clock
+#: however early the opinion issued, so it has no as-at-clock reading at all.
+#: The tracking stamps are the third kind: each dates when a pipeline channel
+#: last touched the row (``last_pulled``, ``last_live_polled``,
+#: ``opinion_enrich_attempted_at``, ``document_floor_probed_at``) or routed it
+#: (``predict_queued_at``, ``evaluate_queued_at``). They describe the corpus's
+#: activity, not the case, and every one of them is a pipeline date from after
+#: any clock a replay cell runs under; ``last_live_polled`` in particular keeps
+#: moving while the live channel follows a granted prior through its merits
+#: stage, so its value says the prior stayed live past the clock. Reset to the
+#: column's no-reading default (``[]`` / ``None``), and applied to every
+#: admitted row alike so the value's presence carries no signal either. The
+#: cost is the stated one: a replay cell cannot see who appeared on a prior,
+#: how often it was later cited, nor when the pipeline last read it, which an
+#: unclocked query can.
+REPLAY_MASKED_UNDATED_COLUMNS: frozenset[str] = frozenset(
+    {
+        "counsel",
+        "parties",
+        "attorneys",
+        "citation_count",
+        "last_pulled",
+        "last_live_polled",
+        "opinion_enrich_attempted_at",
+        "document_floor_probed_at",
+        "predict_queued_at",
+        "evaluate_queued_at",
+    }
+)
+
+#: The decision-record columns a prior carries from its opinion cluster, which
+#: the replay clock passes only where the decision they record provably
+#: preceded it. None carries a date of its own; each exists because the matter
+#: was decided, and the row dates that decision in two places: ``date_decided``,
+#: the docket's termination, on or after the opinion issued (on a granted
+#: SCOTUS prior, the merits judgment months after the grant, not the cert
+#: date), and ``merits_decided`` where the merits disposition was parsed. So
+#: the family survives exactly where the row carries at least one of the two
+#: and every one it carries clears every bar the clock sets
+#: (:func:`decision_clears_replay_clock`), and is reset to its no-reading
+#: default otherwise — an undated row included, since it cannot prove its
+#: decision came first. ``has_opinion`` goes with
+#: ``opinion_text`` so a ``--full`` query never hydrates the body from the
+#: content store either (:func:`opinion_body` consults the bit first).
+#:
+#: ``judges`` and ``panel`` are deliberately **not** in the family, though a
+#: cluster fills them too: they pass as stored. They are the keys a
+#: ``--judge`` filter overlaps and the prior-vote index posts on
+#: (:class:`fedcourtsai.backtest.PriorIndex`), so masking them would move which
+#: priors return, not only what they carry; and they name who sat on the
+#: deciding bench, not how the matter came out. Read them as the one opinion
+#: cluster field a replay cell still sees on a post-clock decision: on a
+#: SCOTUS prior the sitting Court, on a circuit prior the panel.
+REPLAY_DECISION_RECORD_COLUMNS: frozenset[str] = frozenset(
+    {"citations", "summary", "precedential_status", "has_opinion", "opinion_text"}
+)
+
+#: The dated last-pull columns the replay clock tests on their own date: each
+#: survives only where it clears every bar the clock sets — the bar the merits
+#: pair is held to — and is ``None`` otherwise. ``date_decided`` is the
+#: docket's termination (on a granted SCOTUS prior, the merits judgment),
+#: ``merits_brief_filed`` a merits-stage filing, and
+#: ``distributed_for_conference`` the latest conference the live channel saw
+#: the petition distributed for, which on a held or relisted prior can fall
+#: after the clock; each can postdate a prior whose cert-stage resolution
+#: preceded the clock.
+REPLAY_DATE_TESTED_COLUMNS: frozenset[str] = frozenset(
+    {"date_decided", "merits_brief_filed", "distributed_for_conference"}
+)
 
 
-def _mask_undated_accruals(row: CorpusRow) -> CorpusRow:
-    """Empty a masked prior's undated accruing lists (:data:`REPLAY_MASKED_UNDATED_COLUMNS`).
+def _no_reading(column: str) -> object:
+    """The value a :class:`CorpusRow` column holds when nothing was read for it."""
+    return CorpusRow.model_fields[column].get_default(call_default_factory=True)
 
-    Removal only, and unconditional under the clock, for the same reason
-    ``merits_terminated`` is stripped unconditionally: nothing in the value can
-    prove it came first. Under the clock ``[]`` therefore means *masked*, not
-    "no counsel of record", and a reader of a clocked row cannot tell the two
-    apart.
+
+def _clears_replay_clock(
+    when: date | None, decided_before: int | None, decided_before_day: date | None
+) -> bool:
+    """Whether one dated fact provably precedes every bar a replay clock sets.
+
+    The merits pair's bar (:func:`_mask_post_clock_merits`), applied to any one
+    date: present, its year strictly before the Term where the clock carries
+    one, and itself strictly before the day where the clock carries one. An
+    absent date proves nothing and fails.
     """
-    return row.model_copy(update={column: [] for column in REPLAY_MASKED_UNDATED_COLUMNS})
+    if when is None:
+        return False
+    if decided_before is not None and when.year >= decided_before:
+        return False
+    return decided_before_day is None or when < decided_before_day
+
+
+def decision_dates(row: CorpusRow) -> tuple[date, ...]:
+    """The stored dates of the decision a row's opinion-cluster columns record.
+
+    ``date_decided`` (the docket's termination: on a granted SCOTUS prior, the
+    merits judgment) and ``merits_decided`` (the parsed merits disposition's
+    docket date), whichever the row carries.
+    """
+    return tuple(when for when in (row.date_decided, row.merits_decided) if when is not None)
+
+
+def decision_clears_replay_clock(
+    dates: Sequence[date], decided_before: int | None, decided_before_day: date | None
+) -> bool:
+    """Whether a prior's recorded decision provably preceded a replay clock.
+
+    ``dates`` is :func:`decision_dates`: at least one must be present and every
+    one must clear the clock (:func:`_clears_replay_clock`). Requiring all of
+    them, not the earliest, is the fail-closed reading — a merits judgment
+    dated after the clock makes the opinion on the row a post-clock document,
+    whatever the docket's termination date says. Public because the prior-vote
+    index (:class:`fedcourtsai.backtest.PriorIndex`) applies the same gate to a
+    citation match, keeping its parity with :func:`retrieve_priors`.
+    """
+    return bool(dates) and all(
+        _clears_replay_clock(when, decided_before, decided_before_day) for when in dates
+    )
+
+
+def _mask_last_pull_state(row: CorpusRow, query: PriorQuery) -> CorpusRow:
+    """Reset a clocked prior's last-pull columns that cannot prove they came first.
+
+    Removal only. The undated accruals (:data:`REPLAY_MASKED_UNDATED_COLUMNS`)
+    go unconditionally, for the reason ``merits_terminated`` does: nothing in
+    the value can prove it came first. The decision-record family
+    (:data:`REPLAY_DECISION_RECORD_COLUMNS`) goes unless the decision it records
+    is dated before the clock (:func:`decision_clears_replay_clock`), and each
+    dated column (:data:`REPLAY_DATE_TESTED_COLUMNS`) unless its own date does;
+    the family's gate reads the stored dates, so this runs before
+    :func:`_mask_post_clock_merits` strips ``merits_decided``. Under the clock an
+    empty or null value in any of these columns can therefore mean *masked* as
+    readily as "nothing recorded", and a reader of a clocked row cannot tell the
+    two apart.
+    """
+    term, day = query.decided_before, query.decided_before_day
+    update = {column: _no_reading(column) for column in REPLAY_MASKED_UNDATED_COLUMNS}
+    if not decision_clears_replay_clock(decision_dates(row), term, day):
+        update.update({column: _no_reading(column) for column in REPLAY_DECISION_RECORD_COLUMNS})
+    for column in REPLAY_DATE_TESTED_COLUMNS:
+        if not _clears_replay_clock(getattr(row, column), term, day):
+            update[column] = None
+    return row.model_copy(update=update)
+
+
+def _mask_for_replay_clock(row: CorpusRow, query: PriorQuery) -> CorpusRow:
+    """What a clocked ``query`` hands back for one prior the clock admitted.
+
+    The row's last-pull state (:func:`_mask_last_pull_state`), read off the
+    stored decision dates, then the merits pair and ``merits_terminated``
+    (:func:`_mask_post_clock_merits`). Forward retrieval, with no clock, gets
+    the row back untouched.
+    """
+    if query.decided_before is None and query.decided_before_day is None:
+        return row
+    masked = _mask_last_pull_state(row, query)
+    return _mask_post_clock_merits(masked, query.decided_before, query.decided_before_day)
 
 
 def _precedes_replay_clock(row: CorpusRow, query: PriorQuery) -> bool:
@@ -3758,35 +3959,25 @@ def _precedes_replay_clock(row: CorpusRow, query: PriorQuery) -> bool:
     return True
 
 
-def _screen_derived(row: CorpusRow, query: PriorQuery) -> CorpusRow | None:
-    """Apply the query's derived filters to one retrieved row.
+def _screen_derived(row: CorpusRow, query: PriorQuery) -> bool:
+    """Whether the query's derived filters admit one retrieved row.
 
     Era, the replay clock and docket form are computed from the row (decade,
     best-known year or resolution date, the letter-form recognizers) rather
     than read from a column, so they screen retrieved rows instead of riding
-    the SQL. ``None`` means screened out; otherwise the row comes back possibly
-    rewritten, since the clock also strips a surviving row's post-clock merits
-    columns and empties its undated party and counsel lists. Both retrieval
-    paths screen through here, so the ranked fast path and the scored path
-    admit exactly the same rows.
-
-    Both halves of the replay clock apply to the merits pair exactly as they
-    apply to the row (:func:`_precedes_replay_clock`), so both are passed on to
-    :func:`_mask_post_clock_merits` rather than one standing in for the other.
-    The undated party and counsel lists (:data:`REPLAY_MASKED_UNDATED_COLUMNS`)
-    are emptied on every row the clock admits; forward retrieval, with no
-    clock, returns the row untouched.
+    the SQL. Both retrieval paths screen through here, so the ranked fast path
+    and the scored path admit exactly the same rows. Admission and the recency
+    order read the stored row; what an admitted row carries under the clock,
+    and so what a ``citations`` filter can overlap, is
+    :func:`_mask_for_replay_clock`'s.
     """
     if query.exclude_non_cert and is_non_cert_scotus_form(row):
-        return None
+        return False
     if query.era is not None and case_era(row) != query.era:
-        return None
+        return False
     if query.decided_before_day is not None or query.decided_before is not None:
-        if not _precedes_replay_clock(row, query):
-            return None
-        row = _mask_post_clock_merits(row, query.decided_before, query.decided_before_day)
-        return _mask_undated_accruals(row)
-    return row
+        return _precedes_replay_clock(row, query)
+    return True
 
 
 def _screens_in_python(query: PriorQuery) -> bool:
@@ -3843,10 +4034,10 @@ def _retrieve_priors_ranked(
         params = [*params, limit]
     ranked: list[CorpusRow] = []
     for record in conn.execute(sql, params):
-        row = _screen_derived(_from_record(record), query)
-        if row is None:
+        row = _from_record(record)
+        if not _screen_derived(row, query):
             continue
-        ranked.append(row)
+        ranked.append(_mask_for_replay_clock(row, query))
         if len(ranked) >= limit:
             break
     return ranked
@@ -3951,9 +4142,13 @@ def retrieve_priors(
     scored: list[tuple[int, tuple[int, int], str, CorpusRow]] = []
     source, where = _overlap_scan(conn, query, clauses, want_citations=bool(want_citations))
     for record in conn.execute(f"SELECT * FROM {source}{where}", params):
-        row = _screen_derived(_from_record(record), query)
-        if row is None:
+        stored = _from_record(record)
+        if not _screen_derived(stored, query):
             continue
+        # Overlap reads what the cell will be handed, so a clocked citation
+        # match never returns a prior whose cite postdates the clock; the
+        # recency order reads the stored row, as the fast path's SQL does.
+        row = _mask_for_replay_clock(stored, query)
         judge_overlap = want_judges & set(row.judges)
         citation_overlap = want_citations & set(row.citations)
         # Overlap filters are required when given: skip a row that shares none.
@@ -3962,7 +4157,7 @@ def retrieve_priors(
         if want_citations and not citation_overlap:
             continue
         score = len(judge_overlap) + len(citation_overlap)
-        scored.append((-score, recency_key(row), row.case_id, row))
+        scored.append((-score, recency_key(stored), row.case_id, row))
     scored.sort(key=lambda item: (item[0], item[1], item[2]))
     return [row for *_, row in scored[:limit]]
 
@@ -4582,6 +4777,8 @@ def _event_to_record(event: CorpusEvent) -> dict[str, object]:
         "decision_target": event.decision_target,
         "opened_at": event.opened_at.isoformat() if event.opened_at else None,
         "resolved": int(event.resolved),
+        "resolved_without_outcome": int(event.resolved_without_outcome),
+        "resolved_without_outcome_reason": event.resolved_without_outcome_reason,
     }
 
 
@@ -4601,21 +4798,57 @@ def _event_from_record(record: RecordRow) -> CorpusEvent:
         decision_target=record["decision_target"],
         opened_at=date.fromisoformat(record["opened_at"]) if record["opened_at"] else None,
         resolved=bool(record["resolved"]),
+        resolved_without_outcome=bool(_optional_int(record, "resolved_without_outcome")),
+        resolved_without_outcome_reason=_optional_str(record, "resolved_without_outcome_reason"),
     )
+
+
+#: Why an event is closed without a ledger outcome: the fixed vocabulary of
+#: ``events.resolved_without_outcome_reason``. ``ingested-decided`` is the
+#: extraction's: the event was first minted on a row already decided, so it was
+#: never open for detection to resolve. The rest are the outcome pass's
+#: (:func:`fedcourtsai.pipeline.outcome.record_lost_outcomes`) reasons for a
+#: corpus-resolved moment it could not attribute: no stored snapshot to read the
+#: order text from, no decision date for the stage, a moment that opened after
+#: the decision, or a disposition detection declined.
+NO_OUTCOME_INGESTED_DECIDED = "ingested-decided"
+NO_OUTCOME_REASONS: tuple[str, ...] = (
+    NO_OUTCOME_INGESTED_DECIDED,
+    "no-snapshot",
+    "undated",
+    "opened-after-decision",
+    "declined",
+)
 
 
 def _event_update_clause(column: str) -> str:
     """The ``ON CONFLICT`` assignment for one event column, honoring its latch.
 
-    ``resolved`` only ever latches **on**: a re-ingest carries freshly-extracted
-    events with ``resolved = 0`` (extraction never observes resolution — outcome
-    detection does, via :func:`set_event_resolved`), so a re-discovery or a
-    historical re-walk must not reopen an event a prior outcome already
-    closed. Every other column takes the incoming value. Mirrors the ``cases``
-    upsert's :func:`_update_clause` for ``predict_eligible``.
+    ``resolved`` only ever latches **on**, so a re-discovery or a historical
+    re-walk never reopens an event a prior outcome closed. An incoming row
+    latches it on only when that row is not a no-outcome closure. Extraction
+    mints a stored baseline with ``resolved = 0``: closing a stored declared
+    moment is outcome detection's alone (:func:`set_event_resolved`, beside the
+    ``outcome.json`` it writes). A baseline minted on a row that is already
+    decided arrives ``resolved_without_outcome``, and that is a fact about the
+    *first* mint: on a conflict the incoming closure is dropped and the stored
+    flag stands, so a re-extraction can never close an event detection
+    declined. An entry-pinned event extraction closes on a citing order carries
+    no such mark and latches as before.
+
+    The two no-outcome columns are never rewritten by an upsert: an insert
+    takes them, and afterwards only :func:`set_event_resolved` and
+    :func:`mark_resolved_without_outcome` move them. Every other column takes
+    the incoming value. Mirrors the ``cases`` upsert's :func:`_update_clause`
+    for ``predict_eligible``.
     """
     if column == "resolved":
-        return f"{column}=MAX(excluded.{column}, events.{column})"
+        return (
+            f"{column}=CASE WHEN excluded.resolved_without_outcome = 1 THEN events.{column} "
+            f"ELSE MAX(excluded.{column}, events.{column}) END"
+        )
+    if column in ("resolved_without_outcome", "resolved_without_outcome_reason"):
+        return f"{column}=events.{column}"
     return f"{column}=excluded.{column}"
 
 
@@ -4715,21 +4948,58 @@ def iter_resolved_events(
         yield _event_from_record(record)
 
 
-def resolved_events_on_selected_rows(conn: ReadConnection, *, court: str) -> list[CorpusEvent]:
-    """Resolved events whose case row is latched ``salience_selected`` and in scope.
+def events_on_selected_rows(conn: ReadConnection, *, court: str) -> list[CorpusEvent]:
+    """Every event whose case row is latched ``salience_selected`` and in scope.
 
-    ``(case_id, event_id)``-ordered. The candidate read of the ledger-outcome
-    convergence (:func:`fedcourtsai.pipeline.outcome.converge_ledger_outcomes`):
-    answered in the join so it hydrates only the selected, not
-    ``predict_excluded`` population — a few thousand rows — rather than every
-    resolved event the court carries. A selected row the scope reconcile has
-    latched out of scope is excluded: selection runs over the in-scope set, so
-    such a row carries a stale latch, not a case the pipeline owes ground truth.
+    ``(case_id, event_id)``-ordered, open and resolved alike. The candidate read
+    of the ledger-outcome convergence and the outcome pass
+    (:func:`fedcourtsai.pipeline.outcome.converge_ledger_outcomes`,
+    :func:`fedcourtsai.pipeline.outcome.record_lost_outcomes`): answered in the
+    join so it hydrates only the selected, not ``predict_excluded`` population —
+    a few thousand rows — rather than every event the court carries. A selected
+    row the scope reconcile has latched out of scope is excluded: selection runs
+    over the in-scope set, so such a row carries a stale latch, not a case the
+    pipeline owes ground truth.
     """
     cur = conn.execute(
         "SELECT e.* FROM events e JOIN cases c ON c.case_id = e.case_id "
-        "WHERE e.resolved = 1 AND e.court = ? AND c.salience_selected = 1 "
+        "WHERE e.court = ? AND c.salience_selected = 1 "
         "AND c.predict_excluded = 0 "
+        "ORDER BY e.case_id, e.event_id",
+        (court,),
+    )
+    return [_event_from_record(record) for record in cur]
+
+
+def stage_shows_decided(row: CorpusRow, stage: Stage | str | None) -> bool:
+    """Whether the row records ``stage``'s question decided, dated or not.
+
+    A parsed merits judgment for the merits stage; a disposition or a
+    resolution date (:func:`resolution_date`) for every other stage. The test
+    an **open** declared moment is held to before it counts as decided without
+    an outcome: re-extraction never closes a stored event, so the open flag
+    alone does not say the question is pending.
+    """
+    if stage == Stage.merits:
+        return row.merits_judgment is not None
+    return row.disposition is not None or resolution_date(row) is not None
+
+
+def open_events_on_decided_rows(conn: ReadConnection, *, court: str) -> list[CorpusEvent]:
+    """Open events whose case row records some decision, ``(case_id, event_id)``-ordered.
+
+    A coarse SQL screen — any disposition, decision date, cert date or parsed
+    merits judgment on the row — answered in the join so the read hydrates only
+    the decided slice of the open set; a caller narrows it per stage with
+    :func:`stage_shows_decided`. The read side of the missed-forecast monitor's
+    open-decline arm.
+    """
+    cur = conn.execute(
+        "SELECT e.* FROM events e JOIN cases c ON c.case_id = e.case_id "
+        "WHERE e.resolved = 0 AND e.court = ? AND ("
+        "c.disposition IS NOT NULL OR c.date_decided IS NOT NULL "
+        "OR c.date_cert_granted IS NOT NULL OR c.date_cert_denied IS NOT NULL "
+        "OR c.merits_judgment IS NOT NULL) "
         "ORDER BY e.case_id, e.event_id",
         (court,),
     )
@@ -4744,18 +5014,46 @@ def set_event_resolved(
     The corpus event row is the source of truth for whether an event is still
     open: outcome detection calls this to close an event the moment it records
     that event's ``outcome.json``, so the next ``open_events`` read no longer
-    queues it for prediction. A no-op if ``(case_id, event_id)`` is not a known
-    event.
+    queues it for prediction. Either direction clears the no-outcome mark: a
+    close here is a close *with* an outcome, and a reopen leaves no closure to
+    explain. A no-op if ``(case_id, event_id)`` is not a known event.
     """
     with conn:
         conn.execute(
-            "UPDATE events SET resolved = ? WHERE case_id = ? AND event_id = ?",
+            "UPDATE events SET resolved = ?, resolved_without_outcome = 0, "
+            "resolved_without_outcome_reason = NULL WHERE case_id = ? AND event_id = ?",
             (int(resolved), case_id, event_id),
         )
     # Resolving is a direct UPDATE the upsert_events hook never sees, so re-mirror
     # the case's events here too — otherwise the casestore events.json keeps the
     # stale resolved=0 until the next re-ingest, and a casestore-provisioned
     # event.yaml would carry a stale flag for a replay cell's resolved target.
+    if (sink := _mirror_sink(conn)) is not None:
+        sink.mirror_events_for_cases(conn, [case_id])
+
+
+def mark_resolved_without_outcome(
+    conn: sqlite3.Connection, case_id: str, event_id: str, reason: str
+) -> None:
+    """Close one event visibly without a ledger outcome, naming why.
+
+    The outcome pass's residue write
+    (:func:`fedcourtsai.pipeline.outcome.record_lost_outcomes`): a
+    corpus-resolved declared moment the pass could not attribute stays closed,
+    and carries the mark and its reason so a census can tell it from one closed
+    by a recorded outcome. ``reason`` must come from :data:`NO_OUTCOME_REASONS`.
+    A no-op if ``(case_id, event_id)`` is not a known event.
+    """
+    if reason not in NO_OUTCOME_REASONS:
+        raise ValueError(
+            f"unknown no-outcome reason {reason!r}; expected one of {NO_OUTCOME_REASONS}"
+        )
+    with conn:
+        conn.execute(
+            "UPDATE events SET resolved = 1, resolved_without_outcome = 1, "
+            "resolved_without_outcome_reason = ? WHERE case_id = ? AND event_id = ?",
+            (reason, case_id, event_id),
+        )
     if (sink := _mirror_sink(conn)) is not None:
         sink.mirror_events_for_cases(conn, [case_id])
 
@@ -4833,9 +5131,12 @@ def rename_event(
     old_event_id)`` row — no reader ever sees the case carrying both identities
     or neither. ``resolved`` keeps its latch across the rename: the new row takes
     the MAX over the old row, ``new_event``, and any pre-existing row under the
-    new id, so a rename can never reopen an event a prior outcome closed.
-    Every other column is written exactly as ``new_event`` carries it. A field
-    derived from the identity, ``moment`` above all, is therefore the caller's
+    new id, so a rename can never reopen an event a prior outcome closed. The
+    old row's no-outcome mark rides along onto a new identity, and onto a
+    fold's open target, whose closure the latch carries; a target already
+    closed keeps its own state. Every other column is written exactly
+    as ``new_event`` carries it. A field derived from the identity, ``moment``
+    above all, is therefore the caller's
     to re-derive for the new id: this module sits below the declared-moments
     table and cannot tell a carried moment from a correct one.
     Raises ``ValueError`` when ``new_event`` names a different case, keeps the
@@ -4855,18 +5156,49 @@ def rename_event(
         )
     with conn:
         record = conn.execute(
-            "SELECT resolved FROM events WHERE case_id = ? AND event_id = ?",
+            "SELECT * FROM events WHERE case_id = ? AND event_id = ?",
             (case_id, old_event_id),
         ).fetchone()
         if record is None:
             raise ValueError(f"rename_event: no event {old_event_id!r} on {case_id!r} to rename")
+        old = _event_from_record(record)
+        target_record = conn.execute(
+            "SELECT * FROM events WHERE case_id = ? AND event_id = ?",
+            (case_id, new_event.event_id),
+        ).fetchone()
+        target = _event_from_record(target_record) if target_record is not None else None
+        # The no-outcome mark travels with the closure it explains. Onto a new
+        # identity it rides the insert. On a fold the upsert never rewrites the
+        # mark while the MAX latch can carry the old row's closure onto the
+        # target, so the mark is set there too — unless the target was already
+        # closed by a recorded outcome (resolved and unmarked), a closure that
+        # needs no explaining.
+        carry_mark = old.resolved_without_outcome and target is None
+        fold_mark = (
+            old.resolved_without_outcome
+            and target is not None
+            and not target.resolved_without_outcome
+            and not target.resolved
+        )
         carried = new_event.model_copy(
-            update={"resolved": bool(new_event.resolved or record["resolved"])}
+            update={
+                "resolved": bool(new_event.resolved or old.resolved),
+                "resolved_without_outcome": carry_mark,
+                "resolved_without_outcome_reason": (
+                    old.resolved_without_outcome_reason if carry_mark else None
+                ),
+            }
         )
         conn.execute(
             _event_upsert_sql(),
             tuple(_event_to_record(carried)[c] for c in _EVENT_COLUMNS),
         )
+        if fold_mark:
+            conn.execute(
+                "UPDATE events SET resolved_without_outcome = 1, "
+                "resolved_without_outcome_reason = ? WHERE case_id = ? AND event_id = ?",
+                (old.resolved_without_outcome_reason, case_id, new_event.event_id),
+            )
         # The old identity's row is dropped as half of the rename. A predictable
         # event is a raw fact that otherwise only ever accretes or resolves, so
         # the corpus exposes no general delete; the one standalone drop is

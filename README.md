@@ -35,12 +35,12 @@ the corpus, and hands nothing to the stage after it — a maintainer's
 the two chain jobs that start a predict round when a pull window commits or a
 capped round's output lands. The
 judgment-heavy stages delegate to **multiple competing coding agents** (Claude
-Code, Codex, and Gemini), whose artifacts land as auto-merge-gated pull
+Code, Codex, and Gemini), whose artifacts land as check-gated pull
 requests.
 
 | Trigger        | Workflow        | Does                                                                 | Engine |
 |----------------|-----------------|----------------------------------------------------------------------|--------|
-| Schedule + dispatch (`mode`) | `run-pull`      | Two scheduled forward writer jobs: targeted CourtListener enrichment, and the **supremecourt.gov live poll** (discovers pending petitions, tracks conference distribution, records outcomes, provisions filed-document text) — plus a third, **dispatch-only** job that enriches cert-granted cases with their opinion text | Script |
+| Schedule + dispatch (`mode`) | `run-pull`      | Two scheduled forward writer jobs: targeted CourtListener enrichment, and the **supremecourt.gov live poll** (discovers pending petitions, tracks conference distribution, records outcomes, provisions filed-document text, and fetches the opinion of a just-decided merits case) — plus a third, **dispatch-only** job that enriches the cert-granted backlog with its opinion text | Script |
 | Schedule       | `run-seed`      | The **historical Term walker** (supremecourt.gov, budget-free) backfilling past Terms for base rates and back-testing — four dead-zone windows a day, sharing the corpus-write lock. Its trailing sweeps converge the corpus toward what a window can reach on its own; each is idempotent and non-blocking | Script |
 | Dispatch only  | `run-repair`    | The **corpus-maintenance bench**: seventeen dispatch-gated passes that rewrite stored corpus fields, back-fill corpus rows, remove ledger records, re-freeze frozen signal blocks, re-grade committed cells, or stamp vote records onto committed outcomes — one pass per dispatch, dry-run by default, and an apply only once a maintainer has read that dry run's ledger. Never scheduled; shares the corpus-write lock | Script |
 | Schedule ×2 + dispatch | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out), over the cases the predict backlog still owes a forecast | Claude Code + Codex + Gemini |
@@ -57,7 +57,10 @@ date, plus the back-test results) and
 distribution-parse census, the document text-coverage enumeration, the
 tool-usage roll-up, the metrics refresh, the daily big-case board, and the
 qp-topic labeler (the only one that runs an agent) — both schedule/dispatch
-only. The cascade runs
+only. A development lane, `corpus-check`, runs the check a pull request's
+description declares at the PR's head against the corpus, read-only, once the
+maintainer approves it, and posts the result to the PR
+([`docs/corpus-check.md`](docs/corpus-check.md)). The cascade runs
 pull/live → corpus → `run-predict`, which on each scheduled wake derives its own
 fan-out from the predict backlog — the arrival-cohort picks, conference
 distributions, and changed open cases the committed record does not yet

@@ -17,6 +17,17 @@ Both run the outcome scan the forward gate already runs on the stored snapshot
 (:func:`fedcourtsai.pipeline.outcome.forward_leakage`); the fresh payload is read
 and discarded, never the cell's input.
 
+A poll that read a payload also records, record-only, what the served docket
+showed of each **increment signal** the cell's claims forecast — on an
+application, whether a response had been requested and whether the application
+had been referred to the full Court; on a petition, whether the Solicitor
+General had been invited — each with the entry date the ingest parser reads for
+it (:func:`read_increment_signals`). The claim scorer reads the pre-mint
+reading to tell an increment that happened before the cell ran from one it
+forecast (:func:`fedcourtsai.set_aside.increment_timing`). It decides nothing
+here: the verdict is the outcome scan's alone, and a signal reading that fails
+leaves the verdict standing and records no signals.
+
 What a poll reading ``open`` means, exactly: at ``polled_at`` the Court's docket
 JSON, as served, carried no disposition that ``forward_leakage`` recognises. It is
 not proof the event was undecided. Three residuals stand: the JSON can lag the
@@ -38,9 +49,9 @@ from __future__ import annotations
 
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, Literal, Protocol
 
 import httpx
@@ -51,6 +62,20 @@ from ..supremecourt import (
     SupremeCourtClient,
     parse_scotus_application_number,
     parse_scotus_docket_number,
+)
+from .cert_signals import (
+    CVSG_RE,
+    entry_date,
+    proceedings_entries,
+    snapshot_carries_proceedings,
+    snapshot_cvsg_date,
+)
+from .interim_signals import (
+    ReferralPosture,
+    referral_date,
+    referral_posture,
+    response_requested,
+    response_requested_date,
 )
 from .outcome import forward_leakage
 
@@ -98,6 +123,88 @@ def bounded_client(clock: Callable[[], float] = time.monotonic) -> SupremeCourtC
 
 
 @dataclass(frozen=True)
+class SignalSeen:
+    """One increment signal as the served docket showed it: whether, and the entry's date.
+
+    ``entry_date`` is ``None`` where the signal is absent, and also where its
+    entry carries no full date — the ingest parsers skip an undated entry when
+    dating a signal, and so does this record.
+    """
+
+    present: bool
+    entry_date: date | None
+
+    def as_record(self) -> dict[str, Any]:
+        """The JSON shape the usage record carries."""
+        return {
+            "present": self.present,
+            "entry_date": self.entry_date.isoformat() if self.entry_date else None,
+        }
+
+
+@dataclass(frozen=True)
+class IncrementSignals:
+    """What one served docket showed of each increment signal; ``None`` where not read.
+
+    An application docket fills the two interim signals and a petition docket
+    the CVSG, so the signals a docket cannot carry stay ``None`` rather than
+    reading as absent.
+    """
+
+    response_requested: SignalSeen | None = None
+    referred_to_court: SignalSeen | None = None
+    cvsg: SignalSeen | None = None
+
+    def as_record(self) -> dict[str, Any]:
+        """The JSON shape the usage record carries."""
+        return {
+            name: seen.as_record() if seen is not None else None
+            for name, seen in (
+                ("response_requested", self.response_requested),
+                ("referred_to_court", self.referred_to_court),
+                ("cvsg", self.cvsg),
+            )
+        }
+
+
+def read_increment_signals(
+    payload: Mapping[str, Any], form: Literal["cert", "application"]
+) -> IncrementSignals | None:
+    """The increment signals a docket payload shows, by the parsers that date them at ingest.
+
+    The presence test is each signal's ingest flag reading
+    (:func:`~fedcourtsai.pipeline.interim_signals.response_requested`,
+    :func:`~fedcourtsai.pipeline.interim_signals.referral_posture`, the CVSG
+    pattern), and the date is the reading that dates it
+    (:func:`~fedcourtsai.pipeline.interim_signals.response_requested_date`,
+    :func:`~fedcourtsai.pipeline.interim_signals.referral_date`,
+    :func:`~fedcourtsai.pipeline.cert_signals.snapshot_cvsg_date`). ``None``
+    where the payload carries no proceedings list, which leaves every signal
+    unobserved rather than absent.
+    """
+    if not snapshot_carries_proceedings(payload):
+        return None
+    entries = proceedings_entries(payload)
+    texts = [text for text, _ in entries]
+    if form == "application":
+        return IncrementSignals(
+            response_requested=SignalSeen(
+                response_requested(texts), response_requested_date(entries)
+            ),
+            referred_to_court=SignalSeen(
+                referral_posture(texts) is ReferralPosture.referred_to_court,
+                referral_date(entries),
+            ),
+        )
+    return IncrementSignals(
+        cvsg=SignalSeen(
+            any(CVSG_RE.search(text) for text in texts),
+            entry_date(snapshot_cvsg_date(payload)),
+        )
+    )
+
+
+@dataclass(frozen=True)
 class DocketPoll:
     """What the Court's docket JSON showed for one event at one moment."""
 
@@ -105,15 +212,19 @@ class DocketPoll:
     docket_number: str
     state: PollState
     reason: str | None = None
+    signals: IncrementSignals | None = None
 
-    def as_record(self) -> dict[str, str | None]:
-        """The JSON shape the usage record carries."""
-        return {
+    def as_record(self) -> dict[str, Any]:
+        """The JSON shape the usage record carries; ``signals`` only where read."""
+        record: dict[str, Any] = {
             "polled_at": self.polled_at.isoformat().replace("+00:00", "Z"),
             "docket_number": self.docket_number,
             "state": self.state,
             "reason": self.reason,
         }
+        if self.signals is not None:
+            record["signals"] = self.signals.as_record()
+        return record
 
 
 def docket_coordinates(
@@ -147,31 +258,47 @@ def poll_docket(
     """
     polled_at = now()
     number = docket_number.strip()
-    state, reason = _read_docket(court, number, event_id, fetcher)
-    return DocketPoll(polled_at, number, state, reason)
+    state, reason, signals = _read_docket(court, number, event_id, fetcher)
+    return DocketPoll(polled_at, number, state, reason, signals)
 
 
 def _read_docket(
     court: str, number: str, event_id: str, fetcher: DocketFetcher
-) -> tuple[PollState, str | None]:
-    """The poll's verdict and its reason; every failure is ``unavailable``."""
+) -> tuple[PollState, str | None, IncrementSignals | None]:
+    """The poll's verdict, its reason, and the signals read; every failure is ``unavailable``."""
     if court != "scotus":
-        return "unavailable", "not a SCOTUS docket"
+        return "unavailable", "not a SCOTUS docket", None
     coordinates = docket_coordinates(number)
     if coordinates is None:
-        return "unavailable", "docket number has no live spelling"
+        return "unavailable", "docket number has no live spelling", None
     try:
         payload = _fetch_payload(fetcher, *coordinates)
         if isinstance(payload, str):
-            return "unavailable", payload
+            return "unavailable", payload, None
         reason = forward_leakage(payload, court, event_id)
     except (httpx.TimeoutException, DeadlineExceeded) as exc:
         spent = isinstance(exc, DeadlineExceeded)
-        return "unavailable", "poll deadline exceeded" if spent else "fetch timed out"
+        return "unavailable", "poll deadline exceeded" if spent else "fetch timed out", None
     # Anything else, from the fetch or the scan: a poll degrades, never fails the cell.
     except Exception as exc:
-        return "unavailable", f"poll error: {type(exc).__name__}"
-    return ("decided", reason) if reason is not None else ("open", None)
+        return "unavailable", f"poll error: {type(exc).__name__}", None
+    signals = _signals_or_none(payload, coordinates[2])
+    return ("decided", reason, signals) if reason is not None else ("open", None, signals)
+
+
+def _signals_or_none(
+    payload: Mapping[str, Any], form: Literal["cert", "application"]
+) -> IncrementSignals | None:
+    """:func:`read_increment_signals`, with any error read as no signals.
+
+    Taken after the verdict and guarded on its own, so a signal reading that
+    fails can never turn a ``decided`` verdict — the one that refuses a cell —
+    into ``unavailable``.
+    """
+    try:
+        return read_increment_signals(payload, form)
+    except Exception:
+        return None
 
 
 def _fetch_payload(

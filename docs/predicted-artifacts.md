@@ -504,7 +504,16 @@ directory without knowing which part is which invites trusting the wrong half.
   order was unpublished: an order list or a press account can precede the
   docket JSON, so leakage is still judged from the retrieval log. A missing
   poll reads as unknown whatever the cell's date, because the usage capture is
-  best-effort.
+  best-effort. A poll that read the docket's proceedings also records, under
+  `signals`, whether each increment signal the cell's claims forecast was
+  already there — on an application a response request and a referral to the
+  full Court, on a petition a CVSG — with the entry date the ingest parser
+  reads. It is record-only; the claim scorer reads the pre-mint one to mask an
+  increment claim whose signal was on the docket before the cell ran, and the
+  boards' `stratify` pass reads the post-run one, where the pre-mint poll read
+  the signal absent, to set aside a claim whose signal landed while the cell
+  ran
+  ([outcome-decomposition.md](outcome-decomposition.md)).
 - **`retrieval_log.json`** — the tool-call transcript, captured harness-side
   from the engine's own log: tool names, query slices, and document dates where
   legible. It is the cross-evaluator's leakage evidence precisely because the
@@ -526,7 +535,20 @@ directory without knowing which part is which invites trusting the wrong half.
   the text predicate is gated on the tool name, because a builtin's result is
   whatever the agent asked it to read (its own `reasoning.md`, this
   repository's source, another cell's artifacts), and prose about throttling is
-  not this cell being refused. `throttled_calls` is the log-level count over
+  not this cell being refused. A manifest call is recognised by its `mcp`
+  prefix: `mcp__<server>__<tool>` as claude and codex spell it, or
+  `mcp_<server>_<tool>` as gemini does. A blinded log's respelling,
+  `mcp:<server>:<tool>`, is also recognised. Codex's rollout can log one under the
+  bare tool name (`search`). Capture renames it to `mcp__<server>__<tool>`
+  only where the cell's offered set (`mcp_tools`) allows it. If the item
+  records a namespace, the namespace must name an offered server that has
+  the tool. If it records none, exactly one offered server must have the
+  tool. Otherwise the row keeps its bare name and counts as a builtin. So
+  does every bare name in a log whose `mcp_tools` is empty, which happens
+  when capture could not resolve the actor's registry entry. Rows captured
+  before the rule keep their bare names: the rule runs at capture, not on
+  read, so those rows count as builtins and their results were never checked
+  for a throttle. `throttled_calls` is the log-level count over
   that same gated set, null where no manifest result was legible, because a
   throttle is only countable where one reached the transcript. Both are floors
   — the predicate is anchored on the server's own rate-limit phrasing, biased
