@@ -377,6 +377,17 @@ def _is_empty(entry: ClaimScoreEntry) -> bool:
     return entry.forward is None and entry.retrospective is None and entry.procedural is None
 
 
+def claim_surface_set_aside(set_aside: Sequence[SetAsideCell]) -> list[SetAsideCell]:
+    """The set-aside cells this surface's own population holds: cert's first moment.
+
+    What the surface's ``set_aside`` record counts, so the count describes the
+    cells its figures actually left — an interim cell set aside on the
+    leaderboard's stage blocks was never in this surface's population.
+    """
+    population = (Stage.cert, first_moment(Stage.cert))
+    return [held for held in set_aside if (held.cell[2], held.cell[3]) == population]
+
+
 def claim_set_aside_sensitivity(
     set_aside: Sequence[SetAsideCell], including: ClaimScoreBoard
 ) -> list[ClaimScoreSetAsideLine]:
@@ -386,20 +397,38 @@ def claim_set_aside_sensitivity(
     :meth:`~fedcourtsai.store.StratifiedRun.sensitivity_cells`. Only the
     surface's own population — cert's first moment — has figures here, so a
     set-aside cell on any other block moves nothing and gets no line.
+
+    A line's figure is null only where none of its counted-back gradings
+    carries a claim block, since such a grading moves no claim figure; a
+    missing figure for gradings that do carry one raises, exactly as the
+    leaderboard's sensitivity does: the including surface is built from a
+    superset of the default's cells, so a figure absent there is a construction
+    error, and a board must never publish a set-aside without its reading.
     """
-    population = f"{Stage.cert}@{first_moment(Stage.cert)}"
     entries = {entry.predictor_id: entry for entry in including.entries}
+    carrying: dict[tuple[str, Stratum], int] = defaultdict(int)
+    for (evaluation, stratum, _stage, _moment), _reason in claim_surface_set_aside(set_aside):
+        if evaluation.claim_scores is not None:
+            carrying[(evaluation.predictor_id, stratum)] += 1
+    population = f"{Stage.cert}@{first_moment(Stage.cert)}"
     lines: list[ClaimScoreSetAsideLine] = []
     for (block, predictor_id, stratum), count in sorted(set_aside_moved(set_aside).items()):
         if block != population:
             continue
         entry = entries.get(predictor_id)
+        figure = getattr(entry, stratum) if entry is not None else None
+        if figure is None and carrying[(predictor_id, stratum)]:
+            raise ValueError(
+                f"the sensitivity surface holds no {stratum} claim figure for "
+                f"{predictor_id}, though {carrying[(predictor_id, stratum)]} set-aside "
+                f"grading(s) carrying a claim block sit there"
+            )
         lines.append(
             ClaimScoreSetAsideLine(
                 predictor_id=predictor_id,
                 stratum=stratum,
                 set_aside=count,
-                including=getattr(entry, stratum) if entry is not None else None,
+                including=figure,
             )
         )
     return lines

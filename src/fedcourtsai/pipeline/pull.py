@@ -19,12 +19,12 @@ discovery. ``pull`` drives this function for onboarding and refresh alike.
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import date
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 import httpx
 
@@ -46,6 +46,7 @@ from ..store import (
     forecastable_event_ids,
     forecastable_events,
     forward_refusal_reason_from_parts,
+    live_payload_reader,
     predictor_holds_no_counted_prediction,
 )
 from ..voids import is_voided
@@ -1153,9 +1154,7 @@ def _reowed_pre_freeze_events(
     # candidate would pay a `events_for_case` query to have all its events
     # refused for being merits, cert/arrival, or entry-pinned — which is the
     # common case, not the rare one.
-    def payloads(case_id: str) -> tuple[date, Mapping[str, Any]] | None:
-        return corpus.latest_live_snapshot(conn, case_id)
-
+    payloads = live_payload_reader(conn)
     reopenable = [
         event_id
         for event_id in events

@@ -9,10 +9,11 @@ case set and the event state are read from the packed corpus; the git tree under
 
 from __future__ import annotations
 
+import logging
 from collections import Counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime, timedelta
-from functools import partial
+from functools import cache, partial
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, NamedTuple
@@ -234,8 +235,35 @@ def _premature_distribution_cell(event: corpus.CorpusEvent, row: corpus.CorpusRo
     return event.kind == EventKind.petition
 
 
+logger = logging.getLogger(__name__)
+
 #: A case's latest live docket payload and the day it was stored, or ``None``.
 PayloadReader = Callable[[str], tuple[date, Mapping[str, Any]] | None]
+
+
+def live_payload_reader(conn: corpus.ReadConnection) -> PayloadReader:
+    """The conference bound's payload reader over ``conn``: memoized, and never raising.
+
+    Memoized because one admission decision can ask the same case more than
+    once — both cert-capable arms test every distribution-moment event — and
+    under the corpus split each ask is a content-store read. Never raising
+    because the reader sits under the predict backlog, the predict matrix and
+    the live routing, where a content-store hiccup must degrade a decision
+    rather than fail the run: a read that raises answers ``None``, which
+    :func:`distribution_conference_considered` reads as no evidence the
+    petition is still open, and so refuses — the cell is deferred to a later
+    round, never minted on a guess. The failure is logged.
+    """
+
+    @cache
+    def read(case_id: str) -> tuple[date, Mapping[str, Any]] | None:
+        try:
+            return corpus.latest_live_snapshot(conn, case_id)
+        except Exception as exc:  # broad by design: a store error refuses, never crashes
+            logger.warning("conference bound: live payload for %s unreadable: %s", case_id, exc)
+            return None
+
+    return read
 
 
 def distribution_conference_considered(
@@ -254,9 +282,14 @@ def distribution_conference_considered(
 
     The row's ``distributed_for_conference`` column is the cheap first read: a
     petition whose conference is still ahead of ``day`` is open, and nothing
-    else is read. Once the column names a conference on or before ``day`` (the
-    conference day itself counts as sat, as the census counts a cell run that
-    day), the case's latest live payload decides. A petition the conference
+    else is read. The column and the deciding read parse the docket
+    differently — the column takes the latest "DISTRIBUTED for Conference"
+    entry of any paper, the deciding read only the petition's own
+    (entry-initial, ``dist-v2``) — so the column only selects which rows are
+    read, and never decides a refusal on its own. Once the column names a
+    conference on or before ``day`` (the conference day itself counts as sat,
+    as the census counts a cell run that day), the case's latest live payload
+    decides. A petition the conference
     did **not** consider stays forecastable: a later distribution moves the
     conference ahead, and a call for response or a reschedule entered between
     the distribution and the conference takes the petition off it, so the
@@ -553,10 +586,7 @@ def forecastable_event_ids(
     if row is not None and row.predict_excluded:
         return []
     events = corpus.events_for_case(conn, case_id)
-
-    def payloads(found_case: str) -> tuple[date, Mapping[str, Any]] | None:
-        return corpus.latest_live_snapshot(conn, found_case)
-
+    payloads = live_payload_reader(conn)
     return [
         event.event_id
         for event in events
@@ -1475,7 +1505,12 @@ def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window
             normalized_moment(stage, event.moment),
         )
         with_set_aside.append(joined)
-        poll_dir = event_dir / "predictions" / evaluation.predictor_id / scored.run_id
+        court_id, _, docket_str = evaluation.case_id.partition("/")
+        poll_dir = (
+            CasePaths(data_root, court_id, int(docket_str))
+            .event(evaluation.event_id)
+            .prediction_dir(evaluation.predictor_id, scored.run_id)
+        )
         reason = (
             set_aside_reason(
                 evaluation.case_id,

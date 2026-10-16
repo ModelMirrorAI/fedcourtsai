@@ -103,7 +103,12 @@ from .cert_backtest import (
     replay_predictors,
     run_cert_backtest,
 )
-from .claim_metrics import agreement_summary, build_claim_scores, claim_set_aside_sensitivity
+from .claim_metrics import (
+    agreement_summary,
+    build_claim_scores,
+    claim_set_aside_sensitivity,
+    claim_surface_set_aside,
+)
 from .cohort_cut import counted_by_conference
 from .collect import (
     BOARD_ARTIFACTS,
@@ -5526,8 +5531,10 @@ def leaderboard(
     # placeholder stands down whenever either exclusion caught anything. The
     # ops report's `render_substance` guards its own placeholder the same way,
     # and the two surfaces must not describe one build differently.
-    excluded_any = (board.forward_claim is not None and board.forward_claim.excluded) or (
-        board.leakage_exclusion is not None and board.leakage_exclusion.excluded
+    excluded_any = (
+        (board.forward_claim is not None and board.forward_claim.excluded)
+        or (board.leakage_exclusion is not None and board.leakage_exclusion.excluded)
+        or (board.set_aside is not None and board.set_aside.excluded)
     )
     empty_note = (
         "  (frozen headline empty — no frozen-process evaluations yet)"
@@ -5623,11 +5630,11 @@ def claim_scores_command(
         )
 
     board = surface_over(run.cells)
-    if run.set_aside:
+    if claim_surface_set_aside(run.set_aside):
         # The sensitivity reading beside the default, exactly as the leaderboard's.
         board = board.model_copy(
             update={
-                "set_aside": set_aside_record(run.set_aside),
+                "set_aside": set_aside_record(claim_surface_set_aside(run.set_aside)),
                 "set_aside_sensitivity": claim_set_aside_sensitivity(
                     run.set_aside, surface_over(run.sensitivity_cells())
                 ),
@@ -9902,6 +9909,7 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         leakage_exclusion=_leakage_exclusion_from(stratified_run),
         voided_events=_voided_events_from(stratified_run),
         cell_windows=stratified_run.cell_windows,
+        set_aside=set_aside_record(stratified_run.set_aside),
     )
     report = build_ops_report(
         generated_at=when,

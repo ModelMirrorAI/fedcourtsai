@@ -1208,7 +1208,7 @@ def test_live_poll_all_skips_a_decided_looking_terminal_order_forward(tmp_path: 
             "25-5001",
             proceedings=[
                 _payload()["ProceedingsandOrder"][0],
-                {"Date": "Sep 15 2025", "Text": "DISTRIBUTED for Conference of 7/17/2026."},
+                {"Date": "Jun 15 2026", "Text": "DISTRIBUTED for Conference of 7/17/2026."},
                 _RULE_398_ENTRY,
             ],
         )

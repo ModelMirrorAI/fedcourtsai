@@ -5353,8 +5353,9 @@ class ClaimScoreBoard(_Strict):
     set_aside: SetAsideRecord | None = Field(
         default=None,
         description="The gradings this build set aside from its default figures, "
-        "exactly as the leaderboard records them; omitted where nothing in scope is "
-        "set aside",
+        "counted over this surface's own population (cert's first moment) — so a "
+        "set-aside the leaderboard's stage blocks carry is not counted here; omitted "
+        "where nothing in that population is set aside",
     )
     set_aside_sensitivity: list[ClaimScoreSetAsideLine] = Field(
         default_factory=list,
@@ -10983,11 +10984,20 @@ class SubstanceDigest(_Strict):
         "scored-cell figures, exactly as the boards record them; omitted where "
         "nothing in scope is voided",
     )
+    set_aside: SetAsideRecord | None = Field(
+        default=None,
+        description="The gradings the shared stratify pass set aside from the "
+        "scored-cell figures, exactly as the leaderboard records them; the counts "
+        "above are the default, without them, and the boards carry the reading "
+        "with them counted. Omitted where nothing in scope is set aside",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_empty_voided(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``voided_events`` while nothing in scope is voided."""
-        return _omit_empty(handler(self), voided_events=self.voided_events)
+        """Drop ``voided_events`` / ``set_aside`` while nothing in scope is voided / set aside."""
+        return _omit_empty(
+            handler(self), voided_events=self.voided_events, set_aside=self.set_aside
+        )
 
 
 class OpsReport(_Strict):

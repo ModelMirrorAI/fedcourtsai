@@ -1538,11 +1538,14 @@ set aside from the default figures (`fedcourtsai.set_aside`, applied by the same
 nothing" — the cell may be a genuine forecast — so it is **put back in a
 sensitivity figure published beside each default it moved**: the board's
 `set_aside` block counts the set-aside gradings by reason, by predictor and by
-event, and `set_aside_sensitivity` carries, for each (population, predictor,
-stratum) figure a set-aside moved, that figure recomputed by the same code with
-the set-aside gradings counted — on the leaderboard the pooled entry's stratum
-(and, where a ranked-board cell was set aside, the paired figure the ranks are
-read off), on `claim-scores.json` the cert-stage claim stratum. The default is
+event, over that board's own population (on `claim-scores.json`, cert's first
+moment only), and `set_aside_sensitivity` carries, for each (population,
+predictor, stratum) a set-aside moved, the **pooled entry's** figure
+recomputed by the same code with the set-aside gradings counted — on the
+leaderboard the pooled entry's stratum (and, where a ranked-board cell was set
+aside, the paired figure the ranks are read off), on `claim-scores.json` the
+cert-stage claim stratum. The `by_protocol` cut is default-only: it carries no
+sensitivity line, so a per-window figure is read without the set-aside cells. The default is
 the headline; a sensitivity line is a disclosure, never a rank key, and never
 stacked with another departure. Each reason is a dated freeze-record entry. Two
 exist:
@@ -1554,7 +1557,9 @@ exist:
   decided within hours and `resolved_at` has no time of day, so only the
   pre-mint poll can show such a cell began first; a cell with no poll, or one
   reading `unavailable`, is set aside. Computed from the committed ledger
-  alone. Because a same-day tie already reads retrospective on the harness
+  alone. A line counting these cells back is retrospective, unclaimable
+  iteration signal, read beside its always-deny floor like any other. Because
+  a same-day tie already reads retrospective on the harness
   clock's UTC day and a later day already breaches the forward claim, these
   cells reach no forward figure under either rule; what the set-aside moves is
   the retrospective stratum of the interim stage blocks, where a cell that
@@ -1564,9 +1569,11 @@ exist:
 - **`post-conference-first-forecast`** — every cell on a cert distribution
   event whose first forward frozen-scope cell (by harness `run_id`) ran on or
   after the day the conference that **actually considered** the petition sat
-  (`cert_signals.considering_conference` reads `sat`: a later distribution,
-  a reschedule, or a call for response entered before the conference moves or
-  removes it). The reading needs the petition's docket entries, which live in
+  (`cert_signals.considering_conference` reads `sat`: a reschedule or a call
+  for response entered before the conference removes it, and a relist moves
+  it to the next conference only where the relist was docketed by the first
+  cell's run day — `cert_signals.relisted_past`, a date-dependent carve-out the
+  census counts). The reading needs the petition's docket entries, which live in
   the corpus, so these events are **listed** in
   `src/fedcourtsai/set_aside_events.json` from a corpus census
   (`scripts/checks/post_conference_census.py`, which also reports any census
@@ -1576,8 +1583,10 @@ exist:
   the grant list has largely implied, and their removal is plausibly outcome-correlated — which is why the
   reading with them counted is published beside the default rather than
   withheld. The fan-out does not mint such a cell
-  (`store.distribution_conference_considered`), so the list closes once every
-  cell minted before that guard is on it.
+  (`store.distribution_conference_considered`). The list is complete only as
+  of its last census: a row the census later finds owed is appended with its
+  own dated freeze-record entry, and the list is closed once the census reports
+  no owed row with the guard live.
 
 `excluded` is stage-blind and counted after the three exclusions, so a grading
 those rules dropped is never counted here, and it is never netted against a

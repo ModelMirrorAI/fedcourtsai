@@ -477,7 +477,10 @@ def revoked_window_board(
 
     registry = tuple(lifted.get(w, w) for w in process_version.COUNTING_WINDOWS)
     with process_version.counting_windows(registry):
-        run = stratify(data_root)
+        # The revoked window's figures as its own board counted them: a
+        # revocation discloses what the window scored, so the set-aside — a
+        # default-figure rule of the ongoing boards — is not applied to it.
+        run = stratify(data_root, apply_set_aside=False)
         cells = [cell for cell in run.cells if in_slice(cell[0], run.cell_windows)]
         rows = iter_predictions(data_root)
         slice_events: dict[str, set[tuple[str, str]]] = {w.digest: set() for w in revoked}

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 from datetime import UTC, date, datetime
 from pathlib import Path
 from types import ModuleType
@@ -16,8 +17,12 @@ from types import ModuleType
 import pytest
 from pydantic import ValidationError
 
-from fedcourtsai import set_aside
-from fedcourtsai.claim_metrics import build_claim_scores, claim_set_aside_sensitivity
+from fedcourtsai import ops, set_aside
+from fedcourtsai.claim_metrics import (
+    build_claim_scores,
+    claim_set_aside_sensitivity,
+    claim_surface_set_aside,
+)
 from fedcourtsai.integrity import FORWARD, RETROSPECTIVE, StratifiedCell
 from fedcourtsai.leaderboard import (
     build_leaderboard,
@@ -25,6 +30,7 @@ from fedcourtsai.leaderboard import (
     set_aside_record,
 )
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import cert_signals
 from fedcourtsai.schemas import (
     DocketPollRecord,
     Engine,
@@ -44,8 +50,9 @@ from tests.test_claim_metrics import _block
 from tests.test_claim_metrics import _evaluation as _claim_evaluation
 from tests.test_leaderboard import _evaluation, _write_cell
 
-#: How the entry declaring the listed rows opens, so the reverse check can find it.
-_LISTING_HEADING = "- **A forward cell the record cannot show to be forward is set aside"
+#: The sentence of a declaring entry that lists the set-aside events, and its end.
+_LISTING_MARK = "set_aside_events.json` lists"
+_LISTING_END = ". "
 
 APPLICATION = "scotus/9526000447"
 MOTION = "evt-motion-disposition"
@@ -111,7 +118,7 @@ def test_interim_decision_day_reads_the_cell_clock_in_court_time(
 ) -> None:
     prediction = _prediction(at, mode=mode)
     outcome = _outcome(date(2026, 10, 2))
-    assert set_aside.interim_decision_day(prediction, outcome, stage, poll) is expected
+    assert set_aside.interim_decision_day(prediction, outcome, stage, lambda: poll) is expected
     reason = set_aside.set_aside_reason(
         APPLICATION, MOTION, prediction, outcome, stage, lambda: poll
     )
@@ -208,16 +215,32 @@ def _freeze_entries() -> list[str]:
 
 @pytest.mark.reads_docs
 def test_every_listed_event_is_declared_by_its_own_dated_freeze_record_entry() -> None:
+    # Each row must point at a landed entry that names the event — case and
+    # event together — and carries the row's date in its own heading, so a row
+    # appended later owes an entry of its own.
     entries = _freeze_entries()
-    for (case_id, _event_id), event in set_aside.SET_ASIDE_EVENTS.items():
+    for (case_id, event_id), event in set_aside.SET_ASIDE_EVENTS.items():
         named = [
             entry
             for entry in entries
-            if f"`{case_id}`" in entry and entry.startswith(_LISTING_HEADING)
+            if f"`{case_id}` `{event_id}`" in entry
+            and entry.split(".**", 1)[0].endswith(event.declared.isoformat())
         ]
-        assert named, case_id
-        heading = named[0].split(".**", 1)[0]
-        assert heading.endswith(event.declared.isoformat()), (heading, event.declared)
+        assert named, (case_id, event_id, event.declared)
+
+
+@pytest.mark.reads_docs
+def test_every_event_a_listing_entry_names_is_still_listed() -> None:
+    # The reverse direction: a listed event whose row left the registry would
+    # put back gradings a dated entry set aside.
+    listed = {f"`{case_id}` `{event_id}`" for case_id, event_id in set_aside.SET_ASIDE_EVENTS}
+    declaring = [entry for entry in _freeze_entries() if _LISTING_MARK in entry]
+    assert declaring, "the freeze record lists no set-aside event"
+    for entry in declaring:
+        listing = entry.split(_LISTING_MARK, 1)[1].split(_LISTING_END, 1)[0]
+        named = set(re.findall(r"`scotus/\d+` `evt-[a-z0-9-]+`", listing))
+        assert named, entry[:200]
+        assert named <= listed, sorted(named - listed)
 
 
 # --- the pass ----------------------------------------------------------------
@@ -353,9 +376,36 @@ def test_the_claim_surface_lines_only_its_own_population() -> None:
         SetAsideCell(interim, "interim-decision-day"),
     ]
     lines = claim_set_aside_sensitivity(held, build_claim_scores([kept, aside, interim]))
+    # The surface's record counts its own population only: the interim cell set
+    # aside on the leaderboard's stage blocks was never on this surface.
+    record = set_aside_record(claim_surface_set_aside(held))
+    assert record is not None
+    assert record.excluded == 1
+    assert record.by_reason == {"post-conference-first-forecast": 1}
     (line,) = lines
     assert (line.predictor_id, line.stratum, line.set_aside) == ("alpha", "forward", 1)
     assert line.including is not None and line.including.events == 2
+
+
+# --- the relist carve-out ----------------------------------------------------
+
+
+def _docket(*entries: tuple[str, str]) -> dict[str, object]:
+    return {"ProceedingsandOrder": [{"Date": d, "Text": t} for d, t in entries]}
+
+
+def test_a_relist_docketed_by_the_run_day_keeps_the_petition_forward() -> None:
+    relisted = _docket(
+        ("Jul 01 2026", "DISTRIBUTED for Conference of 9/28/2026."),
+        ("Sep 30 2026", "DISTRIBUTED for Conference of 10/9/2026."),
+    )
+    assert cert_signals.relisted_past(relisted, date(2026, 10, 3))
+    # Date-dependent: run before the relist was docketed, it reads the
+    # conference that sat.
+    assert not cert_signals.relisted_past(relisted, date(2026, 9, 29))
+    # A first distribution still ahead is no relist.
+    ahead = _docket(("Jul 01 2026", "DISTRIBUTED for Conference of 10/9/2026."))
+    assert not cert_signals.relisted_past(ahead, date(2026, 10, 3))
 
 
 # --- the corpus-check census --------------------------------------------------
@@ -392,9 +442,22 @@ def test_the_census_reconciles_with_the_listed_rows() -> None:
     ]
     unreadable = [{"case_id": "scotus/4", "event_id": "e", "reason": "no live payload"}]
     listed = {("scotus/1", "evt-petition-disposition"), ("scotus/3", "evt-petition-disposition")}
-    text = census.render(rows, unreadable, listed)
+    text = census.render(rows, unreadable, listed, [("scotus/5", "evt-petition-disposition")])
     assert "- census events: 2 (1 resolved, 1 with graded cells, 9 graded cells)" in text
     assert "- census events not listed (rows owed): 1" in text
     assert "- listed events the census does not find: 1" in text
     assert "- `scotus/3` `evt-petition-disposition`" in text
     assert "- `scotus/4` `e`: no live payload" in text
+    assert "- events kept in by a relist docketed by the first cell's run day: 1" in text
+
+
+def test_the_ops_report_prints_the_set_aside_count() -> None:
+    held = [SetAsideCell(_cert("alpha", "evt-b", correct=0, brier=0.81), "interim-decision-day")]
+    digest = ops.summarize_substance(
+        cell_counts=(1, 1, 1), stratified_evaluations=[], set_aside=set_aside_record(held)
+    )
+    text = ops.render_substance(digest)
+    assert "Set aside: **1** graded cell(s)" in text
+    assert "1 interim-decision-day" in text
+    # A board the set-aside emptied is not the shakedown state.
+    assert "No frozen-process evaluations yet" not in text

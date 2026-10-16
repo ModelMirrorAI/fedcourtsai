@@ -853,7 +853,7 @@
         }
       ],
       "default": null,
-      "description": "The gradings this build set aside from its default figures, exactly as the leaderboard records them; omitted where nothing in scope is set aside"
+      "description": "The gradings this build set aside from its default figures, counted over this surface's own population (cert's first moment) \u2014 so a set-aside the leaderboard's stage blocks carry is not counted here; omitted where nothing in that population is set aside"
     },
     "set_aside_sensitivity": {
       "description": "Each cert-stage claim figure the set-aside moved, recomputed with the set-aside gradings counted, sorted by predictor then stratum; omitted while it lists nothing",

@@ -724,6 +724,43 @@ _RESPONSE_REQUESTED_RE = re.compile(r"^\s*response\s+requested\b", re.I)
 #: A bare reschedule entry: takes a petition off the conference it was distributed for.
 _RESCHEDULED_RE = re.compile(r"^\s*rescheduled\b", re.I)
 
+
+def petition_distributions(payload: Mapping[str, Any], *, through: date) -> list[tuple[date, date]]:
+    """Every petition distribution filed on or before ``through``: ``(filed, conference)``.
+
+    In docket order, under the entry-initial parse (``dist-v2``), so an
+    ancillary paper's distribution never appears; an entry whose date or
+    conference will not parse is skipped.
+    """
+    found: list[tuple[date, date]] = []
+    for text, raw in proceedings_entries(payload):
+        filed = entry_date(raw)
+        match = _PETITION_DISTRIBUTED_RE.search(text)
+        if filed is None or match is None or filed > through:
+            continue
+        parsed = conference_date(match.group(1))
+        if parsed is not None:
+            found.append((filed, parsed))
+    return found
+
+
+def relisted_past(payload: Mapping[str, Any], run_day: date) -> bool:
+    """Whether a relist docketed by ``run_day`` moved the petition past a conference that sat.
+
+    The carve-out :func:`considering_conference` makes: a petition whose
+    latest distribution by the run names a conference still ahead, but an
+    earlier one names a conference on or before the run day, is read against
+    the conference ahead — the relist moment, forecast by design. The reading
+    is date-dependent: the relist entry must be docketed by the run day, so a
+    cell run between the conference and the relist's docketing reads the
+    conference that sat.
+    """
+    distributions = petition_distributions(payload, through=run_day)
+    if not distributions or distributions[-1][1] <= run_day:
+        return False
+    return any(conference <= run_day for _filed, conference in distributions[:-1])
+
+
 ConferenceReading = Literal["sat", "ahead", "off", "undistributed", "unknown"]
 
 
@@ -773,13 +810,8 @@ def considering_conference(
     ]
     conference: date | None = None
     distributed: date | None = None
-    for text, filed in entries:
-        match = _PETITION_DISTRIBUTED_RE.search(text)
-        if match is None or filed > run_day:
-            continue
-        parsed = conference_date(match.group(1))
-        if parsed is not None:
-            conference, distributed = parsed, filed
+    for filed, parsed in petition_distributions(payload, through=run_day):
+        conference, distributed = parsed, filed
     if conference is None or distributed is None:
         return None, "undistributed"
     if conference > run_day:

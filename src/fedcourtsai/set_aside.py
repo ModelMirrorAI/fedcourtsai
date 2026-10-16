@@ -27,10 +27,14 @@ the fact comes from:
 (or rows in the registry, for a listed reason), and its freeze-record entry.
 Every board inherits it through :func:`fedcourtsai.store.stratify`, which
 publishes it in the ``set_aside`` block and the sensitivity lines with no
-further change. The grain is the scored cell; a reason that sets aside
+further change. The grain is the scored cell. A reason that sets aside
 individual **claims** inside a cell would add a claim-grain predicate here and
 apply it where the claim totals are summed, keeping the same reason vocabulary
-and the same block.
+and the same block, and it owes two things the cell grain does not: its own
+sensitivity line **per reason** — a claim total with that reason's claims
+counted back, never stacked with another reason's or another departure's —
+and counts in **claim units** (claims set aside, and the cells they sit in),
+since a cell-grain count would misstate how much of a total moved.
 """
 
 from __future__ import annotations
@@ -94,7 +98,7 @@ def interim_decision_day(
     prediction: Prediction,
     outcome: Outcome,
     stage: Stage | None,
-    pre_mint_poll: str | None,
+    pre_mint_poll: Callable[[], str | None],
 ) -> bool:
     """Whether a forward interim cell ran on or after its decision day, unpolled.
 
@@ -109,17 +113,18 @@ def interim_decision_day(
     every cell written before the poll existed is — leaves the ordering
     unresolvable, and the cell is set aside.
 
-    ``pre_mint_poll`` is the scored prediction's ``usage.json``
-    ``pre_mint_poll.state``, or ``None`` where either is absent. A ``replay``
-    or context-null cell is never set aside here: it claims nothing about
-    timing.
+    ``pre_mint_poll`` returns the scored prediction's ``usage.json``
+    ``pre_mint_poll.state``, or ``None`` where either is absent; it is a thunk,
+    asked only for a cell the timing test has already caught, so the ledger
+    read is paid only there. A ``replay`` or context-null cell is never set
+    aside here: it claims nothing about timing.
     """
     context = prediction.context
     if context is None or context.mode != "forward" or stage != Stage.interim:
         return False
     if court_day(cell_clock(prediction)) < outcome.resolved_at:
         return False
-    return pre_mint_poll != "open"
+    return pre_mint_poll() != "open"
 
 
 def set_aside_reason(
@@ -132,20 +137,11 @@ def set_aside_reason(
 ) -> SetAsideReason | None:
     """Why this scored cell is set aside from the default figures, or ``None``.
 
-    The listed reasons are asked first, since they key on the event alone;
-    ``pre_mint_poll`` is a thunk so the poll is read only for a cell the
-    timing test has already caught.
+    The listed reasons are asked first, since they key on the event alone.
     """
     listed = SET_ASIDE_EVENTS.get((case_id, event_id))
     if listed is not None:
         return listed.reason
-    context = prediction.context
-    if (
-        context is not None
-        and context.mode == "forward"
-        and stage == Stage.interim
-        and court_day(cell_clock(prediction)) >= outcome.resolved_at
-        and interim_decision_day(prediction, outcome, stage, pre_mint_poll())
-    ):
+    if interim_decision_day(prediction, outcome, stage, pre_mint_poll):
         return "interim-decision-day"
     return None

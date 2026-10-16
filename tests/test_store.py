@@ -40,6 +40,7 @@ from fedcourtsai.store import (
     iter_tooling,
     iter_tracked_cases,
     ledger_cell_counts,
+    live_payload_reader,
     normalized_stage,
     open_events,
     recent_cell_census,
@@ -1474,6 +1475,44 @@ def test_a_relisted_petition_is_open_against_its_next_conference(tmp_path: Path)
     assert forecastable_events(db, "scotus", 55, today=date(2026, 10, 4)) == [
         "evt-petition-disposition"
     ]
+
+
+def test_an_unreadable_content_store_refuses_rather_than_raising(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A store error under the conference bound degrades the decision — the
+    cell is refused and deferred — and never fails the plan or the routing."""
+    db = corpus.corpus_db_path(tmp_path)
+    _distributed_petition(db, 57, _CALLED_FOR_RESPONSE, stored=date(2026, 10, 6))
+
+    def broken(conn: object, case_id: str) -> None:
+        raise RuntimeError("the content store is down")
+
+    monkeypatch.setattr(corpus, "latest_live_snapshot", broken)
+    assert forecastable_events(db, "scotus", 57, today=date(2026, 10, 4)) == []
+
+
+def test_the_payload_reader_reads_each_case_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    reads: list[str] = []
+    real = corpus.latest_live_snapshot
+
+    def counting(conn: corpus.ReadConnection, case_id: str) -> object:
+        reads.append(case_id)
+        return real(conn, case_id)
+
+    monkeypatch.setattr(corpus, "latest_live_snapshot", counting)
+    db = corpus.corpus_db_path(tmp_path)
+    _distributed_petition(db, 58, _SAT, stored=date(2026, 10, 6))
+    with corpus.connect_readonly(db) as conn:
+        reader = live_payload_reader(conn)
+        assert reader("scotus/58") == reader("scotus/58")
+    assert reads == ["scotus/58"]
+    # Both cert-capable arms ask the same case, and it is still read once.
+    reads.clear()
+    forecastable_events(db, "scotus", 58, today=date(2026, 10, 4))
+    assert reads == ["scotus/58"]
 
 
 def test_distribution_conference_considered_reads_the_payload_only_once_past(
