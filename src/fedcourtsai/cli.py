@@ -94,6 +94,7 @@ from .backtest import (
     run_backtest,
     select_backtest_set,
 )
+from .buttondown import API_KEY_ENV, ButtondownError, make_client, post_draft
 from .cert_backtest import (
     CERT_BACKTEST_SCOPES,
     ReplayOutcome,
@@ -358,6 +359,7 @@ from .promotion_body import Batch, batch_prs, render, same_body, splice
 from .public_update import (
     build_public_update,
     last_complete_week,
+    public_update_subject,
     render_public_update,
     week_bounds,
 )
@@ -9961,6 +9963,67 @@ def public_update_cmd(
             f"{len(update.new)} newly forecast -> {out}",
             err=True,
         )
+
+
+@app.command("post-public-update")
+def post_public_update_cmd(
+    *,
+    tag: Annotated[
+        str,
+        typer.Option(help="Buttondown tag whose subscribers the draft is addressed to."),
+    ],
+    week: Annotated[
+        str,
+        typer.Option(
+            help="ISO week to post, as YYYY-Www; defaults to the last complete week (UTC)."
+        ),
+    ] = "",
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run", help="Render the subject and body and print them; contact nothing."
+        ),
+    ] = False,
+) -> None:
+    """Create the week's public update as a Buttondown draft for one tag's subscribers.
+
+    Draft only: a person reads it and presses send in Buttondown. Idempotent per
+    week, since an email already carrying the week's subject is returned rather
+    than duplicated. Exits 3 on a week with nothing to send, 2 on a bad week or a
+    missing key, 1 when Buttondown refuses. The key is read from the environment
+    and never printed.
+    """
+    settings = get_settings()
+    chosen = week or last_complete_week(datetime.now(UTC))
+    try:
+        week_bounds(chosen)
+    except ValueError as exc:
+        typer.echo(f"post-public-update: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    update = build_public_update(settings.data_root, chosen)
+    if update.empty:
+        typer.echo(f"post-public-update: nothing to send for {chosen}.", err=True)
+        raise typer.Exit(code=3)
+    subject = public_update_subject(update)
+    body = render_public_update(update, title=False)
+    if dry_run:
+        typer.echo(f"Subject: {subject}\nTag: {tag}\n\n{body}", nl=False)
+        return
+    api_key = os.environ.get(API_KEY_ENV, "")
+    if not api_key.strip():
+        typer.echo(
+            f"post-public-update: the {API_KEY_ENV} environment variable is unset.", err=True
+        )
+        raise typer.Exit(code=2)
+    try:
+        with make_client(api_key) as client:
+            draft = post_draft(client, subject=subject, body=body, tag_name=tag)
+    except ButtondownError as exc:
+        typer.echo(f"post-public-update: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    verb = "created draft" if draft.created else f"already present ({draft.status})"
+    where = f" {draft.url}" if draft.url else ""
+    typer.echo(f"post-public-update: {chosen}: {verb} {draft.email_id}{where}")
 
 
 @app.command("daily-digest")

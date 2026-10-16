@@ -446,6 +446,7 @@ RUN_GATED_WORKFLOWS = frozenset(
     {
         "corpus-check.yml",
         "integration-test.yml",
+        "post-public-update.yml",
         "promotion-prep.yml",
         "promotion-record.yml",
         "run-analytics.yml",

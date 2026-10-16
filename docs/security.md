@@ -1190,6 +1190,36 @@ runner seam's scrubbed base environment strips every AWS variable and every
 credential-shaped name except the engine's own auth — the same posture as a
 back-test replay cell.
 
+## The `website` environment
+
+`post-public-update` creates the weekly public update as a **draft** in
+Buttondown, the service that runs the site's email list. Its `post` job alone
+binds `website`, which holds one secret, the Buttondown API key. No other job
+in the repository names that environment, so neither an agent cell nor any job
+that binds `prod`, `staging` or `review` can read the key.
+
+Configure it with:
+
+- **deployment branches**: a custom policy of exactly `main`. The job also
+  refuses any other ref in its first step, because the promotion gate reads no
+  branch policy but `corpus-check`'s, and an edited or removed policy here
+  would otherwise fail open.
+- **one secret**: the Buttondown API key, with the permissions below. No
+  variables and no required reviewers: the draft is the hold, since nothing is
+  sent until the maintainer presses send in Buttondown.
+
+The key's Buttondown permissions are **emails: write** and **tags: read**,
+and **none** on every other category. Emails write is what creating a draft
+needs; tags read resolves the audience tag's name to the id a draft's
+recipient filter takes. Buttondown has no draft-only level, so emails write
+could also send, schedule or edit an email. The guard is the code:
+`fedcourtsai.buttondown` writes exactly one request, a create with the status
+fixed to `draft`, and refuses to create a draft whose audience tag it cannot
+resolve, so no draft can default to the whole list. Subscribers are never read.
+
+Rotate the key in Buttondown and replace the secret; nothing else holds it. A
+leaked key reaches the list's emails and tag names, not its subscribers.
+
 ## S3 / the private stores
 
 Three IAM roles, assumed via GitHub OIDC (no static keys), cover both private

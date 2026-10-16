@@ -1,0 +1,153 @@
+name: post-public-update
+
+# The weekly public update for the site's email list, delivered as a Buttondown
+# DRAFT. Each Monday it renders the last complete ISO week from the committed
+# ledger (`fedcourts public-update`'s renderer) and creates one draft addressed
+# to the subscribers carrying the `weekly-scotus` tag. Nothing here sends: the
+# maintainer reads the draft and presses send in Buttondown. A week with nothing
+# resolved and no new forecast posts nothing.
+#
+# Its own workflow, rather than a job on run-ops, because it is a different
+# risk class: it holds a third-party key that can send to the list, and that
+# key lives in the `website` environment, bound by this one job. A deployment
+# environment brings the run gate with it, and putting it on run-ops would
+# gate the ops report and the daily digest too, which hold nothing of the kind.
+#
+# It reads only committed data (no corpus, no model call) and writes nothing
+# to the repository, so the token it runs with is read-only. The post is
+# idempotent per week — the command returns an email already carrying the
+# week's subject instead of making a second — so a re-dispatch is safe.
+on:
+  schedule:
+    # Mondays after the morning pull and the ops tick, so the week's last
+    # resolutions and forecasts are committed before it renders.
+    - cron: "0 12 * * 1"
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "ISO week to post (YYYY-Www); blank posts the last complete week"
+        required: false
+        default: ""
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: post-public-update
+  cancel-in-progress: false
+
+jobs:
+  # The run gate (src/fedcourtsai/run_gate.py): a dispatch, or a re-run of any
+  # run, proceeds only for a login config/dispatchers.json names. No
+  # environment, no secret, a read-only token, and no project code: a sparse
+  # checkout of the gate and its allow-list alone, run by path with the
+  # runner's Python in isolated mode. Every other job needs this one and checks
+  # the attempt it judged, because re-running some jobs does not re-run this
+  # one; `run-gate` below fails the run when that check refused.
+  authorize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      attempt: ${{ steps.decide.outputs.attempt }}
+      rerunners: ${{ steps.decide.outputs.rerunners }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            src/fedcourtsai/run_gate.py
+            config/dispatchers.json
+          sparse-checkout-cone-mode: false
+      - name: Authorize who started this run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: >-
+          python3 -I -S src/fedcourtsai/run_gate.py --workflow post-public-update.yml
+          --event-name "$EVENT_NAME" --actor "$ACTOR"
+          --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
+          --github-output "$GITHUB_OUTPUT"
+
+  post:
+    needs: [authorize]
+    if: >-
+      ${{ needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-24.04
+    # Setup plus a read of data/ and a handful of small API calls, each bounded
+    # by the client's own timeout and retry; the cap is a backstop.
+    timeout-minutes: 15
+    # The environment holding the Buttondown key, its deployment branches
+    # restricted to `main`, so the key is reachable only from code a
+    # maintainer-merged promotion put there.
+    environment: website
+    permissions:
+      contents: read # read the committed ledger under data/
+    steps:
+      # The environment's branch policy is the real gate, but it is a
+      # repository setting this workflow cannot see, and an edited or removed
+      # policy fails open. So the job states the requirement too.
+      - name: Refuse a run from anything but the main branch
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "${REF_NAME}" != "main" ]; then
+            echo "::error::post-public-update runs only from 'main' (started from '${REF_NAME}'). The website environment's deployment branches should already refuse this — if this message is what stopped the run, check that policy too (docs/security.md)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # this job pushes nothing
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Create the week's draft
+        env:
+          BUTTONDOWN_API_KEY: ${{ secrets.BUTTONDOWN_API_KEY }}
+          WEEK: ${{ inputs.week }}
+        run: |
+          set -euo pipefail
+          # Rendering, the tag lookup, the once-a-week check and the bounded
+          # retry all live in tested Python; this step only maps the command's
+          # exit codes. 3 means the week had nothing to send, which is a
+          # success for this job, not a failure.
+          set +e
+          uv run fedcourts post-public-update --tag weekly-scotus --week "${WEEK}" > post.txt
+          status=$?
+          set -e
+          if [ "$status" -eq 3 ]; then
+            echo "Nothing to send this week; no draft created." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+          cat post.txt >> "$GITHUB_STEP_SUMMARY"
+
+  run-gate:
+    needs: [authorize, post]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail a run the gate refused
+        if: >-
+          ${{ needs.authorize.result != 'success'
+          || (needs.authorize.outputs.attempt != github.run_attempt
+          && !contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+        env:
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+        run: |
+          echo "::error::The run gate refused this run or re-run (started by ${TRIGGERING_ACTOR}): see the authorize job's log, or config/dispatchers.json for who may re-run."
+          exit 1
