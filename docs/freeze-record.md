@@ -9369,10 +9369,8 @@ freeze commit is recorded here.
   `merits_decided`. That holds under any clock,
   a forward cell's today clock included. The census is SCOTUS-only, so the
   circuit rows' opinion clusters go uncounted. At the carrying promotion's
-  vintage the replay census is `<FILL: replay census line from the check
-  below>`, and the forward census is `<FILL: forward census line from the
-  check below>`, both read from the blob whose `fedcourts corpus-info`
-  freshness line is `<FILL: corpus-info freshness line>`.
+  vintage the replay census is `695 admitted priors; citation count returned on 0 of 40 that store one; opinion cluster passed on 39 of 39 dated and 0 of 0 undated; nulled date_decided 0 of 45, merits_brief_filed 37 of 488, distributed_for_conference 37 of 633, last_live_polled 695 of 695`, and the forward census is `727 admitted priors; citation count returned on 0 of 43 that store one; opinion cluster passed on 39 of 39 dated and 0 of 0 undated; nulled date_decided 0 of 62, merits_brief_filed 0 of 489, distributed_for_conference 0 of 644, last_live_polled 724 of 724`, both read from the blob whose `fedcourts corpus-info`
+  freshness line is `freshness: latest pull 2026-10-16, latest snapshot 2026-07-13`.
 
   The census, from a dev checkout over a pulled corpus, run once on the
   promotion's first parent and once on its merge. `mask-census.jq` is this
