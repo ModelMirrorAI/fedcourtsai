@@ -52,11 +52,13 @@ from .cert_signals import (
 )
 from .decision_record import DecisionRecord, read_decision_record
 from .interim_signals import (
+    InterimReading,
     application_arrival_date,
     application_kind,
     escalation_signals,
     interim_disposition_date,
     match_interim_disposition,
+    read_interim_disposition,
     response_filed_date,
     response_requested_date,
 )
@@ -872,6 +874,48 @@ def _interim_resolution(
             continue
         decided = date.fromisoformat(entry["date_filed"]) if entry.get("date_filed") else None
         resolved = (matched[0].value, decided)
+    return resolved
+
+
+def interim_resolution(payload: Mapping[str, Any]) -> tuple[str | None, date | None]:
+    """(disposition, decided) for an application's supremecourt.gov payload.
+
+    The registered reading :func:`map_live_docket` latches onto an application
+    row, exposed so a read-only census over stored snapshots
+    (:mod:`fedcourtsai.pipeline.interim_reading_census`) re-reads each entry
+    exactly as the live channel does.
+    """
+    return _interim_resolution(_live_entries(payload))
+
+
+def interim_disposing_text(payload: Mapping[str, Any]) -> str | None:
+    """The text of the entry :func:`interim_resolution` takes its label from, or ``None``.
+
+    The last entry the registered reading matches, exposed for the read-only
+    census's probe of that reading's known misreading.
+    """
+    found: str | None = None
+    for entry in _live_entries(payload):
+        text = str(entry.get("description") or "")
+        if match_interim_disposition(text) is not None:
+            found = text
+    return found
+
+
+def interim_reading(payload: Mapping[str, Any]) -> tuple[InterimReading | None, date | None]:
+    """(finer reading, decided) for an application's payload — descriptive only.
+
+    The :func:`interim_resolution` twin under
+    :func:`~fedcourtsai.pipeline.interim_signals.read_interim_disposition`, on
+    the same last-disposing-entry rule. Nothing ingest stores reads it.
+    """
+    resolved: tuple[InterimReading | None, date | None] = (None, None)
+    for entry in _live_entries(payload):
+        reading = read_interim_disposition(str(entry.get("description") or ""))
+        if reading is None:
+            continue
+        decided = date.fromisoformat(entry["date_filed"]) if entry.get("date_filed") else None
+        resolved = (reading, decided)
     return resolved
 
 

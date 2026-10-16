@@ -9998,3 +9998,151 @@ freeze commit is recorded here.
     with a reason opening `held: awaiting opinion`. The first live window
     after the decision prints an `enrich-opinions (applied, awaiting-grading)`
     line on its step summary with `walked` at least 1.
+
+- **A finer, descriptive reading of interim partial grants and moot dismissals
+  is added; every scored and cell-facing interim reading is unchanged under
+  `proc-v9`; recorded 2026-10-16.** A **parser** entry that moves no value. It
+  also records a maintainer decision about the next process label, without
+  registering that label's terms.
+
+  **What was added.** `pipeline.interim_signals.read_interim_disposition`
+  returns an `InterimReading`, a descriptive vocabulary kept apart from
+  `Disposition`.
+  - Five of its six values share a spelling with a `Disposition` member.
+    `granted-in-part` is one of them; the cert vocabulary already carries it,
+    on the granted side.
+  - Only `dismissed-moot` is new, and it is no `Disposition` value. No interim
+    outcome records `granted-in-part`, because the registered reading never
+    produces it.
+
+  The reader works on the application's own clause. A clause opens on
+  "application" only where the word is the subject, so not after a
+  preposition such as "of the" or "for the". It runs to the end of its
+  sentence, a semicolon, ", and" followed by an article or possessive, or
+  "and the motion", "and the petition" or "and the request".
+  - A **partial grant** is `granted-in-part`. The clause carries "granted"
+    followed directly (an optional comma, an optional "but only") by "in
+    part", "as to", "insofar as", "to the extent" or "except". Or it carries
+    "denied" followed the same way, beside a "granted" anywhere in the
+    clause.
+  - A **moot dismissal** is `dismissed-moot`. The clause carries "denied" or
+    "dismissed" followed within 40 characters, with no comma or semicolon,
+    by "as moot".
+  - The partial reading wins over the moot one. Anything else takes the
+    registered label.
+
+  `pipeline.ingest.interim_reading` applies the reader on the
+  last-disposing-entry rule. `fedcourts interim-reading-census`
+  (`pipeline.interim_reading_census`, read-only) measures it, and is
+  described below.
+
+  **What did not move: the registered collapse is honoured.**
+  - `match_interim_disposition`, which ingest stores, is the registered
+    reading unchanged. A mixed partial disposition reads denial-first:
+    "granted in part and denied in part" is `denied`, and a qualified grant
+    with no "denied" in it is `granted`. A dismissal or denial as moot reads
+    by its verb, as `denied` or `dismissed`.
+  - Every scored and cell-facing reading takes the stored registered label
+    and none reads the finer one. That covers the corpus `disposition`
+    column, an outcome's `actual_disposition`, `actual_granted` and
+    `disposition_basis`, the Brier, `correct`, the claim block, the stratum,
+    the statpack's interim counts, the interim base rate, `stamp-cell`, and a
+    `fedcourts query` prior's label.
+  - Tests pin this:
+    - the record ingest writes for a partial and for a moot application is
+      byte-identical when the finer reader is made to fail;
+    - an AST scan allows the finer names only in the defining module, in
+      ingest's two read-only wrappers, in the census module, and in the CLI
+      as the census's sole caller;
+    - the census leaves the corpus file, every stored row and the committed
+      outcomes byte-identical.
+  - No committed `outcome.json` is relabeled. The committed interim events
+    whose evaluations quote a moot order, `26A139` (`scotus/9526000139`) and
+    `26A477` (`scotus/9526000477`), keep `denied` and their 78 scored
+    `interim-disposition` claims as registered. Read at `origin/main`
+    `338630861`, that is 6 events, 18 predictions and 81 evaluation records.
+  - The `Disposition` vocabulary, every schema, the predict and evaluate
+    prompts and every digest are unchanged. `uv run fedcourts process-digest
+    --all` prints `proc-v9` and the same six digests as the entry above.
+  - No harness boundary is registered, because no cell-facing surface
+    changes.
+
+  **A known misreading in the registered reading, under `proc-v9`.** The
+  registered denial pattern is not clause-scoped. "The application for stay
+  is granted, and the motion to expedite is denied as moot." therefore reads
+  `denied`, though the application was granted. This entry does not change
+  that reading. Its prevalence is unknown. The census lists the stored
+  `denied` rows whose disposing entry holds an application clause that
+  grants with no denial in it (`registered_plain_grant_misreads`). That count
+  is a probe of this shape, not a census of every misreading, and it holds
+  candidates rather than confirmed misreads: a disposing entry with two
+  application clauses (a stay denied, an administrative stay granted) is
+  counted though its stored `denied` is right for the main application.
+
+  **The decision for the next process label.** The maintainer decided that
+  the next process label registers a new interim reading **in its own
+  freeze-record entry**. In outline, partial relief counts as a grant, and a
+  moot dismissal leaves the scored set and the base-rate denominator. This
+  entry registers none of that, and nothing here binds its terms. That entry
+  must settle, before activation:
+  - **Separate outcome fields** beside the registered ones. One
+    `outcome.json` serves every prediction on its event, whatever label
+    stamped it, so `actual_disposition`, `actual_granted` and
+    `disposition_basis` are never overwritten.
+  - **The reader keyed on the scored prediction's label**, across the Brier,
+    `correct`, the claim block, the stratum, `segment_base_rate`,
+    `stamp-cell` and `validate`'s `evaluation_correct_agrees`.
+  - **Whether a moot dismissal is truly unscored or scored in an unranked
+    stratum.** The procedural stratum is scored, and a top-level probability
+    is Brier-scored wherever it is, so these differ. The entry must also give
+    the claim mask its own reason. A mask conditioned on the outcome is not
+    "vacuous".
+  - **The probability target.** With moot dismissals out of the scored set
+    it is conditional: P(relief in whole or in part | not dismissed or
+    denied as moot).
+  - **`correct`**: whether it stays a label comparison or follows the
+    binary under partial grants.
+  - **The vocabulary**: a `Disposition` member and schema change for
+    `dismissed-moot`, or dropping it as a predictable label.
+  - **Whether a withdrawn or dismissed application not dismissed as moot**
+    stays ungranted, as the interim reading in `docs/salience.md` registers
+    today.
+  - **How the per-pool floor applies** once moot dismissals leave the
+    finer count, so a cell's baseline can be lost where today's would keep it.
+  - **How skill is read across the label change**, given that the base rate
+    is re-based on each side of it.
+
+  **The census.** It reports the statpack's substantive resolved and granted
+  counts per application Term, exactly as the interim section counts them;
+  a fixture test pins the equality. Beside them it reports the subset it
+  re-reads: resolved, application-parsed, live-slice rows with a stored
+  snapshot. It counts per Term the rows it cannot re-read, `unobservable`
+  and `non_live`. Within the re-read subset it gives the rows the finer
+  reading names, by Term, ask and label, and the committed interim outcomes
+  on them. Its result goes on the next line, one line of plain prose with no
+  angle bracket or backtick:
+  <FILL: interim reading census at corpus sha256 and corpus-info freshness, rows named partial or moot by Term and ask, statpack vs re-read substantive counts by Term with unobservable and non-live counts, registered disagreements, stored denials with a granting application clause as unconfirmed candidates for a side-motion misread, committed outcomes on the named rows>
+
+  **Residuals of the finer reading.**
+  - A partial stay worded only in a later sentence ("The application is
+    granted. The order is stayed insofar as …") reads as a plain grant.
+  - A filing that asks for partial relief ("Reply … asks that the
+    application be granted in part") reads `granted-in-part`. The reader
+    keys on the clause, not on who speaks.
+  - A grant "but only to the extent" reads `granted-in-part`, so a partial
+    stay the record holds as `granted` (the party-rates replication names
+    `24A884`) is named partial.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live, from a checkout of the carrying
+  merge:
+  - `uv run pytest tests/test_interim_signals.py tests/test_interim_reading_census.py`
+    is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    six digests above;
+  - with the corpus pulled and the content store addressed,
+    `uv run fedcourts interim-reading-census` reports
+    `stored_labels_written` 0 and an empty `registered_disagreements`, or
+    only drift that predates this change.
