@@ -1,0 +1,12 @@
+case_id: scotus/69777803
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2024-09-24'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Cid C. Franklin v. New York

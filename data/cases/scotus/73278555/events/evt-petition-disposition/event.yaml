@@ -1,0 +1,13 @@
+case_id: scotus/73278555
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2025-10-22'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Winston R. Anderson, et al. v. Intel Corporation Investment Policy Committee,
+  et al.

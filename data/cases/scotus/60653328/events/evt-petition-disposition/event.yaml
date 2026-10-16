@@ -1,0 +1,13 @@
+case_id: scotus/60653328
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2021-06-01'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: City of Tahlequah, Oklahoma, et al. v. Austin P. Bond, as Special Administrator
+  of the Estate of Dominic F. Rollice, Deceased

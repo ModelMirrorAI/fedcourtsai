@@ -1,0 +1,12 @@
+case_id: scotus/72479991
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2023-10-19'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: UPS Supply Chain Solutions, Inc. v. EVA Airways Corporation

@@ -1,0 +1,13 @@
+case_id: scotus/68458751
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2023-08-25'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: City of Grants Pass, Oregon v. Gloria Johnson, et al., on Behalf of Themselves
+  and All Others Similarly Situated

@@ -1,0 +1,13 @@
+case_id: scotus/72475106
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2021-12-23'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Bryan P. Stirling, Director, South Carolina Department of Corrections, et al.
+  v. Sammie Louis Stokes

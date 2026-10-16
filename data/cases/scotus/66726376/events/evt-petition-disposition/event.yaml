@@ -1,0 +1,12 @@
+case_id: scotus/66726376
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2019-09-17'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Stephen Busch, et al. v. Shari Guertin, et al.

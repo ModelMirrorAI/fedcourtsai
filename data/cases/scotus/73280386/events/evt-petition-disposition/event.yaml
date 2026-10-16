@@ -1,0 +1,13 @@
+case_id: scotus/73280386
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-01-28'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Kenneth Genalo, Director of the New York Field Office of U.S. Immigration and
+  Customs Enforcement, et al. v. Carol Williams Black, et al.

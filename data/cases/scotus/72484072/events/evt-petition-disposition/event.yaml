@@ -1,0 +1,13 @@
+case_id: scotus/72484072
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2024-10-01'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Sikousis Legacy, Inc., et al. v. B-Gas Limited, aka Bepalo LPG Shipping Ltd.,
+  et al.

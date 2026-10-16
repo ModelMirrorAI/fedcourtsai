@@ -1,0 +1,13 @@
+case_id: scotus/72484013
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2024-09-17'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Blue Mountains Biodiversity Project v. Shane Jeffries, in His Official Capacity
+  as Ochoco National Forest Supervisor, et al.

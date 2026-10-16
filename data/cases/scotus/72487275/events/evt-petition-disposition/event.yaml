@@ -1,0 +1,13 @@
+case_id: scotus/72487275
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2024-07-30'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Dale Folwell, State Treasurer of North Carolina, et al. v. Maxwell Kadel, et
+  al.

@@ -1,0 +1,14 @@
+case_id: scotus/68462680
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2023-10-05'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Starbucks Corporation v. M. Kathleen McKinney, Regional Director of Region
+  15 of the National Labor Relations Board, for and on Behalf of the National Labor
+  Relations Board
