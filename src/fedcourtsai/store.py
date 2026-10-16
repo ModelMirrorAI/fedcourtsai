@@ -9,12 +9,14 @@ case set and the event state are read from the packed corpus; the git tree under
 
 from __future__ import annotations
 
+import logging
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime, timedelta
+from functools import cache, partial
 from pathlib import Path
 from types import MappingProxyType
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from pydantic import BaseModel
 
@@ -34,6 +36,7 @@ from .integrity import (
 )
 from .paths import CasePaths
 from .pipeline import moments
+from .pipeline.cert_signals import considering_conference
 from .pipeline.moments import first_moment
 from .process_version import (
     counted_on_event,
@@ -56,10 +59,12 @@ from .schemas import (
     PredictableEvent,
     Prediction,
     ProcessVersion,
+    SetAsideReason,
     Stage,
     Stratum,
 )
 from .serialize import read_model
+from .set_aside import set_aside_reason
 from .voids import voided_reason
 
 
@@ -230,13 +235,124 @@ def _premature_distribution_cell(event: corpus.CorpusEvent, row: corpus.CorpusRo
     return event.kind == EventKind.petition
 
 
-def _cert_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+logger = logging.getLogger(__name__)
+
+#: A case's latest live docket payload and the day it was stored, or ``None``.
+PayloadReader = Callable[[str], tuple[date, Mapping[str, Any]] | None]
+
+
+def live_payload_reader(conn: corpus.ReadConnection) -> PayloadReader:
+    """The conference bound's payload reader over ``conn``: memoized, and never raising.
+
+    Memoized because one admission decision can ask the same case more than
+    once — both cert-capable arms test every distribution-moment event — and
+    under the corpus split each ask is a content-store read. Never raising
+    because the reader sits under the predict backlog, the predict matrix and
+    the live routing, where a content-store hiccup must degrade a decision
+    rather than fail the run: a read that raises answers ``None``, which
+    :func:`distribution_conference_considered` reads as no evidence the
+    petition is still open, and so refuses — the cell is deferred to a later
+    round, never minted on a guess. The failure is logged.
+    """
+
+    @cache
+    def read(case_id: str) -> tuple[date, Mapping[str, Any]] | None:
+        try:
+            return corpus.latest_live_snapshot(conn, case_id)
+        except Exception as exc:  # broad by design: a store error refuses, never crashes
+            logger.warning("conference bound: live payload for %s unreadable: %s", case_id, exc)
+            return None
+
+    return read
+
+
+def distribution_conference_considered(
+    row: corpus.CorpusRow, *, day: date, payloads: PayloadReader
+) -> bool:
+    """Whether the conference this petition is distributed for has sat on it by ``day``.
+
+    The one predicate the first-time fan-out admission and the re-predict rule
+    (:func:`fedcourtsai.pipeline.pull._reopenable_moment`) share, so a
+    distribution-moment cell is never minted, by either path, for a conference
+    that has already passed **and** considered the petition. The reading of
+    "considered" is :func:`fedcourtsai.pipeline.cert_signals.considering_conference`'s
+    — the same one the scored-figure set-aside's census applies to cells that
+    were minted before this guard — so the cell refused here and the cell set
+    aside there are one population.
+
+    The row's ``distributed_for_conference`` column is the cheap first read: a
+    petition whose conference is still ahead of ``day`` is open, and nothing
+    else is read. The column and the deciding read parse the docket
+    differently — the column takes the latest "DISTRIBUTED for Conference"
+    entry of any paper, the deciding read only the petition's own
+    (entry-initial, ``dist-v2``) — so the column only selects which rows are
+    read, and never decides a refusal on its own. Once the column names a
+    conference on or before ``day`` (the conference day itself counts as sat,
+    as the census counts a cell run that day), the case's latest live payload
+    decides. A petition the conference
+    did **not** consider stays forecastable: a later distribution moves the
+    conference ahead, and a call for response or a reschedule entered between
+    the distribution and the conference takes the petition off it, so the
+    petition was legitimately undecided and a cell on it is forward. Every
+    reading that cannot show that — the conference sat, the payload predates
+    the conference day, no petition distribution parses, or no live payload is
+    readable at all — refuses: an unreadable docket is no evidence the
+    petition is still open, and the cost of a wrong refusal is one deferred
+    cell, while the cost of a wrong admission is a forecast of a moment that
+    has already happened, which an undisposed petition after the grant list
+    almost always resolves as a denial.
+    """
+    conference = row.distributed_for_conference
+    if conference is None or conference > day:
+        return False
+    found = payloads(row.case_id)
+    if found is None:
+        return True
+    _, reading = considering_conference(found[1], found[0], day)
+    return reading not in ("off", "ahead")
+
+
+def _considered_distribution_cell(
+    event: corpus.CorpusEvent, row: corpus.CorpusRow | None, *, day: date, payloads: PayloadReader
+) -> bool:
+    """Whether this is a SCOTUS distribution-moment cell whose conference has considered it.
+
+    The upper bound beside :func:`_premature_distribution_cell`'s lower one,
+    keyed on the same moment reading (the declared moment, else the petition
+    kind) and shared by the same two arms for the same reason: the or-chain
+    routes around a refusal applied on one side alone. The bound itself is
+    :func:`distribution_conference_considered`.
+    """
+    if row is None or row.court != "scotus":
+        return False
+    spec = moments.spec_for(event.event_id)
+    if spec is not None:
+        if spec.moment is not Moment.distribution:
+            return False
+    elif event.kind != EventKind.petition:
+        return False
+    return distribution_conference_considered(row, day=day, payloads=payloads)
+
+
+def _distribution_cell_closed(
+    event: corpus.CorpusEvent, row: corpus.CorpusRow | None, *, day: date, payloads: PayloadReader
+) -> bool:
+    """Both bounds on a distribution-moment cell: not yet distributed, or already considered."""
+    return _premature_distribution_cell(event, row) or _considered_distribution_cell(
+        event, row, day=day, payloads=payloads
+    )
+
+
+def _cert_forecastable(
+    event: corpus.CorpusEvent, row: corpus.CorpusRow | None, *, day: date, payloads: PayloadReader
+) -> bool:
     """Whether an event is a forecastable cert-stage moment of a pending petition.
 
     The cert admission: an event the register declares at the **cert stage**,
     on a scotus row that is neither an application docket nor already decided,
-    whose declared moment's information set exists
-    (:func:`_premature_distribution_cell`). In practice this arm carries the
+    whose declared moment is still open — its information set exists and,
+    for the distribution moment, the conference has not already considered
+    the petition (:func:`_distribution_cell_closed`). In practice this arm carries the
     **CVSG order** and the **arrival moment** — the cert moments past the
     registry's first position (the arrival moment is chronologically the
     *earliest*; registry order is not chronology) — since the petition
@@ -270,7 +386,7 @@ def _cert_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) 
         and row.disposition is None
         and corpus.resolution_date(row) is None
         and corpus.out_of_scope_reason(row) is None
-        and not _premature_distribution_cell(event, row)
+        and not _distribution_cell_closed(event, row, day=day, payloads=payloads)
     )
 
 
@@ -388,7 +504,9 @@ def _merits_forecastable(
     )
 
 
-def _case_baseline_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
+def _case_baseline_forecastable(
+    event: corpus.CorpusEvent, row: corpus.CorpusRow | None, *, day: date, payloads: PayloadReader
+) -> bool:
     """Whether a case-baseline event is the forecastable baseline of its case.
 
     The kind is necessary but not sufficient: an **application** docket whose
@@ -421,6 +539,13 @@ def _case_baseline_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow
     snapshots carry no conference at all, filed under a moment that has not
     happened. Non-SCOTUS dockets have no distribution concept and admit as
     before.
+
+    The same shared refusal carries the upper bound
+    (:func:`_considered_distribution_cell`): once the conference the petition
+    was distributed for has sat on it, the distribution moment is over, and a
+    cell minted then forecasts a conference whose grant list has already
+    issued — a petition entering the backlog between its conference and the
+    order list (newly selected, say) is exactly that.
     """
     if event.kind not in _FORECASTABLE_KINDS:
         return False
@@ -433,7 +558,7 @@ def _case_baseline_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow
         and corpus.is_scotus_application_form(row.docket_number)
     ):
         return False
-    return not _premature_distribution_cell(event, row)
+    return not _distribution_cell_closed(event, row, day=day, payloads=payloads)
 
 
 def forecastable_event_ids(
@@ -450,6 +575,10 @@ def forecastable_event_ids(
     pass it so one cycle's decisions cannot straddle midnight, and tests pass
     a fixed date. ``None`` — the default the predict matrix and pull take —
     reads the wall clock, which is what a live queue decision means by now.
+    The same day bounds the distribution moment
+    (:func:`distribution_conference_considered`), which reads the case's latest
+    live payload over ``conn`` only when the row names a conference on or
+    before it.
     """
     resolved_today = today if today is not None else date.today()
     case_id = ids.case_id(court_id, docket_id)
@@ -457,13 +586,14 @@ def forecastable_event_ids(
     if row is not None and row.predict_excluded:
         return []
     events = corpus.events_for_case(conn, case_id)
+    payloads = live_payload_reader(conn)
     return [
         event.event_id
         for event in events
         if not event.resolved
         and (
-            _case_baseline_forecastable(event, row)
-            or _cert_forecastable(event, row)
+            _case_baseline_forecastable(event, row, day=resolved_today, payloads=payloads)
+            or _cert_forecastable(event, row, day=resolved_today, payloads=payloads)
             or _interim_forecastable(event, row)
             or _merits_forecastable(event, row, resolved_today)
         )
@@ -955,6 +1085,28 @@ class ExcludedCell(NamedTuple):
     reason: str
 
 
+class SetAsideCell(NamedTuple):
+    """A scored cell set aside from the default figures, its stratum kept, and why.
+
+    Unlike :class:`ExcludedCell`, the cell keeps its stratum, stage and moment:
+    a set-aside cell is put back in the sensitivity figures beside each default
+    it moved (:mod:`fedcourtsai.set_aside`), so it must still know where it
+    would have been counted.
+    """
+
+    cell: StratifiedCell
+    reason: SetAsideReason
+
+
+def _pre_mint_poll_state(cell_dir: Path) -> str | None:
+    """A prediction cell's ``usage.json`` ``pre_mint_poll.state``, or ``None`` where absent."""
+    path = cell_dir / "usage.json"
+    if not path.is_file():
+        return None
+    poll = read_model(path, ModelUsage).pre_mint_poll
+    return poll.state if poll is not None else None
+
+
 def scored_prediction(
     event_dir: Path, predictor_id: str, prediction_run_id: str | None
 ) -> Prediction | None:
@@ -1092,6 +1244,14 @@ class StratifiedRun(NamedTuple):
     counting window its scored prediction sits in — what a pooled figure's
     composition counts and the by-protocol cut keys on. Empty on an
     all-versions pass, whose cells carry no window.
+
+    ``set_aside`` is the fourth ledger, and the only one whose cells keep
+    their stratum: cells the record cannot show to be forward
+    (:func:`fedcourtsai.set_aside.set_aside_reason`), which leave ``cells`` —
+    the default figures — and are put back in ``with_set_aside``, the same
+    pass's cells in path order with them counted, which a sensitivity figure
+    is built over (:meth:`sensitivity_cells`). Asked last, of a cell every
+    other rule kept, so a cell is never in two ledgers for one fact.
     """
 
     cells: list[StratifiedCell]
@@ -1102,6 +1262,16 @@ class StratifiedRun(NamedTuple):
     leakage_assessed: int = 0
     cell_windows: Mapping[EvaluationKey, CountingWindow] = MappingProxyType({})
     voided: Sequence[ExcludedCell] = ()
+    set_aside: Sequence[SetAsideCell] = ()
+    with_set_aside: Sequence[StratifiedCell] = ()
+
+    def sensitivity_cells(self) -> Sequence[StratifiedCell]:
+        """The default cells with every set-aside cell put back, in path order.
+
+        The population a sensitivity figure is built over: ``cells`` itself
+        where nothing was set aside.
+        """
+        return self.with_set_aside if self.set_aside else self.cells
 
 
 def _drop_voided(
@@ -1124,11 +1294,12 @@ def _drop_voided(
     return kept, voided
 
 
-def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, three ledgers
+def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window key, four ledgers
     data_root: Path,
     *,
     frozen_only: bool = True,
     policy: ForwardClaimPolicy = FORWARD_CLAIM_POLICY,
+    apply_set_aside: bool = True,
 ) -> StratifiedRun:
     """Every evaluation joined to its stratum, stage, and forecast moment, in path order.
 
@@ -1227,11 +1398,24 @@ def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, thr
     value and keeps the per-window figure as the by-protocol cut
     (``docs/process-version.md``). Two of one predictor's windows sharing a
     label raise :class:`PooledWindowsError`: no caller could publish them apart.
+
+    **Set-aside cells leave the default.** A cell every rule above kept, but
+    whose record cannot show it was made before its outcome was public
+    (:func:`fedcourtsai.set_aside.set_aside_reason`), lands in ``set_aside``
+    with its stratum rather than in ``cells``, and ``with_set_aside`` holds the
+    pass's cells with it counted, for the sensitivity figure beside each
+    default it moves. ``apply_set_aside=False`` keeps every such cell in
+    ``cells`` and leaves both empty — the computation the published Release 1
+    artifacts were built under, which their own commands
+    (``release-sensitivity``, the cohort cut, the dataset export) keep, so a
+    re-run of them reproduces what was published.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
         return StratifiedRun([], [], [])
     cells: list[StratifiedCell] = []
+    with_set_aside: list[StratifiedCell] = []
+    set_aside: list[SetAsideCell] = []
     excluded: list[ExcludedCell] = []
     leaked: list[ExcludedCell] = []
     leakage_assessed = 0
@@ -1314,7 +1498,35 @@ def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, thr
             continue
         event = read_model(event_dir / "event.yaml", PredictableEvent)
         stage = normalized_stage(event.kind, event.stage)
-        cells.append((evaluation, stratum, stage, normalized_moment(stage, event.moment)))
+        joined: StratifiedCell = (
+            evaluation,
+            stratum,
+            stage,
+            normalized_moment(stage, event.moment),
+        )
+        with_set_aside.append(joined)
+        court_id, _, docket_str = evaluation.case_id.partition("/")
+        poll_dir = (
+            CasePaths(data_root, court_id, int(docket_str))
+            .event(evaluation.event_id)
+            .prediction_dir(evaluation.predictor_id, scored.run_id)
+        )
+        reason = (
+            set_aside_reason(
+                evaluation.case_id,
+                evaluation.event_id,
+                scored,
+                outcome,
+                stage,
+                partial(_pre_mint_poll_state, poll_dir),
+            )
+            if apply_set_aside
+            else None
+        )
+        if reason is not None:
+            set_aside.append(SetAsideCell(joined, reason))
+            continue
+        cells.append(joined)
     return StratifiedRun(
         cells,
         excluded,
@@ -1324,6 +1536,8 @@ def stratify(  # noqa: PLR0912 - one pass: scope gate, collapse, window key, thr
         leakage_assessed,
         cell_windows,
         voided,
+        set_aside,
+        with_set_aside if set_aside else [],
     )
 
 

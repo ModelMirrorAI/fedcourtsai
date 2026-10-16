@@ -244,7 +244,9 @@ def counted_by_conference(
     # A per-event census: each predictor holds one counted cell per event, so
     # an event's scored predictors never pool a predictor's windows, and the
     # cut keys on the event rather than on any series.
-    run = stratify(data_root, frozen_only=True, policy=FORWARD_CLAIM_POLICY)
+    # The release cohort's census, as registered: the set-aside cells stay in
+    # (`stratify`'s `apply_set_aside`).
+    run = stratify(data_root, frozen_only=True, policy=FORWARD_CLAIM_POLICY, apply_set_aside=False)
     graded: dict[tuple[str, str], dict[str, str]] = {}
     for evaluation, _stratum, _stage, _moment in run.cells:
         runs = graded.setdefault((evaluation.case_id, evaluation.event_id), {})

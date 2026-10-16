@@ -141,7 +141,11 @@ non-interactive** container. Two consequences shape everything you do:
   pre-registration surface owned the same way: `src/fedcourtsai/voided_events.json`,
   whose every row de-counts one event's gradings on a dated freeze-record entry,
   the predicate every reader asks in `src/fedcourtsai/voids.py`, and
-  `tests/test_voided_events.py`, which binds each row to its entry. Open those, get them
+  `tests/test_voided_events.py`, which binds each row to its entry. The
+  scored-figure set-aside is owned the same way: `src/fedcourtsai/set_aside.py`
+  (its reasons and the predicate the scoring pass asks),
+  `src/fedcourtsai/set_aside_events.json` (its listed events, each on a dated
+  entry), and `tests/test_set_aside.py`. Open those, get them
   green, and report them ready.
   The `staging` ruleset encodes this through `.github/CODEOWNERS` for every
   identity that does not hold the admin role — the agent account, Dependabot's

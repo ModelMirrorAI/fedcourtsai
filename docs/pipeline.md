@@ -2003,12 +2003,28 @@ result is dropped from the frozen partition. So it is re-owed a cell while it
 is still genuinely forward (nothing in the ledger or the corpus records its
 stage decided) and its declared moment is still open (`REPREDICT_MOMENTS` —
 cert distribution and CVSG plus the interim moments; cert arrival and the
-merits moments are held out, and a distribution is refused unless it carries a
-conference still ahead). The two arms overlap per event and are disjoint per
+merits moments are held out, and a distribution is refused once the conference
+it was distributed for has considered the petition — the first-time fan-out's
+own bound, `store.distribution_conference_considered`, so the two paths refuse
+one population: the conference day counts as sat, and a petition a call for
+response or a reschedule took off that conference stays open). The two arms overlap per event and are disjoint per
 cell: an engine with no cell is the first arm's, an engine whose cells are all
 out of frozen scope is the second's, and an event carrying both — what a
 quota-failed engine leaves behind — is re-owed on both, so a run can never
 mint one blessed cell beside de-counted rivals.
+
+The first arm takes the same conference bound. A distribution-moment event is
+forecastable (`store.forecastable_event_ids`) from the petition's first
+distribution until the conference it is distributed for has considered it, and
+not after: a petition that enters the backlog between its conference and the
+order list — newly selected, say — is never first-minted a cell for a
+conference whose grant list has already issued. The row's
+`distributed_for_conference` decides while it is still ahead of the day; once
+it is not, the case's latest live payload does
+(`cert_signals.considering_conference`), and the event stays open only where a
+call for response or a reschedule entered between the distribution and the
+conference took the petition off it. An unreadable payload refuses, so a plan
+whose content store is unreachable mints no such cell rather than guessing.
 
 
 The rule also **widens the funding gate**, and that is the one place it reaches

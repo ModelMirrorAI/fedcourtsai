@@ -152,6 +152,8 @@ from .schemas import (
     ForwardClaimRecord,
     Leaderboard,
     LeaderboardEntry,
+    LeaderboardSetAsideLine,
+    LeaderboardSetAsideSensitivity,
     LeaderboardStage,
     LeaderboardStageEntry,
     LeaderboardStratum,
@@ -166,6 +168,7 @@ from .schemas import (
     RubricCount,
     RubricReading,
     SelfProvisioningCount,
+    SetAsideRecord,
     SignatureReading,
     Stage,
     StatPack,
@@ -177,6 +180,7 @@ from .schemas import (
 from .serialize import read_model
 from .store import (
     EvaluationKey,
+    SetAsideCell,
     evaluation_key,
     prediction_counts,
     scored_prediction,
@@ -2224,4 +2228,90 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
             )
             for key in sorted(stage_cells)
         },
+    )
+
+
+# ---------------------------------------------------------------------------
+# The set-aside: its record, and the sensitivity figures beside the default
+# ---------------------------------------------------------------------------
+
+
+def set_aside_record(set_aside: Sequence[SetAsideCell]) -> SetAsideRecord | None:
+    """The same pass's set-aside record, or ``None`` where it set nothing aside.
+
+    Shared by the leaderboard and the claim-score surface, so the two publish
+    one count over one pass.
+    """
+    if not set_aside:
+        return None
+    by_reason: dict[str, int] = defaultdict(int)
+    by_predictor: dict[str, int] = defaultdict(int)
+    events: set[str] = set()
+    for cell, reason in set_aside:
+        evaluation = cell[0]
+        by_reason[reason] += 1
+        by_predictor[evaluation.predictor_id] += 1
+        events.add(f"{evaluation.case_id} {evaluation.event_id} {reason}")
+    return SetAsideRecord(
+        excluded=len(set_aside),
+        by_reason=dict(sorted(by_reason.items())),
+        by_predictor=dict(sorted(by_predictor.items())),
+        events=sorted(events),
+    )
+
+
+def set_aside_moved(set_aside: Sequence[SetAsideCell]) -> dict[tuple[str, str, Stratum], int]:
+    """Set-aside gradings per moved (population, predictor, stratum) figure.
+
+    The population is the board block the cell aggregates into: the ranked
+    board's key for a cert first-moment cell, else its ``stages`` key.
+    """
+    moved: dict[tuple[str, str, Stratum], int] = defaultdict(int)
+    for (evaluation, stratum, stage, moment), _reason in set_aside:
+        moved[(stage_moment_key(stage, moment), evaluation.predictor_id, stratum)] += 1
+    return dict(moved)
+
+
+def leaderboard_set_aside_sensitivity(
+    set_aside: Sequence[SetAsideCell], including: Leaderboard
+) -> LeaderboardSetAsideSensitivity | None:
+    """Each figure the set-aside moved, read off a board built with the set-aside cells counted.
+
+    ``including`` is :func:`build_leaderboard` over the same pass's
+    :meth:`~fedcourtsai.store.StratifiedRun.sensitivity_cells`, with every other
+    input the default board took, so a line differs from its default figure by
+    the set-aside cells and nothing else. ``None`` where nothing was set aside.
+    """
+    if not set_aside:
+        return None
+    ranked_key = stage_moment_key(Stage.cert, first_moment(Stage.cert))
+    lines: list[LeaderboardSetAsideLine] = []
+    for (population, predictor_id, stratum), count in sorted(set_aside_moved(set_aside).items()):
+        entries: Sequence[LeaderboardEntry | LeaderboardStageEntry]
+        if population == ranked_key:
+            entries = including.entries
+        else:
+            block = including.stages.get(population)
+            entries = block.entries if block is not None else []
+        entry = next((e for e in entries if e.predictor_id == predictor_id), None)
+        figure = getattr(entry, stratum) if entry is not None else None
+        if figure is None:
+            raise ValueError(
+                f"the sensitivity board holds no {stratum} figure for {predictor_id} "
+                f"in {population}, though {count} set-aside grading(s) sit there"
+            )
+        lines.append(
+            LeaderboardSetAsideLine(
+                population=population,
+                predictor_id=predictor_id,
+                stratum=stratum,
+                set_aside=count,
+                including=figure,
+            )
+        )
+    ranked_moved = any(
+        population == ranked_key for population, _p, _s in set_aside_moved(set_aside)
+    )
+    return LeaderboardSetAsideSensitivity(
+        lines=lines, paired=including.paired if ranked_moved else None
     )

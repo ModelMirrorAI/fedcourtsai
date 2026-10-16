@@ -1,0 +1,78 @@
+{
+  "$defs": {
+    "SetAsideEvent": {
+      "additionalProperties": false,
+      "description": "One event whose cells are set aside from the default figures, and the census row behind it.\n\nThe reasons a committed artifact alone cannot decide sit here \u2014 the\npost-conference reason reads the petition's docket entries, which live in\nthe corpus \u2014 so the set-aside is a committed fact every offline board reads\nthe same way. A reason the committed ledger decides by itself is computed\ninstead and never listed.",
+      "properties": {
+        "case_id": {
+          "description": "The event's case id",
+          "pattern": "^[a-z0-9._-]+/[0-9]+$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "conference": {
+          "description": "The conference that considered the petition",
+          "format": "date",
+          "title": "Conference",
+          "type": "string"
+        },
+        "declared": {
+          "description": "The date of the freeze-record entry that sets it aside",
+          "format": "date",
+          "title": "Declared",
+          "type": "string"
+        },
+        "event_id": {
+          "description": "The event's id",
+          "pattern": "^evt-[a-z0-9._]+-[a-z0-9._-]+$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "first_forward_run_id": {
+          "description": "The harness run id of the event's first forward frozen-scope cell",
+          "title": "First Forward Run Id",
+          "type": "string"
+        },
+        "reason": {
+          "const": "post-conference-first-forecast",
+          "description": "Why its cells are set aside. `post-conference-first-forecast`: the event's first forward frozen-scope cell (by harness run id) ran on or after the day the conference that actually considered the petition sat (`cert_signals.considering_conference` reads `sat`)",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "event_id",
+        "reason",
+        "conference",
+        "first_forward_run_id",
+        "declared"
+      ],
+      "title": "SetAsideEvent",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``src/fedcourtsai/set_aside_events.json`` \u2014 the listed set-aside events, append-only.\n\nData rather than code, so a listed set-aside is a reviewed edit to one file,\nand a row is never removed: removing one would move a default figure across\na dated entry's boundary.",
+  "properties": {
+    "events": {
+      "description": "The listed events, in the order declared",
+      "items": {
+        "$ref": "#/$defs/SetAsideEvent"
+      },
+      "title": "Events",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "events"
+  ],
+  "title": "SetAsideEventsRegistry",
+  "type": "object"
+}

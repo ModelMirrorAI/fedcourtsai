@@ -66,6 +66,7 @@ from .schemas import (
     Prediction,
     PredictorScoreRow,
     SalienceReplay,
+    SetAsideRecord,
     SpendSummary,
     Stage,
     StatPack,
@@ -363,6 +364,7 @@ def summarize_substance(  # noqa: PLR0913 - one keyword per stratify-pass input 
     leakage_exclusion: LeakageExclusionRecord | None = None,
     voided_events: VoidedEventsRecord | None = None,
     cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
+    set_aside: SetAsideRecord | None = None,
 ) -> SubstanceDigest:
     """Roll the committed ledger + metrics artifacts into the substance section.
 
@@ -465,6 +467,7 @@ def summarize_substance(  # noqa: PLR0913 - one keyword per stratify-pass input 
         forward_claim=forward_claim,
         leakage_exclusion=leakage_exclusion,
         voided_events=voided_events,
+        set_aside=set_aside,
         live_frontier=live_frontier,
         process_scope=process_scope,
     )
@@ -518,6 +521,7 @@ def render_substance(digest: SubstanceDigest) -> str:
         # otherwise render as "nothing ran yet".
         and (digest.forward_claim is None or digest.forward_claim.excluded == 0)
         and (digest.leakage_exclusion is None or digest.leakage_exclusion.excluded == 0)
+        and (digest.set_aside is None or digest.set_aside.excluded == 0)
     )
     lines = [
         "## Substance (is it producing?)",
@@ -554,6 +558,14 @@ def render_substance(digest: SubstanceDigest) -> str:
             f"boards (see their `leakage_exclusion` block). Counted separately "
             f"from the forward-claim line — a cell caught by both appears in "
             f"both."
+        )
+    if digest.set_aside is not None and digest.set_aside.excluded:
+        held = digest.set_aside
+        reasons = ", ".join(f"{count} {reason}" for reason, count in held.by_reason.items())
+        lines.append(
+            f"Set aside: **{held.excluded}** graded cell(s) the record cannot show to "
+            f"be forward ({reasons}), out of the counts above; the boards publish "
+            f"each figure they moved with them counted (`set_aside_sensitivity`)."
         )
     if frozen_empty:
         lines.append(

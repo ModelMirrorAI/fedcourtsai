@@ -228,11 +228,14 @@ def build_tables(
     from the corpus. ``ledger_commits`` maps a resolved ``prediction.json`` path to
     the commit that added it; ``None`` leaves those columns null.
     """
-    # Per-row, and every row carries its window beside it.
+    # Per-row, and every row carries its window beside it. The Release 1
+    # export's population: the set-aside cells stay in, as they were when it
+    # was published (`stratify`'s `apply_set_aside`).
     run = stratify(
         data_root,
         frozen_only=not all_versions,
         policy=FORWARD_CLAIM_POLICY,
+        apply_set_aside=False,
     )
     strata: dict[GradingKey, Stratum] = {_grading_key(ev): s for ev, s, _st, _m in run.cells}
     forward_claim, leaked, voided = (

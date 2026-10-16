@@ -66,6 +66,11 @@
 /src/fedcourtsai/voided_events.json @modelmirror
 /src/fedcourtsai/voids.py @modelmirror
 /tests/test_voided_events.py @modelmirror
+# The scored-figure set-aside: each reason and each listed event moves a
+# board's default population on a dated freeze-record entry.
+/src/fedcourtsai/set_aside.py @modelmirror
+/src/fedcourtsai/set_aside_events.json @modelmirror
+/tests/test_set_aside.py @modelmirror
 
 # What agents are and what they may reach.
 /config/predictors.yaml @modelmirror

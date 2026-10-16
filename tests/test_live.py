@@ -1197,7 +1197,10 @@ def test_ingest_live_payload_flags_a_rule_398_terminal_order(tmp_path: Path) -> 
 def test_live_poll_all_skips_a_decided_looking_terminal_order_forward(tmp_path: Path) -> None:
     # A distributed petition whose latest order is a Rule 39.8 dismissal the
     # resolver missed diverts to predict_skipped_decided — never a forward cell
-    # that could read the outcome from its own provisioned snapshot.
+    # that could read the outcome from its own provisioned snapshot. The
+    # conference is still ahead of the poll, so the distribution moment's own
+    # conference bound (`store.distribution_conference_considered`) admits the
+    # event and the decided-looking scan is what diverts it.
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
     served = {
@@ -1205,7 +1208,7 @@ def test_live_poll_all_skips_a_decided_looking_terminal_order_forward(tmp_path: 
             "25-5001",
             proceedings=[
                 _payload()["ProceedingsandOrder"][0],
-                {"Date": "Sep 15 2025", "Text": "DISTRIBUTED for Conference of 10/10/2025."},
+                {"Date": "Jun 15 2026", "Text": "DISTRIBUTED for Conference of 7/17/2026."},
                 _RULE_398_ENTRY,
             ],
         )

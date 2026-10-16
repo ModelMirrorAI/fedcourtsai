@@ -40,10 +40,13 @@ from ..matrix import (
 from ..registry import enabled_evaluators, enabled_predictors
 from ..schemas import Moment, Stage
 from ..store import (
+    PayloadReader,
+    distribution_conference_considered,
     event_has_claimable_prediction,
     forecastable_event_ids,
     forecastable_events,
     forward_refusal_reason_from_parts,
+    live_payload_reader,
     predictor_holds_no_counted_prediction,
 )
 from ..voids import is_voided
@@ -641,7 +644,7 @@ def _last_observed(row: corpus.CorpusRow) -> date | None:
 #: * **cert / distribution** — the petition baseline. Open for as long as the
 #:   petition is undistributed-past: the conference it is currently distributed
 #:   for decides it, so the rule additionally refuses one whose conference has
-#:   already passed (:func:`_reopenable_moment`). This is the cohort the rule
+#:   already sat on it (:func:`_reopenable_moment`). This is the cohort the rule
 #:   exists for.
 #: * **cert / cvsg** — forecast after the Court called for the Solicitor
 #:   General's views, an information set that does not expire on a date.
@@ -673,19 +676,25 @@ REPREDICT_MOMENTS: frozenset[tuple[Stage, Moment]] = frozenset(
 )
 
 
-def _reopenable_moment(event_id: str, row: corpus.CorpusRow, *, day: date) -> bool:
+def _reopenable_moment(
+    event_id: str, row: corpus.CorpusRow, *, day: date, payloads: PayloadReader
+) -> bool:
     """Whether ``event_id``'s declared moment is one a re-predict may still target.
 
     :data:`REPREDICT_MOMENTS` plus the one bound that is a date rather than a
     table row: a **distribution** cell forecasts the conference the petition is
-    currently distributed for, so once that conference is past the moment the
-    cohort was forecast at is over — the order list has been issued or the
-    petition relisted, and either way a cell minted now answers a different
-    question from the one the de-counted cells answered. A petition with no
-    conference at all is refused for the same reason the fan-out's own
-    information-set precondition refuses it
-    (:func:`fedcourtsai.store._premature_distribution_cell`): the distribution
-    moment has not happened.
+    currently distributed for, so once that conference has sat on the petition
+    the moment the cohort was forecast at is over — the grant list has issued
+    and the order list follows, and a cell minted now answers a different
+    question from the one the de-counted cells answered. The bound is the
+    first-time admission's own
+    (:func:`fedcourtsai.store.distribution_conference_considered`), so the two
+    paths refuse one population: a conference day counts as sat, and a petition
+    the conference did not consider — taken off it by a call for response or a
+    reschedule — stays open. A petition with no conference at all is refused
+    for the same reason the fan-out's own information-set precondition refuses
+    it (:func:`fedcourtsai.store._premature_distribution_cell`): the
+    distribution moment has not happened.
 
     An **undeclared** event — an entry-pinned motion, a legacy baseline id —
     has no moment to check and is refused. The rule adds cells to a backlog
@@ -696,8 +705,9 @@ def _reopenable_moment(event_id: str, row: corpus.CorpusRow, *, day: date) -> bo
     if spec is None or (spec.stage, spec.moment) not in REPREDICT_MOMENTS:
         return False
     if spec.moment is Moment.distribution:
-        conference = row.distributed_for_conference
-        return conference is not None and conference >= day
+        return row.distributed_for_conference is not None and not (
+            distribution_conference_considered(row, day=day, payloads=payloads)
+        )
     return True
 
 
@@ -1106,8 +1116,8 @@ def _reowed_pre_freeze_events(
        ledger, and a "forward" cell minted on it is a replay in forward
        clothing.
     2. **The moment is still open.** :func:`_reopenable_moment` —
-       :data:`REPREDICT_MOMENTS`, plus the refusal of a distribution event that
-       carries no conference still ahead.
+       :data:`REPREDICT_MOMENTS`, plus the refusal of a distribution event
+       whose conference is missing or has already considered the petition.
     3. **Every existing cell is de-counted, for at least one predictor.**
        :func:`fedcourtsai.store.predictor_holds_no_counted_prediction`, under
        the same per-cell attempt cap the never-predicted arm takes. A predictor
@@ -1136,12 +1146,20 @@ def _reowed_pre_freeze_events(
     alone, so a candidate whose events are all merits, cert/arrival or
     entry-pinned — the common case — pays nothing.
     """
+
     # The moment filter runs first and alone, because it needs only the row and
-    # the register while both gates after it read a store: without this every
+    # the register — plus one live payload, for a distribution event whose
+    # conference the row already names as sat — while both gates after it read
+    # a store: without this every
     # candidate would pay a `events_for_case` query to have all its events
     # refused for being merits, cert/arrival, or entry-pinned — which is the
     # common case, not the rare one.
-    reopenable = [event_id for event_id in events if _reopenable_moment(event_id, row, day=day)]
+    payloads = live_payload_reader(conn)
+    reopenable = [
+        event_id
+        for event_id in events
+        if _reopenable_moment(event_id, row, day=day, payloads=payloads)
+    ]
     if not reopenable:
         return []
     case_events = corpus.events_for_case(conn, row.case_id)

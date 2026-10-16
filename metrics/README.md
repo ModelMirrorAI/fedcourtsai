@@ -1531,6 +1531,72 @@ half-blind prediction carries a frozen digest, so the frozen boards exclude
 them a gate earlier. The [freeze record](../docs/freeze-record.md) fixes their
 number, in the ledger and after the run collapse, and dates the rule.
 
+**The set-aside, and its sensitivity reading.** A cell every rule above kept,
+but whose record **cannot show it was made before its outcome was public**, is
+set aside from the default figures (`fedcourtsai.set_aside`, applied by the same
+`store.stratify` pass). Unlike the three exclusions it is not "an observation of
+nothing" — the cell may be a genuine forecast — so it is **put back in a
+sensitivity figure published beside each default it moved**: the board's
+`set_aside` block counts the set-aside gradings by reason, by predictor and by
+event, over that board's own population (on `claim-scores.json`, cert's first
+moment only), and `set_aside_sensitivity` carries, for each (population,
+predictor, stratum) a set-aside moved, the **pooled entry's** figure
+recomputed by the same code with the set-aside gradings counted — on the
+leaderboard the pooled entry's stratum (and, where a ranked-board cell was set
+aside, the paired figure the ranks are read off), on `claim-scores.json` the
+cert-stage claim stratum. The `by_protocol` cut is default-only: it carries no
+sensitivity line, so a per-window figure is read without the set-aside cells. The default is
+the headline; a sensitivity line is a disclosure, never a rank key, and never
+stacked with another departure. Each reason is a dated freeze-record entry. Two
+exist:
+
+- **`interim-decision-day`** — a forward interim cell whose harness clock,
+  dated in Court time (America/New_York, the clock `resolved_at` is dated in),
+  falls on or after its outcome's `resolved_at`, unless the harness's
+  `usage.json` `pre_mint_poll.state` reads `open`. An application can be
+  decided within hours and `resolved_at` has no time of day, so only the
+  pre-mint poll can show such a cell began first; a cell with no poll, or one
+  reading `unavailable`, is set aside. Computed from the committed ledger
+  alone. A line counting these cells back is retrospective, unclaimable
+  iteration signal, read beside its always-deny floor like any other. Because
+  a same-day tie already reads retrospective on the harness
+  clock's UTC day and a later day already breaches the forward claim, these
+  cells reach no forward figure under either rule; what the set-aside moves is
+  the retrospective stratum of the interim stage blocks, where a cell that
+  claimed forward and retrieved unrestricted on a decision day would otherwise
+  sit as iteration signal. An open poll does not move a same-day cell into the
+  forward stratum: the stratum boundary is unchanged.
+- **`post-conference-first-forecast`** — every cell on a cert distribution
+  event whose first forward frozen-scope cell (by harness `run_id`) ran on or
+  after the day the conference that **actually considered** the petition sat
+  (`cert_signals.considering_conference` reads `sat`: a reschedule or a call
+  for response entered before the conference removes it, and a relist moves
+  it to the next conference only where the relist was docketed by the first
+  cell's run day — `cert_signals.relisted_past`, a date-dependent carve-out the
+  census counts). The reading needs the petition's docket entries, which live in
+  the corpus, so these events are **listed** in
+  `src/fedcourtsai/set_aside_events.json` from a corpus census
+  (`scripts/checks/post_conference_census.py`, which also reports any census
+  event the list lacks), keeping the boards offline and deterministic. An
+  undisposed petition after its grant list is almost always denied on the next
+  order list, so these cells sit in the forward stratum forecasting an answer
+  the grant list has largely implied, and their removal is plausibly outcome-correlated — which is why the
+  reading with them counted is published beside the default rather than
+  withheld. The fan-out does not mint such a cell
+  (`store.distribution_conference_considered`). The list is complete only as
+  of its last census: a row the census later finds owed is appended with its
+  own dated freeze-record entry, and the list is closed once the census reports
+  no owed row with the guard live.
+
+`set_aside.excluded` is counted after the three exclusions, so a grading those
+rules dropped is never counted here. On the leaderboard it is stage-blind and
+never netted against a stage-scoped total; on `claim-scores.json` it covers
+cert's first moment only, the board's own population. The published Release 1 artifacts are built without the
+set-aside (`release-sensitivity`, the cohort cut and the dataset export pass
+`apply_set_aside=False`), so re-running them reproduces what was published;
+the release's own post-conference sensitivity line is that population read the
+other way round.
+
 **The procedural stratum.** A cell whose outcome was mootness practice — a
 Munsingwear vacatur ("granted", but the wording tracks the Court's vacatur
 practice) or a dismissal as moot — segments into a third, `procedural` stratum
@@ -2787,8 +2853,8 @@ the rendered table) and
   a case sitting at a cert **arrival** moment or at either **merits** moment is
   never refilled however long it waits. Those are a floor rather than the whole
   of it: a pending case at a moment the rule does re-owe can still sit outside,
-  because a distribution is re-owed only while a conference is still ahead of it
-  and because a re-owed cell has to be minted and land before it counts.
+  because a distribution is re-owed only until the conference it was distributed
+  for has considered it, and because a re-owed cell has to be minted and land before it counts.
 
   Measured over the ledger at `64e8568b7`, the frozen build **removes 76 of the
   193 rows** — including the whole of the `all` board's top 20, since the frozen

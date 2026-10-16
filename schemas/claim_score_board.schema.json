@@ -190,6 +190,51 @@
       "title": "ClaimScoreEntry",
       "type": "object"
     },
+    "ClaimScoreSetAsideLine": {
+      "additionalProperties": false,
+      "description": "One claim-score figure recomputed with its set-aside gradings counted.\n\nThe claim surface's sensitivity reading, built exactly as\n:class:`LeaderboardSetAsideLine` is: the same pooled entry's stratum over\nthe default cells plus the set-aside ones, for each (predictor, stratum)\nfigure the set-aside moved. Never a headline and never a rank key.",
+      "properties": {
+        "including": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClaimScoreStratum"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The pooled entry's stratum with the set-aside gradings counted; null where none of the counted-back gradings carries a claim block, so the entry's default figure is unmoved by them"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "set_aside": {
+          "description": "Set-aside gradings this line counts back in",
+          "minimum": 1,
+          "title": "Set Aside",
+          "type": "integer"
+        },
+        "stratum": {
+          "description": "The stratum the set-aside gradings sit in",
+          "enum": [
+            "forward",
+            "retrospective",
+            "procedural"
+          ],
+          "title": "Stratum",
+          "type": "string"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "stratum",
+        "set_aside",
+        "including"
+      ],
+      "title": "ClaimScoreSetAsideLine",
+      "type": "object"
+    },
     "ClaimScoreStratum": {
       "additionalProperties": false,
       "description": "One predictor's claim-score aggregates over one pre-registration stratum.\n\nNever pooled across strata and never a rank key: a claim total's variance\nis unbounded above and a bold uninformed spray has a fat right tail, so\nthe defensible comparison is head-to-head at equal coverage \u2014 these\naggregates are descriptive (``docs/outcome-decomposition.md``). The\nreporting unit is the **event**, as the pre-registration fixes it: every\nevaluator of the same prediction carries an identical harness-computed\nblock, so blocks are deduplicated to one per (case, event) before\naveraging (the newest evaluation's block wins where a statpack revision\nbetween evaluator stamps ever made copies differ) and ``cells`` beside\n``events`` is the raw census of the collapsed multiplicity.",
@@ -530,6 +575,47 @@
       "title": "RubricCount",
       "type": "object"
     },
+    "SetAsideRecord": {
+      "additionalProperties": false,
+      "description": "The cells a board's build set aside from its default figures, and why.\n\nA set-aside cell is one the record cannot show to be forward\n(:mod:`fedcourtsai.set_aside`): it leaves the default figures \u2014 every\nstratum, rank key and composition count \u2014 and is put back in the\nsensitivity figures beside them, so the default and the reading with the\ncell counted are both published and the set-aside is never silent. It\nchanges which cells the default figure counts, never what any cell scored.\nOmitted where nothing in scope is set aside.",
+      "properties": {
+        "by_predictor": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Set-aside gradings keyed by predictor id (only predictors with a nonzero count appear)",
+          "title": "By Predictor",
+          "type": "object"
+        },
+        "by_reason": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Set-aside gradings keyed by reason (`SetAsideReason`; only reasons with a nonzero count appear)",
+          "title": "By Reason",
+          "type": "object"
+        },
+        "events": {
+          "description": "The events holding set-aside gradings, as '<case_id> <event_id> <reason>', sorted",
+          "items": {
+            "type": "string"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "excluded": {
+          "description": "How many in-scope gradings the shared `store.stratify` pass set aside \u2014 counted after the run collapse, the void, the forward-claim rule and the leakage bit, so a grading those rules already dropped is never counted here. On the leaderboard it is stage-blind, so never subtracted from a stage-scoped total beside it; on the claim-score board it covers cert's first moment only, the board's own population",
+          "minimum": 0,
+          "title": "Excluded",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "excluded"
+      ],
+      "title": "SetAsideRecord",
+      "type": "object"
+    },
     "VoidedEventsRecord": {
       "additionalProperties": false,
       "description": "The voided events a board's build dropped, and what their gradings scored.\n\nAn event whose committed outcome describes another petition is voided by a\ndated freeze-record entry (``voids.VOIDED_EVENTS``). Its gradings leave\nevery stratum, rank key and composition count, so this block states how many\nthe shared stratify pass dropped, which events, and what those gradings had\nscored, and the de-count is never silent. Omitted where nothing in scope is\nvoided. It changes which cells are counted, never what any cell scored.",
@@ -664,7 +750,7 @@
       "type": "array"
     },
     "evaluations_total": {
-      "description": "Cert-stage evaluation cells in scope (after the forward-claim exclusion the `forward_claim` block records and the leakage exclusion the `leakage_exclusion` block records), with or without a claim block \u2014 the surface's population, cert-stage because only the cert-stage event kinds declare a claim set, so a cell on any other stage is never owed a block and belongs outside the absence counts",
+      "description": "Cert-stage evaluation cells in scope (after the forward-claim exclusion the `forward_claim` block records, the leakage exclusion the `leakage_exclusion` block records and the set-aside the `set_aside` block records), with or without a claim block \u2014 the surface's population, cert-stage because only the cert-stage event kinds declare a claim set, so a cell on any other stage is never owed a block and belongs outside the absence counts",
       "minimum": 0,
       "title": "Evaluations Total",
       "type": "integer"
@@ -756,6 +842,26 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "set_aside": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SetAsideRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The gradings this build set aside from its default figures, counted over this surface's own population (cert's first moment) \u2014 so a set-aside the leaderboard's stage blocks carry is not counted here; omitted where nothing in that population is set aside"
+    },
+    "set_aside_sensitivity": {
+      "description": "Each cert-stage claim figure the set-aside moved, recomputed with the set-aside gradings counted, sorted by predictor then stratum; omitted while it lists nothing",
+      "items": {
+        "$ref": "#/$defs/ClaimScoreSetAsideLine"
+      },
+      "title": "Set Aside Sensitivity",
+      "type": "array"
     },
     "voided_events": {
       "anyOf": [

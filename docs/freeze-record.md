@@ -9466,3 +9466,202 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('query-clock-prior-last-pull-mask' in {b.name for b in H})"`
     prints `True`.
+
+- **A forward cell the record cannot show to be forward is set aside from the
+  ongoing boards' default figures, with a sensitivity reading beside them, and
+  a distribution cell is never first-minted after its conference considered
+  the petition, 2026-10-16.** Two **membership rules**, one on the scored
+  figures and one on cell minting, recorded together because they bound one
+  population from its two sides. Neither moves a digest: `uv run fedcourts
+  process-digest --all` prints `proc-v9` and the six digests `605201bd…`
+  (claude-baseline), `70fee158…` (codex-baseline), `a9033e56…`
+  (gemini-baseline), `167b7d71…` (claude-judge), `18a76b93…` (codex-judge)
+  and `22558044…` (gemini-judge) on either side of the change.
+
+  **The set-aside.** On the ongoing boards — `metrics/leaderboard.json`,
+  `metrics/claim-scores.json`, and every surface reading the same
+  `store.stratify` pass (the ops report's substance funnel, which prints a
+  one-line count, and the semantic census) — a scored cell whose record
+  cannot show it was made before its outcome was public leaves the
+  **default** figures and is counted back in a **sensitivity** figure
+  published beside each pooled figure it moved. The board's `set_aside` block
+  counts the set-aside gradings by reason, predictor and event, over that
+  board's own population (the claim-score board counts only cert's first
+  moment). `set_aside_sensitivity` carries each moved (population, predictor,
+  stratum) **pooled entry's** figure recomputed by the same code with them
+  counted, and on the leaderboard the paired figure the ranks are read off
+  where a ranked-board cell was set aside. The `by_protocol` cut is
+  default-only and carries no sensitivity line. The default is the headline.
+  The rule is asked last, of a cell the void, the forward-claim rule and the
+  leakage bit all kept, so no grading is counted in two ledgers. The board's
+  `big_case` and `evaluator_agreement` views and `big-cases.json` read the
+  ledger by their own path and do not apply it, for the reason they do not
+  apply the other exclusions. Each reason is a value of `SetAsideReason`
+  (`fedcourtsai.set_aside`); two are registered here.
+
+  **`interim-decision-day`.** A forward interim cell whose harness clock
+  (`integrity.cell_clock`), dated in Court time (America/New_York, as the
+  2026-10-15 pre-mint entry dated it), falls on or after its outcome's
+  `resolved_at`, unless its `usage.json` `pre_mint_poll.state` reads `open`.
+  A missing poll or one reading `unavailable` sets the cell aside: every cell
+  written before the poll existed carries none. Computed from the committed
+  ledger alone. Counted on the ledger at `staging` `44b2c9d1a` (whose
+  predictions, outcomes and evaluations are those of `main` `338630861`), the
+  2026-10-15 recount holds: 26 of the 108 resolved forward interim
+  predictions were written on or after their decision date in Court time, 23
+  on the day and 3 after, and 0 of the 394 resolved forward cert predictions
+  were; none of the 108 carries a pre-mint poll. In the frozen scope the rule
+  sets aside the 23 same-day cells, 66 gradings on eight events
+  (`scotus/9526000428` `evt-motion-disposition` and
+  `evt-brief-response-disposition`, `scotus/9526000434`, `scotus/9526000437`,
+  `scotus/9526000447`, and `scotus/9526000477`'s three interim events), by
+  moment 40 at `interim@arrival`, 18 at `interim@response-filed` and 8 at
+  `interim@response-requested`, by predictor claude 24, codex 24, gemini 18.
+  The 3 later cells (`scotus/9526000256`, `proc-v4`/`proc-v5`) are outside
+  every frozen scope and breach the forward claim in the all-versions scope,
+  so the rule reaches none of them. **What it moves.** No forward figure:
+  Court time is never ahead of UTC, so a cell on or after its decision day in
+  Court time is on or after it on the harness clock's UTC day too, and
+  `classify_stratum` already puts a same-day tie in the retrospective stratum
+  while `forward_claim_breach` excludes a later day. None of the 26 was ever a
+  forward observation on any board. What the rule moves is the retrospective
+  stratum — unclaimable iteration signal, never a skill figure — of the three
+  interim blocks, which at this ledger holds only these cells and so reads
+  null in the default; with them counted, `interim@arrival` claude reads 15
+  retrospective gradings over 5 events at accuracy 0.80 against an always-deny
+  floor of 0.80 (4 of the 5 applications denied). An open poll does not move
+  a same-day cell into the forward stratum; the stratum boundary is
+  unchanged.
+
+  **`post-conference-first-forecast`.** Every cell on a cert distribution
+  event whose first forward frozen-scope cell (by harness `run_id`) ran on or
+  after the day the conference that actually considered the petition sat:
+  `cert_signals.considering_conference` reads `sat`. A petition the
+  conference did not consider stays in. A call for response or a reschedule
+  entered between the distribution and the conference takes the petition off
+  it (the shape of `scotus/9026000018`, `scotus/9026000023`,
+  `scotus/9026000060` and `scotus/73500284`). A relist is a date-dependent
+  carve-out: a petition distributed again for a later conference is read
+  against that conference only where the relist entry was docketed by the
+  first cell's run day (`cert_signals.relisted_past`); a cell run between the
+  conference and the relist's docketing reads the conference that sat. The
+  reading needs the petition's docket entries, which live in the corpus, so
+  these events are **listed**, append only, and the boards stay offline.
+  `src/fedcourtsai/set_aside_events.json` lists, as it lands, the 16 events
+  the release's post-conference census named at corpus newest pull 2026-10-09,
+  all considered at the 2026-09-28 conference: `scotus/9026000066`
+  `evt-petition-disposition`, `scotus/9026000079` `evt-petition-disposition`,
+  `scotus/9026000080` `evt-petition-disposition`, `scotus/9026000095`
+  `evt-petition-disposition`, `scotus/9026000121` `evt-petition-disposition`,
+  `scotus/9026000183` `evt-petition-disposition`, `scotus/73500246`
+  `evt-petition-disposition`, `scotus/73529868` `evt-petition-disposition`,
+  `scotus/9026000130` `evt-petition-disposition`, `scotus/73292081`
+  `evt-petition-disposition`, `scotus/73500240` `evt-petition-disposition`,
+  `scotus/9026000043` `evt-petition-disposition`, `scotus/73500214`
+  `evt-petition-disposition`, `scotus/73500290` `evt-petition-disposition`,
+  `scotus/9026000461` `evt-petition-disposition` and `scotus/9026000462`
+  `evt-petition-disposition`. **The list is complete as of that vintage
+  only.** A cell first minted after a later conference sat and before the
+  admission guard below went live is a row the list owes; each such row is
+  appended with its own dated freeze-record entry naming it (the registry's
+  binding test refuses a row no entry of its date names), and it moves the
+  default from that entry on. The census that reconciles the list with the
+  corpus, `scripts/checks/post_conference_census.py`, also counts the events
+  a relist kept in. Read at the carrying head: <FILL: post-conference census at the carrying head as one plain line, census events, listed, owed, relist keep-ins, unreadable, and the corpus vintage>.
+
+  **What it moves.** At the ledger above 7 of the listed events are resolved
+  and graded, 63 frozen-scope gradings (7 events by 9 gradings, 21 per
+  predictor), all forward at `cert@distribution`: 6 denied on 2026-10-05 and
+  No. 25-1343 (`scotus/73500246`) granted on 2026-10-13. That grant is the
+  only one among the set-aside events, and it decides most of the
+  difference: claude forecast it at 0.38 (denied), and claude's cell says in
+  its `flags.json` that it conditioned on the petition not being granted in
+  the first tranche, while codex forecast 0.78 and gemini 0.85 (granted). The
+  default therefore removes codex's and gemini's correct call on the rare
+  event and claude's miss, favouring claude relative to codex and gemini on
+  this slice. Default then with the set-aside counted, over 327 then 348
+  gradings per predictor on 110 then 117 events, with 6 then 7 realized grants and an
+  always-deny floor of 0.945 then 0.940:
+
+  | Predictor | Accuracy | Lift over floor | Mean Brier | Population Brier skill |
+  | --- | --- | --- | --- | --- |
+  | claude-baseline | 0.982 then 0.974 | +0.037 then +0.034 | 0.0186 then 0.0209 | 0.652 then 0.590 |
+  | codex-baseline | 0.972 then 0.974 | +0.028 then +0.034 | 0.0228 then 0.0220 | 0.573 then 0.569 |
+  | gemini-baseline | 0.927 then 0.931 | −0.018 then −0.009 | 0.0512 then 0.0484 | 0.042 then 0.050 |
+
+  The paired figure is the same population at this ledger (every engine
+  holds every event, 110 then 117), and its rank key is forward accuracy,
+  then mean Brier. The order claude, codex, gemini holds on both readings,
+  but with the set-aside counted claude and codex tie on accuracy at 0.974
+  and the order between them is decided by mean Brier, 0.0209 against
+  0.0220.
+
+  **Each consequence's outcome correlation, by direction.** The set-aside's
+  removals are plausibly correlated with the outcome: an undisposed petition
+  after its grant list is almost always denied on the next order list, and
+  the six interim applications with an exposed cell split 5 denied / 1
+  granted (the 2026-10-15 entry). Removing them takes out a selected
+  population, and at this ledger its one cert grant moves the engines
+  differently, so a figure read without them can move in either direction;
+  that is why both readings are published and neither is withheld. The
+  admission guard's three consequences each select too:
+  - the first-time fan-out stops minting post-conference distribution cells,
+    which removes forecasts of a mostly denial-bound population — the same
+    direction as the set-aside;
+  - the re-predict path now re-owes a petition a call for response took off
+    its conference, and such petitions plausibly grant above their band's
+    rate — the **opposite** direction, adding grant-weighted cells. How many
+    it re-owes is unmeasured; the first predict-plan after the carrying merge
+    shows it, and until a later entry records that count it is unverified;
+  - the re-predict path now refuses a distribution on its conference day,
+    which it admitted, and every plan refuses a past-conference distribution
+    whose live payload it cannot read; both defer cells rather than remove
+    them, and their selection is unmeasured.
+
+  **The admission guard.** From the carrying merge, a distribution-moment
+  cell is never minted, on the first-time fan-out or the re-predict path, for
+  a conference that has passed **and** considered the petition. One predicate
+  serves both (`store.distribution_conference_considered`, read by
+  `forecastable_event_ids` and by `pipeline.pull._reopenable_moment`), with
+  the same reading of "considered" as the set-aside: the row's
+  `distributed_for_conference` decides while it is ahead of the day; once it
+  is not, the case's latest live payload decides, and only a call for
+  response or a reschedule entered before the conference, or a relist
+  docketed by the day, keeps the event open. A payload read that fails
+  refuses rather than raising, and is logged.
+
+  **No harness boundary is registered.** The set-aside reads only committed
+  facts and a committed list, and applies to every cell whenever it ran, so
+  no figure depends on which side of the carrying merge a cell was minted;
+  the admission guard changes who is minted, not what a minted cell reads,
+  and the cells it would have refused before the merge are the listed
+  reason's population, row by row as the census finds them. Neither side
+  needs its own `n`.
+
+  **Release 1 is unchanged.** `release-sensitivity`, the cohort cut, the
+  dataset export and a revoked window's record build without the set-aside
+  (`stratify(..., apply_set_aside=False)`), so re-running them reproduces the
+  published figures, and the release's post-conference sensitivity line
+  remains that population read the other way round. The export carries no
+  set-aside column yet; one is owed before the next release is cut. The
+  committed boards change at the next metrics refresh after the carrying
+  merge; a board built before it and one built after are over different
+  populations and are compared only through the sensitivity lines.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - after the first metrics refresh on `main`, `jq '.set_aside.by_reason'
+    metrics/leaderboard.json metrics/claim-scores.json` prints
+    `interim-decision-day` and `post-conference-first-forecast` with nonzero
+    counts on the leaderboard and only the second on the claim-score board,
+    which is cert-stage, and `jq '.set_aside_sensitivity.lines | length'
+    metrics/leaderboard.json` is nonzero;
+  - on the next `predict-plan`, no derived case carries an
+    `evt-petition-disposition` whose row's `distributed_for_conference` is on
+    or before the plan day unless its docket shows a call for response or a
+    reschedule before that conference, or a relist docketed by the plan day;
+  - once the guard is live and every owed row is appended,
+    `scripts/checks/post_conference_census.py` reports 0 census events not
+    listed. Until it does, the list is complete only as of its last census.

@@ -1,0 +1,133 @@
+{
+  "schema_version": "1.0",
+  "events": [
+    {
+      "case_id": "scotus/9026000066",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261004T201824Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/9026000079",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261004T201824Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/9026000080",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261004T201824Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/9026000095",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261004T201824Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/9026000121",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261004T201824Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/9026000183",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261004T201824Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/73500246",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261003T200236Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/73529868",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261003T200236Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/9026000130",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261005T212916Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/73292081",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261005T231540Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/73500240",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261005T231540Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/9026000043",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261005T231540Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/73500214",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261006T142731Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/73500290",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261006T142731Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/9026000461",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261008T143010Z",
+      "declared": "2026-10-16"
+    },
+    {
+      "case_id": "scotus/9026000462",
+      "event_id": "evt-petition-disposition",
+      "reason": "post-conference-first-forecast",
+      "conference": "2026-09-28",
+      "first_forward_run_id": "20261008T143010Z",
+      "declared": "2026-10-16"
+    }
+  ]
+}
