@@ -196,13 +196,16 @@ jobs:
           echo "## run-evaluate — queued ${count} evaluation job(s)" >> "$GITHUB_STEP_SUMMARY"
           # The step summary is the whole record — there is no trigger issue to
           # close with a note — so say what an empty matrix means rather than
-          # leaving a bare zero. A drained backlog is the ordinary resting state
+          # leaving a bare zero. An empty matrix has two readings: the backlog
+          # is drained, or every grading it still owes sits on a decided merits
+          # event held for its opinion body. Either is the ordinary resting state
           # of a healthy lane, not a fault, and the run ends cleanly on it: the
           # `evaluate` and `collect` jobs are skipped (`needs` + `has_jobs`) and
-          # nothing spends.
+          # nothing spends. The plan report below runs only when jobs were
+          # queued, so the held count lives in this step's log.
           if [ "$count" -eq 0 ]; then
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "The evaluate backlog is drained: no resolved event with a committed prediction is missing an enabled evaluator's grading (within this cycle's cap). Nothing to run; no spend — the run ends cleanly here." >> "$GITHUB_STEP_SUMMARY"
+            echo "Nothing to grade this cycle: the evaluate backlog is drained, or every grading it still owes is held for its opinion body. No resolved event with a committed prediction is missing an enabled evaluator's grading (within this cycle's cap) except those held. Nothing to run; no spend — the run ends cleanly here. Held cells are counted in this step's log, and are graded once the body lands or the 14-day hold runs out." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       # The plan report the approval below is judged on: the tested plan
