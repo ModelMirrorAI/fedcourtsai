@@ -736,18 +736,26 @@ read the live docket, so the signal can already be there when it runs, and a
 near-certain "yes" then states an observation rather than a forecast. The scorer
 reads the cell's run against the signal (`set_aside.increment_timing`): the
 pre-mint poll, which records what the served docket showed of each signal just
-before the cell was minted, decides where it read one; without one, the
+before the cell was minted, decides where it read one, with the post-run poll
+beside it where it read the signal absent; without one, the
 signal's committed docket date is compared with the cell's run day in Court
 time — the response-requested moment's `opened_at`, the outcome's
 `signals.cvsg_date`. A signal on the docket before the run masks the claim
 (`outcome: null`, `mask_reason: signal-before-run`) — its own reason, since it
 is conditioned on run timing rather than on the frozen record and so is not the
-vacuous mask. A signal dated the run day itself, with no poll to order the two,
-leaves the claim resolved, and the claim-score board sets it aside from its
-default figures under `increment-run-day`, with a sensitivity line counting it
-back (metrics/README.md). No committed artifact dates a referral, so an
-unpolled cell's `referral-increment` timing is unassessable and the claim keeps
-the resolution its record gives it. The mask and the set-aside are plausibly
+vacuous mask. A signal the record cannot order against the run — read absent
+by the pre-mint poll and present by the post-run poll, or, unpolled, dated the
+run day itself — leaves the claim resolved, and the claim-score board sets it
+aside from its default figures under `increment-run-day`, with a sensitivity
+line counting it back (metrics/README.md). No committed artifact dates a
+referral, so an unpolled cell's `referral-increment` timing is unassessable and
+the claim keeps the resolution its record gives it: such claims, on every cell
+minted before the poll recorded signals, stay unguarded by this rule and must
+not enter any scored figure without a corpus-dated reading
+(`interim_signals.referral_date`). Any baseline later added for the three
+claims is computed over the run-time population the mask leaves in, never the
+cut-conditioned one, or the mask re-bases skill rather than removing
+observations. The mask and the set-aside are plausibly
 correlated with the outcome: an application the Court acts on within days of
 arrival is the contested kind.
 

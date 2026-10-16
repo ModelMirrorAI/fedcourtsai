@@ -13,7 +13,8 @@ reads how the cell's run sat against the signal
 (`set_aside.increment_timing`) twice:
 
 - **ledger**, the reading the scorer and the boards apply: the cell's pre-mint
-  poll, else the committed signal date (`store.increment_signal_day` — the
+  poll (with its post-run poll where the first read the signal absent), else
+  the committed signal date (`store.increment_signal_day` — the
   response-requested moment's `opened_at`, the outcome's CVSG date; a referral
   has none, so an unpolled referral is unassessable there);
 - **corpus**, the check on it: the poll, else the corpus row's
@@ -24,8 +25,8 @@ reads how the cell's run sat against the signal
   a referral the row records and the payload does not date is counted
   unreadable.
 
-Each reading files a claim `signal-before-run` (masked), `signal-on-run-day`
-(set aside), or neither, with the unassessable claims — a signal the record
+Each reading files a claim `signal-before-run` (masked), `signal-during-run` or
+`signal-on-run-day` (set aside), or neither, with the unassessable claims — a signal the record
 shows but cannot date — counted apart. Only counts and identifiers reach
 `CHECK_SUMMARY`: case ids, event ids, claim ids, predictor counts and dates,
 never stored snapshot text, since the summary is posted publicly
@@ -47,20 +48,22 @@ from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, get_args
 
 from fedcourtsai import corpus
 from fedcourtsai.config import get_settings
 from fedcourtsai.pipeline.cert_signals import proceedings_entries
 from fedcourtsai.pipeline.interim_signals import referral_date
-from fedcourtsai.schemas import Outcome, Prediction
+from fedcourtsai.schemas import DocketPollRecord, Outcome, Prediction
 from fedcourtsai.serialize import read_model
 from fedcourtsai.set_aside import TIMED_INCREMENT_CLAIMS, increment_timing, polled_signal
-from fedcourtsai.store import increment_signal_day, pre_mint_poll
+from fedcourtsai.store import cell_polls, increment_signal_day
 
-#: A reading's verdict: the timing, ``unassessable`` (the record shows the signal
-#: and cannot date it), or ``clear``.
-Verdict = str
+#: A reading's verdict: the timing (``set_aside.IncrementTiming``),
+#: ``unassessable`` (the record shows the signal and cannot date it), or ``clear``.
+Verdict = Literal[
+    "signal-before-run", "signal-during-run", "signal-on-run-day", "unassessable", "clear"
+]
 
 
 @dataclass(frozen=True)
@@ -105,11 +108,12 @@ def _signal_seen(claim_id: str, outcome: Outcome | None) -> bool:
 def _verdict(
     claim_id: str,
     prediction: Prediction,
-    poll: Any,
+    poll: DocketPollRecord | None,
+    post_poll: DocketPollRecord | None,
     day: Callable[[], date | None],
     seen: bool,
 ) -> Verdict:
-    timing = increment_timing(claim_id, prediction, poll, day)
+    timing = increment_timing(claim_id, prediction, poll, day, post_poll=post_poll)
     if timing is not None:
         return timing
     if polled_signal(poll, claim_id) is None and day() is None and seen:
@@ -136,7 +140,7 @@ def census(data_root: Path, corpus_day: Callable[[str, str], date | None]) -> It
         event_dir = path.parents[3]
         outcome_path = event_dir / "outcome.json"
         outcome = read_model(outcome_path, Outcome) if outcome_path.is_file() else None
-        poll = pre_mint_poll(path.parent)
+        poll, post_poll = cell_polls(path.parent)
         stated = {claim.claim_id for claim in prediction.claims}
         for claim_id in TIMED_INCREMENT_CLAIMS:
             if claim_id not in stated or not _live(prediction, claim_id):
@@ -151,12 +155,12 @@ def census(data_root: Path, corpus_day: Callable[[str, str], date | None]) -> It
                 claim_id=claim_id,
                 resolved=outcome is not None,
                 signal_seen=seen,
-                ledger=_verdict(claim_id, prediction, poll, ledger_day, seen),
-                corpus=_verdict(claim_id, prediction, poll, corpus_signal, seen),
+                ledger=_verdict(claim_id, prediction, poll, post_poll, ledger_day, seen),
+                corpus=_verdict(claim_id, prediction, poll, post_poll, corpus_signal, seen),
             )
 
 
-_VERDICTS = ("signal-before-run", "signal-on-run-day", "unassessable", "clear")
+_VERDICTS: tuple[Verdict, ...] = get_args(Verdict)
 
 
 def render(claims: list[LiveClaim], unreadable_referrals: int) -> str:
@@ -179,15 +183,15 @@ def render(claims: list[LiveClaim], unreadable_referrals: int) -> str:
             )
     lines += [
         "",
-        f"- referrals the corpus row records and the latest live payload does not date: "
-        f"{unreadable_referrals}",
+        "- referrals the corpus row records and the latest live payload does not date: "
+        + f"{unreadable_referrals}",
         "",
     ]
     grouped: dict[tuple[str, str, str, str, str], list[LiveClaim]] = defaultdict(list)
     for c in claims:
         for reading in ("ledger", "corpus"):
             verdict = getattr(c, reading)
-            if verdict in {"signal-before-run", "signal-on-run-day", "unassessable"}:
+            if verdict != "clear":
                 grouped[(reading, verdict, c.claim_id, c.case_id, c.event_id)].append(c)
     if grouped:
         lines += [

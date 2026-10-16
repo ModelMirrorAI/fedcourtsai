@@ -38,7 +38,7 @@
             }
           ],
           "default": null,
-          "description": "Record-only: what the served docket showed at `polled_at` of each increment signal the cell's claims forecast, with the entry date the ingest parser reads. The claim scorer reads a pre-mint poll's reading to mask an increment claim whose signal was already on the docket before the cell ran (`set_aside.increment_timing`). Omitted where the poll read no proceedings list (an `unavailable` poll, a payload without one), and on polls taken before the field existed"
+          "description": "Record-only: what the served docket showed at `polled_at` of each increment signal the cell's claims forecast, with the entry date the ingest parser reads. The claim scorer reads a pre-mint poll's reading to mask an increment claim whose signal was already on the docket before the cell ran, and a post-run poll's to set aside one whose signal the pre-mint poll read absent and the post-run poll present (`set_aside.increment_timing`). Omitted where the poll read no proceedings list (an `unavailable` poll, a payload without one), and on polls taken before the field existed"
         },
         "state": {
           "description": "open: the docket JSON as served carried no disposition the forward outcome scan recognises; decided: it did; unavailable: the poll could not answer (no docket served, a body that is not JSON, a timeout, an error)",

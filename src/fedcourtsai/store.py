@@ -1099,12 +1099,27 @@ class SetAsideCell(NamedTuple):
     reason: SetAsideReason
 
 
-def pre_mint_poll(cell_dir: Path) -> DocketPollRecord | None:
-    """A prediction cell's ``usage.json`` ``pre_mint_poll``, or ``None`` where absent."""
+def cell_polls(cell_dir: Path) -> tuple[DocketPollRecord | None, DocketPollRecord | None]:
+    """A prediction cell's ``usage.json`` ``(pre_mint_poll, post_run_poll)``, ``None`` where absent.
+
+    One read for both, since the increment-timing rule asks the post-run poll
+    exactly where it has the pre-mint one in hand.
+    """
     path = cell_dir / "usage.json"
     if not path.is_file():
-        return None
-    return read_model(path, ModelUsage).pre_mint_poll
+        return None, None
+    usage = read_model(path, ModelUsage)
+    return usage.pre_mint_poll, usage.post_run_poll
+
+
+def pre_mint_poll(cell_dir: Path) -> DocketPollRecord | None:
+    """A prediction cell's ``usage.json`` ``pre_mint_poll``, or ``None`` where absent."""
+    return cell_polls(cell_dir)[0]
+
+
+def post_run_poll(cell_dir: Path) -> DocketPollRecord | None:
+    """A prediction cell's ``usage.json`` ``post_run_poll``, or ``None`` where absent."""
+    return cell_polls(cell_dir)[1]
 
 
 def _pre_mint_poll_state(cell_dir: Path) -> str | None:
@@ -1159,19 +1174,19 @@ def claim_set_asides(
     """The claim-grain set-asides inside one graded cell, keyed by claim id.
 
     :func:`fedcourtsai.set_aside.claim_set_aside_reason` over each row of the
-    grading's committed claim block, with the poll and the signal date read
-    lazily — only for a forward cell's timed increment claim the record
+    grading's committed claim block, with the two polls and the signal date
+    read lazily — only for a forward cell's timed increment claim the record
     resolved. Empty for a cell with no block.
     """
     block = evaluation.claim_scores
     if block is None:
         return MappingProxyType({})
-    poll_read: list[DocketPollRecord | None] = []
+    polls_read: list[tuple[DocketPollRecord | None, DocketPollRecord | None]] = []
 
-    def poll() -> DocketPollRecord | None:
-        if not poll_read:
-            poll_read.append(pre_mint_poll(cell_dir))
-        return poll_read[0]
+    def polls() -> tuple[DocketPollRecord | None, DocketPollRecord | None]:
+        if not polls_read:
+            polls_read.append(cell_polls(cell_dir))
+        return polls_read[0]
 
     held: dict[str, SetAsideReason] = {}
     for row in block.claims:
@@ -1180,12 +1195,14 @@ def claim_set_asides(
         context = prediction.context
         if context is None or context.mode != "forward":
             continue
+        pre, post = polls()
         reason = claim_set_aside_reason(
             row.claim_id,
             row.outcome,
             prediction,
-            poll(),
+            pre,
             partial(increment_signal_day, event_dir, row.claim_id, outcome),
+            post_poll=post,
         )
         if reason is not None:
             held[row.claim_id] = reason

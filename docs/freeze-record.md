@@ -9667,9 +9667,9 @@ freeze commit is recorded here.
     listed. Until it does, the list is complete only as of its last census.
 
 - **An increment claim whose signal was on the docket before its forward cell
-  ran is masked, one dated the run day with nothing to order the two is set
-  aside from the claim figures, and the pre-mint poll records each increment
-  signal it saw, 2026-10-16.** A **scoring change** (which scored claims
+  ran is masked, one the record cannot order against the run is set aside
+  from the claim figures, and the pre-mint poll records each increment signal
+  it saw, 2026-10-16.** A **scoring change** (which scored claims
   count) and a **membership rule** at the claim grain, under unchanged
   digests: `uv run fedcourts process-digest --all` prints `proc-v9` and the
   six digests `605201bd…` (claude-baseline), `70fee158…` (codex-baseline),
@@ -9695,8 +9695,10 @@ freeze commit is recorded here.
   `snapshot_cvsg_date`). It is record-only: the poll's verdict is still the
   outcome scan's alone, a failed signal reading leaves the verdict standing
   and records nothing, and the payload is still read and discarded, never
-  the cell's input. The record travels in the same step output as before,
-  so this changes what `usage.json` records and not what a cell reads. **No
+  the cell's input. The post-run poll is the same `poll-docket` read
+  (`pre_mint.poll_docket`), so it records `post_run_poll.signals` the same
+  way. The record travels in the same step output as before, so this changes
+  what `usage.json` records and not what a cell reads. **No
   harness boundary is registered**: a forward cell may read the live docket
   without restriction, and the poll adds nothing to its inputs.
 
@@ -9709,21 +9711,37 @@ freeze commit is recorded here.
   signal's committed docket date is strictly before the cell's run day — its
   harness clock (`integrity.cell_clock`) in Court time (America/New_York), as
   the 2026-10-15 and `interim-decision-day` entries date a cell. A poll that
-  read the signal absent keeps the claim scored whatever day the signal
-  later landed. The committed dates are the response-requested moment's
-  `opened_at` (minted dated by the request entry) and the outcome's
-  `signals.cvsg_date`. **No committed artifact dates a referral**, so an
+  read the signal absent never masks the claim; the post-run poll then
+  decides between a forecast and the set-aside below. The committed dates
+  are the response-requested moment's `opened_at` (minted dated by the
+  request entry) and the outcome's `signals.cvsg_date`. **No committed artifact dates a referral**, so an
   unpolled cell's `referral-increment` is unassessable and keeps the
   resolution its record gives it. Replay cells are not read: their run
   postdates their cut by design. It is not the vacuous mask, because it is
-  conditioned on when the cell ran and not on what it was provisioned.
+  conditioned on when the cell ran and not on what it was provisioned. Two
+  residuals stand on the date path (b), both leaning toward a mask and both
+  reaching unpolled cells only: `cell_clock` reads the stamp's `stamped_at`,
+  written after the engine finishes, so a run that crosses Court midnight
+  takes its end day as its run day and a signal dated its start day reads
+  before the run; and a docket entry's date can be earlier than the day it
+  appeared on the served docket, so a signal posted late under an earlier
+  date reads before a run that could not have seen it.
 
   **The set-aside, `increment-run-day`.** The one claim-grain
-  `SetAsideReason`: a resolved increment claim on an unpolled forward cell
-  whose signal is dated the run day itself — the same-day policy the
-  `interim-decision-day` reason applies to a cell: nothing in the record
-  orders the two, so the claim may be a forecast or an observation.
-  Computed at the board from the committed ledger alone, in the same
+  `SetAsideReason`: a resolved increment claim on a forward cell whose run
+  the record cannot order against its signal, so the claim may be a
+  forecast or an observation. Two arms reach it. **(a)** The pre-mint poll
+  read open and recorded the signal absent, and the post-run poll — the same
+  `poll_docket` read taken after the engine stopped, against the docket
+  number the first poll named, its signal reading standing whatever its
+  verdict short of `unavailable` — recorded it present: the signal landed
+  inside the window the two polls bracket, while the cell ran and could read
+  the live docket. **(b)** With no usable pre-mint poll, the signal is dated
+  the run day itself — the same-day policy the `interim-decision-day` reason
+  applies to a cell. A pre-mint poll that read the signal absent with a
+  post-run poll that read it absent too, or recorded no reading, or is
+  missing, keeps the claim as a forecast. Computed at the board from the
+  committed ledger alone, in the same
   `store.stratify` pass (`StratifiedRun.claim_set_aside`), never stamped. On
   `metrics/claim-scores.json` the claim's score leaves every default figure —
   the block total, floor and lift, the per-claim means, and the judge
@@ -9738,9 +9756,12 @@ freeze commit is recorded here.
   either set-aside.
 
   **Counts.** Recounted from the committed ledger at `staging` `10cf97c36`,
-  over every process-stamped forward cell, live claims only (the frozen
+  over every process-stamped forward cell under any process label (proc-v8
+  and proc-v9 alike, not a frozen-scope cut), live claims only (the frozen
   context not already showing the signal), run day in Court time. None of
-  them carries a pre-mint poll, so every reading is by date:
+  them carries a pre-mint or a post-run poll, so every reading is by date and
+  the post-run arm moves no count; the recount at this entry's own head
+  reproduces every figure below:
   - `response-requested-increment`: 68 live claims, 47 resolved. **24** had
     their request strictly before the run day, 15 resolved — `scotus/9526000370`
     (requested 09-18, ran 09-27), `scotus/9526000382` (09-23, 09-27),
@@ -9748,11 +9769,19 @@ freeze commit is recorded here.
     `evt-motion-disposition` and `evt-order-response-requested-disposition`
     (10-08, 10-14), three engines each — and 9 unresolved, on
     `scotus/9526000416` (09-28, 09-29), `scotus/9526000458` (10-06, 10-07) and
-    `scotus/9526000499` (10-14, 10-15). **3** are same-day, all resolved:
-    `scotus/9526000446` `evt-motion-disposition` (10-02). Every one of the 24
-    and the 3 has a committed request date; none is unassessable.
+    `scotus/9526000499` (10-14, 10-15). Of the 24, 15 sit on proc-v8 cells (9
+    resolved) and 9 on proc-v9 cells (6 resolved, all `scotus/9526000477`).
+    The three unresolved events are each dated exactly one day before the run,
+    the margin at which a posting lag (the second residual above) could carry
+    the entry onto the docket only after the cell ran. **3** are same-day, all
+    resolved, on proc-v8 cells: `scotus/9526000446` `evt-motion-disposition`
+    (10-02). None of the 68 live response-requested claims is unassessable.
   - `referral-increment`: 144 live claims, 108 resolved; **66** resolved 1 on
-    22 events, all unassessable from the ledger.
+    22 events, all unassessable from the ledger. `referral-increment` claims
+    on cells minted before the poll recorded signals stay unguarded by this
+    rule, and must not enter any scored figure without a corpus-dated reading
+    of the referral (`interim_signals.referral_date`, which the census below
+    computes).
   - `cvsg-increment`: 739 live claims, 385 resolved; **0** with a CVSG on or
     before the run day.
 
@@ -9774,17 +9803,43 @@ freeze commit is recorded here.
   the 3 `scotus/9526000446` claims (9 frozen-scope gradings, all forward at
   `interim@arrival`), which are recorded in the pass and move nothing
   published. The claim-score board carries no `claim_set_aside` block at
-  this ledger. The rule binds once a baseline lands for an increment claim
-  or an interim claim surface exists, and from then on removes forecasts the
-  cells could read off the docket.
+  this ledger. The rule moves a figure once a baseline lands for an increment
+  claim or an interim claim surface exists, and from then on removes claims
+  the record shows, or cannot rule out, were read rather than forecast. Any
+  baseline later added for these three claims must be computed over the
+  run-time population the mask leaves in, never the cut-conditioned one:
+  scored against a rate that still counts the overtaken signals, the
+  surviving forecasts would be measured against a base they were never drawn
+  from and the mask would re-base skill rather than remove observations (the
+  segment-conditioned base-rate standard, docs/salience.md, *Base rates &
+  baselines for the predicted segment*).
+
+  **Out of scope.** Two increment claims are not read. `relist-increment` on
+  the cert first moment, the one claim surface, is bracketed by the
+  post-conference set-aside: that moment is not cut at its opening, so the
+  context carries the distribution and relist history of the provisioned
+  snapshot, and a relist only follows a conference that sat, while an event
+  whose first forward cell ran on or after that conference is set aside
+  whole. Its residual is the relist carve-out
+  (`cert_signals.relisted_past`): a relist docketed after the snapshot's pull
+  and by the run day moves the considering conference ahead and keeps the
+  cell, with a count its context lacks, a window bounded by the snapshot's
+  age. `amicus-increment` is a count claim, resolved by strict comparison of
+  the two committed counts, so any brief after the cut moves it and no single
+  signal entry dates it; the poll records no amicus count, and its run-timing
+  exposure is unmeasured.
 
   **Outcome correlation.** The mask and the set-aside are plausibly
   correlated with the outcome. An application the Court acts on within days
   of arrival is the contested kind, and every masked or set-aside claim here
   sits on an `interim@arrival` cell (or on `scotus/9526000477`'s
-  response-requested cell, whose context froze before the request). Of the
-  five resolved applications, four were denied and `scotus/9526000406` was
-  granted. Removing them removes a selected population, so a claim figure
+  response-requested cell, whose context froze before the request it was
+  minted by — a provisioning anomaly the mask hides and does not explain). Of
+  the five resolved applications, four were denied and `scotus/9526000406`
+  was granted; a response-requested application is granted at about 37.0%
+  against a 7.8% base (the 219-application measurement
+  `pipeline.outcome` quotes), and at n=5 one grant is indistinguishable from
+  that rate. Removing them removes a selected population, so a claim figure
   read without them can move in either direction.
 
   **The corpus check.** `scripts/checks/increment_timing_census.py` reads
@@ -9794,8 +9849,8 @@ freeze commit is recorded here.
   disagree. Stored payloads are as of their pull, and a same-day pull
   overwrites that day's, so a referral entered after the latest pull is
   missing from it; the census counts such a referral unreadable where the
-  corpus row records one. Read at the carrying head:
-  <FILL: increment timing census at the carrying head as one plain line, before-run and run-day counts per claim by both readings, referral claims dated before or on the run day, unreadable referrals, and the corpus vintage>.
+  corpus row records one. Read at the PR head the corpus-check lane answered at:
+  <FILL: increment timing census at the PR head the corpus-check lane answered at as one plain line, before-run, during-run and run-day counts per claim by both readings, referral claims dated before or on the run day, unreadable referrals, and the corpus vintage>.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit
   `<FILL: merge hash>`, merged `<FILL: merged-at>`).

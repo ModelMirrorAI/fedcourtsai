@@ -28,6 +28,8 @@ from fedcourtsai.schemas import (
     BaseRateBucket,
     ClaimProbability,
     Disposition,
+    DocketPollRecord,
+    Engine,
     Evaluation,
     EventKind,
     FlagCategory,
@@ -35,8 +37,11 @@ from fedcourtsai.schemas import (
     InterimResolutionSignals,
     Judgment,
     JusticeVote,
+    ModelUsage,
     Moment,
     Outcome,
+    PolledIncrementSignals,
+    PolledSignal,
     PredictableEvent,
     Prediction,
     PredictionContext,
@@ -358,12 +363,30 @@ def test_stamp_evaluator_computes_the_claim_block_and_overwrites_the_agents(
     assert unparsed["cvsg-increment"]["outcome"] == 0
 
 
-def test_stamp_evaluator_masks_an_increment_whose_signal_preceded_the_run(
-    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("cvsg_date", "polled_present", "outcome", "mask_reason"),
+    [
+        # Unpolled, dated the day before the run (2026-01-09): masked by the date.
+        (date(2026, 1, 8), None, None, "signal-before-run"),
+        # A poll that read the CVSG present masks it, though its date is after the run.
+        (date(2026, 1, 12), True, None, "signal-before-run"),
+        # A poll that read it absent keeps the claim, though its date is before the run.
+        (date(2026, 1, 8), False, 1, None),
+    ],
+)
+def test_stamp_evaluator_reads_an_increments_run_timing_poll_first(
+    _data_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    cvsg_date: date,
+    polled_present: bool | None,
+    outcome: int | None,
+    mask_reason: str | None,
 ) -> None:
-    """A CVSG dated before the forward cell's run day resolves 1 on the record,
-    but the cell could read it off the live docket: the stamp masks the claim
-    with its own reason and leaves every other claim as it was."""
+    """A CVSG resolves 1 on the record, but a forward cell could read it off the
+    live docket if it was there when the cell ran. The pre-mint poll decides
+    where one read the signal, and the committed date only where none did; a
+    masked claim carries its own reason and every other claim is left as it was."""
     monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
     event = "evt-petition-writ-of-certiorari"
     event_paths = CasePaths(_data_root, "scotus", 3).event(event)
@@ -406,10 +429,33 @@ def test_stamp_evaluator_masks_an_increment_whose_signal_preceded_the_run(
             signals=ResolutionSignals(
                 distribution_count=3,
                 distribution_parse=DEFAULT_DISTRIBUTION_PARSE,
-                cvsg_date=date(2026, 1, 8),
+                cvsg_date=cvsg_date,
             ),
         ),
     )
+    if polled_present is not None:
+        write_json(
+            event_paths.prediction_usage("claude-baseline", "RID"),
+            ModelUsage(
+                case_id="scotus/3",
+                event_id=event,
+                run_id="RID",
+                role=UsageRole.predictor,
+                actor_id="claude-baseline",
+                engine=Engine.claude_code,
+                model="claude-fable-5",
+                created_at=datetime(2026, 1, 9, 18, 0, tzinfo=UTC),
+                input_tokens=1,
+                output_tokens=1,
+                estimated_cost_usd=0.0,
+                pre_mint_poll=DocketPollRecord(
+                    polled_at=datetime(2026, 1, 9, 17, 50, tzinfo=UTC),
+                    docket_number="25-3",
+                    state="open",
+                    signals=PolledIncrementSignals(cvsg=PolledSignal(present=polled_present)),
+                ),
+            ),
+        )
     write_json(tmp_path / "metrics" / "statpack.json", StatPack(corpus_rows=1, terms=[]))
     seed_evaluation(
         _data_root,
@@ -428,8 +474,8 @@ def test_stamp_evaluator_masks_an_increment_whose_signal_preceded_the_run(
     rows = {
         row["claim_id"]: row for row in json.loads(eval_path.read_text())["claim_scores"]["claims"]
     }
-    assert rows["cvsg-increment"]["outcome"] is None
-    assert rows["cvsg-increment"]["mask_reason"] == "signal-before-run"
+    assert rows["cvsg-increment"]["outcome"] == outcome
+    assert rows["cvsg-increment"].get("mask_reason") == mask_reason
     assert "mask_reason" not in rows["disposition"]
 
 

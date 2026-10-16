@@ -4,7 +4,8 @@ An increment claim forecasts a docket signal the cell's provisioned record did
 not show. :func:`fedcourtsai.set_aside.increment_timing` says whether the signal
 was already on the docket when the forward cell ran; ``score_claims`` masks the
 claims it reads ``signal-before-run`` and the claim-score board sets aside the
-ones it reads ``signal-on-run-day``, with a per-reason sensitivity line.
+ones it reads ``signal-during-run`` or ``signal-on-run-day``, with a per-reason
+sensitivity line.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from typer.testing import CliRunner
 
 from fedcourtsai import corpus
 from fedcourtsai.claim_metrics import (
@@ -26,6 +28,7 @@ from fedcourtsai.claim_metrics import (
     claim_set_aside_sensitivity_lines,
     without_set_aside_claims,
 )
+from fedcourtsai.cli import app
 from fedcourtsai.integrity import FORWARD, StratifiedCell
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import claims
@@ -33,6 +36,7 @@ from fedcourtsai.schemas import (
     ClaimProbability,
     ClaimScore,
     ClaimScoreBlock,
+    ClaimScoreBoard,
     DocketPollRecord,
     Engine,
     EventKind,
@@ -48,9 +52,10 @@ from fedcourtsai.schemas import (
     StatPack,
     UsageRole,
 )
-from fedcourtsai.serialize import write_json, write_yaml
+from fedcourtsai.serialize import read_model, write_json, write_yaml
 from fedcourtsai.set_aside import (
     TIMED_INCREMENT_CLAIMS,
+    IncrementTiming,
     claim_set_aside_reason,
     increment_timing,
 )
@@ -95,7 +100,11 @@ def _prediction(*, at: datetime = RUN, mode: str = "forward") -> Prediction:
 
 
 def _poll(
-    *, state: str = "open", requested: bool | None = None, referred: bool | None = None
+    *,
+    state: str = "open",
+    requested: bool | None = None,
+    referred: bool | None = None,
+    at: datetime = datetime(2026, 9, 29, 21, 20, tzinfo=UTC),
 ) -> DocketPollRecord:
     signals = None
     if requested is not None or referred is not None:
@@ -106,7 +115,7 @@ def _poll(
             referred_to_court=PolledSignal(present=referred) if referred is not None else None,
         )
     return DocketPollRecord(
-        polled_at=datetime(2026, 9, 29, 21, 20, tzinfo=UTC),
+        polled_at=at,
         docket_number="26A416",
         state=state,
         signals=signals,
@@ -145,6 +154,60 @@ def test_increment_timing_reads_the_poll_first_then_the_date(
 ) -> None:
     timing = increment_timing("response-requested-increment", _prediction(), poll, _day(signal))
     assert timing == expected
+
+
+#: The post-run poll, taken after the engine stopped.
+AFTER = datetime(2026, 9, 29, 21, 40, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("pre", "post", "expected"),
+    [
+        # Present before the run: masked, whatever the post-run poll read.
+        (_poll(requested=True), _poll(requested=True, at=AFTER), "signal-before-run"),
+        (_poll(requested=True), None, "signal-before-run"),
+        # Absent before, present after: it landed inside the run's blind window.
+        (_poll(requested=False), _poll(requested=True, at=AFTER), "signal-during-run"),
+        # A decided post-run poll still read the served docket.
+        (
+            _poll(requested=False),
+            _poll(state="decided", requested=True, at=AFTER),
+            "signal-during-run",
+        ),
+        # Absent both times, or no usable post-run reading: a forecast.
+        (_poll(requested=False), _poll(requested=False, at=AFTER), None),
+        (_poll(requested=False), None, None),
+        (_poll(requested=False), _poll(state="unavailable", at=AFTER), None),
+        (_poll(requested=False), _poll(referred=True, at=AFTER), None),
+    ],
+)
+def test_the_post_run_poll_brackets_an_absent_pre_mint_reading(
+    pre: DocketPollRecord, post: DocketPollRecord | None, expected: str | None
+) -> None:
+    # The date says the signal came the day after the run; the polls overrule it.
+    timing = increment_timing(
+        "response-requested-increment",
+        _prediction(),
+        pre,
+        _day(date(2026, 9, 30)),
+        post_poll=post,
+    )
+    assert timing == expected
+
+
+def test_a_post_run_poll_alone_leaves_the_date_to_decide() -> None:
+    # No usable pre-mint poll: the same-day date rule stands, and a post-run
+    # reading neither masks nor sets aside on its own.
+    post = _poll(requested=True, at=AFTER)
+    same_day = _day(date(2026, 9, 29))
+    after = _day(date(2026, 9, 30))
+    claim = "response-requested-increment"
+    assert increment_timing(claim, _prediction(), None, same_day, post_poll=post) == (
+        "signal-on-run-day"
+    )
+    assert increment_timing(claim, _prediction(), None, after, post_poll=post) is None
+    unavailable = _poll(state="unavailable")
+    assert increment_timing(claim, _prediction(), unavailable, after, post_poll=post) is None
 
 
 def test_the_run_day_is_read_in_court_time() -> None:
@@ -193,6 +256,25 @@ def test_a_claim_is_set_aside_only_when_resolved_and_on_the_run_day() -> None:
     assert claim_set_aside_reason(claim, 1, _prediction(), None, before) is None
 
 
+def test_a_signal_inside_the_polls_window_is_set_aside_not_masked() -> None:
+    claim = "response-requested-increment"
+    pre, later = _poll(requested=False), _day(date(2026, 9, 30))
+    landed = _poll(requested=True, at=AFTER)
+    assert (
+        claim_set_aside_reason(claim, 1, _prediction(), pre, later, post_poll=landed)
+        == "increment-run-day"
+    )
+    still_absent = _poll(requested=False, at=AFTER)
+    assert (
+        claim_set_aside_reason(claim, 1, _prediction(), pre, later, post_poll=still_absent) is None
+    )
+    # The scorer masks only signal-before-run, so a window reading stays resolved.
+    rows = _score(
+        lambda claim_id: increment_timing(claim_id, _prediction(), pre, later, post_poll=landed)
+    )
+    assert rows[claim].outcome == 1 and rows[claim].mask_reason is None
+
+
 # --- the scorer's mask ----------------------------------------------------------
 
 
@@ -209,13 +291,13 @@ def _interim_outcome() -> Outcome:
     )
 
 
-def _score(timing: Callable[[str], str | None] | None) -> dict[str, ClaimScore]:
+def _score(timing: Callable[[str], IncrementTiming | None] | None) -> dict[str, ClaimScore]:
     block = claims.score_claims(
         _prediction(),
         _interim_outcome(),
         StatPack.model_validate({"terms": []}),
         lookback_terms=3,
-        increment_timing=timing,  # type: ignore[arg-type]
+        increment_timing=timing,
     )
     assert block is not None
     return {row.claim_id: row for row in block.claims}
@@ -330,16 +412,41 @@ def test_the_default_takes_a_set_aside_claims_score_out_and_its_line_counts_it_b
     assert record.events == ["scotus/123 evt-b cvsg-increment increment-run-day"]
 
     (line,) = claim_set_aside_sensitivity_lines(cells, claim_set_aside, build_claim_scores)
-    assert (line.reason, line.predictor_id, line.stratum, line.claims) == (
+    assert (line.reason, line.predictor_id, line.stratum, line.claims, line.scored_claims) == (
         "increment-run-day",
         "alpha",
         "forward",
+        1,
         1,
     )
     assert line.including is not None
     counted = {row.claim_id: row for row in line.including.claims}
     assert counted["cvsg-increment"].scored == 1
     assert line.including.mean_total == pytest.approx((-0.08 + (-0.08 + 0.17)) / 2)
+
+
+def test_a_line_whose_claims_carry_no_score_says_so() -> None:
+    # No baseline, so nothing to count back: the line's figure is the default's.
+    held = _cert_cell("evt-b", _cvsg_block(cvsg_score=None))
+    key = (held[0].case_id, held[0].event_id, "alpha", "eval-a", "r1")
+    claim_set_aside: ClaimSetAsides = {key: {"cvsg-increment": "increment-run-day"}}
+    (line,) = claim_set_aside_sensitivity_lines([held], claim_set_aside, build_claim_scores)
+    assert (line.claims, line.scored_claims) == (1, 0)
+    default = build_claim_scores(without_set_aside_claims([held], claim_set_aside))
+    assert line.including == default.entries[0].forward
+
+
+def test_a_line_missing_its_figure_raises_rather_than_publishing_null() -> None:
+    held = _cert_cell("evt-b", _cvsg_block(cvsg_score=0.17))
+    key = (held[0].case_id, held[0].event_id, "alpha", "eval-a", "r1")
+    claim_set_aside: ClaimSetAsides = {key: {"cvsg-increment": "increment-run-day"}}
+
+    def empty(_cells: object) -> ClaimScoreBoard:
+        board = build_claim_scores([held])
+        return board.model_copy(update={"entries": []})
+
+    with pytest.raises(ValueError, match="scored set-aside claim"):
+        claim_set_aside_sensitivity_lines([held], claim_set_aside, empty)
 
 
 def test_nothing_set_aside_at_the_claim_grain_publishes_nothing() -> None:
@@ -349,12 +456,19 @@ def test_nothing_set_aside_at_the_claim_grain_publishes_nothing() -> None:
     assert without_set_aside_claims(cells, {}) == cells
 
 
-def _write_cvsg_cell(data_root: Path, *, cvsg_date: date, poll: DocketPollRecord | None) -> None:
+def _write_cvsg_cell(
+    data_root: Path,
+    *,
+    cvsg_date: date,
+    poll: DocketPollRecord | None,
+    post_poll: DocketPollRecord | None = None,
+    cvsg_score: float | None = None,
+) -> None:
     ev = _evaluation(
         "claude-baseline",
         case_id="scotus/9026000221",
         event_id="evt-petition-disposition",
-        claim_scores=_cvsg_block(cvsg_score=None),
+        claim_scores=_cvsg_block(cvsg_score=cvsg_score),
     )
     _write_cell(
         data_root,
@@ -379,7 +493,7 @@ def _write_cvsg_cell(data_root: Path, *, cvsg_date: date, poll: DocketPollRecord
             )
         ),
     )
-    if poll is not None:
+    if poll is not None or post_poll is not None:
         write_json(
             event.prediction_usage("claude-baseline", "p1"),
             ModelUsage(
@@ -395,6 +509,7 @@ def _write_cvsg_cell(data_root: Path, *, cvsg_date: date, poll: DocketPollRecord
                 output_tokens=1,
                 estimated_cost_usd=0.0,
                 pre_mint_poll=poll,
+                post_run_poll=post_poll,
             ),
         )
 
@@ -419,6 +534,85 @@ def test_a_poll_that_read_no_cvsg_keeps_the_run_day_claim_in(tmp_path: Path) -> 
     )
     _write_cvsg_cell(tmp_path, cvsg_date=date(2026, 10, 13), poll=poll)
     assert not stratify(tmp_path, frozen_only=False).claim_set_aside
+
+
+def _cvsg_poll(*, present: bool, at: datetime) -> DocketPollRecord:
+    return DocketPollRecord(
+        polled_at=at,
+        docket_number="26-221",
+        state="open",
+        signals=PolledIncrementSignals(cvsg=PolledSignal(present=present)),
+    )
+
+
+def test_stratify_sets_aside_a_claim_whose_signal_landed_between_the_polls(
+    tmp_path: Path,
+) -> None:
+    # Dated the day after the run, so the date alone would keep it; the polls
+    # show it arrived while the cell ran.
+    _write_cvsg_cell(
+        tmp_path,
+        cvsg_date=date(2026, 10, 14),
+        poll=_cvsg_poll(present=False, at=datetime(2026, 10, 13, 17, 55, tzinfo=UTC)),
+        post_poll=_cvsg_poll(present=True, at=datetime(2026, 10, 13, 18, 4, tzinfo=UTC)),
+    )
+    run = stratify(tmp_path, frozen_only=False)
+    (cell,) = run.cells
+    key = (cell[0].case_id, cell[0].event_id, cell[0].predictor_id, cell[0].evaluator_id, "r1")
+    assert dict(run.claim_set_aside[key]) == {"cvsg-increment": "increment-run-day"}
+
+
+def test_stratify_keeps_a_claim_both_polls_read_absent(tmp_path: Path) -> None:
+    _write_cvsg_cell(
+        tmp_path,
+        cvsg_date=date(2026, 10, 13),
+        poll=_cvsg_poll(present=False, at=datetime(2026, 10, 13, 17, 55, tzinfo=UTC)),
+        post_poll=_cvsg_poll(present=False, at=datetime(2026, 10, 13, 18, 4, tzinfo=UTC)),
+    )
+    assert not stratify(tmp_path, frozen_only=False).claim_set_aside
+
+
+def test_cli_claim_scores_sets_aside_a_run_day_cvsg_claim_and_counts_it_back(
+    tmp_path: Path,
+) -> None:
+    """End to end over the command: a cert first-moment ``cvsg-increment`` claim
+    with a baseline, dated its unpolled cell's run day, leaves the default
+    figures and is counted back on its own sensitivity line."""
+    data_root = tmp_path / "data"
+    _write_cvsg_cell(data_root, cvsg_date=date(2026, 10, 13), poll=None, cvsg_score=0.17)
+    out = tmp_path / "claim-scores.json"
+    result = CliRunner().invoke(
+        app,
+        ["claim-scores", "--out", str(out), "--all-versions"],
+        env={"FEDCOURTS_DATA_ROOT": str(data_root)},
+    )
+    assert result.exit_code == 0, result.output
+    board = read_model(out, ClaimScoreBoard)
+
+    assert board.claim_set_aside is not None
+    assert (board.claim_set_aside.claims, board.claim_set_aside.scored_claims) == (1, 1)
+    assert board.claim_set_aside.by_reason == {"increment-run-day": 1}
+    assert board.claim_set_aside.events == [
+        "scotus/9026000221 evt-petition-disposition cvsg-increment increment-run-day"
+    ]
+
+    (entry,) = board.entries
+    assert entry.forward is not None
+    default = {row.claim_id: row for row in entry.forward.claims}
+    assert default["cvsg-increment"].scored == 0
+    assert entry.forward.mean_total == pytest.approx(-0.08)
+
+    (line,) = board.claim_set_aside_sensitivity
+    assert (line.reason, line.predictor_id, line.stratum) == (
+        "increment-run-day",
+        "claude-baseline",
+        "forward",
+    )
+    assert (line.claims, line.scored_claims) == (1, 1)
+    assert line.including is not None
+    counted = {row.claim_id: row for row in line.including.claims}
+    assert counted["cvsg-increment"].scored == 1
+    assert line.including.mean_total == pytest.approx(-0.08 + 0.17)
 
 
 # --- the corpus-check census ----------------------------------------------------

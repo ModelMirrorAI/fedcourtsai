@@ -137,7 +137,7 @@
               "type": "null"
             }
           ],
-          "description": "The pooled entry's stratum with the reason's claims counted back"
+          "description": "The pooled entry's stratum with the reason's claims counted back; null only where the entry has no figure in that stratum and none of the line's claims carries a score, so nothing it counts back could give it one"
         },
         "predictor_id": {
           "title": "Predictor Id",
@@ -152,6 +152,12 @@
           ],
           "title": "Reason",
           "type": "string"
+        },
+        "scored_claims": {
+          "description": "Of `claims`, those carrying a score \u2014 the ones that move a figure. Zero means the line's `including` equals the default figure: the claims are set aside, and none of them moved anything",
+          "minimum": 0,
+          "title": "Scored Claims",
+          "type": "integer"
         },
         "stratum": {
           "description": "The stratum the set-aside claims sit in",
@@ -169,6 +175,7 @@
         "predictor_id",
         "stratum",
         "claims",
+        "scored_claims",
         "including"
       ],
       "title": "ClaimScoreClaimSetAsideLine",

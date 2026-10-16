@@ -561,13 +561,26 @@ def claim_set_aside_sensitivity_lines(
     reason back, and each (predictor, stratum) the reason's claims sit in gets
     a line reading that rebuild's pooled entry — one reason per line, never two
     stacked, and never with the cell-grain set-aside's cells.
+
+    Each line counts its claims and, of them, the ``scored_claims`` that move a
+    figure, so a line whose figure equals the default reads as nothing scored
+    rather than as a figure that did not move. A missing figure for a line
+    whose claims carry a score raises, as :func:`claim_set_aside_sensitivity`
+    does: the rebuild is over the default's cells with scores put back, so a
+    figure absent there is a construction error, never a reading to publish.
     """
     found = _surface_claim_set_asides(cells, claim_set_aside)
     held: dict[tuple[SetAsideReason, str, Stratum], set[tuple[str, str, str]]] = defaultdict(set)
+    scored: dict[tuple[SetAsideReason, str, Stratum], set[tuple[str, str, str]]] = defaultdict(set)
     for evaluation, stratum, claim_id, reason in found:
-        held[(reason, evaluation.predictor_id, stratum)].add(
-            (evaluation.case_id, evaluation.event_id, claim_id)
-        )
+        key = (reason, evaluation.predictor_id, stratum)
+        claim = (evaluation.case_id, evaluation.event_id, claim_id)
+        held[key].add(claim)
+        block = evaluation.claim_scores
+        if block is not None and any(
+            row.claim_id == claim_id and row.score is not None for row in block.claims
+        ):
+            scored[key].add(claim)
     lines: list[ClaimScoreClaimSetAsideLine] = []
     for reason in sorted({reason for reason, _pid, _stratum in held}):
         including = surface_over(
@@ -578,13 +591,21 @@ def claim_set_aside_sensitivity_lines(
             if line_reason != reason:
                 continue
             entry = entries.get(predictor_id)
+            figure = getattr(entry, stratum) if entry is not None else None
+            moving = len(scored[(line_reason, predictor_id, stratum)])
+            if figure is None and moving:
+                raise ValueError(
+                    f"the {reason} sensitivity surface holds no {stratum} claim figure "
+                    f"for {predictor_id}, though {moving} scored set-aside claim(s) sit there"
+                )
             lines.append(
                 ClaimScoreClaimSetAsideLine(
                     reason=reason,
                     predictor_id=predictor_id,
                     stratum=stratum,
                     claims=len(claims),
-                    including=getattr(entry, stratum) if entry is not None else None,
+                    scored_claims=moving,
+                    including=figure,
                 )
             )
     return lines

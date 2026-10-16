@@ -45,9 +45,10 @@ read the live docket, so the signal can already be there when it runs. Where
 the record shows it was — the cell's pre-mint poll read it, or its docket date
 is before the run day — the claim forecast nothing and the scorer masks it
 (``ClaimScore.mask_reason``). Where the record cannot order the two — the
-signal's date is the run day itself and no poll was taken — the claim may be a
-forecast or may not, so it is set aside here, at the board, with its own
-sensitivity line.
+pre-mint poll read the signal absent and the post-run poll read it present, so
+it landed inside the run's blind window; or, unpolled, the signal's date is the
+run day itself — the claim may be a forecast or may not, so it is set aside
+here, at the board, with its own sensitivity line.
 """
 
 from __future__ import annotations
@@ -164,9 +165,11 @@ def set_aside_reason(
 
 #: How a forward cell's run sits against an increment claim's signal:
 #: ``signal-before-run`` — the signal was on the docket before the cell ran, so
-#: the claim forecast nothing; ``signal-on-run-day`` — the signal is dated the
-#: cell's run day and no poll orders the two.
-IncrementTiming = Literal["signal-before-run", "signal-on-run-day"]
+#: the claim forecast nothing; ``signal-during-run`` — the pre-mint poll read it
+#: absent and the post-run poll read it present, so it landed while the cell ran;
+#: ``signal-on-run-day`` — the signal is dated the cell's run day and no poll
+#: orders the two. The last two are set aside, never masked.
+IncrementTiming = Literal["signal-before-run", "signal-during-run", "signal-on-run-day"]
 
 #: The increment claims a run can overtake, each keyed to the
 #: :class:`~fedcourtsai.schemas.PolledIncrementSignals` field its pre-mint poll
@@ -181,15 +184,9 @@ TIMED_INCREMENT_CLAIMS: Final[Mapping[str, str]] = MappingProxyType(
 )
 
 
-def polled_signal(poll: DocketPollRecord | None, claim_id: str) -> PolledSignal | None:
-    """What a usable pre-mint poll read of ``claim_id``'s signal, or ``None``.
-
-    Usable means the poll read ``open`` and recorded that signal: an
-    ``unavailable`` poll read nothing, and a poll taken before the signal
-    reading existed, or of a docket whose form cannot carry the signal, records
-    none.
-    """
-    if poll is None or poll.state != "open" or poll.signals is None:
+def _recorded_signal(poll: DocketPollRecord | None, claim_id: str) -> PolledSignal | None:
+    """What ``poll`` recorded of ``claim_id``'s signal, whatever its verdict, or ``None``."""
+    if poll is None or poll.signals is None:
         return None
     field = TIMED_INCREMENT_CLAIMS.get(claim_id)
     if field is None:
@@ -198,11 +195,38 @@ def polled_signal(poll: DocketPollRecord | None, claim_id: str) -> PolledSignal 
     return seen
 
 
+def polled_signal(poll: DocketPollRecord | None, claim_id: str) -> PolledSignal | None:
+    """What a usable pre-mint poll read of ``claim_id``'s signal, or ``None``.
+
+    Usable means the poll read ``open`` and recorded that signal: an
+    ``unavailable`` poll read nothing, and a poll taken before the signal
+    reading existed, or of a docket whose form cannot carry the signal, records
+    none.
+    """
+    if poll is None or poll.state != "open":
+        return None
+    return _recorded_signal(poll, claim_id)
+
+
+def post_run_signal(poll: DocketPollRecord | None, claim_id: str) -> PolledSignal | None:
+    """What a usable post-run poll read of ``claim_id``'s signal, or ``None``.
+
+    The post-run poll runs the same read as the pre-mint one
+    (:func:`fedcourtsai.pipeline.pre_mint.poll_docket`), against the docket
+    number the first poll named. Usable means it recorded that signal: an
+    ``unavailable`` poll records none, and a ``decided`` one still read the
+    served docket, so its signal reading stands.
+    """
+    return _recorded_signal(poll, claim_id)
+
+
 def increment_timing(
     claim_id: str,
     prediction: Prediction,
     poll: DocketPollRecord | None,
     signal_day: Callable[[], date | None],
+    *,
+    post_poll: DocketPollRecord | None = None,
 ) -> IncrementTiming | None:
     """Whether a forward cell ran after its increment claim's signal was on the docket.
 
@@ -211,10 +235,18 @@ def increment_timing(
     and its contract bars it from reading past the event, and a context-null
     cell claims nothing about timing.
 
-    **With a usable pre-mint poll** (:func:`polled_signal`) the poll decides:
-    the signal read present means it was on the served docket just before the
-    cell was minted (``signal-before-run``); read absent, it postdates the poll
-    and the claim is a forecast (``None``), whatever day it later landed.
+    **With a usable pre-mint poll** (:func:`polled_signal`) the polls decide.
+    The signal read present means it was on the served docket just before the
+    cell was minted (``signal-before-run``). Read absent, it postdates the
+    poll, and the post-run poll (``post_poll``, :func:`post_run_signal`) says
+    whether it also postdates the run: read present there, the signal landed
+    inside the window the two polls bracket — while the cell ran and could
+    read the live docket — so the order is ambiguous (``signal-during-run``);
+    read absent, or with no usable post-run poll, the claim is a forecast
+    (``None``), whatever day the signal later landed. The conservative arms
+    are the two that a poll can show: present before the run masks, present
+    after it sets aside, and only an absence the record cannot contradict
+    keeps the claim.
 
     **Without one**, the signal's docket date decides against the cell's run
     day — its harness clock (:func:`fedcourtsai.integrity.cell_clock`) in Court
@@ -226,13 +258,24 @@ def increment_timing(
     it returns ``None`` — no signal, or no committed date for it (a referral
     has none) — the timing is unassessable and the answer is ``None``: the
     claim keeps the resolution its record gives it.
+
+    Two residuals stand on the date path, both leaning toward a mask and both
+    reaching unpolled cells only. ``cell_clock`` reads ``stamped_at``, written
+    after the engine finishes, so a run that crosses Court midnight takes its
+    end day as its run day, and a signal dated its start day reads
+    ``signal-before-run``. And a docket entry's date can be earlier than the
+    day it appeared on the served docket, so a signal posted late with an
+    earlier date reads before a run that could not have seen it.
     """
     context = prediction.context
     if claim_id not in TIMED_INCREMENT_CLAIMS or context is None or context.mode != "forward":
         return None
     seen = polled_signal(poll, claim_id)
     if seen is not None:
-        return "signal-before-run" if seen.present else None
+        if seen.present:
+            return "signal-before-run"
+        after = post_run_signal(post_poll, claim_id)
+        return "signal-during-run" if after is not None and after.present else None
     day = signal_day()
     if day is None:
         return None
@@ -248,12 +291,16 @@ def claim_set_aside_reason(
     prediction: Prediction,
     poll: DocketPollRecord | None,
     signal_day: Callable[[], date | None],
+    *,
+    post_poll: DocketPollRecord | None = None,
 ) -> SetAsideReason | None:
     """Why one resolved claim is set aside from the default claim figures, or ``None``.
 
     The claim-grain predicate: ``increment-run-day`` for an increment claim
-    whose signal is dated its unpolled forward cell's run day
-    (:func:`increment_timing` reads ``signal-on-run-day``). A claim the record
+    whose signal the record cannot order against its forward cell's run —
+    the pre-mint poll read it absent and the post-run poll present
+    (``signal-during-run``), or, unpolled, it is dated the run day
+    (``signal-on-run-day``; :func:`increment_timing`). A claim the record
     leaves unresolved (``resolved`` is ``None``, the run-timing mask included)
     moves no figure and is never set aside. A block stamped before the
     run-timing mask existed can carry a resolved claim the mask would now
@@ -263,6 +310,7 @@ def claim_set_aside_reason(
     """
     if resolved is None:
         return None
-    if increment_timing(claim_id, prediction, poll, signal_day) == "signal-on-run-day":
+    timing = increment_timing(claim_id, prediction, poll, signal_day, post_poll=post_poll)
+    if timing in ("signal-during-run", "signal-on-run-day"):
         return "increment-run-day"
     return None

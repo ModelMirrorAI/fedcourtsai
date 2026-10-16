@@ -2146,10 +2146,11 @@ class DocketPollRecord(_Strict):
         description="Record-only: what the served docket showed at `polled_at` of each "
         "increment signal the cell's claims forecast, with the entry date the ingest "
         "parser reads. The claim scorer reads a pre-mint poll's reading to mask an "
-        "increment claim whose signal was already on the docket before the cell ran "
-        "(`set_aside.increment_timing`). Omitted where the poll read no proceedings list "
-        "(an `unavailable` poll, a payload without one), and on polls taken before the "
-        "field existed",
+        "increment claim whose signal was already on the docket before the cell ran, and "
+        "a post-run poll's to set aside one whose signal the pre-mint poll read absent and "
+        "the post-run poll present (`set_aside.increment_timing`). Omitted where the poll "
+        "read no proceedings list (an `unavailable` poll, a payload without one), and on "
+        "polls taken before the field existed",
     )
 
     @model_serializer(mode="wrap")
@@ -5435,8 +5436,16 @@ class ClaimScoreClaimSetAsideLine(_Strict):
     predictor_id: str
     stratum: Stratum = Field(description="The stratum the set-aside claims sit in")
     claims: int = Field(ge=1, description="Set-aside claims this line counts back in")
+    scored_claims: int = Field(
+        ge=0,
+        description="Of `claims`, those carrying a score — the ones that move a figure. "
+        "Zero means the line's `including` equals the default figure: the claims are set "
+        "aside, and none of them moved anything",
+    )
     including: ClaimScoreStratum | None = Field(
-        description="The pooled entry's stratum with the reason's claims counted back"
+        description="The pooled entry's stratum with the reason's claims counted back; null "
+        "only where the entry has no figure in that stratum and none of the line's claims "
+        "carries a score, so nothing it counts back could give it one"
     )
 
 
@@ -5565,7 +5574,9 @@ class ClaimScoreBoard(_Strict):
     @model_serializer(mode="wrap")
     def _omit_empty_cut(self, handler: SerializerFunctionWrapHandler) -> Any:
         """Drop ``by_protocol`` while it lists nothing (an all-versions build), and
-        ``voided_events`` / the set-aside pair while nothing in scope is voided or set
+        ``voided_events``, the cell-grain set-aside pair (``set_aside`` /
+        ``set_aside_sensitivity``) and the claim-grain pair (``claim_set_aside`` /
+        ``claim_set_aside_sensitivity``) while nothing in scope is voided or set
         aside."""
         return _omit_empty(
             handler(self),

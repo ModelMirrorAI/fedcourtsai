@@ -456,6 +456,7 @@ from .store import (
     StratifiedRun,
     cases_due_for_pull,
     cell_census,
+    cell_polls,
     evaluation_key,
     event_has_claimable_prediction,
     forecastable_events,
@@ -471,7 +472,6 @@ from .store import (
     ledger_cell_counts,
     load_predicted_event,
     open_events,
-    pre_mint_poll,
     prediction_counts,
     resolved_events,
     scored_prediction,
@@ -8382,7 +8382,7 @@ def _claim_scores_for(
     latest = _scored_prediction_for(event_paths, evaluation)
     if outcome is None or statpack is None or latest is None:
         return None
-    poll = pre_mint_poll(event_paths.prediction_dir(latest.predictor_id, latest.run_id))
+    poll, post_poll = cell_polls(event_paths.prediction_dir(latest.predictor_id, latest.run_id))
 
     def timing(claim_id: str) -> IncrementTiming | None:
         return increment_timing(
@@ -8390,6 +8390,7 @@ def _claim_scores_for(
             latest,
             poll,
             functools.partial(increment_signal_day, event_paths.base, claim_id, outcome),
+            post_poll=post_poll,
         )
 
     return score_claims(

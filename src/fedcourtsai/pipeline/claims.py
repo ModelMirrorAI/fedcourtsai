@@ -919,14 +919,15 @@ def score_claims(
     **The run-timing mask.** ``increment_timing`` answers, per claim id, how
     the cell's run sat against that increment claim's signal
     (:func:`fedcourtsai.set_aside.increment_timing`, which the caller binds to
-    the scored prediction, its pre-mint poll and the signal's committed date).
-    A claim it reads ``signal-before-run`` — the signal was already on the
-    docket when the cell ran, so stating it forecast nothing — is masked: its
-    outcome is ``None`` and its row's ``mask_reason`` says why, since unlike
-    every other mask it is conditioned on when the cell ran rather than on the
-    frozen record. It only ever masks a claim the record would resolve. A
-    ``signal-on-run-day`` reading is left resolved here; the boards set that
-    claim aside (:func:`fedcourtsai.set_aside.claim_set_aside_reason`).
+    the scored prediction, its pre-mint and post-run polls and the signal's
+    committed date). A claim it reads ``signal-before-run`` — the signal was
+    already on the docket when the cell ran, so stating it forecast nothing —
+    is masked: its outcome is ``None`` and its row's ``mask_reason`` says why,
+    since unlike every other mask it is conditioned on when the cell ran rather
+    than on the frozen record. It only ever masks a claim the record would
+    resolve. A ``signal-during-run`` or ``signal-on-run-day`` reading is left
+    resolved here; the boards set that claim aside
+    (:func:`fedcourtsai.set_aside.claim_set_aside_reason`).
     Omitted, nothing is masked on timing.
     """
     declared = declared_claim_set(prediction.event_id)
