@@ -19,9 +19,11 @@ name: post-public-update
 # week's subject instead of making a second — so a re-dispatch is safe.
 on:
   schedule:
-    # Mondays after the morning pull and the ops tick, so the week's last
-    # resolutions and forecasts are committed before it renders.
-    - cron: "0 12 * * 1"
+    # Mondays after the morning pull has committed the week's last
+    # resolutions. Off the hour, where scheduled runs are least often delayed
+    # or dropped; a missed Monday is recovered by dispatching with `week`,
+    # which is safe because the post is idempotent per week.
+    - cron: "57 11 * * 1"
   workflow_dispatch:
     inputs:
       week:
@@ -130,6 +132,7 @@ jobs:
             exit 0
           fi
           if [ "$status" -ne 0 ]; then
+            echo "Buttondown post failed (exit $status); see the step log." >> "$GITHUB_STEP_SUMMARY"
             exit "$status"
           fi
           cat post.txt >> "$GITHUB_STEP_SUMMARY"

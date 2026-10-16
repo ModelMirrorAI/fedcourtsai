@@ -517,7 +517,9 @@ runbook, [docs/security.md](docs/security.md).
   workflow authored on a PR branch runs without them. A second environment,
   `staging`, is restricted to the `staging` branch and holds the read-only
   role, its own engine keys for the pre-promotion integration runs, the
-  staging read-write role. A third, `review`, holds no secret and no role and admits
+  staging read-write role. A `website` environment, restricted to `main`,
+  holds one third-party key, the email list's Buttondown key, for the one job
+  that drafts the weekly public update (`docs/security.md`). A third, `review`, holds no secret and no role and admits
   `main` and `staging`; beyond that its content is a required-reviewer rule,
   and it exists only as the audit-logged hold
   between a plan that would spend and the spend — run-predict, run-evaluate,

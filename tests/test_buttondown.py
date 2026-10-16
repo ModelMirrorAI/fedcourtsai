@@ -38,32 +38,48 @@ class FakeButtondown:
         tags: list[dict[str, Any]] | None = None,
         emails: list[dict[str, Any]] | None = None,
         fail_gets: int = 0,
+        fail_code: int = 503,
         post_status: int = 201,
         answer_status: str = DRAFT_STATUS,
+        echo_filters: bool = True,
+        page_size: int = 50,
     ) -> None:
         self.tags = tags if tags is not None else [{"id": TAG_ID, "name": "weekly-scotus"}]
         self.emails = emails or []
         self.fail_gets = fail_gets
+        self.fail_code = fail_code
         self.post_status = post_status
         self.answer_status = answer_status
+        self.echo_filters = echo_filters
+        self.page_size = page_size
         self.requests: list[httpx.Request] = []
+
+    def _page(self, request: httpx.Request, items: list[dict[str, Any]]) -> httpx.Response:
+        page = int(request.url.params.get("page", "1"))
+        chunk = items[(page - 1) * self.page_size : page * self.page_size]
+        return httpx.Response(200, json={"results": chunk, "count": len(items)})
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         if request.method == "GET" and self.fail_gets:
             self.fail_gets -= 1
-            return httpx.Response(503)
+            return httpx.Response(self.fail_code)
         path = request.url.path
         if request.method == "GET" and path == "/v1/tags":
-            return httpx.Response(200, json={"results": self.tags, "count": len(self.tags)})
+            return self._page(request, self.tags)
         if request.method == "GET" and path == "/v1/emails":
             wanted = request.url.params.get("subject", "")
-            hits = [e for e in self.emails if wanted in e["subject"]]
-            return httpx.Response(200, json={"results": hits, "count": len(hits)})
+            excluded = request.url.params.get_list("-status")
+            hits = [
+                e for e in self.emails if wanted in e["subject"] and e["status"] not in excluded
+            ]
+            return self._page(request, hits)
         if request.method == "POST" and path == "/v1/emails":
             if self.post_status != 201:
                 return httpx.Response(self.post_status, json={"detail": "refused"})
             payload = json.loads(request.content)
+            if not self.echo_filters:
+                payload.pop("filters", None)
             email = {
                 **payload,
                 "id": "em_new",
@@ -103,7 +119,13 @@ def test_creates_one_draft_addressed_to_the_tag_by_id() -> None:
 
 def test_a_week_already_drafted_or_sent_is_returned_not_duplicated() -> None:
     for status in ("draft", "sent", "scheduled"):
-        fake = FakeButtondown(emails=[{"id": "em_old", "subject": SUBJECT, "status": status}])
+        email = {
+            "id": "em_old",
+            "subject": SUBJECT,
+            "status": status,
+            "filters": tag_filter(TAG_ID),
+        }
+        fake = FakeButtondown(emails=[email])
         with _client(fake) as client:
             draft = post_draft(
                 client, subject=SUBJECT, body="Body.", tag_name="weekly-scotus", sleep=_no_sleep
@@ -200,3 +222,59 @@ def test_cli_dry_run_prints_the_untitled_body_and_contacts_nothing(
         app, ["post-public-update", "--tag", "weekly-scotus", "--week", "2026-W01"], env=env
     )
     assert empty.exit_code == 3
+
+
+def test_the_lookup_excludes_deleted_emails_and_bodies() -> None:
+    fake = FakeButtondown(emails=[{"id": "em_gone", "subject": SUBJECT, "status": "deleted"}])
+    with _client(fake) as client:
+        assert post_draft(
+            client, subject=SUBJECT, body="Body.", tag_name="weekly-scotus", sleep=_no_sleep
+        ).created
+    (lookup,) = [r for r in fake.requests if r.method == "GET" and r.url.path == "/v1/emails"]
+    assert lookup.url.params.get_list("-status") == ["deleted"]
+    assert lookup.url.params["excluded_fields"] == "body"
+    assert lookup.url.params["subject"] == SUBJECT
+
+
+def test_listings_walk_every_page_and_stop_at_a_bound() -> None:
+    tags = [{"id": f"t{i}", "name": f"other-{i}"} for i in range(5)]
+    tags.append({"id": TAG_ID, "name": "weekly-scotus"})
+    fake = FakeButtondown(tags=tags, page_size=2)
+    with _client(fake) as client:
+        assert post_draft(
+            client, subject=SUBJECT, body="Body.", tag_name="weekly-scotus", sleep=_no_sleep
+        ).created
+    tag_pages = [r.url.params["page"] for r in fake.requests if r.url.path == "/v1/tags"]
+    assert tag_pages == ["1", "2", "3"]
+
+    endless = FakeButtondown(tags=[{"id": "x", "name": "other"}] * 1000, page_size=1)
+    with _client(endless) as client, pytest.raises(ButtondownError, match="pages"):
+        post_draft(client, subject=SUBJECT, body="Body.", tag_name="weekly-scotus", sleep=_no_sleep)
+
+
+def test_a_rate_limited_read_is_retried() -> None:
+    fake = FakeButtondown(fail_gets=2, fail_code=429)
+    with _client(fake) as client:
+        assert post_draft(
+            client, subject=SUBJECT, body="Body.", tag_name="weekly-scotus", sleep=_no_sleep
+        ).created
+
+
+def test_a_body_that_is_not_json_is_a_buttondown_error() -> None:
+    def html(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<html>proxy</html>")
+
+    with _client(html) as client, pytest.raises(ButtondownError, match="not JSON"):
+        post_draft(client, subject=SUBJECT, body="Body.", tag_name="weekly-scotus", sleep=_no_sleep)
+
+
+def test_a_draft_without_the_tag_in_its_answer_fails_the_run() -> None:
+    created = FakeButtondown(echo_filters=False)
+    with _client(created) as client, pytest.raises(ButtondownError, match="before sending"):
+        post_draft(client, subject=SUBJECT, body="Body.", tag_name="weekly-scotus", sleep=_no_sleep)
+
+    untargeted = {"id": "em_old", "subject": SUBJECT, "status": "draft", "filters": {}}
+    found = FakeButtondown(emails=[untargeted])
+    with _client(found) as client, pytest.raises(ButtondownError, match="em_old"):
+        post_draft(client, subject=SUBJECT, body="Body.", tag_name="weekly-scotus", sleep=_no_sleep)
+    assert found.posts() == []

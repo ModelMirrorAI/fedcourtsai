@@ -1200,10 +1200,13 @@ that binds `prod`, `staging` or `review` can read the key.
 
 Configure it with:
 
-- **deployment branches**: a custom policy of exactly `main`. The job also
-  refuses any other ref in its first step, because the promotion gate reads no
-  branch policy but `corpus-check`'s, and an edited or removed policy here
-  would otherwise fail open.
+- **deployment branches**: a custom policy of exactly `main`. That policy is
+  the control: it is what keeps the key from a workflow a write holder runs
+  from their own branch, and the promotion gate does not read it (it reads
+  `corpus-check`'s alone), so check it by hand after any change to the
+  environment. The job's first step also refuses any ref but `main`. That
+  step is a backstop for an unedited copy of the workflow on another ref, such
+  as `staging`; a branch that edits the workflow can delete it.
 - **one secret**: the Buttondown API key, with the permissions below. No
   variables and no required reviewers: the draft is the hold, since nothing is
   sent until the maintainer presses send in Buttondown.
@@ -1215,7 +1218,10 @@ recipient filter takes. Buttondown has no draft-only level, so emails write
 could also send, schedule or edit an email. The guard is the code:
 `fedcourtsai.buttondown` writes exactly one request, a create with the status
 fixed to `draft`, and refuses to create a draft whose audience tag it cannot
-resolve, so no draft can default to the whole list. Subscribers are never read.
+resolve, so no draft can default to the whole list. It then checks that the
+draft Buttondown returns names that tag in its filters, and fails the run if
+not, so a filter Buttondown dropped surfaces before anyone presses send.
+Subscribers are never read.
 
 Rotate the key in Buttondown and replace the secret; nothing else holds it. A
 leaked key reaches the list's emails and tag names, not its subscribers.

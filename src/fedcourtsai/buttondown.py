@@ -15,9 +15,14 @@ Three rules shape the rest:
 * **One draft per subject.** The subject names the week, so before creating a
   draft the module looks for any email with that exact subject that is not
   deleted — a draft, a scheduled send or one already sent — and returns it
-  instead. Re-running a week therefore never makes a second draft.
+  instead. Re-running a week therefore never makes a second draft, unless
+  someone has since edited the draft's subject in Buttondown.
+* **A draft's audience is confirmed, not assumed.** Buttondown echoes the
+  filters an email carries; a draft whose echo does not name the tag — one
+  just created, or one a re-run finds — fails the run, so a filter Buttondown
+  dropped or renamed surfaces before anyone presses send.
 * **Reads retry, the write does not.** The lookups are retried on a transport
-  error or a server error; the create is attempted once, because a retried
+  error, a server error or a rate limit; the create is attempted once, because a retried
   ``POST`` whose first attempt reached Buttondown would make a duplicate. A
   failed create fails the run, and running it again is safe, since the subject
   lookup finds whatever the first attempt made.
@@ -42,6 +47,8 @@ API_KEY_ENV: Final = "BUTTONDOWN_API_KEY"
 DRAFT_STATUS: Final = "draft"
 
 _READ_ATTEMPTS: Final = 3
+_RATE_LIMITED: Final = 429
+_SERVER_ERROR: Final = 500
 _BACKOFF_SECONDS: Final = (2.0, 5.0)
 _MAX_PAGES: Final = 20
 _TIMEOUT_SECONDS: Final = 30.0
@@ -80,25 +87,36 @@ def _get(
     *,
     sleep: Callable[[float], None],
 ) -> dict[str, Any]:
-    """One GET, retried on a transport error or a 5xx; any other failure raises."""
+    """One GET, retried on a transport error, a 5xx or a 429; any other failure raises."""
     last: str = ""
     for attempt in range(_READ_ATTEMPTS):
         try:
             response = client.get(path, params=dict(params))
         except httpx.TransportError as exc:
             last = type(exc).__name__
+        except httpx.HTTPError as exc:
+            raise ButtondownError(f"GET {path} failed ({type(exc).__name__})") from exc
         else:
-            if response.status_code < 500:
-                if response.status_code != 200:
-                    raise ButtondownError(f"GET {path} returned {response.status_code}")
-                body = response.json()
-                if not isinstance(body, dict):
-                    raise ButtondownError(f"GET {path} returned a non-object body")
-                return body
-            last = f"HTTP {response.status_code}"
+            code = response.status_code
+            if code < _SERVER_ERROR and code != _RATE_LIMITED:
+                if code != httpx.codes.OK:
+                    raise ButtondownError(f"GET {path} returned {code}")
+                return _object(response, f"GET {path}")
+            last = f"HTTP {code}"
         if attempt < _READ_ATTEMPTS - 1:
             sleep(_BACKOFF_SECONDS[min(attempt, len(_BACKOFF_SECONDS) - 1)])
     raise ButtondownError(f"GET {path} failed after {_READ_ATTEMPTS} attempts ({last})")
+
+
+def _object(response: httpx.Response, what: str) -> dict[str, Any]:
+    """A response's JSON object body, or a :class:`ButtondownError` naming ``what``."""
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise ButtondownError(f"{what} returned a body that is not JSON") from exc
+    if not isinstance(body, dict):
+        raise ButtondownError(f"{what} returned a non-object body")
+    return body
 
 
 def _results(
@@ -158,6 +176,25 @@ def tag_filter(tag: str) -> dict[str, Any]:
     }
 
 
+def targets(email: Mapping[str, Any], tag: str) -> bool:
+    """Whether an email's echoed filters address the subscribers carrying ``tag``."""
+
+    def walk(group: object) -> bool:
+        if not isinstance(group, Mapping):
+            return False
+        rules = group.get("filters")
+        nested = group.get("groups")
+        return any(
+            isinstance(rule, Mapping)
+            and rule.get("field") == "subscriber.tags"
+            and rule.get("operator") == "contains"
+            and rule.get("value") == tag
+            for rule in (rules if isinstance(rules, list) else [])
+        ) or any(walk(sub) for sub in (nested if isinstance(nested, list) else []))
+
+    return walk(email.get("filters"))
+
+
 def _draft(email: Mapping[str, Any], *, created: bool) -> Draft:
     email_id = email.get("id")
     if not isinstance(email_id, str) or not email_id:
@@ -182,10 +219,15 @@ def post_draft(
     """Create the week's draft for ``tag_name``'s subscribers, or return the one already there."""
     if body.lstrip().startswith("---"):
         raise ButtondownError("the body opens with a front-matter fence, which Buttondown refuses")
+    tag = tag_id(client, tag_name, sleep=sleep)
     found = existing_email(client, subject, sleep=sleep)
     if found is not None:
+        if found.get("status") == DRAFT_STATUS and not targets(found, tag):
+            raise ButtondownError(
+                f"the week's draft {found.get('id')!r} is not addressed to {tag_name!r}; "
+                "fix or delete it in Buttondown before sending"
+            )
         return _draft(found, created=False)
-    tag = tag_id(client, tag_name, sleep=sleep)
     payload = {
         "subject": subject,
         "body": body,
@@ -194,18 +236,21 @@ def post_draft(
     }
     try:
         response = client.post("/emails", json=payload)
-    except httpx.TransportError as exc:
+    except httpx.HTTPError as exc:
         raise ButtondownError(
             f"creating the draft failed ({type(exc).__name__}); re-running is safe, "
             "since the subject lookup finds a draft the attempt may have made"
         ) from exc
-    if response.status_code != 201:
+    if response.status_code != httpx.codes.CREATED:
         raise ButtondownError(f"creating the draft returned {response.status_code}")
-    created = response.json()
-    if not isinstance(created, dict):
-        raise ButtondownError("creating the draft returned a non-object body")
+    created = _object(response, "creating the draft")
     if created.get("status") != DRAFT_STATUS:
         raise ButtondownError(
             f"Buttondown answered status {created.get('status')!r} for a draft request"
+        )
+    if not targets(created, tag):
+        raise ButtondownError(
+            f"Buttondown created draft {created.get('id')!r} without the {tag_name!r} "
+            "filter in its answer; fix or delete it in Buttondown before sending"
         )
     return _draft(created, created=True)
