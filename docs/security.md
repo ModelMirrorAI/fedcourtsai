@@ -1190,6 +1190,43 @@ runner seam's scrubbed base environment strips every AWS variable and every
 credential-shaped name except the engine's own auth — the same posture as a
 back-test replay cell.
 
+## The `website` environment
+
+`post-public-update` creates the weekly public update as a **draft** in
+Buttondown, the service that runs the site's email list. Its `post` job alone
+binds `website`, which holds one secret, the Buttondown API key. No other job
+in the repository names that environment, so neither an agent cell nor any job
+that binds `prod`, `staging` or `review` can read the key.
+
+Configure it with:
+
+- **deployment branches**: a custom policy of exactly `main`. That policy is
+  the control: it is what keeps the key from a workflow a write holder runs
+  from their own branch, and the promotion gate does not read it (it reads
+  `corpus-check`'s alone), so check it by hand after any change to the
+  environment. The job's first step also refuses any ref but `main`. That
+  step is a backstop for an unedited copy of the workflow on another ref, such
+  as `staging`; a branch that edits the workflow can delete it.
+- **one secret**: the Buttondown API key, with the permissions below.
+- **one variable**: the Buttondown id of the `weekly-scotus` tag the draft is
+  addressed to. It is not a secret; it lives here so the job that uses it is
+  the only one that reads it. No required reviewers: the draft is the hold,
+  since nothing is sent until the maintainer presses send in Buttondown.
+
+The key's Buttondown permission is **emails: write**, and **none** on every
+other category. Emails write is what creating a draft needs. The draft's
+audience is the tag id from the variable, so the key never lists tags or reads
+subscribers. Buttondown has no draft-only level, so emails write could also
+send, schedule or edit an email. The guard is the code:
+`fedcourtsai.buttondown` writes exactly one request, a create with the status
+fixed to `draft`, and refuses an empty tag id, so no draft can default to the
+whole list. It then checks that the draft Buttondown returns names that tag in
+its filters, and fails the run if not, so a filter Buttondown dropped surfaces
+before anyone presses send. Subscribers are never read.
+
+Rotate the key in Buttondown and replace the secret; nothing else holds it. A
+leaked key reaches the list's emails and tag names, not its subscribers.
+
 ## S3 / the private stores
 
 Three IAM roles, assumed via GitHub OIDC (no static keys), cover both private

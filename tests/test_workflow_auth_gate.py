@@ -137,7 +137,10 @@ COMPUTED_ENVIRONMENTS = {
 # read-only role is the only role whose trust names it. Pinned per workflow, so
 # another lane binding it — and so reaching a role behind an approval meant for
 # a different question — fails the sweep below.
-LANE_ENVIRONMENTS = {"corpus-check.yml": "corpus-check"}
+LANE_ENVIRONMENTS = {
+    "corpus-check.yml": "corpus-check",
+    "post-public-update.yml": "website",
+}
 
 # Step markers that mean "privileged work has started": minting an App token,
 # assuming the S3 role, or handing control to a coding agent.
@@ -307,8 +310,10 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
 
 def test_a_lane_environment_is_bound_by_its_own_workflow_alone() -> None:
     """`corpus-check`'s reviewer approves one question — run this SHA's check —
-    and the read-only role trusts it for that. A job elsewhere binding it would
-    reach the role behind an approval given for something else."""
+    and the read-only role trusts it for that; `website` holds the email
+    list's key for the one job that drafts the weekly update. A job elsewhere
+    binding either would reach what it holds for a purpose it was not set up
+    for."""
     bound: dict[str, set[str]] = {env: set() for env in LANE_ENVIRONMENTS.values()}
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         for job in _jobs(_load(path.name)).values():
@@ -446,6 +451,7 @@ RUN_GATED_WORKFLOWS = frozenset(
     {
         "corpus-check.yml",
         "integration-test.yml",
+        "post-public-update.yml",
         "promotion-prep.yml",
         "promotion-record.yml",
         "run-analytics.yml",
@@ -714,3 +720,31 @@ def test_the_disjunction_check_reads_quotes_and_parentheses() -> None:
     assert not top_level_disjunction("(a || b) && c")
     assert not top_level_disjunction("f(a || b)")
     assert not top_level_disjunction("x == 'a || b'")
+
+
+def test_a_job_that_names_a_secret_binds_a_branch_policied_environment() -> None:
+    """A third-party key reaches a job only through an environment, and only one
+    whose branch policy pins the ref: the same rule the sweep above applies to
+    tokens, roles and agents, which a job holding nothing but an API key would
+    otherwise slip past, since it uses none of their marker actions."""
+    for path in sorted(WORKFLOWS.glob("*.y*ml")):
+        for job_name, job in _jobs(_load(path.name)).items():
+            if not SECRET_REFERENCE.search(yaml.safe_dump(job)):
+                continue
+            environment = job.get("environment")
+            assert (
+                environment in BRANCH_POLICIED_ENVIRONMENTS
+                or environment == COMPUTED_ENVIRONMENTS.get(path.name)
+                or environment == LANE_ENVIRONMENTS.get(path.name)
+            ), f"{path.name}:{job_name} names a secret under environment {environment!r}"
+
+
+def test_the_public_update_poster_refuses_any_ref_but_main_first() -> None:
+    """The `website` key's job states its branch requirement as its first step,
+    so an unedited copy of the file on another ref stops before the key is
+    used even if the environment's branch policy is loosened."""
+    job = _jobs(_load("post-public-update.yml"))["post"]
+    assert job.get("environment") == "website"
+    first = _steps(job)[0]
+    assert "REF_NAME" in str(first.get("env"))
+    assert '"${REF_NAME}" != "main"' in first.get("run", "")

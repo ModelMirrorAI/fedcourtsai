@@ -438,11 +438,22 @@ def _section(title: str, items: Sequence[EventItem], repo_url: str, *, resolved:
     return lines
 
 
-def render_public_update(update: PublicUpdate, *, repo_url: str = REPO_TREE_URL) -> str:
-    """The update as Markdown, ready for an email body."""
+def public_update_subject(update: PublicUpdate) -> str:
+    """The update's title, which is also the email's subject: one per ISO week."""
     start, end = update.start, update.end
     span = f"{start:%B} {start.day} \N{EN DASH} {end:%B} {end.day}, {end.year}"
-    lines = [f"# FedCourtsAI weekly update: {span}", ""]
+    return f"FedCourtsAI weekly update: {span}"
+
+
+def render_public_update(
+    update: PublicUpdate, *, repo_url: str = REPO_TREE_URL, title: bool = True
+) -> str:
+    """The update as Markdown, ready for an email body.
+
+    ``title=False`` drops the heading, for a channel that carries the title as
+    the message's subject instead.
+    """
+    lines = [f"# {public_update_subject(update)}", ""] if title else []
     if update.empty:
         lines += ["Nothing resolved and no new forecasts were committed this week.", ""]
     if update.resolved:
