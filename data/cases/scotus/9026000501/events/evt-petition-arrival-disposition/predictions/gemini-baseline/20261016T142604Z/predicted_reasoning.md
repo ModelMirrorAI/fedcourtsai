@@ -1,0 +1,5 @@
+Distributed zero times so far, as this is an arrival forecast. Expect zero relists before a decision on the petition. The questions presented are highly fact-specific error-correction issues regarding a Fourth Amendment claim of "fabricated" evidence and absolute prosecutorial immunity, lacking a clear, cleanly presented circuit split that would attract the Court's attention.
+
+No CVSG is expected, as the case does not implicate any federal party's interest or raise complex issues of federal preemption or regulation where the Solicitor General's views would be sought.
+
+If granted, the Court would likely take up the second question regarding absolute prosecutorial immunity and the limits of *Buckley v. Fitzsimmons*, leaving the highly fact-bound Rule 12 and Fourth Amendment "reasonableness" questions behind. A summary GVR is unlikely unless a relevant immunity decision is handed down by the Court this term, which is improbable here. Should the Court deny the petition, expect no separate writing or dissent from denial, given the routine, case-specific nature of the lower court's decision.
