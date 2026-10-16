@@ -8817,8 +8817,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py tests/test_cli_provision.py -k
@@ -8964,8 +8964,8 @@ freeze commit is recorded here.
   The check then reads the cell as unmoved when it was moved, so its count is a
   lower bound.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   **The runnable effect check once it is live.** Take the first predict round
   after the carrying merge that places a `response-requested` cell, and run
@@ -9077,8 +9077,8 @@ freeze commit is recorded here.
   changes to what a predict cell reads. No predict cell reads anything
   different, because capture runs after the engine, on its own log.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   **Effect check.** On `main`, once a run-predict round after the carrying
   merge has landed codex cells that called CourtListener, `jq -r '.calls[] |
@@ -9201,8 +9201,8 @@ freeze commit is recorded here.
   would mark it. A null leakage bit means the cell was not assessed, not that
   it was clean. It de-counts nothing already committed.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   The runnable effect check once it is live, from a checkout of the carrying
   merge with the corpus pulled: `uv run fedcourts predict-plan` lists, on its
@@ -9411,8 +9411,8 @@ freeze commit is recorded here.
   `stored`.
 
   **Where it landed.** Merged to `staging` as `<FILL: staging merge commit>`
-  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
-  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`). At that
+  and carried to `main` by the promotion tagged `promotion/2026-10-16`
+  (merge commit `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`). At that
   promotion's first parent, `src/fedcourtsai/corpus.py` has no
   `REPLAY_DECISION_RECORD_COLUMNS`; at its merge commit it does.
 
@@ -9430,7 +9430,7 @@ freeze commit is recorded here.
   re-bless.
 
   **The reading rule.** Two cert back-test reports whose cells ran on either
-  side of `<FILL: merge hash>` ran under different replay masks, even where
+  side of `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317` ran under different replay masks, even where
   their provenance blocks and `provenance.clocks` agree. Neither field can
   see this change, so no engine row's series spans the boundary. The
   committed `metrics/cert-backtest.json` (run `20261003T115301Z`) is
@@ -9648,8 +9648,8 @@ freeze commit is recorded here.
   merge; a board built before it and one built after are over different
   populations and are compared only through the sensitivity lines.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   The runnable effect check once it is live:
   - after the first metrics refresh on `main`, `jq '.set_aside.by_reason'
@@ -9860,8 +9860,8 @@ freeze commit is recorded here.
   corpus row records one. Read at the PR head the corpus-check lane answered at:
   <FILL: increment timing census at the PR head the corpus-check lane answered at as one plain line, before-run, during-run and run-day counts per claim by both readings, referral claims dated before or on the run day, unreadable referrals, and the corpus vintage>.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   The runnable effect check once it is live:
   - the first forward predict cell minted after the carrying merge carries
@@ -9981,8 +9981,8 @@ freeze commit is recorded here.
   reach is the first OT2026 merits decision, December 2026 at the earliest.
 
   **Where it landed.** Carried to `main` by the promotion tagged
-  `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged
-  `<FILL: merged-at>`). At that promotion's first parent
+  `promotion/2026-10-16` (merge commit `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged
+  `2026-10-16T20:17:17Z`). At that promotion's first parent
   `src/fedcourtsai/matrix.py` has no `OPINION_HOLD_DAYS`; at its merge commit
   it does.
 
@@ -10133,8 +10133,8 @@ freeze commit is recorded here.
     stay the record holds as `granted` (the party-rates replication names
     `24A884`) is named partial.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   The runnable effect check once it is live, from a checkout of the carrying
   merge:
@@ -10279,8 +10279,8 @@ freeze commit is recorded here.
   ran nothing is removed, because those grants were not recorded at all.
 
   **Where it landed.** Merged to `staging` as `7df996154`
-  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
-  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  and carried to `main` by the promotion tagged `promotion/2026-10-16`
+  (merge commit `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_live.py tests/test_outcome.py tests/test_corpus.py
