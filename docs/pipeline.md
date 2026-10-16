@@ -1031,6 +1031,25 @@ spans the scored and unscored confirmations together. On `apply` the step still
 runs the dry-run into the step summary first, as a receipt of what the rewrite
 acted on.
 
+`lost-outcomes` records the ledger outcome of every decided declared moment on
+a selected row that has none, with no lookback: the live cycle's ledger-outcome
+convergence with its 90-day floor removed, the same detection and the same
+writer. It writes `outcome.json` and `event.yaml` under `data/` (and a minted
+merits event's `event.yaml`) alongside the pointer in the step's one commit.
+A recorded cert grant mints its merits event only where the merits case is
+still pending and forecastable, and each one it mints is a new forward merits
+cell for the predict lane — new spend on a case selected long before, read off
+the dry run's merits line before the apply. A case whose attempt raises is a
+`::warning::` in the step, not a failure, so the rest of an apply still
+commits.
+What it cannot attribute and the corpus already records resolved it marks
+`resolved_without_outcome` with its reason; an open gap it cannot attribute
+stays open. It holds back any case whose gap stage carries a committed
+prediction, which the live convergence reaches at any age and routes to
+evaluate, so the pass moves no grade. Its bound is the dry run's
+`cases_written`. *Ledger-outcome coverage* in
+[data-pipeline.md](data-pipeline.md) states what the ledger then holds.
+
 Four of the passes that fetch and parse the Court's content — `opinion-votes`,
 `order-votes`, `application-backfill` and `opinion-record` — run as a
 **credential split** of three jobs (`ocr-recovery` and `document-backfill`
@@ -2078,7 +2097,9 @@ case that never reached the ledger is still seen: an event a predictor owed
 never forecast is either declined by design (out of scope, not a forecastable
 moment, not funded, the predictor not yet producing forecasts, or resolved
 before a scheduled round could run) or **missed**, and each miss is annotated
-by name — as is a resolved event with no outcome record on a selected row,
+by name — as is a decided event with no outcome record on a selected row (resolved
+in the corpus, or a declared moment left open on a row that records its stage
+decided),
 which evaluate can never grade. `predict-plan` carries the reconciliation in
 its JSON (`counts.case_reconciliation`) and `evaluate-plan` the monitor
 (`counts.predictionless_resolutions`); `evaluate-plan --missed-since`

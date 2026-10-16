@@ -40,7 +40,7 @@ from fedcourtsai.pipeline.pull import PullQueues
 from fedcourtsai.provision import truncate_snapshot
 from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Moment, Outcome, Stage
 from fedcourtsai.serialize import read_model, write_json
-from fedcourtsai.store import forecastable_events
+from fedcourtsai.store import forecastable_events, forward_refusal_reason
 from fedcourtsai.supremecourt import (
     OffHostFetch,
     SupremeCourtClient,
@@ -2470,8 +2470,10 @@ def test_munsingwear_disposition_records_a_mootness_basis(tmp_path: Path) -> Non
     docket_id = live_docket_id(25, 274)
     ingest_live_payload(db, data_root, _payload("25-274"), docket_id, today=date(2026, 7, 9))
 
+    # Dated after the docketing (June 2), as an order on the petition is: an
+    # outcome is attributed only to a moment open on or before it.
     munsingwear_entry = {
-        "Date": "May 11 2026",
+        "Date": "Jul 09 2026",
         "Text": (
             "Petition GRANTED. Judgment VACATED and case REMANDED with "
             "instructions to dismiss the case as moot."
@@ -3950,3 +3952,95 @@ def test_provision_documents_reads_a_consolidated_members_briefs_off_its_lead(
     assert stored["merits-brief-respondent"].url.endswith("/25-500/lead-resp.pdf")
     assert stored["merits-reply-petitioner"].url.endswith("/25-500/lead-reply.pdf")
     assert "Petitioners say reverse." in stored["merits-brief-petitioner"].text
+
+
+# --- the corpus `resolved` flag has one writer -----------------------------------
+
+
+def _baseline(db: Path, docket_id: int) -> corpus.CorpusEvent:
+    with corpus.connect(db) as conn:
+        events = corpus.events_for_case(conn, f"scotus/{docket_id}")
+    (baseline,) = [e for e in events if e.event_id == "evt-petition-disposition"]
+    return baseline
+
+
+def test_a_declined_detection_leaves_the_event_open_through_re_extraction(
+    tmp_path: Path,
+) -> None:
+    # The poll sees the docket decided, detection declines (the grant entry
+    # carries no date, so no resolved_at can be stamped), and re-extraction
+    # runs right after it. The baseline must stay open for the next attempt —
+    # never latched closed with no outcome beside it.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 275)
+    # Distributed, so the baseline's distribution moment exists and the only
+    # thing that can refuse it below is the decision.
+    filed = _payload()["ProceedingsandOrder"][0]
+    distributed = {"Date": "Jul 08 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."}
+    ingest_live_payload(
+        db,
+        data_root,
+        _payload("25-275", proceedings=[filed, distributed]),
+        docket_id,
+        today=date(2026, 7, 9),
+    )
+    assert _baseline(db, docket_id).resolved is False
+    assert forecastable_events(db, "scotus", docket_id, today=date(2026, 7, 9)) == [
+        "evt-petition-disposition"
+    ]
+
+    undated_grant = {"Date": "", "Text": "Petition GRANTED."}
+    decided = ingest_live_payload(
+        db,
+        data_root,
+        _payload("25-275", proceedings=[filed, distributed, undated_grant]),
+        docket_id,
+        today=date(2026, 7, 10),
+    )
+    assert decided.resolved == []
+    assert decided.unrecorded_events == ["evt-petition-disposition"]
+    baseline = _baseline(db, docket_id)
+    assert (baseline.resolved, baseline.resolved_without_outcome) == (False, False)
+    case = CasePaths(data_root, "scotus", docket_id)
+    assert not case.event("evt-petition-disposition").outcome.exists()
+    # Open, but on a decided row: both the queue arm and the record-side
+    # forward gate refuse it, so staying open mints no forecast.
+    assert forecastable_events(db, "scotus", docket_id, today=date(2026, 7, 10)) == []
+    assert forward_refusal_reason(db, data_root, "scotus", docket_id, "evt-petition-disposition")
+
+    # Once the order is dated, the same event resolves — through the writer
+    # that records its outcome.
+    dated_grant = {"Date": "Jul 11 2026", "Text": "Petition GRANTED."}
+    resolved = ingest_live_payload(
+        db,
+        data_root,
+        _payload("25-275", proceedings=[filed, distributed, dated_grant]),
+        docket_id,
+        today=date(2026, 7, 11),
+    )
+    assert resolved.resolved == ["evt-petition-disposition"]
+    assert _baseline(db, docket_id).resolved is True
+    assert case.event("evt-petition-disposition").outcome.exists()
+
+
+def test_a_docket_first_ingested_decided_lands_closed_and_marked(tmp_path: Path) -> None:
+    # Never open for detection to see: the first mint closes it, visibly.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 276)
+    denial = {"Date": "Jul 09 2026", "Text": "Petition DENIED."}
+    ingest_live_payload(
+        db,
+        data_root,
+        _payload("25-276", proceedings=[_payload()["ProceedingsandOrder"][0], denial]),
+        docket_id,
+        today=date(2026, 7, 10),
+    )
+    baseline = _baseline(db, docket_id)
+    assert (
+        baseline.resolved,
+        baseline.resolved_without_outcome,
+        baseline.resolved_without_outcome_reason,
+    ) == (True, True, corpus.NO_OUTCOME_INGESTED_DECIDED)
+    assert not CasePaths(data_root, "scotus", docket_id).event(baseline.event_id).outcome.exists()

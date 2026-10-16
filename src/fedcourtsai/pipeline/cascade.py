@@ -238,13 +238,17 @@ def _provision_record(
     )
 
 
-def _cell_mode(event: corpus.CorpusEvent) -> str:
+def _cell_mode(event: corpus.CorpusEvent, row: corpus.CorpusRow) -> str:
     """The mode a cascade cell runs in: ``forward`` unless the event is already over.
 
     The distinction the prompt contract keys its retrieval etiquette on, and the
-    one thing an unprovisioned cell has to guess. A corpus event marked resolved
-    is one whose outcome exists, which is exactly what ``replay`` means; every
-    other target is a genuinely pending forecast, as ``run-predict`` provisions.
+    one thing an unprovisioned cell has to guess. An event is over when the
+    corpus marks it resolved **or** its row records its stage decided
+    (:func:`fedcourtsai.corpus.stage_shows_decided`): re-extraction never closes
+    a stored event, so a moment detection declined stays open on a decided row,
+    and its outcome exists all the same — which is exactly what ``replay``
+    means. Every other target is a genuinely pending forecast, as
+    ``run-predict`` provisions.
     Left to the cell, the guess defaults to ``forward``, so a cascade over a
     decided case would run a replay while its record claimed a live one.
 
@@ -255,7 +259,8 @@ def _cell_mode(event: corpus.CorpusEvent) -> str:
     are unmasked, which is the local loop's known narrowing against
     :mod:`fedcourtsai.cert_backtest`, the lane that produces scored replays.
     """
-    return "replay" if event.resolved else "forward"
+    decided = event.resolved or corpus.stage_shows_decided(row, event.stage)
+    return "replay" if decided else "forward"
 
 
 def _cell_read(
@@ -628,7 +633,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
         # targets of one case declare two of them: run-predict provisions once per
         # cell, and a cascade that provisioned once for the whole case would run
         # the later moment's cell on the earlier one's record.
-        _place(ev.event_id, _cell_mode(ev), reads[ev.event_id], "predict", placed[ev.event_id])
+        _place(ev.event_id, _cell_mode(ev, row), reads[ev.event_id], "predict", placed[ev.event_id])
         for entry in predictors:
             request = _request(UsageRole.predictor, entry.id, entry.prompt, ev.event_id)
             predictions.extend(runner.run(request))

@@ -419,6 +419,7 @@ def _interim_forecastable(event: corpus.CorpusEvent, row: corpus.CorpusRow | Non
         and row is not None
         and row.court == "scotus"
         and corpus.is_scotus_application_form(row.docket_number)
+        and not _row_decided(row)
         and corpus.out_of_scope_reason(row) is None
     )
 
@@ -504,6 +505,18 @@ def _merits_forecastable(
     )
 
 
+def merits_event_forecastable(
+    event: corpus.CorpusEvent, row: corpus.CorpusRow | None, today: date
+) -> bool:
+    """Whether ``event`` would be admitted by the merits arm (:func:`_merits_forecastable`).
+
+    The public seam for a writer deciding whether a merits event it is about to
+    mint would ever be forecast: a late-recorded grant whose merits case is
+    already decided, terminated or stale is recorded without minting one.
+    """
+    return _merits_forecastable(event, row, today)
+
+
 def _case_baseline_forecastable(
     event: corpus.CorpusEvent, row: corpus.CorpusRow | None, *, day: date, payloads: PayloadReader
 ) -> bool:
@@ -558,7 +571,23 @@ def _case_baseline_forecastable(
         and corpus.is_scotus_application_form(row.docket_number)
     ):
         return False
+    if _row_decided(row):
+        return False
     return not _distribution_cell_closed(event, row, day=day, payloads=payloads)
+
+
+def _row_decided(row: corpus.CorpusRow | None) -> bool:
+    """Whether the row records its case-level question decided: a disposition or a date.
+
+    The decided-row refusal the case-baseline and interim arms share with the
+    cert arm. A declared moment detection declined stays **open** on such a row
+    — re-extraction never closes a stored event — so the open flag alone no
+    longer says the question is pending, and without this an open moment on a
+    decided docket would be queued for a forecast whose answer is public.
+    """
+    return row is not None and (
+        row.disposition is not None or corpus.resolution_date(row) is not None
+    )
 
 
 def forecastable_event_ids(
@@ -800,12 +829,10 @@ def forward_refusal_reason_from_parts(
     the committed ``outcome.json`` and the corpus event's ``resolved`` flag
     (both via :func:`event_recorded_closed`), then the row's own latched
     outcome for the event's stage — the merits judgment for a merits moment,
-    the disposition / resolution date for everything else. For the cert and
-    merits stages that mirrors the decided-row refusals their forecastable
-    predicates apply at queue time; for the interim and case-baseline shapes,
-    whose queue predicates carry no decided-row arm, this gate is deliberately
-    stricter — a latched disposition or resolution date is the record of an
-    outcome whatever the queue seam asks. Deliberately **not** full
+    the disposition / resolution date for everything else. That mirrors the
+    decided-row refusals every forecastable predicate applies at queue time
+    (the cert and merits arms' own, :func:`_row_decided` on the case-baseline
+    and interim arms), so the two seams agree on a decided row. Deliberately **not** full
     :func:`forecastable_event_ids` membership: scope and selection are the
     plan seams' questions (the predict matrix re-asks them), and the corpus
     row legitimately lags its own snapshot — a merits cell provisioned on the

@@ -322,6 +322,7 @@ from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINIO
 from .pipeline.opinion_enrichment import enrich_opinions
 from .pipeline.outcome import (
     forward_leakage,
+    record_lost_outcomes,
 )
 from .pipeline.party import (
     PARTY_AS_OF_FIELDS,
@@ -3075,6 +3076,126 @@ def converge_disposition_labels_cmd(
         )
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("record-lost-outcomes")
+def record_lost_outcomes_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Record and mark; omit for a dry-run report."),
+    ] = False,
+    max_cases: Annotated[
+        int | None,
+        typer.Option(
+            "--max-cases",
+            help="Blast-radius bound, required with --apply: refuse to write more cases than this.",
+        ),
+    ] = None,
+) -> None:
+    """Record the ledger outcome of every decided selected moment that has none.
+
+    The no-lookback twin of the live cycle's ledger-outcome convergence, run on
+    `run-repair`'s `lost-outcomes` pass. Over every declared moment on a
+    salience-selected, in-scope SCOTUS row whose stage the row records decided
+    and whose ledger pair (`outcome.json` + `event.yaml`) is incomplete, it
+    re-runs the poll's detection and records what detection attributes through
+    the poll's writer. A recorded grant mints the merits event only where the
+    merits case is still pending and forecastable; a grant whose judgment has
+    latched, whose proceeding ended, whose grant is stale or whose row is out of
+    scope is recorded with no merits event, and listed. A case whose gap stage
+    carries a committed prediction is held back for the live convergence, which
+    routes the grade to evaluate.
+
+    What it cannot attribute and the corpus already records resolved is the
+    residue: an apply marks each such moment `resolved_without_outcome` with
+    its reason, so it stays closed and visible. An open gap detection declines
+    stays open and is only reported.
+
+    Dry-run by default. `--apply` requires `--max-cases` — the case count the
+    dry run printed — and refuses, writing nothing, above it. Run where the
+    corpus is pulled; the snapshot read is split-aware. Exits 1 when the corpus
+    is absent or the apply is refused. A case whose attempt raised is reported
+    as a `::warning::` line and does not fail the run, so an apply's successful
+    writes still reach the commit; the failed case stays in the population for
+    the next dispatch.
+    """
+    settings = get_settings()
+    if apply and max_cases is None:
+        typer.echo(
+            "record-lost-outcomes: --apply requires an explicit --max-cases. "
+            "Read the dry run first and pass the case count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the outcome pass.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    result = record_lost_outcomes(db_path, settings.data_root, apply=apply, max_cases=max_cases)
+    if result.refused:
+        typer.echo(
+            f"record-lost-outcomes: refusing to apply {result.cases_written} case write(s) "
+            f"(--max-cases {max_cases}). Re-read the dry run; nothing was written.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "recorded" if apply else "would record"
+    mark = "marked" if apply else "would mark"
+    recorded_events = sum(len(v) for v in result.recorded.values())
+    gap_recorded = sum(result.recorded_by_disposition.values())
+    residue_events = sum(len(v) for v in result.residue.values())
+    typer.echo(
+        f"record-lost-outcomes ({'applied' if apply else 'dry-run'}): "
+        f"population {result.population} gap moment(s); "
+        f"{verb} {recorded_events} outcome(s) on {len(result.recorded)} case(s) "
+        f"({gap_recorded} gap moment(s), the rest open siblings resolved with them; "
+        f"{len(result.merits_minted)} merits event(s) minted, "
+        f"{len(result.merits_not_minted)} grant(s) recorded without one); "
+        f"{mark} {residue_events} moment(s) resolved_without_outcome on "
+        f"{len(result.residue)} case(s); "
+        f"{sum(len(v) for v in result.open_declined.values())} open gap(s) declined; "
+        f"{len(result.held_predicted)} case(s) held back (predicted); "
+        f"{len(result.failed)} failed; cases_written={result.cases_written}"
+    )
+    typer.echo(
+        "  gap moments recorded by disposition: "
+        + (", ".join(f"{k}={v}" for k, v in sorted(result.recorded_by_disposition.items())) or "-")
+    )
+    typer.echo(
+        "  residue by disposition: "
+        + (", ".join(f"{k}={v}" for k, v in sorted(result.residue_by_disposition.items())) or "-")
+    )
+    by_reason: dict[str, int] = {}
+    for marks in result.residue.values():
+        for reason in marks.values():
+            by_reason[reason] = by_reason.get(reason, 0) + 1
+    typer.echo(
+        "  residue by reason: "
+        + (", ".join(f"{k}={v}" for k, v in sorted(by_reason.items())) or "-")
+    )
+    for case_id, event_ids in sorted(result.recorded.items()):
+        typer.echo(f"  {verb} {case_id}: {', '.join(event_ids)}")
+    for case_id, marks in sorted(result.residue.items()):
+        detail = ", ".join(f"{eid} [{why}]" for eid, why in sorted(marks.items()))
+        typer.echo(f"  {mark} {case_id}: {detail}")
+    for case_id, why in sorted(result.merits_not_minted.items()):
+        typer.echo(f"  grant recorded, no merits event [{why}] {case_id}")
+    for case_id in sorted(result.merits_minted):
+        typer.echo(f"  merits event minted (pending) {case_id}")
+    for case_id, event_ids in sorted(result.open_declined.items()):
+        typer.echo(f"  open, declined {case_id}: {', '.join(event_ids)}")
+    for case_id in sorted(result.held_predicted):
+        typer.echo(f"  held back (predicted) {case_id}")
+    for case_id, exc in sorted(result.failed.items()):
+        # One failing case never blocks the pass: the rest of its writes stand
+        # and the case stays in the population for the next dispatch.
+        typer.echo(
+            f"::warning::record-lost-outcomes: {case_id} failed ({exc}); left for the next dispatch"
+        )
 
 
 @app.command("remove-unmintable-events")
