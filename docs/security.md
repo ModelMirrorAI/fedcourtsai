@@ -1212,16 +1212,23 @@ Configure it with:
 
 - **deployment branches**: a custom policy of exactly `main`. That policy is
   the control: it is what keeps the key from a workflow a write holder runs
-  from their own branch, and the promotion gate does not read it (it reads
-  `corpus-check`'s alone), so check it by hand after any change to the
-  environment. The job's first step also refuses any ref but `main`. That
+  from their own branch, so long as the key lives nowhere else: a workflow's
+  secret falls back to a repository or organization secret of the same name,
+  which no branch policy guards. The promotion gate's maintainer-run,
+  admin-read `contexts` stage checks it unconditionally, together with the
+  contents below (`fedcourts assert-website-environment`): exactly `main`,
+  exactly the one secret and the one variable, nothing else (anything added
+  here is handed to the same job), and no repository or organization secret
+  of the key's name. Required reviewers are not checked, since the draft is
+  the hold. The job's first step also refuses any ref but `main`. That
   step is a backstop for an unedited copy of the workflow on another ref, such
   as `staging`; a branch that edits the workflow can delete it.
 - **one secret**: the Buttondown API key, with the permissions below.
 - **one variable**: the Buttondown id of the `weekly-scotus` tag the draft is
   addressed to. It is not a secret; it lives here so the job that uses it is
-  the only one that reads it. No required reviewers: the draft is the hold,
-  since nothing is sent until the maintainer presses send in Buttondown.
+  the only one that reads it.
+- **no required reviewers**: the draft is the hold, since nothing is sent
+  until the maintainer presses send in Buttondown.
 
 The key's Buttondown permission is **emails: write**, and **none** on every
 other category. Emails write is what creating a draft needs. The draft's
