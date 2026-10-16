@@ -114,9 +114,9 @@ def pull_case(
 
     # Detect resolution of any open events: write outcome.json deterministically
     # when the disposition is machine-readable, else surface it unrecorded.
-    # Runs *before* re-extraction: `default_event` marks a decided case's baseline
-    # resolved (from its disposition), so resolution must see the event still open
-    # to record its outcome before extraction latches it closed.
+    # Runs *before* re-extraction, so detection judges the events as they stood
+    # before this refresh's extraction adds any. Re-extraction never closes a
+    # stored event (`default_event`): one detection declines stays open.
     resolution = resolve_case(
         corpus_db_path,
         data_root,

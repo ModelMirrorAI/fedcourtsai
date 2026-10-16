@@ -2118,6 +2118,128 @@ def test_events_upsert_never_reopens_a_resolved_event(tmp_path: Path) -> None:
     assert fetched[0].title == "re-ingested"  # other fields still refresh
 
 
+def _no_outcome_closure(title: str = "Doe v. Roe") -> corpus.CorpusEvent:
+    """The shape a first mint on an already-decided row carries."""
+    return _event(
+        title=title,
+        resolved=True,
+        resolved_without_outcome=True,
+        resolved_without_outcome_reason=corpus.NO_OUTCOME_INGESTED_DECIDED,
+    )
+
+
+def test_a_no_outcome_closure_lands_on_an_insert(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_no_outcome_closure()])
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.resolved, event.resolved_without_outcome) == (True, True)
+    assert event.resolved_without_outcome_reason == corpus.NO_OUTCOME_INGESTED_DECIDED
+
+
+def test_a_re_extraction_never_closes_a_stored_open_event(tmp_path: Path) -> None:
+    # The shape that would lose an outcome: a re-extraction of a decided docket arrives
+    # as a no-outcome closure, and on a stored event it must change nothing —
+    # the event stays open for detection, and carries no mark.
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event(resolved=False)])
+        corpus.upsert_events(conn, [_no_outcome_closure(title="re-extracted")])
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.resolved, event.resolved_without_outcome) == (False, False)
+    assert event.resolved_without_outcome_reason is None
+    assert event.title == "re-extracted"  # the other columns still refresh
+
+
+def test_an_upsert_never_rewrites_the_no_outcome_mark(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_no_outcome_closure()])
+        corpus.upsert_events(conn, [_event(resolved=False)])
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.resolved, event.resolved_without_outcome) == (True, True)
+
+
+def test_recording_an_outcome_clears_the_no_outcome_mark(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_no_outcome_closure()])
+        corpus.set_event_resolved(conn, "ca9/123", "evt-appeal-disposition")
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.resolved, event.resolved_without_outcome) == (True, False)
+    assert event.resolved_without_outcome_reason is None
+
+
+def test_mark_resolved_without_outcome_closes_and_names_why(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_event(resolved=False)])
+        corpus.mark_resolved_without_outcome(conn, "ca9/123", "evt-appeal-disposition", "declined")
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+        with pytest.raises(ValueError, match="unknown no-outcome reason"):
+            corpus.mark_resolved_without_outcome(
+                conn, "ca9/123", "evt-appeal-disposition", "free text"
+            )
+    assert (event.resolved, event.resolved_without_outcome) == (True, True)
+    assert event.resolved_without_outcome_reason == "declined"
+
+
+def test_rename_event_carries_the_no_outcome_mark(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_no_outcome_closure()])
+        corpus.rename_event(
+            conn,
+            "ca9/123",
+            "evt-appeal-disposition",
+            _event(event_id="evt-motion-disposition", kind=EventKind.motion, resolved=False),
+        )
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.event_id, event.resolved, event.resolved_without_outcome) == (
+        "evt-motion-disposition",
+        True,
+        True,
+    )
+    assert event.resolved_without_outcome_reason == corpus.NO_OUTCOME_INGESTED_DECIDED
+
+
+def test_rename_event_fold_marks_the_closure_it_carries(tmp_path: Path) -> None:
+    # Folding a marked closure onto an open row closes it through the latch, so
+    # the mark comes with it; a target closed by a recorded outcome keeps its own.
+    db = tmp_path / "corpus.db"
+    new_id = "evt-motion-disposition"
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [_no_outcome_closure(), _event(event_id=new_id, kind=EventKind.motion)],
+        )
+        corpus.rename_event(
+            conn,
+            "ca9/123",
+            "evt-appeal-disposition",
+            _event(event_id=new_id, kind=EventKind.motion),
+        )
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.resolved, event.resolved_without_outcome) == (True, True)
+    assert event.resolved_without_outcome_reason == corpus.NO_OUTCOME_INGESTED_DECIDED
+
+    other = tmp_path / "other.db"
+    with corpus.connect(other) as conn:
+        corpus.upsert_events(
+            conn,
+            [_no_outcome_closure(), _event(event_id=new_id, kind=EventKind.motion)],
+        )
+        corpus.set_event_resolved(conn, "ca9/123", new_id)
+        corpus.rename_event(
+            conn,
+            "ca9/123",
+            "evt-appeal-disposition",
+            _event(event_id=new_id, kind=EventKind.motion),
+        )
+        (event,) = corpus.events_for_case(conn, "ca9/123")
+    assert (event.resolved, event.resolved_without_outcome) == (True, False)
+
+
 def test_multiple_events_per_case(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
@@ -3576,6 +3698,10 @@ def test_migrate_events_adds_the_stage_column(tmp_path: Path) -> None:
     assert len(events) == 1
     assert events[0].stage is None
     assert events[0].moment is None
+    # The no-outcome mark migrates in unset: no stored closure is asserted to
+    # lack an outcome until a writer says so.
+    assert events[0].resolved_without_outcome is False
+    assert events[0].resolved_without_outcome_reason is None
 
 
 def test_events_schema_and_migration_ddl_agree(tmp_path: Path) -> None:

@@ -1077,6 +1077,17 @@ def default_event(row: CorpusRow) -> corpus.CorpusEvent:
     latest stored payload instead and the moment it declares carries no
     boundary at all — an arrival baseline conditioned on filings that postdate
     the arrival.
+
+    **The event is never closed by this derivation.** Closing a stored event is
+    outcome detection's alone (:func:`fedcourtsai.pipeline.outcome.record_outcomes`,
+    beside the ``outcome.json`` it writes), so an event detection declined stays
+    open and is retried rather than latched shut with no ground truth. The one
+    closure minted here is a first mint's: a baseline derived from a row that is
+    *already* decided was never open for detection to see, so it arrives
+    resolved and marked ``resolved_without_outcome`` (``ingested-decided``) —
+    closed, and visibly so. The events upsert honours that mark on an insert
+    only (:func:`fedcourtsai.corpus.upsert_events`): on a re-extraction of a
+    stored event it is dropped and the stored flag carries forward.
     """
     if row.court == "scotus" and parse_scotus_application_number(row.docket_number) is not None:
         # An interim application docket: a stay/injunction application is a
@@ -1097,6 +1108,7 @@ def default_event(row: CorpusRow) -> corpus.CorpusEvent:
     else:
         # A circuit appeal has no Supreme Court stage, so it declares none.
         kind, stage = EventKind.appeal, None
+    decided_at_mint = row.disposition is not None
     return corpus.CorpusEvent(
         event_id=ids.event_id(kind.value, "disposition"),
         case_id=row.case_id,
@@ -1125,7 +1137,12 @@ def default_event(row: CorpusRow) -> corpus.CorpusEvent:
         # written only on the live application branch, so every other form
         # takes the docketing date exactly as before.
         opened_at=row.application_filed_at or row.date_filed,
-        resolved=row.disposition is not None,
+        # A first-mint fact only: the upsert drops it on a stored event.
+        resolved=decided_at_mint,
+        resolved_without_outcome=decided_at_mint,
+        resolved_without_outcome_reason=(
+            corpus.NO_OUTCOME_INGESTED_DECIDED if decided_at_mint else None
+        ),
     )
 
 

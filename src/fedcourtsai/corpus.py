@@ -685,6 +685,18 @@ class CorpusEvent(BaseModel):
     decision_target: str = "disposition"
     opened_at: date | None = Field(default=None, description="When the event became predictable.")
     resolved: bool = False
+    resolved_without_outcome: bool = Field(
+        default=False,
+        description="Closed with no ledger `outcome.json` behind it, on purpose and visibly: "
+        "the event was first minted on a row already decided, or the outcome pass could "
+        "not attribute the row's disposition to it. Set only beside `resolved`; cleared "
+        "when an outcome is recorded.",
+    )
+    resolved_without_outcome_reason: str | None = Field(
+        default=None,
+        description="Why the event is closed without an outcome, from a fixed vocabulary "
+        "(`NO_OUTCOME_REASONS`); None unless `resolved_without_outcome` is set.",
+    )
 
 
 class CaseDocument(BaseModel):
@@ -909,6 +921,8 @@ CREATE TABLE IF NOT EXISTS events (
     decision_target TEXT NOT NULL DEFAULT 'disposition',
     opened_at       TEXT,
     resolved        INTEGER NOT NULL DEFAULT 0,
+    resolved_without_outcome        INTEGER NOT NULL DEFAULT 0,
+    resolved_without_outcome_reason TEXT,
     PRIMARY KEY (case_id, event_id)
 );
 CREATE INDEX IF NOT EXISTS idx_events_case ON events(case_id);
@@ -1127,6 +1141,8 @@ _EVENTS_COLUMN_DDL: dict[str, str] = {
     "decision_target": "TEXT NOT NULL DEFAULT 'disposition'",
     "opened_at": "TEXT",
     "resolved": "INTEGER NOT NULL DEFAULT 0",
+    "resolved_without_outcome": "INTEGER NOT NULL DEFAULT 0",
+    "resolved_without_outcome_reason": "TEXT",
 }
 
 
@@ -4718,6 +4734,8 @@ def _event_to_record(event: CorpusEvent) -> dict[str, object]:
         "decision_target": event.decision_target,
         "opened_at": event.opened_at.isoformat() if event.opened_at else None,
         "resolved": int(event.resolved),
+        "resolved_without_outcome": int(event.resolved_without_outcome),
+        "resolved_without_outcome_reason": event.resolved_without_outcome_reason,
     }
 
 
@@ -4737,21 +4755,57 @@ def _event_from_record(record: RecordRow) -> CorpusEvent:
         decision_target=record["decision_target"],
         opened_at=date.fromisoformat(record["opened_at"]) if record["opened_at"] else None,
         resolved=bool(record["resolved"]),
+        resolved_without_outcome=bool(_optional_int(record, "resolved_without_outcome")),
+        resolved_without_outcome_reason=_optional_str(record, "resolved_without_outcome_reason"),
     )
+
+
+#: Why an event is closed without a ledger outcome: the fixed vocabulary of
+#: ``events.resolved_without_outcome_reason``. ``ingested-decided`` is the
+#: extraction's: the event was first minted on a row already decided, so it was
+#: never open for detection to resolve. The rest are the outcome pass's
+#: (:func:`fedcourtsai.pipeline.outcome.record_lost_outcomes`) reasons for a
+#: corpus-resolved moment it could not attribute: no stored snapshot to read the
+#: order text from, no decision date for the stage, a moment that opened after
+#: the decision, or a disposition detection declined.
+NO_OUTCOME_INGESTED_DECIDED = "ingested-decided"
+NO_OUTCOME_REASONS: tuple[str, ...] = (
+    NO_OUTCOME_INGESTED_DECIDED,
+    "no-snapshot",
+    "undated",
+    "opened-after-decision",
+    "declined",
+)
 
 
 def _event_update_clause(column: str) -> str:
     """The ``ON CONFLICT`` assignment for one event column, honoring its latch.
 
-    ``resolved`` only ever latches **on**: a re-ingest carries freshly-extracted
-    events with ``resolved = 0`` (extraction never observes resolution — outcome
-    detection does, via :func:`set_event_resolved`), so a re-discovery or a
-    historical re-walk must not reopen an event a prior outcome already
-    closed. Every other column takes the incoming value. Mirrors the ``cases``
-    upsert's :func:`_update_clause` for ``predict_eligible``.
+    ``resolved`` only ever latches **on**, so a re-discovery or a historical
+    re-walk never reopens an event a prior outcome closed. An incoming row
+    latches it on only when that row is not a no-outcome closure. Extraction
+    mints a stored baseline with ``resolved = 0``: closing a stored declared
+    moment is outcome detection's alone (:func:`set_event_resolved`, beside the
+    ``outcome.json`` it writes). A baseline minted on a row that is already
+    decided arrives ``resolved_without_outcome``, and that is a fact about the
+    *first* mint: on a conflict the incoming closure is dropped and the stored
+    flag stands, so a re-extraction can never close an event detection
+    declined. An entry-pinned event extraction closes on a citing order carries
+    no such mark and latches as before.
+
+    The two no-outcome columns are never rewritten by an upsert: an insert
+    takes them, and afterwards only :func:`set_event_resolved` and
+    :func:`mark_resolved_without_outcome` move them. Every other column takes
+    the incoming value. Mirrors the ``cases`` upsert's :func:`_update_clause`
+    for ``predict_eligible``.
     """
     if column == "resolved":
-        return f"{column}=MAX(excluded.{column}, events.{column})"
+        return (
+            f"{column}=CASE WHEN excluded.resolved_without_outcome = 1 THEN events.{column} "
+            f"ELSE MAX(excluded.{column}, events.{column}) END"
+        )
+    if column in ("resolved_without_outcome", "resolved_without_outcome_reason"):
+        return f"{column}=events.{column}"
     return f"{column}=excluded.{column}"
 
 
@@ -4851,21 +4905,58 @@ def iter_resolved_events(
         yield _event_from_record(record)
 
 
-def resolved_events_on_selected_rows(conn: ReadConnection, *, court: str) -> list[CorpusEvent]:
-    """Resolved events whose case row is latched ``salience_selected`` and in scope.
+def events_on_selected_rows(conn: ReadConnection, *, court: str) -> list[CorpusEvent]:
+    """Every event whose case row is latched ``salience_selected`` and in scope.
 
-    ``(case_id, event_id)``-ordered. The candidate read of the ledger-outcome
-    convergence (:func:`fedcourtsai.pipeline.outcome.converge_ledger_outcomes`):
-    answered in the join so it hydrates only the selected, not
-    ``predict_excluded`` population — a few thousand rows — rather than every
-    resolved event the court carries. A selected row the scope reconcile has
-    latched out of scope is excluded: selection runs over the in-scope set, so
-    such a row carries a stale latch, not a case the pipeline owes ground truth.
+    ``(case_id, event_id)``-ordered, open and resolved alike. The candidate read
+    of the ledger-outcome convergence and the outcome pass
+    (:func:`fedcourtsai.pipeline.outcome.converge_ledger_outcomes`,
+    :func:`fedcourtsai.pipeline.outcome.record_lost_outcomes`): answered in the
+    join so it hydrates only the selected, not ``predict_excluded`` population —
+    a few thousand rows — rather than every event the court carries. A selected
+    row the scope reconcile has latched out of scope is excluded: selection runs
+    over the in-scope set, so such a row carries a stale latch, not a case the
+    pipeline owes ground truth.
     """
     cur = conn.execute(
         "SELECT e.* FROM events e JOIN cases c ON c.case_id = e.case_id "
-        "WHERE e.resolved = 1 AND e.court = ? AND c.salience_selected = 1 "
+        "WHERE e.court = ? AND c.salience_selected = 1 "
         "AND c.predict_excluded = 0 "
+        "ORDER BY e.case_id, e.event_id",
+        (court,),
+    )
+    return [_event_from_record(record) for record in cur]
+
+
+def stage_shows_decided(row: CorpusRow, stage: Stage | str | None) -> bool:
+    """Whether the row records ``stage``'s question decided, dated or not.
+
+    A parsed merits judgment for the merits stage; a disposition or a
+    resolution date (:func:`resolution_date`) for every other stage. The test
+    an **open** declared moment is held to before it counts as decided without
+    an outcome: re-extraction never closes a stored event, so the open flag
+    alone does not say the question is pending.
+    """
+    if stage == Stage.merits:
+        return row.merits_judgment is not None
+    return row.disposition is not None or resolution_date(row) is not None
+
+
+def open_events_on_decided_rows(conn: ReadConnection, *, court: str) -> list[CorpusEvent]:
+    """Open events whose case row records some decision, ``(case_id, event_id)``-ordered.
+
+    A coarse SQL screen — any disposition, decision date, cert date or parsed
+    merits judgment on the row — answered in the join so the read hydrates only
+    the decided slice of the open set; a caller narrows it per stage with
+    :func:`stage_shows_decided`. The read side of the missed-forecast monitor's
+    open-decline arm.
+    """
+    cur = conn.execute(
+        "SELECT e.* FROM events e JOIN cases c ON c.case_id = e.case_id "
+        "WHERE e.resolved = 0 AND e.court = ? AND ("
+        "c.disposition IS NOT NULL OR c.date_decided IS NOT NULL "
+        "OR c.date_cert_granted IS NOT NULL OR c.date_cert_denied IS NOT NULL "
+        "OR c.merits_judgment IS NOT NULL) "
         "ORDER BY e.case_id, e.event_id",
         (court,),
     )
@@ -4880,18 +4971,46 @@ def set_event_resolved(
     The corpus event row is the source of truth for whether an event is still
     open: outcome detection calls this to close an event the moment it records
     that event's ``outcome.json``, so the next ``open_events`` read no longer
-    queues it for prediction. A no-op if ``(case_id, event_id)`` is not a known
-    event.
+    queues it for prediction. Either direction clears the no-outcome mark: a
+    close here is a close *with* an outcome, and a reopen leaves no closure to
+    explain. A no-op if ``(case_id, event_id)`` is not a known event.
     """
     with conn:
         conn.execute(
-            "UPDATE events SET resolved = ? WHERE case_id = ? AND event_id = ?",
+            "UPDATE events SET resolved = ?, resolved_without_outcome = 0, "
+            "resolved_without_outcome_reason = NULL WHERE case_id = ? AND event_id = ?",
             (int(resolved), case_id, event_id),
         )
     # Resolving is a direct UPDATE the upsert_events hook never sees, so re-mirror
     # the case's events here too — otherwise the casestore events.json keeps the
     # stale resolved=0 until the next re-ingest, and a casestore-provisioned
     # event.yaml would carry a stale flag for a replay cell's resolved target.
+    if (sink := _mirror_sink(conn)) is not None:
+        sink.mirror_events_for_cases(conn, [case_id])
+
+
+def mark_resolved_without_outcome(
+    conn: sqlite3.Connection, case_id: str, event_id: str, reason: str
+) -> None:
+    """Close one event visibly without a ledger outcome, naming why.
+
+    The outcome pass's residue write
+    (:func:`fedcourtsai.pipeline.outcome.record_lost_outcomes`): a
+    corpus-resolved declared moment the pass could not attribute stays closed,
+    and carries the mark and its reason so a census can tell it from one closed
+    by a recorded outcome. ``reason`` must come from :data:`NO_OUTCOME_REASONS`.
+    A no-op if ``(case_id, event_id)`` is not a known event.
+    """
+    if reason not in NO_OUTCOME_REASONS:
+        raise ValueError(
+            f"unknown no-outcome reason {reason!r}; expected one of {NO_OUTCOME_REASONS}"
+        )
+    with conn:
+        conn.execute(
+            "UPDATE events SET resolved = 1, resolved_without_outcome = 1, "
+            "resolved_without_outcome_reason = ? WHERE case_id = ? AND event_id = ?",
+            (reason, case_id, event_id),
+        )
     if (sink := _mirror_sink(conn)) is not None:
         sink.mirror_events_for_cases(conn, [case_id])
 
@@ -4969,9 +5088,12 @@ def rename_event(
     old_event_id)`` row — no reader ever sees the case carrying both identities
     or neither. ``resolved`` keeps its latch across the rename: the new row takes
     the MAX over the old row, ``new_event``, and any pre-existing row under the
-    new id, so a rename can never reopen an event a prior outcome closed.
-    Every other column is written exactly as ``new_event`` carries it. A field
-    derived from the identity, ``moment`` above all, is therefore the caller's
+    new id, so a rename can never reopen an event a prior outcome closed. The
+    old row's no-outcome mark rides along onto a new identity, and onto a
+    fold's open target, whose closure the latch carries; a target already
+    closed keeps its own state. Every other column is written exactly
+    as ``new_event`` carries it. A field derived from the identity, ``moment``
+    above all, is therefore the caller's
     to re-derive for the new id: this module sits below the declared-moments
     table and cannot tell a carried moment from a correct one.
     Raises ``ValueError`` when ``new_event`` names a different case, keeps the
@@ -4991,18 +5113,49 @@ def rename_event(
         )
     with conn:
         record = conn.execute(
-            "SELECT resolved FROM events WHERE case_id = ? AND event_id = ?",
+            "SELECT * FROM events WHERE case_id = ? AND event_id = ?",
             (case_id, old_event_id),
         ).fetchone()
         if record is None:
             raise ValueError(f"rename_event: no event {old_event_id!r} on {case_id!r} to rename")
+        old = _event_from_record(record)
+        target_record = conn.execute(
+            "SELECT * FROM events WHERE case_id = ? AND event_id = ?",
+            (case_id, new_event.event_id),
+        ).fetchone()
+        target = _event_from_record(target_record) if target_record is not None else None
+        # The no-outcome mark travels with the closure it explains. Onto a new
+        # identity it rides the insert. On a fold the upsert never rewrites the
+        # mark while the MAX latch can carry the old row's closure onto the
+        # target, so the mark is set there too — unless the target was already
+        # closed by a recorded outcome (resolved and unmarked), a closure that
+        # needs no explaining.
+        carry_mark = old.resolved_without_outcome and target is None
+        fold_mark = (
+            old.resolved_without_outcome
+            and target is not None
+            and not target.resolved_without_outcome
+            and not target.resolved
+        )
         carried = new_event.model_copy(
-            update={"resolved": bool(new_event.resolved or record["resolved"])}
+            update={
+                "resolved": bool(new_event.resolved or old.resolved),
+                "resolved_without_outcome": carry_mark,
+                "resolved_without_outcome_reason": (
+                    old.resolved_without_outcome_reason if carry_mark else None
+                ),
+            }
         )
         conn.execute(
             _event_upsert_sql(),
             tuple(_event_to_record(carried)[c] for c in _EVENT_COLUMNS),
         )
+        if fold_mark:
+            conn.execute(
+                "UPDATE events SET resolved_without_outcome = 1, "
+                "resolved_without_outcome_reason = ? WHERE case_id = ? AND event_id = ?",
+                (old.resolved_without_outcome_reason, case_id, new_event.event_id),
+            )
         # The old identity's row is dropped as half of the rename. A predictable
         # event is a raw fact that otherwise only ever accretes or resolves, so
         # the corpus exposes no general delete; the one standalone drop is

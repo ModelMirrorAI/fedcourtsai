@@ -161,6 +161,12 @@ class FixtureCase:
             decision_target="disposition",
             opened_at=self.date_filed,
             resolved=self.resolved,
+            # A fixture case is minted already decided, which production marks
+            # as a first-mint closure with no outcome behind it.
+            resolved_without_outcome=self.resolved,
+            resolved_without_outcome_reason=(
+                corpus.NO_OUTCOME_INGESTED_DECIDED if self.resolved else None
+            ),
         )
 
     def events(self) -> list[corpus.CorpusEvent]:

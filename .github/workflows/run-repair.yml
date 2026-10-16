@@ -71,6 +71,7 @@ on:
           - arrival-backfill
           - merits-phantom-removal
           - disposition-convergence
+          - lost-outcomes
           - amicus-rederive
           - regrade-stale
           - opinion-votes
@@ -222,6 +223,8 @@ jobs:
             disposition-convergence)
               bound_flag="--max-relabels"; bound_required_on_apply=1
               accepted_options="include-scored" ;;
+            lost-outcomes)
+              bound_flag="--max-cases"; bound_required_on_apply=1 ;;
             amicus-rederive)
               bound_flag="--max-changes"; bound_required_on_apply=1 ;;
             regrade-stale)
@@ -383,7 +386,7 @@ jobs:
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
     if: >-
-      ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","amicus-rederive"]'), inputs.repair)
+      ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","amicus-rederive"]'), inputs.repair)
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -398,7 +401,7 @@ jobs:
     # run's own real pass — before ever being skipped. The condition is the
     # `if:` above, repeated because no context available here can hold it once.
     concurrency:
-      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","amicus-rederive"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","amicus-rederive"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-24.04
     # Headroom over the longest chain of capped steps a dispatch can run, which
@@ -1889,6 +1892,74 @@ jobs:
           git commit -m "repair: converge corpus (disposition labels)"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "disposition-label pointer"
+
+      # Record the ledger outcome of every decided declared moment on a selected
+      # row that has none, with no lookback: the live cycle's ledger-outcome
+      # convergence reaches back 90 days, and this is the same detection and the
+      # same writer over the whole population. What it cannot attribute and the
+      # corpus already records resolved is marked `resolved_without_outcome`
+      # with its reason, so it stays closed and visible; an open gap it cannot
+      # attribute stays open. A case whose gap stage carries a committed
+      # prediction is held back for the live convergence, which routes the
+      # grade to evaluate — this pass has no evaluate queue. Outcomes already
+      # recorded are outside the population, so nothing committed is rewritten.
+      - name: Record the lost outcomes
+        if: ${{ inputs.repair == 'lost-outcomes' && steps.dedupe-live-rows.outcome == 'success' }}
+        # One snapshot read per due case, out of the content store under the
+        # corpus-split mode, and the apply's writes under `data/`.
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # The bound before anything else, as every bounded pass here: the
+          # command refuses an unbounded apply on its own too; this refusal is
+          # the one with the maintainer's procedure in it. `Validate the repair
+          # selector` duplicates it word for word so a bad dispatch dies before
+          # any credential is minted; this copy is the one of record.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the outcome pass"; exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          # The pass reads committed ledger artifacts out of `data/` — which
+          # moments already carry an outcome, which carry a prediction — and
+          # writes beside them, so it needs the remote tip, not this checkout's.
+          # Fast-forward only, for the merits-phantom pass's reason.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          # Dry-run first, into the summary: the case count it prints
+          # (`cases_written=`) is the bound the apply carries.
+          uv run fedcourts record-lost-outcomes 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts record-lost-outcomes --apply --max-cases "${REPAIR_BOUND}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere.
+          uv run fedcourts corpus-push
+          # The outcomes land in `data/` (`outcome.json` + `event.yaml`, and a
+          # minted merits event's `event.yaml`); stage them with the pointer so
+          # the ledger and the corpus flags it must match move together.
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "No lost outcomes left to record; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: record lost ledger outcomes"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "lost-outcome pointer"
 
       # Re-derive the interim `amicus_briefs` column under the widened
       # submitted-form reading with the end-of-day cut, and re-freeze the

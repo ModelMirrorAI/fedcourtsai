@@ -1991,6 +1991,7 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Backfill the interim arrival stamps", ()),
     ("repair", "Remove ungranted merits phantoms", ()),
     ("repair", "Converge disposition labels", ()),
+    ("repair", "Record the lost outcomes", ()),
     ("regrade", "Re-grade named cells", ()),
     ("handoff-projection", "Write the application back-fill projection", ()),
     ("handoff-parse", "Read the vote records", ()),

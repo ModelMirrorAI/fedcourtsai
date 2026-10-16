@@ -18,6 +18,7 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.cascade import (
     CascadeError,
     CascadeReport,
+    _cell_mode,
     _event_definition,
     _outcome_for_resolved,
     run_cascade,
@@ -447,14 +448,20 @@ def test_a_forward_moment_cell_is_placed_at_its_cutoff(corpus_db: Path, tmp_path
     The fixture's CVSG docket declares a later cert moment, so a cell for it must
     be conditioned on the docket as at that moment rather than on the latest poll:
     a CVSG cell handed the latest snapshot reads the Solicitor General's brief the
-    moment it forecasts from does not have. Flipped open here because the cut is
-    the forward path's.
+    moment it forecasts from does not have. Flipped open, on a row whose decision
+    is cleared, because the cut is the forward path's: an open event on a
+    decided row runs as a replay.
     """
     cvsg = fixture.add_cvsg_fixture(corpus_db)
     with corpus.connect(corpus_db) as conn:
         conn.execute(
             "UPDATE events SET resolved = 0 WHERE case_id = ? AND event_id = ?",
             (cvsg.case_id, "evt-order-cvsg-disposition"),
+        )
+        conn.execute(
+            "UPDATE cases SET disposition = NULL, date_decided = NULL, "
+            "date_cert_granted = NULL, date_cert_denied = NULL WHERE case_id = ?",
+            (cvsg.case_id,),
         )
         conn.commit()
 
@@ -543,3 +550,23 @@ def test_require_record_refuses_a_case_with_no_snapshot(corpus_db: Path, tmp_pat
     assert report.snapshot is None
     assert report.context is None
     assert report.placements == ()
+
+
+def test_an_open_moment_on_a_decided_row_runs_in_replay_mode() -> None:
+    # Re-extraction never closes a stored event, so a moment detection declined
+    # stays open on a decided row; its outcome exists, so its cell is a replay.
+    event = corpus.CorpusEvent(
+        event_id="evt-petition-disposition",
+        case_id="scotus/7",
+        court="scotus",
+        kind=EventKind.petition,
+        stage=Stage.cert,
+        resolved=False,
+    )
+    pending = corpus.CorpusRow(case_id="scotus/7", court="scotus", docket_number="25-7")
+    decided = pending.model_copy(
+        update={"disposition": Disposition.denied, "date_cert_denied": date(2026, 6, 30)}
+    )
+    assert _cell_mode(event, pending) == "forward"
+    assert _cell_mode(event, decided) == "replay"
+    assert _cell_mode(event.model_copy(update={"resolved": True}), pending) == "replay"

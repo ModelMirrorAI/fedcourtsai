@@ -1332,7 +1332,8 @@ per-Term **walk complete** signal, and the cursors alone give an exact filings
 census per Term and fee class (paid serials from 1, IFP from 5001) even for the
 serials the sample never ingested. Each kept petition lands through `ingest_live_payload` already
 **resolved** (machine-read label, dated raw-JSON snapshot, its cert event
-latched closed) with filed documents provisioned for OT2021+ (the links'
+closed and marked `resolved_without_outcome` as a first mint on a decided row)
+with filed documents provisioned for OT2021+ (the links'
 retention window), so it provisions replay cells like any other case. Decided
 history must never feed forward prediction: the loader writes **no queue files
 at all**, records with no readable disposition are skipped (pending

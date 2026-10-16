@@ -1104,8 +1104,8 @@ or network.
   `fedcourts historical-terms` in checkpointed chunks — walk the configured
   October Terms' docket serials newest-first from the persisted per-(Term,
   stream) cursors → ingest each decided petition through the shared
-  live path, landing it already resolved (label, snapshot, events latched
-  closed, OT2021+ documents provisioned) → push the corpus and commit the
+  live path, landing it already resolved (label, snapshot, baseline closed
+  and marked `resolved_without_outcome`, OT2021+ documents provisioned) → push the corpus and commit the
   pointer per chunk (under the `corpus-write` lock) → write progress to the
   Actions step summary. Each window is a bounded chunk (≤40 min; the daily sweep window
   walks 25 to fund its trailing sweeps) under one App
@@ -1318,46 +1318,95 @@ or network.
      neither receives the application's disposition nor takes the declared
      interim moments to triage.
 
-     **Ledger-outcome convergence.** The corpus `resolved` flag has a second
-     writer besides detection: re-extraction marks a decided docket's baseline
-     resolved from the row's disposition, whether or not an outcome was
-     recorded, and detection reads open events only. So a baseline detection
-     declined once — a triaged poll, a baseline born in a shape detection did
-     not attribute to, a case first ingested already decided — is closed with
-     no ledger outcome, and nothing grades it or resolves the sibling moments
-     still open beside it. The live cycle therefore ends its polls with a
+     **One writer closes a declared moment.** The corpus `resolved` flag and
+     the ledger `outcome.json` move together: detection's writer
+     (`pipeline.outcome.record_outcomes`) is the only one that closes a stored
+     declared moment, and it does so beside the outcome it writes.
+     Re-extraction never derives the flag from the row's disposition; it
+     carries the stored flag forward, so a moment detection declines — an
+     unreadable or undated disposition, a stage it cannot attribute — stays
+     open rather than closing with no ground truth. Open does not mean
+     pending, so every reader that asks "is this still a live forecast" also
+     asks the row: the predict fan-out's queue arms and the forward gate refuse
+     an open moment whose row records its stage decided, a later moment (CVSG,
+     arrival, the interim response moments) is never minted on a decided row,
+     a cascade cell on one runs in `replay` mode, and the missed-forecast
+     monitor counts it as decided with no outcome record. The one closure
+     without an outcome is visible by construction: a baseline first minted on
+     a row that is already decided (the walker's ingests, a docket discovered
+     after its order) was never open for detection to see, so it lands
+     resolved and marked `resolved_without_outcome` (`ingested-decided`), a
+     mark the events upsert honours on an insert only. An entry-pinned event
+     extraction closes on a citing order is outside this rule: it forecasts
+     its own filing and carries no ledger outcome. Detection writes an outcome
+     to a moment only if the moment opened on or before its `resolved_at`.
+
+     **Ledger-outcome convergence.** The poll rotations skip a decided row, so
+     a moment detection declined on the poll that saw the decision is not
+     tried again by the poll. The live cycle therefore ends its polls with a
      standing sweep (`pipeline.outcome.converge_ledger_outcomes`). Every
-     declared moment on a salience-selected, in-scope SCOTUS row that the
-     corpus records resolved without a complete ledger pair — no
-     `outcome.json`, or no `event.yaml` beside it, so a write interrupted
-     between the two is finished next window — is re-run through the same
-     detection beside the case's open events and recorded by the same writer,
-     which validates both models before writing either. Its open sibling
-     moments resolve from the same disposition in the same call, and a
-     recorded cert grant mints the merits event as the poll does — unless the
-     case already has one, or the grant's basis is mootness. A gap is due when its stage was decided within the last 90 days
-     (inclusive), or at any age when the case holds a committed prediction at
-     that stage — an owed grade does not expire, and a lookback there would drop
-     the late-fixed triage shapes, an outcome-correlated exclusion. The
-     disposition basis and order markers are read from the **latest** stored
-     snapshot, so they can differ from what the resolving poll would have
-     written where later entries change the reading; a case with no stored
-     snapshot, or whose stage carries no decision date, is surfaced on the
-     unrecorded queue and never recorded on a guess.
+     declared moment on a salience-selected, in-scope SCOTUS row whose stage
+     the row records decided, with no complete ledger pair — open, or closed
+     by the corpus without an outcome; no `outcome.json`, or no `event.yaml`
+     beside it, so a write interrupted between the two is finished next
+     window — is re-run through the same detection beside the case's open
+     events and recorded by the same writer, which validates both models
+     before writing either. Its open sibling moments resolve from the same
+     disposition in the same call. A recorded cert grant mints the merits
+     event as the poll does only while its merits case is still pending and
+     forecastable — no latched judgment, not terminated, inside the
+     stale-grant bound, in scope — and never over an existing merits event
+     or on a mootness basis. A gap is due when its stage was decided within
+     the last 90 days (inclusive), or at any age when the case holds a
+     committed prediction at that stage — an owed grade does not expire, and a
+     lookback there would drop the late-fixed triage shapes, an
+     outcome-correlated exclusion. The disposition basis and order markers
+     are read from the **latest** stored snapshot, so they can differ from
+     what the resolving poll would have written where later entries change
+     the reading; a case with no stored snapshot, or whose stage carries no
+     decision date, is surfaced on the unrecorded queue and never recorded on
+     a guess.
 
      Due cases are attempted newest decision first. Per window at most 25
      cases are recorded and 100 attempted; a declined case does not spend the
-     record bound, so fewer than 100 persistent declines cannot starve a recordable gap, and
-     the cases left over carry to the next window. A case whose attempt raises
-     (a content-store read error, say) lands on the window's failed list and
-     the pass continues; if the pass itself raises it is skipped for that
-     window, never taking the window's polls down with it. Its counts
-     (recorded, unrecorded, failed, deferred) print on the live step's output.
-     Idempotent, and routed into the same evaluate / unrecorded queues as a
-     poll result, with a case the window's polls already put on the unrecorded
-     queue listed once. It is not a backfill: unpredicted selected rows
-     decided longer ago were mostly ingested already decided and never
-     forecastable, and writing their ground truth is a population decision.
+     record bound, so fewer than 100 persistent declines cannot starve a
+     recordable gap, and the cases left over carry to the next window. A case
+     whose attempt raises (a content-store read error, say) lands on the
+     window's failed list and the pass continues; if the pass itself raises it
+     is skipped for that window, never taking the window's polls down with
+     it. Its counts (recorded, unrecorded, failed, deferred) print on the live
+     step's output. Idempotent, and routed into the same evaluate / unrecorded
+     queues as a poll result, with a case the window's polls already put on
+     the unrecorded queue listed once; an open moment it keeps declining is
+     re-attempted, and re-listed, on each window it is reached while inside
+     the lookback. Gaps older than the lookback with no prediction are the
+     outcome pass's: run-repair's `lost-outcomes` runs the same detection and
+     writer over every gap at any age, and marks the corpus-resolved ones it
+     cannot attribute `resolved_without_outcome` with the reason
+     (`no-snapshot`, `undated`, `opened-after-decision`, `declined`) — a
+     first-mint `ingested-decided` closure it cannot attribute is re-marked
+     with the pass's own reason, which says why it is still unrecorded.
+
+     **Ledger-outcome coverage.** Two populations, kept two ways. Inside the
+     lookback, and at any age where the stage carries a committed prediction,
+     the live poll and the standing convergence maintain it **continuously**:
+     a decided declared moment on a salience-selected, in-scope SCOTUS row
+     carries an `outcome.json`, or is open and listed on the unrecorded queue
+     each window it is reached. Past the lookback with no prediction, coverage
+     is only as current as the last `lost-outcomes` apply: that dispatch
+     records every attributable gap and marks the corpus-resolved residue
+     `resolved_without_outcome`, and a gap opening there afterwards waits for
+     the next dispatch. So after an apply the ledger carries an outcome for
+     every attributable decided declared moment on a selected row, predicted
+     or not, and a decided moment there without one is either open (its
+     detection declines) or closed and marked with its reason; the
+     missed-forecast monitor's `no_outcome_record` lists both kinds. Outside
+     that population — an unselected row, a circuit appeal, an entry-pinned
+     event — an outcome is recorded only where the poll saw the event open
+     when its disposition landed, so ledger outcomes there are not a census of
+     decided matters. Anything that counts ledger outcomes beyond predicted
+     events counts this population; the corpus, not the ledger, is the
+     complete record of dispositions.
 
 ## Maintenance passes
 
@@ -1459,6 +1508,7 @@ population and apply against another.
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
+| `lost-outcomes` | `record-lost-outcomes` | `--max-cases` (cases written, recorded and marked together: the dry run's `cases_written`) | — | — |
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 | `opinion-votes` | `stamp-opinion-votes` (split: `--emit-corpus-projection`, `--projection --plan-out`, `--from-plan`) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |

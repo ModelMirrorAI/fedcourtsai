@@ -411,6 +411,35 @@ def test_a_resolved_event_with_no_ledger_directory_is_seen_and_named(tmp_path: P
     assert report.counts_json()["no_outcome_record_on_selected_row_events"] == 1
 
 
+def test_an_open_moment_on_a_decided_row_is_seen_like_a_resolved_one(tmp_path: Path) -> None:
+    """Re-extraction never closes a stored event, so a moment detection declined
+    stays open on a row that records its stage decided. The monitor reads it as
+    decided with no outcome record — never as pending — while an open moment on
+    an undecided row stays out of the scan."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    for docket, decided in ((209, RESOLVED), (210, None)):
+        _resolved_case(
+            db,
+            data,
+            docket,
+            event_id=INTERIM_EVENT,
+            kind=EventKind.motion,
+            stage=Stage.interim,
+            docket_number=f"26A{docket}",
+            outcome=False,
+            date_decided=decided,
+        )
+    with corpus.connect(db) as conn:
+        conn.execute("UPDATE events SET resolved = 0")
+        conn.commit()
+
+    report = _scan(db, data)
+
+    assert [e.case_id for e in report.events] == ["scotus/209"]
+    assert [u.case_id for u in report.no_outcome_record] == ["scotus/209"]
+
+
 def test_an_event_dated_only_by_observation_is_placed_and_one_undatable_is_named(
     tmp_path: Path,
 ) -> None:

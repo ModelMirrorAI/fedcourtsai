@@ -84,6 +84,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from enum import StrEnum
@@ -95,6 +96,7 @@ from ..paths import CasePaths
 from ..registry import enabled_predictors
 from ..schemas import Stage
 from ..store import event_has_claimable_prediction, is_forecastable_moment
+from . import moments
 
 #: The UTC times of the scheduled predict rounds — ``run-predict.yml``'s two
 #: ``schedule`` crons, daily. A test pins this tuple to the workflow file's daily
@@ -434,6 +436,30 @@ def _classify(  # noqa: PLR0911 - one early return per declared rule
     return Verdict.missed, MissReason.owed_and_unforecast, ""
 
 
+def _decided_events(
+    conn: corpus.ReadConnection,
+    row_for: Callable[[str], corpus.CorpusRow | None],
+) -> Iterator[corpus.CorpusEvent]:
+    """Every SCOTUS event whose question is decided: corpus-resolved, or open on a decided row.
+
+    The second arm is the declared moments detection declined: re-extraction
+    never closes a stored event, so such a moment stays **open** on a row that
+    records its stage decided (:func:`fedcourtsai.corpus.stage_shows_decided`),
+    with no ``outcome.json``. Reading the resolved set alone would drop it from
+    ``no_outcome_record`` — and the declined shapes (unreadable, undated, GVR
+    and dismissal orders) are outcome-correlated, so the drop would not be
+    neutral.
+    """
+    yield from corpus.iter_resolved_events(conn, court="scotus")
+    for event in corpus.open_events_on_decided_rows(conn, court="scotus"):
+        spec = moments.spec_for(event.event_id)
+        if spec is None:
+            continue
+        row = row_for(event.case_id)
+        if row is not None and corpus.stage_shows_decided(row, spec.stage):
+            yield event
+
+
 def scan_predictionless_resolutions(  # noqa: PLR0912, PLR0915 - one pass, many facts
     conn: corpus.ReadConnection,
     data_root: Path,
@@ -444,11 +470,12 @@ def scan_predictionless_resolutions(  # noqa: PLR0912, PLR0915 - one pass, many 
 ) -> PredictionlessReport:
     """Classify every SCOTUS event resolved in ``[since, until]`` that a predictor owed lacks.
 
-    Driven from the corpus's resolved-event set, so an event the ledger never
-    recorded is still seen. Dated from the event's ``outcome.json`` where the
-    ledger holds one, otherwise from the corpus row (:func:`_corpus_date`); an
-    in-window event with no ``outcome.json`` is also listed on
-    ``no_outcome_record``.
+    Driven from the corpus — its resolved-event set and the declared moments
+    left open on a row that records their stage decided (:func:`_decided_events`)
+    — so an event the ledger never recorded is still seen. Dated from the
+    event's ``outcome.json`` where the ledger holds one, otherwise from the
+    corpus row (:func:`_corpus_date`); an in-window event with no
+    ``outcome.json`` is also listed on ``no_outcome_record``.
 
     Coverage is per enabled predictor (``predictors_path``), but a predictor is
     **owed** an event only if its first committed prediction anywhere predates
@@ -477,7 +504,7 @@ def scan_predictionless_resolutions(  # noqa: PLR0912, PLR0915 - one pass, many 
             rows[case_id] = corpus.get_row(conn, case_id)
         return rows[case_id]
 
-    for event in corpus.iter_resolved_events(conn, court="scotus"):
+    for event in _decided_events(conn, row_for):
         court, docket_str = event.case_id.split("/", 1)
         docket = int(docket_str)
         in_ledger = docket_str in ledger_dockets
