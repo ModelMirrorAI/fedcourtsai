@@ -9410,7 +9410,7 @@ freeze commit is recorded here.
   `cluster_undated.passed` are 0, and `last_live_polled.nulled` equals its
   `stored`.
 
-  **Where it landed.** Merged to `staging` as `<FILL: staging merge commit>`
+  **Where it landed.** Merged to `staging` as `44b2c9d1a`
   and carried to `main` by the promotion tagged `<FILL: promotion tag>`
   (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`). At that
   promotion's first parent, `src/fedcourtsai/corpus.py` has no
