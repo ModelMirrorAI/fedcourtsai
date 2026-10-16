@@ -152,8 +152,8 @@ def _pass_section(db: Path, data_root: Path) -> list[str]:
         "  - gap moments recorded by disposition: " + _counts(plan.recorded_by_disposition),
         "- merits outcome of each recorded grant that opens a merits proceeding: "
         + _counts(merits),
-        f"- residue to mark resolved_without_outcome: "
-        f"{sum(len(v) for v in plan.residue.values())} moment(s) on {len(plan.residue)} case(s)",
+        "- residue to mark resolved_without_outcome: "
+        + f"{sum(len(v) for v in plan.residue.values())} moment(s) on {len(plan.residue)} case(s)",
         "  - by reason: " + _counts(residue_reason),
         "  - by disposition: " + _counts(plan.residue_by_disposition),
         f"- open gaps declined (left open): {sum(len(v) for v in plan.open_declined.values())}"
