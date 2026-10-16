@@ -10146,3 +10146,190 @@ freeze commit is recorded here.
     `uv run fedcourts interim-reading-census` reports
     `stored_labels_written` 0 and an empty `registered_disagreements`, or
     only drift that predates this change.
+
+- **Outcome detection becomes the only writer that closes a declared moment,
+  the lost outcomes on selected rows are recorded, and attribution refuses a
+  moment opened after its decision, 2026-10-16.** A **membership** change to
+  which events carry ground truth and which merits cases are forecast, and an
+  **attribution** change to which moment an outcome may attach to. It moves no
+  digest: no prompt template, neither agent config and not
+  `src/fedcourtsai/process_version.py` changes, and `uv run fedcourts
+  process-digest --all` prints `proc-v9` and the six digests the previous
+  entry lists. The registered interim disposition reading is untouched.
+
+  **The rules.** From this entry's carrying merge:
+  1. *One writer.* Re-extraction (`pipeline.ingest.default_event`) never
+     closes a stored event; it carries the stored `resolved` flag forward.
+     Before this entry it set `resolved` from the row's disposition on every
+     re-extraction, so a moment detection declined was closed with no
+     `outcome.json`. A stored declared moment now closes only in
+     `pipeline.outcome.record_outcomes`, beside its outcome. A baseline first
+     minted on a row already decided lands closed and marked
+     `resolved_without_outcome` (`ingested-decided`), a new corpus column with
+     a fixed-vocabulary reason column beside it.
+  2. *Open is not pending.* Because a declined moment now stays open on a
+     decided row, every reader of "still live" also asks the row whether the
+     event's stage is decided (`corpus.stage_shows_decided`): the case-baseline
+     and interim queue arms of the predict fan-out refuse such a moment (the
+     cert and merits arms and the forward gate already did); the CVSG, arrival
+     and interim response mints never mint on a decided row; a cascade cell on
+     one runs in `replay` mode; and the missed-forecast monitor reads it as
+     decided with no outcome record.
+  3. *Opened in time.* An outcome is written to a moment only if the moment's
+     `opened_at` is on or before the outcome's `resolved_at`. A later moment
+     is surfaced for triage instead. This is a refusal rule, and on interim
+     moments it is plausibly outcome-correlated: a fast disposition, which is
+     denial-weighted, is the one most likely to land before a response moment
+     opens.
+  4. *Coverage.* The live cycle's ledger-outcome convergence also retries
+     **open** declared moments on decided selected rows. run-repair's new
+     `lost-outcomes` pass records, at any age, every attributable decided
+     declared moment on a selected row with no ledger outcome. It holds back
+     any case whose gap stage carries a committed prediction, on the undated
+     arm as on the dated one (the live convergence reaches those at any age and
+     routes them to evaluate). It marks the corpus-resolved residue it cannot
+     attribute `resolved_without_outcome`, with reason `no-snapshot`,
+     `undated`, `opened-after-decision` or `declined`. The 12 selected OT25
+     petitions recorded on 2026-09-28 already carry outcomes, so they are
+     outside its population and are not rewritten.
+  5. *Merits mints.* A cert grant either sweep records mints the merits event
+     only when the merits case is still pending and forecastable: no latched
+     judgment, not terminated, inside the stale-grant bound, in predict scope
+     (`store.merits_event_forecastable`). Otherwise the grant outcome is
+     recorded and no merits event is minted; the pass lists each such grant by
+     verdict (`judgment-latched`, `terminated`, `stale`, `out-of-scope`). The
+     standing convergence applies the same rule but does not list or count
+     the grants it records without a merits event, so its share of the skips
+     is not reported.
+
+  **What moves, checked against the committed ledger** (read at the branch
+  head, whose `data/` was synced from `main` on 2026-10-16; 13,090 committed
+  `outcome.json`, 168 of them on events carrying a committed prediction):
+  - *No committed outcome is rewritten.* The convergence and the pass read
+    only moments without a complete ledger pair, and `record_outcomes`
+    writes only what they plan (pinned by
+    `tests/test_outcome.py::test_the_outcome_pass_never_rewrites_a_recorded_outcome`).
+  - *Rule 3 against the ledger:* 9 committed outcomes have an event that
+    opened after their `resolved_at`. All 9 are unpredicted
+    `evt-petition-disposition` outcomes, all 9 are **denials**, and each one's
+    `opened_at` (the docketing date the baseline is stamped with) postdates
+    the recorded cert decision, so 0 scored outcomes are affected and they
+    stay as committed. The same shape on a future gap is refused and marked
+    `opened-after-decision`, so that residue reason is likely denial-heavy.
+  - *Rules 1, 2 and 4 against the corpus:* the predicted events the corpus
+    records resolved with no outcome (selected and unselected rows), and the
+    open declared moments on decided selected rows (predicted and not), are:
+    <FILL: corpus-check sections 2 and 3 counts as one plain line>.
+    A predicted moment there gains an outcome and an owed grade; nothing
+    changes which moment an outcome attaches to.
+  - *Rule 5: new forward merits cells.* Each merits event the pass mints is a
+    **new forward merits cell** for the predict lane — new spend, and a new
+    predicted case, minted long after its grant on a case selected for its
+    cert stage. The dry run's split of the recorded grants is:
+    <FILL: corpus-check section 1 merits split minted-pending, judgment-latched, terminated, stale, out-of-scope as one plain line>.
+    A merits case minted this way is forecast forward like any other, but its
+    cohort entered the merits population at the pass's apply, not at its
+    grant, and a merits figure that counts it reads that beside this entry.
+  - *The pass's population, by disposition,* is the grant-skewed gap
+    measured on the blob pulled 2026-09-27: 1,143 events (1,131 once the 12
+    above were recorded), missing on 45% of granted, 39% of gvr, 32% of
+    dismissed and 31% of denied selected moments. The attributable and
+    residue counts by disposition are:
+    <FILL: corpus-check sections 0 and 1 recorded and residue by disposition as one plain line>.
+    None carries a prediction, so recording them moves no board, export or
+    grade. The residue left unrecorded is not neutral by disposition, and
+    any count of ledger outcomes beyond predicted events reads it beside the
+    coverage rule in `docs/data-pipeline.md` (*Ledger-outcome coverage*).
+  - *Maintenance passes that walk every committed outcome*
+    (`amicus-rederive`, `disposition-convergence`, the GVR label migration,
+    the vote writers) see the pass's new outcomes after its apply, so their
+    dry-run counts move by up to that many without any change of their own.
+
+  **Not a harness boundary.** What a minted cell reads is unchanged. A cell
+  can ask `fedcourts open-events`, which is served from `events.resolved`;
+  after this entry it can list a moment left open on a decided row that the
+  latch would have closed. That adds an event id, never an outcome: the
+  moment's question is answered on the row the cell already reads, and the
+  forward gate and the queue arms refuse to mint a cell on it
+  (`tests/test_live.py::test_a_declined_detection_leaves_the_event_open_through_re_extraction`
+  pins both on a distributed petition).
+
+  **A known misreading kept under proc-v9.** The registered interim
+  disposition reader (`pipeline.interim_signals.match_interim_disposition`)
+  can take a side motion's own order for the application's disposition — an
+  entry such as "Motion … in connection with Application (…) GRANTED." —
+  and, since the last disposing entry wins, a later such order can relabel a
+  decided application. This entry does **not** change that reading: proc-v9's
+  interim reading stays byte-identical, and the misreading is recorded here
+  as known, of unknown prevalence, to be fixed together with the new interim
+  reading at the next process label. The outcome pass records whatever label
+  the row carries, so a lost interim outcome it records inherits the same
+  reading as every interim outcome the poll records. The rows exposed to the
+  shape (selected application rows and committed interim outcomes whose
+  stored proceedings carry it, read-only) are:
+  <FILL: corpus-check section 4 exposure counts as one plain line>.
+
+  **Reading rule.** No scored figure moves at the carrying merge. A tally of
+  ledger outcomes on selected rows taken before the `lost-outcomes` apply
+  counts a grant-skewed subset, and may not be pooled with one taken after it.
+  A tally of merits outcomes from the ledger excludes every grant recorded
+  after its merits case was decided or terminated, since such a grant mints
+  no merits event; the terminated ones lean toward dismissals, so that
+  exclusion is plausibly correlated with the outcome. Against staging as it
+  ran nothing is removed, because those grants were not recorded at all.
+
+  **Where it landed.** Merged to `staging` as `7df996154`
+  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_live.py tests/test_outcome.py tests/test_corpus.py
+    tests/test_missed_forecasts.py
+    -k "declined_detection or first_ingested_decided or outcome_pass or lost_grant or no_outcome or opened_after or open_moment"`
+    is green;
+  - after a `run-repair` `lost-outcomes` dry-run and apply, a second dry-run
+    records nothing and re-plans only the marked residue, to the same marks;
+    and `uv run fedcourts evaluate-plan --missed-since 2026-07-01` lists no
+    `no_outcome_record` event on a selected row other than that marked
+    residue and the open gaps the dry run reported as declined.
+
+  **Placed late in the file.** This entry was written with its change and
+  dropped when the change was rebuilt onto `staging` for its merge, so it is
+  appended after the entries of changes merged later the same day. Its text
+  is the one written before that merge; only the staging merge commit above
+  is filled in.
+
+- **Readings the 2026-10-16 promotion batch owes, recorded 2026-10-16.** No
+  rule moves here; three statements the batch's entries left wrong or
+  unsaid, recorded before the batch reaches `main`.
+
+  **Two interim boundaries, not one.** The side-motion entry above (dated
+  2026-10-15) says the pre-mint poll entry is on `staging` and not yet on
+  `main`, so the two boundaries coincide if both ride one promotion. The
+  pre-mint poll was carried to `main` by `promotion/2026-10-15` (merge
+  `1850188d9`, merged 2026-10-15T19:14:30Z), the batch before the side-motion
+  change. The two fall at different merges, and forward interim figures are
+  not comparable across either.
+
+  **Three readings the set-aside moves with no counted-back line.** The
+  set-aside's sensitivity lines cover the leaderboard's pooled entries and
+  paired figure and `claim-scores.json`'s cert-stage claim stratum. Three
+  further cuts move with it and are default-only, so a figure from any of them
+  quotes the move:
+  - the leaderboard's `by_band` cut: on the ledger at `main` `18780d619`,
+    `sal-v4/federal` falls from 2 events (1 grant) to 1 event (0 grants),
+    the grant removed being No. 25-1343, and `sal-v4/baseline` from 78
+    events to 72;
+  - its `by_protocol` cut, already named default-only;
+  - `claim-scores.json`'s `forward_agreement` judge-agreement pairs: 117 pair
+    events at tau-b 0.1109 with the set-aside counted, 110 at 0.1187 without.
+
+  `metrics/README.md` names all three in place.
+
+  **A rank that rests on the set-aside.** On the same ledger the default
+  forward accuracy reads claude 0.9818 against codex 0.9727, a gap of 3
+  gradings in 330, one event. With the set-aside counted both read 0.9744,
+  and Brier orders them (0.0208 against 0.0219). The set-aside was adopted on
+  2026-10-16, after the 2026-10-13 grant it removes, though its list was fixed
+  by a census whose newest pull is 2026-10-09, before that grant. A claim that
+  ranks claude above codex quotes both readings.
