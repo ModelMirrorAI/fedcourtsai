@@ -510,8 +510,9 @@ directory without knowing which part is which invites trusting the wrong half.
   full Court, on a petition a CVSG — with the entry date the ingest parser
   reads. It is record-only; the claim scorer reads the pre-mint one to mask an
   increment claim whose signal was on the docket before the cell ran, and the
-  post-run one, where the pre-mint poll read the signal absent, to set aside
-  a claim whose signal landed while the cell ran
+  boards' `stratify` pass reads the post-run one, where the pre-mint poll read
+  the signal absent, to set aside a claim whose signal landed while the cell
+  ran
   ([outcome-decomposition.md](outcome-decomposition.md)).
 - **`retrieval_log.json`** — the tool-call transcript, captured harness-side
   from the engine's own log: tool names, query slices, and document dates where

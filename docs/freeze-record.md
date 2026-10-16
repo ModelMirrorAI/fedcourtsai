@@ -9707,7 +9707,7 @@ freeze commit is recorded here.
   record would resolve is masked (`outcome: null`) with its own
   `ClaimScore.mask_reason`, `signal-before-run`, when **(a)** its pre-mint
   poll read open and recorded the signal present, or **(b)** with no usable
-  poll (none, `unavailable`, or one written before the signal reading), the
+  poll (none, `unavailable`, or one that recorded no reading of that signal), the
   signal's committed docket date is strictly before the cell's run day — its
   harness clock (`integrity.cell_clock`) in Court time (America/New_York), as
   the 2026-10-15 and `interim-decision-day` entries date a cell. A poll that
@@ -9777,19 +9777,22 @@ freeze commit is recorded here.
     resolved, on proc-v8 cells: `scotus/9526000446` `evt-motion-disposition`
     (10-02). None of the 68 live response-requested claims is unassessable.
   - `referral-increment`: 144 live claims, 108 resolved; **66** resolved 1 on
-    22 events, all unassessable from the ledger. `referral-increment` claims
-    on cells minted before the poll recorded signals stay unguarded by this
-    rule, and must not enter any scored figure without a corpus-dated reading
-    of the referral (`interim_signals.referral_date`, which the census below
+    22 events, all unassessable from the ledger. The ledger dates no
+    referral, so a `referral-increment` claim on any cell without a usable
+    pre-mint poll reading of the referral stays unguarded by this rule: every
+    cell minted before the poll recorded signals, and any later cell whose
+    pre-mint poll recorded no reading of it (an `unavailable` poll, a docket
+    with no proceedings, a failed signal reading, or no `usage.json`). Such
+    claims must not enter any scored figure without a corpus-dated reading of
+    the referral (`interim_signals.referral_date`, which the census below
     computes).
   - `cvsg-increment`: 739 live claims, 385 resolved; **0** with a CVSG on or
     before the run day.
 
-  This moves the 2026-10-05 measurement in two ways. It counts later cells
-  (`26A458`, `26A477`, `26A499`), and it dates the run in Court time, where
-  that measurement used the UTC date of `created_at`: `scotus/9526000275`'s
-  cells ran at 01:42Z on 09-01, the evening of 08-31 in Court time, and its
-  request is dated 09-01, so they are not same-day and are untouched.
+  The run day is read in Court time, not as a UTC date:
+  `scotus/9526000275`'s cells ran at 01:42Z on 09-01, the evening of 08-31 in
+  Court time, and its request is dated 09-01, so they are not same-day and
+  are untouched.
 
   **What it moves.** No published figure today. The mask is applied at the
   stamp, so it reaches blocks stamped (or re-stamped with `stamp-cell
@@ -9820,11 +9823,16 @@ freeze commit is recorded here.
   context carries the distribution and relist history of the provisioned
   snapshot, and a relist only follows a conference that sat, while an event
   whose first forward cell ran on or after that conference is set aside
-  whole. Its residual is the relist carve-out
-  (`cert_signals.relisted_past`): a relist docketed after the snapshot's pull
-  and by the run day moves the considering conference ahead and keeps the
-  cell, with a count its context lacks, a window bounded by the snapshot's
-  age. `amicus-increment` is a count claim, resolved by strict comparison of
+  whole. Its residual is any petition distribution docketed after the
+  snapshot's pull and by the run day — a relist, a redistribution after a
+  call for response, or a redistribution after a reschedule.
+  `cert_signals.considering_conference` reads the latest petition
+  distribution filed by the run day, so such an entry naming a conference
+  still ahead moves the considering conference ahead and keeps the cell,
+  while `distribution_count` counts distinct conferences, so the same entry
+  is a rise the claim resolves on and a count its context lacks. The window
+  is bounded by the snapshot's age, and its size is unmeasured.
+  `amicus-increment` is a count claim, resolved by strict comparison of
   the two committed counts, so any brief after the cut moves it and no single
   signal entry dates it; the poll records no amicus count, and its run-timing
   exposure is unmeasured.
@@ -9863,8 +9871,10 @@ freeze commit is recorded here.
   - `uv run pytest tests/test_increment_timing.py tests/test_pre_mint.py` is
     green;
   - after the first metrics refresh on `main`, `jq '.claim_set_aside'
-    metrics/claim-scores.json` prints `null` until a cert first-moment
-    `cvsg-increment` claim is dated its unpolled cell's run day;
+    metrics/claim-scores.json` prints `null` until a resolved cert
+    first-moment `cvsg-increment` claim is dated its unpolled cell's run day,
+    or sits on a polled cell whose post-run poll reads the CVSG its pre-mint
+    poll read absent;
   - the first evaluator stamp of an interim cell whose request preceded its
     run writes `"mask_reason": "signal-before-run"` on its
     `response-requested-increment` row.

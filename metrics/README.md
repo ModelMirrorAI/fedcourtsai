@@ -1182,9 +1182,9 @@ stays outside the gate:
   is counted separately. That is almost always the availability mask at work
   — a property of the record, never of the predictor — but one mask reads when
   the cell ran rather than what it froze: the increment claims' run-timing
-  mask (`ClaimScore.mask_reason: signal-before-run`), which follows the cell's
-  harness clock and so is a property of the run, still never of the
-  predictor's number.
+  mask (`ClaimScore.mask_reason: signal-before-run`), which follows when the
+  cell ran (its poll, else its harness clock) and so is a property of the run,
+  still never of the predictor's number.
 
 **Semantic grades publish nothing today, and this is the contract for when they
 do.** No artifact here carries a semantic claim grade. The merits moments
@@ -1603,7 +1603,9 @@ cell's run day in Court time. Either way the claim may be a forecast or an
 observation. One the pre-mint poll read present, or, unpolled, dated before
 the run, is not set aside but masked by the scorer (`ClaimScore.mask_reason`,
 docs/outcome-decomposition.md); one the pre-mint poll read absent and the
-post-run poll did not read present stays a forecast. On
+post-run poll did not read present stays a forecast. The mask applies at stamp
+time: a block stamped without it keeps its resolution, neither masked nor set
+aside, until `stamp-cell --regrade` re-stamps it. On
 `claim-scores.json` the set-aside claims' scores leave every default figure —
 block totals, per-claim means and the judge validation's pairs — and the board
 publishes `claim_set_aside`, counted in **claim units** (a prediction's claim
@@ -1615,10 +1617,13 @@ else. The board's population is cert's first moment, where only
 set-aside moves no figure; the two interim claims sit on no claim surface yet,
 so their set-aside is recorded in the pass (`StratifiedRun.claim_set_aside`)
 and moves nothing published. Each sensitivity line also counts the
-`scored_claims` it puts back: zero means its figure equals the default, not
-that the default did not move. `referral-increment` claims on cells minted
-before the poll recorded signals have no committed referral date, so the rule
-cannot reach them; they must not enter any scored figure without a
+`scored_claims` it puts back: zero means its figure equals the default — the
+claims are set aside, and none of them moved anything. No committed artifact
+dates a referral, so the rule cannot reach a `referral-increment` claim on any
+cell without a usable pre-mint poll reading of the referral: a poll carrying no
+`signals`, one that recorded no reading of the referral (an `unavailable`
+poll, a docket with no proceedings, a failed signal reading), or no
+`usage.json` at all. Such claims must not enter any scored figure without a
 corpus-dated reading (`interim_signals.referral_date`). `relist-increment` and
 `amicus-increment` are outside the rule: the post-conference set-aside above
 brackets a relist, and the amicus count has no single signal date (the

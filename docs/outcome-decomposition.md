@@ -713,7 +713,8 @@ margin; it is unearned score. The cut that would retire it is exactly the one
 
 **The availability mask is a property of the record, never of the predictor.**
 A claim is unresolvable — `outcome: null` on its row, excluded from the total —
-only where the committed record does not disclose what it needs: an outcome
+only where the committed record does not disclose what it needs (save the
+run-timing mask below): an outcome
 without a `signals` block, a context whose signals were unobservable, a CVSG
 already on the docket making the increment vacuous. A predictor cannot decline
 its way into the mask, and every declared claim is answered regardless of
@@ -745,14 +746,18 @@ time — the response-requested moment's `opened_at`, the outcome's
 is conditioned on run timing rather than on the frozen record and so is not the
 vacuous mask. A signal the record cannot order against the run — read absent
 by the pre-mint poll and present by the post-run poll, or, unpolled, dated the
-run day itself — leaves the claim resolved, and the claim-score board sets it
-aside from its default figures under `increment-run-day`, with a sensitivity
-line counting it back (metrics/README.md). No committed artifact dates a
-referral, so an unpolled cell's `referral-increment` timing is unassessable and
-the claim keeps the resolution its record gives it: such claims, on every cell
-minted before the poll recorded signals, stay unguarded by this rule and must
-not enter any scored figure without a corpus-dated reading
-(`interim_signals.referral_date`). Any baseline later added for the three
+run day itself — leaves the claim resolved, and the boards' `stratify` pass
+sets it aside from their default figures under `increment-run-day`, with a
+sensitivity line counting it back (metrics/README.md). On `claim-scores.json`
+only `cvsg-increment` is affected; `response-requested-increment` and
+`referral-increment` sit on no claim surface. No committed artifact dates a
+referral, so without a usable pre-mint poll reading of the referral a
+`referral-increment` claim's timing is unassessable and the claim keeps the
+resolution its record gives it. Such claims — on any cell whose pre-mint poll
+carries no `signals`, recorded no reading of the referral (an `unavailable`
+poll, a docket with no proceedings, a failed signal reading), or is missing
+(no `usage.json`) — stay unguarded by this rule and must not enter any
+scored figure without a corpus-dated reading (`interim_signals.referral_date`). Any baseline later added for the three
 claims is computed over the run-time population the mask leaves in, never the
 cut-conditioned one, or the mask re-bases skill rather than removing
 observations. The mask and the set-aside are plausibly

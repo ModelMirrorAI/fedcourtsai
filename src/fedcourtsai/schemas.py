@@ -1635,10 +1635,11 @@ class ClaimScore(_Strict):
         "does not carry, which every other mask does. `signal-before-run`: an increment "
         "claim (`response-requested-increment`, `referral-increment`, `cvsg-increment`) "
         "on a forward cell whose signal was already on the docket before the cell ran — "
-        "the cell's pre-mint poll read it present, or, with no usable poll, its docket "
-        "date is strictly before the cell's run day in Court time "
-        "(`set_aside.increment_timing`). Conditioned on when the cell ran rather than on "
-        "what it was provisioned, so it is not the vacuous mask. Omitted otherwise",
+        "the cell's pre-mint poll read it present, or, with no usable poll (or one that "
+        "recorded no reading of that signal), its docket date is strictly before the "
+        "cell's run day in Court time (`set_aside.increment_timing`). Conditioned on when "
+        "the cell ran rather than on what it was provisioned, so it is not the vacuous "
+        "mask. Omitted otherwise",
     )
     score: float | None = Field(
         default=None,
@@ -2147,10 +2148,11 @@ class DocketPollRecord(_Strict):
         "increment signal the cell's claims forecast, with the entry date the ingest "
         "parser reads. The claim scorer reads a pre-mint poll's reading to mask an "
         "increment claim whose signal was already on the docket before the cell ran, and "
-        "a post-run poll's to set aside one whose signal the pre-mint poll read absent and "
-        "the post-run poll present (`set_aside.increment_timing`). Omitted where the poll "
-        "read no proceedings list (an `unavailable` poll, a payload without one), and on "
-        "polls taken before the field existed",
+        "the boards' `stratify` pass reads a post-run poll's to set aside one whose signal "
+        "the pre-mint poll read absent and the post-run poll present "
+        "(`set_aside.increment_timing`). Omitted where the poll read no proceedings list "
+        "(an `unavailable` poll, a payload without one) or its signal reading failed; a "
+        "poll carrying no `signals` reads as one that recorded no signal",
     )
 
     @model_serializer(mode="wrap")

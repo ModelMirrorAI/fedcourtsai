@@ -27,14 +27,16 @@ the fact comes from:
 (or rows in the registry, for a listed reason), and its freeze-record entry.
 Every board inherits it through :func:`fedcourtsai.store.stratify`, which
 publishes it in the ``set_aside`` block and the sensitivity lines with no
-further change. The grain is the scored cell. A reason that sets aside
-individual **claims** inside a cell would add a claim-grain predicate here and
-apply it where the claim totals are summed, keeping the same reason vocabulary
-and the same block, and it owes two things the cell grain does not: its own
-sensitivity line **per reason** — a claim total with that reason's claims
-counted back, never stacked with another reason's or another departure's —
-and counts in **claim units** (claims set aside, and the cells they sit in),
-since a cell-grain count would misstate how much of a total moved.
+further change. That grain is the scored cell.
+
+A claim-grain reason sets aside individual **claims** inside a cell, which
+stays counted. It shares the reason vocabulary but publishes in its own pair
+of blocks on the claim-score board: ``claim_set_aside``, counted in **claim
+units** (each prediction's claim once, with the gradings carrying it and how
+many of the claims carry a score), since a cell-grain count would misstate
+how much of a total moved; and ``claim_set_aside_sensitivity``, one line per
+(reason, predictor, stratum) with that reason's claims counted back, never
+stacked with another reason's or another departure's.
 
 One claim-grain reason is registered, ``increment-run-day``
 (:func:`claim_set_aside_reason`), and it shares its timing reading with a
@@ -199,9 +201,9 @@ def polled_signal(poll: DocketPollRecord | None, claim_id: str) -> PolledSignal 
     """What a usable pre-mint poll read of ``claim_id``'s signal, or ``None``.
 
     Usable means the poll read ``open`` and recorded that signal: an
-    ``unavailable`` poll read nothing, and a poll taken before the signal
-    reading existed, or of a docket whose form cannot carry the signal, records
-    none.
+    ``unavailable`` poll read nothing, and a poll carrying no ``signals`` (its
+    signal reading failed, or it records none), or of a docket whose form
+    cannot carry the signal, records none.
     """
     if poll is None or poll.state != "open":
         return None
@@ -302,9 +304,9 @@ def claim_set_aside_reason(
     (``signal-during-run``), or, unpolled, it is dated the run day
     (``signal-on-run-day``; :func:`increment_timing`). A claim the record
     leaves unresolved (``resolved`` is ``None``, the run-timing mask included)
-    moves no figure and is never set aside. A block stamped before the
-    run-timing mask existed can carry a resolved claim the mask would now
-    reach (``signal-before-run``); it is left as stamped, not set aside, since
+    moves no figure and is never set aside. A block stamped without the
+    run-timing mask can carry a resolved claim the mask reaches
+    (``signal-before-run``); it is left as stamped, not set aside, since
     a set-aside brackets an ordering the record cannot settle and that one it
     can — the stamp's re-run (``stamp-cell --regrade``) is what applies the mask.
     """
