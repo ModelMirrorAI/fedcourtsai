@@ -70,13 +70,13 @@ merits event it leads to — on the order of 850–1,100 events a Term.
 
 The model line is the **envelope**, not today's run rate: 850–1,100 events at
 about $10 is ≈$8.5–11K, and the headroom above it carries the moments milestone 1
-adds ([milestones.md](milestones.md)).
+adds and milestone 2's AI-case watchlist ([milestones.md](milestones.md)).
 
 ## Scenario 2: Scaling
 
 The funded target. Every paid SCOTUS petition is forecast at every prediction
 moment, by seven model developers' predictors plus prompt-lens variants — the
-end state of the five milestones in [milestones.md](milestones.md), both
+end state of the six milestones in [milestones.md](milestones.md), both
 lower-court slices included.
 
 | | Monthly | Yearly |
