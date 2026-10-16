@@ -908,7 +908,7 @@ eventually retrieve case records from CourtListener itself at run time instead
 of a provisioned store read; the corpus would remain the system of record for
 ingestion, analytics, and back-testing.
 
-### Developer access (Codespaces)
+### Developer access (Codespaces and Claude cloud sessions)
 
 Interactive data discovery belongs in a codespace, not a workflow. The remote
 serves it in two modes, both strictly **read-only** (see
@@ -948,6 +948,24 @@ the corpus address into every shell — the base URL where one is configured, th
 index remote's own URL otherwise — exactly the env contract the workflows
 use; absent secrets it prints a note and succeeds — the offline fixture loop
 and the full gate need no remote.
+
+**Claude cloud sessions** (the Claude app's coding sessions, which run on
+Anthropic-hosted VMs) read the corpus through a dedicated **personal cloud
+environment**, chosen when the session starts, whose variables carry the same
+env contract the codespace hook exports: `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY` for a dedicated read-only IAM user, `AWS_REGION`, and
+`CORPUS_BASE_URL`. That user is separate from the contributor user but holds
+the same production-only read policy, so both modes above work as they do in a
+codespace, and the environment's default network level already reaches
+`*.amazonaws.com`. The key is readable by the model and by every command in
+such a session, which is why it lives in that one environment rather than the
+default (a session working on anything else never carries it), why it reads
+production only and can write nothing, and why it is rotated on a schedule
+and revoked by deactivating it in IAM. A session that has not been started in
+that environment has no corpus access; it asks the corpus-check lane
+([corpus-check.md](corpus-check.md)) instead, which is also how any figure
+becomes evidence on a PR: a session's own read is exploration, and the lane's
+comment, run on `main` at the PR's head with its vintage, is the record.
 
 The **staging pair** (the lean real-slice corpus of
 [security.md](security.md)'s staging-corpus runbook) is served by the same

@@ -1286,8 +1286,14 @@ backlog derivations and the whole-corpus scanners (`run-analytics` and
 `run-backtest`) are scans across every case, so they take the full pull.
 
 Developer access is separate from the workflow roles: the maintainer uses IAM
-Identity Center SSO, and a contributor gets an on-demand IAM user scoped
-read-only to the corpus bucket — the one static credential in the system.
+Identity Center SSO, a contributor gets an on-demand IAM user scoped
+read-only to the production stores, and Claude cloud sessions get a second,
+separate IAM user under the same production-only read policy. Those two users'
+keys are the system's only static credentials. Each is its own principal so
+it is revoked, rotated and audited (CloudTrail names the user) without
+touching the other; the shared customer-managed policy keeps their reach
+identical, and an explicit deny on object writes and deletes backs the
+missing grant.
 
 The code holds the same line without relying on the credential. A corpus
 write mirrors to the content store only inside a GitHub Actions job (a marker
@@ -1939,8 +1945,8 @@ mirrored from its production statements (where the explicit write/delete deny
 names resources, the staging pair joins that list too). The refresh lane does
 not need it; two consumers do. It serves the maintainer's developer reads of
 the pair from Codespaces ([data-pipeline.md](data-pipeline.md)'s *Developer
-access*; the contributor IAM user is deliberately not extended, so the
-system's one static credential stays scoped to production), and step 5
+access*; neither developer IAM user is extended, so the system's static
+credentials stay scoped to production), and step 5
 requires it for the repointed scenarios — landing it early turns a step-5
 prerequisite into a done item. It stays inside step 1's "no wider read
 principal than production's": the widening lands on production's existing

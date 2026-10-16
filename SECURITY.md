@@ -309,16 +309,23 @@ runbook, [docs/security.md](docs/security.md).
   cells' spend limit, so every run spends only behind the `review` hold.
   `tests/test_workflow_summarize.py` pins the split; the lane's contract is
   [docs/case-summaries.md](docs/case-summaries.md).
-- **One scoped exception: developer corpus access from Codespaces.** Two
-  developer flows, both read-only, both fed by **user-scoped** Codespaces
-  secrets (never repo-level, never committed): the maintainer via IAM Identity
+- **One scoped exception: developer corpus access.** Three developer flows,
+  all read-only, none in a repository secret or a commit. From Codespaces,
+  through **user-scoped** Codespaces secrets: the maintainer via IAM Identity
   Center's short-lived SSO tokens — the role-assumed flow, whose read-only
   role also reads the staging pair — and contributors via a dedicated
   read-only IAM user provisioned on demand, scoped to the production stores
-  alone. The exposure a leaked contributor key could
-  buy is deliberately small: the corpus is public court data, neither principal
-  can write or delete anything, and a billing alarm bounds egress abuse. See
-  *Developer access* in [docs/data-pipeline.md](docs/data-pipeline.md).
+  alone. From Claude cloud sessions, through the variables of one dedicated
+  personal cloud environment: a second, separate read-only IAM user, scoped to
+  the production stores alone by the same policy, with an explicit deny on
+  writes. That key is visible to the model and to every command in a session
+  of that environment, so a prompt injection in docket text the session reads
+  could print or send it; it is kept out of every other environment, rotated
+  on a schedule, and revoked by deactivating it alone. The exposure a leaked
+  key of either user could buy is deliberately small: the corpus is public
+  court data, no developer principal can write or delete anything, and a
+  billing alarm bounds egress abuse. See *Developer access* in
+  [docs/data-pipeline.md](docs/data-pipeline.md).
 - **The trigger surface is the trust boundary, and the platform holds it.** No
   **privileged** workflow — one that mints a token, assumes a role, or runs an
   agent — keys on an `issues` event, or on any other trigger class an actor

@@ -220,7 +220,10 @@ non-interactive** container. Two consequences shape everything you do:
   also reads the **staging** pair: `scripts/corpus-env staging <cmd>`
   re-points one command at it, index reads included where the pair's
   out-of-band pointer secret is present (*Developer access* in
-  `docs/data-pipeline.md`). A session with no corpus access asks the
+  `docs/data-pipeline.md`). A Claude cloud session started in the dedicated
+  corpus environment holds a production-only read key the same way (no
+  staging pair); it reads with the same commands, and since the key is
+  visible to you there, never print it or write it anywhere. A session with no corpus access asks the
   **corpus-check** lane instead: put one fenced `corpus-check` block in the PR
   description naming the command — `uv run fedcourts <subcommand> …` or
   `uv run python scripts/checks/<name>.py …`, a script the PR may add — that
