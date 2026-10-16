@@ -26,12 +26,13 @@ from tests.conftest import FixtureCorpus
 _CHECKS = Path(__file__).resolve().parents[1] / "scripts" / "checks"
 
 
-def _module(name: str) -> ModuleType:
-    spec = importlib.util.spec_from_file_location(name, _CHECKS / f"{name}.py")
+def _module(name: str, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(f"_census_check_{name}", _CHECKS / f"{name}.py")
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    # A dataclass resolves its annotations through its module's registry entry.
-    sys.modules[spec.name] = module
+    # A dataclass resolves its annotations through its module's registry entry;
+    # the prefixed name keeps it off any real module's, and monkeypatch drops it.
+    monkeypatch.setitem(sys.modules, spec.name, module)
     spec.loader.exec_module(module)
     return module
 
@@ -52,8 +53,10 @@ _RESPONDENT = [{"Attorney": "Jane Counsel", "IsCounselofRecord": True, "Title": 
 _EMAIL = "filer.private@example.com"
 
 
-def test_the_withheld_census_classes_the_shapes_and_reports_no_text(tmp_path: Path) -> None:
-    census = _module("withheld_petitioner_census")
+def test_the_withheld_census_classes_the_shapes_and_reports_no_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    census = _module("withheld_petitioner_census", monkeypatch)
     db = tmp_path / "corpus.db"
     proceedings = [{"Date": "2026-07-01", "Text": "Petition for a writ of certiorari filed."}]
     with corpus.connect(db) as conn:
@@ -63,7 +66,7 @@ def test_the_withheld_census_classes_the_shapes_and_reports_no_text(tmp_path: Pa
                 _row("scotus/900", "25-900", salience_selected=True),
                 _row("scotus/901", "25-901"),
                 _row("scotus/902", "25-902"),
-                # Outside the live slice: not walked.
+                # Outside the live slice: not walked, though its snapshot withholds.
                 _row("scotus/903", "25-903", last_live_polled=None),
             ],
         )
@@ -82,6 +85,12 @@ def test_the_withheld_census_classes_the_shapes_and_reports_no_text(tmp_path: Pa
             date(2026, 7, 2),
             {"ProceedingsandOrder": proceedings, "Petitioner": [], "Respondent": _RESPONDENT},
         )
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/903",
+            date(2026, 7, 2),
+            {"ProceedingsandOrder": proceedings, "Respondent": _RESPONDENT},
+        )
         corpus.upsert_documents(
             conn,
             [
@@ -96,7 +105,7 @@ def test_the_withheld_census_classes_the_shapes_and_reports_no_text(tmp_path: Pa
         )
     with corpus.connect_readonly(db) as conn:
         found = census.run_census(conn)
-    assert (found.rows, found.with_snapshot) == (3, 3)
+    assert (found.rows, found.with_snapshot, found.unread) == (3, 3, False)
     assert (found.residual, found.residual_selected, found.residual_pending) == (1, 0, 1)
     (only,) = found.found
     assert (only.case_id, only.change, only.selected, only.pending, only.documents) == (
@@ -114,6 +123,28 @@ def test_the_withheld_census_classes_the_shapes_and_reports_no_text(tmp_path: Pa
     assert "`scotus/900` newly-scrubbed selected pending docs=1" in text
     assert _EMAIL not in text and "Write to the petitioner" not in text
     assert "scotus/900" not in census.render(found, listings=False)
+    assert "scotus/903" not in text and "FAILED" not in text
+
+
+def test_the_withheld_census_fails_when_no_walked_row_holds_a_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    census = _module("withheld_petitioner_census", monkeypatch)
+    rows = [_row("scotus/910", "25-910"), _row("scotus/911", "25-911")]
+    other_channel = tmp_path / "other.db"
+    with corpus.connect(other_channel) as conn:
+        corpus.upsert_rows(conn, rows)
+        corpus.upsert_snapshot(conn, "scotus/911", date(2026, 7, 2), {"docket": "rest"})
+    with corpus.connect_readonly(other_channel) as conn:
+        # Another channel's snapshot alone: no live snapshot, but the store was read.
+        assert census.run_census(conn).unread is False
+    empty = tmp_path / "empty.db"
+    with corpus.connect(empty) as conn:
+        corpus.upsert_rows(conn, rows)
+    with corpus.connect_readonly(empty) as conn:
+        found = census.run_census(conn)
+    assert (found.rows, found.with_snapshot, found.unread) == (2, 0, True)
+    assert "- FAILED: no walked row holds a stored snapshot" in census.render(found, listings=False)
 
 
 def _live(*orders: str) -> dict[str, object]:
@@ -128,8 +159,10 @@ def _live(*orders: str) -> dict[str, object]:
 _AMICUS = "Motion for leave to file amicus brief granted."
 
 
-def test_the_side_motion_census_splits_old_and_new_and_reports_no_text(tmp_path: Path) -> None:
-    census = _module("side_motion_census")
+def test_the_side_motion_census_splits_old_and_new_and_reports_no_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    census = _module("side_motion_census", monkeypatch)
     db = tmp_path / "corpus.db"
     decided = date(2026, 7, 1)
     with corpus.connect(db) as conn:
@@ -195,21 +228,52 @@ def test_the_side_motion_census_splits_old_and_new_and_reports_no_text(tmp_path:
     assert "`scotus/800` 26A800 FREED 1" in text
     assert "`scotus/802` 26A802 granted 1" in text
     assert "amicus" not in text.lower() and "Application denied" not in text
+    assert census.failures(found, same=True) == [] and "FAILED" not in text
+    # Every count before either listing, so a cut summary loses listing rows first.
+    assert text.index("- skipped (") < text.index("`scotus/800`") < text.index("`scotus/802`")
 
 
-def test_the_wrapper_clamps_a_section_at_a_line_boundary() -> None:
-    wrapper = _module("freeze_record_census_fills")
+def test_the_side_motion_census_names_each_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    census = _module("side_motion_census", monkeypatch)
+    unread = census.Census(pending=4, no_snapshot=4)
+    assert census.failures(census.Census(), same=True) == []
+    assert census.failures(census.Census(pending=4, no_snapshot=3), same=True) == []
+    (reason,) = census.failures(unread, same=True)
+    assert reason.startswith("every pending application read as holding no snapshot")
+    assert len(census.failures(census.Census(wider=1), same=False)) == 2
+    assert f"- FAILED: {reason}" in census.render(unread, listings=True, same=True)
+
+
+def test_the_wrapper_clamps_a_section_at_a_line_boundary(monkeypatch: pytest.MonkeyPatch) -> None:
+    wrapper = _module("freeze_record_census_fills", monkeypatch)
     text = "counts: 3\n" + "".join(f"- row {i}\n" for i in range(100))
     assert wrapper.clamp(text, 10_000) == text
-    cut = wrapper.clamp(text, 40)
-    assert cut.startswith("counts: 3\n- row 0\n- row 1\n- row 2\n")
-    assert "[section cut at 34 of 900 bytes;" in cut
+    cut = wrapper.clamp(text, 200)
+    assert len(cut.encode("utf-8")) <= 200
+    assert cut.startswith("counts: 3\n- row 0\n")
+    kept = cut[: cut.index("\n[section cut")]
+    assert text.startswith(kept) and kept.endswith("\n")
+    assert f"{len(kept.encode('utf-8'))} of 900 bytes kept" in cut
+
+
+def test_the_wrapper_gives_short_sections_room_to_long_ones(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    wrapper = _module("freeze_record_census_fills", monkeypatch)
+    assert wrapper.shared_cap([100, 200, 5_000, 9_000], 6_000) == 2_850
+    assert wrapper.shared_cap([100, 200], 6_000) == 200
+    assert wrapper.shared_cap([3_000, 3_000], 1_000) == 500
+    sections = ["s\n" * 50, "".join(f"- row {i}\n" for i in range(5_000))]
+    fitted = wrapper.fit(sections, 10_000)
+    assert fitted[0] == sections[0]
+    assert sum(len(text.encode("utf-8")) for text in fitted) <= 10_000
+    assert len(fitted[1].encode("utf-8")) > 9_000
 
 
 def test_the_wrapper_runs_every_census_against_the_fixture_corpus(
     fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    wrapper = _module("freeze_record_census_fills")
+    wrapper = _module("freeze_record_census_fills", monkeypatch)
     summary = tmp_path / "summary.md"
     monkeypatch.setenv("CHECK_SUMMARY", str(summary))
     assert wrapper.main([]) == 0
@@ -218,4 +282,79 @@ def test_the_wrapper_runs_every_census_against_the_fixture_corpus(
         assert f"## {census.entry}\n" in text
         assert f"`scripts/checks/{census.script}`; ok." in text
     assert text.count("`fedcourts corpus-info`: as at the top.") == len(wrapper.CENSUSES)
-    assert "All five censuses ran." in text
+    assert f"All {len(wrapper.CENSUSES)} censuses ran." in text
+    assert len(text.encode("utf-8")) <= wrapper.DEFAULT_MAX_BYTES
+
+
+def _scripts(tmp_path: Path, **bodies: str) -> dict[str, str]:
+    """Stand-in census scripts, each writing a line to its summary first."""
+    paths: dict[str, str] = {}
+    for name, body in bodies.items():
+        path = tmp_path / f"{name}.py"
+        path.write_text(
+            "import os, sys, time\n"
+            + "open(os.environ['CHECK_SUMMARY'], 'a').write('"
+            + name
+            + " wrote\\n')\n"
+            + body
+            + "\n",
+            encoding="utf-8",
+        )
+        paths[name] = str(path)
+    return paths
+
+
+def _wrapper_with(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, **bodies: str
+) -> tuple[ModuleType, Path]:
+    wrapper = _module("freeze_record_census_fills", monkeypatch)
+    scripts = _scripts(tmp_path, **bodies)
+    monkeypatch.setattr(
+        wrapper,
+        "CENSUSES",
+        tuple(wrapper.Census(path, f"Entry {name}", "a figure") for name, path in scripts.items()),
+    )
+    monkeypatch.setattr(wrapper, "corpus_info", lambda: ("sha256: fixture\n", None))
+    monkeypatch.setattr(wrapper, "ledger_vintage", lambda _root: "ledger: fixture")
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("CHECK_SUMMARY", str(summary))
+    return wrapper, summary
+
+
+def test_the_wrapper_reports_a_failed_and_a_timed_out_census_and_runs_the_next(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    wrapper, summary = _wrapper_with(
+        monkeypatch,
+        tmp_path,
+        fails="sys.exit(1)",
+        hangs="time.sleep(60)",
+        passes="",
+    )
+    monkeypatch.setattr(wrapper, "RESERVE_SECONDS", 1)
+    assert wrapper.main(["--budget-seconds", "3"]) == 1
+    text = summary.read_text(encoding="utf-8")
+    assert "fails.py`; FAILED, exit 1." in text
+    assert "hangs.py`; FAILED, timed out after 1 s." in text
+    assert "passes.py`; ok." in text
+    assert text.index("fails wrote") < text.index("hangs wrote") < text.index("passes wrote")
+    assert text.rstrip().endswith("(timed out after 1 s).")
+    (failed,) = [line for line in text.splitlines() if line.startswith("Failed: ")]
+    assert "fails.py (exit 1)" in failed and "hangs.py (timed out" in failed
+    assert "passes.py" not in failed
+
+
+def test_the_wrapper_marks_a_census_the_spent_budget_left_unrun(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    wrapper, summary = _wrapper_with(
+        monkeypatch, tmp_path, passes="", hangs="time.sleep(60)", never="sys.exit(0)"
+    )
+    monkeypatch.setattr(wrapper, "RESERVE_SECONDS", 0)
+    assert wrapper.main(["--budget-seconds", "1"]) == 1
+    text = summary.read_text(encoding="utf-8")
+    assert "passes.py`; ok." in text
+    assert "hangs.py`; FAILED, timed out after" in text
+    assert "never.py`; FAILED, not run: the time budget was spent." in text
+    assert "never wrote" not in text
+    assert "never.py (not run: the time budget was spent)" in text

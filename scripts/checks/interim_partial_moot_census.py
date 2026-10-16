@@ -19,9 +19,10 @@ committed ledger and writes nothing, and reports to the file named by
 - as information only: how many resolved applications carry partial-grant or
   mootness order text, by application Term and ask; the statpack's substantive
   counts per Term (the base rate's population) beside the re-read subset's,
-  with the unobservable and non-live gap; and the committed interim outcomes
-  on the named rows with the predictions under each — which stay exactly as
-  recorded.
+  with the unobservable and non-live gap; and how many committed interim
+  outcomes sit on the named rows — which stay exactly as recorded;
+- then the listings, after every count: the named rows, and last the
+  committed outcomes on them with the predictions under each.
 
 Counts and identifiers only, never stored snapshot text: the summary is posted
 publicly (docs/corpus-check.md). The ledger read is the checkout's `data/`,
@@ -121,21 +122,24 @@ def _render(census: dict[str, Any]) -> list[str]:
             f"| {c['reread_partial']} ({c['reread_partial_stored_ungranted']}) "
             f"| {c['reread_moot']} | {c['unobservable']} | {c['non_live']} |"
         )
-    lines += ["", "Rows (case id, docket number, Term, ask, stored -> finer reading):"]
-    lines += [
-        f"- {r['case_id']} {r['docket_number']} OT{r['term']} {r['application_kind']}: "
-        f"{r['stored']} -> {r['reading']}"
-        for r in rows
-    ]
     outcomes = census["committed_outcomes"]
     lines += [
         "",
-        f"Committed interim outcomes on those rows (unchanged): {len(outcomes)}; on events "
-        f"carrying committed predictions: {sum(1 for o in outcomes if o['predictions'])}",
+        f"Committed interim outcomes on the named rows (unchanged): {len(outcomes)}; on events "
+        + f"carrying committed predictions: {sum(1 for o in outcomes if o['predictions'])}",
     ]
+    if rows:
+        lines += ["", "Rows (case id, docket number, Term, ask, stored -> finer reading):"]
+    lines += [
+        f"- {r['case_id']} {r['docket_number']} OT{r['term']} {r['application_kind']}: "
+        + f"{r['stored']} -> {r['reading']}"
+        for r in rows
+    ]
+    if outcomes:
+        lines += ["", "Committed interim outcomes on those rows:"]
     lines += [
         f"- {o['ref']}: recorded {o['recorded']}, finer reading {o['reading']}, "
-        f"{o['predictions']} prediction(s)"
+        + f"{o['predictions']} prediction(s)"
         for o in outcomes
     ]
     return lines

@@ -17,19 +17,26 @@ application-form docket number), and reports to the file named by
   pending, how many hold no snapshot (read this first: a run that cannot reach
   the content store lands every row here), how many the old scan fires on, how
   many the new scan still fires on, and the dockets freed — an upper bound on
-  dockets the carve-out unparks, not a count of cells — with each freed or
-  still-parked docket's case id, docket number and the number of its entries
-  set aside;
+  dockets the carve-out unparks, not a count of cells — and, listed after
+  pass 2's counts, each freed or still-parked docket's case id, docket number
+  and the number of its entries set aside;
 - **pass 2, resolved applications** (last snapshot strictly before the
   resolution date): the outcome split, by stored disposition, for **freed**
   (the old scan fires, the new one does not), **still parked** (both fire)
   and **never fired** (the old scan does not), each with `n`; the rows
-  skipped for want of a resolution date or a pre-resolution snapshot; and each
-  freed application's case id, docket number, disposition and set-aside entry
-  count;
+  skipped for want of a resolution date or a pre-resolution snapshot; and,
+  last, each freed application's case id, docket number, disposition and
+  set-aside entry count;
 - two self-checks: whether `OLD` is still the current base pattern, and how
   many snapshots the new scan fires on where `OLD` does not (the carve-out is
   never wider, so this must be 0).
+
+Every count is printed before either listing, so a summary cut short loses
+listing rows before it loses a count. The census exits non-zero, with a
+`FAILED:` line naming why, when `OLD` is no longer the base pattern, when the
+new scan is wider, or when there are pending applications and every one of
+them read as holding no snapshot — what an unaddressed content store produces,
+since its read source then answers every read as empty rather than raising.
 
 Pass 1's human leak read — reading each freed entry's text to confirm none is
 a disposal of the application — cannot happen here: the entry text is stored
@@ -209,17 +216,40 @@ def _resolved_pass(conn: Any, rows: list[corpus.CorpusRow], census: Census) -> N
                 )
 
 
-def render(census: Census, *, listings: bool) -> str:
+def old_is_current_base() -> bool:
+    """Whether `OLD` is still the shipped base pattern, pattern and flags."""
     current = getattr(outcome, "_INTERIM_DISPOSAL_RE", None)
-    same = isinstance(current, re.Pattern) and (current.pattern, current.flags) == (
+    return isinstance(current, re.Pattern) and (current.pattern, current.flags) == (
         OLD.pattern,
         OLD.flags,
     )
+
+
+def failures(census: Census, *, same: bool) -> list[str]:
+    """Why this census's figures cannot be read as they stand (empty when they can)."""
+    found: list[str] = []
+    if not same:
+        found.append("the old pattern is no longer the current base pattern")
+    if census.wider:
+        found.append(f"the new scan fires where the old does not ({census.wider} snapshots)")
+    if census.pending and census.no_snapshot == census.pending:
+        found.append(
+            "every pending application read as holding no snapshot: the payload reads "
+            + "reached no stored snapshot (an unaddressed content store reads as empty)"
+        )
+    return found
+
+
+def render(census: Census, *, listings: bool, same: bool | None = None) -> str:
+    same = old_is_current_base() if same is None else same
     lines = [
         "side-motion carve-out, old scan against new (SCOTUS substantive applications):",
         "",
         f"- old pattern is the current base pattern: {same}",
         f"- snapshots the new scan fires on and the old does not (must be 0): {census.wider}",
+    ]
+    lines += [f"- FAILED: {reason}" for reason in failures(census, same=same)]
+    lines += [
         "",
         "Pass 1, pending applications (latest stored snapshot):",
         "",
@@ -227,14 +257,6 @@ def render(census: Census, *, listings: bool) -> str:
         + f"old_fires={census.old_fires} new_fires={census.new_fires} "
         + f"freed_dockets={census.freed_dockets} "
         + "(an upper bound on dockets the carve-out unparks, not a count of cells)",
-    ]
-    if listings and census.pass1:
-        lines += ["", "Dockets with an entry set aside (case, docket, state, entries set aside):"]
-        lines += [
-            f"- `{item.case_id}` {item.docket_number} {item.label} {item.set_aside}"
-            for item in census.pass1
-        ]
-    lines += [
         "",
         "Pass 2, resolved applications (last pre-resolution snapshot), outcome split:",
         "",
@@ -246,8 +268,20 @@ def render(census: Census, *, listings: bool) -> str:
             + " ".join(f"{k}={v}" for k, v in sorted(counts.items()))
         )
     lines.append(f"- skipped (no resolution date or no pre-resolution snapshot): {census.skipped}")
+    if listings and census.pass1:
+        lines += [
+            "",
+            "Pass 1, dockets with an entry set aside (case, docket, state, entries set aside):",
+        ]
+        lines += [
+            f"- `{item.case_id}` {item.docket_number} {item.label} {item.set_aside}"
+            for item in census.pass1
+        ]
     if listings and census.pass2:
-        lines += ["", "Freed resolved applications (case, docket, disposition, entries set aside):"]
+        lines += [
+            "",
+            "Pass 2, freed resolved applications (case, docket, disposition, entries set aside):",
+        ]
         lines += [
             f"- `{item.case_id}` {item.docket_number} {item.label} {item.set_aside}"
             for item in census.pass2
@@ -295,6 +329,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     text_source = text_source_line()
     with corpus.connect_readonly(db, backend=settings.corpus_backend) as conn:
         census = run_census(conn)
+    same = old_is_current_base()
     with Path(summary).open("a", encoding="utf-8") as handle:
         handle.write("`fedcourts corpus-info`:\n\n")
         handle.write(info.stdout)
@@ -304,8 +339,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             + ("the per-case content store" if corpus.payload_reads_offloaded() else "the blob")
             + "\n\n"
         )
-        handle.write(render(census, listings=listings))
+        handle.write(render(census, listings=listings, same=same))
     sys.stderr.write(info.stderr)
+    if failures(census, same=same):
+        return 1
     return info.returncode
 
 

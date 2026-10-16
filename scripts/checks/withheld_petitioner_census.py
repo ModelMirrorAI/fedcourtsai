@@ -22,15 +22,28 @@ documents of every live-slice SCOTUS row, and reports to the file named by
   change adds);
 - the known residual: Court-shaped payloads carrying neither side's counsel
   key, split selected and pending;
-- per docket, the case id, its class, selected and pending flags, the
-  document count and the span count.
+- per docket, after every count, the case id, its class, selected and
+  pending flags, the document count and the span count.
+
+It exits non-zero, with a `FAILED:` line, when rows were walked, none carries
+a live snapshot, and none holds a stored snapshot of any shape either: the
+live channel stores a snapshot before it stamps a row into the slice, so that
+is what an unaddressed content store produces (its read source answers every
+read as empty rather than raising). A live slice with no live-shaped snapshot
+alone is not that failure: a row stamped some other way (a test fixture, say)
+can hold only another channel's snapshots.
 
 The walk is the live slice (`iter_rows(..., live_slice=True)`): a live-shaped
 payload is written only by the supremecourt.gov channel, which stamps
 `last_live_polled` on every write, so a row outside the slice holds no payload
-the predicate can read. Payload reads are fanned across the content store's
-bounded reader pool (`pipeline.prefetch.prefetch_by_case`), serial on a
-local blob.
+the predicate can read. One gap is theoretical: the channel stores the
+snapshot before it stamps the row (`pipeline/live.py`, `upsert_snapshot` at
+~260, `upsert_to_corpus(..., last_live_polled=...)` at ~280), so a docket's
+first live write that raised in `map_live_docket` between the two would leave
+a live snapshot on an unstamped row, which this walk skips. The denominator
+is therefore the live-slice rows, not every SCOTUS row. Payload reads are
+fanned across the content store's bounded reader pool
+(`pipeline.prefetch.prefetch_by_case`), serial on a local blob.
 
 Counts and identifiers only, never a withheld value or any stored snapshot or
 document text: the summary is posted publicly (docs/corpus-check.md). The
@@ -84,6 +97,8 @@ class Census:
     residual_selected: int = 0
     residual_pending: int = 0
     found: list[Found] = field(default_factory=list)
+    #: Rows were walked and not one holds a snapshot of any shape.
+    unread: bool = False
 
 
 def classify(payload: dict[str, Any]) -> str:
@@ -136,7 +151,19 @@ def run_census(conn: Any) -> Census:
             census.found.append(
                 Found(case_id, classify(payload), row.salience_selected, pending, len(docs), spans)
             )
+    if census.rows and not census.with_snapshot:
+        census.unread = not any_snapshot(conn, list(rows))
     return census
+
+
+def any_snapshot(conn: Any, case_ids: list[str]) -> bool:
+    """Whether any of ``case_ids`` holds a stored snapshot of any shape, stopping at the first."""
+    with prefetch_by_case(
+        case_ids,
+        lambda case_id: corpus.latest_snapshot(conn, case_id),
+        thread_name_prefix="withheld-probe",
+    ) as stream:
+        return any(snapshot is not None for _case_id, snapshot in stream)
 
 
 def render(census: Census, *, listings: bool) -> str:
@@ -161,6 +188,11 @@ def render(census: Census, *, listings: bool) -> str:
         f"- residual, Court shape with neither counsel key: {census.residual} "
         + f"(selected {census.residual_selected}, pending {census.residual_pending})"
     )
+    if census.unread:
+        lines.append(
+            "- FAILED: no walked row holds a stored snapshot of any shape; the payload reads "
+            + "reached no stored snapshot (an unaddressed content store reads as empty)"
+        )
     if listings and found:
         lines += [
             "",
@@ -202,6 +234,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         handle.write(render(census, listings=listings))
     sys.stderr.write(info.stderr)
+    if census.unread:
+        return 1
     return info.returncode
 
 

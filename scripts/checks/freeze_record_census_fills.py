@@ -23,15 +23,31 @@ ledger vintage the censuses that read `data/` see (the newest prediction and
 evaluation run ids at the checkout). A census whose own `corpus-info` block
 matches the top one has it replaced by a back-reference.
 
-A census that fails, times out or writes nothing is reported under its heading
-and the rest still run; the wrapper exits non-zero naming each one that
-failed. The lane posts the summary as a PR comment clamped to 50,000 bytes and
-stops a check at 30 minutes (docs/corpus-check.md), so each section is cut at
-a line boundary to `--max-section-bytes` (counts lead every section, so a cut
-drops listing rows only), each census's timeout is what remains of a
-`--budget-seconds` budget less a reserve for the censuses after it, and the
-summary is written after each census, so a later stop keeps the earlier ones.
-`--no-listings` is passed to the two censuses that take it.
+A census that fails, times out or writes nothing is reported under its
+heading as `FAILED` and the rest still run; the wrapper exits non-zero naming
+each one that failed, and a census's own exit code is what marks it: each
+exits non-zero when its figures cannot be read as they stand (the side-motion
+and withheld-petitioner censuses name the self-checks that do this). A
+`corpus-info` that fails, times out or finds no corpus is a failure too.
+
+The lane posts the summary as a PR comment clamped to 50,000 bytes and stops a
+check at 30 minutes (docs/corpus-check.md). So the whole summary is budgeted
+to `--max-bytes`, the lane's clamp less a safety margin. Every section is
+rendered first; sections that fit keep all they wrote, and the longest are cut
+at a line boundary to one shared cap, which is never below an even fifth of
+what the vintage header, the headings and the closing line leave. Every census
+prints all its counts before any listing, so a cut drops listing rows unless a
+section's counts alone outrun the cap, and a note marks where each cut falls.
+Each census's timeout is what remains of a `--budget-seconds` budget less a
+reserve for the censuses after it. The summary is rewritten after each census,
+the sections so far held to their even share of the budget, so a later stop
+keeps the earlier ones under the clamp; after the last census it is rewritten
+once more under the whole budget, with the closing line.
+
+The withheld-petitioner census always runs with `--no-listings`: its fill
+needs only the summary counts, and its per-docket listing would point at the
+dockets of pseudonymous filers. The side-motion census runs with its listings
+unless the wrapper is given `--no-listings`.
 
 Counts and identifiers only: each census holds to that, and the wrapper adds
 nothing read from the corpus but the vintage.
@@ -53,6 +69,7 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from fedcourtsai.config import get_settings
 from fedcourtsai.ids import parse_run_id
@@ -63,8 +80,13 @@ HERE = Path(__file__).resolve().parent
 DEFAULT_BUDGET_SECONDS = 27 * 60
 #: Held back for each census still to run when the one before it is timed.
 RESERVE_SECONDS = 120
-#: Five sections and the header under the lane's 50,000-byte clamp.
-DEFAULT_MAX_SECTION_BYTES = 9_000
+#: The lane's clamp on the posted summary (docs/corpus-check.md).
+LANE_LIMIT_BYTES = 50_000
+#: Held back from the clamp for the lane's rewriting (redaction can lengthen a line).
+SAFETY_MARGIN_BYTES = 2_000
+DEFAULT_MAX_BYTES = LANE_LIMIT_BYTES - SAFETY_MARGIN_BYTES
+#: How long the top-level `corpus-info` read may take.
+CORPUS_INFO_TIMEOUT_SECONDS = 300
 
 INFO_HEADER = "`fedcourts corpus-info`:\n\n"
 
@@ -74,7 +96,9 @@ class Census:
     script: str
     entry: str
     placeholder: str
-    takes_listings_flag: bool = False
+    #: ``always`` passes `--no-listings` every run, ``on-request`` only under the
+    #: wrapper's own `--no-listings`, ``unsupported`` never.
+    no_listings: Literal["always", "on-request", "unsupported"] = "unsupported"
 
 
 CENSUSES: tuple[Census, ...] = (
@@ -83,14 +107,14 @@ CENSUSES: tuple[Census, ...] = (
         "A Court docket that withholds the petitioner's counsel block is read as "
         + "self-represented (2026-10-15)",
         "census summary counts, blob sha and vintage",
-        takes_listings_flag=True,
+        no_listings="always",
     ),
     Census(
         "side_motion_census.py",
         "An order on a side motion, in a closed list of shapes, no longer reads as an "
         + "interim disposal (2026-10-15)",
         "resolved-application census: pass 2",
-        takes_listings_flag=True,
+        no_listings="on-request",
     ),
     Census(
         "post_conference_census.py",
@@ -112,23 +136,51 @@ CENSUSES: tuple[Census, ...] = (
 )
 
 
+def cut_note(kept: int, total: int) -> str:
+    return (
+        "\n[section cut at a line boundary to keep the summary within its byte budget "
+        + f"(the lane clamps it at {LANE_LIMIT_BYTES:,}): {kept:,} of {total:,} bytes kept; "
+        + "the lines after this point are dropped]\n"
+    )
+
+
 def clamp(text: str, limit: int) -> str:
-    """``text`` cut at a line boundary to ``limit`` UTF-8 bytes, saying so when cut."""
+    """``text`` cut at a line boundary to at most ``limit`` UTF-8 bytes, note included."""
     encoded = text.encode("utf-8")
     if len(encoded) <= limit:
         return text
+    room = limit - len(cut_note(len(encoded), len(encoded)).encode("utf-8"))
     kept: list[str] = []
     used = 0
     for line in text.splitlines(keepends=True):
         size = len(line.encode("utf-8"))
-        if used + size > limit:
+        if used + size > room:
             break
         kept.append(line)
         used += size
-    return "".join(kept) + (
-        f"\n[section cut at {used} of {len(encoded)} bytes; the counts lead the section, "
-        + "so only listing rows are dropped]\n"
-    )
+    return "".join(kept) + cut_note(used, len(encoded))
+
+
+def shared_cap(sizes: Sequence[int], budget: int) -> int:
+    """The largest cap with ``sum(min(size, cap)) <= budget``: short sizes give their room up.
+
+    Never below ``budget // len(sizes)``, since each size under its even share
+    leaves the rest a larger one.
+    """
+    remaining = max(budget, 0)
+    ordered = sorted(sizes)
+    for index, size in enumerate(ordered):
+        share = remaining // (len(ordered) - index)
+        if size > share:
+            return share
+        remaining -= size
+    return max(ordered, default=0)
+
+
+def fit(sections: Sequence[str], budget: int) -> list[str]:
+    """``sections``, the longest cut to one shared cap so that together they fit ``budget``."""
+    cap = shared_cap([len(text.encode("utf-8")) for text in sections], budget)
+    return [clamp(text, cap) for text in sections]
 
 
 def run_one(census: Census, *, listings: bool, timeout: float) -> tuple[str, str | None]:
@@ -137,7 +189,7 @@ def run_one(census: Census, *, listings: bool, timeout: float) -> tuple[str, str
         summary = Path(scratch) / "summary.md"
         summary.touch()
         argv = [sys.executable, str(HERE / census.script)]
-        if census.takes_listings_flag and not listings:
+        if not listings:
             argv.append("--no-listings")
         env = {**os.environ, "CHECK_SUMMARY": str(summary)}
         # Its own session, so a timeout stops the census's own subprocesses too.
@@ -158,15 +210,25 @@ def run_one(census: Census, *, listings: bool, timeout: float) -> tuple[str, str
     return text, failure
 
 
-def corpus_info() -> tuple[str, int]:
-    run = subprocess.run(
-        [sys.executable, "-m", "fedcourtsai.cli", "corpus-info"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+def corpus_info() -> tuple[str, str | None]:
+    """`fedcourts corpus-info`'s output, and why it failed (``None`` when it did not)."""
+    try:
+        run = subprocess.run(
+            [sys.executable, "-m", "fedcourtsai.cli", "corpus-info"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=CORPUS_INFO_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return "", f"timed out after {CORPUS_INFO_TIMEOUT_SECONDS} s"
     sys.stderr.write(run.stderr)
-    return run.stdout, run.returncode
+    if run.returncode != 0:
+        return run.stdout, f"exit {run.returncode}"
+    # It exits 0 on a missing local blob, which no census can read.
+    if any(line.startswith("No corpus at") for line in run.stdout.splitlines()):
+        return run.stdout, "no corpus"
+    return run.stdout, None
 
 
 def ledger_vintage(data_root: Path) -> str:
@@ -189,27 +251,67 @@ def ledger_vintage(data_root: Path) -> str:
     )
 
 
+def heading(census: Census, failure: str | None) -> str:
+    """A census's section heading and status line."""
+    return (
+        f"\n## {census.entry}\n\n"
+        + f"Fills: {census.placeholder}. Script: `scripts/checks/{census.script}`"
+        + f"; {'FAILED, ' + failure if failure else 'ok'}.\n\n"
+    )
+
+
+def render(
+    header: str, heads: Sequence[str], bodies: Sequence[str], closing: str, budget: int
+) -> str:
+    """The whole summary, its section bodies cut to share what the rest leaves of ``budget``."""
+    fixed = "".join([header, *heads, closing])
+    room = budget - len(fixed.encode("utf-8"))
+    cut = fit(bodies, room)
+    return header + "".join(h + b for h, b in zip(heads, cut, strict=True)) + closing
+
+
+def footer(failed: Sequence[str]) -> str:
+    if failed:
+        return f"\nFailed: {'; '.join(failed)}.\n"
+    return f"\nAll {len(CENSUSES)} censuses ran.\n"
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
     parser.add_argument("--no-listings", action="store_true")
-    parser.add_argument("--max-section-bytes", type=int, default=DEFAULT_MAX_SECTION_BYTES)
-    parser.add_argument("--budget-seconds", type=int, default=DEFAULT_BUDGET_SECONDS)
+    parser.add_argument("--max-bytes", type=int, default=DEFAULT_MAX_BYTES)
+    parser.add_argument("--budget-seconds", type=float, default=DEFAULT_BUDGET_SECONDS)
     args = parser.parse_args(argv)
     summary = os.environ.get("CHECK_SUMMARY")
     if not summary:
         print("CHECK_SUMMARY is unset; name the file to report to", file=sys.stderr)
         return 2
     out = Path(summary)
+    # What the file held before this run is left alone; only this run's text is rewritten.
+    offset = out.stat().st_size if out.exists() else 0
     started = time.monotonic()
-    info, info_code = corpus_info()
+    info, info_failure = corpus_info()
     data_root = get_settings().data_root
-    with out.open("a", encoding="utf-8") as handle:
-        handle.write("Freeze-record census fills.\n\n")
-        handle.write(INFO_HEADER + info + "\n")
-        handle.write(ledger_vintage(data_root) + "\n")
+    header = (
+        "Freeze-record census fills.\n\n"
+        + INFO_HEADER
+        + info
+        + "\n"
+        + ledger_vintage(data_root)
+        + "\n"
+    )
     failed: list[str] = []
-    if info_code != 0:
-        failed.append(f"corpus-info (exit {info_code})")
+    if info_failure is not None:
+        failed.append(f"corpus-info ({info_failure})")
+    heads: list[str] = []
+    bodies: list[str] = []
+
+    def write(text: str) -> None:
+        with out.open("r+b" if out.exists() else "wb") as handle:
+            handle.seek(offset)
+            handle.truncate()
+            handle.write(text.encode("utf-8"))
+
     for index, census in enumerate(CENSUSES):
         left_after = len(CENSUSES) - index - 1
         remaining = args.budget_seconds - (time.monotonic() - started)
@@ -219,21 +321,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         if timeout <= 0:
             text, failure = "", "not run: the time budget was spent"
         else:
-            text, failure = run_one(census, listings=not args.no_listings, timeout=timeout)
+            listings = census.no_listings == "unsupported" or (
+                census.no_listings == "on-request" and not args.no_listings
+            )
+            text, failure = run_one(census, listings=listings, timeout=timeout)
         if info and INFO_HEADER + info in text:
             text = text.replace(INFO_HEADER + info, "`fedcourts corpus-info`: as at the top.\n")
         if failure is not None:
             failed.append(f"{census.script} ({failure})")
-        with out.open("a", encoding="utf-8") as handle:
-            handle.write(f"\n## {census.entry}\n\n")
-            handle.write(f"Fills: {census.placeholder}. Script: `scripts/checks/{census.script}`")
-            handle.write(f"; {'FAILED, ' + failure if failure else 'ok'}.\n\n")
-            handle.write(clamp(text, args.max_section_bytes))
-    with out.open("a", encoding="utf-8") as handle:
-        if failed:
-            handle.write(f"\nFailed: {'; '.join(failed)}.\n")
-        else:
-            handle.write("\nAll five censuses ran.\n")
+        heads.append(heading(census, failure))
+        bodies.append(text)
+        # Written now, so a stop keeps it: the sections so far share their even
+        # part of the budget, leaving the sections still to come theirs.
+        share = args.max_bytes * len(bodies) // len(CENSUSES)
+        write(render(header, heads, bodies, "", share))
+    write(render(header, heads, bodies, footer(failed), args.max_bytes))
     return 1 if failed else 0
 
 
