@@ -9878,3 +9878,123 @@ freeze commit is recorded here.
   - the first evaluator stamp of an interim cell whose request preceded its
     run writes `"mask_reason": "signal-before-run"` on its
     `response-requested-increment` row.
+
+- **A decided merits event is held for its opinion body before it is first
+  graded, and the live window fetches that body; recorded 2026-10-16.** A
+  **grading-timing rule** under unchanged digests. It is recorded before any
+  cell it can reach exists, and before any outcome it can reach is observable.
+
+  **What moved.** Two halves, one clock.
+  - **The hold.** `evaluate-matrix` defers a decided merits event while its
+    case's corpus row carries no `has_opinion` bit
+    (`matrix.opinion_hold`). "Decided merits event" means a declared merits
+    moment whose committed `outcome.json` records a `judgment`. The deferral
+    lasts up to `OPINION_HOLD_DAYS` = 14 days after that outcome's
+    `resolved_at`. The event is graded on the first run after the body lands,
+    and on day 14 regardless, masking on `not-ingested` if the body never
+    came. Only a body that can arrive is waited for. A DIG or an equally
+    divided affirmance publishes no majority opinion
+    (`matrix.BODILESS_JUDGMENTS`), so neither is held. Nor is a row the
+    enrichment pass can never walk, one with no cert grant on record or a
+    live-channel docket id (`matrix.awaited_presence`); reachability is fixed
+    by the cert grant and the docket id before any decision, so it selects on
+    case type, never on outcome. The window, and the
+    backlog derivation under it, count on the run id's UTC day. `--force` does
+    not lift it. A row the planner cannot read is not held. `evaluate-plan`
+    lists each held cell under `held_awaiting_opinion` with a `held: awaiting
+    opinion` reason. The backlog deriver gives a case whose every owed event
+    is held no `backlog_cases_per_cycle` slot.
+  - **The fetch.** Every `run-pull` live window runs `enrich-opinions --apply
+    --awaiting-grading --max-cases 8` after its poll. The walk is scoped to the
+    cases the hold is waiting on: a committed merits outcome with a judgment,
+    resolved fewer than 14 days ago, DIGs and equally divided affirmances
+    excluded. The step is `continue-on-error` and holds the CourtListener
+    token step-scoped. `corpus-push`, which every corpus writer runs, now
+    rolls back a hot journal a killed writer left and refuses to publish when
+    one will not clear.
+
+  **What did not move.** No digest input. The change touches no prompt
+  template, neither `config/predictors.yaml` nor `config/evaluators.yaml`, and
+  not `src/fedcourtsai/process_version.py`. `uv run fedcourts process-digest
+  --all` prints the same output on either side of the change: `proc-v9` and
+  the six digests `605201bd…` (claude-baseline), `70fee158…`
+  (codex-baseline), `a9033e56…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `18a76b93…` (codex-judge) and `22558044…` (gemini-judge).
+  What a grader is graded against does not move either. It reads the same
+  committed outcome, and the same `provision-opinion` step stages the same
+  slot from the same row. The hold changes only how often that slot is full
+  when the event is first graded. No predict cell reads anything new, so this
+  is not a harness boundary. Every held event is still graded: once it
+  becomes eligible, no later than its first backlog slot from day 14. So no
+  cell enters or leaves a published population, and this is not a membership
+  rule.
+
+  **Why it is recorded anyway.** Two published readings depend on when a
+  decided merits event is first graded.
+  - **The semantic census.** `semantic-summary` reads one grading per (case,
+    event, predictor, evaluator), the newest. Nothing re-grades an event
+    unprompted, so the first grading is ordinarily the one counted. Under the
+    hold, `not-ingested` on a newly decided case ordinarily reads *the body
+    did not reach the corpus within 14 days of the decision*. A round that
+    could not read the presence bit grades unheld, and the artifact does not
+    record which applied. The bucket also holds events that were never held:
+    body-less judgments (DIGs and equally divided affirmances) and rows
+    enrichment cannot walk, and the artifact does not record which reading
+    applies to a given grading. Without the hold, the same bucket
+    mostly read *the grading ran ahead of ingestion*. A `not_addressed_by_ground`
+    split pooled across the boundary mixes the two readings.
+    `metrics/README.md` states the rule in place.
+  - **Board cuts near a decision.** A board or a release cut built within 14
+    days of a decision can lack that decision's gradings, since an event that
+    is not graded is not scored. That covers the mechanical merits claims and
+    the leaderboard's merits Brier, not only the semantic grades. The hold
+    excludes at the source the dispositions known to publish no opinion. DIGs
+    and equally divided affirmances both score *undisturbed* on the merits
+    binary, so holding them would have kept undisturbed outcomes out of a cut
+    for the whole window and overstated the disturbed rate inside it. What
+    remains held longest is an expected body that does not land: a per curiam
+    upstream carries no opinion text for, or a cluster the enrichment pass
+    refuses (several candidate clusters, as consolidated cases can carry, or a
+    cluster naming another docket). Whether those lean disturbed or
+    undisturbed is **unknown**, and this entry claims no direction. The
+    population is small and the deferral is bounded, but a cut made inside
+    the window may still be missing a non-random subset. The safe reading is
+    to quote a merits figure only from a cut built 14 or more days after the
+    last decision it covers, or to name the held events beside it;
+    `evaluate-plan` lists them.
+
+  A grading that lands later can also land on the other side of a later
+  evaluator re-bless than it would have. The `graded_post_freeze` /
+  `graded_in_window` gates key on the grading's own stamp, so such a grading
+  counts under the rubric it ran under, as any late grading does. The hold is
+  per event and the idempotency gate per judge, so one event's judges can
+  read different slots. On release day a judge whose cell lands reads the
+  empty slot, while one whose cell failed is re-minted later, possibly after
+  the body has landed.
+
+  **The census at authoring.** On `origin/main` at `5bc3c8a2a1d9`, the ledger
+  holds 61 committed merits event definitions, 0 merits `outcome.json` files
+  and 0 evaluations of a merits event, from `git ls-tree -r --name-only
+  origin/main -- data/cases` filtered to the two declared merits moments. So
+  no cell is held, released or graded differently at this entry. Both sides
+  of the boundary are empty for merits gradings. The first cell the hold can
+  reach is the first OT2026 merits decision, December 2026 at the earliest.
+
+  **Where it landed.** Carried to `main` by the promotion tagged
+  `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged
+  `<FILL: merged-at>`). At that promotion's first parent
+  `src/fedcourtsai/matrix.py` has no `OPINION_HOLD_DAYS`; at its merge commit
+  it does.
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_matrix.py tests/test_evaluate_backlog.py
+    tests/test_opinion_enrichment.py -k "hold or held or awaiting"` and
+    `uv run pytest tests/test_corpus_remote.py -k journal` are green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    six digests above;
+  - after the first OT2026 merits decision on a predicted case, and before
+    its body lands, `uv run fedcourts evaluate-plan` (backlog mode, where the
+    corpus is pulled) lists that case's event under `held_awaiting_opinion`
+    with a reason opening `held: awaiting opinion`. The first live window
+    after the decision prints an `enrich-opinions (applied, awaiting-grading)`
+    line on its step summary with `walked` at least 1.

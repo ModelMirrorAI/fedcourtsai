@@ -162,6 +162,49 @@ def ensure_ranged_layout(db_path: Path) -> bool:
     return True
 
 
+class HotJournalError(RuntimeError):
+    """A rollback journal still sits beside the corpus file after settling it."""
+
+
+def settle_hot_journal(db_path: Path) -> bool:
+    """Roll back a hot journal beside ``db_path``; True if there was one to settle.
+
+    A writer killed mid-transaction leaves its rollback journal
+    (``corpus.db-journal``) beside a database file that may hold half-written
+    pages, and only SQLite reading the file through a writable connection
+    replays it. The push digests the file without opening it, so without this
+    a killed writer's torn file is what would be published. Opening the file
+    read-write and reading the schema lets SQLite roll the journal back and
+    delete it.
+
+    The connection is ``mode=rw`` on purpose: never ``rwc``, which would create
+    an empty database where there is none, and never ``ro``, which cannot roll
+    a journal back. A journal still present afterwards (one SQLite does not
+    consider hot, or a rollback that could not complete) raises
+    :class:`HotJournalError`: the file's consistency is then unknown, so the
+    caller must refuse to publish it. An absent database is a no-op.
+    """
+    journal = db_path.with_name(db_path.name + "-journal")
+    if not db_path.is_file() or not journal.exists():
+        return False
+    try:
+        conn = sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=rw", uri=True)
+        try:
+            conn.execute("SELECT count(*) FROM sqlite_master").fetchone()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        raise HotJournalError(
+            f"could not open {db_path} read-write to roll back {journal}: {exc}"
+        ) from exc
+    if journal.exists():
+        raise HotJournalError(
+            f"{journal} is still present after opening {db_path} read-write; the file may "
+            "hold a half-written transaction, so it must not be published"
+        )
+    return True
+
+
 class PanelMember(BaseModel):
     """One judge on a decided case's panel, resolved against the people directory.
 

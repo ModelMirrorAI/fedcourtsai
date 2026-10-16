@@ -14,12 +14,13 @@ from pathlib import Path
 import pytest
 
 from fedcourtsai import corpus, voids
+from fedcourtsai.matrix import OPINION_HOLD_DAYS
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.pull import PullQueues, derive_evaluate_backlog, evaluate_backlog
 from fedcourtsai.registry import enabled_evaluators
 from fedcourtsai.schemas import CellFailure, EventKind, VoidedEvent
 from fedcourtsai.serialize import write_json
-from tests.conftest import seed_evaluation, seed_prediction
+from tests.conftest import MERITS_EVENT, seed_evaluation, seed_merits_outcome, seed_prediction
 
 EVALUATORS = Path("config/evaluators.yaml")
 
@@ -526,3 +527,94 @@ def test_a_stamp_any_caller_wrote_still_holds_the_derivation_back(
 
     assert same_day.case_ids == ()
     assert next_day.case_ids == ("scotus/1",)
+
+
+def test_a_case_held_for_its_opinion_is_listed_but_takes_no_cap_slot(tmp_path: Path) -> None:
+    """The deriver is stamp-free, so its head re-derives every cycle. A decided
+    merits case held for its opinion body sits at that head for up to two weeks
+    while the fan-out mints nothing for it; counting it against the cap would
+    starve every owed grading behind it for the whole window. Listed anyway, so
+    the plan can name the deferral."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    decided = date(2026, 12, 9)
+    _resolved_event(db, "scotus", 1, MERITS_EVENT)
+    _grant(db, "scotus/1")
+    seed_prediction(data, "scotus", 1, MERITS_EVENT)
+    seed_merits_outcome(data, "scotus", 1, resolved_at=decided)
+    _resolved_event(db, "scotus", 2)
+    seed_prediction(data, "scotus", 2, "evt-petition-disposition")
+
+    def _derive_on(day: date) -> tuple[str, ...]:
+        with corpus.connect_readonly(db) as conn:
+            return derive_evaluate_backlog(
+                conn, data, EVALUATORS, cap=1, max_attempts=5, today=day
+            ).case_ids
+
+    # Inside the window the held case is listed and the cert case still fits.
+    assert _derive_on(decided + timedelta(days=1)) == ("scotus/1", "scotus/2")
+    # Once released it is gradeable work again, and takes the one slot.
+    assert _derive_on(decided + timedelta(days=OPINION_HOLD_DAYS)) == ("scotus/1",)
+    # And once the body lands it is gradeable at once.
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/1")
+        assert row is not None
+        # A decided row, as an enriched one is: an opinion on a row with no
+        # decision date reads as a bare historical import and falls out of scope.
+        decided_row = row.model_copy(update={"has_opinion": True, "date_decided": decided})
+        corpus.upsert_rows(conn, [decided_row])
+    assert _derive_on(decided + timedelta(days=1)) == ("scotus/1",)
+
+
+def _grant(db: Path, case_id: str) -> None:
+    """Record the cert grant enrichment needs before it can walk the row."""
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, case_id)
+        assert row is not None
+        corpus.upsert_rows(conn, [row.model_copy(update={"date_cert_granted": date(2026, 1, 9)})])
+
+
+def test_a_partly_held_case_takes_a_slot_and_lists_every_owed_event(tmp_path: Path) -> None:
+    """Slot accounting is per case: a case owing one held merits event and one
+    gradeable event mints cells this cycle, so it takes a slot like any other,
+    and lists both events (the matrix holds the one and grades the other)."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    decided = date(2026, 12, 9)
+    _resolved_event(db, "scotus", 1, MERITS_EVENT)
+    _resolved_event(db, "scotus", 1, "evt-petition-disposition")
+    _grant(db, "scotus/1")
+    seed_prediction(data, "scotus", 1, MERITS_EVENT)
+    seed_merits_outcome(data, "scotus", 1, resolved_at=decided)
+    seed_prediction(data, "scotus", 1, "evt-petition-disposition")
+    _resolved_event(db, "scotus", 2)
+    seed_prediction(data, "scotus", 2, "evt-petition-disposition")
+
+    with corpus.connect_readonly(db) as conn:
+        backlog = derive_evaluate_backlog(
+            conn, data, EVALUATORS, cap=1, max_attempts=5, today=decided + timedelta(days=1)
+        )
+
+    assert backlog.case_ids == ("scotus/1",)
+    assert set(backlog.entries[0].events) == {MERITS_EVENT, "evt-petition-disposition"}
+
+
+def test_an_unreachable_case_is_never_held_so_it_takes_a_slot(tmp_path: Path) -> None:
+    """A row enrichment can never walk — here, no cert grant on record — would
+    wait the whole window for a body nothing fetches, so it is not held and
+    competes for the cap like ordinary owed work."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    decided = date(2026, 12, 9)
+    _resolved_event(db, "scotus", 1, MERITS_EVENT)
+    seed_prediction(data, "scotus", 1, MERITS_EVENT)
+    seed_merits_outcome(data, "scotus", 1, resolved_at=decided)
+    _resolved_event(db, "scotus", 2)
+    seed_prediction(data, "scotus", 2, "evt-petition-disposition")
+
+    with corpus.connect_readonly(db) as conn:
+        backlog = derive_evaluate_backlog(
+            conn, data, EVALUATORS, cap=1, max_attempts=5, today=decided + timedelta(days=1)
+        )
+
+    assert backlog.case_ids == ("scotus/1",)

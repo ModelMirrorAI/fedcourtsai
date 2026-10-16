@@ -656,7 +656,9 @@ recorded where those holders are described, and `staging` also still holds the
 unused `fedcourtsai-staging` App pair until an admin deletes it), the Anthropic API key (which the case-summary
 lane also spends on, held in `summarize` by its generate job alone), the
 Codex/OpenAI key, the Gemini API key,
-the CourtListener API token (used by pull's ingestion; by the MCP
+the CourtListener API token (used by pull's ingestion; by the opinion
+enrichment — the dispatched enrich job's step and, step-scoped, the live job's
+one awaiting-grading enrichment step, the only step of that job holding it; by the MCP
 sidecar composite's launch step — the cells', `integration-test`'s
 engine-smoke **codex** leg, its engine-actions-smoke legs and each
 repro-family leg, all of which wire the same sidecar to exercise it —

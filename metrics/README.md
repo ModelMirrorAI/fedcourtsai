@@ -1260,6 +1260,24 @@ should be read that way: the split can under-state what an opinion said and
 never over-state it, and nothing in the artifact bounds how many units were
 resolved rather than agreed.
 
+**`not-ingested` on a newly decided case is bounded by a grading-timing rule.**
+The evaluate lane holds a decided merits event for up to 14 days after its
+outcome resolves while the case's corpus row carries no opinion body, and grades
+it the moment one lands ([pipeline.md](../docs/pipeline.md#the-evaluate-queue-is-level-triggered-too));
+a DIG, an equally divided affirmance, and a row enrichment cannot walk are never
+held, since no body will come. For a merits grading made after the promotion
+that carried the hold, `not-ingested` ordinarily reads *the body did not reach
+the corpus within two weeks of the decision*; a round that could not read the
+presence bit grades unheld, and the artifact does not record which applied. The
+bucket also holds events that were never held (body-less judgments and rows
+enrichment cannot walk), and the artifact does not record which reading applies
+to a given grading. The
+ground itself remains the grader's word, not a harness fact. The hold begins at
+that promotion's merge, which the freeze-record entry dated 2026-10-16 records.
+The ledger held no merits grading at all when that entry was written (0), so
+every merits grading it gains after the merge sits on the hold's side. The hold moves only when a decided event is
+first graded, never what it is graded against.
+
 **No mask total here has grounds behind it yet, because no mask exists here
 yet.** `SemanticGrade.mask_ground` is elicited — the evaluate prompt asks a
 grader to name the ground on every `not-addressed` row, on the closed vocabulary
