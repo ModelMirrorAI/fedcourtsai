@@ -1264,6 +1264,24 @@ def test_a_distribution_whose_conference_has_passed_is_not_re_owed(tmp_path: Pat
     assert _backlog(db, data).case_ids == ("scotus/1",)
 
 
+def test_a_petition_taken_off_its_past_conference_is_still_re_owed(tmp_path: Path) -> None:
+    """The re-predict bound is the first-time admission's own: a conference that
+    did not consider the petition — a call for response entered after the
+    distribution took it off — leaves the distribution moment open."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=PAST_CONFERENCE)
+    _decounted_cohort(data, 1)
+    entries = [
+        {"Date": "May 01 2026", "Text": "Petition for a writ of certiorari filed."},
+        {"Date": "Jun 10 2026", "Text": "DISTRIBUTED for Conference of 7/10/2026."},
+        {"Date": "Jun 20 2026", "Text": "Response Requested. (Due July 20, 2026)"},
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(conn, "scotus/1", PAST_CONFERENCE, {"ProceedingsandOrder": entries})
+    assert _backlog(db, data).case_ids == ("scotus/1",)
+
+
 def test_the_moment_allow_list_holds_merits_out_and_is_one_edit_from_taking_them(
     tmp_path: Path,
 ) -> None:

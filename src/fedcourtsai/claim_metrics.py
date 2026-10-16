@@ -47,7 +47,7 @@ from datetime import datetime
 from typing import Literal
 
 from .integrity import FORWARD, PROCEDURAL, RETROSPECTIVE, StratifiedCell, evaluation_clock
-from .leaderboard import kendall_tau_b
+from .leaderboard import kendall_tau_b, set_aside_moved
 from .pipeline.moments import first_moment
 from .process_version import (
     Series,
@@ -66,6 +66,7 @@ from .schemas import (
     ClaimScoreBlock,
     ClaimScoreBoard,
     ClaimScoreEntry,
+    ClaimScoreSetAsideLine,
     ClaimScoreStratum,
     CountingWindow,
     Evaluation,
@@ -75,7 +76,7 @@ from .schemas import (
     Stratum,
     VoidedEventsRecord,
 )
-from .store import EvaluationKey, evaluation_key
+from .store import EvaluationKey, SetAsideCell, evaluation_key
 
 # The pre-registered suppression threshold for the judge-validation tau-b: below
 # this intersection size the coefficient is withheld and only the counts
@@ -374,3 +375,31 @@ def _is_empty(entry: ClaimScoreEntry) -> bool:
     dropped rather than rendered.
     """
     return entry.forward is None and entry.retrospective is None and entry.procedural is None
+
+
+def claim_set_aside_sensitivity(
+    set_aside: Sequence[SetAsideCell], including: ClaimScoreBoard
+) -> list[ClaimScoreSetAsideLine]:
+    """Each claim figure the set-aside moved, read off a surface built with them counted.
+
+    ``including`` is :func:`build_claim_scores` over the same pass's
+    :meth:`~fedcourtsai.store.StratifiedRun.sensitivity_cells`. Only the
+    surface's own population — cert's first moment — has figures here, so a
+    set-aside cell on any other block moves nothing and gets no line.
+    """
+    population = f"{Stage.cert}@{first_moment(Stage.cert)}"
+    entries = {entry.predictor_id: entry for entry in including.entries}
+    lines: list[ClaimScoreSetAsideLine] = []
+    for (block, predictor_id, stratum), count in sorted(set_aside_moved(set_aside).items()):
+        if block != population:
+            continue
+        entry = entries.get(predictor_id)
+        lines.append(
+            ClaimScoreSetAsideLine(
+                predictor_id=predictor_id,
+                stratum=stratum,
+                set_aside=count,
+                including=getattr(entry, stratum) if entry is not None else None,
+            )
+        )
+    return lines

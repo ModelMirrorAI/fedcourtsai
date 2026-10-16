@@ -553,6 +553,78 @@
       "title": "LeaderboardEntry",
       "type": "object"
     },
+    "LeaderboardSetAsideLine": {
+      "additionalProperties": false,
+      "description": "One board figure recomputed with its set-aside gradings counted.\n\nThe sensitivity reading beside a default figure: the same pooled entry's\nstratum, built by the same code over the default cells plus the cells the\nset-aside removed from it. Only the (population, predictor, stratum)\nfigures a set-aside actually moved get a line. A disclosure, never a\nresult: the default figure stays the headline, and a line is never ranked.",
+      "properties": {
+        "including": {
+          "$ref": "#/$defs/LeaderboardStratum",
+          "description": "The pooled entry's stratum with the set-aside gradings counted"
+        },
+        "population": {
+          "description": "The board population: `cert@distribution` for the ranked board's entries, otherwise the `stages` key the figure sits under",
+          "title": "Population",
+          "type": "string"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "set_aside": {
+          "description": "Set-aside gradings this line counts back in",
+          "minimum": 1,
+          "title": "Set Aside",
+          "type": "integer"
+        },
+        "stratum": {
+          "description": "The stratum the set-aside gradings sit in",
+          "enum": [
+            "forward",
+            "retrospective",
+            "procedural"
+          ],
+          "title": "Stratum",
+          "type": "string"
+        }
+      },
+      "required": [
+        "population",
+        "predictor_id",
+        "stratum",
+        "set_aside",
+        "including"
+      ],
+      "title": "LeaderboardSetAsideLine",
+      "type": "object"
+    },
+    "LeaderboardSetAsideSensitivity": {
+      "additionalProperties": false,
+      "description": "Every leaderboard figure a set-aside moved, recomputed with the set-aside cells counted.",
+      "properties": {
+        "lines": {
+          "description": "One line per moved (population, predictor, stratum) figure, sorted",
+          "items": {
+            "$ref": "#/$defs/LeaderboardSetAsideLine"
+          },
+          "title": "Lines",
+          "type": "array"
+        },
+        "paired": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PairedEvents"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The ranked board's paired figure \u2014 what its ranks are read off \u2014 with the set-aside gradings counted; null unless a ranked-board grading was set aside"
+        }
+      },
+      "title": "LeaderboardSetAsideSensitivity",
+      "type": "object"
+    },
     "LeaderboardStage": {
       "additionalProperties": false,
       "description": "One unranked ``stage@moment`` population, aggregated per predictor.\n\nA stage is a decision standard (cert / interim / merits \u2014 the event\nvocabulary) and a moment is the point in the case's life the forecast was\ntaken from, so the pair \u2014 not the stage alone \u2014 identifies a population.\nSkill figures are only meaningful within one: `granted`\nanswers a different question at each stage \u2014 the cert segment's is its\nsalience band's grant rate, the merits stage's the guarded disturbed rate\npooled strictly prior (docs/decision-model.md), and the interim stage has\nno published base rate, so its skill stays null. Each\nstage carries its own counts and entries,\nlisted by ``predictor_id`` (never ranked), and nothing here blends into the\ncert board or another stage.",
@@ -1382,6 +1454,47 @@
       "title": "SelfProvisioningCount",
       "type": "object"
     },
+    "SetAsideRecord": {
+      "additionalProperties": false,
+      "description": "The cells a board's build set aside from its default figures, and why.\n\nA set-aside cell is one the record cannot show to be forward\n(:mod:`fedcourtsai.set_aside`): it leaves the default figures \u2014 every\nstratum, rank key and composition count \u2014 and is put back in the\nsensitivity figures beside them, so the default and the reading with the\ncell counted are both published and the set-aside is never silent. It\nchanges which cells the default figure counts, never what any cell scored.\nOmitted where nothing in scope is set aside.",
+      "properties": {
+        "by_predictor": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Set-aside gradings keyed by predictor id (only predictors with a nonzero count appear)",
+          "title": "By Predictor",
+          "type": "object"
+        },
+        "by_reason": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Set-aside gradings keyed by reason (`SetAsideReason`; only reasons with a nonzero count appear)",
+          "title": "By Reason",
+          "type": "object"
+        },
+        "events": {
+          "description": "The events holding set-aside gradings, as '<case_id> <event_id> <reason>', sorted",
+          "items": {
+            "type": "string"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "excluded": {
+          "description": "How many in-scope gradings the shared `store.stratify` pass set aside \u2014 counted after the run collapse, the void, the forward-claim rule and the leakage bit, so a grading those rules already dropped is never counted here; stage-blind, so never subtracted from a stage-scoped total beside it",
+          "minimum": 0,
+          "title": "Excluded",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "excluded"
+      ],
+      "title": "SetAsideRecord",
+      "type": "object"
+    },
     "SignatureReading": {
       "additionalProperties": false,
       "description": "A panel figure read over the points of one rubric signature.\n\nA panel figure combines several judges' reads, so its rubric is a\n*signature*: a sorted set of (evaluator, digest) pairs, one digest per\nevaluator. The signatures read are the maximal sets the points' own pairs\nform, so a case only part of a panel read is not split off from the panel\nit was read under. A point belongs to every signature holding all of its\npairs; one whose reads hold an evaluator under two digests belongs to none.\nThe correlation over one signature's points is the claimable figure.",
@@ -1677,6 +1790,30 @@
       "default": "1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "set_aside": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SetAsideRecord"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The gradings this build set aside from its default figures (`set_aside.set_aside_reason`) and why; omitted where nothing in scope is set aside. Every figure above and below is the default, without them"
+    },
+    "set_aside_sensitivity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LeaderboardSetAsideSensitivity"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Each figure the set-aside moved, recomputed with the set-aside gradings counted \u2014 the sensitivity reading beside the default; omitted where nothing in scope is set aside"
     },
     "stages": {
       "additionalProperties": {

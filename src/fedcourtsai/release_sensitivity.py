@@ -69,6 +69,7 @@ from .leaderboard import (
 from .paths import CasePaths
 from .pipeline import cert_signals
 from .pipeline.base_rates import _pooled_band_rate
+from .pipeline.cert_signals import considering_conference
 from .pipeline.moments import first_moment
 from .schemas import (
     CountingWindow,
@@ -166,13 +167,6 @@ _PETITION_ENTRY_RE = re.compile(
 )
 #: The extraordinary writs of the Court's Rule 20.
 RULE_20_WRITS: tuple[str, ...] = ("mandamus", "prohibition", "habeas corpus")
-#: A distribution of the petition itself: the entry-initial parse, which leaves out
-#: an ancillary paper's distribution ("Motion (…) DISTRIBUTED for Conference of …").
-_PETITION_DISTRIBUTED_RE = cert_signals.distribution_pattern("dist-v2")
-#: A call for response: takes a petition off the conference it was distributed for.
-_RESPONSE_REQUESTED_RE = re.compile(r"^\s*response\s+requested\b", re.I)
-#: A bare reschedule entry: takes a petition off the conference it was distributed for.
-_RESCHEDULED_RE = re.compile(r"^\s*rescheduled\b", re.I)
 
 #: A case's latest live payload and the day it was stored, or ``None``.
 PayloadReader = Callable[[str], tuple[date, Mapping[str, Any]] | None]
@@ -327,68 +321,6 @@ def _docket_number(payload: Mapping[str, Any]) -> str | None:
     """
     raw = str(payload.get("CaseNumber") or "").split()
     return raw[0] if raw else None
-
-
-ConferenceReading = Literal["sat", "ahead", "off", "undistributed", "unknown"]
-
-
-def considering_conference(
-    payload: Mapping[str, Any], payload_date: date, run_day: date
-) -> tuple[date | None, ConferenceReading]:
-    """The conference a cell run on ``run_day`` came after, if one had considered the petition.
-
-    The conference is the one the petition was distributed for as at the run:
-    the latest **petition** distribution filed on or before ``run_day``, read
-    under the entry-initial parse (``dist-v2``), so a "Motion (…) DISTRIBUTED"
-    entry for an ancillary paper never stands in for the petition's own
-    conference, and never the current ``distributed_for_conference`` column. A
-    later distribution or a reschedule entered before the run moves it. It
-    **sat on the petition** unless a call for response ("Response Requested")
-    or a bare "Rescheduled" entry was filed between that distribution entry and
-    the conference day, that day included: a petition taken off a conference
-    before or as it sat was never considered there. A relist entered after a
-    conference sat moves the reading to the next conference: the petition is
-    then forecast against a conference still ahead, which is the relist moment
-    the pipeline forecasts by design, not a forecast made after the petition's
-    last consideration.
-
-    Returns the conference and ``"sat"`` where it sat on or before ``run_day``
-    (a cell run on the conference day counts as after it). Otherwise the
-    reading says why not: ``"ahead"`` (the conference is after the run),
-    ``"off"`` (taken off before it sat), ``"undistributed"`` (no petition
-    distribution disclosed by the run), or ``"unknown"`` — the payload was
-    stored before the conference day, so whether something took it off cannot
-    be read. Entries are day-grained, so one filed on the run day counts as
-    before the run. ``run_day`` is the caller's: the commands pass the run's
-    UTC day (the harness ``run_id``), which matches the Court's Eastern day for
-    every cell run after 04:00 UTC (05:00 in winter).
-    """
-    entries = [
-        (text, filed)
-        for text, raw in cert_signals.proceedings_entries(payload)
-        if (filed := cert_signals.entry_date(raw)) is not None
-    ]
-    conference: date | None = None
-    distributed: date | None = None
-    for text, filed in entries:
-        match = _PETITION_DISTRIBUTED_RE.search(text)
-        if match is None or filed > run_day:
-            continue
-        parsed = cert_signals.conference_date(match.group(1))
-        if parsed is not None:
-            conference, distributed = parsed, filed
-    if conference is None or distributed is None:
-        return None, "undistributed"
-    if conference > run_day:
-        return conference, "ahead"
-    if payload_date < conference:
-        return conference, "unknown"
-    for text, filed in entries:
-        if distributed <= filed <= conference and (
-            _RESPONSE_REQUESTED_RE.search(text) or _RESCHEDULED_RE.search(text)
-        ):
-            return conference, "off"
-    return conference, "sat"
 
 
 # ---------------------------------------------------------------------------
@@ -943,28 +875,23 @@ def _tally_by_conference(subset: Sequence[Mapping[str, Any]]) -> dict[str, dict[
     return dict(sorted(by_conference.items()))
 
 
-def post_conference_excluded(
-    cells: Sequence[StratifiedCell],
-    data_root: Path,
-    skills: Mapping[EvaluationKey, CellSkill],
+def post_conference_rows(
     events: Sequence[_EventInfo],
     payloads: PayloadReader,
-    registered: set[tuple[str, str]] | None,
-    grant_list: date | None,
-    cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
-) -> dict[str, Any]:
-    """Block 3: the board without the events first forecast after their considering conference.
+    graded: Mapping[tuple[str, str], Sequence[Evaluation]] | None = None,
+    registered: set[tuple[str, str]] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The events first forecast after their considering conference, and those unreadable.
 
-    The population is the cert distribution-moment events carrying a forward,
-    frozen-scope cell — a CVSG cell is cut at the invitation and an interim
-    cell names no conference, so neither arm is read this way. The first
-    forward cell is the earliest harness ``run_id``; the conference it is read
-    against is :func:`considering_conference`'s. Because the board scores each
-    predictor's newest cell rather than its first, every board cell whose
-    *scored* run postdates its own considering conference is checked too, and
-    any outside the subset is named.
+    The census behind block 3 and behind the scored-figure set-aside's listed
+    post-conference rows (``set_aside_events.json``): every cert
+    distribution-moment event carrying a forward, frozen-scope cell whose
+    earliest harness ``run_id`` ran on or after the day the conference that
+    considered the petition sat (:func:`considering_conference` reads
+    ``sat``). An event whose payload is missing, or predates the conference
+    day, is listed as unreadable rather than guessed either way.
     """
-    graded = _graded(cells)
+    graded = graded or {}
     subset: list[dict[str, Any]] = []
     unreadable: list[dict[str, Any]] = []
     for info in events:
@@ -1008,6 +935,37 @@ def post_conference_excluded(
                 "payload_date": found[0].isoformat(),
             }
         )
+    return subset, unreadable
+
+
+def cert_events(data_root: Path) -> list[_EventInfo]:
+    """:func:`_cert_events`, for a census run outside this command."""
+    return _cert_events(data_root)
+
+
+def post_conference_excluded(
+    cells: Sequence[StratifiedCell],
+    data_root: Path,
+    skills: Mapping[EvaluationKey, CellSkill],
+    events: Sequence[_EventInfo],
+    payloads: PayloadReader,
+    registered: set[tuple[str, str]] | None,
+    grant_list: date | None,
+    cell_windows: Mapping[EvaluationKey, CountingWindow] | None = None,
+) -> dict[str, Any]:
+    """Block 3: the board without the events first forecast after their considering conference.
+
+    The population is the cert distribution-moment events carrying a forward,
+    frozen-scope cell — a CVSG cell is cut at the invitation and an interim
+    cell names no conference, so neither arm is read this way. The first
+    forward cell is the earliest harness ``run_id``; the conference it is read
+    against is :func:`considering_conference`'s. Because the board scores each
+    predictor's newest cell rather than its first, every board cell whose
+    *scored* run postdates its own considering conference is checked too, and
+    any outside the subset is named.
+    """
+    graded = _graded(cells)
+    subset, unreadable = post_conference_rows(events, payloads, graded, registered)
     # A grant list follows one conference: the latest considering conference on
     # or before it. Rows read against another conference are not compared.
     grant_conference = max(

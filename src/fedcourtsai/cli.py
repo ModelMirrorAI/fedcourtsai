@@ -103,7 +103,7 @@ from .cert_backtest import (
     replay_predictors,
     run_cert_backtest,
 )
-from .claim_metrics import agreement_summary, build_claim_scores
+from .claim_metrics import agreement_summary, build_claim_scores, claim_set_aside_sensitivity
 from .cohort_cut import counted_by_conference
 from .collect import (
     BOARD_ARTIFACTS,
@@ -173,6 +173,7 @@ from .fixture import build_fixture_corpus
 from .gvr_migration import relabel_munsingwear_gvr_outcomes
 from .handoff import HandoffRefused, read_handoff, write_handoff
 from .integrity import (
+    StratifiedCell,
     evaluation_clock,
     forward_claim_record,
     latest_evaluation_runs,
@@ -187,6 +188,8 @@ from .leaderboard import (
     coverage_shortfalls,
     entry_name,
     evaluator_agreement,
+    leaderboard_set_aside_sensitivity,
+    set_aside_record,
     skill_components,
     vote_scores,
 )
@@ -397,6 +400,7 @@ from .schemas import (
     CertBacktestDispatch,
     CertBacktestProvenance,
     ClaimScoreBlock,
+    ClaimScoreBoard,
     ConferenceBucket,
     CorpusValidation,
     CountedConferenceTotal,
@@ -5449,48 +5453,72 @@ def leaderboard(
     run = stratify(settings.data_root, frozen_only=frozen_only)
     _report_exclusions(run)
     cells = run.cells
+    # Every per-cell input is read over the cells with the set-aside ones put
+    # back — a superset the default board only looks keys up in — so the
+    # sensitivity board below differs from the default by those cells alone.
+    over = run.sensitivity_cells()
     # The realized-Term skill column is scored at render against the committed
     # pack, so every cell on a board shares one vintage. Best-effort like the
     # ops feeds: no pack means the column is absent, never partly computed.
     statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
-    board = build_leaderboard(
-        cells,
-        # The pooled entries read `(predictor, None)`, the cut `(predictor, label)`.
-        big_case={
-            **big_case_agreement(settings.data_root, frozen_only=frozen_only, by_window=False),
-            **(
-                big_case_agreement(settings.data_root, frozen_only=True, by_window=True)
-                if frozen_only
-                else {}
-            ),
-        },
-        evaluators=evaluator_agreement(settings.data_root, frozen_only=frozen_only),
-        process_scope=scope,
-        skills=skill_components(cells, settings.data_root, statpack),
-        forward_claim=_forward_claim_from(run),
-        leakage_exclusion=_leakage_exclusion_from(run),
-        voided_events=_voided_events_from(run),
-        superseded_gradings=run.superseded,
-        # Each cert cell's frozen band and realized outcome: the forward
-        # stratum's per-band cut and the realized always-deny floor beside
-        # accuracy, over the same cells and never a rank key.
-        facts=cell_facts(cells, settings.data_root),
-        # Each merits cell's participating-bench vote accuracy, recomputed
-        # against a complete vote record: what `mean_vote_accuracy` averages,
-        # counted as `vote_cells_scored`.
-        vote_scores=vote_scores(cells, settings.data_root),
-        cell_windows=run.cell_windows,
-        # Each cell's side of every harness boundary that admits it, by ancestry
-        # of its `pipeline_sha` in this checkout (full history required); frozen
-        # builds only, since only a pooled frozen figure lists the boundaries.
-        boundaries=(
-            boundary_sides(cells, settings.data_root, repo=Path.cwd()) if frozen_only else None
+    # The pooled entries read `(predictor, None)`, the cut `(predictor, label)`.
+    big_case = {
+        **big_case_agreement(settings.data_root, frozen_only=frozen_only, by_window=False),
+        **(
+            big_case_agreement(settings.data_root, frozen_only=True, by_window=True)
+            if frozen_only
+            else {}
         ),
-        # Each cell's self-provisioning reading off its own retrieval log: the
-        # entries' and paired engines' counts and the common-record reading,
-        # descriptive only and never a rank key.
-        provisioning=cell_provisioning(cells, settings.data_root),
-    )
+    }
+    evaluators = evaluator_agreement(settings.data_root, frozen_only=frozen_only)
+    skills = skill_components(over, settings.data_root, statpack)
+    # Each cert cell's frozen band and realized outcome: the forward stratum's
+    # per-band cut and the realized always-deny floor beside accuracy, over the
+    # same cells and never a rank key.
+    facts = cell_facts(over, settings.data_root)
+    # Each merits cell's participating-bench vote accuracy, recomputed against a
+    # complete vote record: what `mean_vote_accuracy` averages, counted as
+    # `vote_cells_scored`.
+    votes = vote_scores(over, settings.data_root)
+    # Each cell's side of every harness boundary that admits it, by ancestry of
+    # its `pipeline_sha` in this checkout (full history required); frozen builds
+    # only, since only a pooled frozen figure lists the boundaries.
+    boundaries = boundary_sides(over, settings.data_root, repo=Path.cwd()) if frozen_only else None
+    # Each cell's self-provisioning reading off its own retrieval log: the
+    # entries' and paired engines' counts and the common-record reading,
+    # descriptive only and never a rank key.
+    provisioning = cell_provisioning(over, settings.data_root)
+
+    def board_over(population: Sequence[StratifiedCell]) -> Leaderboard:
+        return build_leaderboard(
+            population,
+            big_case=big_case,
+            evaluators=evaluators,
+            process_scope=scope,
+            skills=skills,
+            forward_claim=_forward_claim_from(run),
+            leakage_exclusion=_leakage_exclusion_from(run),
+            voided_events=_voided_events_from(run),
+            superseded_gradings=run.superseded,
+            facts=facts,
+            vote_scores=votes,
+            cell_windows=run.cell_windows,
+            boundaries=boundaries,
+            provisioning=provisioning,
+        )
+
+    board = board_over(cells)
+    if run.set_aside:
+        # The sensitivity reading: the same build with the set-aside cells
+        # counted, published beside each default figure it moved.
+        board = board.model_copy(
+            update={
+                "set_aside": set_aside_record(run.set_aside),
+                "set_aside_sensitivity": leaderboard_set_aside_sensitivity(
+                    run.set_aside, board_over(over)
+                ),
+            }
+        )
     destination = out if out is not None else settings.metrics_root / "leaderboard.json"
     write_json(destination, board)
     # An exclusion-emptied headline is not the shakedown state — the cells
@@ -5583,14 +5611,28 @@ def claim_scores_command(
     scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
     run = stratify(settings.data_root, frozen_only=not all_versions)
     _report_exclusions(run)
-    board = build_claim_scores(
-        run.cells,
-        process_scope=scope,
-        forward_claim=_forward_claim_from(run),
-        leakage_exclusion=_leakage_exclusion_from(run),
-        voided_events=_voided_events_from(run),
-        cell_windows=run.cell_windows,
-    )
+
+    def surface_over(population: Sequence[StratifiedCell]) -> ClaimScoreBoard:
+        return build_claim_scores(
+            population,
+            process_scope=scope,
+            forward_claim=_forward_claim_from(run),
+            leakage_exclusion=_leakage_exclusion_from(run),
+            voided_events=_voided_events_from(run),
+            cell_windows=run.cell_windows,
+        )
+
+    board = surface_over(run.cells)
+    if run.set_aside:
+        # The sensitivity reading beside the default, exactly as the leaderboard's.
+        board = board.model_copy(
+            update={
+                "set_aside": set_aside_record(run.set_aside),
+                "set_aside_sensitivity": claim_set_aside_sensitivity(
+                    run.set_aside, surface_over(run.sensitivity_cells())
+                ),
+            }
+        )
     destination = out if out is not None else settings.metrics_root / "claim-scores.json"
     write_json(destination, board)
     typer.echo(
@@ -5796,7 +5838,9 @@ def release_sensitivity_command(
     except (ExportError, ReleaseSensitivityError) as exc:
         typer.echo(f"release-sensitivity: {exc}", err=True)
         raise typer.Exit(code=2) from exc
-    run = stratify(settings.data_root, frozen_only=True)
+    # The Release 1 computation: the registered headline is the board as
+    # published, so the set-aside cells stay in (`stratify`'s `apply_set_aside`).
+    run = stratify(settings.data_root, frozen_only=True, apply_set_aside=False)
     # The same exclusion notes `leaderboard` prints, since the headline is that board.
     _report_exclusions(run)
     if source.dirty:
@@ -16192,8 +16236,9 @@ def _report_uneven_coverage(board: Leaderboard) -> None:
 def _report_exclusions(run: StratifiedRun) -> None:
     """One line per dropped cell, so the boards' counts are never the only record.
 
-    Both of :func:`fedcourtsai.store.stratify`'s exclusions, from one call, so a
-    surface cannot report one rule and stay silent about the other. A cell both
+    Every one of :func:`fedcourtsai.store.stratify`'s ledgers, from one call, so a
+    surface cannot report one rule and stay silent about another — the
+    set-aside cells included, which leave the default figures only. A cell both
     rules caught is named twice — once per reason, which is what the two counts
     on the boards say too.
     """
@@ -16209,6 +16254,13 @@ def _report_exclusions(run: StratifiedRun) -> None:
                 f"{ev.predictor_id} (graded by {ev.evaluator_id}) — {cell.reason}",
                 err=True,
             )
+    for set_aside in run.set_aside:
+        ev = set_aside.cell[0]
+        typer.echo(
+            f"::warning::set aside from the default figures: {ev.case_id} {ev.event_id} "
+            f"{ev.predictor_id} (graded by {ev.evaluator_id}) — {set_aside.reason}",
+            err=True,
+        )
 
 
 def _report_predict_cap(capped: CappedMatrix, max_cells: int) -> None:
