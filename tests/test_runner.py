@@ -752,6 +752,8 @@ def test_retry_after_hint_is_capped_at_backoff_max(tmp_path: Path) -> None:
         "the request timed out",
         "deadline exceeded",
         "Connection reset by peer",
+        # Node's fetch losing the model call, as the gemini CLI reports it.
+        "TypeError: fetch failed",
         # Gemini's INVALID_STREAM envelope, as the CLI writes it on exit.
         '{"error":{"type":"INVALID_STREAM","message":"Invalid stream: The model '
         + 'returned an empty response or malformed tool call."}}',
@@ -797,6 +799,12 @@ _INVALID_STREAM_RESULT = (
 )
 
 
+_FETCH_FAILED_RESULT = (
+    '{"session_id": "s", "error": {"type": "Error", "message": '
+    + '"exception TypeError: fetch failed sending request", "code": 1}}'
+)
+
+
 @pytest.mark.parametrize(
     ("returncode", "stdout", "stderr", "expected"),
     [
@@ -821,6 +829,9 @@ _INVALID_STREAM_RESULT = (
         (1, "", "", AttemptClass.permanent),
         # … plus the result's error, when the CLI wrote one.
         (1, _INVALID_STREAM_RESULT, "", AttemptClass.transient),
+        # A model call the network dropped (run-predict's gemini cells on
+        # 2026-10-17, abridged to the fields the classifier reads).
+        (1, _FETCH_FAILED_RESULT, "", AttemptClass.transient),
         # A spent quota overrides the throttle words it carries, on either surface.
         (
             1,
@@ -848,6 +859,7 @@ def test_classify_engine_attempt(
         "HTTP 429 Too Many Requests",
         "503 Service Unavailable",
         "connection reset",
+        "TypeError: fetch failed",
         "TerminalQuotaError: exhausted your daily quota 429",
         "context length exceeded",
         "",

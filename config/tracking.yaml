@@ -513,8 +513,8 @@ spend:
 
 # runner = the agentic predict/evaluate cell runner's retry governor (see
 # src/fedcourtsai/pipeline/runner.py). A cell that fails on a TRANSIENT fault —
-# an HTTP 429 / quota-exceeded throttle, a 5xx upstream, a timeout, or a
-# serving-side dropped stream — is retried with exponential backoff and jitter;
+# an HTTP 429 / quota-exceeded throttle, a 5xx upstream, a timeout, a dropped
+# connection, or a serving-side dropped stream — is retried with exponential backoff and jitter;
 # a PERMANENT fault (content-filter trip, context-length blowout, auth error) is
 # a hard failure and never retried. A TERMINAL quota sits on the permanent side
 # though it arrives throttle-shaped: an engine that says its own allowance is
