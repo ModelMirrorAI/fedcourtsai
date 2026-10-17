@@ -68,9 +68,9 @@ def render(
         "post-conference first forecasts (frozen scope, cert@distribution):",
         "",
         f"- census events: {len(rows)} "
-        f"({sum(1 for row in rows if row['resolved'])} resolved, "
-        f"{sum(1 for row in rows if row['graded_cells'])} with graded cells, "
-        f"{sum(int(row['graded_cells']) for row in rows)} graded cells)",
+        + f"({sum(1 for row in rows if row['resolved'])} resolved, "
+        + f"{sum(1 for row in rows if row['graded_cells'])} with graded cells, "
+        + f"{sum(int(row['graded_cells']) for row in rows)} graded cells)",
         f"- listed in set_aside_events.json: {len(listed)}",
         f"- census events not listed (rows owed): {len(owed)}",
         f"- listed events the census does not find: {len(unexplained)}",

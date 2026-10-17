@@ -27,11 +27,12 @@ reads how the cell's run sat against the signal
 
 Each reading files a claim `signal-before-run` (masked), `signal-during-run` or
 `signal-on-run-day` (set aside), or neither, with the unassessable claims — a signal the record
-shows but cannot date — counted apart. Only counts and identifiers reach
-`CHECK_SUMMARY`: case ids, event ids, claim ids, predictor counts and dates,
-never stored snapshot text, since the summary is posted publicly
-(docs/corpus-check.md). The corpus vintage line comes from
-`fedcourts corpus-info`, as in `corpus_vintage.py`.
+shows but cannot date — counted apart. Every count (the tally table, the
+undated referrals, the disagreeing readings) comes before the per-event
+listings. Only counts and identifiers reach `CHECK_SUMMARY`: case ids, event
+ids, claim ids, predictor counts and dates, never stored snapshot text, since
+the summary is posted publicly (docs/corpus-check.md). The corpus vintage line
+comes from `fedcourts corpus-info`, as in `corpus_vintage.py`.
 
 Outside the lane, point `CHECK_SUMMARY` at any file and run it from a checkout
 with a pulled corpus.
@@ -181,10 +182,18 @@ def render(claims: list[LiveClaim], unreadable_referrals: int) -> str:
                 f"| `{claim_id}` | {reading} | {len(rows)} | "
                 f"{sum(1 for c in rows if c.resolved)} | {cells} |"
             )
+    disagree = sorted(
+        {
+            (c.claim_id, c.case_id, c.event_id, c.ledger, c.corpus)
+            for c in claims
+            if c.ledger not in (c.corpus, "unassessable")
+        }
+    )
     lines += [
         "",
         "- referrals the corpus row records and the latest live payload does not date: "
         + f"{unreadable_referrals}",
+        f"- ledger and corpus readings that disagree (beyond unassessable): {len(disagree)}",
         "",
     ]
     grouped: dict[tuple[str, str, str, str, str], list[LiveClaim]] = defaultdict(list)
@@ -203,18 +212,9 @@ def render(claims: list[LiveClaim], unreadable_referrals: int) -> str:
                 f"| {reading} | {verdict} | `{claim_id}` | `{case_id}` | `{event_id}` | "
                 f"{len(rows)} | {rows[0].resolved} |"
             )
-    disagree = sorted(
-        {
-            (c.claim_id, c.case_id, c.event_id, c.ledger, c.corpus)
-            for c in claims
-            if c.ledger not in (c.corpus, "unassessable")
-        }
-    )
-    lines += [
-        "",
-        f"- ledger and corpus readings that disagree (beyond unassessable): {len(disagree)}",
-    ]
-    lines += [f"  - `{a}` `{b}` `{e}`: ledger {d}, corpus {f}" for a, b, e, d, f in disagree]
+    if disagree:
+        lines += ["", "Ledger and corpus readings that disagree (beyond unassessable):", ""]
+        lines += [f"- `{a}` `{b}` `{e}`: ledger {d}, corpus {f}" for a, b, e, d, f in disagree]
     return "\n".join(lines) + "\n"
 
 
