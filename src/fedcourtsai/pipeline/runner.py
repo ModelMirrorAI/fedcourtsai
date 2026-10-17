@@ -90,6 +90,7 @@ from ..schemas import (
     UsageRole,
     VoteValue,
 )
+from ..secretscan import redact_credentials
 from ..serialize import read_model, write_json
 from .claims import declared_claim_set
 from .evaluate import brier_score, is_correct, judgment_correct, vote_accuracy
@@ -1186,6 +1187,82 @@ def classify_engine_attempt(returncode: int, stdout: str, stderr: str) -> Attemp
     if _text_is_transient(text):
         return AttemptClass.transient
     return AttemptClass.permanent
+
+
+#: The longest fault text :func:`engine_attempt_fault` prints.
+FAULT_TEXT_MAX = 160
+
+# A run of key-shaped characters long enough to be a credential, a session id or
+# a signed-URL parameter that the harness's credential scan has no shape for:
+# the catch-all after it, before a fault's text lands in a public annotation.
+_LONG_TOKEN = re.compile(r"[A-Za-z0-9_+/=-]{24,}")
+# Everything an annotation line may keep. No ``%`` (the runner's workflow-command
+# escape), no ``<``/``>`` or backtick, no line break, and none of the ``(`` ``)``
+# ``;`` the step's own line punctuates with, so the fault cannot mimic it.
+_FAULT_UNSAFE = re.compile(r"[^A-Za-z0-9 _.,:'#/-]")
+
+
+def _stderr_result_error(stderr: str) -> str | None:
+    """The error object an engine left on its stderr, if any.
+
+    On a failed exit gemini-cli writes the stack and then the same
+    ``{"session_id": …, "error": {…}}`` object its JSON result would carry to
+    stderr, leaving stdout empty. Each line that opens with ``{`` is tried as the
+    start of one JSON object, latest first, whatever follows it; the first that
+    decodes with an ``error`` wins. (gemini-cli 0.49.0; re-check on a CLI bump.)
+    """
+    lines = stderr.splitlines()
+    decoder = json.JSONDecoder()
+    for start in range(len(lines) - 1, -1, -1):
+        if not lines[start].startswith("{"):
+            continue
+        try:
+            obj, _ = decoder.raw_decode("\n".join(lines[start:]))
+        except ValueError:
+            continue
+        error = engine_result_error(json.dumps(obj))
+        if error is not None:
+            return error
+    return None
+
+
+# A JavaScript stack frame: ``at fn (file.js:1:2)``, ``at async fn (…)`` or a bare
+# ``at file.js:1:2`` — a location at the end, not just a leading "at".
+_STACK_FRAME = re.compile(r"^\s*at\s.*(?:\(.*:\d+:\d+\)|:\d+:\d+)$")
+
+
+def _screen_fault(text: str) -> str:
+    """``text`` made safe for an annotation line; empty when nothing survives."""
+    text = _LONG_TOKEN.sub("REDACTED", redact_credentials(text))
+    return " ".join(_FAULT_UNSAFE.sub(" ", text).split())
+
+
+def engine_attempt_fault(stdout: str, stderr: str) -> str | None:
+    """One screened line naming what a failed engine attempt reported, if anything.
+
+    For the annotation the cells' gemini step writes after an attempt's verdict,
+    so a reader of the run's check annotations sees the fault without opening
+    the job log. Read in order: the error in the JSON result on stdout, the same
+    object where the CLI left it on stderr, then stderr's last line that is not
+    a stack frame and still says something once screened (a closing brace does
+    not). The text is screened for an annotation: redacted with the harness's
+    credential scan (:func:`fedcourtsai.secretscan.redact_credentials`) and any
+    other key-shaped run of 24 or more characters — which takes long
+    identifiers and paths with it — characters outside a plain set replaced and
+    whitespace collapsed, and the line cut at :data:`FAULT_TEXT_MAX`. ``None``
+    when nothing is left.
+    """
+    reported = engine_result_error(stdout) or _stderr_result_error(stderr)
+    if reported is not None:
+        text = _screen_fault(reported)
+    else:
+        candidates = [
+            _screen_fault(line) for line in stderr.splitlines() if not _STACK_FRAME.match(line)
+        ]
+        text = next((line for line in reversed(candidates) if line), "")
+    if len(text) > FAULT_TEXT_MAX:
+        text = text[: FAULT_TEXT_MAX - 3].rstrip() + "..."
+    return text or None
 
 
 def _retry_after_seconds(stderr: str) -> float | None:
