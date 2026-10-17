@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2153552,
-      "detail": "2153552 rows vs baseline 2153552",
+      "checked": 2153573,
+      "detail": "2153573 rows vs baseline 2153552",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4310354,
+      "checked": 4310398,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 2153552,
+      "checked": 2153573,
       "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
       "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
@@ -34,7 +34,7 @@
     },
     {
       "checked": 3073,
-      "detail": "as of 2026-10-16",
+      "detail": "as of 2026-10-17",
       "failures": 0,
       "name": "snapshot_not_future_dated",
       "passed": true,
@@ -42,16 +42,16 @@
     },
     {
       "checked": 662,
-      "detail": "granted before 2024-10-16 (730 days); 18 resolved by termination (1 abated, 1 dismissed-moot, 1 grant-vacated, 10 judgment-issued, 5 voluntary-dismissal); excepted (terminal off-docket): scotus/72466202, scotus/72466229, scotus/72466705",
+      "detail": "granted before 2024-10-17 (730 days); 18 resolved by termination (1 abated, 1 dismissed-moot, 1 grant-vacated, 10 judgment-issued, 5 voluntary-dismissal); excepted (terminal off-docket): scotus/72466202, scotus/72466229, scotus/72466705",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 2153552,
-      "detail": "0 future-dated, 33 decided-before-filed vs accepted baseline 50 (as of 2026-10-16); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
-      "failures": 33,
+      "checked": 2153573,
+      "detail": "0 future-dated, 34 decided-before-filed vs accepted baseline 50 (as of 2026-10-17); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
+      "failures": 34,
       "name": "case_dates_ordered",
       "passed": true,
       "problems": [
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4307281,
+      "checked": 4307325,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4310354,
+      "checked": 4310398,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 157,
+      "checked": 159,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 28906,
+      "checked": 28908,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -206,8 +206,8 @@
       "problems": []
     }
   ],
-  "corpus_events": 2153729,
-  "corpus_rows": 2153552,
+  "corpus_events": 2153752,
+  "corpus_rows": 2153573,
   "ok": true,
   "schema_version": "1.0",
   "skipped": false
