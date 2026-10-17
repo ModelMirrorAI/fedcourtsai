@@ -34,8 +34,11 @@ name: run-repair
 # job documents: GitHub keeps only the latest pending run per concurrency
 # group, so a scheduled window entering `corpus-write` behind this dispatch
 # cancels it — and a one-shot dispatch, unlike a rotation, does not pick up
-# where it left off. Dispatch in a dead zone between the scheduled windows
-# (run-pull at `:17` and `:47`, run-seed at `:31`) to avoid ever queuing.
+# where it left off. Dispatch in a quiet slot between the scheduled windows
+# to avoid ever queuing: run-pull's live windows open at `:47` every even hour
+# and usually commit within ~20 minutes, its pull windows at `:17` past
+# 01/07/13/19 and run-seed at `:31` past 02/08/14/20, so from about `:15` past
+# 03, 05, 09, 11, 15, 17, 21 and 23 the lock is usually free until the next `:47`.
 # The four passes split across a credential boundary (opinion-votes,
 # order-votes, application-backfill, opinion-record) are the exception: their
 # writer asks for the lock only once the projection and the parse have run, up

@@ -55,6 +55,12 @@
 # without a human, and when it gives up.
 /scripts/merge-when-green.sh @modelmirror
 /tests/test_merge_when_green.py @modelmirror
+# The promotion train: what it merges into `main` once the maintainer has
+# approved a frozen candidate's head, and the approver list it reads.
+/config/promotion-train.yaml @modelmirror
+/src/fedcourtsai/promotion_train.py @modelmirror
+/tests/test_promotion_train.py @modelmirror
+/tests/test_workflow_promotion_train.py @modelmirror
 # The process registry: the record a registration edits (a pre-registration),
 # the Step 0 checks `promotion-gate.sh registry` runs on it, and the plan and
 # jail deciding what a promotion merge may stamp and push to `main`.
@@ -87,6 +93,7 @@
 /src/fedcourtsai/corpus_check.py @modelmirror
 /tests/test_corpus_check.py @modelmirror
 /tests/test_workflow_corpus_check.py @modelmirror
+/tests/test_corpus_check_auto_surface.py @modelmirror
 
 # The authority to spend without a human release: the auto-release caps, the
 # rates a round is priced at, the decisions that read them, and their tests.
@@ -96,6 +103,8 @@
 /config/dispatchers.json @modelmirror
 /src/fedcourtsai/planning_rates.py @modelmirror
 /src/fedcourtsai/review_hold.py @modelmirror
+/src/fedcourtsai/spend.py @modelmirror
+/tests/test_spend.py @modelmirror
 /src/fedcourtsai/dispatch_chain.py @modelmirror
 /tests/test_review_hold.py @modelmirror
 /tests/test_dispatch_chain.py @modelmirror

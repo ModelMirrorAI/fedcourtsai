@@ -2,21 +2,30 @@
 
 `corpus-check.yml` runs a check a same-repository pull request declares, at the
 PR's head, against the production corpus read-only, once the maintainer
-approves the `corpus-check` deployment (docs/corpus-check.md). Its three jobs
-are thin wrappers over this module, so every rule here is testable without the
-Actions API:
+approves the `corpus-check` deployment (docs/corpus-check.md). One kind of
+request runs without that approval: a block that asks for `main`'s code
+(``at: main``) and names a `fedcourts` subcommand on the maintainer-owned
+auto allowlist runs at `main`'s own commit under the reviewer-less
+`corpus-check-auto` environment, and the PR head is never checked out
+(:func:`route_requests`). Its jobs are thin wrappers over this module, so every
+rule here is testable without the Actions API:
 
 - **The plan job** lists the open PRs and hands them to
   :func:`candidate_requests` — a fenced ``corpus-check`` block, a head in this
   repository, an author on the maintainer-owned requester list
   (``config/corpus-check.yaml``) — then the candidates' comments to
-  :func:`select_request`, which takes the oldest whose head SHA carries no
-  result comment from this workflow's own bot. It pins the SHA and the command
-  as job outputs and renders both to the run summary, the page the approver
-  lands on (:func:`render_plan_summary`).
-- **The run job** hands the pinned command to :func:`parse_command` again and
-  then to :func:`run_phases`, which installs the head's environment and runs
-  the command as a separate unprivileged account (:func:`as_user`) — no shell,
+  :func:`route_requests`, which marks the auto-eligible ones, and to
+  :func:`select_request`, which takes the oldest unanswered auto-eligible
+  request, else the oldest unanswered held one — a held request is unanswered
+  while its head SHA carries no result comment from this workflow's own bot,
+  an auto-eligible one while its head SHA and command carry none. It pins the
+  SHA, the command and the route as job outputs and renders them to the run
+  summary, the page the approver lands on (:func:`render_plan_summary`).
+- **The run job** (or, for an auto-eligible request, **the run-auto job**, whose
+  tree is `main`'s rather than the head's) hands the pinned command to
+  :func:`parse_command` again and then to :func:`run_phases`, which installs
+  the tree's environment and runs the command as a separate unprivileged
+  account (:func:`as_user`) — no shell,
   no sudo, an environment of the corpus session and two paths only
   (:func:`check_env`), output to a file rather than the public job log, each
   phase under its own hard timeout — and reads back only the summary file the
@@ -26,9 +35,11 @@ Actions API:
   mentions neutralised, and clamped under GitHub's comment limit, which
   refuses an over-long body rather than truncating it.
 
-The command grammar narrows mistakes, not attacks: either accepted form runs the
-PR's own code, which can do anything the job can. The approval and the
-read-only role's trust are what bound it.
+The command grammar narrows mistakes, not attacks: either accepted form, at the
+PR head, runs the PR's own code, which can do anything the job can. The
+approval and the read-only role's trust are what bound it. An auto-eligible
+request runs no PR code at all: what reaches its job from the PR is the parsed
+argv of an allowlisted, read-only subcommand of `main`'s own CLI.
 """
 
 from __future__ import annotations
@@ -36,6 +47,7 @@ from __future__ import annotations
 import base64
 import binascii
 import contextlib
+import hashlib
 import os
 import re
 import shlex
@@ -45,7 +57,7 @@ import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import IO, Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -96,6 +108,14 @@ _SHA = re.compile(r"[0-9a-f]{40}")
 _LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:\[bot\])?")
 _FENCE_OPEN = re.compile(r"^ {0,3}(?P<fence>`{3,})" + re.escape(BLOCK_INFO) + r"[ \t]*$")
 _MARKER = "<!-- corpus-check-result sha={sha} -->"
+_AUTO_MARKER = "<!-- corpus-check-result sha={sha} at=main command={digest} -->"
+
+#: The one line a block may carry before its command: run the command at
+#: `main`'s own commit rather than at the PR's head.
+AT_MAIN = "at: main"
+
+#: The `fedcourts` subcommand names the auto allowlist may hold.
+_SUBCOMMAND = re.compile(r"[a-z][a-z0-9-]{0,63}")
 
 #: The run job's result values the post job can name; anything else is unknown.
 RunResult = Literal["success", "failure", "cancelled", "skipped"]
@@ -158,12 +178,42 @@ class CorpusCheckConfig(BaseModel):
     the plan job plans nothing, and the promotion gate refuses, while the
     environment does not (``fedcourtsai.environment_checks``). Absent, nothing
     is planned.
+
+    ``auto_subcommands`` is the auto allowlist: the `fedcourts` subcommands an
+    ``at: main`` request may run without approval. It is read leniently and on
+    its own (:meth:`auto_allowlist`), so a malformed allowlist empties it —
+    every request then waits on the approval — rather than failing the lane.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     requesters: list[str] = Field(default_factory=list)
     approver: str | None = None
+    auto_subcommands: object = None
+
+    def auto_allowlist(self) -> tuple[frozenset[str], str | None]:
+        """The auto allowlist and, when it is malformed, why it reads as empty.
+
+        Absent is empty with no problem. Anything but a list of distinct
+        subcommand names is empty with the problem named, so no request runs
+        unapproved on an allowlist this cannot read.
+        """
+        raw = self.auto_subcommands
+        if raw is None:
+            return frozenset(), None
+        if not isinstance(raw, list):
+            return frozenset(), "`auto_subcommands` is not a list"
+        names: list[str] = []
+        for item in raw:
+            if not isinstance(item, str) or not _SUBCOMMAND.fullmatch(item):
+                return (
+                    frozenset(),
+                    "`auto_subcommands` holds an entry that is not a subcommand name",
+                )
+            names.append(item)
+        if len(set(names)) != len(names):
+            return frozenset(), "`auto_subcommands` lists a subcommand twice"
+        return frozenset(names), None
 
     @field_validator("requesters")
     @classmethod
@@ -188,12 +238,22 @@ def load_config(config_root: Path) -> CorpusCheckConfig:
     return CorpusCheckConfig.model_validate(data or {})
 
 
-def extract_block(body: str | None) -> str | None:
-    """The one line inside the body's fenced ``corpus-check`` block, or None for no block.
+@dataclass(frozen=True)
+class Block:
+    """What a body's ``corpus-check`` block asks: one command, and where to run it."""
 
-    Raises :class:`CommandRefused` for a block that cannot be read as one
-    command: more than one block, an unclosed one, or anything but exactly one
-    non-blank line inside it.
+    command: str
+    at_main: bool = False
+
+
+def read_block(body: str | None) -> Block | None:
+    """The body's fenced ``corpus-check`` block, or None for no block.
+
+    The block holds one command line, optionally preceded by the line
+    ``at: main``, which asks for the command to run at `main`'s own commit
+    rather than at the PR's head. Raises :class:`CommandRefused` for a block
+    that cannot be read that way: more than one block, an unclosed one, or any
+    other set of non-blank lines inside it.
     """
     if not body:
         return None
@@ -219,12 +279,21 @@ def extract_block(body: str | None) -> str | None:
         return None
     if len(blocks) > 1:
         raise CommandRefused("the body declares more than one corpus-check block")
-    filled = [line for line in blocks[0] if line.strip()]
+    filled = [line.strip(" ") for line in blocks[0] if line.strip()]
+    if len(filled) == 2 and filled[0] == AT_MAIN:
+        return Block(command=filled[1], at_main=True)
     if len(filled) != 1:
         raise CommandRefused(
-            f"the corpus-check block holds {len(filled)} non-blank lines; it takes exactly one"
+            f"the corpus-check block holds {len(filled)} non-blank lines; it takes one "
+            + f"command line, optionally after an `{AT_MAIN}` line"
         )
-    return filled[0].strip(" ")
+    return Block(command=filled[0])
+
+
+def extract_block(body: str | None) -> str | None:
+    """The command line of the body's ``corpus-check`` block (:func:`read_block`)."""
+    block = read_block(body)
+    return None if block is None else block.command
 
 
 def parse_command(command: str) -> list[str]:
@@ -280,6 +349,12 @@ class Request(BaseModel):
     created_at: str
     command: str | None = None
     refusal: str | None = None
+    #: The block asked for `main`'s code (``at: main``).
+    at_main: bool = False
+    #: Set by :func:`route_requests`: the request runs at `main` without approval.
+    auto: bool = False
+    #: Why an ``at: main`` request waits on the approval instead (ours, never PR text).
+    held_reason: str | None = None
 
 
 class Passed(BaseModel):
@@ -331,11 +406,11 @@ def candidate_requests(
             continue
         body = pr.get("body")
         try:
-            line = extract_block(body if isinstance(body, str) else None)
+            block = read_block(body if isinstance(body, str) else None)
             refusal = None
         except CommandRefused as exc:
-            line, refusal = None, str(exc)
-        if line is None and refusal is None:
+            block, refusal = None, str(exc)
+        if block is None and refusal is None:
             continue
         head_repo = _get(pr, "head", "repo", "full_name")
         author = _get(pr, "user", "login")
@@ -356,10 +431,10 @@ def candidate_requests(
             passed.append(Passed(pr=number, reason="head SHA unreadable"))
             continue
         command = None
-        if line is not None:
+        if block is not None:
             try:
-                parse_command(line)
-                command = line
+                parse_command(block.command)
+                command = block.command
             except CommandRefused as exc:
                 refusal = str(exc)
         base_ref = _get(pr, "base", "ref")
@@ -375,6 +450,7 @@ def candidate_requests(
                 created_at=created_at if isinstance(created_at, str) else "",
                 command=command,
                 refusal=refusal,
+                at_main=block is not None and block.at_main,
             )
         )
     requests.sort(key=lambda request: (request.created_at, request.pr))
@@ -382,14 +458,102 @@ def candidate_requests(
     return requests, passed
 
 
+def auto_ineligibility(
+    command: str,
+    *,
+    allowlist: frozenset[str],
+    allowlist_problem: str | None,
+    environment_problems: Sequence[str],
+) -> str | None:
+    """Why an ``at: main`` request may not run without approval; None when it may.
+
+    It may when its command is ``uv run fedcourts <subcommand> …`` within the
+    grammar, the subcommand is on a readable auto allowlist, and the
+    `corpus-check-auto` environment holds its `main`-only policy
+    (``environment_problems`` empty). Every other answer is a reason, so the
+    request waits on the approval. The reason is ours and never quotes the
+    command.
+    """
+    try:
+        argv = parse_command(command)
+    except CommandRefused:
+        return "the command is outside the grammar"
+    if argv[:3] != ["uv", "run", "fedcourts"]:
+        return "only a `uv run fedcourts` subcommand runs at `main` unapproved"
+    if allowlist_problem is not None:
+        return f"the auto allowlist is unreadable ({allowlist_problem})"
+    if argv[3] not in allowlist:
+        return "the subcommand is not on the auto allowlist (config/corpus-check.yaml)"
+    if environment_problems:
+        return "the `corpus-check-auto` environment is not ready: " + "; ".join(
+            environment_problems
+        )
+    return None
+
+
+def route_requests(
+    requests: Sequence[Request],
+    *,
+    allowlist: frozenset[str],
+    allowlist_problem: str | None,
+    environment_problems: Sequence[str],
+) -> list[Request]:
+    """The requests with each ``at: main`` one marked auto-eligible or held, and why.
+
+    Only a runnable request whose block asked for `main` can be auto-eligible
+    (:func:`auto_ineligibility`); everything else — a request for the PR
+    head, a refused one — is returned as it came, held.
+    """
+    routed: list[Request] = []
+    for request in requests:
+        if request.command is None or request.refusal is not None or not request.at_main:
+            routed.append(request.model_copy(update={"auto": False, "held_reason": None}))
+            continue
+        reason = auto_ineligibility(
+            request.command,
+            allowlist=allowlist,
+            allowlist_problem=allowlist_problem,
+            environment_problems=environment_problems,
+        )
+        routed.append(request.model_copy(update={"auto": reason is None, "held_reason": reason}))
+    return routed
+
+
 def result_marker(sha: str) -> str:
-    """The hidden first line of a result comment, naming the head SHA it answers."""
+    """The hidden first line of a held request's result comment, naming its head SHA."""
     return _MARKER.format(sha=sha)
 
 
+def command_digest(command: str) -> str:
+    """The short digest an auto result's marker names its command by."""
+    return hashlib.sha256(command.encode("utf-8")).hexdigest()[:16]
+
+
+def auto_result_marker(sha: str, command: str) -> str:
+    """The hidden first line of an auto result: the head SHA and the command it answers.
+
+    An auto request is identified by both, so editing the block's command
+    asks again at the same head; the same command at the same head is
+    answered once. It never starts with :func:`result_marker`'s text, so an
+    auto result does not answer a held request for the same head.
+    """
+    return _AUTO_MARKER.format(sha=sha, digest=command_digest(command))
+
+
+def request_marker(request: Request) -> str:
+    """The marker that answers ``request`` on its route."""
+    if request.auto:
+        return auto_result_marker(request.sha, request.command or "")
+    return result_marker(request.sha)
+
+
 def is_answered(comments: Iterable[Mapping[str, Any]], sha: str) -> bool:
-    """Whether this workflow's bot has already posted a result for ``sha``."""
-    marker = result_marker(sha)
+    """Whether this workflow's bot has already posted a held result for ``sha``."""
+    return has_marker(comments, result_marker(sha))
+
+
+def has_marker(comments: Iterable[Mapping[str, Any]], marker: str) -> bool:
+    """Whether this workflow's bot posted a comment leading with ``marker``."""
     for comment in comments:
         if _get(comment, "user", "login") != BOT_LOGIN or _get(comment, "user", "type") != "Bot":
             continue
@@ -400,18 +564,24 @@ def is_answered(comments: Iterable[Mapping[str, Any]], sha: str) -> bool:
 
 
 def select_request(
-    requests: Sequence[Request], comments: Mapping[int, Iterable[Mapping[str, Any]]]
+    requests: Sequence[Request], comments: Mapping[int, Sequence[Mapping[str, Any]]]
 ) -> Request | None:
-    """The oldest request whose head SHA has no result yet; None when all are answered.
+    """The request to answer next; None when all are answered.
 
-    A request whose comments were not read is an error, not "unanswered": the
-    caller must hand in every candidate's comments, or the same SHA would be
-    planned again on every poll.
+    The oldest unanswered auto-eligible request first — it waits on no one —
+    then the oldest unanswered held one. A held request is answered by a
+    result for its head SHA, an auto-eligible one by a result for its head SHA
+    and command (:func:`request_marker`). A request whose comments were not
+    read is an error, not "unanswered": the caller must hand in every
+    candidate's comments, or the same request would be planned again on every
+    poll.
     """
     for request in requests:
         if request.pr not in comments:
             raise KeyError(f"no comments were read for PR #{request.pr}")
-        if not is_answered(comments[request.pr], request.sha):
+    ordered = [r for r in requests if r.auto] + [r for r in requests if not r.auto]
+    for request in ordered:
+        if not has_marker(comments[request.pr], request_marker(request)):
             return request
     return None
 
@@ -427,6 +597,8 @@ def plan_outputs(request: Request | None) -> dict[str, str]:
         "author": request.author,
         "command": request.command or "",
         "refusal": request.refusal or "",
+        "auto": "true" if request.auto else "false",
+        "held_reason": request.held_reason or "",
     }
 
 
@@ -521,6 +693,9 @@ def render_plan_summary(
     exactly what approval runs: the PR, its pinned head SHA, the PR author and
     the head commit's author and committer, the command — fenced, with mentions
     broken — and a comparison pinned to that SHA, never the PR's moving page.
+    An auto-eligible request needs no approval; the summary says it runs at
+    this run's own `main` commit and that the PR head is not checked out. An
+    ``at: main`` request that is held says why.
     """
     lines = ["## corpus-check — plan", ""]
     if environment_problems:
@@ -544,6 +719,19 @@ def render_plan_summary(
             + f"{request.refusal}.",
             "",
             "Nothing runs. The post job tells the PR why; a new push re-asks.",
+        ]
+    elif request.auto:
+        lines += [
+            f"**PR #{request.pr}** by `{inline(request.author)}` asks for `main`'s code "
+            + f"(`{AT_MAIN}`), at head `{request.sha}`.",
+            "",
+            "**Runs without approval** in the `corpus-check-auto` environment: the "
+            + "subcommand is on the auto allowlist (config/corpus-check.yaml), so the "
+            + "command runs at this run's own `main` commit, with the production corpus "
+            + "read-only. The PR head is not checked out and none of its code runs; "
+            + "the figure is `main`'s code's figure.",
+            "",
+            fence(neutralize_mentions(request.command or "")),
         ]
     else:
         commit = commit or HeadCommit()
@@ -586,6 +774,13 @@ def render_plan_summary(
             + "nothing else; it can read everything that role reads and post what it "
             + "chooses to the PR (docs/corpus-check.md, *What it gives up*).",
         ]
+        if request.held_reason:
+            lines += [
+                "",
+                f"The block asks for `main`'s code (`{AT_MAIN}`), but it is held: "
+                + f"{inline(request.held_reason, 300)}. Approving runs it at the PR head, "
+                + "like any held request.",
+            ]
     if passed:
         lines += ["", "Passed over (no comment is posted):", ""]
         lines += [f"- #{item.pr}: {item.reason}" for item in passed]
@@ -631,18 +826,29 @@ def _ran_outcome(code: int | None, *, timed_out: bool, phase: str) -> tuple[str,
 
 
 def outcome(
-    *, refusal: str, run_result: str, exit_code: str, timed_out: str, phase: str = "check"
+    *,
+    refusal: str,
+    run_result: str,
+    exit_code: str,
+    timed_out: str,
+    phase: str = "check",
+    auto: bool = False,
 ) -> tuple[str, str]:
     """The comment's short status and its one-line explanation."""
     if refusal:
         return "refused", f"Not run: {refusal}."
     result = run_result if run_result in _RUN_RESULTS else "unknown"
     if result != "success":
+        causes = (
+            "a cancelled run, a failed setup step, or a failure after the check ran"
+            if auto
+            else "an approval rejected or left to expire, a cancelled run, a failed "
+            + "setup step, or a failure after the check ran"
+        )
         return (
             "not run",
-            f"The run job ended `{result}` before it reported a result: an approval "
-            + "rejected or left to expire, a cancelled run, a failed setup step, or "
-            + "a failure after the check ran (the run says which).",
+            f"The run job ended `{result}` before it reported a result: {causes} "
+            + "(the run says which).",
         )
     return _ran_outcome(
         parse_exit_code(exit_code),
@@ -670,6 +876,12 @@ class PostInputs:
     vintage_b64: str
     run_url: str
     phase: str = "check"
+    #: The plan's route: ``true`` when the request ran at `main` unapproved.
+    auto: str = ""
+    #: The commit whose code an auto request ran: the workflow run's own SHA.
+    code_sha: str = ""
+    #: Why an ``at: main`` request was held instead, from the plan.
+    held_reason: str = ""
 
 
 def render_comment(inputs: PostInputs) -> str:
@@ -678,18 +890,25 @@ def render_comment(inputs: PostInputs) -> str:
     Every text is decoded defensively, stripped of control characters, has its
     mentions broken and is fenced; the summary is clamped first to
     :data:`SUMMARY_LIMIT_BYTES` and then until the whole body fits under
-    :data:`COMMENT_LIMIT`.
+    :data:`COMMENT_LIMIT`. An auto result leads with the marker naming its head
+    and command, and says plainly that `main`'s code ran, at which commit, and
+    not the PR head's.
     """
     sha = inputs.sha
     if not _SHA.fullmatch(sha):
         raise ValueError("the planned SHA is not a 40-hex commit id")
+    auto = inputs.auto.strip() == "true"
+    if auto and not _SHA.fullmatch(inputs.code_sha):
+        raise ValueError("an auto result needs the 40-hex commit its code ran at")
     status, explanation = outcome(
         refusal=inputs.refusal,
         run_result=inputs.run_result,
         exit_code=inputs.exit_code,
         timed_out=inputs.timed_out,
         phase=inputs.phase,
+        auto=auto,
     )
+    marker = auto_result_marker(sha, inputs.command) if auto else result_marker(sha)
     ran = not inputs.refusal and inputs.run_result == "success"
     vintage, vintage_note = decode_b64(inputs.vintage_b64, 2_000) if ran else ("", None)
     summary, summary_note = (
@@ -702,13 +921,25 @@ def render_comment(inputs: PostInputs) -> str:
     clamped = len(summary.encode("utf-8")) > SUMMARY_LIMIT_BYTES - 4
 
     def body(text: str, was_clamped: bool) -> str:
-        parts = [
-            result_marker(sha),
-            f"### Corpus check: {status}",
-            "",
-            explanation,
-            "",
-            f"- commit: `{sha}`",
+        parts = [marker, f"### Corpus check: {status}", "", explanation, ""]
+        if auto:
+            parts += [
+                f"**Ran at `main@{inputs.code_sha}`, not at the PR head.** The block "
+                + f"asked for `main`'s code (`{AT_MAIN}`) and the subcommand is on the "
+                + "auto allowlist, so it ran without approval and none of the PR's code "
+                + "ran: the figure is what `main`'s code reports, not the change's.",
+                "",
+                f"- code: `main` at `{inputs.code_sha}`",
+                f"- PR head (the request, not the code): `{sha}`",
+            ]
+        else:
+            parts.append(f"- commit: `{sha}`")
+            if inputs.held_reason:
+                parts.append(
+                    "- held for approval rather than run at `main`: "
+                    + f"`{inline(inputs.held_reason, 300)}`"
+                )
+        parts += [
             f"- run: {_printable(inputs.run_url).strip()}",
             "",
             "**Command**",
@@ -723,7 +954,11 @@ def render_comment(inputs: PostInputs) -> str:
                 "",
                 fence(vintage_note or vintage.strip() or "(no vintage was reported)"),
                 "",
-                "**Summary** — what the check wrote to `CHECK_SUMMARY`"
+                (
+                    "**Summary** — what the command printed to stdout"
+                    if auto
+                    else "**Summary** — what the check wrote to `CHECK_SUMMARY`"
+                )
                 + (", clamped" if was_clamped else "")
                 + ":",
                 "",
@@ -856,11 +1091,14 @@ def run_check(
     timeout_seconds: float,
     output_path: Path,
     kill_user: str | None = None,
+    stdout_path: Path | None = None,
 ) -> CheckResult:
     """Run ``argv`` with no shell, stdout and stderr appended to ``output_path``, under a timeout.
 
+    With ``stdout_path``, stdout goes to that file instead (truncated first)
+    and only stderr to ``output_path``: an auto check's stdout is its summary.
     stdin is closed and only stdout and stderr are inherited, both pointing at
-    the output file, so the process holds no descriptor onto the job log. It
+    files, so the process holds no descriptor onto the job log. It
     runs in its own session, and once it ends or times out its process group —
     and with ``kill_user`` every process that account owns, checked until none
     is left (:func:`kill_account`, which raises if one survives) — is killed,
@@ -870,7 +1108,13 @@ def run_check(
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     timed_out = False
-    with output_path.open("ab") as out:
+    with contextlib.ExitStack() as stack:
+        out = stack.enter_context(output_path.open("ab"))
+        stdout: IO[bytes] = out
+        stderr: IO[bytes] | int = subprocess.STDOUT
+        if stdout_path is not None:
+            stdout_path.parent.mkdir(parents=True, exist_ok=True)
+            stdout, stderr = stack.enter_context(stdout_path.open("wb")), out
         try:
             # An argv list and no shell: nothing in the command is interpreted.
             process = subprocess.Popen(
@@ -878,8 +1122,8 @@ def run_check(
                 cwd=cwd,
                 env=dict(env),
                 stdin=subprocess.DEVNULL,
-                stdout=out,
-                stderr=subprocess.STDOUT,
+                stdout=stdout,
+                stderr=stderr,
                 start_new_session=True,
                 close_fds=True,
             )
@@ -905,7 +1149,7 @@ def run_check(
     return CheckResult(exit_code=code, timed_out=timed_out, output_bytes=output_path.stat().st_size)
 
 
-def run_phases(
+def run_phases(  # noqa: PLR0913 - each phase's inputs are named, none positional
     *,
     install_argv: Sequence[str],
     check_argv: Sequence[str],
@@ -915,12 +1159,14 @@ def run_phases(
     check_timeout_seconds: float,
     output_path: Path,
     kill_user: str | None = None,
+    check_stdout_path: Path | None = None,
 ) -> PhaseResult:
-    """Install the head's environment, then run the check; stop at a failed install.
+    """Install the tree's environment, then run the check; stop at a failed install.
 
     Both phases append to one output file and each has its own timeout, so a
     slow install cannot spend the check's budget and an install that never
-    ends is reported as the install's.
+    ends is reported as the install's. With ``check_stdout_path`` the check's
+    stdout goes there instead (:func:`run_check`).
     """
     install = run_check(
         install_argv,
@@ -939,6 +1185,7 @@ def run_phases(
         timeout_seconds=check_timeout_seconds,
         output_path=output_path,
         kill_user=kill_user,
+        stdout_path=check_stdout_path,
     )
     return PhaseResult(phase="check", result=check)
 

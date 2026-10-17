@@ -39,7 +39,7 @@ read the diff, run the linters, and report findings with a clear verdict. You do
 - **The trigger is the trust boundary.** A privileged workflow — one that mints an
   App token, assumes the S3 role, or hands control to a coding agent — carries only
   the two triggers the platform gates itself: `schedule` (fires from the default
-  branch alone, so it runs only what a maintainer-merged promotion put on `main`)
+  branch alone, so it runs only what a maintainer-approved promotion put on `main`)
   and `workflow_dispatch` (GitHub refuses it to anyone without repository write).
   **Blocker** on any diff that adds `issues`, `issue_comment`, `pull_request_target`,
   or another trigger an outside actor can fire to such a workflow: it would need a

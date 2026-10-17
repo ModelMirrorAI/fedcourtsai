@@ -47,7 +47,7 @@ name: run-ops
 # latches onto one thread instead of spamming new ones.
 on:
   schedule:
-    - cron: "0 8 * * *" # after run-pull (07:17) so the day's runs are visible
+    - cron: "0 8 * * *" # after run-pull (06:47 live, 07:17 pull) so the day's runs are visible
     # The weekly tick: the same daily job, plus the weekly performance digest
     # issue. The posting step's `if` is gated on this exact schedule string,
     # and a shape test pins it to a cron this block actually declares. Offset

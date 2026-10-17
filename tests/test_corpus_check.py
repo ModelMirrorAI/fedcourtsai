@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from typer.main import get_command
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus_check as cc
@@ -338,6 +339,8 @@ def test_plan_outputs_are_single_lines(tmp_path: Path) -> None:
         "author": "modelmirror-agent",
         "command": "uv run fedcourts corpus-info",
         "refusal": "",
+        "auto": "false",
+        "held_reason": "",
     }
     assert cc.plan_outputs(None) == {"found": "false"}
     out = tmp_path / "out"
@@ -1033,3 +1036,417 @@ def test_a_survivor_or_an_unanswered_pgrep_fails_the_run(pgrep: int) -> None:
 
     with pytest.raises(cc.ProcessesSurvived):
         cc.kill_account("corpuscheck", status=status, pause=lambda _: None, attempts=3)
+
+
+# --- the unapproved path: `at: main` and the auto allowlist ---------------
+
+AT_MAIN_BODY = "```corpus-check\nat: main\nuv run fedcourts corpus-info\n```"
+ALLOWLIST = frozenset({"corpus-info", "decision-census"})
+
+
+def test_an_at_main_line_asks_for_mains_code() -> None:
+    assert cc.read_block(AT_MAIN_BODY) == cc.Block("uv run fedcourts corpus-info", at_main=True)
+    # Indentation and blank lines are read as before; the command is what follows.
+    body = "````corpus-check\n\n  at: main  \n\nuv run fedcourts corpus-info\n````"
+    assert cc.read_block(body) == cc.Block("uv run fedcourts corpus-info", at_main=True)
+    assert cc.extract_block(AT_MAIN_BODY) == "uv run fedcourts corpus-info"
+    # Without the line, the request is for the PR head, as it always was.
+    plain = "```corpus-check\nuv run fedcourts corpus-info\n```"
+    assert cc.read_block(plain) == cc.Block("uv run fedcourts corpus-info", at_main=False)
+
+
+@pytest.mark.parametrize(
+    "inside",
+    [
+        "uv run fedcourts corpus-info\nat: main",  # the line must come first
+        "at: head\nuv run fedcourts corpus-info",  # `main` is the only target
+        "at:main\nuv run fedcourts corpus-info",
+        "AT: MAIN\nuv run fedcourts corpus-info",
+        "at: main\nat: main\nuv run fedcourts corpus-info",
+    ],
+)
+def test_any_other_two_lines_are_refused(inside: str) -> None:
+    with pytest.raises(cc.CommandRefused, match="optionally after an `at: main` line"):
+        cc.read_block(f"```corpus-check\n{inside}\n```")
+
+
+def test_a_bare_at_main_line_is_a_command_the_grammar_refuses() -> None:
+    requests, _ = cc.candidate_requests(
+        [_pr(1, body="```corpus-check\nat: main\n```")], repo=REPO, requesters=LISTED
+    )
+    assert requests[0].command is None
+    assert requests[0].refusal
+
+
+def test_the_candidate_carries_the_at_main_request() -> None:
+    requests, _ = cc.candidate_requests(
+        [_pr(1, body=AT_MAIN_BODY), _pr(2)], repo=REPO, requesters=LISTED
+    )
+    assert [(r.pr, r.at_main, r.auto) for r in requests] == [(1, True, False), (2, False, False)]
+
+
+def test_the_committed_auto_allowlist_is_the_vetted_read_only_set() -> None:
+    """Widening the unapproved path is an edit to this maintainer-owned test."""
+    config = cc.load_config(Path(__file__).resolve().parent.parent / "config")
+    assert config.auto_allowlist() == (
+        frozenset(
+            {
+                "corpus-info",
+                "decision-census",
+                "caption-census",
+                "party-census",
+                "distribution-census",
+            }
+        ),
+        None,
+    )
+
+
+def test_every_allowlisted_subcommand_is_a_command_main_has() -> None:
+    commands = set(getattr(get_command(app), "commands", {}))
+    config = cc.load_config(Path(__file__).resolve().parent.parent / "config")
+    allowlist, _ = config.auto_allowlist()
+    assert allowlist <= commands
+    # No lane command, and nothing that names a write in its own name.
+    for name in allowlist:
+        assert not name.startswith(("corpus-check", "corpus-push", "backfill", "stamp"))
+
+
+def test_an_absent_allowlist_is_empty(tmp_path: Path) -> None:
+    (tmp_path / cc.CONFIG_FILENAME).write_text("requesters: [modelmirror]\n")
+    assert cc.load_config(tmp_path).auto_allowlist() == (frozenset(), None)
+    assert cc.load_config(tmp_path / "missing").auto_allowlist() == (frozenset(), None)
+
+
+@pytest.mark.parametrize(
+    ("value", "problem"),
+    [
+        ("corpus-info", "not a list"),
+        ("{corpus-info: true}", "not a list"),
+        ("[corpus-info, 3]", "not a subcommand name"),
+        ("['uv run fedcourts corpus-info']", "not a subcommand name"),
+        ("[Corpus-Info]", "not a subcommand name"),
+        ("[corpus-info, corpus-info]", "twice"),
+    ],
+)
+def test_a_malformed_allowlist_is_empty_and_the_requesters_still_load(
+    tmp_path: Path, value: str, problem: str
+) -> None:
+    (tmp_path / cc.CONFIG_FILENAME).write_text(
+        f"requesters: [modelmirror]\napprover: modelmirror\nauto_subcommands: {value}\n"
+    )
+    config = cc.load_config(tmp_path)
+    assert config.requesters == ["modelmirror"]
+    allowlist, reason = config.auto_allowlist()
+    assert allowlist == frozenset()
+    assert reason is not None and problem in reason
+
+
+def _routed(body: str, **overrides: Any) -> cc.Request:
+    requests, _ = cc.candidate_requests([_pr(1, body=body)], repo=REPO, requesters=LISTED)
+    values: dict[str, Any] = {
+        "allowlist": ALLOWLIST,
+        "allowlist_problem": None,
+        "environment_problems": [],
+    }
+    values.update(overrides)
+    return cc.route_requests(requests, **values)[0]
+
+
+def test_an_allowlisted_at_main_request_is_auto() -> None:
+    request = _routed(AT_MAIN_BODY)
+    assert request.auto
+    assert request.held_reason is None
+    with_args = "```corpus-check\nat: main\nuv run fedcourts decision-census --first-term 2020\n```"
+    assert _routed(with_args).auto
+
+
+@pytest.mark.parametrize(
+    ("body", "overrides", "reason"),
+    [
+        (
+            "```corpus-check\nat: main\nuv run fedcourts stats\n```",
+            {},
+            "not on the auto allowlist",
+        ),
+        (
+            "```corpus-check\nat: main\nuv run python scripts/checks/corpus_vintage.py\n```",
+            {},
+            "only a `uv run fedcourts` subcommand",
+        ),
+        (AT_MAIN_BODY, {"allowlist_problem": "`auto_subcommands` is not a list"}, "unreadable"),
+        (AT_MAIN_BODY, {"allowlist": frozenset()}, "not on the auto allowlist"),
+        (
+            AT_MAIN_BODY,
+            {"environment_problems": ["the `corpus-check-auto` environment does not exist"]},
+            "`corpus-check-auto` environment is not ready",
+        ),
+    ],
+)
+def test_anything_else_at_main_is_held_and_says_why(
+    body: str, overrides: dict[str, Any], reason: str
+) -> None:
+    request = _routed(body, **overrides)
+    assert not request.auto
+    assert request.held_reason is not None and reason in request.held_reason
+    # The reason is ours: it never quotes the command.
+    assert "stats" not in request.held_reason
+
+
+def test_a_request_for_the_head_is_held_with_no_reason() -> None:
+    request = _routed("```corpus-check\nuv run fedcourts corpus-info\n```")
+    assert (request.auto, request.held_reason) == (False, None)
+
+
+def test_a_refused_request_stays_refused() -> None:
+    request = _routed("```corpus-check\nat: main\nuv run fedcourts corpus-info; id\n```")
+    assert (request.auto, request.held_reason, request.command) == (False, None, None)
+    assert request.refusal
+
+
+def test_an_auto_result_answers_its_head_and_command_only() -> None:
+    command = "uv run fedcourts corpus-info"
+    marker = cc.auto_result_marker(SHA, command)
+    assert marker.startswith("<!-- corpus-check-result sha=" + SHA + " at=main command=")
+    # Never the held marker's text, so neither route answers the other.
+    assert not marker.startswith(cc.result_marker(SHA))
+    assert not cc.is_answered([_comment(marker)], SHA)
+    assert cc.has_marker([_comment(marker + "\nbody")], marker)
+    assert not cc.has_marker([_comment(cc.result_marker(SHA))], marker)
+    assert marker != cc.auto_result_marker(SHA, command + " --text-coverage")
+    assert marker != cc.auto_result_marker(SHA2, command)
+    assert not cc.has_marker([_comment(marker, login="modelmirror", kind="User")], marker)
+
+
+def test_selection_answers_auto_requests_first_and_by_head_and_command() -> None:
+    requests, _ = cc.candidate_requests(
+        [
+            _pr(1, created_at="2026-10-01T00:00:00Z"),
+            _pr(2, sha=SHA2, body=AT_MAIN_BODY, created_at="2026-10-02T00:00:00Z"),
+        ],
+        repo=REPO,
+        requesters=LISTED,
+    )
+    routed = cc.route_requests(
+        requests, allowlist=ALLOWLIST, allowlist_problem=None, environment_problems=[]
+    )
+    comments: dict[int, list[dict[str, Any]]] = {1: [], 2: []}
+    # The newer auto request goes first: it waits on no approval.
+    chosen = cc.select_request(routed, comments)
+    assert chosen is not None and (chosen.pr, chosen.auto) == (2, True)
+    # Answered for its head and command, the held one is next.
+    comments[2] = [_comment(cc.auto_result_marker(SHA2, "uv run fedcourts corpus-info"))]
+    chosen = cc.select_request(routed, comments)
+    assert chosen is not None and chosen.pr == 1
+    # A held result for PR 2's head does not answer its auto request.
+    comments[2] = [_comment(cc.result_marker(SHA2))]
+    chosen = cc.select_request(routed, comments)
+    assert chosen is not None and chosen.pr == 2
+    # A new command at the same head asks again.
+    edited = routed[1].model_copy(update={"command": "uv run fedcourts decision-census"})
+    comments[2] = [_comment(cc.auto_result_marker(SHA2, "uv run fedcourts corpus-info"))]
+    comments[1] = [_comment(cc.result_marker(SHA))]
+    assert cc.select_request([routed[0], edited], comments) == edited
+
+
+def test_auto_plan_outputs_carry_the_route() -> None:
+    request = _routed(AT_MAIN_BODY)
+    outputs = cc.plan_outputs(request)
+    assert (outputs["auto"], outputs["held_reason"]) == ("true", "")
+    held = _routed("```corpus-check\nat: main\nuv run fedcourts stats\n```")
+    outputs = cc.plan_outputs(held)
+    assert outputs["auto"] == "false"
+    assert "allowlist" in outputs["held_reason"]
+
+
+def test_the_plan_summary_says_an_auto_request_runs_mains_code_unapproved() -> None:
+    summary = cc.render_plan_summary(
+        _routed(AT_MAIN_BODY), [], server_url="https://github.com", repo=REPO, candidates=1
+    )
+    assert "**Runs without approval**" in summary
+    assert "`corpus-check-auto`" in summary
+    assert "The PR head is not checked out" in summary
+    assert "Before approving" not in summary
+    held = cc.render_plan_summary(
+        _routed("```corpus-check\nat: main\nuv run fedcourts stats\n```"),
+        [],
+        server_url="https://github.com",
+        repo=REPO,
+        candidates=1,
+    )
+    assert "Before approving" in held
+    assert "but it is held" in held
+    assert "Approving runs it at the PR head" in held
+
+
+def _auto_inputs(**overrides: str) -> cc.PostInputs:
+    values: dict[str, Any] = {"auto": "true", "code_sha": BASE}
+    values.update(overrides)
+    return _inputs(**values)
+
+
+def test_an_auto_comment_says_it_ran_mains_code_not_the_head() -> None:
+    body = cc.render_comment(_auto_inputs())
+    command = "uv run fedcourts corpus-info"
+    assert body.startswith(cc.auto_result_marker(SHA, command) + "\n")
+    assert f"Ran at `main@{BASE}`, not at the PR head." in body
+    assert f"- code: `main` at `{BASE}`" in body
+    assert f"- PR head (the request, not the code): `{SHA}`" in body
+    assert "what the command printed to stdout" in body
+    assert "- commit:" not in body
+
+
+def test_an_auto_comment_needs_the_commit_its_code_ran_at() -> None:
+    with pytest.raises(ValueError, match="40-hex commit its code ran at"):
+        cc.render_comment(_auto_inputs(code_sha=""))
+    with pytest.raises(ValueError, match="40-hex commit its code ran at"):
+        cc.render_comment(_auto_inputs(code_sha="main"))
+
+
+def test_an_auto_run_that_did_not_report_blames_no_approval() -> None:
+    body = cc.render_comment(_auto_inputs(run_result="failure"))
+    assert "### Corpus check: not run" in body
+    assert "approval" not in body.split("**Ran at")[0]
+
+
+def test_a_held_at_main_comment_says_why_it_was_held() -> None:
+    body = cc.render_comment(_inputs(held_reason="the subcommand is not on the auto allowlist"))
+    assert body.startswith(cc.result_marker(SHA) + "\n")
+    assert "held for approval rather than run at `main`" in body
+    assert "Ran at" not in body
+
+
+def test_an_auto_checks_stdout_is_its_own_file(tmp_path: Path) -> None:
+    out = tmp_path / "log"
+    stdout = tmp_path / "auto" / "stdout.txt"
+    stdout.parent.mkdir()
+    stdout.write_text("stale\n")
+    code = "import sys; print('figure: 3'); print('noise', file=sys.stderr)"
+    result = cc.run_check(
+        _py(code),
+        cwd=tmp_path,
+        env=dict(os.environ),
+        timeout_seconds=30,
+        output_path=out,
+        stdout_path=stdout,
+    )
+    assert result.exit_code == 0
+    assert stdout.read_text() == "figure: 3\n"
+    assert out.read_text() == "noise\n"
+
+
+def test_the_exec_cli_reports_an_auto_checks_stdout_as_its_summary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: dict[str, Any] = {}
+
+    def fake_phases(**kwargs: Any) -> cc.PhaseResult:
+        seen.update(kwargs)
+        kwargs["check_stdout_path"].write_text("rows: 12\n")
+        return cc.PhaseResult(phase="check", result=cc.CheckResult(0, False, 9))
+
+    def fake_run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        # The summary file is never read back on the auto path.
+        assert "/usr/bin/head" not in argv
+        return subprocess.CompletedProcess(argv, 0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(cc, "run_phases", fake_phases)
+    monkeypatch.setattr(cc, "kill_account", lambda _user: None)
+    stdout = tmp_path / "stdout.txt"
+    result = CliRunner().invoke(app, [*_exec_args(tmp_path), "--stdout-summary-file", str(stdout)])
+    assert result.exit_code == 0, result.output
+    assert seen["check_stdout_path"] == stdout
+    outputs = dict(
+        line.partition("=")[::2] for line in (tmp_path / "gh-output").read_text().splitlines()
+    )
+    assert base64.b64decode(outputs["summary_b64"]).decode() == "rows: 12\n"
+
+
+@pytest.mark.parametrize(
+    ("allowlist", "command"),
+    [
+        ("auto_subcommands: [decision-census]\n", "uv run fedcourts corpus-info"),
+        ("auto_subcommands: corpus-info\n", "uv run fedcourts corpus-info"),
+        ("auto_subcommands: [corpus-info]\n", "uv run python scripts/checks/x.py"),
+    ],
+)
+def test_the_exec_cli_refuses_an_auto_check_off_the_allowlist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, allowlist: str, command: str
+) -> None:
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / cc.CONFIG_FILENAME).write_text("requesters: [modelmirror-agent]\n" + allowlist)
+    monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(config))
+
+    def never(**_kwargs: Any) -> cc.PhaseResult:
+        raise AssertionError("an auto check off the allowlist must not run")
+
+    monkeypatch.setattr(cc, "run_phases", never)
+    args = [*_exec_args(tmp_path)[:-1], command, "--stdout-summary-file", str(tmp_path / "o")]
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 1
+    assert "refused" in result.output
+
+
+def _auto_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, auto_environment: Any, auto_policies: Any
+) -> dict[str, str]:
+    prs, comments = _plan_fixture(tmp_path, monkeypatch)
+    (tmp_path / "config" / cc.CONFIG_FILENAME).write_text(
+        "requesters: [modelmirror-agent]\napprover: modelmirror\n"
+        + "auto_subcommands: [corpus-info]\n"
+    )
+    prs.write_text(json.dumps([[_pr(1, body=AT_MAIN_BODY)]]))
+    args = _plan_args(tmp_path, prs, comments)
+    for name, document in (
+        ("auto-environment.json", auto_environment),
+        ("auto-branch-policies.json", auto_policies),
+    ):
+        if document is not None:
+            (tmp_path / name).write_text(json.dumps(document))
+    args += [
+        "--auto-environment-file",
+        str(tmp_path / "auto-environment.json"),
+        "--auto-branch-policies-file",
+        str(tmp_path / "auto-branch-policies.json"),
+    ]
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 0, result.output
+    return dict(
+        line.partition("=")[::2] for line in (tmp_path / "gh-output").read_text().splitlines()
+    )
+
+
+AUTO_ENVIRONMENT = {
+    "protection_rules": [{"type": "branch_policy"}],
+    "deployment_branch_policy": {"protected_branches": False, "custom_branch_policies": True},
+}
+
+
+def test_the_plan_cli_routes_an_allowlisted_at_main_request_auto(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    outputs = _auto_plan(tmp_path, monkeypatch, AUTO_ENVIRONMENT, MAIN_ONLY)
+    assert (outputs["found"], outputs["auto"], outputs["held_reason"]) == ("true", "true", "")
+    assert "**Runs without approval**" in (tmp_path / "summary.md").read_text()
+
+
+@pytest.mark.parametrize(
+    ("environment", "policies"),
+    [
+        (None, MAIN_ONLY),
+        (AUTO_ENVIRONMENT, None),
+        (
+            {**AUTO_ENVIRONMENT, "deployment_branch_policy": None},
+            MAIN_ONLY,
+        ),
+        (AUTO_ENVIRONMENT, {"branch_policies": [{"name": "*", "type": "branch"}]}),
+    ],
+)
+def test_the_plan_cli_holds_every_request_without_the_auto_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, environment: Any, policies: Any
+) -> None:
+    outputs = _auto_plan(tmp_path, monkeypatch, environment, policies)
+    assert (outputs["found"], outputs["auto"]) == ("true", "false")
+    assert "`corpus-check-auto` environment is not ready" in outputs["held_reason"]

@@ -87,7 +87,7 @@ jobs:
     timeout-minutes: 15
     # The environment holding the Buttondown key, its deployment branches
     # restricted to `main`, so the key is reachable only from code a
-    # maintainer-merged promotion put there.
+    # maintainer-approved promotion put there.
     environment: website
     permissions:
       contents: read # read the committed ledger under data/

@@ -2,7 +2,7 @@
 *Trigger surface*). Every workflow that does privileged work — mint an App
 token, assume the S3 role, hand control to a coding agent — enters through a
 trigger the platform itself gates: a `schedule`, which fires only from the
-default branch and so runs only what a maintainer-merged promotion put on
+default branch and so runs only what a maintainer-approved promotion put on
 `main`, or a `workflow_dispatch`, which GitHub refuses to anyone without
 repository write. Nothing an outside actor can file — an issue, a label, a
 comment — starts any of it.
@@ -29,6 +29,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
 from fedcourtsai.run_gate import DISPATCHERS_PATH, load_dispatchers
@@ -107,10 +108,13 @@ BRANCH_POLICIED_ENVIRONMENTS = frozenset({"prod", "staging"})
 # AWS role trust policies pin the OIDC `sub` to the named environments, so a
 # run under an auto-created one can assume nothing (docs/security.md carries
 # that carve-out). This one is integration-test's: resolved from its
-# `deploy-environment` input, falling back to the ref's own name.
+# `deploy-environment` input, falling back to the ref — `main` to `prod`, a
+# promotion train candidate (`promote/…`) to `staging`, whose branch policy
+# admits `promote/*`, anything else to its own name.
 COMPUTED_ENVIRONMENT = (
     "${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment "
-    "|| (github.ref_name == 'main' && 'prod' || github.ref_name) }}"
+    "|| (github.ref_name == 'main' && 'prod' "
+    "|| (startsWith(github.ref_name, 'promote/') && 'staging' || github.ref_name)) }}"
 )
 
 # The other computed form, run-analytics's: pure branch resolution with no
@@ -130,16 +134,19 @@ COMPUTED_ENVIRONMENTS = {
     "summarize.yml": BRANCH_RESOLVED_ENVIRONMENT,
 }
 
-# One environment bound by one workflow alone, each for a risk class of its
-# own. `corpus-check` holds the read-only role for the lane that runs PR-head
-# code after the maintainer approves it (docs/corpus-check.md): its required
+# Environments bound by one workflow alone, each for a risk class of its own.
+# `corpus-check` holds the read-only role for the lane that runs PR-head code
+# after the maintainer approves it (docs/corpus-check.md): its required
 # reviewer is the gate, its branch policy admits `main` alone, and the
-# read-only role is the only role whose trust names it. Pinned per workflow, so
-# another lane binding it — and so reaching a role behind an approval meant for
-# a different question — fails the sweep below.
-LANE_ENVIRONMENTS = {
-    "corpus-check.yml": "corpus-check",
-    "post-public-update.yml": "website",
+# read-only role is the only role whose trust names it. `corpus-check-auto`
+# holds the same role for the same lane's unapproved path, which runs an
+# allowlisted subcommand at `main`'s own commit and no PR code: its `main`-only
+# branch policy is its control. Pinned per workflow, so another lane binding
+# either — and so reaching a role behind an approval, or a reviewer-less
+# environment, meant for a different question — fails the sweep below.
+LANE_ENVIRONMENTS: dict[str, frozenset[str]] = {
+    "corpus-check.yml": frozenset({"corpus-check", "corpus-check-auto"}),
+    "post-public-update.yml": frozenset({"website"}),
 }
 
 # Step markers that mean "privileged work has started": minting an App token,
@@ -288,9 +295,10 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
     across every workflow, for the same reason as the trigger sweep above. A
     job is privileged when it uses a marker action directly or through a local
     composite that does, so the read-only corpus composites' callers are swept
-    too. The one lane environment, `corpus-check`, is admitted for its own
-    workflow only: its branch policy admits `main` alone, and its required
-    reviewer is what stands between a planned check and the read-only role.
+    too. The lane environments, `corpus-check` and `corpus-check-auto`, are
+    admitted for their own workflow only: each admits `main` alone, and the
+    first's required reviewer is what stands between a planned check of PR
+    code and the read-only role.
     """
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         for job_name, job in _jobs(_load(path.name)).items():
@@ -300,7 +308,7 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
             assert (
                 environment in BRANCH_POLICIED_ENVIRONMENTS
                 or environment == COMPUTED_ENVIRONMENTS.get(path.name)
-                or environment == LANE_ENVIRONMENTS.get(path.name)
+                or environment in LANE_ENVIRONMENTS.get(path.name, frozenset())
             ), (
                 f"{path.name}:{job_name} mints a token, assumes the S3 role or runs an "
                 f"agent under environment {environment!r} — not one whose branch policy "
@@ -310,29 +318,33 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
 
 def test_a_lane_environment_is_bound_by_its_own_workflow_alone() -> None:
     """`corpus-check`'s reviewer approves one question — run this SHA's check —
-    and the read-only role trusts it for that; `website` holds the email
-    list's key for the one job that drafts the weekly update. A job elsewhere
-    binding either would reach what it holds for a purpose it was not set up
-    for."""
-    bound: dict[str, set[str]] = {env: set() for env in LANE_ENVIRONMENTS.values()}
+    and the read-only role trusts it for that; `corpus-check-auto` hands the
+    same role, unapproved, to the job that runs an allowlisted subcommand at
+    `main`; `website` holds the email list's key for the one job that drafts
+    the weekly update. A job elsewhere binding any of them would reach what it
+    holds for a purpose it was not set up for."""
+    bound: dict[str, set[str]] = {env: set() for envs in LANE_ENVIRONMENTS.values() for env in envs}
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         for job in _jobs(_load(path.name)).values():
             environment = job.get("environment")
             name = environment.get("name") if isinstance(environment, dict) else environment
             if name in bound:
                 bound[str(name)].add(path.name)
-    for workflow, environment in LANE_ENVIRONMENTS.items():
-        assert bound[environment] == {workflow}, (
-            f"`{environment}` is bound by {sorted(bound[environment])}, not {workflow} alone"
-        )
+    for workflow, environments in LANE_ENVIRONMENTS.items():
+        for environment in environments:
+            assert bound[environment] == {workflow}, (
+                f"`{environment}` is bound by {sorted(bound[environment])}, not {workflow} alone"
+            )
 
 
 # The hold's one routed form: a round whose own plan auto-released it binds the
-# reviewer-less `review-auto`, every other round binds `review`.
+# reviewer-less `review-auto`, every other round binds `review`. The three spend
+# lanes the review hold may auto-release; the back-test is not one of them.
+ROUTED_HOLD = "${{ needs.plan.outputs.auto_release == 'true' && 'review-auto' || 'review' }}"
 AUTO_RELEASED_HOLD = {
-    "run-predict.yml": (
-        "${{ needs.plan.outputs.auto_release == 'true' && 'review-auto' || 'review' }}"
-    ),
+    "run-predict.yml": ROUTED_HOLD,
+    "run-evaluate.yml": ROUTED_HOLD,
+    "summarize.yml": ROUTED_HOLD,
 }
 
 
@@ -344,9 +356,9 @@ def test_the_agent_cells_sit_behind_the_review_hold() -> None:
     therefore wait on the `approval` hold job, or a round would spend the moment
     its cron fired.
 
-    The one exception is spelled exactly: a predict round its own plan job
-    auto-released (`hold-decision`, within `review_hold`'s caps) binds the
-    reviewer-less `review-auto` instead. Any other expression — one keyed on a
+    The one exception is spelled exactly: a round its own plan job
+    auto-released (`hold-decision`, within `review_hold`'s caps and budget)
+    binds the reviewer-less `review-auto` instead. Any other expression — one keyed on a
     trigger, an input, or anything but the plan's decision — fails here.
     """
     for name in AGENT_FAN_OUTS:
@@ -373,24 +385,65 @@ def test_the_agent_cells_sit_behind_the_review_hold() -> None:
             )
 
 
-def test_the_auto_release_output_comes_only_from_the_hold_decision() -> None:
+@pytest.mark.parametrize(
+    ("workflow", "seam"),
+    [
+        ("run-predict.yml", "predict"),
+        ("run-evaluate.yml", "evaluate"),
+        ("summarize.yml", "summarize"),
+    ],
+)
+def test_the_auto_release_output_comes_only_from_the_hold_decision(
+    workflow: str, seam: str
+) -> None:
     """The routed hold above trusts `needs.plan.outputs.auto_release`, so pin
     where that value is made: the plan job's `hold` step, which runs the tested
-    `fedcourts hold-decision` and writes nothing else to that output. A later
-    edit that fed the output from an input, a variable or another step would
-    route a round past the reviewers without the caps' say-so."""
-    plan = _load("run-predict.yml")["jobs"]["plan"]
+    `fedcourts hold-decision` for its own lane and writes nothing else to that
+    output. A later edit that fed the output from an input, a variable or
+    another step would route a round past the reviewers without the caps' say-so."""
+    wf = _load(workflow)
+    assert wf["jobs"]["approval"]["environment"] == AUTO_RELEASED_HOLD[workflow]
+    plan = wf["jobs"]["plan"]
     assert plan["outputs"]["auto_release"] == "${{ steps.hold.outputs.auto_release }}"
+    # The counts are reads: deployments to `review-auto`, never a write.
+    assert plan["permissions"].get("deployments") == "read"
     holds = [step for step in _steps(plan) if step.get("id") == "hold"]
     assert len(holds) == 1
     run = str(holds[0].get("run", ""))
     assert "uv run fedcourts hold-decision" in run
+    assert f"--seam {seam}" in run
+    assert "deployments?environment=review-auto" in run
+    assert "commits?sha=main" in run
     assert run.count("auto_release=") == 1
     assert "auto_release=$(jq -r '.auto_release' <<<\"$decision\")" in run
     # No other step in the job writes that output.
     for step in _steps(plan):
         if step.get("id") != "hold":
             assert "auto_release=" not in str(step.get("run", ""))
+
+
+def test_a_summarize_rehearsal_never_reaches_the_auto_release() -> None:
+    """`review-auto` admits `main` alone, so a staging rehearsal must not even
+    ask: the decision step runs only on `main`, and an unset output binds
+    `review`."""
+    plan = _load("summarize.yml")["jobs"]["plan"]
+    (hold,) = [step for step in _steps(plan) if step.get("id") == "hold"]
+    assert "github.ref == 'refs/heads/main'" in str(hold["if"])
+
+
+@pytest.mark.parametrize("workflow", ["run-predict.yml", "run-evaluate.yml", "summarize.yml"])
+def test_an_auto_released_round_marks_its_commit_for_the_daily_count(workflow: str) -> None:
+    """The committed half of the daily count: each lane's writer puts the
+    auto-released mark on the commit `main` keeps, keyed on the plan's decision."""
+    text = (WORKFLOWS / workflow).read_text()
+    if workflow == "summarize.yml":
+        publish = _load(workflow)["jobs"]["publish"]
+        (step,) = [s for s in _steps(publish) if s.get("name") == "Open or update the review PR"]
+        assert step["env"]["AUTO_RELEASED"] == "${{ needs.plan.outputs.auto_release }}"
+        assert "(run ${GITHUB_RUN_ID})" in step["run"]
+        assert 'title="${title} [auto-released]"' in step["run"]
+    else:
+        assert "auto-released: ${{ needs.plan.outputs.auto_release }}" in text
 
 
 def test_the_scheduled_back_test_spends_only_behind_the_review_hold() -> None:
@@ -714,6 +767,18 @@ def test_the_chained_rounds_are_dispatched_by_a_bot_the_allow_list_admits() -> N
     assert config.is_dispatch_bot("fedcourtsai-dispatch[bot]", "run-predict.yml")
 
 
+def test_the_promotion_train_gate_is_dispatched_by_a_bot_the_allow_list_admits() -> None:
+    """promotion-prep's `dispatch-gate` job starts integration-test's `gate`
+    suite at a candidate branch with the dispatch App's token. The gate reads
+    the allow-list from the dispatched ref — a cut of staging — so the entry
+    must be there, and must name that bot for integration-test alone: the
+    dispatch App gains no other workflow by it."""
+    config = load_dispatchers(ROOT / DISPATCHERS_PATH)
+    assert config.is_dispatch_bot("fedcourtsai-dispatch[bot]", "integration-test.yml")
+    allowed = {wf for wf, bots in config.bots.items() if "fedcourtsai-dispatch[bot]" in bots}
+    assert allowed == {"integration-test.yml", "run-predict.yml"}
+
+
 def test_the_disjunction_check_reads_quotes_and_parentheses() -> None:
     assert top_level_disjunction("a || b")
     assert top_level_disjunction("(a) || b && c")
@@ -735,7 +800,7 @@ def test_a_job_that_names_a_secret_binds_a_branch_policied_environment() -> None
             assert (
                 environment in BRANCH_POLICIED_ENVIRONMENTS
                 or environment == COMPUTED_ENVIRONMENTS.get(path.name)
-                or environment == LANE_ENVIRONMENTS.get(path.name)
+                or environment in LANE_ENVIRONMENTS.get(path.name, frozenset())
             ), f"{path.name}:{job_name} names a secret under environment {environment!r}"
 
 

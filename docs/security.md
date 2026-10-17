@@ -39,7 +39,9 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   `run-analytics`'s metrics-refresh and qp-topic-publish jobs, and
   `summarize`'s publish job),
   `run-analytics`'s big-cases job (the one PR opener here that merges its own PR unattended),
-  `sync-staging`, and `promotion-prep`.
+  `sync-staging`, and the promotion train (`promotion-prep`'s `write` job),
+  which cuts each frozen `promote/<date>` candidate, opens its PR and merges
+  it on the configured approver's approval of exactly its head.
   Its client id
   is the `DEV_APP_CLIENT_ID`
   variable and its private key the `DEV_APP_PRIVATE_KEY` secret. This App is
@@ -48,9 +50,11 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   its one bypass is `main: require approval`'s, for pull requests only, which
   is what lets the unattended lanes land without a human approval, through
   the jobs' own merge call (GitHub's auto-merge does not exercise a bypass).
-- **dispatch App** — used only by the two drain-chain jobs, `run-pull`'s
-  `chain-predict` and `run-predict`'s `chain`, each of which starts an
-  input-less `run-predict` round on `main`. Its client id is the
+- **dispatch App** — used only by three jobs: the two drain-chain jobs,
+  `run-pull`'s `chain-predict` and `run-predict`'s `chain`, each of which
+  starts an input-less `run-predict` round on `main`, and the promotion
+  train's `dispatch-gate`, which starts `integration-test` `scenario=gate` at a
+  promotion candidate's `promote/<date>` branch, once per head. Its client id is the
   `DISPATCH_APP_CLIENT_ID` variable and its private key the
   `DISPATCH_APP_PRIVATE_KEY` secret, both on `prod`; it must be named
   `fedcourtsai-dispatch`, because `run-predict`'s agent steps allow its bot
@@ -62,13 +66,16 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   the job's own token because a token's dispatch is attributed to the job's
   actor and can start only what that token's workflow may, whereas the
   separate key gives a chained round a distinct, allow-listed bot login and
-  keeps the dispatch grant out of every job but the two that need it. The two
-  chain jobs run no agent, corpus or PR-head code (they check out `main`, for
+  keeps the dispatch grant out of every job but the three that need it. The
+  two chain jobs run no agent, corpus or PR-head code (they check out `main`, for
   the tested `fedcourts chain-step`, and mint the token only after that), and
-  hold nothing else; `tests/test_workflow_dispatch_chain.py` pins the minters,
+  hold nothing else; the train's `dispatch-gate` checks nothing out at all,
+  confirms with the ambient token that the candidate branch still sits at the
+  planned head, then mints, re-reads the runs at that head and dispatches only
+  if no `gate` run exists there; `tests/test_workflow_dispatch_chain.py` pins the minters,
   their grants, their action order, their read-only API calls and their one
   dispatch, and refuses `toJSON(secrets)` or `secrets: inherit` in any
-  workflow. Both jobs are skipped unless the **repository-level**
+  workflow. All three jobs are skipped unless the **repository-level**
   `DISPATCH_CHAIN_ENABLED` variable is `true`: a job's `if:` is read before the
   job binds its environment, so the switch cannot live on `prod`.
 - **staging App** (`fedcourtsai-staging`) — referenced by no workflow. Its
@@ -91,9 +98,10 @@ two client ids as variables, the two keys as secrets). Each workflow mints a tok
 | `run-analytics` (big-cases job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** big-case-board PR — the one PR opener in this repo that is not reviewed by a human, which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
 | `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR, from a job that runs no agent and takes only the measured labels file and the measured block from `qp-topic-label`, as a one-day artifact handed off once the gate has passed. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
-| `promotion-prep` | dev | pull-requests | open the **draft** staging→main promotion PR and refresh the generated block of its body while it stays a draft. It merges, dispatches and pushes nothing; the PR merges through `main`'s required checks like a hand-opened one, and the maintainer marks it ready and merges it |
+| `promotion-prep` (`write` job only — the promotion train) | dev | contents, pull-requests | create a `promote/<date>` candidate branch at staging's tip (the one ref write; never an update, force push or deletion), open its draft PR into `main`, mark it ready, request the approvers' review, refresh the generated block of its body — and **merge it**, with a merge commit pinned to the head, using the dev App's `main: require approval` bypass. The merge runs only after the job re-reads, on the ambient token before minting, that the PR is open, ready and unchanged at the planned head, that an approver in `config/promotion-train.yaml` approved exactly that head with no change requested since, from every page of the reviews (`fedcourts promotion-train-approval`; a short or failed read is not approved), that no fan-out is in flight, and that the registry gate still passes; `main: require PR`'s required checks still bind the merge. The `plan` job before it decides and renders holding no write credential and no environment |
 | `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read (`chain` only) | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
-| `corpus-check` (post job only) | none — the job's own token | pull-requests write | the one result comment on the PR the plan picked, its body's sha256 recorded in the job's run summary — since any workflow's comment-capable token posts as the same bot, that digest is what marks the lane's result. The ambient token, not an App's: the comment must start nothing, and the job runs no PR code, binds no environment and holds no `id-token`. The `run` job, which runs the PR's code, holds `contents: read` and `id-token` only, and runs that code as an account that can reach neither |
+| `promotion-prep` (`dispatch-gate` job) | dispatch | actions write | start `integration-test` `scenario=gate` (`offline-gate` under the `promote:skip-engine-smoke` label) at a promotion candidate's `promote/<date>` branch, only while no dispatched integration run of any title sits at that head and ref: one paid suite per candidate, never re-dispatched by the train, and at most `max_gate_dispatches_per_day` (`config/promotion-train.yaml`) a UTC day across candidates. The run resolves the `staging` environment, spends staging's engine keys with no review hold, and is side-effect free like every integration run |
+| `corpus-check` (post job only) | none — the job's own token | pull-requests write | the one result comment on the PR the plan picked, its body's sha256 recorded in the job's run summary — since any workflow's comment-capable token posts as the same bot, that digest is what marks the lane's result. The ambient token, not an App's: the comment must start nothing, and the job runs no PR code, binds no environment and holds no `id-token`. The `run` job, which runs the PR's code, holds `contents: read` and `id-token` only, and runs that code as an account that can reach neither; `run-auto`, which runs `main`'s, holds the same |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
 **Repository permissions each App must grant** (App settings → Permissions), at
@@ -103,9 +111,14 @@ the App level the union of what its workflows mint:
   Pull-requests scope from it: the deterministic writers' issue writes must
   trigger nothing and so ride the ambient `GITHUB_TOKEN`. Dropping both grants
   at the App level is a safe tightening.)
-- **dev App**: Contents, Issues, and Pull requests — all *read and write*. (No
-  workflow mints a Workflows scope from it; dropping that grant at the App level
-  is a safe tightening.)
+- **dev App**: Contents, Issues, and Pull requests — all *read and write*, and
+  **no Workflows permission** — a requirement, not a tightening: with it, a
+  dev App token could create or update a ref carrying a workflow file, and
+  the promotion train's `promote/` candidates, which the App creates and the
+  `staging` environment admits, would put that workflow's push-run in reach
+  of staging's role and keys. Verify it in the App's settings when setting up
+  the train, and again whenever the App's permissions change; no workflow
+  mints a Workflows scope from it.
 - **dispatch App**: Actions — *read and write*, and Pull requests — *read* (the
   `chain` job waits on its round's collect PR before it dispatches). Nothing
   else.
@@ -163,7 +176,10 @@ same guard.
   `bots`, a map from workflow file name to the App bot logins
   (`<slug>[bot]`) that may dispatch that one workflow — today the dispatch App
   for `run-predict`, whose `chain` and `chain-predict` jobs start chained
-  rounds. Unknown keys, duplicated keys, a login that is not one, and a bot
+  rounds, and for `integration-test`, whose `gate` suite the promotion train
+  starts at each candidate. The gate reads the file from the dispatched ref, so
+  the entry has to be on the candidate — a cut of `staging` — as well as on
+  `main`. Unknown keys, duplicated keys, a login that is not one, and a bot
   entry without the `[bot]` suffix are refused, so a typo cannot widen the
   gate. JSON rather than YAML because the gate parses it with the standard
   library alone. The agent account is deliberately absent: an interactive
@@ -222,14 +238,17 @@ same guard.
 The **`maintainers`** team (the maintainer alone, with direct access to the
 repository) is the required reviewer on `main: require approval`, so its
 membership is who can approve a change into `main`; whoever administers the
-organization's teams holds that decision.
+organization's teams holds that decision. The promotion train merges with the
+dev App, which bypasses that rule, so for a train merge the approver is
+instead whoever `config/promotion-train.yaml` lists (the maintainer); the file
+is code-owned, and must never name the agent account or a bot.
 
 What write lets the account do that no rule here refuses: publish a
 Release on an existing tag, which Zenodo archives permanently (no repository
 setting restricts Release creation; the tag-creation rulesets below are
 expected to refuse one that would mint a new tag, which is unverified, and a
 draft creates no tag until someone publishes it); prune the
-deployment list the auto-release cap reads; and push onto an open
+deployment list the auto-release daily cap reads; and push onto an open
 data-lane PR's branch — which then waits for the maintainer, since the job's
 own merge is pinned to the commit it pushed and an armed auto-merge exercises
 no bypass, so it needs the approval like any PR. Each is
@@ -449,9 +468,11 @@ pre-registration record's commit ids.
   maintainer read. The team requirement is what makes the approval the
   maintainer's: a plain approval count would accept one from any identity
   with write, the agent account included. Most-recent-push approval is
-  **off**: a promotion's head is `staging`, whose latest push is often the
+  **off**: a hand promotion's head is `staging`, whose latest push is often the
   maintainer's own merge, which would make the one person who can approve
-  ineligible to. **Bypass**, each scoped to what it lands:
+  ineligible to. A train candidate's only push is the dev App's ref creation,
+  never the maintainer's, so the rule would not block its approval either way;
+  it stays off for the hand promotions. **Bypass**, each scoped to what it lands:
   - the **dev App**, for pull requests only — the two unattended lanes
     (`collect` and the big-case board) land without a human, still bound by
     `main: require PR`'s checks and the `paths` jail, because that ruleset
@@ -466,7 +487,12 @@ pre-registration record's commit ids.
     so a PR the call gives up on lands on the maintainer's approval. Its
     reviewed lanes (the metrics refresh, the backtest, the summaries, the
     labeling run) are never merged unattended, so a maintainer merging them is
-    the convention that keeps them read. This is also the residual: a job that
+    the convention that keeps them read. The promotion train's `write` job
+    is the one dev App merge into `main` of code: it merges a promotion
+    candidate only after re-reading that an approver `config/promotion-train.yaml`
+    lists approved exactly the candidate's head, nothing requested since, and
+    pins the merge to that head — the approval the rule asks for, checked by
+    the job rather than the platform. This is also the residual: a job that
     mints the dev App token with contents write could merge any green PR into
     `main` unapproved, a promotion included. Changing what those jobs do takes
     code on `main`, which takes an approval, and none of them runs an agent: a
@@ -474,7 +500,8 @@ pre-registration record's commit ids.
     whole secrets context, so neither the token nor the key that mints it is
     ever delivered to a runner an agent holds
     (`tests/test_workflow_token_holder.py`);
-    `promotion-prep`'s token holds no contents write;
+    `promotion-prep`'s plan job holds no App token at all, and only its
+    `write` job, which runs no agent, holds contents write;
   - the **data App**, always — its writer pushes are direct, and this
     ruleset's pull-request requirement would otherwise refuse them; it could
     equally merge a PR unapproved, which adds nothing to a reach that
@@ -485,9 +512,46 @@ pre-registration record's commit ids.
     bound by the checks; direct pushes stay refused. A session holding the
     maintainer's credentials holds this bypass too.
 
-  Promotions are opened by the dev App (`promotion-prep`), so the maintainer
-  can approve one: a promotion merges on that approval of its head, or
-  through one of the bypasses above, which the merge records.
+  Promotions are opened by the dev App (the promotion train), so the
+  maintainer can approve one: the maintainer's approval of the frozen
+  candidate head is the merge decision, and the train executes it through the
+  dev App's bypass above, recorded as such; the maintainer may also merge it
+  by hand, on that approval or through the admin bypass.
+- **`promote: restrict creation`** and **`promote: freeze`** — two branch
+  rulesets over `refs/heads/promote/**`, the promotion train's candidates
+  (the pattern must be `**`: `promote/*` would leave `promote/a/b` open).
+  `promote: restrict creation` restricts creation, **bypass: the dev App and
+  the repository admin role, both Always** — a ref creation is not a pull
+  request — so only the train (or the maintainer) can cut one. `promote:
+  freeze` restricts update, deletion and non-fast-forward, **bypass: the
+  repository admin role only** (Always, for recovery): a candidate is never
+  moved, force-pushed or deleted once cut, by the train included. They are
+  separate because a ruleset's bypass list covers all its rules, and the dev
+  App must create without being able to move. A candidate's integration
+  evidence, its required checks and the approval are all bound to its head
+  SHA, and the `staging` environment admits `promote/*`, so both rest on
+  these two: a candidate anyone could create or move would carry staging's
+  environment and an approval to code nobody approved. The promotion gate's
+  `provenance` stage independently refuses a `promote/` head that is not on
+  staging's first-parent chain, and the train acts on nothing else. The
+  `contexts` stage checks both rulesets (`ruleset_checks.py`): some active
+  ruleset covering every candidate restricts each of the four rules, and a
+  covering ruleset that freezes admits no App bypass. The freeze also refuses
+  the repository's *Automatically delete head branches* setting on a merged
+  candidate, which is intended: the branches are the train's record of which
+  staging tips were cut.
+
+  **Setup order, and why it is fixed.** Create both rulesets, then run
+  `scripts/promotion-gate.sh contexts` with an admin token and see it green,
+  and only then add `promote/*` to the `staging` environment's deployment
+  branches. The other order opens a window: without `promote: restrict
+  creation`, any write holder — the agent account included — could push a
+  `promote/x` branch carrying its own `on: push` workflow, and that push-run
+  would bind the `staging` environment. Whether GitHub's environment branch
+  policy `promote/*` and the ruleset pattern `refs/heads/promote/**` agree on
+  case (a `Promote/x` branch) is not documented; confirm it on the first setup
+  by trying to create `Promote/x` as a non-admin and to bind `staging` from it,
+  and record the result here.
 - **`main: protect history`** — blocks force-pushes and branch deletion. **No
   bypass — neither App.** This is what guarantees the committed *history* of
   the predictions, outcomes, and evaluations under `data/` cannot be rewritten
@@ -546,8 +610,22 @@ pre-registration record's commit ids.
   **Neither App is a bypass actor here**, so the
   identity-enforced "everything agentic lands via a PR" invariant
   holds one hop before `main` as well: the dev App token minted in the agent
-  runs has no zero-PR path onto the promotion train or onto the ref the
-  staging-environment deployments execute.
+  runs has no zero-PR path onto `staging`. It can create a `promote/` ref —
+  the `promote: restrict creation` bypass belongs to the App, not to the
+  train's job — and that is the residual. Creating a ref with an App token
+  fires `push`, and the pushed commit's own push-triggered workflows run with
+  the `staging` environment admitting the ref, so every job that mints the
+  dev App token holds a theoretical route to staging's role and keys: create
+  `promote/x` at a commit whose workflow file binds `staging` on push. It is
+  bounded where the token is: only `main`'s code mints it (`prod` admits
+  `main` alone), none of that code creates a ref but the train's `write`
+  job, which creates one only at a commit on staging's first-parent chain —
+  code that already passed `staging`'s review — and the App holds no
+  Workflows permission (above), so a commit adding a workflow file cannot be
+  pushed with it at all. A candidate whose head is off staging's first-parent
+  chain is one the train reports and never dispatches at, marks ready or
+  merges, and one the required `promotion-gate` check fails on its
+  `provenance` stage, so such a ref never reaches `main`.
 - **`ops-metrics: protect history`** — the same force-push and deletion block on the
   orphan `ops-metrics` branch, where `run-ops` appends its JSON snapshots and the
   corpus-writer path (`run-pull`, `run-seed` and `run-repair`, via the `publish-corpus-verdict`
@@ -680,43 +758,50 @@ them declares an environment, and every job outside `integration-test`,
 `run-analytics` and `summarize` declares `prod` — those three resolve the
 environment from the dispatching ref instead (the branch-resolution paragraph
 below; `summarize`'s publish job, which runs on `main` only, is the literal
-`prod`), which is what makes their staging dispatches rehearsals — with three
+`prod`), which is what makes their staging dispatches rehearsals — with four
 deliberate exceptions, by environment: the two holds below, and
-`corpus-check`'s `run` job, which binds the environment of its own name (the
-paragraph after them). The `approval` jobs of run-predict,
+`corpus-check`'s `run` and `run-auto` jobs, which bind `corpus-check` and
+`corpus-check-auto` (the paragraphs after them). The `approval` jobs of run-predict,
 run-evaluate, run-backtest and summarize declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables and no role, and its deployment branches
 are `main` and `staging` — `staging` so that summarize's staging rehearsal
 (the one held lane whose jobs resolve their environment from the ref) passes
-the same hold its production run does. A `run-predict` round its own plan
-auto-released binds **`review-auto`** instead: no required reviewers, on
-purpose — adding one would only make it a second `review` — no secrets, no
-variables, no role, and deployment branches restricted to `main`, so only a
-`main` run adds to the deployment count the next round's plan reads against
-the daily cap. Create it that way before setting the caps: GitHub would
-otherwise create it on first reference with no branch policy, and the
-promotion gate's `contexts` stage refuses a `main` that binds it unless it is
-restricted to `main` and carries no secrets or variables. The deployment count
-is only as good as the deployment record, which any write holder could prune,
-and that includes the agent account interactive sessions act as. So the daily
-cap reads a second record beside it, the
-auto-released collect commits on `main` (collect marks a released round's
-ready commit, and `main`'s history cannot be rewritten), and takes the larger
-count; an unreadable record keeps the hold. A write holder could still edit an
-unmerged collect PR's commit, so the committed count bounds what has landed,
-not what is in flight. The `spend` backstop, read from the committed ledger,
-is the bound that rests on neither, though it is ex post: it lags the ledger
-and stops the next round, never the current one. So the two caps' product,
-which bounds *estimated* spend, is the only bound that applies before a round
-spends, and actual spend can exceed an estimate. The caps change only by
-promotion, so the immediate stop for auto-release is the environment itself:
-adding a required reviewer to `review-auto` makes every round that binds it
-wait like a held one, from the next round on, with no commit. The promotion
-gate checks only `review-auto`'s branch policy and that it holds no secrets or
-variables, so the added reviewer does not block a promotion. Setting the
-`DISPATCH_CHAIN_ENABLED` variable to `false` stops only the chaining; a
-scheduled round still auto-releases within the caps. In either
+the same hold its production run does. A `run-predict`, `run-evaluate` or
+`summarize` round its own plan auto-released binds **`review-auto`** instead
+(`run-backtest` never does): no required reviewers, on purpose — adding one
+would only make it a second `review` — no secrets, no variables, no role, and
+deployment branches restricted to `main`, so only a `main` run adds to the
+deployment count every lane's next plan reads against the shared daily cap,
+and a summarize staging rehearsal always holds on `review`. Create it that way
+before setting the caps: GitHub would otherwise create it on first reference
+with no branch policy, and the promotion gate's `contexts` stage refuses a
+`main` that binds it unless it is restricted to `main` and carries no secrets
+or variables. The deployment count is only as good as the deployment record,
+which any write holder could prune, and that includes the agent account
+interactive sessions act as. So the daily cap reads a second record beside it,
+the auto-released commits on `main` (collect marks a released predict or
+evaluate round's ready commit, summarize's publish step its commit, and
+`main`'s history cannot be rewritten), and takes the larger count; an
+unreadable record keeps the hold. A write holder could still edit an unmerged
+collect PR's commit, and the summaries branch is rebuilt each run and merges
+only on a maintainer's review, so the committed count bounds what has landed,
+not what is in flight. Before a round spends, three bounds apply: the
+per-round cap and the daily count, which bound *estimated* spend, and the
+trailing budget, which projects measured spend from the committed ledger plus
+an in-flight allowance plus the round's estimate and must sit below the
+`spend` backstop's ceiling (a budget at or above it holds every round). Both
+the budget and the backstop read the committed ledger, so both lag it, and
+actual spend can exceed an estimate; the backstop is the bound that stops
+minting outright, and it stops the next round, never the current one. The
+knobs change only by promotion, so the immediate stop for auto-release is the
+environment itself: adding a required reviewer to `review-auto` makes every
+round of every lane that binds it wait like a held one, from the next round
+on, with no commit. The promotion gate checks only `review-auto`'s branch
+policy and that it holds no secrets or variables, so the added reviewer does
+not block a promotion. Setting the `DISPATCH_CHAIN_ENABLED` variable to
+`false` stops only predict's chaining; a scheduled round still auto-releases
+within the caps. In either
 environment, each job it gates runs one echo under `permissions: {}`, so the
 environment grants nothing and merely withholds the spend behind it — a
 fan-out's matrix, the back-test's fortnightly replay, or a case-summary
@@ -792,6 +877,39 @@ comparison link pinned to that SHA. The head's install and the check run as a
 separate unprivileged account, not the runner's: what that closes, and what
 the lane gives up, is [corpus-check.md](corpus-check.md).
 
+**`corpus-check-auto` holds the same role for the lane's unapproved path,
+which runs no PR code.** The `run-auto` job of `corpus-check.yml` binds it,
+and no other job may. It answers only a request whose block asks for `main`'s
+code (`at: main`) and names a `uv run fedcourts` subcommand on the auto
+allowlist in `config/corpus-check.yaml` — read-only queries that print counts
+and identifiers, whose full option surface the maintainer-owned
+`tests/test_corpus_check_auto_surface.py` pins, so widening one is an owned
+change — and its tree is the run's own commit of `main`: the PR head
+is never checked out or fetched, and the parsed command line is all the job
+takes from the PR. So the lane's invariant holds across both environments: no
+PR-supplied code runs with the corpus credential without the maintainer's
+approval. Configure it with:
+
+- **required reviewers**: none. Adding one is the immediate stop for the
+  unapproved path — every auto run then waits for a click — and the promotion
+  gate does not object to it.
+- **deployment branches**: `main` alone, as a named custom policy. With no
+  reviewer this is the environment's one control: it is what keeps a
+  workflow written on any other ref from binding the environment and so
+  holding the read-only role.
+- **variables**: the same three as `corpus-check`, each the value `prod`
+  holds; **no secrets** and no other variable.
+
+**Provision it in the same order, before the promotion that carries the
+`run-auto` job**: create the environment so, then add
+`repo:<owner>/<repo>:environment:corpus-check-auto` to the read-only role's
+trust (*S3 / the private stores* below). The promotion gate's `contexts`
+stage checks it unconditionally on every promotion (`fedcourtsai.environment_checks`): it
+exists, its branch policy admits exactly `main`, it holds no secret, and its
+variables are among the three — so a promotion fails until it is provisioned.
+The plan job reads its existence and branch policy on every poll, and while
+either is missing routes every request to the approval.
+
 **The Gemini cell env allowlist carries `_cell_env`'s identifiers, the corpus
 sidecar's two non-secret names, and nothing else.** Gemini's CLI sanitizer
 strips every env var from the agent's shell in CI
@@ -813,8 +931,9 @@ secret-carrying name that dodges the keyword list (and a value that is not one o
 the ~8 known shapes) would pass. Relatedly, never put anything sensitive in a
 `GEMINI_CLI_*` variable: that prefix is an unconditional bypass of both screens.
 
-**Deployment branches are restricted to `main`** — on `prod` and
-`corpus-check` (and to `staging` on the `staging` environment, whose policy
+**Deployment branches are restricted to `main`** — on `prod`,
+`corpus-check` and `corpus-check-auto` (and to `staging` and the promotion
+train's `promote/*` candidates on the `staging` environment, whose policy
 is load-bearing twice over: the
 read-only role's trust names it, and so does the one write-capable role
 outside `prod`); `review`
@@ -827,13 +946,13 @@ workflow added in a PR cannot exfiltrate secrets on its own PR run; the change
 reaches the privileged context only after it is merged to `main`, which required
 review. `corpus-check` is the one job that runs a PR's *code* inside an
 environment — never its workflow file — and it does so behind its own required
-reviewer (above).
+reviewer (above); its reviewer-less `run-auto` job runs `main`'s code only.
 
 Every `prod` job already runs from a `main` ref for its trigger — a `schedule`
 fires only from the default branch, and a production `workflow_dispatch` is
 made against `main` — so the restriction breaks nothing. The two triggers
 divide the trust between them: a schedule can start only what a
-maintainer-merged promotion put on `main`, and a dispatch is gated twice —
+maintainer-approved promotion put on `main`, and a dispatch is gated twice —
 by GitHub on repository write, then by the run gate on who among write
 holders it is (a human `config/dispatchers.json` names, or the pipeline bot it
 allows for that workflow). The run gate also refuses a re-run by anyone
@@ -845,9 +964,10 @@ anything.
 **The integration-test workflow selects its environment by input**
 (`deploy-environment`, a closed choice of `auto`/`prod`/`staging` defaulting to
 branch resolution: a `main` dispatch resolves `prod`, a `staging` dispatch
-`staging`, and any other branch its own
+or one at a `promote/` candidate `staging`, and any other branch its own
 name; an explicit choice still wins). A dispatch whose job *binds* `prod` from
-anything but `main`, or binds `staging` from anything but `staging`, is refused
+anything but `main`, or binds `staging` from anything but `staging` or a
+`promote/*` candidate, is refused
 at its deployment-branch gate before any step runs; an `auto` dispatch from any
 other branch resolves that branch's own name, auto-creating an unprotected,
 empty environment with no role variables —
@@ -874,11 +994,18 @@ Anthropic key, behind the same `review` hold. Its publish job is the
 literal `prod` and runs only on `refs/heads/main`, so a rehearsal ends with
 the summaries in a run artifact and nothing opened.
 
-**`staging` is restricted to the `staging` branch, and carries no reviewer
-rule** — the same shape as `prod`, one branch lower. The branch policy is the
+**`staging` is restricted to the `staging` branch and the `promote/*`
+candidates, and carries no reviewer rule** — the same shape as `prod`, one
+branch lower. Its named custom policies are `staging` and `promote/*`; the
+promotion gate's admin-read `contexts` stage requires `staging` and admits
+no branch but those two. Add `promote/*` only after the `promote:` rulesets
+hold (*Branch protection*: the setup order). The branch policy is the
 gate, and what it enforces is **code provenance**: only code that passed a pull
 request plus the `gate` and `paths` checks on the `staging` ruleset can bind the
-environment — with two carve-outs this document records above: the admin bypass
+environment — a candidate is a commit already on staging, cut by the dev App
+alone and frozen by the `promote:` rulesets, so admitting `promote/*` admits
+no code `staging` did not already hold — with two carve-outs this document
+records above: the admin bypass
 on that ruleset, and the absence of `strict_required_status_checks_policy`, so a
 PR may be green against a stale base. It holds without a human present at
 dispatch time, and it is a property of the *code* — which a per-run approval
@@ -893,11 +1020,14 @@ the workflows themselves. Such a per-run approval is
 redundant against the arrangement that exists: no workflow declares
 `actions: write`, the one App granted an Actions scope (the dispatch App) is
 minted only by the two chain jobs, whose code starts nothing but `run-predict`
-on `main`, and the run gate refuses a dispatch or a re-run by any login
+on `main`, and by the promotion train's `dispatch-gate`, whose code starts
+nothing but the side-effect-free `integration-test` `gate` suite at a frozen
+candidate, once per head, and the run gate refuses a dispatch or a re-run by any login
 `config/dispatchers.json` does not name, the agent account among them — and
 runs no code but its own owned module, so a `staging` merge cannot loosen it —
 so
-dispatching anything that binds `staging` is still a maintainer-only act, and with `prevent_self_review` off the approval is a
+dispatching anything that binds `staging` is still a maintainer-only act but
+for that one suite at a candidate, and with `prevent_self_review` off the approval is a
 second click on the same decision by the same person. **Revisit the moment any
 premise changes**: a second write-access collaborator; the first *token* that
 can dispatch, whether a workflow declaring `actions: write` or any App
@@ -910,9 +1040,11 @@ agent's own merge. The second premise **has** fired with the dispatch App, and
 is answered by where its key lives rather than by what its token can do: the
 token could start any workflow on any ref, but the key is a `prod` secret, so
 only jobs on `main` — maintainer-promoted code — can mint it, and the only
-such jobs are the two chain jobs, which hold no agent, corpus or PR-head code.
-A change that adds a minter, or a chain job that dispatches anything but
-`run-predict` on `main`, reopens it. The first premise **has** fired too,
+such jobs are the two chain jobs and the train's `dispatch-gate`, which hold
+no agent, corpus or PR-head code. A change that adds a minter, a chain job
+that dispatches anything but `run-predict` on `main`, or a train dispatch of
+anything but `integration-test` `scenario=gate` at a `promote/` candidate,
+reopens it. The first premise **has** fired too,
 with the agent account (*The agent account and the two teams* above): a
 write-access identity whose lane is merging its own PRs to `staging`. It is
 answered in the repository rather than by its role or its credential path —
@@ -1285,7 +1417,8 @@ pair the third one writes:
   `run-repair`'s decision-record job, whose read-only pull feeds the dry run,
   which writes nothing, and on an apply the blob the write builds on, and
   `corpus-check`'s `run` job, whose pull serves the approved check of one PR
-  head. Two operational facts ride this role. Its IAM **maximum
+  head, and its `run-auto` job, whose pull serves an allowlisted query run at
+  `main`'s own commit. Two operational facts ride this role. Its IAM **maximum
   session duration** must allow the sessions its callers request —
   `run-backtest`'s replay job asks for 21600 s (6 h), the census for 8100 s —
   because a
@@ -1334,7 +1467,8 @@ Access mirrors each workflow's role in the pipeline:
 | `integration-test` — qp-labeler-smoke     | none          | the labeler-smoke job replicates the labeling job's credential shape: no role, no `id-token: write`, and the same pre-agent assertion that the AWS and OIDC variables are absent. What leaves it is one artifact of invented question texts — the labels the smoke produced — published only past a containment check against the engine key |
 | `staging-corpus-refresh`                  | **staging read-write** (read-only on production) | seeds the staging pair from a production slice; the only write-capable role outside `prod`, and it can write nothing production owns |
 | `corpus-check` — run                      | read-only     | the approved check of one PR head: a full index `corpus-pull` at `main`'s committed pointer, then the head's install and command as an unprivileged account holding only the session and the corpus address, which may read the content store too. The one job that runs PR-head code with a role — the approval, the account separation and this environment's trust (read-only role alone) are what bound it |
-| `corpus-check` — plan, post               | none          | the plan reads the PR list, comments, head commits and the `corpus-check` environment's protection; the post job writes one comment and records its sha256; neither binds an environment or holds `id-token` |
+| `corpus-check` — run-auto                 | read-only     | an allowlisted read-only `fedcourts` subcommand a PR asked to run at `main`, unapproved: the same pull and the same unprivileged account as `run`, but the tree is the run's own commit of `main` — no PR code is checked out — and the summary is the command's stdout. Its `corpus-check-auto` environment has no reviewer; its `main`-only branch policy and the read-only trust bound it |
+| `corpus-check` — plan, post               | none          | the plan reads the PR list, comments, head commits and both environments' protection; the post job writes one comment and records its sha256; neither binds an environment or holds `id-token` |
 | `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
 
@@ -1388,8 +1522,8 @@ one of those environments can assume it. The production read-write role names
 `prod` alone; the read-only role also names `staging`, which is what lets the
 integration scenarios — and `run-analytics`'s staging rehearsals, whose
 environments resolve from the dispatching branch on the same terms — read the
-corpus from the staging branch, and `corpus-check`, the PR corpus-check lane's
-environment; and the staging
+corpus from the staging branch, and `corpus-check` and `corpus-check-auto`,
+the PR corpus-check lane's approved and unapproved environments; and the staging
 read-write role names `staging` alone. `corpus-check` is the trust that
 matters most to keep narrow: its job runs PR-head code and holds
 `id-token: write`, and the runner injects the OIDC request pair into every
@@ -1405,7 +1539,11 @@ token whose subject is `environment:corpus-check`**. Add
 `repo:<owner>/<repo>:environment:corpus-check` to the read-only role's trust
 and to no other role's — after the environment is protected (above) — and
 confirm no other role's `sub` condition matches it, a wildcard such as
-`repo:<owner>/<repo>:*` included. The trusts stay disjoint on
+`repo:<owner>/<repo>:*` included. The same holds for
+`environment:corpus-check-auto`, whose job runs only `main`'s code but holds
+`id-token: write` too: add `repo:<owner>/<repo>:environment:corpus-check-auto`
+to the read-only role's trust alone, after that environment exists restricted
+to `main` (above), and confirm nothing else accepts it. The trusts stay disjoint on
 the write side by construction — no environment names two write-capable roles,
 and no write-capable role names two environments — so "who can write which
 store" is answerable from the trust statements without reading a policy.

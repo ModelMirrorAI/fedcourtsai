@@ -71,8 +71,10 @@ Three access facts shape the client:
   probe, because a drained stream is exactly the one a late tail lands on.
 - Be a polite client: throttle to ~1 request/second, back off on errors, and
   poll on a cadence matched to the docket's rhythm (the shipped cadence is
-  four live windows a day, covering the conference watchlist and frontier
-  probing together) rather than hammering.
+  twelve live windows a day, one every two hours, covering the conference
+  watchlist and frontier probing together, with the per-cycle caps in
+  `tracking.yaml`'s `live:` section sized so the day's docket reads stay a
+  few thousand at one a second) rather than hammering.
 
 These facts — and the channel's Term reach — are empirically verified by the
 reachability probe (`fedcourts probe-live-terms`), which holds three standing

@@ -108,12 +108,13 @@ def test_classify_requires_a_two_parent_merge_of_a_same_repo_staging_to_main_pr(
     # Two parents; on a push, the first parent is the tip the push replaced.
     assert '"${#parent_list[@]}" -ne 2' in run
     assert '"${parent_list[0]}" != "$BEFORE"' in run
-    # The commit closed exactly one merged PR, base main, head staging, same repo,
-    # whose merge commit is this one.
+    # The commit closed exactly one merged PR, base main, head staging or a
+    # promotion train candidate, same repo, whose merge commit is this one.
     for clause in (
         ".merged_at != null",
         '.base.ref == \\"main\\"',
         '.head.ref == \\"staging\\"',
+        'test(\\"^promote/[0-9]{4}-[0-9]{2}-[0-9]{2}(-([2-9]|[1-9][0-9]+))?\\$\\")',
         '.head.repo.full_name == \\"${REPO}\\"',
         '.merge_commit_sha == \\"${sha}\\"',
         "if length == 1",
@@ -121,6 +122,58 @@ def test_classify_requires_a_two_parent_merge_of_a_same_repo_staging_to_main_pr(
         assert clause in run, clause
     # Anything else stops green, writing nothing.
     assert "not a promotion merge" in run and "exit 0" in run
+
+
+@pytest.mark.skipif(
+    subprocess.run(["which", "jq"], capture_output=True, check=False).returncode != 0,
+    reason="the filter is run with jq",
+)
+@pytest.mark.parametrize(
+    ("head", "is_promotion"),
+    [
+        ("staging", True),
+        ("promote/2026-10-17", True),
+        ("promote/2026-10-17-2", True),
+        ("promote/2026-10-17-1", False),
+        ("promote/anything", False),
+        ("Promote/2026-10-17", False),
+        ("promote/2026-10-17/x", False),
+        ("feature/promote/2026-10-17", False),
+        ("metrics/refresh", False),
+    ],
+)
+def test_classify_reads_a_staging_or_train_candidate_head_as_a_promotion(
+    head: str, is_promotion: bool
+) -> None:
+    """The classify filter, evaluated as the step's shell expands it, over the
+    PR list GitHub returns for the merge commit."""
+    run = _step("classify", "Classify the pushed commit")["run"]
+    match = re.search(r'--jq "(\[\.\[\] \| select\(.*?else empty end)"\)', run, re.DOTALL)
+    assert match is not None
+    sha = "f" * 40
+    expanded = subprocess.run(
+        ["bash", "-c", f'REPO=owner/repo; sha={sha}; printf %s "{match.group(1)}"'],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    pulls = [
+        {
+            "number": 7,
+            "merged_at": "2026-10-17T10:00:00Z",
+            "base": {"ref": "main"},
+            "head": {"ref": head, "repo": {"full_name": "owner/repo"}},
+            "merge_commit_sha": sha,
+        }
+    ]
+    out = subprocess.run(
+        ["jq", "-r", expanded],
+        input=json.dumps(pulls),
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert (out == "7") is is_promotion, (head, out)
 
 
 def test_write_runs_only_for_a_promotion_on_prod_in_its_own_concurrency_group() -> None:

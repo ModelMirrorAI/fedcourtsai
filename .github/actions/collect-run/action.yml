@@ -60,7 +60,7 @@ inputs:
   auto-released:
     description: >
       `true` when the round skipped the review hold under its auto-release caps
-      (run-predict's `hold-decision`). The ready commit's subject then carries
+      (the plan job's `hold-decision`). The ready commit's subject then carries
       the auto-released mark, which a squash merge keeps on `main`, where the
       next round's plan counts its daily cap. Anything but `true` is no mark.
     required: false

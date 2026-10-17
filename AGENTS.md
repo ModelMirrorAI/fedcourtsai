@@ -63,7 +63,8 @@ non-interactive** container. Two consequences shape everything you do:
   conventional-commit title and a description of what changed and why; prefer
   a small, correct, well-tested change over a large speculative one. `main` is
   the pre-registration record: code and config reach it only in a reviewed
-  staging→main promotion batch (*Promotion* in `docs/pipeline.md`) — except
+  promotion batch — a frozen `promote/<date>` cut of `staging`, or `staging`
+  itself (*Promotion* in `docs/pipeline.md`) — except
   the `promotion-record` writer's one-parent record commit, jailed byte-equal
   to its plan, touching only `src/fedcourtsai/process_registry.json` and
   `docs/freeze-record.md` — while data commits — the deterministic writers
@@ -71,22 +72,27 @@ non-interactive** container. Two consequences shape everything you do:
   staging. (For a predict / evaluate cell
   the *workflow* commits and opens the PR — you only write files; the task
   prompt says which mode you are in.)
-- **You may merge to `staging`; only the maintainer merges to `main`.** The two
-  branches carry different risk, so they get different rules. Into `staging`,
+- **You merge to `staging`; only the maintainer approves what reaches `main`.**
+  The two branches carry different risk, so they get different rules. A
+  `staging` PR is presumptively mergeable without the maintainer: every
+  change is read again in the promotion batch before it reaches `main`. So
   once the required checks are green and you have resolved the reviewer
-  subagents' blockers, you may merge your own PR — merge commit or squash,
-  whichever suits the change. A feature PR is not ancestry-critical: its squash
+  subagents' blockers, merge your own PR — merge commit or squash, whichever
+  suits the change — unless it falls in a class below that waits for the
+  maintainer. A feature PR is not ancestry-critical: its squash
   commit's sole parent is `staging`'s previous tip, so it changes nothing about
   how much of `main` `staging` already contains. Exactly two merges *are*, and
   neither is yours: the **sync** (`main` → `staging`) and the **promotion**
-  (`staging` → `main`). Both must be merge commits, or `main` and `staging`
+  (a promotion candidate → `main`). Both must be merge commits, or `main` and `staging`
   stop sharing history — and every later sync re-merges rewritten commits.
   Into `main`, never: `main` is the pre-registration record and reaches it only
-  through a maintainer-merged promotion batch. (The data-run
+  through a promotion the maintainer approved — the promotion train executes
+  that merge with the dev App once the maintainer has approved its frozen
+  head, or the maintainer merges it by hand. (The data-run
   `collect` jobs are the standing exception, opening their per-run PR to `main`
   and merging it themselves once the same required checks pass.)
-  Your own changes travel by PR on both branches — "you may merge" never means
-  "you may skip the PR". The rulesets require one, with two documented bypasses
+  Your own changes travel by PR on both branches — "you merge" never means
+  "you skip the PR". The rulesets require one, with two documented bypasses
   that are not your lane: the data App's deterministic writers push to `main`
   (the `promotion-record` writer's record commit among them, jailed byte-equal
   to its plan and touching only the registry and the freeze record), and an
@@ -95,17 +101,18 @@ non-interactive** container. Two consequences shape everything you do:
   ruleset, so the platform refuses its direct push to either branch and its
   merge into `main` without the maintainer's approval of that head. Once the
   maintainer has approved, the platform would let you merge a PR into `main`;
-  that merge is still the maintainer's. Never create a tag or a GitHub
+  that merge is the maintainer's or the train's — never yours. Never create a tag or a GitHub
   Release, drafts included: the tag rulesets refuse a new tag, but nothing
   refuses a Release on an existing one, Zenodo archives every published
   Release permanently, and a draft waits for one click to publish. A session
   that holds the maintainer's own credentials holds the admin bypass instead, and for it every rule here
-  is discipline; `gh api user --jq .login` says which account you are. And
-  the staging permission is a permission, not an
-  obligation: leaving a green PR for the maintainer is always a legitimate
-  call, and the better one when the change is large, novel, or rewrites a
-  contract others read. Use judgement; say which you chose in the PR
-  description.
+  is discipline; `gh api user --jq .login` says which account you are.
+  Merging is the default, not a licence to skip judgement: beyond the classes
+  below, leave a green PR for the maintainer when you judge it high-risk in a
+  way no owned path names — a change that could corrupt or silently re-score
+  committed data once promoted, or that rewrites a contract other lanes read.
+  Either way, say in the PR description which you chose and, when you leave
+  it, why.
   **Five kinds of change still wait for the maintainer even into `staging`**,
   because a green gate is weakest evidence exactly where they are strongest
   risk: anything under `.github/workflows/`, `.github/actions/` or
@@ -122,14 +129,17 @@ non-interactive** container. Two consequences shape everything you do:
   `src/fedcourtsai/registry_gate.py`, `src/fedcourtsai/promotion_record.py`,
   `src/fedcourtsai/process_registration.py` and their tests — a registration
   is a pre-registration, and the promotion record is what a bypass writer may
-  push to `main`; and the unattended merge, `scripts/merge-when-green.sh` and
-  its test, which decides what the dev App's approval bypass lands on `main`), `config/predictors.yaml` /
+  push to `main`; and the unattended merges, `scripts/merge-when-green.sh`,
+  the promotion train's `config/promotion-train.yaml` and
+  `src/fedcourtsai/promotion_train.py`, and their tests, which decide what the
+  dev App's approval bypass lands on `main`), `config/predictors.yaml` /
   `config/evaluators.yaml` (what agents are and what they may reach — and,
   with them, `config/corpus-check.yaml`, `src/fedcourtsai/corpus_check.py` and
   its tests, which decide whose PR code the corpus-check lane runs with the
   corpus read-only role and what it may run), and the
   authority to spend without a human release: `config/review-hold.yaml` (the
-  auto-release caps), `config/dispatchers.json` with the run gate that reads it,
+  auto-release caps and budget) with `src/fedcourtsai/spend.py` (the measured
+  spend that budget is projected over), `config/dispatchers.json` with the run gate that reads it,
   `src/fedcourtsai/run_gate.py`, and its test `tests/test_run_gate.py` (who may
   dispatch or re-run a gated workflow at all — the agent account is never on
   it), `src/fedcourtsai/planning_rates.py` (the rates a round is priced at),
@@ -231,14 +241,20 @@ non-interactive** container. Two consequences shape everything you do:
   **corpus-check** lane instead: put one fenced `corpus-check` block in the PR
   description naming the command — `uv run fedcourts <subcommand> …` or
   `uv run python scripts/checks/<name>.py …`, a script the PR may add — that
-  writes the figure to the file `CHECK_SUMMARY` names. Once the maintainer
+  writes the figure to the file `CHECK_SUMMARY` names. A block that opens
+  with the line `at: main` and names a `uv run fedcourts` subcommand on the
+  auto allowlist (`auto_subcommands` in `config/corpus-check.yaml`) runs at
+  `main`'s own commit without approval — no PR code runs, so its figure is
+  `main`'s code's, not the change's — once per head and command, and its
+  stdout is the posted summary. Otherwise, once the maintainer
   approves the run, the lane runs it at the PR's head against the production
   corpus and posts a comment with the result and the vintage to quote beside
   it; until then the claim is unverified, and the PR says so. Only ready
   (non-draft) same-repository PRs by the authors on `config/corpus-check.yaml`
   are answered, one head SHA once, and the summary is posted publicly, so
   report counts and identifiers, never stored snapshot text. Every push to a
-  PR still carrying the block asks again and holds the lane for an approval,
+  PR still carrying the block asks again — an `at: main` request re-runs
+  unattended, any other holds the lane for an approval —
   so **remove the block once the check is answered**, and put it back only
   for a head that needs checking. A result counts only when its comment
   links a `corpus-check` run on `main` whose post-job summary carries the
@@ -246,8 +262,9 @@ non-interactive** container. Two consequences shape everything you do:
 - **A promotion batch states its observable effect as a runnable check.** The
   promotion PR body carries what should be true once the batch is live and the
   command that shows it, and the promotion is not done until someone runs that
-  command and reports what it saw. The maintainer runs promotions, so that line
-  reaches the body from the feature PRs in the batch: give yours the effect
+  command and reports what it saw. The promotion train assembles promotions
+  and the maintainer approves them, so that line reaches the body from the
+  feature PRs in the batch: give yours the effect
   check as its handover note. A promotion changes code, not state — without the
   post-check, a batch that did nothing looks exactly like one that worked.
 - **The schema is law.** Every artifact must validate. Run
@@ -282,17 +299,17 @@ pre-registration record, `staging` is where work integrates, and every change
 starts as a branch off `staging`:
 
 ```
-main     ──●─────────────────●────────────  promotion batches (maintainer only)
+main     ──●─────────────────●────────────  promotions (maintainer-approved)
            │ sync            ↑ promote
            ↓                 │
-staging  ──●──●────●────●────●────────────  you may merge here — or leave it
+staging  ──●──●────●────●────●────────────  you merge here (owned paths wait)
               ↑    ↑    ↑
               feature branches: git switch -c <type>/<desc> origin/staging
 ```
 
-Both `main`→`staging` syncs and `staging`→`main` promotions are merge commits;
+Both `main`→`staging` syncs and promotions to `main` are merge commits;
 your own feature PR may squash. Data commits bypass `staging` entirely. The
-diagram is not a licence to self-merge anything: the five change classes named
+diagram is not a licence to self-merge everything: the five change classes named
 in the golden rules — the permission surface, the security posture, the
 promotion gate, the agent configs, the unattended-spend authority — wait for
 the maintainer even into `staging`.
@@ -453,7 +470,9 @@ same PR.
   empty commit, which moves the branch head and so invalidates every
   integration run the freshness gate had already matched — on a promotion PR
   that costs a full re-dispatch of the suite. Make the edit carry the reason it
-  happened, so the body stays a record rather than a poke.
+  happened, so the body stays a record rather than a poke. On a promotion
+  train candidate the train makes that edit itself, and the frozen head never
+  moves.
 - **Keep environment variables out of PR and issue text.** Refer to a var by
   its role, not its name or value. Secrets never appear anywhere.
 - **Don't commit personal or organizational email addresses.** Commit identity

@@ -4,8 +4,9 @@ The one workflow that runs PR-head code with a corpus credential
 (docs/corpus-check.md). What bounds it is structural — which job holds what,
 what code each job checks out, where the command comes from — so the structure
 is pinned here; the decisions the jobs route on are tested in
-``test_corpus_check``. ``test_workflow_auth_gate`` pins the environment to this
-workflow alone and ``test_workflow_cache_restore`` keeps every cache off.
+``test_corpus_check``. ``test_workflow_auth_gate`` pins both environments to
+this workflow alone and ``test_workflow_cache_restore`` keeps every cache off.
+The unapproved path, ``run-auto``, is pinned to check out nothing of the PR.
 """
 
 from __future__ import annotations
@@ -25,6 +26,8 @@ CHECKOUT = "actions/checkout@"
 SETUP = "./.github/actions/setup-python-env"
 READONLY = "./.github/actions/corpus-readonly"
 PLANNED_SHA = "${{ needs.plan.outputs.sha }}"
+OWN_SHA = "${{ github.sha }}"
+RUN_JOBS = ("run", "run-auto")
 
 
 def _load(name: str = NAME) -> dict[Any, Any]:
@@ -90,18 +93,18 @@ def test_a_zero_grant_and_one_check_at_a_time() -> None:
     assert wf["permissions"] == {}
     assert wf["concurrency"] == {"group": "corpus-check", "cancel-in-progress": False}
     # The run gate opens and closes the workflow (test_workflow_auth_gate).
-    assert list(wf["jobs"]) == [AUTHORIZE_JOB, "plan", "run", "post", SENTINEL_JOB]
+    assert list(wf["jobs"]) == [AUTHORIZE_JOB, "plan", "run", "run-auto", "post", SENTINEL_JOB]
 
 
 def test_every_job_installs_with_the_cache_off() -> None:
-    for name in ("plan", "run", "post"):
+    for name in ("plan", *RUN_JOBS, "post"):
         setups = [step for step in _steps(_job(name)) if _uses(step) == SETUP]
         assert len(setups) == 1, name
         assert setups[0]["with"] == {"restore-cache": "false", "save-cache": "false"}, name
 
 
 def test_every_checkout_drops_its_credentials() -> None:
-    for name in ("plan", "run", "post"):
+    for name in ("plan", *RUN_JOBS, "post"):
         for step in _steps(_job(name)):
             if _uses(step).startswith(CHECKOUT):
                 assert (step.get("with") or {}).get("persist-credentials") is False, name
@@ -131,6 +134,11 @@ def test_the_plan_holds_no_credential_and_runs_only_on_main() -> None:
     assert "/deployment-branch-policies" in run
     assert '--environment-file "${work}/environment.json"' in run
     assert '--branch-policies-file "${work}/branch-policies.json"' in run
+    # And the unapproved path's environment, without which nothing routes auto.
+    assert 'gh api "repos/${REPO}/environments/corpus-check-auto"' in run
+    assert "environments/corpus-check-auto/deployment-branch-policies" in run
+    assert '--auto-environment-file "${work}/auto-environment.json"' in run
+    assert '--auto-branch-policies-file "${work}/auto-branch-policies.json"' in run
     assert 'gh api "repos/${REPO}/commits/${sha}"' in run
 
 
@@ -147,7 +155,15 @@ def test_an_empty_poll_stops_before_the_install() -> None:
     assert 'contains("corpus-check")' in str(steps[peek]["run"])
     # The plan's outputs come from the picking step alone.
     plan = _job("plan")
-    assert set(plan["outputs"]) == {"found", "pr", "sha", "command", "refusal"}
+    assert set(plan["outputs"]) == {
+        "found",
+        "pr",
+        "sha",
+        "command",
+        "refusal",
+        "auto",
+        "held_reason",
+    }
     for key, value in plan["outputs"].items():
         assert value == f"${{{{ steps.plan.outputs.{key} }}}}"
 
@@ -160,7 +176,13 @@ def test_the_run_job_holds_the_environment_and_the_read_only_role_alone() -> Non
     condition = own_condition(run)
     assert "needs.plan.outputs.found == 'true'" in condition
     assert "needs.plan.outputs.refusal == ''" in condition
-    readonly = [step for step in _steps(run) if _uses(step) == READONLY]
+    # Anything the plan did not route auto — any value but 'true' — is held.
+    assert "needs.plan.outputs.auto != 'true'" in condition
+    _assert_production_read_only(run)
+
+
+def _assert_production_read_only(job: dict[str, Any]) -> None:
+    readonly = [step for step in _steps(job) if _uses(step) == READONLY]
     assert len(readonly) == 1
     # Production through `main`'s committed pointer: no staging selector.
     assert readonly[0]["with"] == {
@@ -170,14 +192,81 @@ def test_the_run_job_holds_the_environment_and_the_read_only_role_alone() -> Non
     }
 
 
-def test_only_the_run_job_reads_variables_and_no_job_reads_a_secret() -> None:
+def test_the_auto_job_binds_its_own_environment_only_on_the_auto_route() -> None:
+    auto = _job("run-auto")
+    assert auto["environment"] == "corpus-check-auto"
+    assert auto["permissions"] == {"contents": "read", "id-token": "write"}
+    assert auto["needs"] == [AUTHORIZE_JOB, "plan"]
+    condition = own_condition(auto)
+    assert "needs.plan.outputs.found == 'true'" in condition
+    assert "needs.plan.outputs.refusal == ''" in condition
+    assert "needs.plan.outputs.auto == 'true'" in condition
+    # The two run jobs' routes are complements: exactly one can run.
+    assert "||" not in condition
+    assert own_condition(_job("run")).replace("!= 'true'", "== 'true'") == condition
+    _assert_production_read_only(auto)
+
+
+def test_the_auto_job_checks_out_nothing_of_the_pr() -> None:
+    """The unapproved path's whole premise: the PR head is never fetched, and
+    the only value from the PR that reaches the job is the plan's command."""
+    auto = _job("run-auto")
+    text = yaml.safe_dump(auto)
+    assert "needs.plan.outputs.sha" not in text
+    assert "github.event" not in text
+    assert "github.head_ref" not in text
+    referenced = set(re.findall(r"needs\.plan\.outputs\.([a-z_]+)", text))
+    assert referenced == {"found", "refusal", "auto", "command"}
+    steps = _steps(auto)
+    checkouts = [step for step in steps if _uses(step).startswith(CHECKOUT)]
+    assert len(checkouts) == 2
+    own, tree = checkouts
+    assert set(own["with"]) == {"persist-credentials"}
+    assert tree["with"] == {"ref": OWN_SHA, "path": "check", "persist-credentials": False}
+    bodies = "\n".join(str(step.get("run", "")) for step in steps)
+    for fetch in ("git fetch", "git clone", "gh pr", "gh api", "curl", "wget"):
+        assert fetch not in bodies, fetch
+
+
+def test_the_auto_job_runs_main_exactly_as_run_runs_a_head() -> None:
+    """The same account, the same proofs and the same wrapper: the step that
+    provisions and proves the account is the held job's, byte for byte, so the
+    two cannot drift apart."""
+    held, auto = _steps(_job("run")), _steps(_job("run-auto"))
+
+    def provision(steps: list[dict[str, Any]]) -> dict[str, Any]:
+        return steps[_index(steps, lambda step: "useradd" in str(step.get("run", "")))]
+
+    assert provision(auto) == provision(held)
+    vintage = [steps[_index(steps, lambda s: s.get("id") == "vintage")] for steps in (held, auto)]
+    assert vintage[0]["run"] == vintage[1]["run"]
+    # Reviewed code first in both: composites and the vintage before the tree.
+    tree = _index(auto, lambda step: _uses(step).startswith(CHECKOUT) and "path" in step["with"])
+    assert all(i < tree for i, step in enumerate(auto) if _uses(step).startswith("./"))
+    assert _index(auto, lambda step: step.get("id") == "vintage") < tree
+    check = auto[_index(auto, lambda step: step.get("id") == "check")]
+    held_check = held[_index(held, lambda step: step.get("id") == "check")]
+    assert check["env"] == held_check["env"]
+    assert check["timeout-minutes"] == held_check["timeout-minutes"]
+    body = str(check["run"])
+    # The one difference: the auto check's stdout is its summary.
+    kept = [line for line in body.splitlines() if "--stdout-summary-file" not in line]
+    assert kept == str(held_check["run"]).splitlines()
+    assert '--stdout-summary-file "${RUNNER_TEMP}/corpus-check/stdout.txt"' in body
+    assert "--stdout-summary-file" not in str(held_check["run"])
+    assert _job("run-auto")["timeout-minutes"] == _job("run")["timeout-minutes"]
+    assert set(_job("run-auto")["outputs"]) == set(_job("run")["outputs"])
+
+
+def test_only_the_run_jobs_read_variables_and_no_job_reads_a_secret() -> None:
     text = (WORKFLOWS / NAME).read_text()
     assert "secrets." not in text
     assert "secrets[" not in text
     allowed = {"AWS_ROLE_TO_ASSUME_READONLY", "AWS_REGION", "CORPUS_BASE_URL"}
     for name in ("plan", "post"):
         assert "vars." not in yaml.safe_dump(_job(name)), name
-    assert set(re.findall(r"vars\.([A-Za-z0-9_]+)", yaml.safe_dump(_job("run")))) == allowed
+    for name in RUN_JOBS:
+        assert set(re.findall(r"vars\.([A-Za-z0-9_]+)", yaml.safe_dump(_job(name)))) == allowed
 
 
 def test_reviewed_code_runs_first_and_the_planned_head_beside_it() -> None:
@@ -283,7 +372,7 @@ def test_the_command_reaches_the_check_only_through_the_tested_wrapper() -> None
 
 def test_no_run_block_interpolates_an_expression() -> None:
     """Every value reaches a script through `env:`, never `${{ }}` in `run:`."""
-    for name in ("plan", "run", "post"):
+    for name in ("plan", *RUN_JOBS, "post"):
         for step in _steps(_job(name)):
             assert "${{" not in str(step.get("run", "")), f"{name}: {step.get('name')}"
 
@@ -292,7 +381,7 @@ def test_the_post_job_checks_out_no_pr_code_and_holds_no_role() -> None:
     post = _job("post")
     assert post["permissions"] == {"contents": "read", "pull-requests": "write"}
     assert "environment" not in post
-    assert post["needs"] == [AUTHORIZE_JOB, "plan", "run"]
+    assert post["needs"] == [AUTHORIZE_JOB, "plan", "run", "run-auto"]
     condition = own_condition(post)
     assert condition.startswith("always() &&")
     assert "needs.plan.result == 'success'" in condition
@@ -316,9 +405,26 @@ def test_the_post_job_takes_the_sha_and_command_from_the_plan() -> None:
     env = _steps(_job("post"))[-1]["env"]
     assert env["CHECK_SHA"] == PLANNED_SHA
     assert env["CHECK_COMMAND"] == "${{ needs.plan.outputs.command }}"
-    assert env["RUN_RESULT"] == "${{ needs.run.result }}"
-    assert env["CHECK_PHASE"] == "${{ needs.run.outputs.phase }}"
     assert env["GH_TOKEN"] == "${{ github.token }}"
+    # The route picks which run job reports; the comment names the commit an
+    # auto run's code was, which is this run's own.
+    assert env["CHECK_AUTO"] == "${{ needs.plan.outputs.auto }}"
+    assert env["CHECK_HELD_REASON"] == "${{ needs.plan.outputs.held_reason }}"
+    assert env["CODE_SHA"] == OWN_SHA
+    assert env["RUN_RESULT"] == (
+        "${{ needs.plan.outputs.auto == 'true' && needs.run-auto.result || needs.run.result }}"
+    )
+    for key, output in (
+        ("CHECK_PHASE", "phase"),
+        ("CHECK_EXIT_CODE", "exit_code"),
+        ("CHECK_TIMED_OUT", "timed_out"),
+        ("CHECK_SUMMARY_B64", "summary_b64"),
+        ("CHECK_VINTAGE_B64", "vintage_b64"),
+    ):
+        assert env[key] == (
+            f"${{{{ needs.plan.outputs.auto == 'true' && needs.run-auto.outputs.{output} "
+            + f"|| needs.run.outputs.{output} }}}}"
+        )
 
 
 def test_the_requester_list_and_the_lane_are_maintainer_owned() -> None:
@@ -327,6 +433,7 @@ def test_the_requester_list_and_the_lane_are_maintainer_owned() -> None:
     assert {
         "/config/corpus-check.yaml",
         "/src/fedcourtsai/corpus_check.py",
+        "/src/fedcourtsai/environment_checks.py",
         "/tests/test_corpus_check.py",
         "/tests/test_workflow_corpus_check.py",
         "/.github/workflows/",

@@ -31,9 +31,9 @@ name: sync-staging
 
 on:
   schedule:
-    # Daily, in the dead zone between run-seed's 02:31 window and run-pull's
-    # 04:47 live window, so the sync PR's `gate` run does not compete with a
-    # corpus writer for runners.
+    # Daily, after run-seed's 02:31 window and run-pull's 02:47 live window
+    # have usually committed and before the 04:47 live window, so the sync
+    # PR's `gate` run seldom competes with a corpus writer for runners.
     - cron: "13 3 * * *"
   workflow_dispatch: {}
 
@@ -143,13 +143,14 @@ jobs:
           fi
           behind=$(git rev-list --count origin/staging..origin/main)
 
-          # Never sync into a promotion in flight. Freshness is per-SHA, so
-          # moving staging's head under an open promotion PR would invalidate
-          # the very scenario runs that batch is waiting on — the exact failure
-          # this workflow exists to prevent, but unattended. A *draft*
-          # promotion PR is not in flight: `promotion-prep` keeps one open as
-          # the batch's running record, and the maintainer marks it ready when
-          # the batch is to promote — which is when syncs stop.
+          # Never sync into a hand promotion of `staging` in flight.
+          # Freshness is per-SHA, so moving staging's head under an open,
+          # ready staging→main PR would invalidate the very scenario runs that
+          # batch is waiting on — the exact failure this workflow exists to
+          # prevent, but unattended. A draft is not in flight yet. A promotion
+          # train candidate (`promote/<date>`) never defers a sync: its head is
+          # a frozen branch a sync cannot move, which is the point of cutting
+          # one, so staging keeps taking main while the candidate waits.
           if [ -n "$(gh pr list --repo "$REPO" --base main --head staging \
                        --state open --json number,isDraft,isCrossRepository \
                        --jq '[.[] | select((.isDraft | not) and (.isCrossRepository | not))][0].number // empty')" ]; then

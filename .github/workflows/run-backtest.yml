@@ -36,11 +36,12 @@ on:
     # rates, not yet measured as lanes), and then land a
     # **reviewed** PR before the Monday 08:30 digest tick reads the report —
     # roughly 50 hours, which no weekday slot leaves. It opens after
-    # run-pull's 04:47 live window (35-minute cap) has committed and closes well
-    # before the 07:17 ingestion window; the replay only ever reads the corpus
+    # run-pull's 04:47 live window (40-minute cap) has committed and before the
+    # 06:47 live window; the replay only ever reads the corpus
     # and takes no `corpus-write` lock, so an overlap would cost a staler read
     # and nothing else. The minute is off every other workflow's (:00, :12, :13,
-    # :17, :27, :30, :31, :32, :39, :41, :47, :53) so the repo's offset grid
+    # :17, :19, :26, :27, :30, :31, :32, :36, :39, :41, :43, :47, :49, :53, :57)
+    # so the repo's offset grid
     # stays legible.
     #
     # The **effective cadence is biweekly**, and the cron cannot say so: GitHub
@@ -498,7 +499,7 @@ jobs:
     steps:
       # No authorization gate here, and none is missing: this workflow carries
       # no trigger an outside actor can reach. A `schedule` fires only from the
-      # DEFAULT branch, so a cron can run only what a maintainer-merged
+      # DEFAULT branch, so a cron can run only what a maintainer-approved
       # promotion put on `main`; a `workflow_dispatch` is gated by GitHub on
       # repository write; and this job binds `prod`, whose deployment branches
       # are restricted to `main`, so a dispatch from any other ref is refused

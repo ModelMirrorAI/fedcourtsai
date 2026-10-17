@@ -4257,6 +4257,45 @@ def test_every_run_analytics_cron_is_claimed_by_exactly_one_job() -> None:
         )
 
 
+def test_run_pull_polls_live_every_two_hours_and_enriches_on_four_windows() -> None:
+    """The live cadence and the one budgeted step inside it are set separately.
+
+    The live poll is budget-free, so it runs every two hours on two cron entries
+    whose shared `47 ` minute selects the `live` job. Its awaiting-grading
+    enrichment step spends CourtListener budget, so it must gate on the one
+    four-window entry by its exact string: a `startsWith` on the minute, or a
+    renamed cron the gate no longer names, would either run the step on all
+    twelve windows (tripling the spend against the daily ceiling the pull
+    windows already approach) or silently on none.
+    """
+    wf = _load("run-pull.yml")
+    crons = _schedule("run-pull.yml")
+    assert len(crons) == len(set(crons)), f"duplicate cron in run-pull: {crons}"
+    claims = {
+        cron: [
+            job_id
+            for job_id, job in wf["jobs"].items()
+            if f"startsWith(github.event.schedule, '{cron.split()[0]} ')"
+            in str(job.get("if") or "")
+        ]
+        for cron in crons
+    }
+    assert all(len(jobs) == 1 for jobs in claims.values()), f"crons are not claimed 1:1: {claims}"
+    live = [cron for cron, jobs in claims.items() if jobs == ["live"]]
+    hours = sorted(int(hour) for cron in live for hour in cron.split()[1].split(","))
+    assert hours == list(range(0, 24, 2)), f"live windows are not every two hours: {hours}"
+
+    step = next(s for s in wf["jobs"]["live"]["steps"] if s.get("id") == "enrich-awaiting")
+    gate = str(step.get("if") or "")
+    assert "startsWith" not in gate, "the enrichment gate must name one cron, not a minute"
+    named = [cron for cron in live if f"github.event.schedule == '{cron}'" in gate]
+    assert len(named) == 1, f"the enrichment gate names {named}, not one declared live cron"
+    assert len(named[0].split()[1].split(",")) == 4, (
+        f"the enrichment step runs on {named[0]!r}, not four windows a day"
+    )
+    assert "github.event_name != 'schedule'" in gate, "a live dispatch must still enrich"
+
+
 def test_every_run_analytics_mode_is_gated_by_a_job_and_every_job_by_a_mode() -> None:
     """The `mode` choice is the operator's whole surface, so an option that no
     job gates on is a dispatch that silently does nothing — and a job gating on

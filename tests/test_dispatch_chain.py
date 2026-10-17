@@ -17,6 +17,7 @@ from fedcourtsai.dispatch_chain import (
     forecast_relevance,
     ready_promotion,
 )
+from fedcourtsai.promotion_train import TrainConfig
 
 REPO = "ModelMirrorAI/fedcourtsai"
 EVENT = "data/cases/scotus/73281056/events/evt-brief-judgment/event.yaml"
@@ -81,9 +82,95 @@ def test_a_ready_same_repo_promotion_is_found() -> None:
     assert ready_promotion([_pull()], repo=REPO) == 2373
 
 
+HEAD = "c" * 40
+TRAIN = TrainConfig(
+    approvers=("maintainer",), required_checks=("promotion-gate",), max_gate_dispatches_per_day=2
+)
+
+
+def _candidate(number: int = 2400, *, draft: bool = False) -> dict[str, Any]:
+    pull = _pull(head="promote/2026-10-17", number=number, draft=draft)
+    pull["head"]["sha"] = HEAD
+    return pull
+
+
+def _review(state: str, sha: str = HEAD, login: str = "maintainer") -> dict[str, Any]:
+    return {
+        "state": state,
+        "commit_id": sha,
+        "user": {"login": login},
+        "submitted_at": "2026-10-17T06:00:00Z",
+    }
+
+
+def test_a_ready_candidate_stands_the_chain_down_only_once_approved_at_its_head() -> None:
+    """A candidate is marked ready as soon as its gate is green and may wait days
+    for review; the chain keeps running until the merge is actually due."""
+    pulls = [_candidate()]
+    approved = {2400: [_review("APPROVED")]}
+    assert ready_promotion(pulls, repo=REPO, reviews=approved, train_config=TRAIN) == 2400
+    for reviews in ([], [_review("APPROVED", sha="e" * 40)], [_review("CHANGES_REQUESTED")]):
+        found = ready_promotion(pulls, repo=REPO, reviews={2400: reviews}, train_config=TRAIN)
+        assert found is None, reviews
+    step = chain_step(
+        ChainMode.PULL,
+        repo=REPO,
+        promotion_pulls=pulls,
+        promotion_reviews={2400: []},
+        train_config=TRAIN,
+    )
+    assert step.action is ChainAction.DISPATCH
+
+
+def test_an_unread_candidate_approval_stands_the_chain_down() -> None:
+    pulls = [_candidate()]
+    assert ready_promotion(pulls, repo=REPO, reviews=None, train_config=TRAIN) == 2400
+    assert ready_promotion(pulls, repo=REPO, reviews={}, train_config=TRAIN) == 2400
+    assert ready_promotion(pulls, repo=REPO, reviews={2400: []}, train_config=None) == 2400
+
+
+def test_a_draft_candidate_never_stands_the_chain_down() -> None:
+    approved = {2400: [_review("APPROVED")]}
+    found = ready_promotion(
+        [_candidate(draft=True)], repo=REPO, reviews=approved, train_config=TRAIN
+    )
+    assert found is None
+
+
+def test_a_ready_staging_promotion_needs_no_approval() -> None:
+    assert ready_promotion([_pull()], repo=REPO, reviews={}, train_config=TRAIN) == 2373
+
+
+def test_the_cli_reads_the_candidate_reviews(tmp_path: Path) -> None:
+    prs = tmp_path / "prs.json"
+    prs.write_text(json.dumps([_candidate()]))
+    reviews = tmp_path / "reviews.json"
+
+    def action(value: object | None) -> str:
+        args = ["chain-step", "--mode", "pull", "--repo", REPO, "--promotion-prs-file", str(prs)]
+        if value is not None:
+            reviews.write_text(json.dumps(value))
+            args += ["--promotion-reviews-file", str(reviews)]
+        result = CliRunner().invoke(app, args)
+        assert result.exit_code == 0, result.output
+        return str(json.loads(result.output)["action"])
+
+    # The committed config lists the maintainer login.
+    assert action({"2400": []}) == "dispatch"
+    assert action(None) == "stop"
+    assert action({"2400": [_review("APPROVED", login="modelmirror")]}) == "stop"
+
+
 @pytest.mark.parametrize(
     "pull",
-    [_pull(draft=True), _pull(head="feature"), _pull(repo="someone/fork")],
+    [
+        _pull(draft=True),
+        _pull(head="feature"),
+        _pull(repo="someone/fork"),
+        _pull(head="promote/2026-10-17", draft=True),
+        _pull(head="promote/2026-10-17", repo="someone/fork"),
+        _pull(head="promoter/2026-10-17"),
+    ],
 )
 def test_drafts_other_heads_and_forks_are_not_a_ready_promotion(pull: dict[str, Any]) -> None:
     assert ready_promotion([pull], repo=REPO) is None

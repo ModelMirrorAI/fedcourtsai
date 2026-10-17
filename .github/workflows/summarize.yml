@@ -19,10 +19,12 @@ run-name: "summarize @ ${{ github.ref_name == 'main' && 'prod' || github.ref_nam
 #             round is running, derives the owed cases (`summarize-plan`:
 #             content-keyed against the committed summaries) and renders the
 #             report the hold is judged on.
-#   approval  the `review` hold. Every run holds, scheduled or dispatched, as
-#             run-predict's rounds do: the hold is the one human gate before
-#             spend, and a daily release costs a click while an unheld lane
-#             spends on whatever a plan happens to owe.
+#   approval  the `review` hold, as run-predict's and run-evaluate's rounds
+#             take it: the one human gate before spend. A `main` run whose plan
+#             is within the auto-release caps and budget
+#             (`config/review-hold.yaml`, `fedcourts hold-decision`) binds the
+#             reviewer-less `review-auto` instead; every other run, a staging
+#             rehearsal included, waits on a named reviewer.
 #   stage     read-only corpus role. `provision-snapshot` stages each planned
 #             case's record — the same staged record, and the same
 #             contact-detail scrub, a predict cell reads — under $RUNNER_TEMP.
@@ -46,8 +48,10 @@ run-name: "summarize @ ${{ github.ref_name == 'main' && 'prod' || github.ref_nam
 # generates, uploads the summaries as a run artifact, and publishes nothing.
 on:
   schedule:
-    # 03:43 UTC daily. After run-pull's 01:17 window (45-minute cap) and
-    # run-seed's 02:31 walk have committed, before the 04:47 live window, and
+    # 03:43 UTC daily. After run-pull's 01:17 window (45-minute cap) and the
+    # 02:xx pair — run-seed's 02:31 walk and the 02:47 live window, serialized
+    # on the corpus-write lock — have usually committed, before the 04:47 live
+    # window, and
     # well clear of run-predict (14:12, 17:32) and run-evaluate (15:39). Only
     # the plan runs at this minute; spend waits on the hold. The minute is off
     # every other workflow's so the repo's offset grid stays legible.
@@ -126,8 +130,14 @@ jobs:
       # Whether an unmerged summaries PR is open, so its summaries count as done
       # (PR metadata only).
       pull-requests: read
+      # Count the rounds auto-released in the trailing 24 hours, across the
+      # lanes: each one left a deployment to the `review-auto` environment. Read
+      # only; the job creates no deployment. The commits the count is also read
+      # from are `main`'s history, which `contents: read` above already covers.
+      deployments: read
     outputs:
       has_cases: ${{ steps.plan.outputs.has_cases }}
+      auto_release: ${{ steps.hold.outputs.auto_release }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -246,6 +256,50 @@ jobs:
             echo "has_cases=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Whether this run waits on the hold: `fedcourts hold-decision` over the
+      # plan document above (priced at its upper estimate — a summary run has
+      # no matrix; generate runs this plan), `config/review-hold.yaml`'s caps
+      # and trailing budget, and the committed spend ledger in this checkout's
+      # `data/` (measured spend over tracking.yaml's spend window, the open
+      # refresh PR's carried summaries included). It fails closed: with any knob
+      # at 0, an unreadable ledger, or a 24-hour count this step cannot read,
+      # the run waits on the `review` hold. The count is shared with run-predict
+      # and run-evaluate and has two sources, and the larger binds: the
+      # `review-auto` environment's deployments (one per auto-released round of
+      # any lane) and the auto-released commits on `main` (the publish commit
+      # carries the mark; only the latest run's commit survives on the refresh
+      # branch, and it reaches `main` when the PR merges, so for this lane the
+      # deployment record is what binds). On `main` only: `review-auto`'s
+      # branch policy admits no other ref, so a rehearsal always holds.
+      - name: Decide the hold
+        id: hold
+        if: ${{ steps.plan.outputs.has_cases == 'true' && github.ref == 'refs/heads/main' }}
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          since=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          count_args=()
+          if released=$(gh api "repos/${REPO}/deployments?environment=review-auto&per_page=100" \
+                --jq "[.[] | select(.created_at >= \"${since}\")] | length" 2>"$RUNNER_TEMP/deploy-read.err") \
+             && [[ "$released" =~ ^[0-9]+$ ]]; then
+            count_args+=(--deployments-released "$released")
+          else
+            echo "::warning::could not count review-auto deployments in the last 24h ($(head -c 300 "$RUNNER_TEMP/deploy-read.err" | tr -s '\n:' '  ')); this run waits on the hold"
+          fi
+          if gh api --paginate "repos/${REPO}/commits?sha=main&since=${since}&per_page=100" \
+                --jq '.[].commit.message | split("\n")[0]' > "$RUNNER_TEMP/main-subjects.txt" 2>"$RUNNER_TEMP/subjects-read.err"; then
+            count_args+=(--main-subjects-file "$RUNNER_TEMP/main-subjects.txt")
+          else
+            echo "::warning::could not read main's commits from the last 24h ($(head -c 300 "$RUNNER_TEMP/subjects-read.err" | tr -s '\n:' '  ')); this run waits on the hold"
+          fi
+          decision=$(uv run fedcourts hold-decision --seam summarize \
+            --plan-file "$RUNNER_TEMP/summary-plan.json" \
+            --summary-file "$GITHUB_STEP_SUMMARY" "${count_args[@]}")
+          echo "auto_release=$(jq -r '.auto_release' <<<"$decision")" >> "$GITHUB_OUTPUT"
+
       - name: Upload the plan
         if: ${{ steps.plan.outputs.has_cases == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -258,7 +312,12 @@ jobs:
 
   # The hold: no code, no token, no permissions — the `review` environment's
   # required reviewers gate it, so nothing below spends until a named reviewer
-  # releases this run's plan.
+  # releases this run's plan. A run the plan job auto-released binds the
+  # reviewer-less `review-auto` instead, as run-predict's and run-evaluate's
+  # rounds do; its deployment is one of the two records every lane's next
+  # plan counts against the daily cap. `review-auto` must exist with its
+  # deployment branches restricted to `main` and no required reviewers
+  # (docs/security.md).
   approval:
     needs: [authorize, plan]
     if: >-
@@ -268,7 +327,7 @@ jobs:
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    environment: review
+    environment: ${{ needs.plan.outputs.auto_release == 'true' && 'review-auto' || 'review' }}
     permissions: {}
     steps:
       - name: Release the held summary run
@@ -568,6 +627,8 @@ jobs:
           OWNER: ${{ github.repository_owner }}
           BRANCH: summaries/refresh
           WRITTEN: ${{ needs.generate.outputs.written }}
+          # The mark the next round's daily auto-release cap counts on `main`.
+          AUTO_RELEASED: ${{ needs.plan.outputs.auto_release }}
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -598,7 +659,12 @@ jobs:
             exit 0
           fi
           total=$(wc -l < "$RUNNER_TEMP/changes.txt")
-          title="data(summaries): ${total} plain-language case summar$([ "$total" = 1 ] && echo y || echo ies)"
+          # The subject names this Actions run, and an auto-released run marks
+          # it, so `main` keeps the round `hold-decision` counts once it merges.
+          title="data(summaries): ${total} plain-language case summar$([ "$total" = 1 ] && echo y || echo ies) (run ${GITHUB_RUN_ID})"
+          if [ "$AUTO_RELEASED" = "true" ]; then
+            title="${title} [auto-released]"
+          fi
           {
             printf '%s\n\n' "Plain-language case summaries (docs/case-summaries.md): ${WRITTEN} written by this run, ${total} in this PR in all (an open PR's earlier summaries are carried forward). Display material — nothing scores them — so review is a read for factual errors and slant against the filings, not a number."
             printf '%s\n\n' "Every file passed the summary jail, \`fedcourts validate\`, and the secret scan before this push. Each file's front matter names the model, the prompt digest and the record digest it was written from."

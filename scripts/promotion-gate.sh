@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 #
-# The single definition of the staging→main promotion gate. The `promote`
-# dispatch workflow and ci.yml's `promotion-gate` job both invoke this script,
-# so the pre-flight a maintainer runs and the required check on the promotion
-# PR cannot drift apart.
+# The single definition of the promotion gate into `main`. The `promote`
+# dispatch workflow, the promotion train (`promotion-prep`) and ci.yml's
+# `promotion-gate` job all invoke this script, so the pre-flight a maintainer
+# runs, the train's reads and the required check on the promotion PR cannot
+# drift apart.
+#
+# A promotion's head ref is `staging` (a hand-opened promotion) or a promotion
+# train candidate, `promote/<UTC date>[-N]`: a branch cut at a commit on
+# staging's first-parent chain and never moved. The stages that read a head
+# take the ref beside the SHA (default `staging`) and refuse any other name.
 #
 # Stages:
 #
@@ -22,10 +28,10 @@
 #       (`waiting`), which is the intent — it will spend against whatever is on
 #       `main` when it releases.
 #
-#   scripts/promotion-gate.sh freshness <sha>
+#   scripts/promotion-gate.sh freshness <sha> [<head-ref>]
 #       Every required integration scenario must have a green run at exactly
-#       <sha> — the gate tests what is being promoted, not what staging used
-#       to be. A single green `scenario=gate` run (the whole required suite
+#       <sha>, dispatched from exactly <head-ref> — the gate tests what is
+#       being promoted, not what staging used to be. A single green `scenario=gate` run (the whole required suite
 #       as one run) satisfies every scenario at once; otherwise each is
 #       matched per-run. Matching is on the integration-test workflow's
 #       `run-name`; the format here and there are coupled, and a
@@ -63,8 +69,14 @@
 #       the tags first (`git fetch origin --tags`; CI's checkout already holds
 #       them, with full history).
 #
-#   scripts/promotion-gate.sh all <sha>
-#       The quiesce, freshness and registry stages, in order.
+#   scripts/promotion-gate.sh provenance <sha> [<head-ref>]
+#       A `promote/` head must be a cut of staging: <sha> on origin/staging's
+#       first-parent chain, which is also what `promotion-record` requires of
+#       the merge's second parent. A `staging` head is staging itself. Reads
+#       git alone; the caller fetches staging first.
+#
+#   scripts/promotion-gate.sh all <sha> [<head-ref>]
+#       The quiesce, provenance, freshness and registry stages, in order.
 #
 # quiesce and freshness need `gh` with Actions read (GH_TOKEN in CI); contexts
 # additionally needs repository administration read (see above); registry
@@ -82,17 +94,20 @@
 # PROMOTION_SKIP_SMOKE=1 drops the `engine-smoke/*` and
 # `engine-actions-smoke/*` entries — every entry that spends model tokens —
 # and lets a green `scenario=offline-gate` run stand in for `scenario=gate`. It
-# is the one relaxation a workflow may set, and exactly two workflows set it (a
-# shape test pins that no third does):
+# is the one relaxation a workflow may set, and exactly three workflows set it
+# (a shape test pins that no fourth does):
 #
 #   * `promote.yml`'s `skip_engine_smoke` dispatch input, which narrows one
 #     pre-flight — a cheap answer to "is anything else missing" before paying
 #     for the smokes;
 #   * `ci.yml`'s `promotion-gate` job, when the promotion PR carries the
 #     `promote:skip-engine-smoke` label, which narrows what that batch merges
-#     on.
+#     on;
+#   * the promotion train's plan job (`promotion-prep.yml`), on the same label
+#     on its candidate, so the train reads freshness exactly as the required
+#     check will.
 #
-# Both are per-act and leave a record — a dispatch input on one run, a label on
+# All are per-act and leave a record — a dispatch input on one run, a label on
 # one PR — so a skip is never standing configuration that outlives the batch
 # that wanted it. Only the exact value `1` enables it; anything else, a typo
 # included, leaves the gate strict.
@@ -150,6 +165,38 @@ fi
 
 fail=0
 
+# The head refs a promotion may come from: staging itself, or a train
+# candidate's frozen branch. Anchored and fixed-vocabulary, because the ref is
+# interpolated into the freshness stage's jq filter.
+HEAD_REF_PATTERN='^(staging|promote/[0-9]{4}-[0-9]{2}-[0-9]{2}(-([2-9]|[1-9][0-9]+))?)$'
+
+head_ref() {
+  local ref="${1:-staging}"
+  if ! [[ "$ref" =~ $HEAD_REF_PATTERN ]]; then
+    echo "::error::head ref '${ref}' is neither staging nor a promote/<date> candidate" >&2
+    exit 2
+  fi
+  printf '%s' "$ref"
+}
+
+provenance() {
+  local sha="$1" ref="$2"
+  if [ "$ref" = staging ]; then
+    return
+  fi
+  if ! git rev-parse --verify -q "origin/staging^{commit}" >/dev/null; then
+    echo "::error::provenance: origin/staging is not fetched — fetch staging first"
+    fail=1
+    return
+  fi
+  # grep reads the whole list (no -q): an early exit would SIGPIPE rev-list,
+  # and pipefail would then read a cut on the chain as one off it.
+  if ! git rev-list --first-parent origin/staging | grep -Fx "$sha" >/dev/null; then
+    echo "::error::provenance: ${ref} at ${sha} is not on staging's first-parent chain — not a cut of staging"
+    fail=1
+  fi
+}
+
 quiesce() {
   local wf status n
   for wf in run-predict.yml run-evaluate.yml run-backtest.yml; do
@@ -165,7 +212,7 @@ quiesce() {
 }
 
 freshness() {
-  local sha="$1" titles req scenario engine prefix
+  local sha="$1" ref="$2" titles req scenario engine prefix
   # The one stage that reads the required set, so the one that must refuse an
   # empty one: the loop below would run zero times and report a clean gate
   # that checked no evidence at all. Reachable only from a
@@ -181,12 +228,14 @@ freshness() {
   # tests pin this), so a display title is always drawn from a fixed
   # vocabulary and never carries free text. Everything below is defense in
   # depth on top of that: head_branch pins the evidence to runs dispatched
-  # from the staging branch itself, before a title is even read; the
+  # from the promotion's own head ref — staging, or the frozen candidate
+  # branch, which resolves the staging environment — before a title is even
+  # read; the
   # newline exclusion means a title that somehow preserved one could never
   # split into a fabricated extra line; and the matches are anchored.
   titles=$(gh api "repos/${REPO}/actions/workflows/integration-test.yml/runs?head_sha=${sha}&per_page=100" \
     --jq '.workflow_runs[]
-          | select(.conclusion == "success" and .head_branch == "staging"
+          | select(.conclusion == "success" and .head_branch == "'"${ref}"'"
                    and ((.display_title | test("\n")) | not))
           | .display_title')
   # A `scenario=gate` dispatch fans the whole required suite out as one
@@ -428,20 +477,33 @@ contexts() {
   # runs need it too) — so there is no state in which checking it early is
   # wrong, and the silent window an arming key would leave is exactly the one
   # between provisioning and promotion.
-  local branch_policy
+  #
+  # Two names are admitted, and nothing else: `staging`, and `promote/*`, the
+  # promotion train's frozen candidate branches, whose integration gate runs
+  # bind this environment. Those branches are only ever created by the dev
+  # App at a commit already on staging and are never updated — the two
+  # `promote:` branch rulesets, checked below with the others, are what make
+  # admitting the pattern no wider than admitting staging.
+  local branch_policy policy_name policy_ok=true saw_staging=false
   # `deployment_branch_policy.custom_branch_policies` means named branches;
-  # the names themselves are a second call.
+  # the names themselves are a second call. A tag policy is listed with its
+  # type, so one named `staging` cannot pass for the branch.
   branch_policy="$(gh api "repos/${REPO}/environments/staging/deployment-branch-policies" \
-    --jq '[.branch_policies[]?.name] | join(",")' 2>/dev/null || true)"
-  case ",${branch_policy}," in
-    *,staging,*)
-      echo "contexts: the staging environment is restricted to the staging branch"
-      ;;
-    *)
-      echo "::error::contexts: the staging environment does not restrict deployments to the 'staging' branch with a named custom policy — the staging read-write role its trust names would be reachable from any ref that can dispatch; fix the environment's branch policy"
-      fail=1
-      ;;
-  esac
+    --jq '[.branch_policies[]? | if (.type // "branch") == "branch" then .name else "\(.type):\(.name)" end] | join(",")' 2>/dev/null || true)"
+  IFS=',' read -r -a policy_names <<<"$branch_policy"
+  for policy_name in ${policy_names[@]+"${policy_names[@]}"}; do
+    case "$policy_name" in
+      staging) saw_staging=true ;;
+      'promote/*') ;;
+      *) policy_ok=false ;;
+    esac
+  done
+  if [ "$saw_staging" = true ] && [ "$policy_ok" = true ]; then
+    echo "contexts: the staging environment is restricted to the staging branch and the promote/* candidates"
+  else
+    echo "::error::contexts: the staging environment must restrict deployments to 'staging' (and, for the promotion train, 'promote/*') by named custom policies and nothing else (found: ${branch_policy:-unread}) — the staging read-write role its trust names would be reachable from any other ref that can dispatch; fix the environment's branch policy"
+    fail=1
+  fi
 
   # The corpus-check environment, on the staging check's reasoning and just as
   # unconditional: the read-only role's trust names `environment:corpus-check`,
@@ -482,6 +544,37 @@ contexts() {
     echo "contexts: the corpus-check environment holds its reviewer, its main-only policy and only the read-only role's variables"
   else
     echo "::error::contexts: fix the corpus-check environment before promoting — the read-only role's trust names it (docs/security.md)"
+    fail=1
+  fi
+
+  # The corpus-check-auto environment, on the same reasoning and just as
+  # unconditional: the read-only role's trust names
+  # `environment:corpus-check-auto` too, and that environment has no reviewer
+  # by design, so its `main`-only branch policy is its one control — a missing
+  # environment is one any branch's workflow creates unprotected by binding it.
+  # Required: it exists, admits `main` alone, and holds no secret and no
+  # variable but the read-only role's three. Reviewers are not checked: one
+  # added there is the stop for the unapproved path. The decision is tested
+  # Python (tests/test_environment_checks.py).
+  local cca_dir="${workdir}/corpus-check-auto-environment" cca_base
+  cca_base="repos/${REPO}/environments/corpus-check-auto"
+  mkdir -p "$cca_dir"
+  gh api "$cca_base" >"${cca_dir}/environment.json" 2>/dev/null \
+    || rm -f "${cca_dir}/environment.json"
+  gh api "${cca_base}/deployment-branch-policies?per_page=100" \
+    >"${cca_dir}/branch-policies.json" 2>/dev/null || rm -f "${cca_dir}/branch-policies.json"
+  gh api "${cca_base}/secrets?per_page=100" >"${cca_dir}/secrets.json" 2>/dev/null \
+    || rm -f "${cca_dir}/secrets.json"
+  gh api "${cca_base}/variables?per_page=30" >"${cca_dir}/variables.json" 2>/dev/null \
+    || rm -f "${cca_dir}/variables.json"
+  if uv run fedcourts assert-corpus-check-auto-environment \
+    --environment-file "${cca_dir}/environment.json" \
+    --branch-policies-file "${cca_dir}/branch-policies.json" \
+    --secrets-file "${cca_dir}/secrets.json" \
+    --variables-file "${cca_dir}/variables.json"; then
+    echo "contexts: the corpus-check-auto environment admits main alone and holds only the read-only role's variables"
+  else
+    echo "::error::contexts: fix the corpus-check-auto environment before promoting — the read-only role's trust names it (docs/security.md)"
     fail=1
   fi
 
@@ -549,7 +642,12 @@ case "${1:-}" in
     quiesce
     ;;
   freshness)
-    freshness "${2:?usage: promotion-gate.sh freshness <sha>}"
+    ref="$(head_ref "${3:-}")"
+    freshness "${2:?usage: promotion-gate.sh freshness <sha> [<head-ref>]}" "$ref"
+    ;;
+  provenance)
+    ref="$(head_ref "${3:-}")"
+    provenance "${2:?usage: promotion-gate.sh provenance <sha> [<head-ref>]}" "$ref"
     ;;
   contexts)
     contexts "${@:2}"
@@ -558,12 +656,14 @@ case "${1:-}" in
     registry "${2:?usage: promotion-gate.sh registry <sha>}"
     ;;
   all)
+    ref="$(head_ref "${3:-}")"
     quiesce
-    freshness "${2:?usage: promotion-gate.sh all <sha>}"
+    provenance "${2:?usage: promotion-gate.sh all <sha> [<head-ref>]}" "$ref"
+    freshness "$2" "$ref"
     registry "$2"
     ;;
   *)
-    echo "usage: scripts/promotion-gate.sh {quiesce|freshness <sha>|contexts [candidate...]|registry <sha>|all <sha>}" >&2
+    echo "usage: scripts/promotion-gate.sh {quiesce|freshness <sha> [<head-ref>]|provenance <sha> [<head-ref>]|contexts [candidate...]|registry <sha>|all <sha> [<head-ref>]}" >&2
     exit 2
     ;;
 esac
