@@ -25,6 +25,7 @@ from fedcourtsai.process_version import CURRENT_PROCESS_LABEL
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
+    AgentToolingFeedback,
     BaseRateBucket,
     ClaimProbability,
     Disposition,
@@ -3119,6 +3120,58 @@ def test_stamp_carries_an_unparseable_flags_file_verbatim_and_still_appends(
     stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
     assert stamped.context is not None
     assert stamped.context.snapshot_uptake == "unread"
+
+
+def test_stamp_normalises_a_tooling_report_with_invented_keys(_data_root: Path) -> None:
+    """An advisory self-report the agent mis-shaped no longer fails the cell.
+
+    The keys a gemini cell invented on 2026-10-17 are dropped and named in a
+    harness line on the report's notes, and the cell's prediction validates.
+    """
+    event = "evt-petition-disposition"
+    _provision(_data_root, 48)
+    event_paths = _seed_unstamped(_data_root, 48, event, "missing")
+    tooling_path = event_paths.prediction_tooling("claude-baseline", "RID")
+    tooling_path.parent.mkdir(parents=True, exist_ok=True)
+    tooling_path.write_text(
+        json.dumps(
+            {
+                "case_id": "scotus/48",
+                "run_id": "RID",
+                "role": "predictor",
+                "actor_id": "claude-baseline",
+                "used_corpus_query": False,
+                "used_mcp": False,
+                "missing_tools": "None",
+            }
+        )
+    )
+
+    result = _stamp("predictor", "claude-baseline", 48, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    assert "tooling.json did not validate; normalised it" in result.output
+    report = read_model(tooling_path, AgentToolingFeedback)
+    assert report.used_corpus_query is False
+    assert report.notes is not None and "'used_mcp'" in report.notes
+    again = _stamp("predictor", "claude-baseline", 48, event, "RID")
+    assert "tooling.json did not validate" not in again.output
+
+
+def test_stamp_leaves_a_tooling_report_with_no_corpus_answer(_data_root: Path) -> None:
+    """The one field collect reads as the cell's word is never supplied for it."""
+    event = "evt-petition-disposition"
+    _provision(_data_root, 49)
+    event_paths = _seed_unstamped(_data_root, 49, event, "missing")
+    tooling_path = event_paths.prediction_tooling("claude-baseline", "RID")
+    tooling_path.parent.mkdir(parents=True, exist_ok=True)
+    written = '{"case_id": "scotus/49", "used_mcp": true}'
+    tooling_path.write_text(written)
+
+    result = _stamp("predictor", "claude-baseline", 49, event, "RID")
+
+    assert "tooling.json did not validate" not in result.output
+    assert tooling_path.read_text() == written
 
 
 def test_a_re_stamp_leaves_a_normalised_flags_file_as_it_is(_data_root: Path) -> None:

@@ -428,7 +428,10 @@ cell's tooling, scanned by `run-ops` into a tooling digest, and read per run by
 `collect` for its `used_corpus_query` line alone, which is the self-reported
 side of the run PR's prior-availability note — the field asks whether the cell
 *used* the CLI, and the note weighs that against what capture saw rather than
-reading it as a verdict on the corpus; advisory, never gating.
+reading it as a verdict on the corpus; advisory, never gating. A mis-shaped
+report is normalised by the stamp too, short of supplying a `used_corpus_query`
+the cell did not answer (*`tooling.json`* in
+[predicted-artifacts.md](predicted-artifacts.md)).
 `retrieval_log.json` is the harness-captured tool-call transcript the
 evaluators' leakage grading reads.
 
