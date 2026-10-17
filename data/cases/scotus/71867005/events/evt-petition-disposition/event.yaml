@@ -1,0 +1,12 @@
+case_id: scotus/71867005
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2025-02-26'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Winston Tyler Hencely v. Fluor Corporation, et al.

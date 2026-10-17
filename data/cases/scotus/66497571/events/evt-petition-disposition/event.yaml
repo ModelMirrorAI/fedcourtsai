@@ -1,0 +1,12 @@
+case_id: scotus/66497571
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2018-08-17'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: BATS Global Markets, Inc., et al. v. City of Providence, Rhode Island, et al.

@@ -1,0 +1,22 @@
+{
+  "actual_disposition": "dismissed",
+  "actual_granted": 0,
+  "case_id": "scotus/72485543",
+  "disposition_basis": "standard",
+  "disposition_route": null,
+  "event_id": "evt-petition-disposition",
+  "interim_signals": null,
+  "judgment": null,
+  "noted_dissent_from_denial": null,
+  "resolved_at": "2026-01-08",
+  "schema_version": "1.0",
+  "signals": {
+    "cvsg_date": "2025-04-21",
+    "distribution_count": 3,
+    "distribution_parse": "dist-v2"
+  },
+  "source": null,
+  "vote_provenance": null,
+  "votes": [],
+  "writing_roles": null
+}

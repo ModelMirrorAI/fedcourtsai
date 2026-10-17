@@ -1,0 +1,12 @@
+case_id: scotus/72315900
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2025-03-13'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Havana Docks Corporation v. Royal Caribbean Cruises, Ltd., et al.

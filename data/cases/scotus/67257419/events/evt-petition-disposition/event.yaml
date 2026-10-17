@@ -1,0 +1,13 @@
+case_id: scotus/67257419
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2022-09-12'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Lac du Flambeau Band of Lake Superior Chippewa Indians, et al. v. Brian W.
+  Coughlin

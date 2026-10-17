@@ -1,0 +1,13 @@
+case_id: scotus/66711083
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2022-05-16'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Glacier Northwest, Inc., dba CalPortland v. International Brotherhood of Teamsters
+  Local Union No. 174

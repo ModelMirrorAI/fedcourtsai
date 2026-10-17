@@ -1,0 +1,13 @@
+case_id: scotus/72483587
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2025-04-25'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Saint Anthony Hospital v. Elizabeth M. Whitehorn, Director, Illinois Department
+  of Healthcare and Family Services, et al.

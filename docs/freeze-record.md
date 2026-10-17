@@ -8817,8 +8817,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py tests/test_cli_provision.py -k
@@ -8964,8 +8964,8 @@ freeze commit is recorded here.
   The check then reads the cell as unmoved when it was moved, so its count is a
   lower bound.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   **The runnable effect check once it is live.** Take the first predict round
   after the carrying merge that places a `response-requested` cell, and run
@@ -9077,8 +9077,8 @@ freeze commit is recorded here.
   changes to what a predict cell reads. No predict cell reads anything
   different, because capture runs after the engine, on its own log.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   **Effect check.** On `main`, once a run-predict round after the carrying
   merge has landed codex cells that called CourtListener, `jq -r '.calls[] |
@@ -9201,8 +9201,8 @@ freeze commit is recorded here.
   would mark it. A null leakage bit means the cell was not assessed, not that
   it was clean. It de-counts nothing already committed.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   The runnable effect check once it is live, from a checkout of the carrying
   merge with the corpus pulled: `uv run fedcourts predict-plan` lists, on its
@@ -9409,8 +9409,8 @@ freeze commit is recorded here.
   `stored`.
 
   **Where it landed.** Merged to `staging` as `<FILL: staging merge commit>`
-  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
-  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`). At that
+  and carried to `main` by the promotion tagged `promotion/2026-10-16`
+  (merge commit `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`). At that
   promotion's first parent, `src/fedcourtsai/corpus.py` has no
   `REPLAY_DECISION_RECORD_COLUMNS`; at its merge commit it does.
 
@@ -9428,7 +9428,7 @@ freeze commit is recorded here.
   re-bless.
 
   **The reading rule.** Two cert back-test reports whose cells ran on either
-  side of `<FILL: merge hash>` ran under different replay masks, even where
+  side of `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317` ran under different replay masks, even where
   their provenance blocks and `provenance.clocks` agree. Neither field can
   see this change, so no engine row's series spans the boundary. The
   committed `metrics/cert-backtest.json` (run `20261003T115301Z`) is
@@ -9646,8 +9646,8 @@ freeze commit is recorded here.
   merge; a board built before it and one built after are over different
   populations and are compared only through the sensitivity lines.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   The runnable effect check once it is live:
   - after the first metrics refresh on `main`, `jq '.set_aside.by_reason'
@@ -9858,8 +9858,8 @@ freeze commit is recorded here.
   corpus row records one. Read at the PR head the corpus-check lane answered at:
   <FILL: increment timing census at the PR head the corpus-check lane answered at as one plain line, before-run, during-run and run-day counts per claim by both readings, referral claims dated before or on the run day, unreadable referrals, and the corpus vintage>.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   The runnable effect check once it is live:
   - the first forward predict cell minted after the carrying merge carries
@@ -9979,8 +9979,8 @@ freeze commit is recorded here.
   reach is the first OT2026 merits decision, December 2026 at the earliest.
 
   **Where it landed.** Carried to `main` by the promotion tagged
-  `<FILL: promotion tag>` (merge commit `<FILL: merge hash>`, merged
-  `<FILL: merged-at>`). At that promotion's first parent
+  `promotion/2026-10-16` (merge commit `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged
+  `2026-10-16T20:17:17Z`). At that promotion's first parent
   `src/fedcourtsai/matrix.py` has no `OPINION_HOLD_DAYS`; at its merge commit
   it does.
 
@@ -10131,8 +10131,8 @@ freeze commit is recorded here.
     stay the record holds as `granted` (the party-rates replication names
     `24A884`) is named partial.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-16` (merge commit
+  `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   The runnable effect check once it is live, from a checkout of the carrying
   merge:
@@ -10277,8 +10277,8 @@ freeze commit is recorded here.
   ran nothing is removed, because those grants were not recorded at all.
 
   **Where it landed.** Merged to `staging` as `7df996154`
-  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
-  (merge commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  and carried to `main` by the promotion tagged `promotion/2026-10-16`
+  (merge commit `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_live.py tests/test_outcome.py tests/test_corpus.py
@@ -10331,6 +10331,45 @@ freeze commit is recorded here.
   2026-10-16, after the 2026-10-13 grant it removes, though its list was fixed
   by a census whose newest pull is 2026-10-09, before that grant. A claim that
   ranks claude above codex quotes both readings.
+
+- **The replay-clock census reads narrower than its entry predicted, recorded
+  2026-10-16.** No rule moves here. This records what the census of the
+  query-clock prior mask found against the prose of its entry (*The replay
+  clock on `fedcourts query` withholds a retrieved prior's post-clock
+  decision record*, dated 2026-10-15), which is filled in place and not
+  otherwise edited.
+
+  **The vintage.** The census ran on the blob both the promotion merge
+  `1c1cd1f25` (`promotion/2026-10-16`) and its first parent point at, index
+  sha256 `a1b834070512…`, `freshness: latest pull 2026-10-16, latest
+  snapshot 2026-07-13`, under the replay clock (cutoff 2026-06-30) and the
+  forward clock. On the first parent nothing was masked; on the merge, the
+  figures below.
+
+  **The opinion cluster is not reset at this vintage.** The entry expected
+  the cluster to be reset on most granted SCOTUS priors that carry it, on a
+  2026-09-29 reading where 0 of 656 granted rows with a cert date carried
+  `date_decided`. At this vintage every admitted prior that carries a
+  cluster also carries a decision date: 39 of 39 dated clusters pass and 0
+  are undated, under both clocks. The undated-cluster rule therefore resets
+  nothing here. It stays in force for a prior whose cluster lands before its
+  decision date does.
+
+  **What the mask does remove.** Under the replay clock, `last_live_polled`
+  is nulled on all 695 admitted priors, `citation_count` on all 40 that
+  store one (about 6% of admitted priors), and `merits_brief_filed` and
+  `distributed_for_conference` on 37 of 488 and 37 of 633, all of which
+  were passed unmasked on the first parent. Under the forward clock,
+  `last_live_polled` is nulled on 724 of 724 and `citation_count` on all
+  43; no date-tested column is nulled. "Expect it to bite widely" holds
+  for the tracking stamp and the citing count, not for the decision record.
+
+  **The reading.** A replay cell before this change could see a prior's
+  citing count and last poll stamp, and in 37 cases a merits brief or
+  conference distribution after its clock. Every opinion cluster it saw at
+  this vintage was one its clock had already reached, so the cluster rule
+  changed nothing it read. A back-test comparison across the change reads
+  its difference against those columns.
 
 - **Outcome detection refuses a moment opened under another petition than its
   re-docketed number now carries, 2026-10-17.** An **attribution** change to

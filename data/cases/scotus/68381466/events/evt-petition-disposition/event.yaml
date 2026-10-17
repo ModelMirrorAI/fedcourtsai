@@ -1,0 +1,12 @@
+case_id: scotus/68381466
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2023-10-06'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Paul Erlinger v. United States

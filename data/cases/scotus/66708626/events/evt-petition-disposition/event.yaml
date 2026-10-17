@@ -1,0 +1,13 @@
+case_id: scotus/66708626
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2022-05-17'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: The Ohio Adjutant General's Department, et al. v. Federal Labor Relations Authority,
+  et al.

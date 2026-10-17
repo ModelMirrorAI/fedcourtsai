@@ -1,0 +1,13 @@
+case_id: scotus/65740707
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2021-12-01'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Health and Hospital Corporation of Marion County, et al. v. Ivanka Talevski,
+  Personal Representative of the Estate of Gorgi Talevski, Deceased

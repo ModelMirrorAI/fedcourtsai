@@ -1,0 +1,13 @@
+case_id: scotus/73272690
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2025-07-03'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Marty Hierholzer, et al. v. Kelly Loeffler, Administrator, Small Business Administration,
+  et al.

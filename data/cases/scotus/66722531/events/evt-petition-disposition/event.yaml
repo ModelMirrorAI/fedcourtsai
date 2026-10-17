@@ -1,0 +1,13 @@
+case_id: scotus/66722531
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2019-02-15'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Village of Lincolnshire, Illinois, et al. v. International Union of Operating
+  Engineers Local 399, et al.

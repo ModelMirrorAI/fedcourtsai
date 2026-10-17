@@ -1,0 +1,13 @@
+case_id: scotus/66648806
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2018-08-03'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Phil Plummer, et al. v. David M. Hopper, Special Administrator of the Estate
+  of Robert Andrew Richardson, Sr.

@@ -1,0 +1,13 @@
+case_id: scotus/65414968
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2021-09-29'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: National Pork Producers Council, et al. v. Karen Ross, in Her Official Capacity
+  as Secretary of the California Department of Food & Agriculture, et al.

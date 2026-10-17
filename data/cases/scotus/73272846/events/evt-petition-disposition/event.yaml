@@ -1,0 +1,13 @@
+case_id: scotus/73272846
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2025-07-23'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Richmond Road Partners, LLC, et al. v. City of Warrensville Heights, Ohio,
+  et al.
