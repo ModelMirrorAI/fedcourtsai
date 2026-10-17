@@ -8504,8 +8504,8 @@ class _StatPackInterimCounts(_Strict):
         ge=0,
         description="Application dockets (strict `YYAnnn` form — the live channel's "
         "addressable population) in this slice, each number counted once: a number "
-        "the corpus stores under two case ids counts its lowest-docket-id row only, "
-        "here and in every count below",
+        "the corpus stores under two case ids counts one row only (see "
+        "`duplicate_rows`), here and in every count below",
     )
     extension: int = Field(
         default=0,
@@ -8577,6 +8577,23 @@ class _StatPackInterimCounts(_Strict):
         description="Substantive applications whose docket records at least one "
         "amicus brief — a stakes proxy, flagged here rather than summed",
     )
+    duplicate_rows: int | None = Field(
+        default=None,
+        ge=0,
+        description="Corpus rows left out of every count here because another row "
+        "carries the same application number (`corpus.duplicate_application_case_ids`: "
+        "one row per number, an observed row before a stub, then the lowest docket "
+        "id). Absent from a pack built before the one-row-per-number rule, which "
+        "counted rows, so absent reads as unknown, never as zero",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_unset_duplicate_rows(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``duplicate_rows`` while unset, so a pack built before it reads as before."""
+        payload = handler(self)
+        if isinstance(payload, dict) and self.duplicate_rows is None:
+            payload.pop("duplicate_rows", None)
+        return payload
 
 
 class StatPackInterimTerm(_StatPackInterimCounts):

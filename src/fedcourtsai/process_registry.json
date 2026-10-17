@@ -298,6 +298,14 @@
       "predictors": null,
       "reach": "self-represented dockets",
       "gradual": false
+    },
+    {
+      "name": "interim-pool-one-row-per-number",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
     }
   ]
 }

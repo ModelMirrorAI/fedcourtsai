@@ -1257,8 +1257,9 @@ class _InterimAcc:
     cert petitions only, and every application row is written at weight 1 — if
     a sampling design ever reaches applications, this accumulator must learn
     to weight). A count is of application **numbers**: a number the corpus
-    stores under two case ids is offered once, the scan skipping every row
-    :func:`corpus.duplicate_application_case_ids` names before it reaches here.
+    stores under two case ids is added once, and every row
+    :func:`corpus.duplicate_application_case_ids` names is tallied in
+    ``duplicate_rows`` instead of being added.
     The kind tally keeps ``unknown`` (parsed, ask unreadable) apart from
     ``unparsed`` (never application-parsed), so a coverage gap never masquerades
     as a value; the resolved/granted counters and the escalation signals read the
@@ -1268,6 +1269,7 @@ class _InterimAcc:
 
     __slots__ = (
         "applications",
+        "duplicate_rows",
         "kinds",
         "referred_to_court",
         "response_requested",
@@ -1279,6 +1281,7 @@ class _InterimAcc:
 
     def __init__(self) -> None:
         self.applications = 0
+        self.duplicate_rows = 0
         self.kinds: Counter[str] = Counter()
         self.unparsed = 0
         self.substantive_resolved = 0
@@ -1323,9 +1326,14 @@ class _InterimAcc:
         if row.amicus_briefs is not None and row.amicus_briefs > 0:
             self.with_amicus += 1
 
+    def skip_duplicate(self) -> None:
+        """Tally a second row for a number already counted; it joins no count."""
+        self.duplicate_rows += 1
+
     def merge(self, other: _InterimAcc) -> None:
         """Fold another slice's counters into this one (for the pack-level totals)."""
         self.applications += other.applications
+        self.duplicate_rows += other.duplicate_rows
         self.kinds.update(other.kinds)
         self.unparsed += other.unparsed
         self.substantive_resolved += other.substantive_resolved
@@ -1358,6 +1366,7 @@ def _interim_counts(acc: _InterimAcc) -> dict[str, Any]:
         "response_requested": acc.response_requested,
         "referred_to_court": acc.referred_to_court,
         "with_amicus": acc.with_amicus,
+        "duplicate_rows": acc.duplicate_rows,
     }
 
 
@@ -1726,17 +1735,21 @@ def _accumulate_scotus_terms(
 
     ``application_twins`` is the scan's
     :func:`corpus.duplicate_application_case_ids`: a row in it is a second row
-    for an application number another row already carries, so it joins no
-    interim accumulator, and the interim counts — and the base rate pooled from
-    them — count each number once.
+    for an application number another row already carries, so it is tallied as
+    a duplicate and joins no interim count, and the interim counts — and the
+    base rate pooled from them — count each number once.
     """
     if row_is_live:
         year = corpus.scotus_term_year(row.docket_number)
         if year is not None:
             term_accs.setdefault(year, _TermAcc()).add(row)
     application_year = corpus.scotus_application_term_year(row.docket_number)
-    if application_year is not None and row.case_id not in application_twins:
-        interim_accs.setdefault(application_year, _InterimAcc()).add(row)
+    if application_year is not None:
+        interim_acc = interim_accs.setdefault(application_year, _InterimAcc())
+        if row.case_id in application_twins:
+            interim_acc.skip_duplicate()
+        else:
+            interim_acc.add(row)
     if corpus.opens_merits_proceeding(row) and row.date_cert_granted is not None:
         grant_year = october_term_year(row.date_cert_granted)
         acc = merits_accs.setdefault(grant_year, _MeritsAcc())
@@ -2291,7 +2304,10 @@ def _interim_lines(interim: StatPackInterim) -> list[str]:
         (
             "_SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the "
             + "time-extension requests that dominate the docket), split by application-Term "
-            + "year; raw counts, never reweighted. The rows below **ground the interim "
+            + "year; raw counts, never reweighted, of application **numbers**: a number "
+            + "the corpus stores under two case ids counts once, at its lowest-docket-id row "
+            + "among those the live channel observed (parsed or live-polled), or among all "
+            + "of them where none was. The rows below **ground the interim "
             + "stage's scored base rate**: an application cell is scored against the grant "
             + "rate pooled over the resolved substantive slice of application-Terms strictly "
             + "before its own, unweighted, and only where that pooled sample clears the "

@@ -16,8 +16,12 @@ heads the summary with the corpus vintage and the ledger checkout's git HEAD.
    (:func:`fedcourtsai.corpus.duplicate_application_case_ids`): per Term, the
    number of duplicated numbers and the extra rows; per group, its case ids
    with the counted survivor first, whether any id sits in the live-minted
-   reserved range, live-slice membership, the parsed ask, the disposition, and
-   the names of the fields the rows disagree on.
+   reserved range, live-slice membership, how many rows the live channel
+   observed (parsed or live-polled), the parsed ask, the disposition, and the
+   names of the fields the rows disagree on; then the groups mixing observed
+   and unobserved rows, any group counting an unobserved row over an observed
+   one (the survivor rule makes this zero), and the groups whose counted row is
+   not the plain lowest docket id.
 2. **What each reader double-counts.** The statpack's interim per-Term counts
    with every row (the rule before the dedupe) and with one row per number
    (the rule after), with the rows' difference by field; the pooled interim
@@ -61,6 +65,7 @@ _COUNT_FIELDS = (
     "response_requested",
     "referred_to_court",
     "with_amicus",
+    "duplicate_rows",
 )
 
 
@@ -105,13 +110,30 @@ def _differing_fields(rows: list[corpus.CorpusRow]) -> list[str]:
     ]
 
 
-def _interim(rows: list[corpus.CorpusRow]) -> dict[int, analytics._InterimAcc]:
+def _interim(
+    rows: list[corpus.CorpusRow], skipped: frozenset[str]
+) -> dict[int, analytics._InterimAcc]:
+    """The interim accumulators over ``rows``, tallying ``skipped`` as duplicates."""
     accs: dict[int, analytics._InterimAcc] = {}
     for row in rows:
         year = corpus.scotus_application_term_year(row.docket_number)
         assert year is not None
-        accs.setdefault(year, analytics._InterimAcc()).add(row)
+        acc = accs.setdefault(year, analytics._InterimAcc())
+        if row.case_id in skipped:
+            acc.skip_duplicate()
+        else:
+            acc.add(row)
     return accs
+
+
+def _observed(row: corpus.CorpusRow) -> bool:
+    """Whether the live channel observed the row: application-parsed or live-polled."""
+    return row.application_kind is not None or row.last_live_polled is not None
+
+
+def _lowest_id(case_id: str) -> tuple[int, int, str]:
+    tail = case_id.rsplit("/", 1)[-1]
+    return (0, int(tail), case_id) if tail.isdigit() else (1, 0, case_id)
 
 
 def _pool(rate: float | None, pack: StatPack, term: int, lookback: int) -> str:
@@ -147,6 +169,8 @@ def _census(db: Path, data_root: Path, lookback: int) -> list[str]:  # noqa: PLR
         groups[_key(row)].append(row)
     dup = {key: group for key, group in groups.items() if len(group) > 1}
     lines = ["**1. The groups**", ""]
+    if not rows:
+        return [*lines, "- the corpus holds no strict-form application rows"]
     lines.append(
         f"- application rows: {len(rows)}; numbers: {len(groups)}; duplicated numbers: "
         f"{len(dup)}; rows the dedupe skips: {len(twins)} "
@@ -164,23 +188,45 @@ def _census(db: Path, data_root: Path, lookback: int) -> list[str]:  # noqa: PLR
     )
     lines.append("")
     lines.append(
-        "| number | case ids (counted first) | live-minted | live slice | ask | "
+        "| number | case ids (counted first) | live-minted | live slice | observed | ask | "
         "disposition | differing fields |"
     )
-    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
     for key in sorted(dup):
         group = sorted(dup[key], key=lambda row: row.case_id in twins)
         lines.append(
             f"| {_number(key)} | {', '.join(row.case_id for row in group)} | "
             f"{sum(_is_live_minted(row.case_id) for row in group)} | "
             f"{sum(corpus.is_live_slice(row) for row in group)} | "
+            f"{sum(_observed(row) for row in group)} | "
             f"{'/'.join(sorted({str(row.application_kind) for row in group}))} | "
             f"{'/'.join(sorted({str(row.disposition) for row in group}))} | "
             f"{', '.join(_differing_fields(group)) or 'none'} |"
         )
+    mixed = [
+        key
+        for key, group in dup.items()
+        if any(_observed(row) for row in group) and not all(_observed(row) for row in group)
+    ]
+    stub_kept = [
+        key
+        for key, group in dup.items()
+        if any(_observed(row) for row in group if row.case_id in twins)
+        and not any(_observed(row) for row in group if row.case_id not in twins)
+    ]
+    plain = sum(
+        min((row.case_id for row in group), key=_lowest_id) in twins for group in dup.values()
+    )
+    lines.append("")
+    lines.append(
+        f"- groups mixing observed and unobserved rows: {len(mixed)} "
+        f"({', '.join(_number(key) for key in sorted(mixed)) or 'none'}); groups counting an "
+        f"unobserved row while skipping an observed one: {len(stub_kept)}; groups whose "
+        f"counted row is not the plain lowest docket id: {plain}"
+    )
 
-    before_accs = _interim(rows)
-    after_accs = _interim([row for row in rows if row.case_id not in twins])
+    before_accs = _interim(rows, frozenset())
+    after_accs = _interim(rows, twins)
     before = StatPack(interim=analytics._interim_section(before_accs))
     after = StatPack(interim=analytics._interim_section(after_accs))
     built = analytics.build_statpack(corpus_db_path=db).interim
@@ -274,7 +320,10 @@ def main() -> int:
     lines += _census(db, settings.data_root, lookback)
     with Path(summary).open("a", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
-    return 0
+    sys.stderr.write(info.stderr)
+    # The vintage is what a figure is quoted beside: a corpus-info that failed
+    # leaves the figures unanchored, so the check fails with it.
+    return info.returncode
 
 
 if __name__ == "__main__":

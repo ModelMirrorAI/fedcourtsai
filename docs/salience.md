@@ -1776,9 +1776,13 @@ column there counts applications carrying **at least one** brief, not briefs —
 the count itself stays on the corpus row) — and its
 **per-Term entries are what the scored baseline pools**. The unit is the
 application number, not the corpus row: a number the corpus stores under two
-or more case ids counts once, as its lowest-docket-id row, the identity join's
-survivor (`corpus.duplicate_application_case_ids`), so a twice-stored grant is
-one grant in the pool:
+or more case ids counts once, at its lowest-docket-id row among those the live
+channel observed (parsed or live-polled), or among all of them where none was
+— the identity join's lowest-id rule (`corpus.scotus_case_id_by_docket_number`)
+with a stub never preferred over an observed row. The skip set is
+`corpus.duplicate_application_case_ids`, and the section tallies the rows it
+leaves out as `duplicate_rows`, so a twice-stored grant is one grant in the
+pool:
 `segment_base_rate` takes an application arm keyed on the `YYAnnn` Term
 (`base_rates.interim_base_rate`), which is the estimator registered below. The
 pack-level rate beside it stays descriptive and is never the baseline, because
@@ -1808,7 +1812,7 @@ stage rule, because the forking paths close now or never: the rate is
 pooled over the **substantive resolved slice of application-Terms strictly
 before the case's own** (the same leakage rule the cert band rate uses),
 **unweighted raw counts** (the application stream has no denial sampling, so
-every row stands for itself), with withdrawn/dismissed counted as ungranted
+every application number stands for itself), with withdrawn/dismissed counted as ungranted
 and the machine-matched-resolution selection caveat traveling with the number
 wherever it is quoted. Two collapses in the resolved labels are likewise
 recorded here rather than discovered later: an unmatched resolution never

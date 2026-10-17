@@ -2504,10 +2504,12 @@ def scotus_application_term_year(docket_number: str) -> int | None:
     return 1900 + two_digit if two_digit >= 30 else 2000 + two_digit
 
 
-def _survivor_order(case_id: str) -> tuple[int, int, str]:
-    """Sort key putting the lowest numeric docket id first, then any other id."""
+def _survivor_order(case_id: str, observed: bool) -> tuple[bool, int, int, str]:
+    """Sort key putting an observed row first, then the lowest numeric docket id."""
     tail = case_id.rsplit("/", 1)[-1]
-    return (0, int(tail), case_id) if tail.isdigit() else (1, 0, case_id)
+    if tail.isdigit():
+        return (not observed, 0, int(tail), case_id)
+    return (not observed, 1, 0, case_id)
 
 
 def duplicate_application_case_ids(conn: ReadConnection) -> frozenset[str]:
@@ -2521,35 +2523,40 @@ def duplicate_application_case_ids(conn: ReadConnection) -> frozenset[str]:
     reading census that replicates it) skips the ids this returns, so each
     number counts once.
 
-    The key is the parsed ``(term, serial)`` of the strict ``YYAnnn`` form
-    (:func:`scotus_application_term_year`'s own parse, annotation stripped) —
-    exactly the population the interim section is keyed on, so a row this
-    skips is one the section would otherwise have counted. The **survivor** of
-    each group is the row with the lowest numeric docket id, the rule the
-    identity join applies when two rows match one number
-    (:func:`scotus_case_id_by_docket_number`) and the one
-    :mod:`fedcourtsai.dedupe` keeps, so the counted row is the id the rest of the
-    pipeline resolves the number to. Which row survives moves no count where the
-    rows agree; where they disagree, the survivor's facts are the ones counted,
-    and the dedupe census (``scripts/checks/application_duplicates.py``) lists
-    each group's differing fields. Read-only; a row is skipped, never altered,
-    and a corpus merge of the groups would leave this returning an empty set.
+    The key is the numeric ``(term, serial)`` pair the strict ``YYAnnn`` parse
+    yields, annotation stripped and case folded (``24A09`` and ``24a9`` are one
+    number) — the parse :func:`scotus_application_term_year` already reads, so a
+    row this skips is one the interim section would otherwise have counted.
+
+    The **survivor** of each group is chosen in two steps. A row the live channel
+    has observed — application-parsed (``application_kind`` set) or live-polled
+    (``last_live_polled`` set) — is preferred over one it has not, so a
+    CourtListener stub can never displace the parsed row of the same number and
+    take its ask and disposition out of the count. Among the rows left, the
+    lowest numeric docket id wins, the rule the identity join
+    (:func:`scotus_case_id_by_docket_number`) applies when two rows match one
+    number and the one :mod:`fedcourtsai.dedupe` keeps. Where every row agrees,
+    which survives moves no count; the dedupe census
+    (``scripts/checks/application_duplicates.py``) lists each group's differing
+    fields. Read-only: a row is skipped, never altered, and a corpus merge of
+    the groups would leave this returning an empty set.
     """
-    groups: dict[tuple[int, int], list[str]] = {}
+    groups: dict[tuple[int, int], list[tuple[str, bool]]] = {}
     for record in conn.execute(
-        "SELECT case_id, docket_number FROM cases "
-        "WHERE court = 'scotus' AND docket_number LIKE '%A%'"
+        "SELECT case_id, docket_number, "
+        "(application_kind IS NOT NULL OR last_live_polled IS NOT NULL) AS observed "
+        "FROM cases WHERE court = 'scotus' AND docket_number LIKE '%A%'"
     ):
         key = parse_scotus_application_number(
             strip_docket_annotation(str(record["docket_number"] or ""))
         )
         if key is not None:
-            groups.setdefault(key, []).append(str(record["case_id"]))
+            groups.setdefault(key, []).append((str(record["case_id"]), bool(record["observed"])))
     return frozenset(
         case_id
-        for case_ids in groups.values()
-        if len(case_ids) > 1
-        for case_id in sorted(case_ids, key=_survivor_order)[1:]
+        for members in groups.values()
+        if len(members) > 1
+        for case_id, _ in sorted(members, key=lambda member: _survivor_order(*member))[1:]
     )
 
 

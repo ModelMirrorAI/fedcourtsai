@@ -1389,22 +1389,66 @@ def test_an_application_number_stored_twice_counts_once(tmp_path: Path) -> None:
     assert (ot24.applications, ot24.substantive) == (5, 5)
     assert (ot24.substantive_resolved, ot24.substantive_granted) == (5, 3)
     assert (interim.substantive_resolved, interim.substantive_granted) == (5, 3)
+    assert (ot24.duplicate_rows, interim.duplicate_rows) == (5, 5)
 
 
 def test_the_counted_twin_is_the_lowest_docket_id_not_the_first_string(tmp_path: Path) -> None:
     # `scotus/479784` sorts after `scotus/1625607` as a string but is the lower
-    # docket id — the identity join's survivor — so it is the row counted. The
-    # survivor's own facts are what count: here it is the parsed row.
+    # docket id — the identity join's survivor — so it is the row counted. Both
+    # rows are observed, and they disagree, so the statpack shows which counted.
+    db = tmp_path / "corpus.db"
     rows = [
-        _application("scotus/1625607", "05A1233", application_kind=None),
+        _application("scotus/1625607", "05A1233", disposition=Disposition.denied),
         _application("scotus/479784", "05A1233", disposition=Disposition.granted),
         # A cert number shared by two rows is no application and is not this rule's.
         _application("scotus/1", "24-5", application_kind=None),
         _application("scotus/2", "24-5", application_kind=None),
     ]
-    with corpus.connect(tmp_path / "corpus.db") as conn:
+    with corpus.connect(db) as conn:
         corpus.upsert_rows(conn, rows)
         assert corpus.duplicate_application_case_ids(conn) == {"scotus/1625607"}
+    interim = analytics.build_statpack(corpus_db_path=db).interim
+    assert interim is not None
+    (ot05,) = interim.terms
+    assert (ot05.applications, ot05.duplicate_rows) == (1, 1)
+    assert (ot05.substantive_resolved, ot05.substantive_granted) == (1, 1)
+
+
+def test_an_observed_twin_is_counted_over_a_lower_id_stub(tmp_path: Path) -> None:
+    # A CourtListener stub (never parsed, never live-polled) with the lower id
+    # must not displace the parsed grant of the same number: the observed row is
+    # preferred before the lowest id is read. The key is numeric and case-folded,
+    # so `24a09` is the number `24A9`.
+    db = tmp_path / "corpus.db"
+    rows = [
+        _application("scotus/10", "24A9", application_kind=None, last_live_polled=None),
+        _application("scotus/90", "24a09", disposition=Disposition.granted),
+        # Neither observed: the plain lowest id.
+        _application("scotus/30", "24A8", application_kind=None, last_live_polled=None),
+        _application("scotus/20", "24A8", application_kind=None, last_live_polled=None),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        assert corpus.duplicate_application_case_ids(conn) == {"scotus/10", "scotus/30"}
+    interim = analytics.build_statpack(corpus_db_path=db).interim
+    assert interim is not None
+    assert (interim.applications, interim.unparsed, interim.duplicate_rows) == (2, 1, 2)
+    assert (interim.substantive_resolved, interim.substantive_granted) == (1, 1)
+
+
+def test_a_pack_built_before_the_rule_carries_no_duplicate_count(tmp_path: Path) -> None:
+    # Absent reads as unknown and serializes as absent, so a pre-rule pack
+    # round-trips byte-identically; a pack built now states its count, zero
+    # included.
+    pack = StatPack(interim=analytics._interim_section({2024: analytics._InterimAcc()}))
+    assert pack.interim is not None
+    assert pack.interim.duplicate_rows == 0
+    legacy = pack.model_dump(mode="json")
+    del legacy["interim"]["duplicate_rows"]
+    del legacy["interim"]["terms"][0]["duplicate_rows"]
+    reread = StatPack.model_validate(legacy)
+    assert reread.interim is not None and reread.interim.duplicate_rows is None
+    assert reread.model_dump(mode="json") == legacy
 
 
 def test_the_interim_base_rate_pools_each_number_once(tmp_path: Path) -> None:

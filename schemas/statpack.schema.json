@@ -158,10 +158,24 @@
       "properties": {
         "applications": {
           "default": 0,
-          "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice, each number counted once: a number the corpus stores under two case ids counts its lowest-docket-id row only, here and in every count below",
+          "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice, each number counted once: a number the corpus stores under two case ids counts one row only (see `duplicate_rows`), here and in every count below",
           "minimum": 0,
           "title": "Applications",
           "type": "integer"
+        },
+        "duplicate_rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Corpus rows left out of every count here because another row carries the same application number (`corpus.duplicate_application_case_ids`: one row per number, an observed row before a stub, then the lowest docket id). Absent from a pack built before the one-row-per-number rule, which counted rows, so absent reads as unknown, never as zero",
+          "title": "Duplicate Rows"
         },
         "extension": {
           "default": 0,
@@ -259,10 +273,24 @@
       "properties": {
         "applications": {
           "default": 0,
-          "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice, each number counted once: a number the corpus stores under two case ids counts its lowest-docket-id row only, here and in every count below",
+          "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice, each number counted once: a number the corpus stores under two case ids counts one row only (see `duplicate_rows`), here and in every count below",
           "minimum": 0,
           "title": "Applications",
           "type": "integer"
+        },
+        "duplicate_rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Corpus rows left out of every count here because another row carries the same application number (`corpus.duplicate_application_case_ids`: one row per number, an observed row before a stub, then the lowest docket id). Absent from a pack built before the one-row-per-number rule, which counted rows, so absent reads as unknown, never as zero",
+          "title": "Duplicate Rows"
         },
         "extension": {
           "default": 0,
