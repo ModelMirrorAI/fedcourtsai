@@ -351,12 +351,20 @@ def test_a_malformed_knob_fails_before_the_engine_starts(tmp_path: Path, knob: s
 
 def test_the_annotation_names_a_fault_left_on_stderr(tmp_path: Path) -> None:
     """A failed exit's error object is read off stderr, screened, and named."""
-    result, _ = _run(tmp_path, ["stderr-object"])
-    (warning,) = _warnings(result)
-    assert "ended permanent; not retried: the fault is not a transient one" in warning
-    assert "; engine said: Error: exception TypeError: fetch failed sending request" in warning
-    assert "AIza" not in warning
-    assert "redacted" in warning
+    # A dropped model call is transient: the second turn runs, and both the
+    # retry's annotation and the last attempt's name the fault.
+    result, _ = _run(tmp_path, ["stderr-object", "stderr-object", "stderr-object"])
+    assert _attempts(tmp_path) == 3
+    warnings = _warnings(result)
+    assert len(warnings) == 3
+    assert "ended transient; retrying" in warnings[0]
+    assert "attempt 3/3 ended transient; not retried: all 3 attempts are spent" in warnings[-1]
+    for warning in warnings:
+        assert warning.endswith(
+            "; engine said: Error: exception TypeError: fetch failed sending request "
+            + "key redacted:google-key"
+        )
+        assert "AIza" not in warning
 
 
 def test_a_fault_the_harness_cannot_read_leaves_the_annotation_bare(tmp_path: Path) -> None:
