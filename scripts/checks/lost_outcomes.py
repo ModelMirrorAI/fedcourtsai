@@ -34,6 +34,15 @@ named by `CHECK_SUMMARY`:
    application in its sentence.
 5. **Opened after the decision**: committed outcomes whose event opened after
    the outcome's `resolved_at` (ledger-only), by disposition.
+6. **The merits split of the grants the apply recorded**: the pass is a
+   dry-run over gaps, so once applied it no longer sees them. For each case
+   whose cert grant the apply commit recorded (listed in
+   `lost_outcomes_applied_grants.json`, read from that commit's diff), the
+   corpus's merits event and the row's merits ladder as the pass reads it —
+   carries a merits event / judgment-latched / terminated / stale (on the
+   apply's date) / none of these. The last bucket holds the out-of-scope
+   grants and any grant the pass would have minted; the row is read at the
+   pulled vintage, not the apply's.
 
 Outside the lane, point `CHECK_SUMMARY` at any file and run it from a checkout
 with a pulled corpus.
@@ -152,8 +161,8 @@ def _pass_section(db: Path, data_root: Path) -> list[str]:
         "  - gap moments recorded by disposition: " + _counts(plan.recorded_by_disposition),
         "- merits outcome of each recorded grant that opens a merits proceeding: "
         + _counts(merits),
-        f"- residue to mark resolved_without_outcome: "
-        f"{sum(len(v) for v in plan.residue.values())} moment(s) on {len(plan.residue)} case(s)",
+        "- residue to mark resolved_without_outcome: "
+        + f"{sum(len(v) for v in plan.residue.values())} moment(s) on {len(plan.residue)} case(s)",
         "  - by reason: " + _counts(residue_reason),
         "  - by disposition: " + _counts(plan.residue_by_disposition),
         f"- open gaps declined (left open): {sum(len(v) for v in plan.open_declined.values())}"
@@ -299,6 +308,43 @@ def _opened_after_section(data_root: Path) -> list[str]:
     ]
 
 
+_APPLIED_GRANTS = Path(__file__).with_name("lost_outcomes_applied_grants.json")
+
+
+def _applied_grants_section(conn: Any) -> list[str]:
+    applied = json.loads(_APPLIED_GRANTS.read_text(encoding="utf-8"))
+    on = date.fromisoformat(applied["recorded_on"])
+    split: Counter[str] = Counter()
+    rest: list[str] = []
+    for case_id in applied["granted_cases"]:
+        row = corpus.get_row(conn, case_id)
+        if row is None:
+            split["no-row"] += 1
+        elif any(
+            e.event_id == outcome_module.MERITS_EVENT_ID
+            for e in corpus.events_for_case(conn, case_id)
+        ):
+            split["carries-merits-event"] += 1
+        elif row.merits_judgment is not None:
+            split["judgment-latched"] += 1
+        elif row.merits_terminated is not None:
+            split["terminated"] += 1
+        elif corpus.is_stale_unparsed_grant(row, today=on):
+            split["stale"] += 1
+        else:
+            split["none-of-these"] += 1
+            rest.append(case_id)
+    return [
+        "## 6. Merits split of the grants the apply recorded",
+        "",
+        f"- apply commit {applied['commit'][:9]} ({applied['recorded_on']}); "
+        + f"granted cases: {len(applied['granted_cases'])}",
+        f"- split: {_counts(split)}",
+        f"- none-of-these: {_ids(rest)}",
+        "",
+    ]
+
+
 def main() -> int:
     summary = os.environ.get("CHECK_SUMMARY")
     if not summary:
@@ -318,6 +364,7 @@ def main() -> int:
         lines += _open_gap_section(conn, data_root, date.today())
         lines += _predicted_closed_section(conn, data_root)
         lines += _exposure_section(conn, data_root)
+        lines += _applied_grants_section(conn)
     lines += _opened_after_section(data_root)
     with Path(summary).open("a", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
