@@ -509,7 +509,8 @@ runbook, [docs/security.md](docs/security.md).
   author approve their own). So a promotion — opened by the dev App — merges
   on the maintainer's approval of its head or through a recorded bypass: the
   admin role's, or a dev App token with contents write, whose jobs merge
-  nothing but their own lane's PR and change only by an approved promotion.
+  nothing but their own lane's PR, run no agent, and change only by an
+  approved promotion.
   Code and config reach `main` only as a gated
   promotion batch from `staging` — except the `promotion-record` writer's
   one-parent record commit, jailed byte-equal to its plan, touching only

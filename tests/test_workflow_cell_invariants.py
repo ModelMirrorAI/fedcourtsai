@@ -398,6 +398,19 @@ def test_every_gemini_allowlist_covers_its_own_cell_env_contract() -> None:
             assert {"DECIDED_BEFORE", "REPLAY_CUTOFF"} <= allowed, name
 
 
+def _backtest_report_upload(steps: list[dict[str, Any]]) -> int:
+    """The replay job's one hand-off: `metrics/`, uploaded for the publish job."""
+    found = [
+        i
+        for i, step in enumerate(steps)
+        if "upload-artifact" in str(step.get("uses") or "")
+        and (step.get("with") or {}).get("path") == "metrics/"
+    ]
+    assert len(found) == 1, f"expected exactly one upload of metrics/, found {found}"
+    assert "if" not in steps[found[0]], "the report leaves only from a replay that succeeded"
+    return found[0]
+
+
 def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> None:
     """A replayed petition is decided, so the committed ledger in the same
     checkout can hold the `outcome.json` the cell is being asked to forecast —
@@ -431,13 +444,13 @@ def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> Non
     restore = index("git checkout -- data/cases")
     # Likewise pinned to the invocation, not the PR body's echo of it.
     salience = index('fedcourts salience-replay --terms "$BT_TERMS"')
-    pr = index("gh pr create")
+    upload = _backtest_report_upload(steps)
 
     assert remove < cells, "the ledger leaves the tree before the replay cells run"
     assert cells < restore < salience, (
         "the restore is the first post-cell step and precedes the salience-gate arm"
     )
-    assert restore < pr, "the review PR step runs against a restored tree"
+    assert restore < upload, "the report leaves for the publish job from a restored tree"
     # The wipe before the checkout is what makes the restore cover untracked
     # files: `git checkout --` restores tracked paths only, so a cell that
     # wrote its own directory under data/cases would survive a bare restore.
@@ -465,12 +478,12 @@ def test_the_backtest_replay_brackets_its_cells_with_the_big_case_board_removal(
     event in the JSON carries `actual_disposition`, and in both files a case's
     moment names its newest predicted event, where a merits moment discloses
     the grant. So both halves leave the tree with the ledger. The review PR
-    step stages all of `metrics/`, which makes the restore load-bearing twice
-    over: a restore that lands after that step commits the board's deletion,
-    and one that restores from the index rather than the commit reinstates
-    bytes a cell could have staged. Nothing the replay runs reads the board —
-    it is a render target of `fedcourts big-cases` and the metrics refresh,
-    neither of which runs here.
+    upload ships all of `metrics/` to the publish job, which stages it whole,
+    so the restore is load-bearing twice over: a restore that lands after the
+    upload commits the board's deletion, and one that restores from the index
+    rather than the commit reinstates bytes a cell could have staged. Nothing
+    the replay runs reads the board — it is a render target of `fedcourts
+    big-cases` and the metrics refresh, neither of which runs here.
     """
     # The fenced paths are the board's own, every half of it, so a rename or a
     # new companion file breaks here rather than on the runner.
@@ -492,15 +505,19 @@ def test_the_backtest_replay_brackets_its_cells_with_the_big_case_board_removal(
     cells = index('--work-dir "$work_dir"')
     restore = index(f"git checkout HEAD -- {paths}")
     salience = index('fedcourts salience-replay --terms "$BT_TERMS"')
-    pr = index("gh pr create")
-    stage = index("git add -A metrics/")
+    upload = _backtest_report_upload(steps)
 
     assert remove < cells, "the board leaves the tree before the replay cells run"
-    assert cells < restore < salience, (
-        "the restore follows the cells and precedes the salience-gate arm"
+    assert cells < restore < salience < upload, (
+        "the restore follows the cells and precedes the salience-gate arm and the upload"
     )
-    assert restore < stage and stage == pr, (
-        "the board is back before the review PR step stages metrics/"
+    # What the publish job stages is the uploaded tree, whole.
+    publish = _load("run-backtest.yml")["jobs"]["publish"]["steps"]
+    publish_runs = [str(step.get("run") or "") for step in publish]
+    place = next(i for i, run in enumerate(publish_runs) if "rm -rf metrics" in run)
+    stage = next(i for i, run in enumerate(publish_runs) if "git add -A metrics/" in run)
+    assert place < stage and "gh pr create" in publish_runs[stage], (
+        "the publish job stages the replay's metrics/ in its review PR step"
     )
     assert f"git status --porcelain -- {paths}" in runs[restore], (
         "the pristine assertion must refuse a board differing from the commit"
@@ -1570,17 +1587,25 @@ def test_the_qp_labeling_run_publishes_on_its_count_not_on_the_agents_verdict() 
     # And nothing in it reads the agent's own verdict, which is the whole point.
     assert "steps.label.outcome" not in gate and "steps.label.conclusion" not in gate, gate
 
-    # The publish trio follows measure rather than the default gate: a named
-    # `if:` carries no implicit `success()`, so every gate is spelled out.
-    publishers = [
-        s
-        for s in steps
-        if "create-github-app-token" in str(s.get("uses") or "")
-        or "steps.app-token.outputs" in yaml.safe_dump(s)
-    ]
-    assert len(publishers) == 3
-    for step in publishers:
-        assert "steps.measure.outcome == 'success'" in _norm(step["if"]), step.get("name")
+    # The hand-off follows measure rather than the default gate: a named `if:`
+    # carries no implicit `success()`, so every gate is spelled out, and the
+    # publish job keys on the hand-off's outcome alone, past a failed job.
+    stage = next(s for s in steps if s.get("id") == "stage_publish")
+    upload = next(s for s in steps if s.get("id") == "publish_upload")
+    assert steps.index(measure) < steps.index(stage) < steps.index(upload)
+    assert _norm(stage["if"]) == "${{ !cancelled() && steps.measure.outcome == 'success' }}"
+    assert "steps.stage_publish.outcome == 'success'" in _norm(upload["if"])
+    wf = _load("run-analytics.yml")
+    assert wf["jobs"]["qp-topic-label"]["outputs"]["publish"] == (
+        "${{ steps.publish_upload.outcome }}"
+    )
+    publish_gate = _norm(wf["jobs"]["qp-topic-publish"]["if"])
+    assert publish_gate.startswith(
+        "${{ !cancelled() && needs.qp-topic-label.outputs.publish == 'success' && "
+    ), publish_gate
+    assert "needs.qp-topic-label.result" not in publish_gate, (
+        "the publish job must not read the label job's verdict, which a turn overrun fails"
+    )
 
 
 def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() -> None:
@@ -1749,11 +1774,18 @@ def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -
 
     # The paid job must consume the measured block through the composite's
     # declared output, never a path convention that a composite-internal
-    # rename would silently break after the model spend.
+    # rename would silently break after the model spend. It reaches the PR
+    # body through the hand-off, which copies it from that output.
     assert production[0].get("id") == "measure"
-    pr_step = next(s for s in label_steps if s.get("name") == "Open or update the review PR")
-    assert pr_step["env"]["MEASURED_FILE"] == "${{ steps.measure.outputs.measured-file }}", (
-        "the PR body must read the measured block from the composite's output"
+    stage = next(s for s in label_steps if s.get("id") == "stage_publish")
+    assert stage["env"]["MEASURED_FILE"] == "${{ steps.measure.outputs.measured-file }}", (
+        "the hand-off must read the measured block from the composite's output"
+    )
+    assert '"$RUNNER_TEMP/qp-publish/measured.txt"' in stage["run"]
+    publish_steps = _load("run-analytics.yml")["jobs"]["qp-topic-publish"]["steps"]
+    pr_step = next(s for s in publish_steps if s.get("name") == "Open or update the review PR")
+    assert pr_step["env"]["MEASURED_FILE"] == "${{ runner.temp }}/qp-publish/measured.txt", (
+        "the PR body must read the measured block the hand-off carried"
     )
     # And no inlined copy of the measure invocation may reappear beside it
     # (`--labels` marks the command; the job's prose mentions the command name).
@@ -4106,11 +4138,7 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
     mint step is a publishing job, and every step that mints or that touches
     the minted token is a publisher — so a new consumer of the token, or a
     mint added to a third job, lands inside the fence's sweep by default.
-    A publisher may carry further conjuncts — the labeling job's trio also
-    requires its measure step to have succeeded, since gating publication on
-    the label-line count rather than on the agent's own verdict costs those
-    steps the implicit `success()` a bare condition would carry — but
-    conjuncts only: a
+    A publisher may carry further conjuncts, but conjuncts only: a
     disjunction anywhere in the condition is a route around the fence, so
     `||` is refused outright."""
     fence = "github.ref == 'refs/heads/main'"
@@ -4120,7 +4148,7 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
         for job_id, job in wf["jobs"].items()
         if any("create-github-app-token" in str(s.get("uses") or "") for s in job["steps"])
     }
-    assert set(publishing_jobs) == {"metrics-refresh", "big-cases", "qp-topic-label"}, (
+    assert set(publishing_jobs) == {"metrics-refresh", "big-cases", "qp-topic-publish"}, (
         f"the publishing-job set moved: {sorted(publishing_jobs)}"
     )
     for job_id, steps in publishing_jobs.items():
