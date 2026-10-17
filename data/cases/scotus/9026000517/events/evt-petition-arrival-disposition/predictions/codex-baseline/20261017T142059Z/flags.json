@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000517",
+  "run_id": "20261017T142059Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Snapshot chronology is inconsistent or materially incomplete: docketing and event opening are 2026-10-16, the petition-filing entry is dated 2024-11-07, the lower-court decision is 2024-10-07, and the response deadline is 2026-11-16. Forecast preserves the frozen Term 2026 arrival context and does not infer untimeliness, a prior disposition, or a two-year hold. Please verify the source chronology. No outcome was retrieved."
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "No petition, questions presented, opposition, document manifest, or documents directory was provisioned. A date-bounded CourtListener search for the identified Fifth Circuit docket returned no opinions. Prediction therefore relies primarily on the private paid arrival-class prior and sparse docket metadata; big_case_score is null because the substantive issue and stakes cannot be placed."
+    }
+  ]
+}

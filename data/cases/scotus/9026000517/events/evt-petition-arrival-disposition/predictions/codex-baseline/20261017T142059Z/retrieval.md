@@ -1,0 +1,7 @@
+# Retrieval log
+
+- Read the committed `metrics/statpack.md`: modern discretionary-cert description, paid-segment relist and CVSG cuts, and sal-v4 reached-band table. Read matching aggregate entries in `metrics/statpack.json`; pooled only the displayed 2017–2025 private baseline risk sets. Arithmetic: sum of `prefix_est_grant_rate * prefix_weighted_resolved` divided by sum of `prefix_weighted_resolved`, yielding 643 / 12,877. Inspected the pack's last-change commit with `git log -1 --format='%h %cI' -- metrics/statpack.json`: cf9ae960e, October 13, 2026 at 19:17:46 UTC. This is artifact provenance, not a live-corpus freshness check.
+- CourtListener MCP `search`: `type=o`, `court=ca5`, `docket_number=24-20354`, `filed_before=2024-10-08`, `num_results=5`. Returned zero results. This sought only the provisioned lower-court decision, not the Supreme Court disposition or subsequent history.
+- Web search: `site.supremecourt.gov Rule 10 considerations governing review certiorari judicial discretion`. The tool returned no usable result content. No external legal text or case outcome was obtained or relied upon.
+- No `fedcourts query` or `open-events` lookup was made; no ranged-corpus transfer line was emitted. No other predictor's output, realized outcome, or topic-labeling artifact was consulted.
+- Local contract/schema reads and `fedcourts paths` were operational checks, not substantive retrieval. The initial uv invocation failed on a read-only cache; using a temporary cache allowed the path command to complete.

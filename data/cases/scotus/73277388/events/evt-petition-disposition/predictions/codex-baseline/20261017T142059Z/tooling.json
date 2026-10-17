@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73277388",
+  "gaps": [
+    "No opposition brief or separate lower-court appendix was provisioned; the response deadline remains pending in the snapshot.",
+    "Web search and official-PDF opening returned no usable content in this session."
+  ],
+  "helpful": [
+    "Frozen context distinguishes the band's one-distribution state from the later requested-response proceedings.",
+    "Untruncated petition text and its questions-presented extract expose the legal issue and companion-petition posture.",
+    "Statpack JSON provides exact reached-rate denominators for pooling strictly prior Terms.",
+    "CourtListener literal opinion search verifies historical doctrine without querying the target case."
+  ],
+  "notes": "The default uv cache location was read-only; a temporary writable cache allowed the required CLI commands. General legal context was recovered through the sanctioned CourtListener MCP path. No target-case outcome was retrieved.",
+  "role": "predictor",
+  "run_id": "20261017T142059Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "jq",
+    "web search/open",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000517",
+  "run_id": "20261017T142059Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell input and schema reads", "fedcourts paths", "jq aggregate arithmetic", "CourtListener MCP search", "web search", "fedcourts validate data"],
+  "helpful": ["Frozen arrival context distinguishes initial distribution from a true relist.", "The sal-v4 reached-band denominators permit a private-class arrival anchor."],
+  "gaps": ["No provisioned petition or questions presented to identify the legal issue.", "No lower-court opinion returned by the bounded MCP search.", "Snapshot dates require source verification."],
+  "notes": "The default uv cache was read-only; a temporary cache allowed commands to run. Web search supplied no usable result. No live-corpus queries or outcome retrieval were performed."
+}

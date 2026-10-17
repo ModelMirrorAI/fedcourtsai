@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000512",
+  "run_id": "20261017T142059Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and document reader",
+    "committed statpack markdown and JSON",
+    "jq",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "CourtListener MCP read_document",
+    "web search/open/find attempts"
+  ],
+  "helpful": [
+    "The frozen zero-distribution arrival context makes the increment claim unambiguous.",
+    "Petition appendices exposed the replacement appellate dismissal order and the trial court's competing account.",
+    "Unrounded reached rates and denominators allow exact pooling across prior Terms.",
+    "The Abney opinion clarifies both the federal appellate rule and the state-finality exception."
+  ],
+  "gaps": [
+    "The petition appendix is truncated, limiting independent reconstruction of the first jury's necessary findings.",
+    "The web tool returned no readable source text for the attempted general-law requests."
+  ],
+  "notes": "No opposition brief was provisioned, which is unsurprising at arrival. No own-case live retrieval was attempted. The default CLI cache was read-only; a temporary writable cache fixed the path lookup. No live corpus freshness claim is made."
+}
