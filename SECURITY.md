@@ -184,8 +184,12 @@ runbook, [docs/security.md](docs/security.md).
   the cell jobs hold `id-token: write` for the read-only corpus role, so any
   process in the job can request an OIDC token for the job's environment, and
   every relying party that accepts that subject is reachable with it. Among
-  AWS roles that is the read-only role alone: the production read-write role
-  trusts `corpus-write`, an environment only the corpus writer jobs bind.
+  AWS roles, the design leaves only the read-only role reachable: the production
+  read-write role's trust is to name `corpus-write`, an environment only the
+  corpus writer jobs bind, and nothing else — a maintainer IAM step the
+  promotion gate cannot read, and until it is done the read-write role still
+  accepts a `prod` token (*`corpus-write` holds the production read-write role* in
+  [docs/security.md](docs/security.md)).
   Beyond AWS it is the Claude GitHub App's installation-token exchange, which
   accepts a token from any job in this repository holding `id-token: write`
   and yields one with the App's write grant: an **accepted residual** — the
@@ -285,11 +289,18 @@ runbook, [docs/security.md](docs/security.md).
   corpus-check lane, under the trigger surface below), the staging read-write
   role to `staging` — and each of those environments restricts deployments to
   one branch, so a PR-branch job cannot assume any of them. In production the
-  split is identity: only the corpus writer jobs bind `corpus-write`, so no
-  `prod`-bound job — no agent cell — can ask for the write role, whatever it
-  runs (`tests/test_workflow_corpus_write.py` pins the binding; the promotion
-  gate checks the environment's `main`-only policy; the trust itself lives in
-  IAM). In staging it stays provenance: any `staging`-bound job could ask for
+  split is identity once the read-write role's trust names `corpus-write`
+  alone — a maintainer IAM step the promotion gate cannot read; until it is
+  done the role still names `prod` too (*`corpus-write` holds the production read-write role* in
+  [docs/security.md](docs/security.md)). Only the corpus writer jobs bind
+  `corpus-write` (`tests/test_workflow_corpus_write.py` pins the binding, and
+  the gate checks only the environment: its `main`-only policy and its
+  names), so then no `prod`-bound job — no agent cell — can ask for the write
+  role, whatever it runs. That removes *agents* from the write role's reach,
+  not hostile *parsers*: the writer jobs themselves parse fetched third-party
+  content while holding it — the pull and seed windows' fetched dockets, and
+  the corpus repair job's OCR-recovery and document back-fill passes, which
+  are not split from it the way the fetching passes are. In staging it stays provenance: any `staging`-bound job could ask for
   the staging write role, which writes only the disposable staging pair, and
   what stops the wrong job asking is review of the code the branch policy
   admits. No

@@ -524,8 +524,10 @@ contexts() {
   fi
 
   # The corpus-write environment, unconditionally, on the corpus-check
-  # check's reasoning: the production read-write role's trust names
-  # `environment:corpus-write` alone, so an environment that is missing or open
+  # check's reasoning: the production read-write role's trust is to name
+  # `environment:corpus-write` alone — an IAM statement this stage cannot
+  # read, so it checks only the environment — and from the moment the trust
+  # names it, an environment that is missing or open
   # to any branch hands that role to whatever branch workflow binds it — and
   # GitHub auto-creates a referenced environment with no branch policy.
   # Required: the environment exists, its branch policy admits `main` alone,
@@ -549,7 +551,7 @@ contexts() {
     --variables-file "${cw_dir}/variables.json"; then
     echo "contexts: the corpus-write environment admits main alone and holds only the writers' names"
   else
-    echo "::error::contexts: fix the corpus-write environment before promoting — the production read-write role's trust names it (docs/security.md)"
+    echo "::error::contexts: fix the corpus-write environment before promoting — the production read-write role's trust is to name it (docs/security.md)"
     fail=1
   fi
 }

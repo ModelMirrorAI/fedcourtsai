@@ -1804,8 +1804,10 @@ what does the separating. In a job holding `id-token: write` the runner injects
 the OIDC request pair into every step at run time, after the step's own `env:`,
 so a step there cannot be put out of reach of minting a token for every role
 its environment is trusted by — both corpus roles under `corpus-write`, which
-only the writer jobs bind, and the read-only role alone under `prod`, which
-the projection job binds; a job without the permission has no pair at all. Blanking
+only the writer jobs bind, and under `prod`, which the projection job binds,
+the read-only role — alone once the maintainer's IAM step narrows the
+read-write role's trust to `corpus-write` ([security.md](security.md),
+*`corpus-write` holds the production read-write role*); a job without the permission has no pair at all. Blanking
 the AWS variables in a step's `env:` does work — it overrides what the
 credentials action exported — so the commit steps that hold the App token blank
 and assert those. The parse job's residual is that its steps share one user and

@@ -10,12 +10,23 @@ which then reaches, through `prod`, only the read-only role:
 
 - every job that names the read-write role (`vars.AWS_ROLE_TO_ASSUME`, the
   read-only role's variable aside) binds the literal `corpus-write`;
-- no other job binds it, or an expression that could resolve to it;
+- no other job binds it, or an expression that names it; and an expression
+  whose last alternative is the bare dispatching ref's name — which resolves
+  to `corpus-write` on a branch of that name — appears only on the three
+  branch-resolving workflows that need it (`REF_RESOLVED_WORKFLOWS`). That
+  fall-through is not refused here because the environment's own
+  `main`-only branch policy refuses a deployment from any other ref, a
+  branch named `corpus-write` included, before a step runs, and the promotion
+  gate checks that policy;
 - no job that runs an agent binds it, by the detector
-  `tests/test_workflow_token_holder.py` holds the App-credential rules with.
+  `tests/agent_detector.py`, which the App-credential rules
+  (`tests/test_workflow_token_holder.py`) share.
 
-The environment's own controls — it exists, admits `main` alone, holds only
-the names these jobs read — are the promotion gate's admin read
+A job's steps are read together with the steps of every local composite
+they call, so a composite that named the role would mark its caller.
+
+The environment's own controls — it exists, admits `main` alone, holds the
+names these jobs read and nothing else — are the promotion gate's admin read
 (`fedcourtsai.environment_checks.corpus_write_problems`); the last test here
 binds that name list to what these jobs actually read.
 """
@@ -24,10 +35,14 @@ import re
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
 from fedcourtsai import environment_checks as ec
-from tests.test_workflow_token_holder import _runs_agent, _steps
+from tests import agent_detector
+from tests.agent_detector import expanded as _expanded
+from tests.agent_detector import runs_agent as _runs_agent
+from tests.agent_detector import steps as _steps
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -39,6 +54,22 @@ ENVIRONMENT = ec.CORPUS_WRITE_ENVIRONMENT
 READ_WRITE_ROLE = re.compile(
     r"vars\s*(\.\s*AWS_ROLE_TO_ASSUME\b|\[\s*['\"]AWS_ROLE_TO_ASSUME['\"]\s*\])"
 )
+
+# A secret or variable named in an expression, dotted or indexed.
+NAMED = re.compile(r"\b(secrets|vars)\s*(?:\.\s*([A-Z0-9_]+)|\[\s*['\"]([A-Z0-9_]+)['\"]\s*\])")
+
+# An environment expression whose last alternative is the bare ref name: a
+# dispatch from a branch named `corpus-write` would resolve to that
+# environment.
+REF_NAME_FALLTHROUGH = re.compile(r"github\.ref_name\s*\)*\s*\}\}\s*$")
+
+# The workflows whose environments resolve from the dispatching branch, so
+# their staging dispatches are rehearsals (docs/pipeline.md). Their forms are
+# pinned by text in tests/test_workflow_auth_gate.py; the fall-through to the
+# ref's own name is what keeps an off-list ref fail-closed, and the
+# `corpus-write` environment's branch policy is what refuses the one ref
+# name that would reach it.
+REF_RESOLVED_WORKFLOWS = frozenset({"integration-test.yml", "run-analytics.yml", "summarize.yml"})
 
 # The writer jobs the detector must see. If a rename or a new spelling of the
 # role hid one, the rules below would pass for want of a writer.
@@ -78,10 +109,21 @@ def _environment(job: dict[Any, Any]) -> str | None:
     return None if environment is None else str(environment)
 
 
+def _surfaces(job: dict[Any, Any], workflow: dict[Any, Any]) -> list[object]:
+    """The job, every step of a local composite it calls, and its workflow's env."""
+    composites = [s for step in _steps(job) for s in _expanded(step)[1:]]
+    return [job, *composites, workflow.get("env") or {}]
+
+
 def names_read_write_role(job: dict[Any, Any], workflow: dict[Any, Any]) -> bool:
-    """Whether the job, or its workflow's env, which every job inherits, names the role."""
-    surfaces = (job, workflow.get("env") or {})
-    return any(READ_WRITE_ROLE.search(yaml.safe_dump(surface)) for surface in surfaces)
+    """Whether the job, a composite it calls, or its workflow's env names the role."""
+    return any(READ_WRITE_ROLE.search(yaml.safe_dump(s)) for s in _surfaces(job, workflow))
+
+
+def falls_through_to_the_ref_name(job: dict[Any, Any]) -> bool:
+    """Whether the job's environment is an expression ending in the bare ref name."""
+    environment = _environment(job)
+    return environment is not None and bool(REF_NAME_FALLTHROUGH.search(environment))
 
 
 def binds_corpus_write(job: dict[Any, Any]) -> bool:
@@ -90,9 +132,16 @@ def binds_corpus_write(job: dict[Any, Any]) -> bool:
     return environment is not None and ENVIRONMENT in environment
 
 
-def violations(job: dict[Any, Any], workflow: dict[Any, Any]) -> list[str]:
+def violations(
+    job: dict[Any, Any], workflow: dict[Any, Any], workflow_name: str | None = None
+) -> list[str]:
     """Why ``job`` breaks the rules; empty when it keeps them."""
     found = []
+    if falls_through_to_the_ref_name(job) and workflow_name not in REF_RESOLVED_WORKFLOWS:
+        found.append(
+            "resolves its environment to the dispatching ref's own name, which a "
+            + f"branch named `{ENVIRONMENT}` would turn into that environment"
+        )
     writer = names_read_write_role(job, workflow)
     if writer and _environment(job) != ENVIRONMENT:
         found.append(
@@ -110,7 +159,7 @@ def test_only_the_writer_jobs_bind_corpus_write() -> None:
     broken = {
         f"{name}:{job_name}": found
         for name, job_name, job, workflow in _jobs()
-        if (found := violations(job, workflow))
+        if (found := violations(job, workflow, name))
     }
     assert not broken, (
         f"the `{ENVIRONMENT}` environment, which the production read-write role's "
@@ -164,6 +213,32 @@ def test_the_rules_refuse_every_way_the_environment_leaks() -> None:
     # An agent under `corpus-write`, even beside the role.
     found = violations({"environment": ENVIRONMENT, "steps": [role, agent]}, {})
     assert found == [f"runs an agent under `{ENVIRONMENT}`"]
+    # The fall-through to the ref's name, admitted only where it is pinned.
+    resolved = "${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+    assert violations({"environment": resolved, "steps": [readonly]}, {})
+    assert violations({"environment": resolved, "steps": [readonly]}, {}, "run-pull.yml")
+    assert violations({"environment": resolved, "steps": [readonly]}, {}, "summarize.yml") == []
+
+
+def test_a_composite_that_names_the_role_marks_its_caller(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+
+    composite = tmp_path / "write-role"
+    composite.mkdir()
+    (composite / "action.yml").write_text(
+        "runs:\n  using: composite\n  steps:\n"
+        + "    - run: echo\n      env:\n        ROLE: ${{ vars.AWS_ROLE_TO_ASSUME }}\n"
+    )
+    monkeypatch.setattr(agent_detector, "ACTIONS", tmp_path)
+    job = {"environment": "prod", "steps": [{"uses": "./.github/actions/write-role"}]}
+    assert names_read_write_role(job, {})
+    assert violations(job, {})
+
+
+def test_the_ref_resolved_workflows_are_the_ones_that_fall_through() -> None:
+    falling = {name for name, _, job, _ in _jobs() if falls_through_to_the_ref_name(job)}
+    assert falling == REF_RESOLVED_WORKFLOWS
 
 
 def test_the_gate_admits_exactly_the_names_the_writer_jobs_read() -> None:
@@ -176,8 +251,8 @@ def test_the_gate_admits_exactly_the_names_the_writer_jobs_read() -> None:
     for _, _, job, workflow in _jobs():
         if not binds_corpus_write(job):
             continue
-        text = yaml.safe_dump(job) + yaml.safe_dump(workflow.get("env") or {})
-        secrets |= set(re.findall(r"secrets\.([A-Z0-9_]+)", text))
-        variables |= set(re.findall(r"vars\.([A-Z0-9_]+)", text))
+        for surface in _surfaces(job, workflow):
+            for kind, dotted, indexed in NAMED.findall(yaml.safe_dump(surface)):
+                (secrets if kind == "secrets" else variables).add(dotted or indexed)
     assert secrets == set(ec.CORPUS_WRITE_SECRETS)
     assert variables == set(ec.CORPUS_WRITE_VARIABLES)

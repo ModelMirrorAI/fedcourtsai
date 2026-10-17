@@ -12,6 +12,8 @@ from typing import Any
 
 import yaml
 
+from fedcourtsai import environment_checks as ec
+
 WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 
 
@@ -71,7 +73,9 @@ def test_prod_environment_jobs_are_unreachable_on_pull_request() -> None:
     for name in _all_workflows():
         wf = _load(name)
         prod_jobs = [
-            j for j, job in wf["jobs"].items() if _env_name(job) in ("prod", "corpus-write")
+            j
+            for j, job in wf["jobs"].items()
+            if _env_name(job) in ("prod", ec.CORPUS_WRITE_ENVIRONMENT)
         ]
         if prod_jobs:
             assert not _reachable_on_pull_request(wf), (

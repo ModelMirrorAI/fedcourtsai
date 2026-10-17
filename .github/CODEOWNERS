@@ -19,14 +19,17 @@
 # The security posture, its setup, and the authorization checks that enforce
 # it: `authorize-trigger`, the self-contained run gate every environment-binding
 # workflow runs by path (its module and allow-list), and the tests that pin the
-# trigger surface and the gate's wiring, and the one that pins which jobs bind
-# the environment the production read-write role trusts.
+# trigger surface and the gate's wiring; the one that pins which jobs bind
+# the environment the production read-write role trusts, the one that keeps
+# App credentials out of agent jobs, and the agent detector both rest on.
 /SECURITY.md @modelmirror
 /docs/security.md @modelmirror
 /src/fedcourtsai/authz.py @modelmirror
 /tests/test_authz.py @modelmirror
 /tests/test_workflow_auth_gate.py @modelmirror
 /tests/test_workflow_corpus_write.py @modelmirror
+/tests/test_workflow_token_holder.py @modelmirror
+/tests/agent_detector.py @modelmirror
 /tests/workflow_gate.py @modelmirror
 /src/fedcourtsai/run_gate.py @modelmirror
 /tests/test_run_gate.py @modelmirror

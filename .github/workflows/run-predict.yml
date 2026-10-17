@@ -654,13 +654,14 @@ jobs:
           restore-cache: "false"
 
       # Read-only corpus access (OIDC role; no static keys). The session this
-      # step assumes is the read-only role's, the one corpus role whose trust
-      # names `prod`: the read-write role trusts `corpus-write` alone, an
-      # environment only the corpus writer jobs bind, so the job's
-      # `id-token: write` reaches no role that writes a corpus store. The
-      # trusts live in IAM rather than in this repository (docs/security.md,
-      # *S3 / the private stores*); what else accepts a `prod` token is the
-      # residual SECURITY.md states. No pull: corpus
+      # step assumes is the read-only role's. By design it is the one corpus
+      # role whose trust names `prod`: the read-write role's trust is to name
+      # `corpus-write` alone, an environment only the corpus writer jobs bind,
+      # so the job's `id-token: write` reaches no role that writes a corpus
+      # store. That narrowing is a maintainer IAM step the promotion gate
+      # cannot read, and until it is done the read-write role still trusts
+      # `prod` (docs/security.md, *`corpus-write` holds the production read-write role*); what
+      # else accepts a `prod` token is the residual SECURITY.md states. No pull: corpus
       # bytes move only as the KBs each ranged lookup touches. The credentials
       # are scoped to the sidecar action's own steps — the agent steps below
       # inherit none; they reach the corpus through the localhost sidecar via

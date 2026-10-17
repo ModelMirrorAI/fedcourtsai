@@ -19731,8 +19731,9 @@ def assert_corpus_write_environment_cmd(
 
     Requires the environment to exist, its deployment branches to be a custom
     policy of exactly `main`, and it to hold no secret or variable outside the
-    names the corpus writer jobs read. Names each problem and exits non-zero if
-    there is any; an unread listing is a problem.
+    names the corpus writer jobs read and every one of them but the optional
+    CourtListener rate caps. Names each problem and exits non-zero if there is
+    any; an unread or truncated listing is a problem.
     """
     problems = environment_checks.corpus_write_problems(
         _read_document(environment_file),

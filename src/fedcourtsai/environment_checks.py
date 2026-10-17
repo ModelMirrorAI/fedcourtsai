@@ -26,8 +26,9 @@ which holds the Buttondown API key `post-public-update` drafts the weekly
 update with: its `main`-only policy is what keeps the key from any other ref,
 and nothing else reads that policy. And it checks the `corpus-write`
 environment (:func:`corpus_write_problems`), the one the production read-write
-role's trust names: its `main`-only policy is what keeps that role from any
-other ref.
+role's trust is to name: its `main`-only policy is what keeps that role from
+any other ref. The trust statements themselves live in IAM, which nothing
+here reads.
 """
 
 from __future__ import annotations
@@ -49,10 +50,19 @@ MAIN_BRANCH = "main"
 
 
 def _items(document: Mapping[str, Any] | None, key: str) -> list[Mapping[str, Any]] | None:
+    """The listing's items, or None when it is unread or only a page of it was.
+
+    A listing whose `total_count` disagrees with the items it carries was
+    truncated by pagination, and a name past the page would go unseen, so it
+    counts as unread rather than as the whole set.
+    """
     if document is None:
         return None
     items = document.get(key)
     if not isinstance(items, list):
+        return None
+    total = document.get("total_count")
+    if isinstance(total, int) and not isinstance(total, bool) and total != len(items):
         return None
     return [item for item in items if isinstance(item, Mapping)]
 
@@ -123,7 +133,7 @@ def _main_only_problems(
         problems.append("deployment branches are not restricted to a custom branch policy")
     policies = _items(branch_policies, "branch_policies")
     if policies is None:
-        problems.append("the deployment branch policies were unread")
+        problems.append("the deployment branch policies were unread or truncated")
     elif [(p.get("name"), p.get("type")) for p in policies] != [(MAIN_BRANCH, "branch")]:
         names = ", ".join(sorted(str(p.get("name")) for p in policies)) or "none"
         problems.append(
@@ -240,6 +250,11 @@ CORPUS_WRITE_ENVIRONMENT = "corpus-write"
 #: pointer, and the CourtListener token `run-pull` fetches with.
 CORPUS_WRITE_SECRETS = frozenset({"DATA_APP_PRIVATE_KEY", "COURTLISTENER_API_TOKEN"})
 
+#: Of those, the ones the environment must itself hold: both. They are
+#: environment secrets on `prod` today, and a repository-level copy would
+#: reach a workflow run off any branch.
+CORPUS_WRITE_REQUIRED_SECRETS = CORPUS_WRITE_SECRETS
+
 #: The variables those jobs read: both corpus roles (the decision-record job
 #: pulls with the read-only one), the region, the corpus estate's address, the
 #: data App's client id and `run-pull`'s CourtListener rate caps.
@@ -256,18 +271,39 @@ CORPUS_WRITE_VARIABLES = frozenset(
     }
 )
 
+#: Of those, the ones the environment must itself hold: everything but the
+#: three rate caps, which the workflow defaults when unset. Each is one of the
+#: per-environment values `prod` holds, so none is served from the
+#: repository level, and a writer without one fails at its first step that
+#: needs it.
+CORPUS_WRITE_REQUIRED_VARIABLES = CORPUS_WRITE_VARIABLES - {
+    "COURTLISTENER_RPM",
+    "COURTLISTENER_RPH",
+    "COURTLISTENER_RPD",
+}
 
-def _subset_problems(
-    listing: Mapping[str, Any] | None, key: str, allowed: frozenset[str]
+
+def _bounded_names_problems(
+    listing: Mapping[str, Any] | None,
+    key: str,
+    allowed: frozenset[str],
+    required: frozenset[str],
 ) -> list[str]:
-    """A listing of secrets or variables that is unread, or names one outside ``allowed``."""
+    """A listing that is unread, names one outside ``allowed``, or lacks one of ``required``."""
     items = _items(listing, key)
     if items is None:
-        return [f"the environment's {key} were unread"]
-    extra = sorted({str(item.get("name")) for item in items} - allowed)
+        return [f"the environment's {key} were unread or truncated"]
+    names = {str(item.get("name")) for item in items}
+    problems: list[str] = []
+    extra = sorted(names - allowed)
     if extra:
-        return [f"the environment holds {key} outside {sorted(allowed)}: {', '.join(extra)}"]
-    return []
+        problems.append(
+            f"the environment holds {key} outside {sorted(allowed)}: {', '.join(extra)}"
+        )
+    missing = sorted(required - names)
+    if missing:
+        problems.append(f"the environment lacks its {key}: {', '.join(missing)}")
+    return problems
 
 
 def corpus_write_problems(
@@ -278,24 +314,34 @@ def corpus_write_problems(
 ) -> list[str]:
     """Everything the promotion gate requires of the `corpus-write` environment.
 
-    The production read-write role's trust names this environment alone, so
-    its deployment-branch policy is what keeps that role from a workflow a
-    write holder runs from their own branch: GitHub auto-creates a referenced
-    environment with no policy at all. So: it exists, its deployment branches
-    are a custom policy of exactly `main`, and it holds no secret outside
-    :data:`CORPUS_WRITE_SECRETS` and no variable outside
-    :data:`CORPUS_WRITE_VARIABLES` — anything else would be handed to the
-    writer jobs for no reason they have. A name may be absent: it can be
-    served from the repository level, and a writer missing its role fails at
-    its first credentialed step. Required reviewers are not checked: the
-    writer windows run on a schedule, and a reviewer would hold every one. An
-    unread listing is a problem, never a pass.
+    The design has the production read-write role's trust name this
+    environment alone, so its deployment-branch policy is what keeps that role
+    from a workflow a write holder runs from their own branch: GitHub
+    auto-creates a referenced environment with no policy at all. So: it
+    exists, its deployment branches are a custom policy of exactly `main`, it
+    holds no secret outside :data:`CORPUS_WRITE_SECRETS` and no variable
+    outside :data:`CORPUS_WRITE_VARIABLES` — anything else would be handed to
+    the writer jobs for no reason they have — and it holds every name in
+    :data:`CORPUS_WRITE_REQUIRED_SECRETS` and
+    :data:`CORPUS_WRITE_REQUIRED_VARIABLES`, so a promotion cannot move the
+    writers onto an environment that would fail their next window. Required
+    reviewers are not checked: the writer windows run on a schedule, and a
+    reviewer would hold every one. The trust itself lives in IAM and is not
+    read here. An unread or truncated listing is a problem, never a pass.
     """
     if environment is None:
         return [f"the `{CORPUS_WRITE_ENVIRONMENT}` environment does not exist or was unread"]
     problems = _main_only_problems(environment, branch_policies)
-    problems.extend(_subset_problems(secrets, "secrets", CORPUS_WRITE_SECRETS))
-    problems.extend(_subset_problems(variables, "variables", CORPUS_WRITE_VARIABLES))
+    problems.extend(
+        _bounded_names_problems(
+            secrets, "secrets", CORPUS_WRITE_SECRETS, CORPUS_WRITE_REQUIRED_SECRETS
+        )
+    )
+    problems.extend(
+        _bounded_names_problems(
+            variables, "variables", CORPUS_WRITE_VARIABLES, CORPUS_WRITE_REQUIRED_VARIABLES
+        )
+    )
     return problems
 
 
