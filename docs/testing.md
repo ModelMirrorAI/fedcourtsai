@@ -765,7 +765,12 @@ and contents, which the promotion gate checks unconditionally; and
 `test_corpus_check_auto_surface`: every auto-allowlisted subcommand's full
 option surface, none taking a path), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
-(`test_workflow_promote`), the collect scenario's partition
+(`test_workflow_promote`), the promotion train's credential split and
+writes (`test_workflow_promotion_train`: the plan job holds no write
+credential, only the write job holds the dev App and re-checks the merge —
+every review page, quiescence, the registry — before minting, the merge is a
+merge commit pinned to the head, a candidate ref is created once and never
+moved, and every list read is paginated), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants
 (`test_workflow_cell_invariants`: the qp-topics oracle fence, the predict and
 evaluate cells' committed-record hide and its `skip-worktree` mark, the back-test's

@@ -84,6 +84,15 @@ figure; past it, every round waits for a human release. The `spend` backstop
 in `config/tracking.yaml` sits above the budget and stops minting outright
 ([pipeline.md](pipeline.md), *Auto-release*).
 
+One more unattended spend sits outside that budget: the promotion train's
+integration `gate` suite, about $8 of the staging environment's engine keys
+per promotion candidate, dispatched with no review hold. It is bounded on its
+own terms — once per candidate head, never re-dispatched by the train, and at
+most `max_gate_dispatches_per_day` suites a UTC day (`config/promotion-train.yaml`,
+code-owned like the review hold's caps) — so at the measured cadence of about
+one promotion a day it runs to roughly $250 a month ([pipeline.md](pipeline.md),
+*Promotion: staging → main*).
+
 ## Scenario 2: Scaling
 
 The funded target. Every paid SCOTUS petition is forecast at every prediction

@@ -173,7 +173,7 @@ jobs:
     steps:
       # No authorization gate here, and none is missing: this workflow carries no
       # trigger an outside actor can reach. A `schedule` fires only from the
-      # DEFAULT branch, so it can run only what a maintainer-merged promotion put
+      # DEFAULT branch, so it can run only what a maintainer-approved promotion put
       # on `main`; a `workflow_dispatch` is gated by GitHub on repository write;
       # and this job binds `prod`, whose deployment branches are restricted to
       # `main`, so a dispatch from any other ref is refused before a step runs.

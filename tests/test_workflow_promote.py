@@ -1183,11 +1183,12 @@ def test_promote_threads_the_skip_to_the_freshness_step_only() -> None:
 def test_no_workflow_ever_overrides_the_required_set() -> None:
     # PROMOTION_SCENARIOS is a local re-check narrowing and must never be set
     # on any automated surface. PROMOTION_SKIP_SMOKE is the one sanctioned
-    # workflow-side relaxation, with exactly two setters: the promote dispatch
-    # (narrowing one pre-flight) and ci.yml's promotion-gate job (narrowing
-    # what one labelled batch merges on). A third surface setting either is
-    # what this fails on. Assignments only: naming a variable in a comment is
-    # documentation, not a setting.
+    # workflow-side relaxation, with exactly three setters: the promote
+    # dispatch (narrowing one pre-flight), ci.yml's promotion-gate job
+    # (narrowing what one labelled batch merges on), and the promotion train's
+    # plan job (reading freshness under that same label, as the check will). A
+    # fourth surface setting either is what this fails on. Assignments only:
+    # naming a variable in a comment is documentation, not a setting.
     surfaces = [
         path
         for pattern in ("*.yml", "*.yaml")
@@ -1209,7 +1210,18 @@ def test_no_workflow_ever_overrides_the_required_set() -> None:
     assert found == [
         ("ci.yml", "PROMOTION_SKIP_SMOKE"),
         ("promote.yml", "PROMOTION_SKIP_SMOKE"),
+        ("promotion-prep.yml", "PROMOTION_SKIP_SMOKE"),
     ], found
+
+
+def test_the_train_sets_the_skip_from_its_candidates_label_alone() -> None:
+    """The train's setter derives from the waiver label on the candidate,
+    whole-line matched, exactly as ci.yml's waiver step does."""
+    plan = _load(WORKFLOWS / "promotion-prep.yml")["jobs"]["plan"]
+    text = _steps_text(plan)
+    assert "grep -Fqx 'promote:skip-engine-smoke' <<<\"$labels\"" in text
+    assert 'PROMOTION_SKIP_SMOKE="$skip" scripts/promotion-gate.sh freshness' in text
+    assert "skip=1" in text
 
 
 def test_promote_help_text_lists_every_required_scenario() -> None:

@@ -239,9 +239,10 @@ jobs:
     # pins freshness to runs dispatched from that ref. What each asks for
     # can differ. PROMOTION_SCENARIOS is set by nothing: an arbitrary required
     # set is a local re-check narrowing, never a merge gate. PROMOTION_SKIP_SMOKE
-    # has two sanctioned setters — promote.yml's `skip_engine_smoke` input,
-    # which narrows one pre-flight, and the `promote:skip-engine-smoke` label
-    # below, which narrows this check for one batch. Whether real-engine
+    # has three sanctioned setters — promote.yml's `skip_engine_smoke` input,
+    # which narrows one pre-flight, the `promote:skip-engine-smoke` label
+    # below, which narrows this check for one batch, and the promotion train,
+    # which reads freshness under that same label as this check will. Whether real-engine
     # evidence is worth its tokens for what a given batch contains is the
     # maintainer's risk call; the label is where they record having made it.
     #

@@ -2,7 +2,7 @@
 *Trigger surface*). Every workflow that does privileged work — mint an App
 token, assume the S3 role, hand control to a coding agent — enters through a
 trigger the platform itself gates: a `schedule`, which fires only from the
-default branch and so runs only what a maintainer-merged promotion put on
+default branch and so runs only what a maintainer-approved promotion put on
 `main`, or a `workflow_dispatch`, which GitHub refuses to anyone without
 repository write. Nothing an outside actor can file — an issue, a label, a
 comment — starts any of it.

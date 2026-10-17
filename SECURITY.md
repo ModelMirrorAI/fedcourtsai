@@ -351,10 +351,11 @@ runbook, [docs/security.md](docs/security.md).
   one at all. Every privileged lane enters one of two ways, and three platform
   facts cover both. A `schedule`
   fires only from the **default branch**, so a cron can run only what a
-  maintainer-merged promotion put on `main`. A `workflow_dispatch` is gated by
+  maintainer-approved promotion put on `main`. A `workflow_dispatch` is gated by
   GitHub on repository **write**. And every privileged job binds a deployment
   environment whose branch policy pins the ref it may run from — `prod` to
-  `main`, `staging` to `staging` (below), `corpus-check`,
+  `main`, `staging` to `staging` and the promotion train's `promote/*`
+  candidates (below), `corpus-check`,
   `corpus-check-auto` and `website` to `main` — so a
   dispatch from any other ref
   holds no role, no secret, no agent: a job naming an environment as a literal
@@ -404,9 +405,13 @@ runbook, [docs/security.md](docs/security.md).
   the App for those two workflows alone. A dispatch from it enters through the
   same gates as a maintainer's and reaches the same code; the round it starts
   still waits on the review hold unless its own plan is within the
-  auto-release caps. The
-  pull window chains only on a forecast-relevant change, and neither job
-  dispatches while a promotion PR is ready.
+  auto-release caps and budget. The train's suite has no review hold: it
+  spends staging's engine keys unattended — about one paid suite per
+  candidate, outside the auto-release budget — bounded by the train's own
+  daily cap (`max_gate_dispatches_per_day` in the code-owned
+  `config/promotion-train.yaml`) and by never re-dispatching at a head. The
+  pull window chains only on a forecast-relevant change, and neither chain job
+  dispatches while a promotion is about to merge.
   Three workflows *do* take an outside-reachable trigger — `ci.yml`,
   `lint-actions.yml` and `codeql.yml` on `pull_request`, which any fork
   contributor fires — and they are the shape that makes the rule readable rather

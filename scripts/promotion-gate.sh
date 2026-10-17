@@ -94,17 +94,20 @@
 # PROMOTION_SKIP_SMOKE=1 drops the `engine-smoke/*` and
 # `engine-actions-smoke/*` entries — every entry that spends model tokens —
 # and lets a green `scenario=offline-gate` run stand in for `scenario=gate`. It
-# is the one relaxation a workflow may set, and exactly two workflows set it (a
-# shape test pins that no third does):
+# is the one relaxation a workflow may set, and exactly three workflows set it
+# (a shape test pins that no fourth does):
 #
 #   * `promote.yml`'s `skip_engine_smoke` dispatch input, which narrows one
 #     pre-flight — a cheap answer to "is anything else missing" before paying
 #     for the smokes;
 #   * `ci.yml`'s `promotion-gate` job, when the promotion PR carries the
 #     `promote:skip-engine-smoke` label, which narrows what that batch merges
-#     on.
+#     on;
+#   * the promotion train's plan job (`promotion-prep.yml`), on the same label
+#     on its candidate, so the train reads freshness exactly as the required
+#     check will.
 #
-# Both are per-act and leave a record — a dispatch input on one run, a label on
+# All are per-act and leave a record — a dispatch input on one run, a label on
 # one PR — so a skip is never standing configuration that outlives the batch
 # that wanted it. Only the exact value `1` enables it; anything else, a typo
 # included, leaves the gate strict.
