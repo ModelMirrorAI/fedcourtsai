@@ -388,7 +388,7 @@ queues behind the production run of the same mode. The modes:
   byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
   by the tested `metrics-refresh-plan` command: never a
   direct commit to `main`, never auto-merged. It mints the dev App token to do
-  so; `big-cases` and `qp-topic-label` below are the only other jobs here that
+  so; `big-cases` and `qp-topic-publish` below are the only other jobs here that
   do. The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
   place by the next tick rather than stacking. It gates on the weekly cron by
@@ -461,8 +461,13 @@ queues behind the production run of the same mode. The modes:
   states stop the run in the extract job, before any model spend: a frame with
   nothing left to label outside the reference set, and one holding too little of
   the reference set to clear the publication gate's coverage floor. It is the only
-  mode that runs an agent, and therefore the only one **split across two jobs**,
-  because `corpus-readonly` exports the assumed role's credentials job-wide:
+  mode that runs an agent, and therefore the only one **split across jobs**.
+  The PR is opened by a third job, `qp-topic-publish`, which runs no agent and
+  takes only the measured labels file and the measured block, as a one-day
+  artifact: the dev App token that opens the PR also carries the App's bypass
+  of `main`'s approval rule, and a process the labeler left behind could read
+  any later step's environment in its own job. The first split is
+  there because `corpus-readonly` exports the assumed role's credentials job-wide:
   `qp-topic-extract` holds the read-only S3 role and writes the extract
   (`fedcourts qp-corpus`, under `$RUNNER_TEMP` — the command refuses an `--out`
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
@@ -1403,6 +1408,23 @@ guard in that choice, since a group is taken before `if:` is read. A workflow
 that gains its first environment gains both gate jobs. `tests/workflow_gate.py`
 holds the guard's exact text, and `tests/test_workflow_auth_gate.py` refuses a
 job without it.
+
+**A job that runs an agent names no App credential at all.** Every secret a
+job names is delivered to its runner when the job starts, whatever a step's
+`if:` says, and a process an agent leaves behind lives until the job ends, as
+the same user as every later step: it can recover the key, or read a later
+step's environment out of `/proc`. The dev App's token carries its bypass of
+`main`'s approval rule, so with contents write it could merge any green PR,
+and its key mints that token. So an agent job mints no App token of any
+scope, names no secret holding `PRIVATE_KEY`, and never hands over the whole
+secrets context. A Claude step that needs a GitHub token gets the job's own,
+capped by the job's `permissions` block. A lane whose agent output ends in a
+PR opens it from a separate job that runs no agent and takes the output as an
+artifact: the cell lanes' `collect`, `run-backtest`'s `publish`,
+`run-analytics`'s `qp-topic-publish`. Read the agent's bytes, and check them,
+before that job mints. `tests/test_workflow_token_holder.py` refuses any other
+shape, counting the engine-CLI install, the claude-code and codex actions and
+the codex user setup as agent steps.
 
 **A `workflow_dispatch` may declare at most 10 inputs, and the "Run workflow"
 form is where the limit bites** — inputs past it are reachable by API but the
@@ -2349,8 +2371,13 @@ tree on unequal terms, with the harness watching only for stray *writes*. The
 kickoff already tells every off-ledger cell not to read or write under `data/`
 at all; `run-backtest` makes that structural by deleting `data/cases` before
 the cells run and restoring it **from the commit** afterwards, asserting the
-path pristine. The restore lands before the salience-gate arm and the review PR
-step, which run in the same checkout. The measurement loses nothing by it: the
+path pristine. The restore lands before the salience-gate arm, which runs in
+the same checkout, and before the report is handed off. Only the arm's one
+report crosses to the `publish` job, as a regular file in a one-day artifact;
+`publish` overlays it on its own checkout, requires the tree to differ from
+the commit at that path alone, and scans the change and the PR prose for
+secrets before it mints the token that opens the review PR. The measurement
+loses nothing by it: the
 population, the snapshots and the outcomes the replay scores against all come
 from the corpus, and every cell is provisioned under `--work-dir`. The
 misplaced-write probe is unaffected — an engine following the prompt template's
@@ -2385,10 +2412,10 @@ the petitions the replay can draw, and it names them beside their outcomes:
 each resolved event in the JSON carries `actual_disposition`, and in both
 files a case's moment names its newest predicted event, where a merits moment
 discloses the grant the way a merits event in the ledger does. Nothing the
-replay runs reads either file. The review PR step stages all of `metrics/`, so
-the board comes back from the commit, asserted pristine, before the
-salience-gate arm and that step run, and its removal never reaches what the PR
-commits. The standing `metrics/cert-backtest.json` is withheld by
+replay runs reads either file. The salience-gate arm writes under `metrics/`
+in the same checkout, so the board comes back from the commit, asserted
+pristine, before that arm runs; and since only the arm's own report crosses
+to `publish`, its removal never reaches what the PR commits. The standing `metrics/cert-backtest.json` is withheld by
 `cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)).
 
 Two residuals ride that fence, and both are the reason it is described as

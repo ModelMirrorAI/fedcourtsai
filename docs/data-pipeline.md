@@ -907,7 +907,7 @@ then re-refuses whatever slips through one by one; for the gvr-re-resolved
 and stale-grant classes the plan seam is the **only** guard — the forward
 record gate does not read those columns — which is why the re-check exists. A refusal
 (exit 3) is a legitimate outcome, not an error — and it **short-circuits the
-cell**: the workflow withholds the agent token, the retrieval config, the
+cell**: the workflow withholds the retrieval config, the
 engine steps, and the event materialization, so a refused forward cell
 produces nothing rather than a context-less prediction claiming a mode it
 never had. The cell's status records `produced=false` and the collect census

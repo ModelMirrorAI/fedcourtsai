@@ -34,9 +34,9 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   Its client id is the `DATA_APP_CLIENT_ID` variable and its private key the
   `DATA_APP_PRIVATE_KEY` secret. This App **is** a bypass actor on `main: require
   PR`, so the writers push corpus facts straight to `main`.
-- **dev App** — used by the agent workflows `run-predict` /
-  `run-evaluate`, the reviewed-PR openers (`run-backtest`, and
-  `run-analytics`'s metrics-refresh and qp-topic-label jobs, and
+- **dev App** — used by the agent workflows' `collect` jobs (`run-predict` /
+  `run-evaluate`; no job that runs an agent names it), the reviewed-PR openers (`run-backtest`'s publish job,
+  `run-analytics`'s metrics-refresh and qp-topic-publish jobs, and
   `summarize`'s publish job),
   `run-analytics`'s big-cases job (the one PR opener here that merges its own PR unattended),
   `sync-staging`, and `promotion-prep`.
@@ -85,11 +85,11 @@ two client ids as variables, the two keys as secrets). Each workflow mints a tok
 | `run-seed` | data | contents (walker steps; the order-vote sweep's writer); none at all on the order-vote sweep's projection and parse jobs; ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
 | `promotion-record` (write job only) | data | contents | on a staging→main promotion merge only (a no-secret, read-only `classify` job decides that first): push the annotated `promotion/` and `prereg/` tags and the one-parent record commit that fills the placeholders the merge added and stamps its pending registrations. The job runs up to three attempts. In each, the plan, the tags, the apply, the commit, the jail and a validation of the jailed SHA run holding no write credential; only then is a token minted, and only that attempt's push and revoke steps read it, the push refusing one that is not the data App's. The push never re-plans: where `main` advanced it records the rejection, the attempt's token is revoked, and the next attempt prepares again from a fresh fetch holding no credential, running `write.sh` from the newly fetched main tip — the same trust the data App already places in main. Every token still live after the last attempt is revoked before the job ends, and the check that main holds no pending registration runs in the report job, so no repo code runs in the write job while a write token is live. The step split is a least-exposure ordering within one job, not a credential boundary: the planner's code is main's own reviewed code, and a hostile planner would need a job boundary to be contained. A tag push never replaces one, the commit is pushed with a lease on the base it was jailed against, and every push blanks any ambient header and runs no hook. The failure issue and the PR comment ride the ambient token in a separate job |
 | `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record and opinion-record jobs); none at all on the selector-validation, `handoff-projection` and `handoff-parse` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Four of the passes that fetch and parse the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`) run as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill and opinion-record writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for either role `prod` is trusted by — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
-| `run-predict`, `run-evaluate` | dev | workflow token: contents, pull-requests · agent token: contents read + issues + pull-requests | the **agent** token is comment-only and minted on Claude cells alone; the workflow commits, and `collect` merges its run PR once the required checks pass with a second workflow token minted for that step alone. The engine watchdog that brackets every engine step holds no token: it reports only on the runner, through the cell's own tail |
-| `run-backtest` | dev | contents, pull-requests; ambient actions:read (cadence guard) | open the reviewed back-test PR (minted after the replay ran). The guard's ambient read covers only this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
+| `run-predict`, `run-evaluate` (`collect` job only) | dev | contents, pull-requests | the cell jobs name no App credential: a Claude cell's action gets the job's own token, capped at `contents: read` by the cell job's permissions, and the codex and gemini cells get none. The workflow commits, and `collect` merges its run PR once the required checks pass with a second workflow token minted for that step alone. The engine watchdog that brackets every engine step holds no token: it reports only on the runner, through the cell's own tail |
+| `run-backtest` (publish job only) | dev | contents, pull-requests | open the reviewed back-test PR. The replay job holds no App credential: it hands the arm's one report to the publish job as a one-day artifact, and the publish job, which runs no engine and assumes no role, checks that the hand-off holds that file alone, that the tree differs from the commit there alone, and scans the change and the PR prose for secrets, all before it mints. The `cadence` guard holds no App token either, only an ambient `actions: read` over this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
 | `run-analytics` (big-cases job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** big-case-board PR — the one PR opener in this repo that is not reviewed by a human, which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
-| `run-analytics` (qp-topic-label job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR; minted **after** the agent has run and the gate has passed, so no write-capable token exists while the labeler does — and on `main`-branch (prod-bound) runs only, so a rehearsal that reaches the labeler runs the full agent posture and the gate with no App token in the job at all — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
+| `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR, from a job that runs no agent and takes only the measured labels file and the measured block from `qp-topic-label`, as a one-day artifact handed off once the gate has passed. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
 | `promotion-prep` | dev | pull-requests | open the **draft** staging→main promotion PR and refresh the generated block of its body while it stays a draft. It merges, dispatches and pushes nothing; the PR merges through `main`'s required checks like a hand-opened one, and the maintainer marks it ready and merges it |
 | `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read (`chain` only) | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
@@ -469,8 +469,12 @@ pre-registration record's commit ids.
     the convention that keeps them read. This is also the residual: a job that
     mints the dev App token with contents write could merge any green PR into
     `main` unapproved, a promotion included. Changing what those jobs do takes
-    code on `main`, which takes an approval; `promotion-prep`'s token holds no
-    contents write;
+    code on `main`, which takes an approval, and none of them runs an agent: a
+    job that runs one mints no App token and names no private key or the
+    whole secrets context, so neither the token nor the key that mints it is
+    ever delivered to a runner an agent holds
+    (`tests/test_workflow_token_holder.py`);
+    `promotion-prep`'s token holds no contents write;
   - the **data App**, always — its writer pushes are direct, and this
     ruleset's pull-request requirement would otherwise refuse them; it could
     equally merge a PR unapproved, which adds nothing to a reach that
@@ -600,9 +604,9 @@ reserved for the writes that must reach `main` through the
 deterministic-writer bypass: the corpus commits and the published verdict).
 The capability is therefore on the lower-trust token, which bypasses no
 required check, scoped
-to issue comments/creation only; and the agent never touches it (the per-cell agent
-token stays comment-only and writes `flags.json` locally — the trusted `collect`
-job does the surfacing). So docket text the agent ingests cannot reach it, and the
+to issue comments/creation only; and the agent never touches it (a Claude cell's
+token is the cell job's own, capped at `contents: read`, and the agent writes
+`flags.json` locally — the trusted `collect` job does the surfacing). So docket text the agent ingests cannot reach it, and the
 worst a misbehaving `collect` run can do with it is post an issue comment or read
 the repository's own Actions artifacts — that job also holds `actions: read`, so
 it can fetch its run's cell artifacts per artifact (four at a time) instead of
@@ -818,7 +822,7 @@ admits `main` and `staging` — it holds nothing a branch could take, so its
 policy only decides which refs may request a spend hold, and a staging
 rehearsal of a held lane must be among them. A job can read the environment's
 secrets only when it runs from `main`, so a workflow authored on a PR branch runs
-**without** the App key, agent tokens, or S3 role: a malicious or prompt-injected
+**without** the App keys or S3 role: a malicious or prompt-injected
 workflow added in a PR cannot exfiltrate secrets on its own PR run; the change
 reaches the privileged context only after it is merged to `main`, which required
 review. `corpus-check` is the one job that runs a PR's *code* inside an
@@ -1145,7 +1149,7 @@ block, which names the client config the composite's sidecar serves — and so
 does each repro-family leg, which drives that same block against a real
 record. Two further notes on the engine-actions-smoke legs.
 They hand `claude-code-action` the job's own
-token rather than minting the cells' App token — the job's permissions cap it
+token, as the cells do — the job's permissions cap it
 at `contents: read`, and omitting it entirely is worse, since the action then
 falls back to an OIDC exchange that mints an installation token defaulting to
 write. And their codex leg runs the cells' `unprivileged-user` safety strategy
