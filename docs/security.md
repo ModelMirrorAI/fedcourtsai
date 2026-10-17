@@ -1623,7 +1623,10 @@ The writer reads both files as untrusted input. Every identifier in them is
 pattern-checked on read (a SCOTUS case id, a recoverable kind, a single
 https Court link, a failure reason from a closed set), so a forged file is
 refused before any write and puts nothing in the step summary but
-validated keys and counts. It refuses the plan whole above the window's
+validated keys and counts. The refusal itself names only pydantic's error
+type and list positions (`fedcourtsai.handoff.read_handoff`, for every
+hand-off reader): an extra field's name or a dict key is the file's own
+text, so no name, message or value from a refused file is printed. It refuses the plan whole above the window's
 cap, if any row, failure or unreached key is not an item of the worklist,
 or if a row is not marked `ocr_derived`, and writes a row only into a
 stored document still empty at the same URL. Both files are downloaded by
@@ -1631,10 +1634,16 @@ artifact id, read from the producing job's outputs. Within one run, any job
 holding the runtime token can upload an artifact under another job's name —
 so either parse in a run-seed run (the vote sweep's or this one) could
 replace the other's plan by name — but none can change another job's
-outputs, and a replaced artifact gets a new id, so the OCR writer's download
-fails rather than reading a substitute. The vote sweep's writer still
-downloads its plan by name, so this sweep's parse could stand in for it;
-moving it to the same id binding is a separate change to that job.
+outputs, and a replaced artifact gets a new id, so a writer's download
+fails rather than reading a substitute. Both run-seed writers — the OCR
+sweep's and the vote sweep's — download their plan by the id their own
+parse published, and start only when that id is non-empty, since an empty
+`artifact-ids` would download every artifact of the run. Each writer then
+checks that the download unpacked exactly the expected files and changed no
+tracked or untracked path in the checkout. It does not see a gitignored
+path (`.venv/` already exists there, so `--ignored` would always report
+one); that a download cannot write outside its target directory rests on
+`@actions/artifact`'s own refusal of an entry whose path escapes it.
 Neither carries a corpus row, a snapshot or a stored document: each is a
 pydantic model (`extra="forbid"`, a literal format name and version) whose
 docstring states why its fields are public — the application back-fill's
@@ -1706,7 +1715,8 @@ not git, so no diff review sees them, and forward cells, the case-summary
 lane and the questions-presented re-derivation read them. Its reach as a
 prompt-injection vector is bounded by the cells' data-not-instructions
 guard and by the binding to the worklist; it is **pending the maintainer's
-acceptance**, with the carve-out it rides on. The plan is the
+acceptance**, which merging the sweep's jobs gives, with the carve-out it
+rides on. The plan is the
 Court's word only as far as the parse job can be trusted; what the split
 removes is that job's reach to any credential. The parse job's steps run as
 one user on one runner, so a parse that

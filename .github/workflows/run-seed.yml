@@ -1279,6 +1279,9 @@ jobs:
       contents: read
     outputs:
       plan: ${{ steps.plan.outputs.plan }}
+      # Read by the writer, which downloads the plan by this id rather than by
+      # name, so no other job's upload can stand in for it.
+      plan-artifact: ${{ steps.upload-plan.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1336,6 +1339,7 @@ jobs:
           echo "plan=written" >> "$GITHUB_OUTPUT"
 
       - name: Upload the plan
+        id: upload-plan
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: order-votes-plan-${{ github.run_id }}
@@ -1355,6 +1359,7 @@ jobs:
     needs: [authorize, seed, order-votes-parse]
     if: >-
       ${{ !cancelled() && needs.order-votes-parse.outputs.plan == 'written'
+      && needs.order-votes-parse.outputs.plan-artifact != ''
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -1384,10 +1389,14 @@ jobs:
         with:
           restore-cache: "false"
 
+      # By artifact id, from the parse job's own outputs: a job of this run
+      # that ran a parse can replace an artifact by name, but not another
+      # job's outputs, and a replaced artifact gets a new id.
       - name: Download the plan
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: order-votes-plan-${{ github.run_id }}
+          artifact-ids: ${{ needs.order-votes-parse.outputs.plan-artifact }}
+          merge-multiple: true
           path: ${{ runner.temp }}/handoff
 
       # The artifact was uploaded by a job that ran a parse, so what it unpacked
@@ -1604,6 +1613,7 @@ jobs:
     needs: [authorize, ocr-sweep-projection]
     if: >-
       ${{ !cancelled() && needs.ocr-sweep-projection.outputs.worklist == 'written'
+      && needs.ocr-sweep-projection.outputs.worklist-artifact != ''
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -1715,6 +1725,8 @@ jobs:
     needs: [authorize, seed, ocr-sweep-projection, ocr-sweep-parse]
     if: >-
       ${{ !cancelled() && needs.ocr-sweep-parse.outputs.plan == 'written'
+      && needs.ocr-sweep-parse.outputs.plan-artifact != ''
+      && needs.ocr-sweep-projection.outputs.worklist-artifact != ''
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}

@@ -1247,8 +1247,8 @@ or network.
   waits for the walk and downloads the plan and the projection's worklist by
   artifact id. It refuses the plan whole above the cap, off its shape, naming
   anything not on the worklist, or with a row not marked `ocr_derived`; skips
-  a row whose stored document has left the class or moved its URL since the
-  projection; writes the rest as the dispatched apply would; pushes the blob;
+  a row whose stored document has left the class, moved its URL or changed
+  its page count since the projection; writes the rest as the dispatched apply would; pushes the blob;
   and only then mints the App token for the pointer commit. The run holds the
   `corpus-write` lock until its last job ends, so with the sweep on every
   window the worst-case hold is about 115 minutes (the projection and parse

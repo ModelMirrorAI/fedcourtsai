@@ -195,12 +195,28 @@ def test_the_handoff_artifacts_are_short_lived_and_named_per_run() -> None:
         assert str(with_["name"]).endswith("-${{ github.run_id }}"), name
         assert str(with_["path"]).startswith("${{ runner.temp }}/handoff/"), name
     downloads = {
-        str(step["with"]["name"])
+        str(step["with"].get("artifact-ids", step["with"].get("name")))
         for name in JOBS
         for step in _job(name)["steps"]
         if str(step.get("uses", "")).startswith("actions/download-artifact@")
     }
-    assert downloads == {str(step["with"]["name"]) for _, step in uploads}
+    # The projection crosses to the parse by name; the plan crosses to the
+    # writer by the id the parse published, which no other job's upload can
+    # take over.
+    assert downloads == {
+        "order-votes-projection-${{ github.run_id }}",
+        "${{ needs.order-votes-parse.outputs.plan-artifact }}",
+    }
+    parse = _job("order-votes-parse")
+    upload = next(s for s in parse["steps"] if s.get("name") == "Upload the plan")
+    assert parse["outputs"]["plan-artifact"] == (
+        f"${{{{ steps.{upload['id']}.outputs.artifact-id }}}}"
+    )
+    writer = _job("order-votes")
+    download = next(s for s in writer["steps"] if s.get("name") == "Download the plan")
+    assert download["with"]["merge-multiple"] is True
+    # An empty id downloads every artifact of the run, so the writer never starts on one.
+    assert "needs.order-votes-parse.outputs.plan-artifact != ''" in _norm(writer["if"])
 
 
 @pytest.mark.parametrize("name", JOBS)

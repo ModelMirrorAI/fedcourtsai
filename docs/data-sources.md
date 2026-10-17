@@ -765,8 +765,8 @@ material**:
     private record still crosses a public-only projection. A new use of this
     carve-out is its own decision, recorded in this section.
 - **A proposed second carve-out: the OCR sweep's plan artifact** (awaiting
-  the maintainer's decision; date of decision: ____). Merging the sweep's
-  run-seed jobs is that decision. Every byte it would admit is a
+  the maintainer's decision). Merging the sweep's run-seed jobs is that
+  decision. Every byte it would admit is a
   filing the Court serves openly at supremecourt.gov, read off its page
   images, and none of it comes from our private stores.
   - *What:* for each item of one window's worklist that the parse could read,

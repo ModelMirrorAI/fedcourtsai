@@ -186,6 +186,20 @@ def test_the_chain_is_non_blocking_every_window_and_gated_on_step_outputs() -> N
     )
     assert own_needs(jobs["ocr-sweep"]) == ["seed", "ocr-sweep-projection", "ocr-sweep-parse"]
     assert "needs.ocr-sweep-parse.outputs.plan == 'written'" in _norm(jobs["ocr-sweep"]["if"])
+    # An empty artifact id downloads every artifact of the run, so no consumer
+    # starts without the id it downloads by.
+    for job, ids in (
+        ("ocr-sweep-parse", ["needs.ocr-sweep-projection.outputs.worklist-artifact"]),
+        (
+            "ocr-sweep",
+            [
+                "needs.ocr-sweep-parse.outputs.plan-artifact",
+                "needs.ocr-sweep-projection.outputs.worklist-artifact",
+            ],
+        ),
+    ):
+        for id_ in ids:
+            assert f"{id_} != ''" in _norm(jobs[job]["if"]), (job, id_)
     for job, output, step in (
         ("ocr-sweep-projection", "worklist", "Write the OCR worklist"),
         ("ocr-sweep-parse", "plan", "Read the scanned filings"),
