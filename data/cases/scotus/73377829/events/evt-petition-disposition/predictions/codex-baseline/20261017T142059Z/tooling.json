@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73377829",
+  "gaps": [
+    "No brief in opposition was provisioned; the last recorded response deadline is later than the snapshot.",
+    "The petition manifest marks truncation, so the complete appendix is unavailable.",
+    "Generic web retrieval attempts returned no usable content."
+  ],
+  "helpful": [
+    "The bound appellate opinion exposes a specific preservation problem obscured by the broad questions presented.",
+    "The frozen distribution count and dated response-request entries distinguish redistribution from substantive relisting.",
+    "The statpack JSON permits exact weighted pooling of prior-Term reached-band rates."
+  ],
+  "notes": "Forecast rests on provisioned pre-decision material and committed base rates. No current case lookup was attempted. The initial uv command encountered a read-only default cache; a writable temporary cache allowed the paths command and validation to run.",
+  "role": "predictor",
+  "run_id": "20261017T142059Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local file reads",
+    "jq",
+    "fedcourts paths",
+    "web search/open attempts",
+    "apply_patch",
+    "fedcourts validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

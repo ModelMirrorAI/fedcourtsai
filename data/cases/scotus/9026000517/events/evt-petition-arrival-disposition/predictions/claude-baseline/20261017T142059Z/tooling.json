@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000517",
+  "run_id": "20261017T142059Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "courtlistener-mcp search"],
+  "helpful": ["The sal-v4 band table's bracketed reached rates give a direct anchor for an arrival cell"],
+  "gaps": ["No petition or QP text was provisioned for this arrival cell", "No published cut for pro se versus counseled paid petitions"],
+  "notes": "Arrival cell on a pro se paid petition; with no documents, the forecast rests on the caption and the base rate."
+}
