@@ -282,8 +282,8 @@ runbook, [docs/security.md](docs/security.md).
   third role is the **staging read-write**
   role — read-only on the production stores, read-write on the staging corpus
   pair alone — so the production stores keep exactly one writer whatever
-  happens to it. Every role's OIDC trust is scoped to named environments of
-  this repo — the production read-write role to `corpus-write`, the read-only
+  happens to it. Every role's OIDC trust is to be scoped to named environments
+  of this repo — the production read-write role to `corpus-write`, the read-only
   role to `prod`, `corpus-write`, `staging` (which is what lets the
   pre-promotion integration runs read the corpus) and `corpus-check` (the PR
   corpus-check lane, under the trigger surface below), the staging read-write

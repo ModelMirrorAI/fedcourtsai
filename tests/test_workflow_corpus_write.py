@@ -1,7 +1,8 @@
 """Only the corpus writer jobs bind `corpus-write`, and every one of them does.
 
-The production read-write role's OIDC trust names `environment:corpus-write`
-alone (docs/security.md, *S3 / the private stores*). A job holding
+The production read-write role's OIDC trust is to name
+`environment:corpus-write` alone, a maintainer IAM step (docs/security.md,
+*S3 / the private stores*). A job holding
 `id-token: write` lets every step in it request a token for its environment,
 and a job that runs an agent hands those steps to a model reading untrusted
 docket text. So the environment the write role trusts must be bound by the

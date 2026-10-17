@@ -2891,7 +2891,7 @@ jobs:
   # so no parse could be handed to a credential-free job anyway. Its posture,
   # plainly: the job holds `id-token: write` under `corpus-write` — on a dry
   # run too, the one job serving both modes, which is why the read-only role's
-  # trust also names `corpus-write` — and the
+  # trust is to name `corpus-write` too — and the
   # runner hands every step the OIDC request pair, so every step here can mint
   # a token for either corpus role `corpus-write` is trusted by. What the job
   # blanks — and its

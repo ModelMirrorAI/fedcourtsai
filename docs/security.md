@@ -830,8 +830,9 @@ passes are (*S3 / the private stores* below). Configure it with:
   (the decision-record job pulls with the read-only one, so the read-only
   role's trust names `environment:corpus-write` too), the region and the
   corpus estate's base URL. Every one is required but the three rate caps,
-  which are optional: unset, `run-pull` falls back to its default rates, so
-  copy them too if `prod` tunes them. The list is
+  which are optional: unset, `run-pull` falls back to its default rates and
+  the gate does not notice, so copying them when `prod` tunes them is an
+  explicit provisioning step. The list is
   `fedcourtsai.environment_checks`'s, tested against what the jobs binding
   the environment read. The data App's key and client id, the CourtListener
   token and the corpus base URL then live on both `prod` and `corpus-write`,
@@ -1982,8 +1983,8 @@ the repoint. Read step 5's two ordering notes before doing either.
    mode reads as a missing policy. No new environment is created; the write
    role's trust
    deliberately names the environment the integration scenarios already bind
-   (production's read-write role trusts the writer-only `corpus-write`
-   environment instead; on staging, what a wrongly-writing change reaches is
+   (production's read-write role's trust is to name the writer-only
+   `corpus-write` environment instead, once the maintainer narrows it; on staging, what a wrongly-writing change reaches is
    the disposable pair, so review of what reaches the branch is the control,
    and such a change fails visibly here before promotion). The branch policy is the gate, and what it enforces is code
    provenance: only code that passed a pull request and the `staging`
