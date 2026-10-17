@@ -189,7 +189,9 @@ provenance() {
     fail=1
     return
   fi
-  if ! git rev-list --first-parent origin/staging | grep -Fqx "$sha"; then
+  # grep reads the whole list (no -q): an early exit would SIGPIPE rev-list,
+  # and pipefail would then read a cut on the chain as one off it.
+  if ! git rev-list --first-parent origin/staging | grep -Fx "$sha" >/dev/null; then
     echo "::error::provenance: ${ref} at ${sha} is not on staging's first-parent chain — not a cut of staging"
     fail=1
   fi
