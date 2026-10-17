@@ -1853,8 +1853,8 @@ The full path of a change, operator's view:
    (docs/process-version.md, *Freezing*) — fills the closed-key placeholders
    the merge added, and comments on the PR with whatever it left for a maintainer — free-text
    placeholders, and stale ones an earlier merge carried. A merge it refuses
-   (a hand-written fill that rewrapped a landed placeholder, say) opens a
-   `promotion-record-log` issue. If that merge carried a registration, its
+   (a hand-written fill that rewrapped the prose around a landed
+   placeholder, say) opens a `promotion-record-log` issue. If that merge carried a registration, its
    rows stay pending — never stamp them by hand: fix the cause and re-dispatch
    `gh workflow run promotion-record.yml --ref main -f merge=<merge SHA>`.
    Until the stamp lands, Step 0's pending-on-`main` check refuses every later
