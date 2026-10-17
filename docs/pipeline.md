@@ -789,6 +789,25 @@ whole, one ledger line to the run summary), and only then mints the App token
 that pushes its `outcome.json` commit. All three jobs are continue-on-error, so
 a fetch hiccup converges next window; the sweep never replaces a record.
 
+**Every** window, not the daily one alone, runs a second split sweep beside
+the walk: the **OCR sweep** (`fedcourts ocr-recover-petitions --sweep`), the
+`ocr-recovery` pass on a schedule. A forward cell runs once, usually within
+days of the filing it reads, so a scanned filing waiting for a dispatch reaches
+its cell with no text. `ocr-sweep-projection` holds the read-only role and
+writes the window's worklist: at most `historical.sweep_caps.ocr` candidates,
+those a forward cell will read and stored in the last week first, then the
+rest rotated one cap per window. `ocr-sweep-parse` holds no credential, is the
+only scheduled job that installs `tesseract` and `pdftoppm`, and fetches and
+reads each item under a slice deadline. `ocr-sweep` waits for the walk,
+downloads the plan and the worklist by artifact id, refuses a plan naming
+anything off the worklist, writes the rest, pushes the blob, and only then
+mints the App token for the pointer commit. The plan carries filing text, so it
+would cross under a proposed carve-out in [data-sources.md](data-sources.md)
+(*PII stance*). The run's `corpus-write` lock is held until its last job ends,
+which with this sweep is at worst about 115 minutes: the projection (30) and
+parse (50) beside the walk (55), then the writer (30). A window that fires in
+that time waits in the group.
+
 Two further writer steps sit **ahead of the loop** on a dispatch-only footing —
 the `refresh_terms` cursor reset and the `refresh_dockets` targeted re-serve —
 where they precede the walk they change. With `refresh_streams` beside them,
@@ -892,8 +911,8 @@ multi-respondent opposition, stored as a single row whose URL is the canonical
 join of every brief fetched into it — a set key, not a link to re-fetch. Its
 per-brief headings are themselves text, so such a row is not empty by the
 coverage report's test either: it reads as covered while carrying no argument,
-and neither surface sizes it. It is the only pass that installs a
-binary dependency, in its own gated step (`tesseract` and poppler's `pdftoppm`,
+and neither surface sizes it. It is the only pass here that installs a
+binary dependency, in its own gated step inside the credentialed corpus job (`tesseract` and poppler's `pdftoppm`,
 from the runner image's own archive), and one of the two whose bound is a
 **slice size** rather than a refusal threshold: each case costs a re-fetch and a
 page-by-page recognition, and runner minutes are the whole cost. That makes the
@@ -1073,7 +1092,8 @@ evaluate, so the pass moves no grade. Its bound is the dry run's
 Four of the passes that fetch and parse the Court's content — `opinion-votes`,
 `order-votes`, `application-backfill` and `opinion-record` — run as a
 **credential split** of three jobs (`ocr-recovery` and `document-backfill`
-also parse fetched PDFs, inside the corpus job, and are not split). `handoff-projection` holds the read-only
+also parse fetched PDFs, inside the corpus job, and are not split here;
+run-seed's OCR sweep is the split, scheduled route to the same recovery). `handoff-projection` holds the read-only
 role, pulls the corpus and writes the few public facts the parse needs;
 `handoff-parse` holds no credential at all (no environment, no `id-token`, no
 secret), fetches and parses, prints the dry-run ledger, and on an apply writes

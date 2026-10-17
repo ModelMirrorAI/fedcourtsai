@@ -1608,6 +1608,46 @@ run-seed's order-vote sweep runs the same split and passes the vote passes'
 same two files under its own names, `order-votes-projection-<run_id>` and
 `order-votes-plan-<run_id>`; the plan crosses on every run there, since the
 sweep always applies.
+run-seed's OCR sweep runs the split too, with its own two files:
+`ocr-worklist-<run_id>`, one window's slice of the recovery class as case
+ids, document kinds, the Court's URLs and page counts, and
+`ocr-plan-<run_id>`, the text the credential-free parse read off those
+filings, which would cross under a proposed carve-out in
+[data-sources.md](data-sources.md) (*PII stance*) on the same terms as the
+application back-fill's: the Court's own public filings, nothing from our
+stores, one artifact, one day, never committed and never printed. On this
+public repository any signed-in user can download either artifact while it
+exists, four windows a day; deleting the plan once the writer has read it
+would need `actions: write` on the writer, a trade left to the maintainer.
+The recovered text also meets the contact scrub with an open residual: OCR
+output can lay contact details out in shapes the scrub misses; on one scanned
+filing (scotus/9026000314) they survived a scrub reporting
+`contact_scrubbed: true`.
+The writer reads both files as untrusted input. Every identifier in them is
+pattern-checked on read (a SCOTUS case id, a recoverable kind, a single
+https Court link, a failure reason from a closed set), so a forged file is
+refused before any write and puts nothing in the step summary but
+validated keys and counts. The refusal itself names only pydantic's error
+type and list positions (`fedcourtsai.handoff.read_handoff`, for every
+hand-off reader): an extra field's name or a dict key is the file's own
+text, so no name, message or value from a refused file is printed. It refuses the plan whole above the window's
+cap, if any row, failure or unreached key is not an item of the worklist,
+or if a row is not marked `ocr_derived`, and writes a row only into a
+stored document still empty at the same URL. Both files are downloaded by
+artifact id, read from the producing job's outputs. Within one run, any job
+holding the runtime token can upload an artifact under another job's name —
+so either parse in a run-seed run (the vote sweep's or this one) could
+replace the other's plan by name — but none can change another job's
+outputs, and a replaced artifact gets a new id, so a writer's download
+fails rather than reading a substitute. Both run-seed writers — the OCR
+sweep's and the vote sweep's — download their plan by the id their own
+parse published, and start only when that id is non-empty, since an empty
+`artifact-ids` would download every artifact of the run. Each writer then
+checks that the download unpacked exactly the expected files and changed no
+tracked or untracked path in the checkout. It does not see a gitignored
+path (`.venv/` already exists there, so `--ignored` would always report
+one); that a download cannot write outside its target directory rests on
+`@actions/artifact`'s own refusal of an entry whose path escapes it.
 Neither carries a corpus row, a snapshot or a stored document: each is a
 pydantic model (`extra="forbid"`, a literal format name and version) whose
 docstring states why its fields are public — the application back-fill's
@@ -1670,7 +1710,17 @@ ceiling (`order_votes_ceiling`, 1500) stand in for it, so a compromised parse
 there could land up to the cap of invented order-list records each window.
 That is accepted because the orders source's records are banked, never
 scored — vote scoring reads only a complete merits record — and each is a
-committed, reviewable `outcome.json` change. The plan is the
+committed, reviewable `outcome.json` change. run-seed's OCR sweep is the
+same shape with a weaker review: a compromised parse could write up to the
+window's cap (`historical.sweep_caps.ocr`, 10) of arbitrary text, each up to
+the document cap (150,000 characters), into the empty scanned rows of that
+window's worklist, marked `ocr_derived`. Those rows go to the content store,
+not git, so no diff review sees them, and forward cells, the case-summary
+lane and the questions-presented re-derivation read them. Its reach as a
+prompt-injection vector is bounded by the cells' data-not-instructions
+guard and by the binding to the worklist; it is **pending the maintainer's
+acceptance**, which merging the sweep's jobs gives, with the carve-out it
+rides on. The plan is the
 Court's word only as far as the parse job can be trusted; what the split
 removes is that job's reach to any credential. The parse job's steps run as
 one user on one runner, so a parse that

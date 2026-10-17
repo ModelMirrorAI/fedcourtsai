@@ -985,10 +985,16 @@ report's test and reads there as *covered* while carrying no argument at all —
 and it is outside this pass on top of that. Neither surface counts it, and the
 pass's `set_keyed` tally is the guard against a set key that somehow did read
 empty rather than a measurement of the residual. And recurrence: a scanned filing
-that arrives after a pass enters the class and stays there until the next one.
-Nothing watches for that on its own — the same `corpus-info --text-coverage`
-read is what sizes it, and the pass is re-runnable over whatever it finds — so
-cadence is a dispatch decision taken against a measured share, not a schedule.
+that arrives after a pass enters the class. A forward cell runs once, usually
+within days of the filing it reads, so a recovery that waits for a dispatch
+reaches it after the cell has run. The **OCR sweep** on run-seed's windows is
+what watches for it (*Historical — the Term walker* in
+[data-pipeline.md](data-pipeline.md)): every window it takes up to
+`historical.sweep_caps.ocr` candidates, those a forward cell will read and
+stored in the last week first, newest first, and recovers them on the terms
+below. A scan stored by a
+live window therefore waits at most one seed window for its text. The
+dispatched pass stays the route for a maintainer-read slice of the whole class.
 
 ### Contract for the recovery pass
 
@@ -1007,8 +1013,11 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   for. It is one of the two passes there that fetch — the document back-fill
   below is the other — and the fetch is what keeps them in that lane rather than
   the pullers': supremecourt.gov is free and politeness-capped, so no budget is
-  governed and no window's schedule is implicated. Both binaries are installed by that step alone, so no scheduled
-  lane grows the dependency. Dry run by
+  governed and no window's schedule is implicated. Both binaries are installed by that step and by
+  the OCR sweep's credential-free parse job only, so no *scheduled* job
+  holding a credential has them. This dispatched step does: it installs and
+  runs them inside the job that holds the read-write corpus role and the data
+  App token. Dry run by
   default, and bounded through `repair_bound` so a backlog clears in slices
   rather than in one long job; runner minutes are the whole cost. That bound is
   the *spend* cap. What keeps a slice inside the step's own wall clock is a

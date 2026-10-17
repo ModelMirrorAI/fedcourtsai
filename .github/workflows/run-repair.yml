@@ -962,10 +962,12 @@ jobs:
       # that needs it and gated on its selector so the other seven dispatches
       # never pay for it: the OCR recovery renders a page with `pdftoppm`
       # (poppler-utils) and reads it with `tesseract`. Deliberately not in the
-      # devcontainer, the Python environment or a scheduled lane — the same
-      # reason the extractor takes its OCR call as an injected seam rather than
-      # importing one. From the runner image's own Ubuntu archive: no
-      # third-party repository, no added signing key, nothing this workflow
+      # devcontainer, the Python environment or any scheduled job holding a
+      # credential (run-seed's OCR sweep installs them only in its
+      # credential-free parse job) — the same reason the extractor takes its
+      # OCR call as an injected seam rather than importing one. From the
+      # runner image's own Ubuntu archive: no third-party repository, no
+      # added signing key, nothing this workflow
       # trusts that it did not already trust. The resolved versions are echoed
       # into the summary rather than pinned in the argument list, because an
       # exact apt pin goes stale the week the runner image rolls and would fail

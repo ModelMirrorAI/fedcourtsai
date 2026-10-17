@@ -62,11 +62,21 @@ def read_handoff[M: BaseModel](
         return model.model_validate_json(path.read_bytes())
     except ValidationError as exc:
         first = exc.errors()[0]
-        where = ".".join(str(part) for part in first["loc"]) or "<root>"
         raise HandoffRefused(
             f"{path} is not a valid {model.__name__}: {exc.error_count()} problem(s), "
-            f"the first at {where}: {first['msg']}"
+            f"the first a {first['type']} at {_safe_loc(first['loc'])}"
         ) from exc
+
+
+def _safe_loc(loc: tuple[int | str, ...]) -> str:
+    """Where a validation error sits, with every name in the path replaced by ``*``.
+
+    A refusal is printed to a public step summary, and a name in pydantic's
+    location can be the file's own text: an extra field, or a dict key. Only
+    list positions are kept; the error ``type`` beside it is pydantic's own
+    vocabulary. The message and the input are never printed for the same reason.
+    """
+    return ".".join(str(part) if isinstance(part, int) else "*" for part in loc) or "<root>"
 
 
 def write_handoff(path: Path, model: BaseModel) -> None:
