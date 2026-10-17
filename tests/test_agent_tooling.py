@@ -84,7 +84,7 @@ def test_a_long_list_is_cut_at_the_cap() -> None:
     assert len(_report(raw).helpful) == _LIST_LIMIT
 
 
-@pytest.mark.parametrize(("word", "expected"), [("yes", True), ("false", False), ("TRUE", True)])
+@pytest.mark.parametrize(("word", "expected"), [("yes", True), ("false", False), ("off", False)])
 def test_a_yes_or_no_word_is_read_for_the_corpus_answer(word: str, expected: bool) -> None:
     report = _report({**INVENTED, "used_corpus_query": word})
     assert report.used_corpus_query is expected
@@ -112,6 +112,7 @@ def test_a_file_with_no_report_in_it_is_left_alone(text: str) -> None:
 def test_a_missing_envelope_is_filled_from_the_cell() -> None:
     raw = {"used_corpus_query": True, "role": "judge"}
     report = _report(raw)
+    assert report.notes is not None and 'role "judge" missing or unknown' in report.notes
     assert (report.case_id, report.run_id, report.actor_id) == (
         WHERE.case_id,
         WHERE.run_id,
@@ -120,12 +121,48 @@ def test_a_missing_envelope_is_filled_from_the_cell() -> None:
     assert report.role == UsageRole.predictor
 
 
-def test_the_agents_notes_come_first_and_the_whole_stays_in_bounds() -> None:
+def test_the_agents_notes_come_first() -> None:
     own = "the corpus query timed out twice"
     report = _report({**INVENTED, "notes": own})
     assert report.notes is not None and report.notes.startswith(own + "\n[harness]")
-    long = _report({**INVENTED, "notes": "n" * 1990})
-    assert long.notes is not None and len(long.notes) <= _NOTES_LIMIT
+
+
+@pytest.mark.parametrize(("length", "invented"), [(1990, True), (2500, False)])
+def test_the_harness_line_survives_long_notes_whole(length: int, invented: bool) -> None:
+    """The agent's text gives way to the record of what changed, never the reverse."""
+    raw = {**(INVENTED if invented else {"used_corpus_query": True}), "notes": "n" * length}
+    notes = _report(raw).notes
+    assert notes is not None and len(notes) <= _NOTES_LIMIT
+    own, line = notes.split("\n[harness] ")
+    assert own.endswith("...")
+    assert f"the agent's notes cut from {length} characters to fit" in line
+    if invented:
+        assert "unknown key 'used_mcp'" in line
+
+
+def test_a_long_list_of_changes_names_what_it_could_not_fit() -> None:
+    raw = {"used_corpus_query": True, **{f"invented_key_{i:02}": i for i in range(40)}}
+    notes = _report(raw).notes
+    assert notes is not None and len(notes) <= _NOTES_LIMIT
+    assert "unknown key 'invented_key_00'" in notes
+    assert notes.endswith(" more)")
+
+
+@pytest.mark.parametrize("value", [1, "on", "t", "yes"])
+def test_a_yes_the_schema_accepts_is_a_yes(value: object) -> None:
+    assert _report({**INVENTED, "used_corpus_query": value}).used_corpus_query is True
+
+
+def test_a_valid_role_is_kept_as_written() -> None:
+    """collect reads a report whose envelope is not the cell's as not its own."""
+    report = _report({**INVENTED, "role": "evaluator"})
+    assert report.role == UsageRole.evaluator
+
+
+def test_a_foreign_schema_version_is_reset_and_named() -> None:
+    report = _report({**INVENTED, "schema_version": "2.0"})
+    assert report.schema_version == "1.0"
+    assert report.notes is not None and 'schema_version "2.0" reset' in report.notes
 
 
 def test_a_malformed_manifest_is_dropped_and_named() -> None:

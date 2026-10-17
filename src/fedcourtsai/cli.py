@@ -8041,7 +8041,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         # Before the tripwire below, so it appends to a file that parses, and
         # before `validate`, so an advisory note can never take the cell's output
         # with it. A re-grade is a correction over committed cells and leaves
-        # their flags as committed.
+        # their flags and tooling reports as committed.
         coordinates = CellCoordinates(
             case_id=ids.case_id(court, docket),
             run_id=run_id,

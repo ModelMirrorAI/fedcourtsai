@@ -531,14 +531,18 @@ agent's own account — subjective, advisory, and never a gate.
 }
 ```
 
-**A mis-shaped report never fails its cell either.** `stamp-cell` normalises a
-`tooling.json` that does not validate before `validate` runs, as it does a
-`flags.json`. An unknown key is dropped and its value quoted in a `[harness]`
-line appended to `notes`; a list field written as text is read as one item, or
-as none when it says "None" and the like; a missing envelope field is filled
-from the cell's own coordinates. The exception is `used_corpus_query`: `collect`
-reads it as the cell's own word, so a value that is not a yes or no is never
-supplied, and that file is left for `validate` to refuse.
+**A mis-shaped report fails its cell only where no honest report is left in
+it.** `stamp-cell` normalises a `tooling.json` that does not validate before
+`validate` runs, as it does a `flags.json`. An unknown key is dropped and its
+value quoted in a `[harness]` line appended to `notes`; a list field written as
+text is read as one item, or as none when it says "None" and the like; an
+envelope field that is missing or not text, and a `role` that is not one, is
+filled from the cell's own coordinates. The `[harness]` line always fits whole,
+and the agent's own notes are cut to make room where they must be, with the cut
+named. Two files are left for `validate` to refuse: one whose
+`used_corpus_query` is missing or not a yes or no as the schema reads one
+(`collect` reads that field as the cell's own word, so it is never supplied),
+and one that is not a JSON object at all.
 
 ## What the cell does not write
 

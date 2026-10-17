@@ -3158,6 +3158,27 @@ def test_stamp_normalises_a_tooling_report_with_invented_keys(_data_root: Path) 
     assert "tooling.json did not validate" not in again.output
 
 
+def test_stamp_normalises_an_evaluators_tooling_report(_data_root: Path) -> None:
+    """The judge's report sits at its own path and is normalised the same way."""
+    event = "evt-petition-disposition"
+    seed_evaluation(_data_root, "scotus", 50, event, evaluator_id="gemini-judge", run_id="RID")
+    tooling_path = (
+        CasePaths(_data_root, "scotus", 50).event(event).evaluation_tooling("gemini-judge", "RID")
+    )
+    tooling_path.parent.mkdir(parents=True, exist_ok=True)
+    tooling_path.write_text('{"used_corpus_query": "no", "pain_points": "None"}')
+
+    result = _stamp("evaluator", "gemini-judge", 50, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    report = read_model(tooling_path, AgentToolingFeedback)
+    assert (report.role, report.actor_id, report.used_corpus_query) == (
+        UsageRole.evaluator,
+        "gemini-judge",
+        False,
+    )
+
+
 def test_stamp_leaves_a_tooling_report_with_no_corpus_answer(_data_root: Path) -> None:
     """The one field collect reads as the cell's word is never supplied for it."""
     event = "evt-petition-disposition"
