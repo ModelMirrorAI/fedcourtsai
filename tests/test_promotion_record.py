@@ -527,6 +527,57 @@ def test_a_rewritten_landed_placeholder_refuses_the_plan(tmp_path: Path, after: 
         _plan(repo, merge)
 
 
+_WRAPPED = (
+    "# Freeze record\n\n- **Landed entry (2026-09-01).** Text.\n"
+    "  The replay census is `<FILL: replay census line from the check\n"
+    "  below>`, and the forward census is `<FILL: forward census line from the\n"
+    "  check below>`, both read from the blob whose freshness\n"
+    "  line is `<FILL: corpus-info freshness line>`.\n"
+)
+
+
+@pytest.mark.parametrize(
+    "after",
+    [
+        # Every wrapped placeholder filled: their line breaks go with them.
+        "# Freeze record\n\n- **Landed entry (2026-09-01).** Text.\n"
+        "  The replay census is `695 priors`, and the forward census is `727 priors`,"
+        " both read from the blob whose freshness\n"
+        "  line is `latest pull 2026-10-16`.\n",
+        # Only the first filled: the second still wraps.
+        "# Freeze record\n\n- **Landed entry (2026-09-01).** Text.\n"
+        "  The replay census is `695 priors`, and the forward census is"
+        " `<FILL: forward census line from the\n"
+        "  check below>`, both read from the blob whose freshness\n"
+        "  line is `<FILL: corpus-info freshness line>`.\n",
+        # Left verbatim.
+        _WRAPPED,
+    ],
+    ids=["all-filled", "first-filled", "verbatim"],
+)
+def test_a_wrapped_landed_placeholder_may_be_filled(tmp_path: Path, after: str) -> None:
+    """A placeholder wrapped across a line break, filled by hand, is not a rewrite."""
+    before = _WRAPPED.replace("# Freeze record\n\n", "# Freeze record\n\n" + _DECLARATION + "\n")
+    after = after.replace("# Freeze record\n\n", "# Freeze record\n\n" + _DECLARATION + "\n")
+    repo, merge = _promote(tmp_path, before=before, staging_record=after)
+    _plan(repo, merge)
+
+
+def test_a_wrapped_landed_placeholder_reworded_still_refuses(tmp_path: Path) -> None:
+    """Joining a wrapped unit does not loosen the check on the prose around it."""
+    after = (
+        "# Freeze record\n\n- **Landed entry (2026-09-01).** Text.\n"
+        "  The replay census reads `695 priors`, and the forward census is `727 priors`,"
+        " both read from the blob whose freshness\n"
+        "  line is `latest pull 2026-10-16`.\n"
+    )
+    before = _WRAPPED.replace("# Freeze record\n\n", "# Freeze record\n\n" + _DECLARATION + "\n")
+    after = after.replace("# Freeze record\n\n", "# Freeze record\n\n" + _DECLARATION + "\n")
+    repo, merge = _promote(tmp_path, before=before, staging_record=after)
+    with pytest.raises(PromotionRecordError, match="rewrites landed placeholders"):
+        _plan(repo, merge)
+
+
 def test_a_new_entry_copying_a_filled_entrys_lines_is_still_added(tmp_path: Path) -> None:
     """The batch fills an old entry and appends a new one built from the same template."""
     template = "  Carried by `<FILL: promotion tag>` (merge `<FILL: merge hash>`).\n"

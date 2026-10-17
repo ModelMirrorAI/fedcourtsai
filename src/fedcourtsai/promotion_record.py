@@ -458,16 +458,23 @@ def landed_placeholder_problems(before: str, after: str) -> list[str]:
     around it, joined onto its heading, split, or the placeholder deleted — is
     named, and the plan refuses rather than guess which placeholder became
     which. Each landed unit is matched to a distinct place in ``after``.
+
+    A unit is the whole lines its placeholders occupy, and placeholders that
+    share a line share a unit — so a placeholder wrapped across a line break
+    joins the unit of its neighbours on either line. Filling it removes that
+    break, as the writer's own fill does, and only the joined unit can still
+    be matched.
     """
     units: list[tuple[str, int, int]] = []
-    seen: set[int] = set()
     for key, _line, start, end in placeholders(before):
         unit_start = before.rfind("\n", 0, start) + 1
         unit_end = before.find("\n", end)
         unit_end = len(before) if unit_end < 0 else unit_end
-        if unit_start in seen:
-            continue  # one unit per line, however many placeholders it holds
-        seen.add(unit_start)
+        if units and unit_start <= units[-1][2]:
+            # It shares a line with the unit before it: widen that unit.
+            first_key, first_start, _ = units[-1]
+            units[-1] = (first_key, first_start, unit_end)
+            continue
         units.append((key, unit_start, unit_end))
     taken: set[int] = set()
     problems: list[str] = []
