@@ -1604,6 +1604,16 @@ run-seed's order-vote sweep runs the same split and passes the vote passes'
 same two files under its own names, `order-votes-projection-<run_id>` and
 `order-votes-plan-<run_id>`; the plan crosses on every run there, since the
 sweep always applies.
+run-seed's OCR sweep runs the split too, with its own two files:
+`ocr-worklist-<run_id>`, one window's slice of the recovery class as case
+ids, document kinds, the Court's URLs and page counts, and
+`ocr-plan-<run_id>`, the text the credential-free parse read off those
+filings, which crosses under its own carve-out in
+[data-sources.md](data-sources.md) (*PII stance*) on the same terms as the
+application back-fill's: the Court's own public filings, nothing from our
+stores, one artifact, one day, never committed and never printed. The writer
+checks its shape and refuses it whole above the window's cap, and writes a
+row only into a stored document still empty at the same URL.
 Neither carries a corpus row, a snapshot or a stored document: each is a
 pydantic model (`extra="forbid"`, a literal format name and version) whose
 docstring states why its fields are public — the application back-fill's

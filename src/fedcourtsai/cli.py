@@ -2564,8 +2564,9 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
     budget it was handed.
 
     Local OCR only: `pdftoppm` renders a page and `tesseract` reads it, neither a
-    Python dependency and both installed by the `run-repair` OCR step alone, so
-    no scheduled lane grows them. An apply with work to do refuses where they are
+    Python dependency and both installed by the `run-repair` OCR step and the
+    run-seed OCR sweep's credential-free parse job only. An apply with work to
+    do refuses where they are
     absent. Its apply half is a writer-lane pass by construction — the
     corpus-write credentials exist only there — and the lane invocation is
     run-repair's `ocr-recovery` pass. Fails loud if the corpus is absent.

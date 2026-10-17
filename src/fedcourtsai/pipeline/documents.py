@@ -35,8 +35,8 @@ network (through the polite
 and the QP derivation are pure and tested offline. Extraction is pure *at its
 default*: :func:`extract_pdf_text` takes an optional :data:`OcrPage` seam, and
 the one effectful implementation — a tesseract call over a rendered page — is
-injected by the recovery pass alone, so no other caller of this module carries
-that dependency. Because the derivation is
+injected by the recovery pass and its standing sweep alone, so no other caller
+of this module carries that dependency. Because the derivation is
 pure, it can also be re-run over text already stored —
 :func:`backfill_questions_presented`, the convergence sweep that carries an
 extractor fix onto the rows an unchanged petition URL would otherwise freeze.
