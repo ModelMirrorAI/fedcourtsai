@@ -139,10 +139,11 @@ def test_the_fill_sweeps_run_after_the_dedupe_and_before_the_verdict() -> None:
         assert dedupe < names.index(name) < verdict, name
 
 
-#: The caps read outside the `seed` job: the order-list vote sweep fetches the
-#: Court's documents, so it runs as its own credential-split jobs beside the walk
-#: (pinned in `tests/test_workflow_seed_order_votes.py`).
-SPLIT_SWEEP_CAPS = frozenset({"order_votes"})
+#: The caps read outside the `seed` job: the order-list vote sweep and the OCR
+#: sweep fetch the Court's documents, so each runs as its own credential-split
+#: jobs beside the walk (pinned in `tests/test_workflow_seed_order_votes.py` and
+#: `tests/test_workflow_seed_ocr_sweep.py`).
+SPLIT_SWEEP_CAPS = frozenset({"order_votes", "ocr"})
 
 
 def test_every_configured_cap_has_exactly_one_sweep() -> None:

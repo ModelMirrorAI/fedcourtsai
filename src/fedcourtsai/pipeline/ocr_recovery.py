@@ -67,6 +67,7 @@ from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import Protocol
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
@@ -78,6 +79,7 @@ from .documents import (
     FETCHED_DOCUMENT_KINDS,
     KIND_PETITION,
     KIND_QUESTIONS_PRESENTED,
+    ExtractedText,
     OcrPage,
     _derived_questions_document,
     extract_pdf_text,
@@ -187,6 +189,14 @@ MAX_DOCUMENT_BYTES = 64 * 1024 * 1024
 # How many of the population's PDFs a dry run re-fetches, to report what the
 # writer's own fetch path gets back before an apply spends a slice on it.
 DEFAULT_PROBE_SAMPLE = 3
+
+
+# The two reasons a re-fetched candidate yields no text that are not fetch
+# failures: a recognition the document budget cut short, and a scan whose images
+# read as nothing. Named once, because the dispatched pass and the standing sweep
+# both report them and a reader matches on the words.
+BUDGET_EXHAUSTED = "budget-exhausted"
+EMPTY_AFTER_OCR = "empty-after-ocr"
 
 
 class OcrToolsMissing(RuntimeError):
@@ -578,9 +588,17 @@ def estimated_candidate_seconds(candidate: ScannedDocument) -> float:
     :func:`recover_scanned_documents` for what a candidate can spend past it and
     who carries that.
     """
-    pages = max(candidate.document.pages, 0)
+    return estimated_seconds_for_pages(candidate.document.pages)
+
+
+def estimated_seconds_for_pages(pages: int) -> float:
+    """:func:`estimated_candidate_seconds` from the page count alone.
+
+    The standing sweep's parse holds a worklist item rather than a stored row,
+    and the page count is the only thing the estimate reads.
+    """
     return ESTIMATED_CANDIDATE_OVERHEAD_SECONDS + min(
-        pages * ESTIMATED_SECONDS_PER_PAGE, DOCUMENT_BUDGET_SECONDS
+        max(pages, 0) * ESTIMATED_SECONDS_PER_PAGE, DOCUMENT_BUDGET_SECONDS
     )
 
 
@@ -797,8 +815,26 @@ def probe_document_fetch(
     return probes
 
 
+class DocumentRef(Protocol):
+    """What a re-fetch needs to know about a candidate: its identity and its link.
+
+    A stored :class:`~fedcourtsai.corpus.CaseDocument` is one; so is the standing
+    sweep's worklist item (:mod:`fedcourtsai.pipeline.ocr_sweep`), which carries
+    those three facts across the credential boundary and nothing else of the row.
+    """
+
+    @property
+    def case_id(self) -> str: ...
+
+    @property
+    def kind(self) -> str: ...
+
+    @property
+    def url(self) -> str: ...
+
+
 def _refetch_document(
-    client: SupremeCourtClient, document: corpus.CaseDocument
+    client: SupremeCourtClient, document: DocumentRef
 ) -> tuple[bytes | None, str | None]:
     """Re-fetch one stored document; its bytes, or ``None`` and why not.
 
@@ -845,6 +881,35 @@ def _refetch_document(
         )
         return None, "oversized"
     return data, None
+
+
+def read_scanned_document(
+    client: SupremeCourtClient,
+    document: DocumentRef,
+    *,
+    char_cap: int,
+    ocr_page_factory: OcrPageFactory,
+) -> tuple[ExtractedText | None, str | None]:
+    """Re-fetch one candidate and read its pages; the text, or ``None`` and why not.
+
+    The one fetch-and-recognize step both callers share — the dispatched pass,
+    which writes the reading beside the row it read, and the standing sweep's
+    credential-free parse, which hands it to a writer as a plan row. The reasons
+    are the ledger's: a refused or failed re-fetch (:func:`_refetch_document`),
+    ``budget-exhausted`` for a recognition the document budget cut short — a
+    partial reading, which nothing downstream would mark as one, so it is never
+    returned — and ``empty-after-ocr`` for a scan whose images read as nothing.
+    """
+    data, refused = _refetch_document(client, document)
+    if data is None:
+        return None, refused or "not-served"
+    with ocr_page_factory(data) as run:
+        extracted = extract_pdf_text(data, char_cap=char_cap, ocr_page=run.page)
+    if run.budget_spent:
+        return None, BUDGET_EXHAUSTED
+    if not extracted.text.strip():
+        return None, EMPTY_AFTER_OCR
+    return extracted, None
 
 
 def _rederived_questions(
@@ -1035,25 +1100,22 @@ def recover_scanned_documents(  # noqa: PLR0913 - keyword-only; slice deadline +
                 )
                 break
         document = candidate.document
-        data, refused = _refetch_document(client, document)
-        if data is None:
-            lose(candidate.key, refused or "not-served")
-            continue
-        with ocr_page_factory(data) as run:
-            extracted = extract_pdf_text(data, char_cap=char_cap, ocr_page=run.page)
-        if run.budget_spent:
-            # A partial reading, and nothing downstream would say so: `truncated`
-            # is the character cap's flag, not this one's, so a filing cut off
-            # at page 90 would read as the whole filing. The candidate keeps
-            # its empty text and stays in the class.
-            lose(candidate.key, "budget-exhausted")
-            continue
-        if not extracted.text.strip():
+        extracted, reason = read_scanned_document(
+            client, document, char_cap=char_cap, ocr_page_factory=ocr_page_factory
+        )
+        if reason == EMPTY_AFTER_OCR:
             # Re-fetched and read, and the images yielded nothing: an unreadable
             # scan, not a fetch gap. Named apart so a slice that cleared its
             # bound without advancing the class says so.
             empty_after_ocr += 1
-            failures[candidate.key] = "empty-after-ocr"
+            failures[candidate.key] = EMPTY_AFTER_OCR
+            continue
+        if extracted is None:
+            # A failed re-fetch, or a partial reading the document budget cut
+            # short — `truncated` is the character cap's flag, not this one's,
+            # so a filing cut off at page 90 would read as the whole filing.
+            # The candidate keeps its empty text and stays in the class.
+            lose(candidate.key, reason or "not-served")
             continue
         recovered = document.model_copy(
             update={

@@ -202,7 +202,9 @@ historical:
   # fill sweeps, which converge index columns no channel revisits, reading only
   # the pulled blob and the content-store snapshots the window already holds
   # credentials for, and the order-list vote sweep, which stamps committed
-  # outcomes from its own split jobs. A cap is a slice, not a refusal: a window
+  # outcomes from its own split jobs; and, on every window rather than the
+  # daily one, the OCR sweep, which reads scanned filings in split jobs of its
+  # own. A cap is a slice, not a refusal: a window
   # writes at most this many rows of its class (the fill sweeps in case_id
   # order, the vote sweep oldest order date first), and the ledger line it tees
   # to the run summary (`sweep ledger — <cmd>: would fill N; filled M;
@@ -230,6 +232,13 @@ historical:
     # ledger outcomes; a long-conference list a few hundred, drained in a
     # couple of windows at this cap.
     order_votes: 200
+    # `ocr-recover-petitions --sweep` (split jobs on every window): scanned
+    # filings re-fetched and read by OCR, forward-cell candidates first. Its
+    # cost is runner minutes in the parse job, about three seconds a page, so
+    # the parse's slice deadline is what holds a heavy slice inside its step;
+    # the cap holds the spend. The class held 10 on the index blob of
+    # 2026-10-17 (sha 7c62d6e4), so one window drains it.
+    ocr: 10
     # Ceilings, each well above the fill class a converged corpus holds. Upper
     # bounds on that class, on the index blob of 2026-10-02 (sha 2b356dbd):
     # 0 marked rows, 179 response candidates, 54 decision-record candidates.
@@ -243,6 +252,9 @@ historical:
     # such as a Term newly in reach, which the dispatched `order-votes` pass
     # applies under a maintainer's bound.
     order_votes_ceiling: 1500
+    # Far above the 10 scanned filings of 2026-10-17: a class that size is an
+    # extractor or fetch regression emptying stored text, not scans to read.
+    ocr_ceiling: 500
 
 predict:
   # Prediction-scope gate (docs/data-pipeline.md "Scope"). Restricts only the agentic

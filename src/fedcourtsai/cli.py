@@ -26,7 +26,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from importlib.metadata import version
 from pathlib import Path
-from typing import Annotated, Any, Literal, cast, get_args
+from typing import Annotated, Any, Literal, NoReturn, cast, get_args
 from urllib.parse import quote
 
 import httpx
@@ -258,6 +258,7 @@ from .pipeline import (
     historical,
     liveprobe,
     moments,
+    ocr_sweep,
     opinion_lineups,
     opinion_record,
     order_lineups,
@@ -2247,8 +2248,175 @@ def _echo_unreached(unreached: Sequence[str]) -> None:
         typer.echo(f"  {case_id}: NOT STARTED (slice deadline)")
 
 
+def _ocr_sweep_refuse(message: str) -> NoReturn:
+    typer.echo(f"ocr-recover-petitions: {message}", err=True)
+    raise typer.Exit(code=2)
+
+
+def _ocr_sweep(  # noqa: PLR0912, PLR0913 - keyword-only; one flag per sweep mode
+    started: float,
+    *,
+    apply: bool,
+    sweep: bool,
+    max_cases: int | None,
+    deadline_seconds: float | None,
+    emit_worklist: Path | None,
+    worklist: Path | None,
+    plan_out: Path | None,
+    from_plan: Path | None,
+) -> None:
+    """The standing sweep's four modes: list, project, parse, write.
+
+    Each job of the split runs exactly one, so the flags that select them are
+    exclusive, and the one that reads fetched bytes (the parse) opens no corpus.
+    """
+    command = "ocr-recover-petitions"
+    _refuse_bound_with_sweep(command, "--max-cases", max_cases)
+    if worklist is not None or plan_out is not None:
+        if worklist is None or plan_out is None:
+            _ocr_sweep_refuse("--worklist and --plan-out go together (the parse).")
+        if sweep or apply or emit_worklist or from_plan:
+            _ocr_sweep_refuse(
+                "the parse takes --worklist, --plan-out and --deadline-seconds only; "
+                "it opens no corpus and writes none."
+            )
+        _ocr_sweep_parse(started, worklist, plan_out, deadline_seconds=deadline_seconds)
+        return
+    if not sweep:
+        _ocr_sweep_refuse("--emit-worklist and --from-plan run in --sweep mode.")
+    if emit_worklist is not None and from_plan is not None:
+        _ocr_sweep_refuse(
+            "--emit-worklist (the projection) and --from-plan (the writer) are "
+            "separate jobs; pass one."
+        )
+    if apply and from_plan is None:
+        _ocr_sweep_refuse(
+            "a sweep applies only --from-plan: the job holding the corpus never fetches "
+            "or parses a filing."
+        )
+    if deadline_seconds is not None:
+        _ocr_sweep_refuse("--deadline-seconds bounds the parse (--worklist) only.")
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the OCR sweep.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cfg = load_historical_config(settings.config_root)
+    caps = cfg.sweep_caps
+    if from_plan is not None:
+        _ocr_sweep_write(
+            db_path, from_plan, apply=apply, cap=caps.ocr, char_cap=cfg.document_text_cap
+        )
+        return
+    with corpus.connect(db_path) as conn:
+        selection = ocr_sweep.sweep_selection(conn, cap=caps.ocr, today=date.today())
+    if not selection.documents_seen:
+        typer.echo(
+            f"{command}: no stored documents in {db_path} — wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    found = selection.class_size
+    typer.echo(
+        f"sweep ledger — {command}: would fill {found}; filled 0; "
+        f"remaining {found} (cap {caps.ocr}); {selection.forward_size} a forward cell reads"
+    )
+    _echo_by_kind("class", selection.class_by_kind)
+    for candidate in selection.slice:
+        document = candidate.scanned.document
+        tier = "forward" if candidate.forward else "backlog"
+        typer.echo(
+            f"  slice {candidate.key}: {document.pages} pages, {tier}, "
+            f"stored {document.fetched_at.isoformat()}"
+        )
+    refused = found > caps.ocr_ceiling
+    if emit_worklist is None:
+        if refused:
+            typer.echo(
+                f"  the class is above its ceiling of {caps.ocr_ceiling}: the projection "
+                "would refuse it"
+            )
+        return
+    _refuse_sweep_above_ceiling(command, refused=refused, found=found, ceiling=caps.ocr_ceiling)
+    write_handoff(emit_worklist, ocr_sweep.sweep_worklist(selection, cap=caps.ocr))
+
+
+def _ocr_sweep_parse(
+    started: float, worklist_path: Path, plan_out: Path, *, deadline_seconds: float | None
+) -> None:
+    """The credential-free parse: the worklist in, the plan out, no corpus."""
+    command = "ocr-recover-petitions"
+    deadline = _slice_deadline(started, deadline_seconds, command=command)
+    settings = get_settings()
+    cfg = load_historical_config(settings.config_root)
+    handed = _read_handoff_or_exit(command, worklist_path, ocr_sweep.OcrWorklist)
+    try:
+        with SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client:
+            plan = ocr_sweep.plan_worklist(
+                client, handed, char_cap=cfg.document_text_cap, deadline=deadline
+            )
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    except OcrToolsMissing as exc:
+        typer.echo(f"{command}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    # Counts and identifiers only: the plan's text is the filings' own, and a
+    # self-represented filer's contact details are in it.
+    typer.echo(
+        f"sweep parse — {command}: {len(handed.items)} item(s) of a class of "
+        f"{handed.class_size} ({handed.forward_size} a forward cell reads); "
+        f"read {len(plan.rows)}; not recovered {len(plan.failures)}; "
+        f"unreached {len(plan.unreached)}"
+    )
+    for row in plan.rows:
+        typer.echo(
+            f"  {row.key}: pages={row.pages} chars={len(row.text)} "
+            f"truncated={str(row.truncated).lower()} ocr_derived={str(row.ocr_derived).lower()}"
+        )
+    for key, reason in plan.failures.items():
+        typer.echo(f"  {key}: NOT RECOVERED ({reason})")
+    _echo_unreached(plan.unreached)
+    write_handoff(plan_out, plan)
+
+
+def _ocr_sweep_write(
+    db_path: Path, plan_path: Path, *, apply: bool, cap: int, char_cap: int
+) -> None:
+    """The writer: re-check the plan against the corpus, then write it on --apply."""
+    command = "ocr-recover-petitions"
+    plan = _read_handoff_or_exit(command, plan_path, ocr_sweep.OcrPlan)
+    try:
+        with corpus.connect(db_path) as conn:
+            result = ocr_sweep.apply_ocr_plan(
+                conn, plan, cap=cap, char_cap=char_cap, today=date.today(), apply=apply
+            )
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the plan — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    verb = "wrote" if apply else "would write"
+    typer.echo(
+        f"sweep ledger — {command}: planned {result.planned}; {verb} "
+        f"{len(result.written)}; skipped {len(result.skipped)}; "
+        f"{result.questions_rederived} questions-presented row(s) re-derived (cap {cap})"
+    )
+    for key, detail in result.written.items():
+        typer.echo(f"  {key}: {detail}")
+    for key, reason in result.skipped.items():
+        typer.echo(f"  {key}: SKIPPED ({reason})")
+    for key, reason in plan.failures.items():
+        typer.echo(f"  {key}: NOT RECOVERED by the parse ({reason})")
+    _echo_unreached(plan.unreached)
+    if apply:
+        _ensure_corpus_layout(db_path)
+
+
 @app.command("ocr-recover-petitions")
-def ocr_recover_petitions_cmd(
+def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     apply: Annotated[
         bool,
         typer.Option(
@@ -2283,6 +2451,45 @@ def ocr_recover_petitions_cmd(
             "those are reported unreached and head the next slice. Size it under the "
             "caller's own cap by whatever must still fit there once the pass stops "
             "taking work. Ignored on a dry run, which OCRs nothing. Omit for no deadline.",
+        ),
+    ] = None,
+    sweep: Annotated[
+        bool,
+        typer.Option(
+            "--sweep",
+            help="Standing-sweep mode (run-seed's windows): take the window's slice at "
+            "`historical.sweep_caps.ocr`, forward-cell candidates first, and refuse a "
+            "class above `ocr_ceiling`. Alone, a dry run that lists the slice it would "
+            "OCR and fetches nothing; with --emit-worklist, the projection; with "
+            "--from-plan, the writer. Takes no --max-cases.",
+        ),
+    ] = False,
+    emit_worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--emit-worklist",
+            help="With --sweep: write the window's slice (case id, kind, Court URL, page "
+            "count) to this file for the credential-free parse, and nothing else.",
+        ),
+    ] = None,
+    worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--worklist",
+            help="The parse: re-fetch and read each item of this worklist, with no "
+            "corpus, and write the plan to --plan-out. Honours --deadline-seconds.",
+        ),
+    ] = None,
+    plan_out: Annotated[
+        Path | None,
+        typer.Option("--plan-out", help="With --worklist: where the plan is written."),
+    ] = None,
+    from_plan: Annotated[
+        Path | None,
+        typer.Option(
+            "--from-plan",
+            help="With --sweep: the writer. Re-check each plan row against the corpus "
+            "and write it with --apply; without, report what it would write.",
         ),
     ] = None,
 ) -> None:
@@ -2362,11 +2569,35 @@ def ocr_recover_petitions_cmd(
     absent. Its apply half is a writer-lane pass by construction — the
     corpus-write credentials exist only there — and the lane invocation is
     run-repair's `ocr-recovery` pass. Fails loud if the corpus is absent.
+
+    `--sweep` is the same recovery as a standing sweep on run-seed's windows,
+    split at the credential boundary (`docs/data-pipeline.md`, *Historical —
+    the Term walker*): `--sweep --emit-worklist` writes the window's slice from
+    the corpus; `--worklist --plan-out` fetches and reads it with no corpus;
+    `--from-plan --sweep --apply` re-checks each planned row against the corpus
+    and writes it. The slice is `historical.sweep_caps.ocr` candidates in
+    sweep order: those a forward cell will read first, newest stored first,
+    then the backlog rotated by the window's date
+    (`fedcourtsai.pipeline.ocr_sweep`). `--sweep` alone lists that slice and
+    fetches nothing.
     """
     # Taken before any other work, so the population walk this command opens with
     # is charged to the budget the caller sized: it happens inside the caller's
     # cap whether or not a candidate is ever started.
     started = time.monotonic()
+    if sweep or emit_worklist or worklist or plan_out or from_plan:
+        _ocr_sweep(
+            started,
+            apply=apply,
+            sweep=sweep,
+            max_cases=max_cases,
+            deadline_seconds=deadline_seconds,
+            emit_worklist=emit_worklist,
+            worklist=worklist,
+            plan_out=plan_out,
+            from_plan=from_plan,
+        )
+        return
     settings = get_settings()
     if apply and max_cases is None:
         typer.echo(
