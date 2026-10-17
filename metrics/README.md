@@ -2487,7 +2487,13 @@ the rendered table) and
   application rows (`YYAnnn` dockets — stays, injunctions, vacaturs, and the
   time-extension requests that dominate the docket), and omitted entirely —
   not emitted as null — while it does not; the merits section below joins by
-  the same rule on its own feed. What it publishes,
+  the same rule on its own feed. Its unit is the **application number**, not
+  the corpus row: a number the corpus stores under two or more case ids counts
+  once, at its lowest-docket-id row among those the live channel observed
+  (parsed or live-polled), or among all of them where none was, and the rows
+  left out are counted as
+  `duplicate_rows` (absent from a pack built before that rule, which counted
+  rows, so absent is unknown rather than zero). What it publishes,
   pack-level and per application-Term year: counts by parsed ask (extension /
   substantive / unknown, with never-parsed rows kept apart as a visible
   coverage gap), and — over the **substantive slice only** — the resolved and

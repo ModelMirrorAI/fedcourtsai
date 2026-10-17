@@ -14,10 +14,11 @@ partial-grant and moot entry).
 This census is that entry's measurement, and it writes nothing. It reports two
 populations, and keeps them apart because they are different:
 
-- **The statpack's.** Every SCOTUS row in the strict ``YYAnnn`` application
-  form, as the statpack's interim section counts it: substantive resolved and
-  granted per application Term (:attr:`InterimTermCounts.statpack_resolved`),
-  the counts the interim base rate pools.
+- **The statpack's.** Every SCOTUS application number in the strict
+  ``YYAnnn`` form, once each, as the statpack's interim section counts it:
+  substantive resolved and granted per application Term
+  (:attr:`InterimTermCounts.statpack_resolved`), the counts the interim base
+  rate pools.
 - **The re-read one.** Of those, the rows application-parsed, resolved and in
   the live slice, whose latest live-shaped snapshot is re-read twice: under the
   registered reading, to confirm the stored label is what it gives
@@ -201,11 +202,17 @@ _ByTerm = dict[str, dict[str, dict[str, int]]]
 def _statpack_walk(
     conn: sqlite3.Connection, result: InterimReadingCensus, terms: _Terms
 ) -> list[CorpusRow]:
-    """Count the statpack's population per Term and return the rows to re-read."""
+    """Count the statpack's population per Term and return the rows to re-read.
+
+    The statpack counts each application number once
+    (:func:`corpus.duplicate_application_case_ids`), so a second row for a
+    number is skipped here too — it is neither counted nor re-read.
+    """
     reread: list[CorpusRow] = []
+    twins = corpus.duplicate_application_case_ids(conn)
     for row in corpus.iter_rows(conn, court="scotus", resolved=True):
         term = corpus.scotus_application_term_year(row.docket_number)
-        if term is None:
+        if term is None or row.case_id in twins:
             continue
         counts = terms[_term_key(term)]
         substantive = _substantive(row)

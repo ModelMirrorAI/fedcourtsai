@@ -360,6 +360,7 @@ from .pipeline.runner import (
     EngineUnavailable,
     available_backends,
     classify_engine_attempt,
+    engine_attempt_fault,
 )
 from .pipeline.salience import (
     SALIENCE_VERSION,
@@ -20216,6 +20217,35 @@ def engine_attempt_class_cmd(
 
     verdict = classify_engine_attempt(exit_code, _read(stdout_file), _read(stderr_file))
     typer.echo(verdict.value)
+
+
+@app.command("engine-attempt-fault")
+def engine_attempt_fault_cmd(
+    stdout_file: Annotated[
+        Path, typer.Option(help="The invocation's captured stdout (its JSON result).")
+    ],
+    stderr_file: Annotated[Path, typer.Option(help="The invocation's captured stderr.")],
+) -> None:
+    """Print one screened line naming the fault a failed engine attempt reported.
+
+    The cells' gemini step (``scripts/gemini-cell.sh``) puts it in the annotation
+    beside the attempt's verdict, so the fault reads from the run's check
+    annotations without the job log. The text is
+    :func:`fedcourtsai.pipeline.runner.engine_attempt_fault`'s: the result's
+    error, else the error object on stderr, else stderr's last non-frame line,
+    with credential-shaped runs replaced and the line cut short. Prints nothing
+    when there is none; a capture file that cannot be read counts as empty.
+    """
+
+    def _read(path: Path) -> str:
+        try:
+            return path.read_text(errors="replace")
+        except OSError:
+            return ""
+
+    fault = engine_attempt_fault(_read(stdout_file), _read(stderr_file))
+    if fault:
+        typer.echo(fault)
 
 
 @app.command("cell-output-snapshot")

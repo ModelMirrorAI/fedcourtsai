@@ -3310,7 +3310,10 @@ The telemetry log stays in place across attempts — gemini-cli opens it for
 append — so `usage.json` and `retrieval_log.json` count every attempt's tokens
 and tool calls, failed turns included. The step's exit status is its last
 attempt's, and each non-`ok` attempt leaves a `::warning::` naming the cell, the
-verdict and, where the result names one, the engine's fault type. A cell that
+verdict and, where the engine reported one, its fault in one screened line
+after `engine said:` (`fedcourts engine-attempt-fault`): the result's error,
+else the error object a failed exit leaves on stderr, else stderr's last
+non-frame line. A cell that
 still lands nothing is named by its record step in a `::warning::` too, beside
 the failure fact the collect job records against its attempt cap (`no_output`,
 or `quota` when the whole engine produced nothing); the job stays green, as
