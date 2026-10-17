@@ -1149,7 +1149,7 @@ block, which names the client config the composite's sidecar serves — and so
 does each repro-family leg, which drives that same block against a real
 record. Two further notes on the engine-actions-smoke legs.
 They hand `claude-code-action` the job's own
-token rather than minting the cells' App token — the job's permissions cap it
+token, as the cells do — the job's permissions cap it
 at `contents: read`, and omitting it entirely is worse, since the action then
 falls back to an OIDC exchange that mints an installation token defaulting to
 write. And their codex leg runs the cells' `unprivileged-user` safety strategy

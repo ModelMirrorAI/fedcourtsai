@@ -2030,6 +2030,13 @@ jobs:
           MEASURED_FILE: ${{ steps.measure.outputs.measured-file }}
         run: |
           set -euo pipefail
+          # A symlink planted at either path would ship whatever it points at.
+          for f in data/qp-topics/qp-topics.json "$MEASURED_FILE"; do
+            if [ -L "$f" ] || [ ! -f "$f" ]; then
+              echo "::error::${f} is not a regular file; refusing to hand it off"
+              exit 1
+            fi
+          done
           mkdir -p "$RUNNER_TEMP/qp-publish"
           cp data/qp-topics/qp-topics.json "$RUNNER_TEMP/qp-publish/qp-topics.json"
           cp "$MEASURED_FILE" "$RUNNER_TEMP/qp-publish/measured.txt"
@@ -2103,17 +2110,44 @@ jobs:
           name: qp-publish
           path: ${{ runner.temp }}/qp-publish
 
-      # The labels file crossed from a runner the labeler held, after the
-      # measure step wrote it, so it is validated again here, by this
-      # checkout's strict model, before any token exists: every field a copied
-      # key, a vocabulary enum, a bool, or a stamp the builder assigns. On every
-      # ref, so a rehearsal exercises it. The PR step copies the same bytes from
+      # Both files crossed from a runner the labeler held, after the measure
+      # step wrote them, so they are checked again here before any token
+      # exists, on every ref so a rehearsal exercises it. The hand-off must
+      # hold exactly the two files, as regular files, with the measured block
+      # no larger than a measured block runs. The labels file is held to this
+      # checkout's strict model — every field a copied key, a vocabulary enum,
+      # a bool, or a stamp the builder assigns — and both are scanned for
+      # secrets, since the block lands in a public PR body and was not
+      # re-derived here. A false positive costs the batch its PR; a leaked key
+      # in that body costs more. The PR step copies the same bytes from
       # $RUNNER_TEMP, and the checkout's tree is discarded there.
       - name: Re-validate the measured artifact
+        env:
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          cp "$RUNNER_TEMP/qp-publish/qp-topics.json" data/qp-topics/qp-topics.json
+          dir="$RUNNER_TEMP/qp-publish"
+          extra=$(find "$dir" -mindepth 1 ! -path "$dir/qp-topics.json" ! -path "$dir/measured.txt")
+          for f in "$dir/qp-topics.json" "$dir/measured.txt"; do
+            if [ -L "$f" ] || [ ! -f "$f" ]; then extra="${extra} ${f}"; fi
+          done
+          if [ -n "$extra" ]; then
+            echo "::error::the hand-off must hold qp-topics.json and measured.txt alone, as regular files"
+            exit 1
+          fi
+          if [ "$(wc -c < "$dir/measured.txt")" -gt 65536 ]; then
+            echo "::error::the measured block is over 64 KiB; refusing to put it in a PR body"
+            exit 1
+          fi
+          cp "$dir/qp-topics.json" data/qp-topics/qp-topics.json
           uv run fedcourts validate data/qp-topics
+          if ! uv run fedcourts scan-diff-for-secrets --name-status-file /dev/null \
+              --extra-file "$dir/qp-topics.json" \
+              --extra-file "$dir/measured.txt" \
+              --run-url "https://github.com/${REPO}/actions/runs/${GITHUB_RUN_ID}"; then
+            echo "::error::secret scan did not pass; withholding the labels PR"
+            exit 1
+          fi
 
       # Minted after the hand-off is on this runner, and on `main`-ref runs
       # only: the dev App's credentials live on the prod environment alone, and
@@ -2259,11 +2293,11 @@ jobs:
           # assigns, joined to the extract on both keys, and the re-validation
           # step above holds this file to it. The body's measured block is the
           # measure composite's sanitized rendering of numbers and vocabulary
-          # labels, carried across as a file; it is not re-derived here, so a
+          # labels, carried across as a file and not re-derived here, so a
           # process the labeler left behind could have rewritten it before the
-          # hand-off, and the reviewed, never-auto-merged PR is the backstop for
-          # that block. This step runs no secret scan where `collect-run`
-          # does; the model above is what keeps free text out of the file.
+          # hand-off: the same step caps its size and scans it, with the labels
+          # file, for secrets, and the reviewed, never-auto-merged PR is the
+          # backstop for the rest.
           {
             printf '%s\n\n' "Batch ${batch} of the \`qp-topic-v0\` labeling frame, by \`${LABELER}\` from the stored questions-presented text alone: ${labeled} new label(s), bringing the artifact to ${cases}. The artifact accrues one batch a run, so the block below is this batch's measurement and not the file's — the rest of what this batch read is the hand reference set, re-graded every run for that measurement and published from its own adjudicated labels rather than the labeler's. Prior batches' rows are carried forward unchanged."
             printf '%s\n\n' "The command enforces the publication gate, so this PR exists only because the run cleared it. What the numbers mean — agreement with a single v0 reference rater, **not** accuracy; a grant-enriched frame that certifies the grant stream only; per-label rates suppressed under the support floor — is in \`docs/qp-topic.md\`."

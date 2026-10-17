@@ -370,8 +370,11 @@ jobs:
         with:
           restore-cache: "false"
 
-      # Read-only corpus access (OIDC role; no static keys — a compromised
-      # evaluate runner cannot write or delete corpus objects). No pull: corpus
+      # Read-only corpus access (OIDC role; no static keys). The session this
+      # step assumes is the read-only role's; what else the job's
+      # `id-token: write` can reach depends on which roles' trust names this
+      # job's environment, which lives in IAM rather than in this repository
+      # (docs/security.md, *S3 / the private stores*). No pull: corpus
       # bytes move only as the KBs each ranged lookup touches. The credentials
       # are scoped to the sidecar action's own steps — the agent steps below
       # inherit none; they reach the corpus through the localhost sidecar via
@@ -980,7 +983,7 @@ jobs:
           # allowlistable (both named in the settings written above).
           FEDCOURTS_CORPUS_BACKEND: service
           # No GITHUB_TOKEN here: it is simply absent from this step's env, so a
-          # comment token could never be used — flags.json is this engine's
+          # GitHub token could never be used — flags.json is this engine's
           # blocked-channel. Belt and braces: a token could not reach the agent's
           # shell even if it were here, because the CLI hard-filters
           # /TOKEN|SECRET|KEY|AUTH|.../i out of the settings allowlist itself, and

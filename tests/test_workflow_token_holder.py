@@ -24,6 +24,12 @@ as the steps it runs, keeps three rules:
   indexed `secrets[...]`, or `secrets: inherit`), which would carry every key
   without naming one.
 
+And since a Claude step is handed the job's own token, every agent job spells
+its own `permissions:` mapping, with no write but `id-token` (for the
+read-only corpus role). That `id-token: write` is itself a residual, not a
+control: it lets any process in the job request an OIDC token for the job's
+environment (SECURITY.md states what that reaches).
+
 "Runs an agent" means a step that hands control to an engine: the
 claude-code and codex actions, the codex user setup that precedes a codex
 cell, or the `engine-cli` composite, which installs the pinned engine CLI that
@@ -185,6 +191,43 @@ def test_no_job_that_runs_an_agent_can_reach_an_app_credential() -> None:
         + "job's own token and open any PR from a separate job that takes the "
         + f"agent's output as an artifact: {broken}"
     )
+
+
+def grant_problems(job: dict[Any, Any]) -> list[str]:
+    """Why an agent job's own token could write; empty when it cannot.
+
+    The Claude step is handed the job's own token, so the job's grant is the
+    token's. It must be spelled on the job itself, as a mapping: a job with no
+    `permissions:` inherits the workflow's, and `write-all` / `read-all` are
+    blanket grants this file cannot read scope by scope. `id-token: write` is
+    the one write admitted, for the read-only corpus role.
+    """
+    grant = job.get("permissions")
+    if not isinstance(grant, dict):
+        return [f"no job-level permissions mapping (found {grant!r})"]
+    return [
+        f"grants {scope}: {level}"
+        for scope, level in grant.items()
+        if str(level).strip() not in ("read", "none") and scope != "id-token"
+    ]
+
+
+def test_every_agent_job_spells_a_grant_with_no_write_but_id_token() -> None:
+    broken = {
+        f"{name}:{job_name}": found
+        for name, job_name, job, _ in _jobs()
+        if any(map(_runs_agent, _steps(job))) and (found := grant_problems(job))
+    }
+    assert not broken, f"an agent job's own token could write: {broken}"
+
+
+def test_the_grant_rule_refuses_every_widening() -> None:
+    assert grant_problems({"permissions": {"contents": "read", "id-token": "write"}}) == []
+    assert grant_problems({"permissions": {}}) == []
+    assert grant_problems({"permissions": {"contents": "write"}})
+    assert grant_problems({"permissions": {"contents": "read", "pull-requests": "write"}})
+    assert grant_problems({"permissions": "write-all"})
+    assert grant_problems({})
 
 
 def test_the_detector_sees_the_agent_jobs() -> None:

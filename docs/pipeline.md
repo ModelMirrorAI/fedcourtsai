@@ -2369,8 +2369,12 @@ kickoff already tells every off-ledger cell not to read or write under `data/`
 at all; `run-backtest` makes that structural by deleting `data/cases` before
 the cells run and restoring it **from the commit** afterwards, asserting the
 path pristine. The restore lands before the salience-gate arm, which runs in
-the same checkout, and before `metrics/` leaves as the artifact the `publish`
-job opens the review PR from. The measurement loses nothing by it: the
+the same checkout, and before the report is handed off. Only the arm's one
+report crosses to the `publish` job, as a regular file in a one-day artifact;
+`publish` overlays it on its own checkout, requires the tree to differ from
+the commit at that path alone, and scans the change and the PR prose for
+secrets before it mints the token that opens the review PR. The measurement
+loses nothing by it: the
 population, the snapshots and the outcomes the replay scores against all come
 from the corpus, and every cell is provisioned under `--work-dir`. The
 misplaced-write probe is unaffected — an engine following the prompt template's
@@ -2405,10 +2409,10 @@ the petitions the replay can draw, and it names them beside their outcomes:
 each resolved event in the JSON carries `actual_disposition`, and in both
 files a case's moment names its newest predicted event, where a merits moment
 discloses the grant the way a merits event in the ledger does. Nothing the
-replay runs reads either file. The report upload ships all of `metrics/` to
-the `publish` job, which stages it whole, so the board comes back from the
-commit, asserted pristine, before the salience-gate arm and the upload run,
-and its removal never reaches what the PR commits. The standing `metrics/cert-backtest.json` is withheld by
+replay runs reads either file. The salience-gate arm writes under `metrics/`
+in the same checkout, so the board comes back from the commit, asserted
+pristine, before that arm runs; and since only the arm's own report crosses
+to `publish`, its removal never reaches what the PR commits. The standing `metrics/cert-backtest.json` is withheld by
 `cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)).
 
 Two residuals ride that fence, and both are the reason it is described as

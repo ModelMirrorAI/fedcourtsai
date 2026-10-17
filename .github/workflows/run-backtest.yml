@@ -844,7 +844,14 @@ jobs:
             exit 0
           fi
           mkdir -p "$RUNNER_TEMP/backtest-report"
-          cp "metrics/$report" "$RUNNER_TEMP/backtest-report/$report"
+          # `-P` copies a link as a link, so a path swapped for one after the
+          # check above lands as a link and is refused below.
+          cp -P "metrics/$report" "$RUNNER_TEMP/backtest-report/$report"
+          if [ -L "$RUNNER_TEMP/backtest-report/$report" ] \
+              || [ ! -f "$RUNNER_TEMP/backtest-report/$report" ]; then
+            echo "::error::metrics/${report} changed under the copy; refusing to hand it off"
+            exit 1
+          fi
           echo "present=true" >> "$GITHUB_OUTPUT"
 
       # One day, the shortest window offered: the PR is the record, and the

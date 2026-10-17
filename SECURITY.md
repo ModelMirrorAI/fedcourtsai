@@ -177,9 +177,16 @@ runbook, [docs/security.md](docs/security.md).
   users regardless, so the last line stays what it always was: the *reachable*
   secret is not worth stealing — the single-account, **read-only**
   CourtListener token whose worst case is spending pull's quota and forcing a
-  rotation (above), not a model key. The GitHub credentials in reach of a cell
-  are read-only and nothing more: the Claude step's copy of the cell job's
-  own token, capped at `contents: read`, and nothing in a codex or gemini cell.
+  rotation (above), not a model key. No App key and no write-scoped GitHub
+  token is delivered to a cell: the Claude step gets a copy of the cell job's
+  own token, capped at `contents: read`, and a codex or gemini cell gets none.
+  One credential stays in reach, and it is a residual rather than a control:
+  the cell jobs hold `id-token: write` for the read-only corpus role, so any
+  process in the job can request an OIDC token for the job's environment, and
+  every relying party that accepts that subject is reachable with it — the
+  Claude GitHub App's installation-token exchange and any AWS role whose trust
+  names that environment (*S3 / the private stores* in
+  [docs/security.md](docs/security.md)).
 - **Agents get no App credential, never a static one.** The Claude agent
   steps in `run-predict` / `run-evaluate` receive the cell job's own
   short-lived token, capped at `contents: read` by the job's permissions; the
@@ -188,8 +195,9 @@ runbook, [docs/security.md](docs/security.md).
   job that runs an agent names an App's private key, since every secret a job
   names reaches its runner. The *workflow*'s `collect` job (a distinct
   `contents: write` App token) does the commit/PR, so a prompt injection in
-  docket text cannot push code or reach the dev App's approval bypass. Issue
-  and docket text stay untrusted input.
+  docket text cannot reach the dev App's token or its approval bypass. The
+  job's OIDC request credential is the residual stated in the item above.
+  Issue and docket text stay untrusted input.
 - **The engine watchdog holds no credential.** The engine hang bound
   (`scripts/engine-watchdog.sh`; *Graceful degradation on limits* in
   [docs/pipeline.md](docs/pipeline.md)) is trusted repo code that brackets

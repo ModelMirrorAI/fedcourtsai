@@ -2036,12 +2036,9 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # The pinned CLI, as the live cells run it.
           path_to_claude_code_executable: ${{ steps.engine-cli.outputs.path }}
-          # DEVIATION, in the safe direction. The cells hand the action a
-          # freshly minted App token (issues/PR write, for the agent's own
-          # comment on the trigger issue); a probe has no issue to comment on,
-          # and minting a live write credential for one would be a posture
-          # change. The job's own token instead — capped at `contents: read`
-          # by the permissions block above. Not omitted: with no token the
+          # The cells' own posture: the job's own token, capped at
+          # `contents: read` by the permissions block above, and no App
+          # credential anywhere in the job. Not omitted: with no token the
           # action falls back to an OIDC exchange that mints an installation
           # token defaulting to contents/issues/pull-requests *write*.
           github_token: ${{ github.token }}

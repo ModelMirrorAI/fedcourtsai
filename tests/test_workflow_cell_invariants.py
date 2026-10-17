@@ -1640,6 +1640,13 @@ def test_the_qp_labeling_run_publishes_on_its_count_not_on_the_agents_verdict() 
     names = [s.get("name") for s in publish_steps]
     revalidate = publish_steps[names.index("Re-validate the measured artifact")]
     assert "uv run fedcourts validate data/qp-topics" in revalidate["run"]
+    # The measured block lands in a public PR body, so it is bounded and
+    # scanned with the labels file, and the hand-off holds those two alone.
+    assert "-gt 65536" in revalidate["run"]
+    assert '--extra-file "$dir/measured.txt"' in revalidate["run"]
+    assert '--extra-file "$dir/qp-topics.json"' in revalidate["run"]
+    assert '! -path "$dir/qp-topics.json" ! -path "$dir/measured.txt"' in revalidate["run"]
+    assert '[ -L "$f" ]' in stage["run"], "the source side refuses a symlinked file"
     assert "if" not in revalidate
     assert names.index("Re-validate the measured artifact") < names.index("Mint app token")
 
