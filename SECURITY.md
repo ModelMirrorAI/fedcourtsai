@@ -178,16 +178,18 @@ runbook, [docs/security.md](docs/security.md).
   secret is not worth stealing — the single-account, **read-only**
   CourtListener token whose worst case is spending pull's quota and forcing a
   rotation (above), not a model key. The GitHub credentials in reach of a cell
-  are comment-shaped and nothing more: the Claude agent's own comment-only
-  token, and nothing in a codex or gemini cell.
-- **Agents get a least-privilege GitHub App token, never a static one.** The
-  Claude agent steps in `run-predict` / `run-evaluate` receive a short-lived
-  App installation token scoped **comment-only** (`contents: read` + `issues` +
-  `pull-requests: write`); the Codex and Gemini **agent steps** get no GitHub
-  token at all — their blocked-channel is `flags.json`, surfaced by the trusted
-  `collect` job. The *workflow* (a distinct `contents: write` App token) does
-  the commit/PR, so a prompt injection in docket text cannot push code with the
-  agent's token. Issue and docket text stay untrusted input.
+  are read-only and nothing more: the Claude step's copy of the cell job's
+  own token, capped at `contents: read`, and nothing in a codex or gemini cell.
+- **Agents get no App credential, never a static one.** The Claude agent
+  steps in `run-predict` / `run-evaluate` receive the cell job's own
+  short-lived token, capped at `contents: read` by the job's permissions; the
+  Codex and Gemini **agent steps** get no GitHub token at all — their
+  blocked-channel is `flags.json`, surfaced by the trusted `collect` job. No
+  job that runs an agent names an App's private key, since every secret a job
+  names reaches its runner. The *workflow*'s `collect` job (a distinct
+  `contents: write` App token) does the commit/PR, so a prompt injection in
+  docket text cannot push code or reach the dev App's approval bypass. Issue
+  and docket text stay untrusted input.
 - **The engine watchdog holds no credential.** The engine hang bound
   (`scripts/engine-watchdog.sh`; *Graceful degradation on limits* in
   [docs/pipeline.md](docs/pipeline.md)) is trusted repo code that brackets

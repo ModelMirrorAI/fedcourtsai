@@ -1,25 +1,28 @@
-"""No job that runs an agent holds an App token that can write the repository.
+"""No job that runs an agent can reach an App credential.
 
 The dev App's installation token carries the App's bypass of `main`'s approval
 rule: with contents write it can merge a green PR into `main` that no human
-approved. A job that runs a coding agent cannot hold that token safely, however
-late it mints it. The agent reads untrusted docket text, and a process it
-leaves behind lives until the job ends, as the same user as every later step.
-So it can read a later step's environment out of `/proc`: the minted token, or
-the App's private key while the mint step runs. Minting after the agent
-finishes is therefore no fence. Only a separate job is, on a fresh runner that
-takes the agent's output as an artifact (the `publish` job in run-backtest,
-`qp-topic-publish` in run-analytics, the `collect` jobs of the cell lanes).
+approved. A job that runs a coding agent cannot hold that token, or the key
+that mints it, safely. The agent reads untrusted docket text, and a process it
+leaves behind lives until the job ends, as the same user as every later step,
+so it can read a later step's environment out of `/proc`: a token minted after
+the agent finished, or the App's private key while a mint runs. Ordering the
+steps does not help either: every secret a job names is delivered to its
+runner when the job starts, whatever a step's `if:` says, and a Claude cell
+runs as the runner user with sudo, so it can recover a key the job never
+used. Only a separate job is a fence: a fresh runner that takes the agent's
+output as an artifact (the `publish` job in run-backtest, `qp-topic-publish`
+in run-analytics, the `collect` jobs of the cell lanes).
 
-Two rules hold for every job in every workflow, a local composite counting as
-the steps it runs:
+So every job in every workflow that runs an agent, a local composite counting
+as the steps it runs, keeps three rules:
 
-- a job that runs an agent mints no App token that can write contents, at any
-  point in the job. A mint with no `permission-*` input takes every permission
-  the installation holds, so it counts as a write mint.
-- such a job names no App private key at or after its first agent step, nor
-  in its job-level env, so no later mint, of any scope, runs beside a process
-  the agent left.
+- it mints no App token, of any scope;
+- it names no private key anywhere: no secret whose name holds `PRIVATE_KEY`,
+  in its steps, its env, or its workflow's env;
+- it never hands over the secrets context whole (`toJSON(secrets)`, an
+  indexed `secrets[...]`, or `secrets: inherit`), which would carry every key
+  without naming one.
 
 "Runs an agent" means a step that hands control to an engine: the
 claude-code and codex actions, the codex user setup that precedes a codex
@@ -29,6 +32,7 @@ place an engine CLI is installed from (`tests/test_workflow_engine_pins.py`),
 so the install step marks every job that can run one.
 """
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -49,14 +53,21 @@ AGENT_USES = (
     "./.github/actions/codex-user-setup",
 )
 
-# The private key every App mint is fed, however the App is named.
-PRIVATE_KEY_MARKER = "_APP_PRIVATE_KEY"
+# A private key named as a secret, however the App is called or the context
+# spelled: dotted, or indexed with either quote.
+PRIVATE_KEY = re.compile(r"secrets\s*(\.\s*\w*PRIVATE_KEY|\[\s*['\"]\w*PRIVATE_KEY)", re.I)
+# The whole secrets context, or an index this file cannot read a name from.
+WHOLE_SECRETS = re.compile(r"toJSON\(\s*secrets\s*\)|secrets\s*\[\s*[^'\"\s]", re.I)
 
 # Jobs the agent detector must see. If a rename or a new way of launching an
 # engine hid one of them, the rules above would pass for want of an agent job.
 KNOWN_AGENT_JOBS = {
     ("run-backtest.yml", "backtest"),
     ("run-analytics.yml", "qp-topic-label"),
+    ("run-predict.yml", "predict"),
+    ("run-evaluate.yml", "evaluate"),
+    ("integration-test.yml", "scenario"),
+    ("integration-test.yml", "qp-labeler-smoke"),
 }
 
 # The token holders that open these lanes' PRs: each mints a contents-write App
@@ -89,71 +100,90 @@ def _composite_steps(uses: str) -> list[dict[Any, Any]]:
     return []
 
 
-def _runs_agent(step: dict[Any, Any], seen: frozenset[str] = frozenset()) -> bool:
+def _expanded(step: dict[Any, Any], seen: frozenset[str] = frozenset()) -> list[dict[Any, Any]]:
+    """The step, then every step a local composite it calls runs, recursively."""
     uses = str(step.get("uses") or "")
-    if any(marker in uses for marker in AGENT_USES):
-        return True
     if uses in seen:
-        return False
-    return any(_runs_agent(inner, seen | {uses}) for inner in _composite_steps(uses))
+        return [step]
+    inner = _composite_steps(uses)
+    return [step, *(s for i in inner for s in _expanded(i, seen | {uses}))]
 
 
-def _mints_write_token(step: dict[Any, Any], seen: frozenset[str] = frozenset()) -> bool:
-    uses = str(step.get("uses") or "")
-    if MINT in uses:
-        inputs = step.get("with") or {}
+def _runs_agent(step: dict[Any, Any]) -> bool:
+    return any(marker in str(s.get("uses") or "") for s in _expanded(step) for marker in AGENT_USES)
+
+
+def _mints(step: dict[Any, Any]) -> bool:
+    return any(MINT in str(s.get("uses") or "") for s in _expanded(step))
+
+
+def _mints_write_token(step: dict[Any, Any]) -> bool:
+    for s in _expanded(step):
+        if MINT not in str(s.get("uses") or ""):
+            continue
+        inputs = s.get("with") or {}
         scoped = {k: str(v).strip() for k, v in inputs.items() if str(k).startswith("permission-")}
-        # Unscoped is the installation's full grant, contents write included.
-        return not scoped or scoped.get("permission-contents") == "write"
-    if uses in seen:
-        return False
-    return any(_mints_write_token(inner, seen | {uses}) for inner in _composite_steps(uses))
+        contents = scoped.get("permission-contents")
+        # Unscoped is the installation's full grant, and an expression is
+        # whatever it evaluates to: both count as contents write.
+        if not scoped or contents == "write" or (contents is not None and "${{" in contents):
+            return True
+    return False
 
 
-def _names_private_key(node: object) -> bool:
-    return PRIVATE_KEY_MARKER in yaml.safe_dump(node)
-
-
-def violations(job: dict[Any, Any]) -> list[str]:
-    """Why ``job`` breaks the token-holder rules; empty when it keeps them."""
+def violations(job: dict[Any, Any], workflow: dict[Any, Any] | None = None) -> list[str]:
+    """Why ``job`` breaks the rules; empty when it runs no agent or keeps them."""
     steps = _steps(job)
-    agent_at = [i for i, step in enumerate(steps) if _runs_agent(step)]
-    if not agent_at:
+    if not any(map(_runs_agent, steps)):
         return []
     found = []
     for step in steps:
-        if _mints_write_token(step):
-            found.append(f"mints a contents-write App token in step {step.get('name')!r}")
-    for step in steps[agent_at[0] :]:
-        if _names_private_key(step):
-            found.append(
-                f"names an App private key in step {step.get('name')!r}, at or after the "
-                + "first agent step"
-            )
-    if _names_private_key(job.get("env") or {}):
-        found.append("names an App private key in its job-level env")
+        if _mints(step):
+            found.append(f"mints an App token in step {step.get('name')!r}")
+    surfaces: list[tuple[str, object]] = [
+        (f"step {s.get('name')!r}", s) for step in steps for s in _expanded(step)
+    ]
+    surfaces.append(("its job definition", {k: v for k, v in job.items() if k != "steps"}))
+    if workflow is not None:
+        surfaces.append(("its workflow's env", workflow.get("env") or {}))
+    for where, node in surfaces:
+        text = yaml.safe_dump(node)
+        if PRIVATE_KEY.search(text):
+            found.append(f"names a private-key secret in {where}")
+        if WHOLE_SECRETS.search(text):
+            found.append(f"hands over the whole secrets context in {where}")
+    if str(job.get("secrets") or "").strip() == "inherit":
+        found.append("inherits every secret (`secrets: inherit`)")
     return found
 
 
-def _jobs() -> list[tuple[str, str, dict[Any, Any]]]:
+def _workflows() -> list[tuple[str, dict[Any, Any]]]:
+    return [(path.name, _load(path)) for path in sorted(WORKFLOWS.glob("*.y*ml"))]
+
+
+def _jobs() -> list[tuple[str, str, dict[Any, Any], dict[Any, Any]]]:
     return [
-        (path.name, job_name, job)
-        for path in sorted(WORKFLOWS.glob("*.y*ml"))
-        for job_name, job in (_load(path).get("jobs") or {}).items()
+        (name, job_name, job, wf)
+        for name, wf in _workflows()
+        for job_name, job in (wf.get("jobs") or {}).items()
         if isinstance(job, dict)
     ]
 
 
 def _agent_jobs() -> set[tuple[str, str]]:
-    return {(wf, name) for wf, name, job in _jobs() if any(map(_runs_agent, _steps(job)))}
+    return {(wf, name) for wf, name, job, _ in _jobs() if any(map(_runs_agent, _steps(job)))}
 
 
-def test_no_job_that_runs_an_agent_holds_a_write_app_token() -> None:
-    broken = {f"{wf}:{name}": found for wf, name, job in _jobs() if (found := violations(job))}
+def test_no_job_that_runs_an_agent_can_reach_an_app_credential() -> None:
+    broken = {
+        f"{name}:{job_name}": found
+        for name, job_name, job, wf in _jobs()
+        if (found := violations(job, wf))
+    }
     assert not broken, (
-        "a job that runs an agent can reach an App token that writes the repository; "
-        + "open the PR from a separate job that takes the agent's output as an "
-        + f"artifact: {broken}"
+        "a job that runs an agent can reach an App credential; give the agent the "
+        + "job's own token and open any PR from a separate job that takes the "
+        + f"agent's output as an artifact: {broken}"
     )
 
 
@@ -163,7 +193,7 @@ def test_the_detector_sees_the_agent_jobs() -> None:
 
 
 def test_the_token_holders_mint_write_tokens_and_run_no_agent() -> None:
-    jobs = {(wf, name): job for wf, name, job in _jobs()}
+    jobs = {(name, job_name): job for name, job_name, job, _ in _jobs()}
     for key in sorted(KNOWN_TOKEN_HOLDERS):
         job = jobs.get(key)
         assert job is not None, f"{key} is gone; the lane's PR has no token holder"
@@ -175,32 +205,38 @@ def test_the_token_holders_mint_write_tokens_and_run_no_agent() -> None:
         assert any("download-artifact" in str(s.get("uses") or "") for s in steps), key
 
 
-def test_the_rules_refuse_a_mint_beside_an_agent() -> None:
-    """The shape the rules exist for, on a synthetic job, so a change to the
-    detector that stopped seeing it fails here rather than passing everywhere."""
+def test_the_rules_refuse_every_way_an_agent_job_reaches_a_key() -> None:
+    """The shapes the rules exist for, on synthetic jobs, so a change to the
+    detector that stopped seeing one fails here rather than passing everywhere."""
     agent = {"name": "Install", "uses": "./.github/actions/engine-cli"}
-    credentials = {
-        "client-id": "${{ vars.DEV_APP_CLIENT_ID }}",
-        "private-key": "${{ secrets.DEV_APP_PRIVATE_KEY }}",
-    }
 
     def mint(**permissions: str) -> dict[str, Any]:
         return {
             "name": "Mint app token",
             "uses": f"{MINT}@0000000000000000000000000000000000000000",
-            "with": {**credentials, **permissions},
+            "with": {
+                "client-id": "${{ vars.DEV_APP_CLIENT_ID }}",
+                "private-key": "${{ secrets.DEV_APP_PRIVATE_KEY }}",
+                **permissions,
+            },
         }
 
-    late_mint = mint(**{"permission-contents": "write", "permission-pull-requests": "write"})
-    assert violations({"steps": [agent, late_mint]})
-
-    # Read-scoped and minted before the agent, as the claude cells' comment
-    # token is, it is allowed.
-    early_read = mint(**{"permission-contents": "read", "permission-pull-requests": "write"})
-    assert violations({"steps": [early_read, agent]}) == []
-    # The same read-scoped mint after the agent puts the private key beside it.
-    assert violations({"steps": [agent, early_read]})
-    # Unscoped is the installation's full grant.
-    assert violations({"steps": [mint(), agent]})
+    # A mint of any scope, before or after the agent: the key is delivered to
+    # the runner at job start either way.
+    assert violations({"steps": [agent, mint(**{"permission-contents": "write"})]})
+    assert violations({"steps": [mint(**{"permission-contents": "read"}), agent]})
+    # A key named anywhere else in the job, or in the workflow's env.
+    key_in_env = {"env": {"KEY": "${{ secrets['DATA_APP_PRIVATE_KEY'] }}"}, "steps": [agent]}
+    assert violations(key_in_env)
+    workflow = {"env": {"KEY": "${{ secrets.SOME_PRIVATE_KEY }}"}}
+    assert violations({"steps": [agent]}, workflow)
+    # The whole secrets context.
+    dump = {"name": "Dump", "run": "echo", "env": {"ALL": "${{ toJSON(secrets) }}"}}
+    assert violations({"steps": [agent, dump]})
     # A job that runs no agent may hold the token.
-    assert violations({"steps": [late_mint]}) == []
+    assert violations({"steps": [mint(**{"permission-contents": "write"})]}) == []
+
+    # A token holder's write mint is recognized however the scope is spelled.
+    assert _mints_write_token(mint())
+    assert _mints_write_token(mint(**{"permission-contents": "${{ inputs.scope }}"}))
+    assert not _mints_write_token(mint(**{"permission-contents": "read"}))

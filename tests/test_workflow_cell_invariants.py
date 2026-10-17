@@ -399,15 +399,23 @@ def test_every_gemini_allowlist_covers_its_own_cell_env_contract() -> None:
 
 
 def _backtest_report_upload(steps: list[dict[str, Any]]) -> int:
-    """The replay job's one hand-off: `metrics/`, uploaded for the publish job."""
-    found = [
-        i
-        for i, step in enumerate(steps)
-        if "upload-artifact" in str(step.get("uses") or "")
-        and (step.get("with") or {}).get("path") == "metrics/"
-    ]
-    assert len(found) == 1, f"expected exactly one upload of metrics/, found {found}"
-    assert "if" not in steps[found[0]], "the report leaves only from a replay that succeeded"
+    """The replay job's one hand-off: the arm's report, staged out of the tree
+    and uploaded for the publish job."""
+    stage = next(i for i, step in enumerate(steps) if step.get("id") == "report")
+    found = [i for i, step in enumerate(steps) if "upload-artifact" in str(step.get("uses") or "")]
+    assert len(found) == 1, f"expected exactly one upload, found {found}"
+    upload = steps[found[0]]
+    assert upload["with"]["path"] == "${{ runner.temp }}/backtest-report", (
+        "only the staged report may cross, never the checkout's metrics/"
+    )
+    assert upload.get("if") == "steps.report.outputs.present == 'true'"
+    assert stage < found[0]
+    run = str(steps[stage]["run"])
+    assert '[ -L "metrics/$report" ]' in run, "a symlinked report must be refused"
+    assert "salience-gate) report=salience-replay.json" in run
+    assert "*) report=cert-backtest.json" in run
+    # Implicit `success()`: a failed replay hands nothing off.
+    assert "if" not in steps[stage]
     return found[0]
 
 
@@ -478,10 +486,9 @@ def test_the_backtest_replay_brackets_its_cells_with_the_big_case_board_removal(
     event in the JSON carries `actual_disposition`, and in both files a case's
     moment names its newest predicted event, where a merits moment discloses
     the grant. So both halves leave the tree with the ledger. The review PR
-    upload ships all of `metrics/` to the publish job, which stages it whole,
-    so the restore is load-bearing twice over: a restore that lands after the
-    upload commits the board's deletion, and one that restores from the index
-    rather than the commit reinstates bytes a cell could have staged. Nothing
+    salience-gate arm writes under `metrics/` in the same checkout after the
+    cells, so the restore must land before it, and from the commit rather than
+    the index, which would reinstate bytes a cell could have staged. Nothing
     the replay runs reads the board — it is a render target of `fedcourts
     big-cases` and the metrics refresh, neither of which runs here.
     """
@@ -511,14 +518,6 @@ def test_the_backtest_replay_brackets_its_cells_with_the_big_case_board_removal(
     assert cells < restore < salience < upload, (
         "the restore follows the cells and precedes the salience-gate arm and the upload"
     )
-    # What the publish job stages is the uploaded tree, whole.
-    publish = _load("run-backtest.yml")["jobs"]["publish"]["steps"]
-    publish_runs = [str(step.get("run") or "") for step in publish]
-    place = next(i for i, run in enumerate(publish_runs) if "rm -rf metrics" in run)
-    stage = next(i for i, run in enumerate(publish_runs) if "git add -A metrics/" in run)
-    assert place < stage and "gh pr create" in publish_runs[stage], (
-        "the publish job stages the replay's metrics/ in its review PR step"
-    )
     assert f"git status --porcelain -- {paths}" in runs[restore], (
         "the pristine assertion must refuse a board differing from the commit"
     )
@@ -527,6 +526,36 @@ def test_the_backtest_replay_brackets_its_cells_with_the_big_case_board_removal(
     assert "if" not in steps[remove]
     assert steps[restore].get("if") == "${{ !cancelled() }}"
     assert "continue-on-error" not in steps[restore]
+
+
+def test_the_backtest_publish_job_checks_the_report_before_it_mints() -> None:
+    """The publish job holds the dev App token, whose bypass covers `main`'s
+    approval rule, and reads bytes a replay cell could have written. So every
+    step that reads them runs before the mint: the hand-off must hold the arm's
+    one report and nothing else, as a regular file; it overlays the committed
+    copy rather than replacing `metrics/` (an upload drops dotfiles, and a
+    replaced tree would stage their deletion); the tree may then differ from
+    the commit at that path alone; the plan is rendered and the change and
+    the prose are scanned for secrets. The token steps run only on a checked
+    change, and run git and gh alone."""
+    steps = _load("run-backtest.yml")["jobs"]["publish"]["steps"]
+    names = [step.get("name") for step in steps]
+    stage_at = next(i for i, step in enumerate(steps) if step.get("id") == "stage")
+    mint_at = names.index("Mint app token")
+    assert stage_at < mint_at
+    run = str(steps[stage_at]["run"])
+    assert "rm -rf metrics" not in run and "git add -A" not in run
+    assert 'find "$dir" -mindepth 1 ! -path "$dir/$report"' in run
+    assert '[ -L "$dir/$report" ]' in run
+    assert 'cp "$dir/$report" "metrics/$report"' in run
+    assert 'if [ "$changed" != " M metrics/${report}" ]; then' in run
+    assert "uv run fedcourts cert-backtest-plan" in run
+    assert "uv run fedcourts scan-diff-for-secrets" in run
+    assert run.index('git add "metrics/$report"') < run.index("scan-diff-for-secrets")
+    assert run.rstrip().endswith('echo "land=true" >> "$GITHUB_OUTPUT"')
+    for step in steps[mint_at:]:
+        assert step.get("if") == "steps.stage.outputs.land == 'true'", step.get("name")
+        assert "uv run" not in str(step.get("run") or ""), step.get("name")
 
 
 def test_case_summaries_sit_inside_the_backtest_ledger_fence() -> None:
@@ -1274,10 +1303,10 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
     textual scan) and an unprovisioned record — no snapshot in the corpus, or a
     provisioning write that did not land complete, which the `record` step reads
     off disk. Every step that would spend tokens, hold a credential, or write a
-    runner-local config for the agent — the comment token mint, the MCP
-    retrieval config, the engine installs and runs, and the event
-    materialization — must carry *both* halves of the gate, or a refused cell
-    produces a context-less prediction claiming a mode it never had.
+    runner-local config for the agent — the MCP retrieval config, the engine
+    installs and runs, and the event materialization — must carry *both*
+    halves of the gate, or a refused cell produces a context-less prediction
+    claiming a mode it never had.
     """
     wf = _load("run-predict.yml")
     steps = wf["jobs"]["predict"]["steps"]
@@ -1301,7 +1330,6 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
     # absent: that one is `always()`, because a cell that armed nothing must
     # still be safe to stand down.
     gated = [
-        "Mint agent comment token",
         "Configure agent retrieval (MCP)",
         "Materialize the event definition for the ledger",
         "Predict with Claude Code",
@@ -1606,6 +1634,14 @@ def test_the_qp_labeling_run_publishes_on_its_count_not_on_the_agents_verdict() 
     assert "needs.qp-topic-label.result" not in publish_gate, (
         "the publish job must not read the label job's verdict, which a turn overrun fails"
     )
+    # The labels file crossed from the labeler's runner, so the publish job
+    # holds it to the strict model again, on every ref, before the mint.
+    publish_steps = wf["jobs"]["qp-topic-publish"]["steps"]
+    names = [s.get("name") for s in publish_steps]
+    revalidate = publish_steps[names.index("Re-validate the measured artifact")]
+    assert "uv run fedcourts validate data/qp-topics" in revalidate["run"]
+    assert "if" not in revalidate
+    assert names.index("Re-validate the measured artifact") < names.index("Mint app token")
 
 
 def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() -> None:

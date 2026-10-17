@@ -361,27 +361,6 @@ jobs:
       max-parallel: 6
       matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
     steps:
-      - name: Mint agent comment token
-        id: agent-token
-        # Only the Claude step consumes this token (Codex never took one, and
-        # Gemini's CLI strips non-allowlisted env vars from agent shells in CI): don't
-        # mint a live credential in cells that cannot use it.
-        if: matrix.engine == 'claude-code'
-        # The least-privilege credential claude-code-action requires. No round
-        # here has a triggering issue or PR to comment on, so the issue and
-        # pull-request scopes buy the agent nothing it can reach; what matters is
-        # the absence of contents:write — the agent only writes files locally,
-        # which ride to the collect job as an artifact, and that job (its own
-        # token) does the commit/PR, so a prompt injection in docket text cannot
-        # push code here.
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
-          permission-contents: read
-          permission-issues: write
-          permission-pull-requests: write
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -825,7 +804,17 @@ jobs:
           # The pinned CLI from the engine-cli step, never the one the action
           # bundles: the engine a cell runs moves only when the pin does.
           path_to_claude_code_executable: ${{ steps.engine-cli.outputs.path }}
-          github_token: ${{ steps.agent-token.outputs.token }}
+          # The action refuses to start without a GitHub token, and its no-input
+          # fallback is an OIDC exchange for an App installation token that
+          # defaults to contents/issues/pull-requests *write* — reachable here,
+          # since this job holds `id-token: write` for the corpus role. So it
+          # gets the job's own token, capped by the job's permissions block at
+          # `contents: read`: no round has an issue or PR to comment on, and the
+          # cell's files ride to `collect` as an artifact. No App key is named
+          # anywhere in this job, because every secret a job names reaches its
+          # runner at job start, where an injected cell could recover it
+          # (tests/test_workflow_token_holder.py).
+          github_token: ${{ github.token }}
           # Prompt caching is automatic: the stable prefix (AGENTS.md + the
           # prompt template + schema) is cached across the run's tool-use turns.
           # The API key's default cache TTL is only 5 minutes, which would expire

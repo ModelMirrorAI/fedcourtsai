@@ -1406,19 +1406,22 @@ that gains its first environment gains both gate jobs. `tests/workflow_gate.py`
 holds the guard's exact text, and `tests/test_workflow_auth_gate.py` refuses a
 job without it.
 
-**A job that runs an agent never holds an App token that can write the
-repository.** A process an agent leaves behind lives until its job ends, as
-the same user as every later step, so it can read a later step's environment
-out of `/proc`: a token minted after the agent finished, or the App's private
-key while the mint runs. The dev App's token carries its bypass of `main`'s
-approval rule, so with contents write it could merge any green PR. A lane
-whose agent output ends in a PR therefore opens it from a separate job that
-runs no agent and takes the output as an artifact: the cell lanes' `collect`,
-`run-backtest`'s `publish`, `run-analytics`'s `qp-topic-publish`. An agent job
-may mint only a token without contents write, and only before its first agent
-step. `tests/test_workflow_token_holder.py` refuses any other shape, counting
-the engine-CLI install, the claude-code and codex actions and the codex user
-setup as agent steps.
+**A job that runs an agent names no App credential at all.** Every secret a
+job names is delivered to its runner when the job starts, whatever a step's
+`if:` says, and a process an agent leaves behind lives until the job ends, as
+the same user as every later step: it can recover the key, or read a later
+step's environment out of `/proc`. The dev App's token carries its bypass of
+`main`'s approval rule, so with contents write it could merge any green PR,
+and its key mints that token. So an agent job mints no App token of any
+scope, names no secret holding `PRIVATE_KEY`, and never hands over the whole
+secrets context. A Claude step that needs a GitHub token gets the job's own,
+capped by the job's `permissions` block. A lane whose agent output ends in a
+PR opens it from a separate job that runs no agent and takes the output as an
+artifact: the cell lanes' `collect`, `run-backtest`'s `publish`,
+`run-analytics`'s `qp-topic-publish`. Read the agent's bytes, and check them,
+before that job mints. `tests/test_workflow_token_holder.py` refuses any other
+shape, counting the engine-CLI install, the claude-code and codex actions and
+the codex user setup as agent steps.
 
 **A `workflow_dispatch` may declare at most 10 inputs, and the "Run workflow"
 form is where the limit bites** — inputs past it are reachable by API but the

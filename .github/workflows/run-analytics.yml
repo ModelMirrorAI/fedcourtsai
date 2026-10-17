@@ -2093,11 +2093,27 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
       - name: Download the measured artifact
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: qp-publish
           path: ${{ runner.temp }}/qp-publish
+
+      # The labels file crossed from a runner the labeler held, after the
+      # measure step wrote it, so it is validated again here, by this
+      # checkout's strict model, before any token exists: every field a copied
+      # key, a vocabulary enum, a bool, or a stamp the builder assigns. On every
+      # ref, so a rehearsal exercises it. The PR step copies the same bytes from
+      # $RUNNER_TEMP, and the checkout's tree is discarded there.
+      - name: Re-validate the measured artifact
+        run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/qp-publish/qp-topics.json" data/qp-topics/qp-topics.json
+          uv run fedcourts validate data/qp-topics
 
       # Minted after the hand-off is on this runner, and on `main`-ref runs
       # only: the dev App's credentials live on the prod environment alone, and
@@ -2237,14 +2253,17 @@ jobs:
           batch=$(jq -er '.batches[-1].batch' data/qp-topics/qp-topics.json)
           labeled=$(jq -er '.batches[-1].labeler_rows' data/qp-topics/qp-topics.json)
           title="data(qp-topics): batch ${batch} — ${labeled} new qp-topic-v0 label(s) by ${LABELER} (${cases} total)"
-          # The body carries only CLI-rendered numbers and vocabulary labels —
-          # no agent prose and no petition text — and so does the committed
-          # artifact: `QpTopicPublishedEntry` is a strict pydantic model whose
-          # every field is a copied key, a vocabulary enum, a bool, or a stamp
-          # the builder assigns, joined to the extract on both keys, so no
-          # agent-authored string can reach either. That mechanism, not reviewer
-          # attention, is why this step runs no secret scan where `collect-run`
-          # does.
+          # The committed artifact carries no agent prose and no petition text:
+          # `QpTopicPublishedEntry` is a strict pydantic model whose every field
+          # is a copied key, a vocabulary enum, a bool, or a stamp the builder
+          # assigns, joined to the extract on both keys, and the re-validation
+          # step above holds this file to it. The body's measured block is the
+          # measure composite's sanitized rendering of numbers and vocabulary
+          # labels, carried across as a file; it is not re-derived here, so a
+          # process the labeler left behind could have rewritten it before the
+          # hand-off, and the reviewed, never-auto-merged PR is the backstop for
+          # that block. This step runs no secret scan where `collect-run`
+          # does; the model above is what keeps free text out of the file.
           {
             printf '%s\n\n' "Batch ${batch} of the \`qp-topic-v0\` labeling frame, by \`${LABELER}\` from the stored questions-presented text alone: ${labeled} new label(s), bringing the artifact to ${cases}. The artifact accrues one batch a run, so the block below is this batch's measurement and not the file's — the rest of what this batch read is the hand reference set, re-graded every run for that measurement and published from its own adjudicated labels rather than the labeler's. Prior batches' rows are carried forward unchanged."
             printf '%s\n\n' "The command enforces the publication gate, so this PR exists only because the run cleared it. What the numbers mean — agreement with a single v0 reference rater, **not** accuracy; a grant-enriched frame that certifies the grant stream only; per-label rates suppressed under the support floor — is in \`docs/qp-topic.md\`."
