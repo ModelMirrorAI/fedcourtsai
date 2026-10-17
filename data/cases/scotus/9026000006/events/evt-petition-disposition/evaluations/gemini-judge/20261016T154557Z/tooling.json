@@ -1,0 +1,19 @@
+{
+  "case_id": "scotus/9026000006",
+  "run_id": "20261016T154557Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "read_file",
+    "run_shell_command",
+    "write_file",
+    "update_topic"
+  ],
+  "helpful": [
+    "run_shell_command"
+  ],
+  "gaps": [],
+  "notes": "No base rates or corpus querying needed because it's a frozen-band cert cell and the harness handles the baseline."
+}

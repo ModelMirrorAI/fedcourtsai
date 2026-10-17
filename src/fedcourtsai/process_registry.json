@@ -269,24 +269,24 @@
     },
     {
       "name": "scrub-withheld-petitioner-block",
-      "merge": null,
-      "at": null,
+      "merge": "1c1cd1f257e1bcbcd4f5339173fff2dab68ed317",
+      "at": "2026-10-16T20:17:17Z",
       "predictors": null,
       "reach": "self-represented dockets",
       "gradual": false
     },
     {
       "name": "single-entry-trigger-placement",
-      "merge": null,
-      "at": null,
+      "merge": "1c1cd1f257e1bcbcd4f5339173fff2dab68ed317",
+      "at": "2026-10-16T20:17:17Z",
       "predictors": null,
       "reach": "all",
       "gradual": false
     },
     {
       "name": "query-clock-prior-last-pull-mask",
-      "merge": null,
-      "at": null,
+      "merge": "1c1cd1f257e1bcbcd4f5339173fff2dab68ed317",
+      "at": "2026-10-16T20:17:17Z",
       "predictors": null,
       "reach": "all",
       "gradual": false

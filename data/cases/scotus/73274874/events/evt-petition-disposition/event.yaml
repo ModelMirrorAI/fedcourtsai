@@ -1,0 +1,12 @@
+case_id: scotus/73274874
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2025-08-18'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: John Patrick Moran v. Pete Hegseth, Secretary of Defense, et al.

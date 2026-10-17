@@ -1566,8 +1566,10 @@ predictor, stratum) a set-aside moved, the **pooled entry's** figure
 recomputed by the same code with the set-aside gradings counted — on the
 leaderboard the pooled entry's stratum (and, where a ranked-board cell was set
 aside, the paired figure the ranks are read off), on `claim-scores.json` the
-cert-stage claim stratum. The `by_protocol` cut is default-only: it carries no
-sensitivity line, so a per-window figure is read without the set-aside cells. The default is
+cert-stage claim stratum. The `by_protocol` and `by_band` cuts are
+default-only, and so are `claim-scores.json`'s judge-agreement pairs
+(`forward_agreement`): none carries a sensitivity line, so a per-window,
+per-band or judge-agreement figure is read without the set-aside cells. The default is
 the headline; a sensitivity line is a disclosure, never a rank key, and never
 stacked with another departure. Each reason is a dated freeze-record entry.
 Two cell-grain reasons exist, and one claim-grain reason (below):

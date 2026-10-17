@@ -1,0 +1,14 @@
+case_id: scotus/9025000120
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2025-07-31'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Mark Gustafson, Individually and as Administrator and Personal Representative
+  of the Estate of James Robert ("J.R.") Gustafson, et al. v. Springfield, Inc., dba
+  Springfield Armory, et al.

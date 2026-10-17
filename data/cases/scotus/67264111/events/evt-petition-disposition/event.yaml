@@ -1,0 +1,12 @@
+case_id: scotus/67264111
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2022-10-24'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Ashot Yegiazaryan, aka Ashot Egiazaryan v. Vitaly Ivanovich Smagin, et al.

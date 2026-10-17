@@ -1,0 +1,12 @@
+case_id: scotus/73272834
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2025-07-22'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Studco Building Systems US, LLC v. 1st Advantage Federal Credit Union
