@@ -21,14 +21,15 @@ name: run-evaluate
 on:
   schedule:
     # Daily at 15:39 UTC. The backlog only moves when a pull window resolves
-    # events, so the slot sits after one has finished and committed, in the first
-    # stretch of the day with no corpus writer possibly still running: run-pull's
-    # 13:17 pull window is capped at 45 minutes (to 14:02) and run-seed's 14:31
-    # walk at 55 (to 15:26), so by :39 the day's resolutions are in the ledger and
-    # the writers are done — the next scheduled job is run-pull's 16:47 live
+    # events, so the slot sits after one has finished and committed: run-pull's
+    # 13:17 pull window is capped at 45 minutes (to 14:02), and the 14:xx pair
+    # that follows — run-seed's 14:31 walk (55-minute cap) and run-pull's 14:47
+    # live window (40) — serialize on the `corpus-write` lock and usually both
+    # commit well before :39; only if both run to their caps does the second
+    # finish as late as ~16:06. The next scheduled writer is the 16:47 live
     # window, 68 minutes out. This job only ever *reads* the corpus and takes no
-    # `corpus-write` lock, so an overlap would cost nothing but a staler read;
-    # the slot avoids one anyway, so the round sees the day's full ledger. The
+    # `corpus-write` lock, so an overlap would cost nothing but a staler read —
+    # a resolution landing after :39 is graded on the next day's round. The
     # minute is off every other workflow's (:00, :13, :17, :27, :30, :31, :41,
     # :47) so the repo's offset grid stays legible.
     #

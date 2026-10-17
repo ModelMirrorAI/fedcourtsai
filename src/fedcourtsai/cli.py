@@ -2581,10 +2581,11 @@ def enrich_opinions_cmd(
     hold is waiting on — a committed merits outcome recording a judgment that
     publishes an opinion (not a DIG or an equally divided affirmance),
     resolved within the hold's `OPINION_HOLD_DAYS` (14) days — so a body is
-    fetched within hours of the latch and retried each live window until it
-    lands or the hold releases the case. Everything else stands: eligibility,
-    the order, the cursor and `--max-cases`. It names no case, so it combines
-    with `--case` only as a contradiction, and is refused with it.
+    fetched within hours of the latch and retried each full live window (four
+    of the day's twelve) until it lands or the hold releases the case.
+    Everything else stands: eligibility, the order, the cursor and
+    `--max-cases`. It names no case, so it combines with `--case` only as a
+    contradiction, and is refused with it.
 
     Dry-run by default (the requests are spent either way — the dry run is how
     the spend is inspected, and it moves no cursor); run where the corpus is

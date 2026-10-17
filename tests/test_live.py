@@ -2092,12 +2092,14 @@ def test_load_live_config_reads_section_and_defaults(tmp_path: Path) -> None:
 
 def test_repo_tracking_yaml_carries_live_section() -> None:
     cfg = load_live_config(Path("config"))
-    # Sized to re-poll the whole pending watchlist each cycle at its seasonal
-    # peak (the September long conference ~276); bounded by the ~1 req/s throttle,
-    # not an API budget.
-    assert cfg.max_cases_per_run == 300
-    assert cfg.max_new_cases_per_run == 100
+    # Sized for twelve cycles a day: ~1,800 re-polls a day, one sweep of the
+    # polled watchlist, and a long-conference distributed set (~276) re-read
+    # within two cycles; bounded by the ~1 req/s throttle, not an API budget.
+    assert cfg.max_cases_per_run == 150
+    assert cfg.max_overdue_per_run == 50
+    assert cfg.max_new_cases_per_run == 50
     assert cfg.max_applications_per_run == 10
+    assert cfg.document_freshness_per_run == 10
     assert cfg.term_floor_year == 2017
     assert cfg.outgoing_term_grace_days == 60
 

@@ -126,8 +126,9 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # docs/security.md describes the wiring and when to revisit the shape).
 on:
   # The boot canary, daily. 11:53 UTC is a deliberately quiet slot: no other
-  # schedule in this repository uses hour 11 (they sit at 01/02/03/04/05/07/08/
-  # 10/13/14/15/16/19/20/22), and minute 53 collides with none of the minutes
+  # fixed-hour schedule in this repository uses hour 11 (they sit at 00 through
+  # 08, 10, 12 through 20 and 22; corpus-check's half-hourly poll is the one
+  # every-hour entry), and minute 53 collides with none of the minutes
   # already in use — GitHub queues every repository's crons together, so a
   # shared minute is where a dropped run is likeliest, and the top of the hour
   # is the most congested minute of all. It also lands a few hours ahead of the

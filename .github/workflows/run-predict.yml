@@ -27,16 +27,17 @@ on:
     # Twice a day, each slot margined after one of run-pull's ingestion windows
     # so a round reads a corpus the day's writer has finished with. The pull
     # windows run at :17 past 01/07/13/19 capped at 45 minutes (13:17 -> 14:02)
-    # and the live windows at :47 past 04/10/16/22 capped at 35 (16:47 ->
-    # 17:22), so :12 past 14 and :32 past 17 each open after a window has
-    # committed. This job only ever *reads* the corpus and takes no
-    # `corpus-write` lock, so an overlap would cost nothing but a staler read;
-    # the slots open clear of one, though a slow pull inside this job's own
-    # 30-minute cap can still run into run-seed's 14:31 walk. The minutes are off
+    # and the live windows at :47 past every even hour capped at 40 (16:47 ->
+    # 17:27), so :12 past 14 and :32 past 17 each open after a window has
+    # committed and before the next live window (14:47, 18:47). This job only
+    # ever *reads* the corpus and takes no `corpus-write` lock, so an overlap
+    # would cost nothing but a staler read; the slots open clear of one, though
+    # a slow pull inside this job's own 30-minute cap can still run into
+    # run-seed's 14:31 walk and the 14:47 live window. The minutes are off
     # every other workflow's (:00, :13, :17, :27, :30, :31, :39, :41, :47, :53)
     # so the repo's offset grid stays legible.
     #
-    # Two slots, not eight — one per ingestion channel's freshest window rather
+    # Two slots, not sixteen — one per ingestion channel's freshest window rather
     # than one per window. Two things size the lane and neither is the cron:
     # the derivation's per-cycle cap, and the serializing group below, which
     # queues a round behind one still holding the review hold — so a faster

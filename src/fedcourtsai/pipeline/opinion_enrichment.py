@@ -940,9 +940,9 @@ def enrich_opinions(
     else: the eligibility predicate, the ledger-first order, the cursor and
     ``max_cases`` all still apply. It is the live window's scope, so the body
     of a just-decided case is fetched within hours of the latch and retried
-    every window until it lands, and a case the hold has released is never
-    walked from there again. It needs ``data_root``, since the scope is a
-    ledger read.
+    every full live window (four a day) until it lands, and a case the hold
+    has released is never walked from there again. It needs ``data_root``,
+    since the scope is a ledger read.
 
     Dry-run by default: ``apply`` gates only the writes — the cursor stamp
     included, so a dry run reports what an applied run would walk without

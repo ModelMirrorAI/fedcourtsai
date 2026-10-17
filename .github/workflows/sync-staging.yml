@@ -31,9 +31,9 @@ name: sync-staging
 
 on:
   schedule:
-    # Daily, in the dead zone between run-seed's 02:31 window and run-pull's
-    # 04:47 live window, so the sync PR's `gate` run does not compete with a
-    # corpus writer for runners.
+    # Daily, after run-seed's 02:31 window and run-pull's 02:47 live window
+    # have usually committed and before the 04:47 live window, so the sync
+    # PR's `gate` run seldom competes with a corpus writer for runners.
     - cron: "13 3 * * *"
   workflow_dispatch: {}
 

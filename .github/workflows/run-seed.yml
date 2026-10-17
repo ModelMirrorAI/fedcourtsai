@@ -12,9 +12,13 @@ name: run-seed
 # It is a corpus writer like run-pull's jobs, so it shares the repo-level
 # `corpus-write` concurrency group: the corpus is a single blob (pull → mutate →
 # push → commit corpus/corpus.db.ref to main), so only one writer runs at a time
-# regardless of workflow. The windows sit in the dead zones between run-pull's
-# forward windows (`:17` pull, `:47` live) and yield the lock before the next
-# one fires.
+# regardless of workflow. Each window opens after a pull window and shares its
+# hour with one of run-pull's two-hourly live windows (`:47`); the two
+# serialize on the lock in whichever order they fire, and even at both job caps
+# (55 + 40 minutes) they free it before the next scheduled writer, two hours on.
+# Only a pile-up — the preceding pull running near its cap, so this window is
+# still queued when the live window fires — lets the live run supersede it;
+# the walk then resumes next window.
 #
 # Each window is a bounded chunk — ≤40 min of walk, except the daily sweep
 # window, which walks 25 to fund its trailing sweeps — inside one App
@@ -33,8 +37,8 @@ name: run-seed
 # `LOOP_BUDGET_SECONDS` conjunct.
 on:
   schedule:
-    # Four dead-zone windows/day, each after a pull and before the next live,
-    # so a chunk clears the lock before forward work needs it.
+    # Four windows/day, each after a pull window and beside that hour's live
+    # window, with which it serializes on the corpus-write lock (see the header).
     - cron: "31 2 * * *"
     - cron: "31 8 * * *"
     - cron: "31 14 * * *"

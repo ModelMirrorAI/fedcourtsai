@@ -1058,12 +1058,13 @@ def cell_failure_count(
 #: masks on ``not-ingested``, a grade about the pipeline's coverage rather than
 #: about the opinion, and the honest grade needs a re-grade once the body lands.
 #: The hold trades that for a bounded delay. Two weeks is long enough for the
-#: live window's enrichment step (which retries four times a day over this same
-#: window) or an operator's enrich dispatch to land a body that exists upstream,
-#: and short enough that a body which never arrives despite being expected (a
-#: per curiam upstream carries no opinion for, a cluster the pass refuses as
-#: ambiguous) costs a fortnight's delay on the event's grading rather than a
-#: grading that never happens. A body known never to arrive is not waited for
+#: live job's enrichment step (which runs on four of the twelve live windows a
+#: day, so it retries four times a day over this same window) or an operator's
+#: enrich dispatch to land a body that exists upstream, and short enough that a
+#: body which never arrives despite being expected (a per curiam upstream
+#: carries no opinion for, a cluster the pass refuses as ambiguous) costs a
+#: fortnight's delay on the event's grading rather than a grading that never
+#: happens. A body known never to arrive is not waited for
 #: at all (:data:`BODILESS_JUDGMENTS`, :func:`awaited_presence`).
 OPINION_HOLD_DAYS = 14
 

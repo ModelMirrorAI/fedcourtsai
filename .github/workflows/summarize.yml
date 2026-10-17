@@ -46,8 +46,10 @@ run-name: "summarize @ ${{ github.ref_name == 'main' && 'prod' || github.ref_nam
 # generates, uploads the summaries as a run artifact, and publishes nothing.
 on:
   schedule:
-    # 03:43 UTC daily. After run-pull's 01:17 window (45-minute cap) and
-    # run-seed's 02:31 walk have committed, before the 04:47 live window, and
+    # 03:43 UTC daily. After run-pull's 01:17 window (45-minute cap) and the
+    # 02:xx pair — run-seed's 02:31 walk and the 02:47 live window, serialized
+    # on the corpus-write lock — have usually committed, before the 04:47 live
+    # window, and
     # well clear of run-predict (14:12, 17:32) and run-evaluate (15:39). Only
     # the plan runs at this minute; spend waits on the hold. The minute is off
     # every other workflow's so the repo's offset grid stays legible.

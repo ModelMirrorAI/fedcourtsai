@@ -106,8 +106,8 @@ on:
     # schedule event carries no inputs.
     #
     # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-pull's
-    # 02:31 historical and 04:47 live windows, before its 07:17 pull window, so
-    # the refresh sees a settled corpus.
+    # 04:47 live window (40-minute cap) has committed and before its 06:47 live
+    # window, so the refresh sees a settled corpus.
     - cron: "41 5 * * 1"
     # Daily big-case board (04:36 UTC). It reads the committed ledger and no
     # corpus, so it waits on no pull window; the slot is its own minute on the

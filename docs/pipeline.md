@@ -35,8 +35,8 @@ token or role, so privilege and outside reachability stay disjoint — see
 
 | Workflow         | Trigger(s)                          | Engine(s)            |
 |------------------|-------------------------------------|----------------------|
-| `run-pull`       | daily schedules (pull + live jobs), manual dispatch (+ dispatch-only `enrich-opinions` mode) | script (no agent)    |
-| `run-seed`       | daily schedules (4 dead-zone windows), manual | script (no agent)    |
+| `run-pull`       | daily schedules (4 pull windows, 12 live windows every 2h), manual dispatch (+ dispatch-only `enrich-opinions` mode) | script (no agent)    |
+| `run-seed`       | daily schedules (4 windows), manual | script (no agent)    |
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
 | `run-evaluate`   | daily schedule (15:39 UTC), input-less manual dispatch | Claude Code + Codex + Gemini |
@@ -680,9 +680,11 @@ that repointing — is the maintainer runbook in [security.md](security.md).
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's
 per-Term base rates and the cert back-test set. It is a corpus writer split out
-of run-pull so the backfill runs on a denser schedule (four dead-zone windows a
-day); it shares the `corpus-write` concurrency group, so it still serializes with
-run-pull's forward writers. **run-pull**'s **pull** job does targeted
+of run-pull so the backfill runs on a denser schedule (four windows a day, at
+`:31` past 02/08/14/20); it shares the `corpus-write` concurrency group, so it
+still serializes with run-pull's forward writers — each of its windows shares
+its hour with a live window, and whichever fires second waits on the lock for
+the first, with two hours before the next scheduled writer can supersede it. **run-pull**'s **pull** job does targeted
 CourtListener enrichment from the rate-limited **REST API** (the live job owns
 SCOTUS freshness for free). The opinion enrichment pass
 (`fedcourts enrich-opinions`; scope, walk order and arithmetic in
@@ -690,13 +692,15 @@ SCOTUS freshness for free). The opinion enrichment pass
 **run-pull**'s dispatch-only **enrich** job (`mode=enrich-opinions`, sized by
 the `max_cases` input) walks the granted SCOTUS backlog to its published
 opinion clusters and lands the reporter citations and opinion bodies. It is
-never scheduled, and is dispatched into a dead zone between pull windows so it
-neither queues on the corpus-write lock nor stacks API spend onto a pull
-window's. The job carries `max_cases` and nothing else: the walk orders itself
+never scheduled, and is dispatched into a quiet slot — from about `:15` past an
+odd hour without a pull window (03, 05, 09, 11, 15, 17, 21, 23) — so it neither
+queues on the corpus-write lock nor stacks API spend onto a pull window's. The job carries `max_cases` and nothing else: the walk orders itself
 ledger-first, so the cases the pipeline is waiting on reach the head without a
 dispatch naming them, and the CLI's `--case` targeting stays a local
 maintenance tool rather than a dispatch input. The **live** job runs the second
-lane on every window, one bounded step after the poll: `enrich-opinions
+lane on its four full windows a day (the `47 4,10,16,22` cron and every
+dispatch; the eight live-only windows skip it, so the two-hourly cadence never
+multiplies the spend), one bounded step after the poll: `enrich-opinions
 --awaiting-grading --max-cases 8` walks only the merits cases decided within
 the evaluate lane's opinion-hold window, so a just-decided case's body usually
 lands before the next evaluate tick (*The evaluate queue is level-triggered
@@ -1287,7 +1291,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  └─ derive the evaluate backlog (owed gradings,
                                     beside this cycle's fresh resolutions; both are
                                     reported as counts, and nothing is handed on)
-   daily ×4 → run-pull (live job) → push fresh facts to the corpus
+   daily ×12 → run-pull (live job) → push fresh facts to the corpus
                                  ├─ probe supremecourt.gov docket-number frontier
                                  │  → onboard new petitions + applications
                                  │    (per-(Term, stream) cursors)
@@ -3519,7 +3523,8 @@ mints nothing that cycle, and since the stamp-free deriver re-derives the same
 head every cycle, counting it would starve every other owed grading for the
 whole window. What usually ends a hold early is the live job's scoped
 enrichment step (`enrich-opinions --awaiting-grading`, above), which fetches the
-body within hours of the latch and retries each window until it lands. The hold
+body within hours of the latch and retries each full live window (four a day)
+until it lands. The hold
 moves *when* a decided merits event is first graded, never what it is graded
 against; its pre-registration standing is a dated entry in
 [freeze-record.md](freeze-record.md).

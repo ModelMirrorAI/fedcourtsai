@@ -57,7 +57,14 @@ pull:
 
 # live = the SCOTUS live channel: supremecourt.gov per-docket JSON. Owns
 # SCOTUS freshness. No API budget — these caps bound per-cycle wall clock and
-# upstream politeness (~1 req/s), not spend.
+# upstream politeness (~1 req/s), not spend. Sized for twelve cycles a day (the
+# run-pull live windows, every two hours): a daily volume is the per-cycle cap
+# x 12. At these caps a cycle's docket reads come to at most ~235 (150
+# re-polls, 50 onboardings plus the frontier misses, 10 applications, the
+# 25-case selection sweep) — about four minutes of one sequential client at one
+# request a second — so the day's ceiling is ~2,800 docket reads, about 3% of
+# the day's seconds, plus the document downloads the transitions and the
+# freshness pass make. A quiet day reads far less: every tier is "up to".
 live:
   # Live petitions re-polled per cycle (overdue dockets first, then distributed
   # petitions by conference, then recent Terms, then stalest): pending ones plus
@@ -71,20 +78,24 @@ live:
   # at that peak, so cycle time is governed by the run-pull live job's
   # `--max-run-seconds` soft budget (which commits progress and resumes next
   # cycle), not by this count. The poller only fetches what is actually live —
-  # pending, or granted with the merits proceeding open.
-  max_cases_per_run: 300
+  # pending, or granted with the merits proceeding open. At twelve cycles a day
+  # 150 re-polls ~1,800 dockets a day, one full sweep of the polled watchlist
+  # (~1,800 rows), while a regular conference's distributed petitions are
+  # re-read every two hours and a long conference's (~276) within two cycles.
+  max_cases_per_run: 150
   # Days a docket the live channel has polled may go unpolled before it leads
   # the next cycle, ahead of the distributed and term tiers (stalest first).
   # Without it a tier larger than max_cases_per_run holds the head of every
   # cycle and the rows behind it are never reached. Comfortably above one
-  # sweep of the polled watchlist (~1,800 rows at 300 a cycle, four cycles a
-  # day), so the bound bites only when a tier is starving the rest.
+  # sweep of the polled watchlist (~1,800 rows at 150 a cycle, twelve cycles a
+  # day: about a day), so the bound bites only when a tier is starving the rest.
   max_poll_staleness_days: 7
   # The most of each cycle's max_cases_per_run the overdue tier may take, so a
   # large overdue backlog drains over several cycles while the distributed
   # petitions keep the rest of each one (their order-list results are days
-  # away). At four cycles a day that drains at most ~400 overdue dockets a day.
-  max_overdue_per_run: 100
+  # away). A third of max_cases_per_run; at twelve cycles a day that drains at
+  # most ~600 overdue dockets a day.
+  max_overdue_per_run: 50
   # Days after a conference by which its order list has issued: the Monday
   # after a Friday conference (Tuesday after a Monday holiday), the first
   # Monday of October after the long conference. A still-pending petition polled later than this past its
@@ -98,10 +109,11 @@ live:
   order_list_lag_days: 7
   # New petitions onboarded from the Term's numbering frontier per cycle
   # (sequential probing: paid from <term>-1, IFP from <term>-5001). Sized to
-  # absorb the long-conference onboarding burst within a day (~180 over ~2
-  # cycles) rather than trickling it over a week; the same soft
-  # budget bounds the onboarding provisioning cost per cycle.
-  max_new_cases_per_run: 100
+  # absorb the long-conference onboarding burst within a day (~180 over ~4
+  # cycles, about eight hours) rather than trickling it over a week; at most
+  # ~600 a day at twelve cycles, far above an ordinary day's filings. The same
+  # soft budget bounds the onboarding provisioning cost per cycle.
+  max_new_cases_per_run: 50
   # Unresolved interim applications re-polled per cycle (recent Terms first,
   # then stalest). A changed, still-unresolved substantive application in
   # predict scope queues predict on the poll (daily-debounced; quota'd by
@@ -109,7 +121,10 @@ live:
   # collection. Small because each re-poll is one request at the polite
   # ~1 req/s and applications resolve in days to weeks: the unresolved set
   # stays a short list that drains across cycles like the sweep backlog, so a
-  # small cap keeps the interim tail cheap without ever starving it.
+  # small cap keeps the interim tail cheap without ever starving it. Kept at 10
+  # under the twelve-cycle cadence (~120 re-polls a day, ten seconds a cycle):
+  # an emergency application can be acted on within days, so re-reading the
+  # short unresolved list every two hours is where the faster cadence pays.
   max_applications_per_run: 10
   # Oldest October Term the refresh rotation reaches — the reachability probe's
   # floor (docs/live-sources.md): full JSON coverage OT2017+.
@@ -138,17 +153,19 @@ live:
   # past it is owed again at its next poll. Each case costs one paced download
   # per owed filing (every brief of an owed opposition set) (~20 s with extraction) and nothing for a link it already
   # holds, and it runs last in the cycle, on whatever the polls, the
-  # convergence and the selection sweep left of --max-run-seconds. At four
-  # cycles a day 20 clears a backlog of a hundred-odd stale cases in two days
-  # while a cycle's share is about ten minutes, bounded by the deadline. 0 disables.
-  document_freshness_per_run: 20
+  # convergence and the selection sweep left of --max-run-seconds. At twelve
+  # cycles a day 10 (~120 cases a day) clears a backlog of a hundred-odd stale
+  # cases in about a day while a cycle's share is a few minutes, bounded by the
+  # deadline; a larger slice would multiply the day's paced PDF downloads
+  # without a matching gain. 0 disables.
+  document_freshness_per_run: 10
   # Predict timing is not configured here: the live channel stamps the predict
   # queue on a DISTRIBUTION TRANSITION — a petition newly distributed for a
   # conference, or relisted to a new one — the cert-calendar analogue of
   # pull.predict_on_change_only. No separate refresh-rate spend guard is needed
   # because both queueing paths are already bounded: max_cases_per_run above
   # bounds the transition path's worst-case daily volume, and the sweep path is
-  # separately bounded at windows x salience.sweep_cases_per_cycle. WHICH
+  # separately bounded at windows x salience.sweep_cases_per_cycle (12 x 25). WHICH
   # transitioned petitions queue is the salience gate's decision: each cycle
   # ends with the selection pass and that bounded sweep of selected petitions
   # the transition trigger missed (see `salience:` below and docs/salience.md).
@@ -397,6 +414,19 @@ salience:
   # lane — cases queued-and-provisioned per sweep cycle, cases fanned out per
   # derivation — so it is the same per-lane ceiling in both readers, not one
   # shared global budget.
+  #
+  # Not scaled down for the twelve-cycle live cadence, deliberately. The sweep
+  # reader's day ceiling rises to 12 x 25 = 300 cases, but it is a backlog
+  # tail that costs nothing once the backlog is drained, and its request cost
+  # sits inside the live section's politeness arithmetic. Model spend is not
+  # what this reader sets: the cases it can provision are the salience-selected
+  # ones (and the cohort completions narrowed to an existing cohort), whose
+  # count the capacity caps above fix per conference, so a faster
+  # sweep moves that intake earlier in the day rather than multiplying it, and
+  # the per-run predict caps, the review hold and `spend:` below still bound
+  # what a day spends. The deriver reader runs per predict round, not per live
+  # cycle, so cutting the knob to hold the sweep's daily volume flat (25 -> 8)
+  # would instead cut every predict round's fan-out by two thirds.
   sweep_cases_per_cycle: 25
   # A relist inside this many days of a petition's last prediction — the later
   # of the pull lane's `predict_queued_at` stamp and the newest committed

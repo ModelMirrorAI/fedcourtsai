@@ -36,8 +36,8 @@ on:
     # rates, not yet measured as lanes), and then land a
     # **reviewed** PR before the Monday 08:30 digest tick reads the report —
     # roughly 50 hours, which no weekday slot leaves. It opens after
-    # run-pull's 04:47 live window (35-minute cap) has committed and closes well
-    # before the 07:17 ingestion window; the replay only ever reads the corpus
+    # run-pull's 04:47 live window (40-minute cap) has committed and before the
+    # 06:47 live window; the replay only ever reads the corpus
     # and takes no `corpus-write` lock, so an overlap would cost a staler read
     # and nothing else. The minute is off every other workflow's (:00, :12, :13,
     # :17, :27, :30, :31, :32, :39, :41, :47, :53) so the repo's offset grid
