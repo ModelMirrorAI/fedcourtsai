@@ -8767,7 +8767,7 @@ freeze commit is recorded here.
   Its summary counts, with the blob's sha and its `corpus-info` vintage, go
   on the next line, which must stay one line of plain prose with no angle
   bracket or backtick:
-  <FILL: census summary counts, blob sha and vintage, as one plain line>
+  At corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39041844535 at a0c0ba591: 25805 live-slice SCOTUS rows walked, 25682 with a live snapshot; 113 carry a withheld petitioner block, 112 newly scrubbed (15 selected, 4 pending, 40 with stored documents, 425 spans withheld), 0 value-only to value+shape, 1 unchanged; 54 residual rows carry the Court shape with neither counsel key (0 selected, 2 pending).
 
   **A harness boundary under the 2026-10-11 pooled rule.** The change moves
   what a predict cell reads under unchanged digests, so it is composition and
@@ -9170,7 +9170,7 @@ freeze commit is recorded here.
   still parked and never fired, each with n, and the corpus vintage) goes on
   the next line, which must stay one line of plain prose with no angle
   bracket or backtick:
-  <FILL: resolved-application census, old vs new scan, outcome split freed, still parked and never fired with n, corpus vintage>
+  At corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39041844535 at a0c0ba591: the old pattern is the current base pattern, and the new scan fires on 0 snapshots the old does not; of 8 pending applications, 0 without a snapshot, neither scan fires on any (0 dockets freed); of 635 resolved substantive applications, 51 read at a last pre-resolution snapshot split freed n=0, still parked n=0, never fired n=51 (42 denied, 7 granted, 2 withdrawn), and 584 skipped for no resolution date or no pre-resolution snapshot.
 
   **Not comparable across either boundary.** Forward interim figures are not
   comparable across this entry's carrying merge, or across the boundary of the
@@ -9565,7 +9565,7 @@ freeze commit is recorded here.
   binding test refuses a row no entry of its date names), and it moves the
   default from that entry on. The census that reconciles the list with the
   corpus, `scripts/checks/post_conference_census.py`, also counts the events
-  a relist kept in. Read at the carrying head: <FILL: post-conference census at the carrying head as one plain line, census events, listed, owed, relist keep-ins, unreadable, and the corpus vintage>.
+  a relist kept in. Read at the carrying head: 16 census events (7 resolved, 7 with graded cells, 63 graded cells), all 16 listed in set_aside_events.json, 0 owed, 0 listed events the census does not find, 0 unreadable, and 60 events kept in by a relist docketed by the first cell's run day, read after the carrying merge, at corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39041844535 at a0c0ba591, ledger at a0c0ba591, newest prediction run 20261016T142604Z, newest evaluation run 20261016T154557Z.
 
   **What it moves.** At the ledger above 7 of the listed events are resolved
   and graded, 63 frozen-scope gradings (7 events by 9 gradings, 21 per
@@ -9856,7 +9856,7 @@ freeze commit is recorded here.
   overwrites that day's, so a referral entered after the latest pull is
   missing from it; the census counts such a referral unreadable where the
   corpus row records one. Read at the PR head the corpus-check lane answered at:
-  <FILL: increment timing census at the PR head the corpus-check lane answered at as one plain line, before-run, during-run and run-day counts per claim by both readings, referral claims dated before or on the run day, unreadable referrals, and the corpus vintage>.
+  At corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39041844535 at a0c0ba591, ledger at a0c0ba591, newest prediction run 20261016T142604Z, newest evaluation run 20261016T154557Z: response-requested-increment 68 live claims with the signal 24 before the run, 0 during it and 3 on the run day, by both readings; cvsg-increment 742 live at this ledger, against 739 at 10cf97c36 above, with 0, 0 and 0 by both readings; referral-increment 144 live, 0 before and 0 during the run by both readings, on the run day 15 by the corpus reading, all resolved, on scotus/9526000428 and scotus/9526000477, against 0 by the ledger reading, and unassessable 66 by the ledger reading and 0 by the corpus reading, the corpus reading's 15 lying within the ledger reading's 66; so by the corpus reading 0 referral claims dated before the run day and 15 on it; 0 unreadable referrals; no disagreement between the readings beyond the unassessable.
 
   Carried to `main` by `promotion/2026-10-16` (merge commit
   `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
@@ -10119,7 +10119,7 @@ freeze commit is recorded here.
   reading names, by Term, ask and label, and the committed interim outcomes
   on them. Its result goes on the next line, one line of plain prose with no
   angle bracket or backtick:
-  <FILL: interim reading census at corpus sha256 and corpus-info freshness, rows named partial or moot by Term and ask, statpack vs re-read substantive counts by Term with unobservable and non-live counts, registered disagreements, stored denials with a granting application clause as unconfirmed candidates for a side-motion misread, committed outcomes on the named rows>
+  At corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39041844535 at a0c0ba591, ledger at a0c0ba591, newest prediction run 20261016T142604Z, newest evaluation run 20261016T154557Z: 23 rows named, granted-in-part and dismissed-moot by Term and ask OT2023 substantive 0 and 3, OT2024 substantive 2 and 5, OT2024 unknown 1 and 0, OT2025 substantive 2 and 8, OT2026 substantive 0 and 2; substantive granted over resolved, statpack and re-read identical, OT2023 18/127, OT2024 18/196, OT2025 17/226, OT2026 9/86, with 0 unobservable and 0 non-live in every Term; the registered reading reproduces 4442 of 4442 stored labels, so 0 registered disagreements; 6 stored denials with a granting application clause, unconfirmed side-motion candidates, scotus/69874414, scotus/71168440, scotus/72416526, scotus/72417039, scotus/73278732, scotus/73541961; 6 committed interim outcomes on the named rows, 3 events each on scotus/9526000139 and scotus/9526000477, all recorded denied where the finer reading names dismissed-moot, carrying 18 predictions in all.
 
   **Residuals of the finer reading.**
   - A partial stay worded only in a later sentence ("The application is
