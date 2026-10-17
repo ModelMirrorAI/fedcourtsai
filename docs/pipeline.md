@@ -518,7 +518,8 @@ summarize-plan` derives the owed cases from committed state — a case with a
 committed prediction whose newest corpus record differs, by content digest,
 from the one its newest summary was written from — so a run that was declined
 or never fired is simply re-derived by the next. Every run holds on `review`
-before it spends. The corpus role and the Anthropic API key never share
+before it spends, unless a `main` run's plan is within the auto-release caps
+and budget (*Auto-release*, above). The corpus role and the Anthropic API key never share
 a job; on `main` the result lands as one reviewed PR from the fixed branch
 `summaries/refresh`, never auto-merged, which later runs update in place until
 it merges. A `staging` dispatch is a rehearsal whose summaries stay in the run
@@ -2187,37 +2188,64 @@ events were each minted before the other spent, and releasing both
 double-spends the overlap. The two plan reports make the overlap visible
 before either release, each on its own run's step summary.
 
-**Auto-release.** A predict round can skip the wait. Its plan job runs `fedcourts
-hold-decision` over the plan document the report renders and the matrix the
-round minted. A round auto-releases, binding the reviewer-less `review-auto`
-environment instead of `review`, when three things hold:
+**Auto-release.** A predict, evaluate or summarize round can skip the wait;
+the back-test cannot. Its plan job runs `fedcourts hold-decision --seam
+<lane>` over the plan document the report renders, the matrix the round minted
+(predict and evaluate; a summarize run has none, because its generate job runs
+the plan itself) and the committed spend ledger in its checkout. A round
+auto-releases, binding the reviewer-less `review-auto` environment instead of
+`review`, when four things hold:
 - the matrix holds exactly the plan's would-mint cells, so the price is the
-  price of what runs;
-- the larger of the plan's estimate and the matrix's own cells at the planning
-  rates is within `auto_release_usd_per_round` (`config/review-hold.yaml`);
-- fewer than `auto_release_rounds_per_day` rounds were auto-released in the
-  trailing 24 hours.
+  price of what runs (predict and evaluate);
+- the round's price is within `auto_release_usd_per_round`
+  (`config/review-hold.yaml`): the larger of the plan's estimate and the
+  matrix's own cells at the planning rates for that seam, or a summarize
+  plan's upper estimate (`estimated_cost_usd_high`);
+- fewer than `auto_release_rounds_per_day` rounds, across the three lanes
+  together, were auto-released in the trailing 24 hours;
+- measured spend over the `spend` backstop's trailing window, plus the
+  in-flight bound, plus this round's price, is within
+  `auto_release_budget_usd`. Measured spend is every committed `usage.json`
+  plus the usage each committed case summary's front matter records; the
+  in-flight bound is the rounds auto-released in the last 24 hours times the
+  per-round cap, standing in for released spend whose collect PR has not
+  landed yet. The run's summary prints the sum term by term.
 
 The daily count is the larger of two records: the round's deployment to
-`review-auto`, and its ready collect commit on `main`, which collect marks
-`[auto-released]`. A write holder could prune the first or edit an unmerged
-collect PR, but not `main`'s history. The `spend` backstop, read from the
-committed ledger, stays behind both. It is an ex-post bound that lags the
-ledger, so the two caps' product, which bounds *estimated* spend, is the only
-bound that applies before a round spends. Both caps start at 0, which disables
-it, and the decision fails closed: an unreadable count, a missing or mismatched
-matrix, or a plan with no estimate keeps the hold. The caps, the planning rates
-and the decision code are maintainer-owned. Lowering a cap rides a promotion,
-so the emergency stop is a required reviewer on the `review-auto` environment:
-it takes effect at the next round, without a commit, and every round then waits
-as if held. The `DISPATCH_CHAIN_ENABLED` variable is no substitute, because
-`false` stops only the chaining and a scheduled round still auto-releases. The staleness rule above does not bite on
-this path, because the plan is released minutes after it is minted; what keeps
-a following round from re-planning this one's cells is the stranded-run guard,
-and the `chain` job's wait for the collect PR to merge. The plan report and a
-*Hold and drain* line on the run's summary record what was released and why,
-so an auto-released round reads like a held one afterwards. Evaluate and the
-back-test have no auto-release; every round of theirs waits on the hold. A
+`review-auto`, which all three lanes share, and its commit on `main`, which
+carries the `[auto-released]` mark: collect marks a predict or evaluate
+round's ready commit, and summarize's publish step marks its commit, whose
+subject names the Actions run. A write holder could prune the first or edit an
+unmerged PR, but not `main`'s history. The summaries branch is rebuilt each
+run and its PR merges only on a maintainer's review, so for that lane the
+committed record lags and the deployment count is what binds.
+
+The budget is a projection over a ledger that lags, so it is a floor on
+spend, not a live figure: a round a maintainer released by hand and whose
+collect PR has not landed, a summaries PR still open, and a rejected summary
+response's tokens are all invisible to it. That is why the budget must sit
+below the `spend` backstop's ceiling (`tracking.yaml`): the backstop stops
+minting outright, and the budget stops only the *unattended* release, leaving
+the gap between the two for rounds a maintainer chooses to release. A budget at
+or above the ceiling, or a backstop at 0, keeps every round on the hold with
+that reason named rather than adopting the budget. Any knob at 0 disables
+auto-release, and the decision fails closed: an unreadable count or ledger, a
+missing or mismatched matrix, or a plan with no estimate keeps the hold. The
+knobs, the planning rates and the decision code are maintainer-owned. Lowering
+a knob rides a promotion, so the emergency stop is a required reviewer on the
+`review-auto` environment: it takes effect at the next round of every lane,
+without a commit, and every round then waits as if held. The
+`DISPATCH_CHAIN_ENABLED` variable is no substitute, because `false` stops only
+predict's chaining and a scheduled round still auto-releases. The staleness
+rule above does not bite on this path, because the plan is released minutes
+after it is minted; what keeps a following predict round from re-planning this
+one's cells is the stranded-run guard and the `chain` job's wait for the
+collect PR to merge, and what keeps evaluate and summarize from re-planning
+theirs is their own serializing group and plan-time gates. The plan report and
+a *Hold* block on the run's summary (*Hold and drain* on predict) record what
+was released and why, so an auto-released round reads like a held one
+afterwards. The back-test has no auto-release; every one of its rounds waits on
+the hold. A
 rejected hold is an unsatisfied-gate report, not an incident — but unlike
 `promote`, whose failures the ops report annotates as gate reports, the
 report cannot distinguish a rejected hold from a real fan-out failure,
@@ -3597,7 +3625,8 @@ backfill:
 **The hold, not the enable, is the spend gate.** A resuming round starts
 at the plan job, which renders a fresh plan report, and the matrix waits behind
 the approval job on the `review` environment's required reviewers — or, for a
-predict round within the auto-release caps, binds `review-auto` at once. So a
+predict, evaluate or summarize round within the auto-release caps and budget,
+binds `review-auto` at once. So a
 recovery cannot leak spend past the hold or those caps, and the fresh plan re-anchors the
 already-predicted gate and the stranded-run guard exactly as the review-hold
 rules above require. Two outcomes of that first round back are the machinery

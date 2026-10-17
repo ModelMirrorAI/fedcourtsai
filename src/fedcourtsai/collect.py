@@ -571,8 +571,9 @@ def parse_cell_artifact_name(role: FinalizeRole, name: str) -> ExpectedCell | No
     return cell if cell_artifact_name(role, cell) == name else None
 
 
-#: The mark a review-hold auto-released predict round's ready commit carries in
-#: its subject (:func:`collect_plan`), and what
+#: The mark a review-hold auto-released round's commit carries in its subject —
+#: a predict or evaluate round's ready commit (:func:`collect_plan`), a
+#: summarize run's publish commit — and what
 #: :func:`fedcourtsai.review_hold.count_auto_released` counts on ``main``.
 AUTO_RELEASED_MARKER = "[auto-released]"
 

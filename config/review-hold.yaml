@@ -1,21 +1,55 @@
-# When a predict round may skip the `review` hold (src/fedcourtsai/review_hold.py
-# and `fedcourts hold-decision`). Every round renders its plan and waits for a
-# maintainer to release it; a round whose plan prices at most
-# `auto_release_usd_per_round` of spend is released without that wait, for at
-# most `auto_release_rounds_per_day` rounds in any trailing 24 hours. The next
-# round past either cap waits on the `review` hold, and the `spend` backstop in
-# tracking.yaml stands behind both, ex post.
+# When a predict, evaluate or summarize round may skip the `review` hold
+# (src/fedcourtsai/review_hold.py and `fedcourts hold-decision`). Every round
+# renders its plan and waits for a maintainer to release it, unless all three
+# bounds below hold at once:
+#
+#   - its plan prices at most `auto_release_usd_per_round`;
+#   - fewer than `auto_release_rounds_per_day` rounds, across the three lanes
+#     together, were auto-released in the trailing 24 hours;
+#   - measured spend over the spend backstop's trailing window (tracking.yaml
+#     `spend.window_days`: every committed usage.json plus the usage each
+#     committed case summary records) + the in-flight bound (rounds
+#     auto-released in the last 24 hours x the per-round cap, for spend that has
+#     not reached the ledger yet) + this round's price is at most
+#     `auto_release_budget_usd`.
+#
+# The next round past any bound waits on the `review` hold, and the `spend`
+# backstop in tracking.yaml stands behind all three, ex post. The back-test is
+# not a lane here: its replay always waits on a maintainer's release.
 #
 # This file is spend authority, so it lives apart from tracking.yaml and is
 # owned by the maintainer (.github/CODEOWNERS, AGENTS.md's maintainer-only
 # classes): raising a cap lets more spend run without a human release.
 #
-# The price is the planning rate table's (src/fedcourtsai/planning_rates.py),
-# taken over both the plan's would-mint cells and the matrix the round actually
-# minted, the larger of the two. Those rates price some engines low, and retries
-# spend more than a cell's rate, so actual spend can exceed the estimate; set
-# the per-round cap with that margin in mind. `0` DISABLES auto-release, which
-# is where both start: adopting it is a maintainer's decision, and the unattended
-# daily bound on *estimated* spend is at most the product of the two caps.
-auto_release_usd_per_round: 0
-auto_release_rounds_per_day: 0
+# A predict or evaluate round's price is the planning rate table's
+# (src/fedcourtsai/planning_rates.py), taken over both the plan's would-mint
+# cells and the matrix the round actually minted, the larger of the two; a
+# summarize round's is its plan's upper estimate. Those rates price some
+# engines low, and retries spend more than a cell's rate, so actual spend can
+# exceed the estimate. The budget is a projection over a ledger that lags —
+# a manually released round in flight, an unmerged summaries PR and a rejected
+# summary response are invisible to it — which is why it must sit below the
+# backstop's ceiling: a budget at or above `spend.ceiling_usd` keeps every
+# round on the hold. `0` in any knob DISABLES auto-release.
+#
+# The values. Measured on the committed ledger at 2026-10-17 (newest usage
+# created_at 2026-10-16T15:45:57Z): $2,715.66 over 1,155 agent cells plus $97.32
+# over 751 case summaries in the trailing 30 days, $2,812.98 in all — the
+# long-conference campaign (2026-09-16..18 and 2026-10-05..07) still sits in the
+# window. Committed rounds since that campaign ran $0.41-$97.25 each (predict)
+# and $1.82-$90.48 (evaluate); campaign rounds ran $160-$200.
+#
+# - Budget $2,000: the model-API envelope in docs/budget.md, half the
+#   backstop's $4,000 ceiling, so manual releases keep $2,000 of room above
+#   where unattended spend stops. With the campaign still in the window, nothing
+#   auto-releases until it rolls off (roughly early November at the current
+#   ledger); the steady state since then runs at ~$1,300 per 30 days.
+# - Per round $75: releases the steady-state rounds and holds a campaign-sized
+#   one for a human read.
+# - Six rounds a day: the four scheduled slots (two predict, one evaluate, one
+#   summarize) plus two predict drain rounds the chain dispatches. Unattended
+#   estimated spend is then at most 6 x $75 = $450 a day, and the in-flight
+#   bound reaches $375 before the sixth round.
+auto_release_usd_per_round: 75
+auto_release_rounds_per_day: 6
+auto_release_budget_usd: 2000

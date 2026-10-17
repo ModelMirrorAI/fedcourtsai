@@ -13,12 +13,13 @@ from typer.testing import CliRunner
 from fedcourtsai import cli, corpus, planning_rates
 from fedcourtsai.cli import app
 from fedcourtsai.collect import ExpectedCell, cell_artifact_name, run_branch
+from fedcourtsai.config import SpendConfig
 from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.finalize import FinalizeRole
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.registry import enabled_evaluators
-from fedcourtsai.review_hold import ReviewHoldConfig
+from fedcourtsai.review_hold import MeasuredSpend, ReviewHoldConfig
 from fedcourtsai.review_hold import decide as decide_hold
 from fedcourtsai.schemas import Disposition, Engine, EventKind, ModelUsage, Stage, UsageRole
 from fedcourtsai.serialize import write_json
@@ -3312,12 +3313,28 @@ def test_hold_decision_reads_a_real_predict_plan(tmp_path: Path) -> None:
     # price the plan as the price of what runs; the matrix's own priced cells
     # are the same rates over the same cells.
     assert len(matrix["include"]) == plan["counts"]["cell_ledger"]["would_mint_cells"]
-    decision = decide_hold(plan, ReviewHoldConfig(), released_last_day=0, matrix=matrix)
+
+    def decide(plan: dict[str, Any], config: ReviewHoldConfig, matrix: Any) -> Any:
+        return decide_hold(
+            plan,
+            config,
+            seam="predict",
+            released_last_day=0,
+            matrix=matrix,
+            backstop=SpendConfig(ceiling_usd=4000.0),
+            measured=MeasuredSpend(cells_usd=0.0, summaries_usd=0.0),
+        )
+
+    decision = decide(plan, ReviewHoldConfig(), matrix)
     assert decision.drain_more
     assert decision.estimated_spend_usd == plan["estimated_spend_usd"]
     assert decision.matrix_cells == decision.plan_cells
-    on = ReviewHoldConfig(auto_release_usd_per_round=50.0, auto_release_rounds_per_day=1)
-    assert decide_hold(plan, on, released_last_day=0, matrix=matrix).auto_release
+    on = ReviewHoldConfig(
+        auto_release_usd_per_round=50.0,
+        auto_release_rounds_per_day=1,
+        auto_release_budget_usd=1000.0,
+    )
+    assert decide(plan, on, matrix).auto_release
 
     uncapped = tmp_path / "uncapped"
     uncapped.mkdir()
@@ -3330,4 +3347,45 @@ def test_hold_decision_reads_a_real_predict_plan(tmp_path: Path) -> None:
     plan = json.loads(
         runner.invoke(app, ["predict-plan", "--body-file", str(body)], env=env).stdout
     )
-    assert not decide_hold(plan, ReviewHoldConfig(), released_last_day=0, matrix=None).drain_more
+    assert not decide(plan, ReviewHoldConfig(), None).drain_more
+
+
+def test_hold_decision_reads_a_real_evaluate_plan(tmp_path: Path) -> None:
+    """The evaluate seam against the documents `evaluate-plan` and
+    `evaluate-matrix` actually emit: the plan's cell count and estimate sit at
+    the same key paths as predict's, the matrix cells carry their engine, and
+    the matrix prices at the evaluate rates."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    shutil.rmtree(tmp_path / "data" / "cases" / "scotus" / "24002")
+    matrix = json.loads(
+        runner.invoke(
+            app, ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body)], env=env
+        ).stdout
+    )
+    plan = _plan(
+        runner.invoke(
+            app, ["evaluate-plan", "--run-id", "RID", "--body-file", str(body)], env=env
+        ).stdout
+    )
+    on = ReviewHoldConfig(
+        auto_release_usd_per_round=50.0,
+        auto_release_rounds_per_day=1,
+        auto_release_budget_usd=1000.0,
+    )
+    decision = decide_hold(
+        plan,
+        on,
+        seam="evaluate",
+        released_last_day=0,
+        matrix=matrix,
+        backstop=SpendConfig(ceiling_usd=4000.0),
+        measured=MeasuredSpend(cells_usd=0.0, summaries_usd=0.0),
+    )
+    assert decision.plan_cells == decision.matrix_cells == 3
+    assert (
+        decision.estimated_spend_usd == plan["estimated_spend_usd"] == round(5.92 + 1.30 + 0.96, 2)
+    )
+    assert decision.auto_release, decision.auto_release_reason
+    assert not decision.drain_more

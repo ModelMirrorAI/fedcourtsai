@@ -77,8 +77,8 @@ workflow mechanics and the cascade diagram:
 job bound to the `review` deployment environment, whose required reviewers gate
 it. No cell runs and no tokens are spent until a reviewer releases the
 deployment: an explicit, audit-logged step on every run that has cells to
-spend on — unless a predict round's own plan is within the auto-release caps
-in `config/review-hold.yaml`, which are off until a maintainer sets them
+spend on — unless the round's own plan is within the auto-release caps and
+trailing spend budget in `config/review-hold.yaml`
 ([`docs/pipeline.md`](docs/pipeline.md)).
 
 ### Why this shape

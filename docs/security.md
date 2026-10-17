@@ -229,7 +229,7 @@ Release on an existing tag, which Zenodo archives permanently (no repository
 setting restricts Release creation; the tag-creation rulesets below are
 expected to refuse one that would mint a new tag, which is unverified, and a
 draft creates no tag until someone publishes it); prune the
-deployment list the auto-release cap reads; and push onto an open
+deployment list the auto-release daily cap reads; and push onto an open
 data-lane PR's branch — which then waits for the maintainer, since the job's
 own merge is pinned to the commit it pushed and an armed auto-merge exercises
 no bypass, so it needs the approval like any PR. Each is
@@ -685,34 +685,41 @@ run-evaluate, run-backtest and summarize declare
 It carries no secrets, no variables and no role, and its deployment branches
 are `main` and `staging` — `staging` so that summarize's staging rehearsal
 (the one held lane whose jobs resolve their environment from the ref) passes
-the same hold its production run does. A `run-predict` round its own plan
-auto-released binds **`review-auto`** instead: no required reviewers, on
-purpose — adding one would only make it a second `review` — no secrets, no
-variables, no role, and deployment branches restricted to `main`, so only a
-`main` run adds to the deployment count the next round's plan reads against
-the daily cap. Create it that way before setting the caps: GitHub would
-otherwise create it on first reference with no branch policy, and the
-promotion gate's `contexts` stage refuses a `main` that binds it unless it is
-restricted to `main` and carries no secrets or variables. The deployment count
-is only as good as the deployment record, which any write holder could prune,
-and that includes the agent account interactive sessions act as. So the daily
-cap reads a second record beside it, the
-auto-released collect commits on `main` (collect marks a released round's
-ready commit, and `main`'s history cannot be rewritten), and takes the larger
-count; an unreadable record keeps the hold. A write holder could still edit an
-unmerged collect PR's commit, so the committed count bounds what has landed,
-not what is in flight. The `spend` backstop, read from the committed ledger,
-is the bound that rests on neither, though it is ex post: it lags the ledger
-and stops the next round, never the current one. So the two caps' product,
-which bounds *estimated* spend, is the only bound that applies before a round
-spends, and actual spend can exceed an estimate. The caps change only by
-promotion, so the immediate stop for auto-release is the environment itself:
-adding a required reviewer to `review-auto` makes every round that binds it
-wait like a held one, from the next round on, with no commit. The promotion
-gate checks only `review-auto`'s branch policy and that it holds no secrets or
-variables, so the added reviewer does not block a promotion. Setting the
-`DISPATCH_CHAIN_ENABLED` variable to `false` stops only the chaining; a
-scheduled round still auto-releases within the caps. In either
+the same hold its production run does. A `run-predict`, `run-evaluate` or
+`summarize` round its own plan auto-released binds **`review-auto`** instead
+(`run-backtest` never does): no required reviewers, on purpose — adding one
+would only make it a second `review` — no secrets, no variables, no role, and
+deployment branches restricted to `main`, so only a `main` run adds to the
+deployment count every lane's next plan reads against the shared daily cap,
+and a summarize staging rehearsal always holds on `review`. Create it that way
+before setting the caps: GitHub would otherwise create it on first reference
+with no branch policy, and the promotion gate's `contexts` stage refuses a
+`main` that binds it unless it is restricted to `main` and carries no secrets
+or variables. The deployment count is only as good as the deployment record,
+which any write holder could prune, and that includes the agent account
+interactive sessions act as. So the daily cap reads a second record beside it,
+the auto-released commits on `main` (collect marks a released predict or
+evaluate round's ready commit, summarize's publish step its commit, and
+`main`'s history cannot be rewritten), and takes the larger count; an
+unreadable record keeps the hold. A write holder could still edit an unmerged
+collect PR's commit, and the summaries branch is rebuilt each run and merges
+only on a maintainer's review, so the committed count bounds what has landed,
+not what is in flight. Before a round spends, three bounds apply: the
+per-round cap and the daily count, which bound *estimated* spend, and the
+trailing budget, which projects measured spend from the committed ledger plus
+an in-flight allowance plus the round's estimate and must sit below the
+`spend` backstop's ceiling (a budget at or above it holds every round). Both
+the budget and the backstop read the committed ledger, so both lag it, and
+actual spend can exceed an estimate; the backstop is the bound that stops
+minting outright, and it stops the next round, never the current one. The
+knobs change only by promotion, so the immediate stop for auto-release is the
+environment itself: adding a required reviewer to `review-auto` makes every
+round of every lane that binds it wait like a held one, from the next round
+on, with no commit. The promotion gate checks only `review-auto`'s branch
+policy and that it holds no secrets or variables, so the added reviewer does
+not block a promotion. Setting the `DISPATCH_CHAIN_ENABLED` variable to
+`false` stops only predict's chaining; a scheduled round still auto-releases
+within the caps. In either
 environment, each job it gates runs one echo under `permissions: {}`, so the
 environment grants nothing and merely withholds the spend behind it — a
 fan-out's matrix, the back-test's fortnightly replay, or a case-summary

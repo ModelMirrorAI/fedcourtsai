@@ -1,42 +1,63 @@
-"""Whether a predict round may skip the `review` hold, and whether to chain another.
+"""Whether a spend round may skip the `review` hold, and whether to chain another.
 
-The `review` hold is the per-round spend gate: every round renders its plan and
-waits for a maintainer to release it. Two decisions read that same plan, and
-both are made here so the workflow only routes on their answers:
+The `review` hold is the per-round spend gate: every predict, evaluate and
+summarize round renders its plan and waits for a maintainer to release it.
+Two decisions read that same plan, and both are made here so the workflow only
+routes on their answers:
 
-- **Auto-release.** A round whose priced fan-out is under the per-round cap,
-  while fewer than the daily number of rounds have been auto-released in the
-  trailing 24 hours, skips the hold. It fails closed: an unknown count, a
-  missing estimate, a matrix that disagrees with the plan, or a disabled cap
-  all keep the hold.
-- **Drain.** A round that left owed work behind because a cap stopped it — the
-  per-round cell cap, or the reconciliation's case cap — asks for another round
-  as soon as its own output has landed, rather than waiting for the next
-  scheduled slot. A drained backlog, or a round stopped by anything else, asks
-  for nothing.
+- **Auto-release.** A round skips the hold when its priced plan is under the
+  per-round cap, fewer than the daily number of rounds have been
+  auto-released in the trailing 24 hours across the three lanes, and the
+  round's projected spend keeps the trailing-window total under the
+  auto-release budget (below). It fails closed: an unknown count, an unread
+  ledger, a missing estimate, a matrix that disagrees with the plan, a budget
+  that does not sit below the spend backstop's ceiling, or a disabled knob all
+  keep the hold.
+- **Drain.** A predict round that left owed work behind because a cap stopped
+  it — the per-round cell cap, or the reconciliation's case cap — asks for
+  another round as soon as its own output has landed, rather than waiting for
+  the next scheduled slot. A drained backlog, a round stopped by anything else,
+  or a round of another lane asks for nothing.
 
-**What is priced is what runs.** The plan document is a second walk of the
-backlog; the cells that actually spend are the matrix the first walk minted.
-The two are built by the same helpers but nothing forces them to agree, so a
-round auto-releases only when the matrix holds exactly the plan's would-mint
-cell count, and its price is the larger of the plan's estimate and the
-matrix's own cells priced at the same planning rates
-(:mod:`fedcourtsai.planning_rates`).
+**The budget is a projection over measured spend.** A round is released only
+when ``measured + in_flight + estimate <= auto_release_budget_usd``, where
+*measured* is the committed spend over the spend backstop's trailing window
+(``tracking.yaml``'s ``spend.window_days``): every ``usage.json`` on the ledger
+(:func:`fedcourtsai.spend.trailing_spend`) plus the usage every committed case
+summary's front matter records; *in_flight* is the rounds auto-released in the
+last 24 hours times the per-round cap, a conservative upper bound on released
+spend that has not reached the ledger yet (a collect PR lands only once its
+checks pass); and *estimate* is this round's price. The ledger is a floor on
+what was spent — a manually released round still in flight, a summary run whose
+review PR has not merged, and a rejected summary response's tokens are all
+invisible to it — so the budget sits below the backstop's ceiling, which stops
+minting outright, and a budget at or above that ceiling keeps every round on
+the hold rather than being adopted silently.
+
+**What is priced is what runs.** A predict or evaluate plan document is a
+second walk of the backlog; the cells that actually spend are the matrix the
+first walk minted. The two are built by the same helpers but nothing forces
+them to agree, so such a round auto-releases only when the matrix holds exactly
+the plan's would-mint cell count, and its price is the larger of the plan's
+estimate and the matrix's own cells priced at the same planning rates
+(:mod:`fedcourtsai.planning_rates`). A summarize round has no matrix: its
+generate job runs the plan document itself, so the price is the plan's upper
+estimate.
 
 **The daily count has two sources.** Each auto-released round leaves a
-deployment to the `review-auto` environment, and its ready collect commit lands
-on `main` with the auto-released mark in its subject
-(:data:`fedcourtsai.collect.AUTO_RELEASED_MARKER`). A write holder can prune
-the deployment list; `main`'s history is append-only. The count is the larger
-of the two, and an unreadable source keeps the hold.
+deployment to the `review-auto` environment, which every lane shares, and its
+collect or publish commit carries the auto-released mark in its subject
+(:data:`fedcourtsai.collect.AUTO_RELEASED_MARKER`) on its way to `main`. A
+write holder can prune the deployment list; `main`'s history is append-only.
+The count is the larger of the two, and an unreadable source keeps the hold.
 
-The decision is pure: the counts, the matrix and the commit subjects come in as
-arguments, so the rule is testable without the Actions API, and the workflow is
-responsible only for reading them. The caps' model and loader, and the glue
-that turns the files the workflow read into those arguments
-(:func:`decide_from_files`), live here too, so everything that decides whether
-a round spends unattended sits in one code-owned module and the CLI only
-parses options.
+The decision is pure: the counts, the matrix, the measured spend and the
+commit subjects come in as arguments, so the rule is testable without the
+Actions API, and the workflow is responsible only for reading them. The caps'
+model and loader, and the glue that turns the files the workflow read into
+those arguments (:func:`decide_from_files`), live here too, so everything that
+decides whether a round spends unattended sits in one code-owned module and
+the CLI only parses options.
 """
 
 from __future__ import annotations
@@ -45,25 +66,37 @@ import json
 import math
 import re
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, get_args
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from .collect import AUTO_RELEASED_MARKER
+from .config import SpendConfig, load_spend_config
 from .planning_rates import price_cells
+from .spend import trailing_spend
+from .summaries import parse_summary
+
+#: The lanes whose rounds the review hold may auto-release. The back-test is
+#: not one: its replay always waits on a maintainer's release.
+Seam = Literal["predict", "evaluate", "summarize"]
+SEAMS: tuple[Seam, ...] = get_args(Seam)
 
 
 class ReviewHoldConfig(BaseModel):
-    """When a predict round may skip the `review` hold (``config/review-hold.yaml``).
+    """When a spend round may skip the `review` hold (``config/review-hold.yaml``).
 
     The hold is the per-round spend gate: a maintainer releases each round's plan
-    before a cell spends. Auto-release lets a round whose *estimated* spend is
-    small skip that wait, so a backlog drains without a human releasing every
-    cycle. It is bounded twice — per round by estimated spend, per day by the
-    number of rounds released this way — and anything above either bound still
-    waits on the hold. The ex-post backstop (`spend`) stands behind both.
+    before a cell spends. Auto-release lets a predict, evaluate or summarize
+    round skip that wait, so the lanes drain without a human releasing every
+    cycle. It is bounded three times — per round by estimated spend, per day by
+    the number of rounds released this way, and over the spend backstop's
+    trailing window by projected total spend — and anything past any bound
+    still waits on the hold. The ex-post backstop (`spend`) stands behind all
+    three.
     """
 
     model_config = ConfigDict(extra="ignore")
@@ -71,16 +104,24 @@ class ReviewHoldConfig(BaseModel):
     # A round whose plan estimates at most this much spend, USD, is released
     # without the hold. `0` DISABLES auto-release (the convention the other caps
     # use), which is the default: every round waits on the hold until a
-    # maintainer adopts a value.
-    # At most $50: a sanity bound, so a slipped decimal ("500" for "5.00")
-    # is refused at load rather than adopted as a cap.
-    auto_release_usd_per_round: float = Field(default=0.0, ge=0.0, le=50.0, allow_inf_nan=False)
-    # At most this many rounds are auto-released in any trailing 24 hours; the
-    # next one waits on the hold. `0` disables auto-release too. The daily bound
-    # on unattended *estimated* spend is therefore at most this times the
-    # per-round cap; the `spend` backstop bounds what is actually spent.
-    # At most 100: the plan job reads one page of the deployments it counts.
+    # maintainer adopts a value. It is also the in-flight allowance per round
+    # released in the last 24 hours in the budget projection.
+    # At most $250: a sanity bound above the largest committed round, so a
+    # slipped decimal ("750" for "7.50") is refused at load rather than adopted.
+    auto_release_usd_per_round: float = Field(default=0.0, ge=0.0, le=250.0, allow_inf_nan=False)
+    # At most this many rounds, across the predict, evaluate and summarize
+    # lanes together, are auto-released in any trailing 24 hours; the next one
+    # waits on the hold. `0` disables auto-release too. The daily bound on
+    # unattended *estimated* spend is therefore at most this times the
+    # per-round cap.
+    # At most 100: the plan jobs read one page of the deployments they count.
     auto_release_rounds_per_day: int = Field(default=0, ge=0, le=100)
+    # The trailing-window budget on total model spend, USD, over the spend
+    # backstop's window (`tracking.yaml` `spend.window_days`). A round is
+    # released only when measured spend plus the in-flight bound plus its own
+    # estimate stays within it. `0` disables auto-release too. A budget at or
+    # above the backstop's ceiling keeps every round on the hold.
+    auto_release_budget_usd: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
 
 
 #: The auto-release caps' own file, apart from ``tracking.yaml`` because it is
@@ -99,19 +140,40 @@ def load_review_hold_config(config_root: Path) -> ReviewHoldConfig:
     return ReviewHoldConfig.model_validate(data or {})
 
 
-#: A ready predict commit's subject on `main`, carrying the auto-released mark.
-#: The squash takes the commit message for a one-commit PR —
-#: ``predict(run <id>): N prediction(s) [auto-released] (#N)`` — and the PR
-#: title otherwise — ``predict: N prediction(s) (run <id>) [auto-released] (#N)``
-#: — so the run id is read wherever it sits, before the mark.
-_AUTO_RELEASED_SUBJECT = re.compile(
-    r"^predict\b.*?\brun (?P<run>\d{8}T\d{6}Z)\b.*" + re.escape(AUTO_RELEASED_MARKER)
+_MARK = re.escape(AUTO_RELEASED_MARKER)
+
+#: An auto-released round's commit subject on `main`, one pattern per form.
+#: A predict or evaluate collect squash takes the commit message for a
+#: one-commit PR — ``predict(run <id>): N prediction(s) [auto-released] (#N)`` —
+#: and the PR title otherwise — ``evaluate: N evaluation(s) (run <id>)
+#: [auto-released] (#N)`` — so the run id is read wherever it sits, before the
+#: mark. A summarize publish commit names its Actions run:
+#: ``data(summaries): N plain-language case summaries (run <n>) [auto-released]``.
+_AUTO_RELEASED_SUBJECTS = (
+    re.compile(
+        r"^(?P<lane>predict|evaluate)\b.*?\brun (?P<run>\d{8}T\d{6}Z)\b.*" + _MARK,
+    ),
+    re.compile(r"^data\(summaries\):.*?\(run (?P<run>\d+)\).*" + _MARK),
 )
 
 
-class HoldDecision(BaseModel):
-    """The two answers a predict round's plan job routes on, with their inputs."""
+@dataclass(frozen=True)
+class MeasuredSpend:
+    """Committed spend over the trailing window: agent cells and case summaries."""
 
+    cells_usd: float
+    summaries_usd: float
+
+    @property
+    def total_usd(self) -> float:
+        """Both sources together."""
+        return self.cells_usd + self.summaries_usd
+
+
+class HoldDecision(BaseModel):
+    """The answers a round's plan job routes on, with the figures behind them."""
+
+    seam: Seam
     auto_release: bool
     auto_release_reason: str
     drain_more: bool
@@ -122,20 +184,30 @@ class HoldDecision(BaseModel):
     released_last_day: int | None
     plan_cells: int | None
     matrix_cells: int | None
+    #: The budget arithmetic: ``None`` wherever a figure could not be read.
+    budget_usd: float
+    window_days: int | None
+    measured_cells_usd: float | None
+    measured_summaries_usd: float | None
+    in_flight_bound_usd: float | None
+    projected_spend_usd: float | None
 
 
 def count_auto_released(subjects: Iterable[str]) -> int:
-    """How many distinct predict rounds ``subjects`` mark as auto-released.
+    """How many distinct rounds ``subjects`` mark as auto-released, all lanes.
 
     ``subjects`` are commit subjects (first lines) from `main` over the trailing
-    24 hours. Counted by run id, so a rerun's second commit for one round does
-    not count it twice.
+    24 hours. Counted by lane and run id, so a rerun's second commit for one
+    round does not count it twice.
     """
-    runs = {
-        match.group("run")
-        for subject in subjects
-        if (match := _AUTO_RELEASED_SUBJECT.match(subject.strip()))
-    }
+    runs: set[tuple[str, str]] = set()
+    for subject in subjects:
+        for pattern in _AUTO_RELEASED_SUBJECTS:
+            match = pattern.match(subject.strip())
+            if match:
+                lane = match.groupdict().get("lane") or "summarize"
+                runs.add((lane, match.group("run")))
+                break
     return len(runs)
 
 
@@ -151,6 +223,43 @@ def released_last_day(deployments: int | None, committed: int | None) -> int | N
     return max(deployments, committed)
 
 
+def summary_spend(data_root: Path, *, window_days: int, now: datetime | None = None) -> float:
+    """The usage committed case summaries record, over the trailing window.
+
+    Read from each summary's front matter (``usage.estimated_cost_usd``, by
+    ``generated_at``). A summary written without usage adds nothing; a file
+    that will not parse raises, so the caller can keep the hold.
+    """
+    cutoff = (now or datetime.now(UTC)) - timedelta(days=window_days)
+    total = 0.0
+    for path in sorted((data_root / "cases").glob("*/*/summaries/*.md")):
+        front, _ = parse_summary(path.read_text(encoding="utf-8"))
+        generated = front.generated_at
+        if generated.tzinfo is None:
+            generated = generated.replace(tzinfo=UTC)
+        if front.usage is not None and generated >= cutoff:
+            total += front.usage.estimated_cost_usd
+    return total
+
+
+def measured_spend(
+    data_root: Path, *, window_days: int, now: datetime | None = None
+) -> MeasuredSpend | None:
+    """The committed spend over the trailing window, or ``None`` if unreadable.
+
+    A missing ledger reads as unreadable rather than as nothing spent: a plan
+    job whose checkout lost ``data/`` must not see an empty budget.
+    """
+    if not (data_root / "cases").is_dir():
+        return None
+    try:
+        cells, _ = trailing_spend(data_root, window_days=window_days, now=now)
+        summaries = summary_spend(data_root, window_days=window_days, now=now)
+    except (OSError, ValueError):
+        return None
+    return MeasuredSpend(cells_usd=cells, summaries_usd=summaries)
+
+
 def _number(value: object) -> float | None:
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
@@ -160,7 +269,10 @@ def _number(value: object) -> float | None:
     return number
 
 
-def _plan_cells(plan: Mapping[str, Any]) -> int | None:
+def _plan_cells(plan: Mapping[str, Any], seam: Seam) -> int | None:
+    if seam == "summarize":
+        cases = plan.get("cases")
+        return len(cases) if isinstance(cases, list) else None
     counts = plan.get("counts")
     ledger = counts.get("cell_ledger") if isinstance(counts, Mapping) else None
     cells = ledger.get("would_mint_cells") if isinstance(ledger, Mapping) else None
@@ -176,45 +288,127 @@ def _matrix_cells(matrix: Mapping[str, Any] | None) -> list[Mapping[str, Any]] |
     return include
 
 
-def _price(plan: Mapping[str, Any], matrix: list[Mapping[str, Any]] | None) -> float | None:
-    """The larger of the plan's estimate and the matrix's own priced cells.
+def _price(
+    plan: Mapping[str, Any], matrix: list[Mapping[str, Any]] | None, seam: Seam
+) -> float | None:
+    """The round's price: for a summarize round its plan's upper estimate, else
+    the larger of the plan's estimate and the matrix's own priced cells.
 
     A missing, boolean, non-finite or negative plan estimate is no estimate at
     all, so it keeps the hold rather than comparing as under the cap.
     """
+    if seam == "summarize":
+        return _number(plan.get("estimated_cost_usd_high"))
     estimate = _number(plan.get("estimated_spend_usd"))
     if estimate is None:
         return None
     if matrix is None:
         return estimate
-    priced, _ = price_cells(matrix, seam="predict")
+    priced, _ = price_cells(matrix, seam=seam)
     return max(estimate, round(priced, 2))
 
 
-def _auto_release(  # noqa: PLR0911 - one return per fail-closed reason, each named
+@dataclass(frozen=True)
+class _Budget:
+    """The projection a round is released against, with whatever was readable."""
+
+    window_days: int | None
+    measured: MeasuredSpend | None
+    in_flight: float | None
+    projected: float | None
+
+
+def _project(
+    config: ReviewHoldConfig,
+    backstop: SpendConfig | None,
+    measured: MeasuredSpend | None,
+    released: int | None,
+    estimate: float | None,
+) -> _Budget:
+    in_flight = None if released is None else round(released * config.auto_release_usd_per_round, 2)
+    projected = (
+        None
+        if measured is None or in_flight is None or estimate is None
+        else round(measured.total_usd + in_flight + estimate, 2)
+    )
+    return _Budget(
+        window_days=None if backstop is None else backstop.window_days,
+        measured=measured,
+        in_flight=in_flight,
+        projected=projected,
+    )
+
+
+def _arithmetic(
+    config: ReviewHoldConfig,
+    budget: _Budget,
+    measured: MeasuredSpend,
+    projected: float,
+    released: int,
+    estimate: float,
+) -> str:
+    return (
+        f"projected trailing {budget.window_days}-day spend ${projected:,.2f} = "
+        f"measured ${measured.total_usd:,.2f} (agent cells ${measured.cells_usd:,.2f} + "
+        f"case summaries ${measured.summaries_usd:,.2f}) + in flight up to "
+        f"${budget.in_flight or 0.0:,.2f} ({released} round(s) auto-released in the last "
+        f"24h x ${config.auto_release_usd_per_round:,.2f}) + this round ${estimate:,.2f}"
+    )
+
+
+def _auto_release(  # noqa: PLR0911, PLR0912 - one return per fail-closed reason, each named
+    seam: Seam,
     estimate: float | None,
     config: ReviewHoldConfig,
+    backstop: SpendConfig | None,
     released: int | None,
     plan_cells: int | None,
     matrix: list[Mapping[str, Any]] | None,
+    budget: _Budget,
 ) -> tuple[bool, str]:
-    if config.auto_release_usd_per_round <= 0 or config.auto_release_rounds_per_day <= 0:
-        return False, "auto-release is disabled (the review-hold caps are 0)"
+    if (
+        config.auto_release_usd_per_round <= 0
+        or config.auto_release_rounds_per_day <= 0
+        or config.auto_release_budget_usd <= 0
+    ):
+        return False, (
+            "auto-release is disabled (review-hold.yaml: per-round cap "
+            f"${config.auto_release_usd_per_round:,.2f}, "
+            f"{config.auto_release_rounds_per_day} round(s) a day, trailing budget "
+            f"${config.auto_release_budget_usd:,.2f}; any 0 disables it)"
+        )
+    if backstop is None:
+        return False, "the spend backstop's settings (tracking.yaml `spend`) could not be read"
+    if backstop.ceiling_usd <= 0:
+        return False, (
+            "the spend backstop is off (tracking.yaml spend.ceiling_usd is 0), so nothing "
+            "ex post stands behind an unattended round"
+        )
+    if config.auto_release_budget_usd >= backstop.ceiling_usd:
+        return False, (
+            f"the auto-release budget ${config.auto_release_budget_usd:,.2f} is not below the "
+            f"spend backstop's ceiling ${backstop.ceiling_usd:,.2f} (tracking.yaml), so it "
+            "bounds nothing the backstop does not; lower the budget below the ceiling"
+        )
     if released is None:
         return False, "the count of rounds auto-released in the last 24h could not be read"
     if released >= config.auto_release_rounds_per_day:
         return False, (
-            f"{released} round(s) already auto-released in the last 24h "
+            f"{released} round(s) already auto-released in the last 24h across the lanes "
             f"(daily cap {config.auto_release_rounds_per_day})"
         )
-    if matrix is None:
-        return False, "the minted matrix could not be read"
-    if plan_cells is None or len(matrix) != plan_cells:
-        return False, (
-            f"the minted matrix holds {len(matrix)} cell(s) but the plan reports "
-            f"{plan_cells if plan_cells is not None else 'no'} would-mint cell(s), so the "
-            "price is not the price of what runs"
-        )
+    if seam == "summarize":
+        if plan_cells is None:
+            return False, "the plan's case list could not be read"
+    else:
+        if matrix is None:
+            return False, "the minted matrix could not be read"
+        if plan_cells is None or len(matrix) != plan_cells:
+            return False, (
+                f"the minted matrix holds {len(matrix)} cell(s) but the plan reports "
+                f"{plan_cells if plan_cells is not None else 'no'} would-mint cell(s), so the "
+                "price is not the price of what runs"
+            )
     if estimate is None:
         return False, "the plan carries no spend estimate"
     if estimate > config.auto_release_usd_per_round:
@@ -222,14 +416,27 @@ def _auto_release(  # noqa: PLR0911 - one return per fail-closed reason, each na
             f"estimated spend ${estimate:,.2f} is over the per-round cap "
             f"${config.auto_release_usd_per_round:,.2f}"
         )
+    if budget.measured is None or budget.projected is None:
+        return False, (
+            "the committed spend ledger (usage.json and case-summary usage) could not be "
+            f"read, so the trailing {backstop.window_days}-day spend is unknown"
+        )
+    arithmetic = _arithmetic(config, budget, budget.measured, budget.projected, released, estimate)
+    if budget.projected > config.auto_release_budget_usd:
+        return False, (
+            f"{arithmetic} is over the ${config.auto_release_budget_usd:,.2f} auto-release budget"
+        )
     return True, (
         f"estimated spend ${estimate:,.2f} is within the per-round cap "
         f"${config.auto_release_usd_per_round:,.2f}, round {released + 1} of "
-        f"{config.auto_release_rounds_per_day} in the last 24h"
+        f"{config.auto_release_rounds_per_day} in the last 24h, and {arithmetic} is within "
+        f"the ${config.auto_release_budget_usd:,.2f} auto-release budget"
     )
 
 
-def _drain(plan: Mapping[str, Any]) -> tuple[bool, str]:
+def _drain(plan: Mapping[str, Any], seam: Seam) -> tuple[bool, str]:
+    if seam != "predict":
+        return False, "only a predict round chains another"
     counts = plan.get("counts")
     counts = counts if isinstance(counts, Mapping) else {}
     if not plan.get("would_mint"):
@@ -249,22 +456,33 @@ def decide(
     plan: Mapping[str, Any],
     config: ReviewHoldConfig,
     *,
+    seam: Seam,
     released_last_day: int | None,
     matrix: Mapping[str, Any] | None,
+    backstop: SpendConfig | None,
+    measured: MeasuredSpend | None,
 ) -> HoldDecision:
-    """Decide auto-release and drain for one round's plan and minted matrix.
+    """Decide auto-release (and, for predict, drain) for one round's plan.
 
     ``released_last_day`` is the rounds auto-released in the trailing 24 hours
-    (:func:`released_last_day` over both sources), or ``None`` when it could not
-    be read — which keeps the hold. ``matrix`` is the `predict-matrix` document
-    the round minted; ``None`` keeps the hold.
+    across the lanes (:func:`released_last_day` over both sources), or ``None``
+    when it could not be read — which keeps the hold. ``matrix`` is the
+    `predict-matrix` / `evaluate-matrix` document the round minted, unread for a
+    summarize round; ``None`` keeps a predict or evaluate round's hold.
+    ``backstop`` is ``tracking.yaml``'s `spend` section and ``measured`` the
+    committed spend over its window (:func:`measured_spend`); either ``None``
+    keeps the hold.
     """
-    cells = _matrix_cells(matrix)
-    estimate = _price(plan, cells)
-    plan_cells = _plan_cells(plan)
-    release, release_reason = _auto_release(estimate, config, released_last_day, plan_cells, cells)
-    drain, drain_reason = _drain(plan)
+    cells = None if seam == "summarize" else _matrix_cells(matrix)
+    estimate = _price(plan, cells, seam)
+    plan_cells = _plan_cells(plan, seam)
+    budget = _project(config, backstop, measured, released_last_day, estimate)
+    release, release_reason = _auto_release(
+        seam, estimate, config, backstop, released_last_day, plan_cells, cells, budget
+    )
+    drain, drain_reason = _drain(plan, seam)
     return HoldDecision(
+        seam=seam,
         auto_release=release,
         auto_release_reason=release_reason,
         drain_more=drain,
@@ -273,24 +491,64 @@ def decide(
         released_last_day=released_last_day,
         plan_cells=plan_cells,
         matrix_cells=None if cells is None else len(cells),
+        budget_usd=config.auto_release_budget_usd,
+        window_days=budget.window_days,
+        measured_cells_usd=None if measured is None else round(measured.cells_usd, 2),
+        measured_summaries_usd=None if measured is None else round(measured.summaries_usd, 2),
+        in_flight_bound_usd=budget.in_flight,
+        projected_spend_usd=budget.projected,
     )
+
+
+def _usd(value: float | None) -> str:
+    return "unknown" if value is None else f"${value:,.2f}"
 
 
 def render_summary(decision: HoldDecision) -> str:
     """The step-summary block a round's plan job publishes beside its plan report."""
-    lines = ["", "### Hold and drain"]
+    predict = decision.seam == "predict"
+    lines = ["", "### Hold and drain" if predict else "### Hold"]
     if decision.auto_release:
         lines.append(f"- **Auto-released:** {decision.auto_release_reason}.")
     else:
         lines.append(f"- **Waits on the review hold:** {decision.auto_release_reason}.")
-    if decision.drain_more:
-        lines.append(
-            f"- **Another round is owed:** {decision.drain_reason}; it is dispatched once "
-            "this round's collect PR merges, if the dispatch chain is on."
-        )
-    else:
-        lines.append(f"- **No further round from this one:** {decision.drain_reason}.")
+    measured = (
+        None
+        if decision.measured_cells_usd is None or decision.measured_summaries_usd is None
+        else decision.measured_cells_usd + decision.measured_summaries_usd
+    )
+    window = "unknown" if decision.window_days is None else f"{decision.window_days}-day"
+    lines.extend(
+        [
+            "",
+            f"| Budget arithmetic (trailing {window} window) | USD |",
+            "| --- | ---: |",
+            f"| Measured: agent cells (`usage.json`) | {_usd(decision.measured_cells_usd)} |",
+            f"| Measured: case summaries | {_usd(decision.measured_summaries_usd)} |",
+            f"| In flight: {_count(decision.released_last_day)} round(s) auto-released "
+            f"in the last 24h x per-round cap | {_usd(decision.in_flight_bound_usd)} |",
+            f"| This round's estimate | {_usd(decision.estimated_spend_usd)} |",
+            f"| **Projected** | **{_usd(decision.projected_spend_usd)}** |",
+            f"| Auto-release budget | {_usd(decision.budget_usd)} |",
+            "",
+        ]
+    )
+    if measured is None:
+        lines.append("The measured spend could not be read, so the projection is unknown.")
+        lines.append("")
+    if predict:
+        if decision.drain_more:
+            lines.append(
+                f"- **Another round is owed:** {decision.drain_reason}; it is dispatched once "
+                "this round's collect PR merges, if the dispatch chain is on."
+            )
+        else:
+            lines.append(f"- **No further round from this one:** {decision.drain_reason}.")
     return "\n".join(lines) + "\n"
+
+
+def _count(value: int | None) -> str:
+    return "unknown" if value is None else str(value)
 
 
 def _read_matrix(matrix_file: Path | None) -> dict[str, Any] | None:
@@ -315,25 +573,47 @@ def _read_committed(main_subjects_file: Path | None) -> int | None:
     return count_auto_released(subjects)
 
 
+def _read_backstop(config_root: Path) -> SpendConfig | None:
+    """``tracking.yaml``'s `spend` section, or ``None`` — which keeps the hold."""
+    try:
+        return load_spend_config(config_root)
+    except (OSError, ValueError, yaml.YAMLError):
+        return None
+
+
 def decide_from_files(
     plan: Mapping[str, Any],
     config_root: Path,
+    data_root: Path,
     *,
+    seam: Seam,
     deployments_released: int | None,
     main_subjects_file: Path | None,
     matrix_file: Path | None,
+    now: datetime | None = None,
 ) -> HoldDecision:
-    """:func:`decide` over what the plan job read: the caps file, the counts, the matrix.
+    """:func:`decide` over what the plan job read: the caps, the counts, the matrix, the ledger.
 
     Every input the workflow could not read arrives as ``None`` (or a file that
     will not parse) and keeps the hold; the caps come from
-    ``config_root/review-hold.yaml``.
+    ``config_root/review-hold.yaml``, the backstop's ceiling and window from
+    ``config_root/tracking.yaml``, and the measured spend from the committed
+    ledger under ``data_root``.
     """
+    backstop = _read_backstop(config_root)
+    measured = (
+        None
+        if backstop is None
+        else measured_spend(data_root, window_days=backstop.window_days, now=now)
+    )
     return decide(
         plan,
         load_review_hold_config(config_root),
+        seam=seam,
         released_last_day=released_last_day(
             deployments_released, _read_committed(main_subjects_file)
         ),
-        matrix=_read_matrix(matrix_file),
+        matrix=None if seam == "summarize" else _read_matrix(matrix_file),
+        backstop=backstop,
+        measured=measured,
     )

@@ -254,15 +254,26 @@ jobs:
 | Job | Holds | Does |
 |---|---|---|
 | `plan` | read-only corpus role | stands down (a notice, no work) while a `run-predict` or `run-evaluate` run is executing — a round parked on its own hold or queued does not count, and the check is at plan time only, so a round can still start while this run's generate job works; counts an open `summaries/refresh` PR's summaries as written; `fedcourts summarize-plan` → the plan and the report the hold is judged on |
-| `approval` | nothing (`review` environment) | the spend hold |
+| `approval` | nothing (`review`, or `review-auto` when auto-released) | the spend hold |
 | `stage` | read-only corpus role | `provision-snapshot` for each planned case, into a data root under `$RUNNER_TEMP` |
 | `generate` | the environment's Anthropic key, and asserts it holds no cloud credential | `fedcourts summarize`; jails, validates and secret-scans the written files; uploads them as the `case-summaries` artifact |
 | `publish` | dev App token (`main` only) | opens or updates one reviewed PR from `summaries/refresh` |
 | `rejected` | nothing (no environment, `permissions: {}`) | records on the run page that the hold did not release |
 
-**Every run holds**, scheduled or dispatched, as `run-predict`'s rounds do: the
-hold is the lane's one human gate before spend, and the plan report states the
-case count and an estimated cost range.
+**Every run holds** on `review`, scheduled or dispatched, unless its own plan
+auto-releases it, exactly as `run-predict`'s and `run-evaluate`'s rounds do:
+the hold is the lane's one human gate before spend, and the plan report states
+the case count and an estimated cost range. On `main`, the plan job runs
+`fedcourts hold-decision --seam summarize`, which prices the run at the plan's
+upper estimate and releases it to the reviewer-less `review-auto` environment
+only within `config/review-hold.yaml`'s per-round cap, the daily round count
+shared with the other two lanes, and the trailing spend budget
+([pipeline.md](pipeline.md), *Auto-release*). An auto-released run's publish
+commit carries `[auto-released]` and names its Actions run. A staging
+rehearsal never asks: `review-auto` admits `main` alone. The measured spend
+the budget reads includes each committed summary's recorded usage, the open
+refresh PR's carried summaries among them; a case whose responses the harness
+rejected writes no file, so those tokens are not counted.
 
 **Credential separation.** The corpus credentials and the API key never share a
 job, so no step holds both: the plan and stage jobs assume the read-only role,

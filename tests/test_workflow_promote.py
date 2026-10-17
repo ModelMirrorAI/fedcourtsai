@@ -1139,8 +1139,9 @@ def test_the_gate_checks_the_environment_the_staging_writer_actually_binds() -> 
 def test_the_gate_checks_the_auto_release_environment_run_predict_binds() -> None:
     """`review-auto` has no reviewers by design, so its narrowness is its branch
     policy (main alone) and its emptiness (no secrets, no variables). The gate
-    checks exactly that environment by name; pin it to the name run-predict's
-    approval job routes to, so a rename cannot leave the gate checking nothing."""
+    checks exactly that environment by name; pin it to the name every
+    auto-releasing lane's approval job routes to, so a rename cannot leave the
+    gate checking nothing."""
     gate = GATE_SCRIPT.read_text()
     for endpoint in (
         "environments/review-auto/deployment-branch-policies",
@@ -1150,10 +1151,11 @@ def test_the_gate_checks_the_auto_release_environment_run_predict_binds() -> Non
         assert endpoint in gate
     # A tag policy named `main` must not read as the branch.
     assert '(.type // "branch") == "branch"' in gate
-    workflow = _load(WORKFLOWS / "run-predict.yml")
-    environment = workflow["jobs"]["approval"]["environment"]
-    assert "'review-auto'" in environment
-    assert "'review'" in environment
+    for name in ("run-predict.yml", "run-evaluate.yml", "summarize.yml"):
+        workflow = _load(WORKFLOWS / name)
+        environment = workflow["jobs"]["approval"]["environment"]
+        assert "'review-auto'" in environment, name
+        assert "'review'" in environment, name
 
 
 WAIVER_LABEL = "promote:skip-engine-smoke"

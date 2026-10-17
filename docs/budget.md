@@ -1,8 +1,9 @@
 # Budget
 
-A cost forecast, not a spending cap. Figures are USD and rough by design: they
-size the project at two funding levels so scope can be chosen with the bill in
-view. What each increment of funding buys, step by step, is in
+A cost forecast; the one figure here that also acts as a limit is the bootstrap
+model-API envelope, which bounds unattended spend (*Scenario 1*). Figures are
+USD and rough by design: they size the project at two funding levels so scope
+can be chosen with the bill in view. What each increment of funding buys, step by step, is in
 [milestones.md](milestones.md).
 
 ## What drives cost
@@ -71,6 +72,16 @@ merits event it leads to — on the order of 850–1,100 events a Term.
 The model line is the **envelope**, not today's run rate: 850–1,100 events at
 about $10 is ≈$8.5–11K, and the headroom above it carries the moments milestone 1
 adds and milestone 2's AI-case watchlist ([milestones.md](milestones.md)).
+
+The envelope is also what unattended spend is held to. A predict, evaluate or
+case-summary round skips the maintainer's release only while measured spend
+over the trailing 30 days (the committed `usage.json` ledger plus each
+committed summary's recorded usage), plus an allowance for rounds released in
+the last day, plus the round's own estimate, stays within
+`auto_release_budget_usd` in `config/review-hold.yaml`, set to this monthly
+figure; past it, every round waits for a human release. The `spend` backstop
+in `config/tracking.yaml` sits above the budget and stops minting outright
+([pipeline.md](pipeline.md), *Auto-release*).
 
 ## Scenario 2: Scaling
 

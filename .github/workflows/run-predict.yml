@@ -20,7 +20,7 @@ name: run-predict
 # `chain` job, when a cap stopped a round short of the backlog. Both are the same input-less dispatch.
 # What decides whether a round spends is the `review` hold: every run renders its
 # plan report and waits on that environment's required reviewers before a cell
-# spends a token, unless its plan is within the auto-release caps
+# spends a token, unless its plan is within the auto-release caps and budget
 # (`config/review-hold.yaml`).
 on:
   schedule:
@@ -488,15 +488,18 @@ jobs:
 
       # Whether this round waits on the hold, and whether it owes another round.
       # Both are `fedcourts hold-decision` over the plan document above, the
-      # matrix the round minted and `config/review-hold.yaml`'s caps. It fails
-      # closed: with the caps at 0 (the default), a matrix that disagrees with
-      # the plan, or a 24-hour count this step cannot read, the round waits on
-      # the `review` hold. The count has two sources, and the larger binds: the
-      # `review-auto` environment's deployments (one per auto-released round,
-      # but prunable by a write holder) and the auto-released commits on `main`
-      # (collect marks a released round's ready commit; `main`'s history is
-      # append-only). A failed read leaves its flag off, which holds. This step
-      # only reads; the rule and the summary are the command's.
+      # matrix the round minted, `config/review-hold.yaml`'s caps and trailing
+      # budget, and the committed spend ledger in this checkout's `data/`
+      # (measured spend over tracking.yaml's spend window, the budget's base).
+      # It fails closed: with any knob at 0, a matrix that disagrees with the
+      # plan, an unreadable ledger, or a 24-hour count this step cannot read,
+      # the round waits on the `review` hold. The count is shared with
+      # run-evaluate and summarize and has two sources, and the larger binds:
+      # the `review-auto` environment's deployments (one per auto-released
+      # round of any lane, but prunable by a write holder) and the auto-released
+      # commits on `main` (each lane marks a released round's commit; `main`'s
+      # history is append-only). A failed read leaves its flag off, which holds.
+      # This step only reads; the rule and the summary are the command's.
       - name: Decide the hold and the drain
         id: hold
         if: ${{ steps.plan.outputs.has_jobs == 'true' }}
@@ -521,7 +524,7 @@ jobs:
           else
             echo "::warning::could not read main's commits from the last 24h ($(head -c 300 subjects-read.err | tr -s '\n:' '  ')); this round waits on the hold"
           fi
-          decision=$(uv run fedcourts hold-decision --plan-file plan.json \
+          decision=$(uv run fedcourts hold-decision --seam predict --plan-file plan.json \
             --matrix-file matrix.json --summary-file "$GITHUB_STEP_SUMMARY" "${count_args[@]}")
           echo "auto_release=$(jq -r '.auto_release' <<<"$decision")" >> "$GITHUB_OUTPUT"
           echo "drain_more=$(jq -r '.drain_more' <<<"$decision")" >> "$GITHUB_OUTPUT"
@@ -536,10 +539,12 @@ jobs:
   # environment unprotected, and an unprotected environment is no gate at all.
   #
   # A round the plan job auto-released (`hold-decision`: its minted matrix
-  # priced within the per-round cap, under the daily count) binds `review-auto`
-  # instead. That environment has no reviewers on purpose, so the job runs at
-  # once; what it adds is one of the two records the next round's plan counts
-  # against the daily cap (the other is the marked collect commit on `main`).
+  # priced within the per-round cap, under the daily count, and within the
+  # trailing budget) binds `review-auto` instead — the environment run-evaluate
+  # and summarize route to on the same decision. It has no reviewers on
+  # purpose, so the job runs at once; what it adds is one of the two records
+  # the next round's plan, in any of the three lanes, counts against the daily
+  # cap (the other is the marked collect commit on `main`).
   # Every job downstream reads `approval.result` whichever environment it
   # bound, so the two paths differ only in whether a human released this job.
   #

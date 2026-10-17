@@ -394,6 +394,7 @@ from .release_sensitivity import (
     render_table,
 )
 from .required_checks import produced_contexts
+from .review_hold import SEAMS as REVIEW_HOLD_SEAMS
 from .review_hold import decide_from_files as decide_hold_from_files
 from .review_hold import render_summary as render_hold_summary
 from .ruleset_checks import Expected as RulesetExpected
@@ -16467,10 +16468,10 @@ def _spend_gate_or_empty(stage: str) -> SpendVerdict:
 
     Disabled at the code default (a ceiling of ``0``), in which case this is
     silent and the ledger is never read; the shipped ``config/tracking.yaml``
-    arms it ($2,500 over a trailing 30 days). See :mod:`fedcourtsai.spend` for
-    what the ceiling can and cannot promise — chiefly that the ledger lags by
-    however long a collect PR takes to merge, so it is a floor on spend rather
-    than a live figure.
+    arms it (its `spend` section sets the ceiling and the trailing window). See
+    :mod:`fedcourtsai.spend` for what the ceiling can and cannot promise —
+    chiefly that the ledger lags by however long a collect PR takes to merge, so
+    it is a floor on spend rather than a live figure.
     """
     settings = get_settings()
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
@@ -18535,16 +18536,30 @@ def promotion_body_cmd(
 def hold_decision_cmd(
     plan_file: Annotated[
         Path,
-        typer.Option("--plan-file", help="The round's `predict-plan` JSON document."),
+        typer.Option(
+            "--plan-file",
+            help="The round's plan document: `predict-plan`, `evaluate-plan` or `summarize-plan`.",
+        ),
     ],
+    seam: Annotated[
+        str,
+        typer.Option(
+            "--seam",
+            help=(
+                "The lane the round belongs to: predict, evaluate or summarize. It picks "
+                "how the plan is priced and whether a drain is considered."
+            ),
+        ),
+    ] = "predict",
     matrix_file: Annotated[
         Path | None,
         typer.Option(
             "--matrix-file",
             help=(
-                "The `predict-matrix` document the round minted. Auto-release needs "
-                "it to hold exactly the plan's would-mint cells, and prices it too; "
-                "omitted or unreadable keeps the hold."
+                "The `predict-matrix` / `evaluate-matrix` document the round minted. "
+                "Auto-release needs it to hold exactly the plan's would-mint cells, and "
+                "prices it too; omitted or unreadable keeps the hold. A summarize round "
+                "has no matrix and ignores it."
             ),
         ),
     ] = None,
@@ -18553,8 +18568,8 @@ def hold_decision_cmd(
         typer.Option(
             "--deployments-released",
             help=(
-                "`review-auto` deployments in the trailing 24 hours. Omit when it "
-                "could not be read: an unknown count keeps the review hold."
+                "`review-auto` deployments in the trailing 24 hours, every lane's. Omit "
+                "when it could not be read: an unknown count keeps the review hold."
             ),
         ),
     ] = None,
@@ -18577,19 +18592,28 @@ def hold_decision_cmd(
         ),
     ] = None,
 ) -> None:
-    """Decide whether a predict round skips the review hold, and whether to chain another.
+    """Decide whether a round skips the review hold, and whether a predict round chains another.
 
-    Reads the round's plan and minted matrix and `config/review-hold.yaml`'s
-    caps, and prints a `HoldDecision`: `auto_release` (the matrix holds exactly
-    the plan's cells, their price is within the per-round cap, and the rounds
-    auto-released in the last 24 hours, the larger of the deployment count and
-    the auto-released commits on `main`, are under the daily cap) and
-    `drain_more` (a cap stopped the round short of the backlog, so another round
-    is owed as soon as this one's output lands). Fails closed: a disabled cap, an
-    unreadable count, a missing matrix or a plan with no estimate keeps the hold.
-    Spends nothing and reads no corpus.
+    Reads the round's plan (and, for predict and evaluate, its minted matrix),
+    `config/review-hold.yaml`'s caps, `config/tracking.yaml`'s spend backstop and
+    the committed spend ledger, and prints a `HoldDecision`: `auto_release` (the
+    round's price is within the per-round cap; the rounds auto-released in the
+    last 24 hours across the lanes, the larger of the deployment count and the
+    auto-released commits on `main`, are under the daily cap; and measured
+    trailing spend plus the in-flight bound plus this round's price is within
+    the trailing budget) and `drain_more` (predict only: a cap stopped the round
+    short of the backlog, so another round is owed as soon as this one's output
+    lands). Fails closed: a disabled knob, an unreadable count or ledger, a
+    missing matrix or a plan with no estimate keeps the hold. Spends nothing and
+    reads no corpus.
     """
     settings = get_settings()
+    if seam not in REVIEW_HOLD_SEAMS:
+        typer.echo(
+            f"hold-decision: --seam must be one of {', '.join(REVIEW_HOLD_SEAMS)}, not {seam!r}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     try:
         plan = json.loads(plan_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -18604,6 +18628,8 @@ def hold_decision_cmd(
     decision = decide_hold_from_files(
         plan,
         settings.config_root,
+        settings.data_root,
+        seam=seam,
         deployments_released=deployments_released,
         main_subjects_file=main_subjects_file,
         matrix_file=matrix_file,

@@ -29,6 +29,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+import pytest
 import yaml
 
 from fedcourtsai.run_gate import DISPATCHERS_PATH, load_dispatchers
@@ -328,11 +329,13 @@ def test_a_lane_environment_is_bound_by_its_own_workflow_alone() -> None:
 
 
 # The hold's one routed form: a round whose own plan auto-released it binds the
-# reviewer-less `review-auto`, every other round binds `review`.
+# reviewer-less `review-auto`, every other round binds `review`. The three spend
+# lanes the review hold may auto-release; the back-test is not one of them.
+ROUTED_HOLD = "${{ needs.plan.outputs.auto_release == 'true' && 'review-auto' || 'review' }}"
 AUTO_RELEASED_HOLD = {
-    "run-predict.yml": (
-        "${{ needs.plan.outputs.auto_release == 'true' && 'review-auto' || 'review' }}"
-    ),
+    "run-predict.yml": ROUTED_HOLD,
+    "run-evaluate.yml": ROUTED_HOLD,
+    "summarize.yml": ROUTED_HOLD,
 }
 
 
@@ -344,9 +347,9 @@ def test_the_agent_cells_sit_behind_the_review_hold() -> None:
     therefore wait on the `approval` hold job, or a round would spend the moment
     its cron fired.
 
-    The one exception is spelled exactly: a predict round its own plan job
-    auto-released (`hold-decision`, within `review_hold`'s caps) binds the
-    reviewer-less `review-auto` instead. Any other expression — one keyed on a
+    The one exception is spelled exactly: a round its own plan job
+    auto-released (`hold-decision`, within `review_hold`'s caps and budget)
+    binds the reviewer-less `review-auto` instead. Any other expression — one keyed on a
     trigger, an input, or anything but the plan's decision — fails here.
     """
     for name in AGENT_FAN_OUTS:
@@ -373,24 +376,65 @@ def test_the_agent_cells_sit_behind_the_review_hold() -> None:
             )
 
 
-def test_the_auto_release_output_comes_only_from_the_hold_decision() -> None:
+@pytest.mark.parametrize(
+    ("workflow", "seam"),
+    [
+        ("run-predict.yml", "predict"),
+        ("run-evaluate.yml", "evaluate"),
+        ("summarize.yml", "summarize"),
+    ],
+)
+def test_the_auto_release_output_comes_only_from_the_hold_decision(
+    workflow: str, seam: str
+) -> None:
     """The routed hold above trusts `needs.plan.outputs.auto_release`, so pin
     where that value is made: the plan job's `hold` step, which runs the tested
-    `fedcourts hold-decision` and writes nothing else to that output. A later
-    edit that fed the output from an input, a variable or another step would
-    route a round past the reviewers without the caps' say-so."""
-    plan = _load("run-predict.yml")["jobs"]["plan"]
+    `fedcourts hold-decision` for its own lane and writes nothing else to that
+    output. A later edit that fed the output from an input, a variable or
+    another step would route a round past the reviewers without the caps' say-so."""
+    wf = _load(workflow)
+    assert wf["jobs"]["approval"]["environment"] == AUTO_RELEASED_HOLD[workflow]
+    plan = wf["jobs"]["plan"]
     assert plan["outputs"]["auto_release"] == "${{ steps.hold.outputs.auto_release }}"
+    # The counts are reads: deployments to `review-auto`, never a write.
+    assert plan["permissions"].get("deployments") == "read"
     holds = [step for step in _steps(plan) if step.get("id") == "hold"]
     assert len(holds) == 1
     run = str(holds[0].get("run", ""))
     assert "uv run fedcourts hold-decision" in run
+    assert f"--seam {seam}" in run
+    assert "deployments?environment=review-auto" in run
+    assert "commits?sha=main" in run
     assert run.count("auto_release=") == 1
     assert "auto_release=$(jq -r '.auto_release' <<<\"$decision\")" in run
     # No other step in the job writes that output.
     for step in _steps(plan):
         if step.get("id") != "hold":
             assert "auto_release=" not in str(step.get("run", ""))
+
+
+def test_a_summarize_rehearsal_never_reaches_the_auto_release() -> None:
+    """`review-auto` admits `main` alone, so a staging rehearsal must not even
+    ask: the decision step runs only on `main`, and an unset output binds
+    `review`."""
+    plan = _load("summarize.yml")["jobs"]["plan"]
+    (hold,) = [step for step in _steps(plan) if step.get("id") == "hold"]
+    assert "github.ref == 'refs/heads/main'" in str(hold["if"])
+
+
+@pytest.mark.parametrize("workflow", ["run-predict.yml", "run-evaluate.yml", "summarize.yml"])
+def test_an_auto_released_round_marks_its_commit_for_the_daily_count(workflow: str) -> None:
+    """The committed half of the daily count: each lane's writer puts the
+    auto-released mark on the commit `main` keeps, keyed on the plan's decision."""
+    text = (WORKFLOWS / workflow).read_text()
+    if workflow == "summarize.yml":
+        publish = _load(workflow)["jobs"]["publish"]
+        (step,) = [s for s in _steps(publish) if s.get("name") == "Open or update the review PR"]
+        assert step["env"]["AUTO_RELEASED"] == "${{ needs.plan.outputs.auto_release }}"
+        assert "(run ${GITHUB_RUN_ID})" in step["run"]
+        assert 'title="${title} [auto-released]"' in step["run"]
+    else:
+        assert "auto-released: ${{ needs.plan.outputs.auto_release }}" in text
 
 
 def test_the_scheduled_back_test_spends_only_behind_the_review_hold() -> None:
