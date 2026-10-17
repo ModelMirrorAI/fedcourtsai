@@ -10694,3 +10694,209 @@ freeze commit is recorded here.
     directory) echoes a `contact scrub:` line naming no residual, and its
     `documents.json` petition row reads `contact_scrubbed: true` with
     `contact_residuals` `0`.
+
+- **The statpack's interim section counts each application number once, so
+  the two OT2024 grants stored as two rows each leave the pooled interim base
+  rate's double count, 2026-10-17.** A **scoring-baseline** entry, and a
+  **conditioning** one through the same number: the provisioned statpack's
+  interim section is what interim cells anchor on, and its pooled rate is the
+  baseline their harness skill is stamped against. It moves no digest: no
+  prompt template, neither agent config and not
+  `src/fedcourtsai/process_version.py` changes, and `uv run fedcourts
+  process-digest --all` prints `proc-v9` and the same six digests before and
+  after the change. It registers one harness boundary, below. Nothing is
+  written to the corpus.
+
+  **The defect.** The corpus holds 19 strict-form (`YYAnnn`) application
+  numbers under two or more case ids, 23 rows beyond one per number. Four
+  are OT2024's, a caveat the 2026-09-30 OT2024 back-fill entry raised (naming
+  the two grants) and did not correct: `24A884`, `24A910`, `24A931` and
+  `24A1007`, each two live-polled rows under two CourtListener docket ids
+  (none in the live-minted reserved range), agreeing on every field but
+  `last_live_polled`. `24A910` and `24A931` are substantive grants, so the
+  OT2024 pool counted each grant twice; `24A884` and `24A1007` are granted
+  with an `unknown` ask and sit outside the substantive pool. The other 15
+  numbers (OT2005 2, OT2012 1, OT2013 1, OT2014 2, OT2018 1, OT2019 2,
+  OT2020 3, OT2021 2, OT2022 1) are CourtListener stubs, none live-polled or
+  application-parsed, so they inflate only the `applications` and `unparsed`
+  counts. Because neither id of any pair is live-minted, the
+  `dedupe-live-rows` pass, whose pattern is one CourtListener id beside one
+  reserved-range id, never matches them. How one number came to be keyed
+  twice upstream is not established: the census shows two CourtListener ids
+  per number and nothing about why CourtListener holds both.
+
+  **The rule.** From this entry's carrying merge, every reader that counts or
+  rates application numbers skips every row but one per number
+  (`corpus.duplicate_application_case_ids`): the statpack's interim section,
+  and with it `pipeline.base_rates.interim_base_rate`, and the interim
+  reading census, which reproduces the statpack's counts. The key is the
+  numeric `(term, serial)` pair of the strict form, case-folded and with the
+  capital annotation stripped, which is the parse the interim section's
+  Term split already reads. The counted row is chosen in two steps:
+  - a row the live channel observed (application-parsed or live-polled) is
+    preferred over one it did not, so a stub can never displace the parsed
+    row of the same number;
+  - among the rows left, the lowest numeric docket id counts, the identity
+    join's rule (`corpus.scotus_case_id_by_docket_number`) and the row
+    `dedupe-live-rows` keeps.
+
+  At this vintage no group mixes observed and unobserved rows, so every
+  counted row is also the plain lowest docket id, and the choice moves no
+  figure: the OT2024 pairs agree on every counted field and the stubs carry
+  no ask. The section now states what it left out as `duplicate_rows`, per
+  Term and pack-level. A pack built before this rule carries no such key, and
+  its absence reads as unknown, not zero. The rule skips rows on read and
+  alters none, so a later corpus merge of the groups leaves it skipping
+  nothing. `party-rates` keeps its own first-row-per-docket-number rule,
+  reading rows in `case_id` string order. At this vintage that picks the same
+  row in all 4 groups its live-slice population holds, because each pair's
+  two ids are the same width.
+
+  **What moves, at blob
+  `5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e`**
+  (`freshness: latest pull 2026-10-17, latest snapshot 2026-07-13`, read by
+  `scripts/checks/application_duplicates.py` from a dev checkout; the
+  pointer matched `origin/main`'s). Each figure is given with every row
+  counted, then with one row per number, at the registered lookback of 10:
+  - **The pool for OT2025 application cells** (OT2023 and OT2024) moves from
+    **36/323 = 11.15%** to **34/321 = 10.59%**.
+  - **The pool for OT2026 application cells** (OT2023 to OT2025) moves from
+    **53/549 = 9.65%** to **51/547 = 9.32%**.
+  - **The pool for OT2024 application cells** (OT2023 alone) does not move:
+    **18/127 = 14.17%**.
+  - These match the "counted by application" projections the 2026-10-12
+    OT2023 back-fill entry gave (34/321, 51/547).
+  - OT2024's interim row moves `applications` 1299 to 1295, `substantive`
+    196 to 194, `unknown` 63 to 61, `substantive_resolved` 196 to 194,
+    `substantive_granted` 18 to 16, `response_requested` 49 to 47,
+    `referred_to_court` 125 to 123 and `with_amicus` 38 to 36, and reads
+    `duplicate_rows` 4. Its own descriptive rate moves from 18/196 = 9.18%
+    to 16/194 = 8.25%.
+  - Nine earlier Terms' rows lose 1 to 5 `applications` and as many
+    `unparsed`, which they state as `duplicate_rows`; none feeds a pool.
+  - Pack level: `applications` 27847 to 27824, `substantive` 643 to 641,
+    `unknown` 196 to 194, `unparsed` 23387 to 23368, `substantive_resolved`
+    635 to 633, `substantive_granted` 62 to 60, `response_requested` 131 to
+    129, `referred_to_court` 349 to 347, `with_amicus` 101 to 99, and
+    `duplicate_rows` 23. The pack-level descriptive rate, never a baseline,
+    moves from 9.76% to 9.48%.
+  - The census confirms that `build_statpack`'s interim section at this blob
+    equals the one-row-per-number counts.
+
+  **Every stamped interim baseline on `main` carries the double count.** Read
+  at `origin/main` `4e41711ac`, 375 interim evaluation records on 37 events
+  of 18 OT2026 applications carry a stamped `segment_base_rate`. The value
+  counts below are (event, value) pairs, 44 in all, since some events were
+  graded at two values. Each value is the OT2026-cell pool of the statpack
+  current when it was stamped, read from that statpack's history on `main`:
+
+  | Stamped value | Events | Records | Pool, by row | Pool, by number |
+  | --- | --- | --- | --- | --- |
+  | 0.1333 | 6 | 54 | 30/225 (`491d1418b`) | 28/223 = 0.1256, if both twins were in it |
+  | 0.1322 | 1 | 6 | 30/227 (`8019091bc`) | 28/225 = 0.1244, if both twins were in it |
+  | 0.1047 | 31 | 261 | 31/296 (`5435f0a24`) | 29/294 = 0.0986 |
+  | 0.0965 | 6 | 54 | 53/549 (`cf9ae960e`) | 51/547 = 0.0932 |
+
+  - Both twins were in the 31/296 pool, as the 2026-09-30 entry's 12/68 by
+    application against 14/70 by row shows. The committed record cannot show
+    whether they were already in the two August pools, so those by-number
+    figures are conditional.
+  - Every pool was inflated in the same direction: two extra grants raise the
+    base rate, and a higher base rate flatters the skill of a low forecast on
+    a denial, which is most of the interim docket. For a 0.10 forecast on a
+    denial, Brier skill reads:
+    - +0.088 against 0.1047, and −0.028 against 0.0986;
+    - −0.073 against 0.0965, and −0.150 against 0.0932;
+    - +0.438 against 0.1333, and +0.366 against 0.1256.
+  - The tagged release's leaderboard (`results/ot2026-longconf`) carries
+    `interim@arrival`, `interim@response-requested` and
+    `interim@response-filed` blocks scored against these stamped values. It
+    reads its own tag and does not move, but an interim skill figure from it
+    is read against an inflated pool and quotes this direction.
+  - No committed `evaluation.json` is rewritten. A stamped cell keeps the
+    base rate it was stamped with, and a re-grade is a separate dispatch.
+
+  **Timing.** The rates move at the first statpack refresh on `main` after
+  the carrying merge. Interim skill is read keyed on the stamped
+  `segment_base_rate` value, as the 2026-10-12 entry registers, so that
+  refresh is one more dated, digest-silent break in the series, of about
+  0.006 for OT2025 cells and 0.003 for OT2026 cells. At the per-cell scale
+  above, that is a move from −0.073 to −0.150 for a 0.10 forecast on a
+  denial in an OT2026 cell. A cell provisioned before the refresh and
+  stamped after it anchored on one pool and is scored against the other, as
+  at each back-fill refresh.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The 2026-10-11
+  entry settling the pooled default's implementation choices names this
+  class: a scoring-baseline change that is also a conditioning one joins the
+  boundary registry through its conditioning half, for interim cells. This
+  change moves the statpack interim cells are provisioned with, so it joins.
+  - **The registry row.** The boundary is `interim-pool-one-row-per-number`.
+    It applies to every predictor and is **gradual**, because the input a
+    cell reads moves at the statpack refresh that follows the carrying merge,
+    not at the merge itself. That is the same shape as the registry's other
+    gradual rows, whose change reaches cells through a later pass. Its reach
+    is registered as `all`: the registry's reach vocabulary (`self-represented
+    dockets`, `granted dockets`, `all`, `replay cells`) has no interim value,
+    and a reach is printed beside the counts as scope, never applied as a
+    filter. Only interim cells read the moved section. The row is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`),
+    under the 2026-10-14 merge-stamping declaration. Its `merge` and `at` stay
+    null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before the
+    refresh still anchored on the double-counted pool, so the after-side `n`
+    is an upper bound on exposure. The anchoring side is read from the cell's
+    provisioning run id against the refresh commit's time, as the 2026-10-12
+    entry reads it.
+  - **Owed rows, not registered here.** The same 2026-10-11 bullet promised a
+    row for the 2026-09-30 OT2024 application back-fill, through the
+    same conditioning half, and the 2026-10-12 OT2023 back-fill is the same
+    class. Neither row was ever registered. Both moved interim cells' input
+    at a statpack refresh rather than at a merge: OT2024 at `ea0a1e70a`
+    (2026-10-12T21:45:55Z), OT2023 at `cf9ae960e` (2026-10-13T19:17:46Z).
+    Choosing the carrying commit that a registry row stamps is a judgement
+    this entry does not make, so they remain owed.
+
+  **What does not move.**
+  - No cert rate, no cert Term entry and no cert-stage section: the rule
+    reads application rows only.
+  - The statpack's full-corpus overview counts (`corpus_rows`, the court and
+    era sections, live-slice coverage) still count rows, as they do for the
+    bulk import's own repeated cert numbers.
+  - The arrival-cut ledger (`pipeline.arrival_cut`) still counts per row. It
+    is a provisioning diagnostic, not a rate.
+  - The salience interim reserve and moment minting do not read the skip set.
+    A pending number stored twice could take two reserve slots or two cells.
+    None does today: all 23 skipped rows carry a corpus event, but none
+    carries a committed ledger directory on `main` or `staging`, so no
+    committed prediction, outcome or evaluation names a skipped id.
+  - The 8 live-slice cert numbers held under a CourtListener id and a
+    reserved-range id (`17-1107`, `18-1109`, `19-1302`, `20-1009`, `20-1084`,
+    `21-439`, `21-511`, `21-846`) are `dedupe-live-rows`' pattern, not this
+    rule's.
+  - **The 2026-10-12 effect check's duplicate detector.** That check reads an
+    OT2023 `applications` count above 1177 as a duplicated number. Under this
+    rule a duplicate no longer raises `applications`, so the detector is
+    OT2023's `duplicate_rows`, which reads 0 at this blob.
+
+  Carried to `main` by <FILL: promotion tag> (merge commit
+  <FILL: merge hash>, merged <FILL: merged-at>). The first statpack refreshed
+  after it, at commit <FILL: refresh commit>, reads the OT2026 pool as
+  <FILL: OT2026-cell pool> and the OT2025 pool as
+  <FILL: OT2025-cell pool>.
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_statpack.py tests/test_interim_reading_census.py
+    tests/test_application_duplicates_check.py -k "once or twin or
+    duplicate or statpacks_own or census"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    same six digests;
+  - after the next statpack refresh, `jq '.interim.terms[] | select(.term ==
+    2024) | [.applications, .substantive_resolved, .substantive_granted,
+    .duplicate_rows]' metrics/statpack.json` prints `[1295, 194, 16, 4]` at
+    this blob, or values that differ from it only by rows landed since;
+  - `CHECK_SUMMARY=out.md uv run python
+    scripts/checks/application_duplicates.py` over a pulled corpus reports
+    `build_statpack`'s interim section equal to the one-row-per-number counts.

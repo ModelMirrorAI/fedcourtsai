@@ -1916,9 +1916,10 @@ interim-docket series back to OT2017, and it runs one Term per dispatch.
 
 **An apply moves a scored anchor.** Its plan crosses from the parse job to
 the writer under the PII carve-out in [data-sources.md](data-sources.md)
-(*PII stance*). The statpack's interim section counts every application row
-and pools the parsed substantive ones into the interim base rate that interim
-cells anchor to and are scored against. A stub row counts as `unparsed`, so an
+(*PII stance*). The statpack's interim section counts every application
+number once (a number stored under two case ids counts one row, as
+`corpus.duplicate_application_case_ids` picks it) and pools the parsed substantive ones into the interim base rate that
+interim cells anchor to and are scored against. A stub row counts as `unparsed`, so an
 apply moves the Term's rows into the pool and moves the rate for every
 application Term whose lookback reaches it.
 
