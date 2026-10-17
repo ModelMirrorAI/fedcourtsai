@@ -20,7 +20,9 @@ a maintainer-merged promotion put on `main`; a `workflow_dispatch` is refused by
 GitHub to anyone without repository write, and by the run gate to any write
 holder `config/dispatchers.json` does not name; and every privileged job binds a
 deployment environment whose branch policy pins the ref it may run from (`prod`
-to `main`, `staging` to `staging`, `corpus-check` to `main`) — a job naming one
+to `main`, `staging` to `staging`, `corpus-write` — the corpus writer jobs'
+alone, the one environment the production read-write role trusts — and
+`corpus-check` to `main`) — a job naming one
 as a literal is refused at
 the deployment gate from any other ref before a step runs, and the three
 branch-resolving workflows (`integration-test`, `run-analytics`, `summarize`) resolve an

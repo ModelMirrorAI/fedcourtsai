@@ -24,7 +24,10 @@ the same predicate:
 The same stage checks the `website` environment (:func:`website_problems`),
 which holds the Buttondown API key `post-public-update` drafts the weekly
 update with: its `main`-only policy is what keeps the key from any other ref,
-and nothing else reads that policy.
+and nothing else reads that policy. And it checks the `corpus-write`
+environment (:func:`corpus_write_problems`), the one the production read-write
+role's trust names: its `main`-only policy is what keeps that role from any
+other ref.
 """
 
 from __future__ import annotations
@@ -40,8 +43,8 @@ CORPUS_CHECK_ENVIRONMENT = "corpus-check"
 #: job is handed, so anything else here would be handed to it.
 CORPUS_CHECK_VARIABLES = frozenset({"AWS_ROLE_TO_ASSUME_READONLY", "AWS_REGION", "CORPUS_BASE_URL"})
 
-#: The one branch either environment admits: the triggers of the workflows that
-#: bind them run `main`'s file.
+#: The one branch each environment checked here admits: the triggers of the
+#: workflows that bind them run `main`'s file.
 MAIN_BRANCH = "main"
 
 
@@ -226,6 +229,73 @@ def website_problems(
     problems = _main_only_problems(environment, branch_policies)
     problems.extend(_exact_names_problems(secrets, "secrets", WEBSITE_SECRETS))
     problems.extend(_exact_names_problems(variables, "variables", WEBSITE_VARIABLES))
+    return problems
+
+
+#: The environment the corpus writer jobs bind: every job that assumes the
+#: production read-write role, and no other (`tests/test_workflow_corpus_write.py`).
+CORPUS_WRITE_ENVIRONMENT = "corpus-write"
+
+#: The secrets those jobs read: the data App's key, which commits their
+#: pointer, and the CourtListener token `run-pull` fetches with.
+CORPUS_WRITE_SECRETS = frozenset({"DATA_APP_PRIVATE_KEY", "COURTLISTENER_API_TOKEN"})
+
+#: The variables those jobs read: both corpus roles (the decision-record job
+#: pulls with the read-only one), the region, the corpus estate's address, the
+#: data App's client id and `run-pull`'s CourtListener rate caps.
+CORPUS_WRITE_VARIABLES = frozenset(
+    {
+        "AWS_ROLE_TO_ASSUME",
+        "AWS_ROLE_TO_ASSUME_READONLY",
+        "AWS_REGION",
+        "CORPUS_BASE_URL",
+        "DATA_APP_CLIENT_ID",
+        "COURTLISTENER_RPM",
+        "COURTLISTENER_RPH",
+        "COURTLISTENER_RPD",
+    }
+)
+
+
+def _subset_problems(
+    listing: Mapping[str, Any] | None, key: str, allowed: frozenset[str]
+) -> list[str]:
+    """A listing of secrets or variables that is unread, or names one outside ``allowed``."""
+    items = _items(listing, key)
+    if items is None:
+        return [f"the environment's {key} were unread"]
+    extra = sorted({str(item.get("name")) for item in items} - allowed)
+    if extra:
+        return [f"the environment holds {key} outside {sorted(allowed)}: {', '.join(extra)}"]
+    return []
+
+
+def corpus_write_problems(
+    environment: Mapping[str, Any] | None,
+    branch_policies: Mapping[str, Any] | None,
+    secrets: Mapping[str, Any] | None,
+    variables: Mapping[str, Any] | None,
+) -> list[str]:
+    """Everything the promotion gate requires of the `corpus-write` environment.
+
+    The production read-write role's trust names this environment alone, so
+    its deployment-branch policy is what keeps that role from a workflow a
+    write holder runs from their own branch: GitHub auto-creates a referenced
+    environment with no policy at all. So: it exists, its deployment branches
+    are a custom policy of exactly `main`, and it holds no secret outside
+    :data:`CORPUS_WRITE_SECRETS` and no variable outside
+    :data:`CORPUS_WRITE_VARIABLES` — anything else would be handed to the
+    writer jobs for no reason they have. A name may be absent: it can be
+    served from the repository level, and a writer missing its role fails at
+    its first credentialed step. Required reviewers are not checked: the
+    writer windows run on a schedule, and a reviewer would hold every one. An
+    unread listing is a problem, never a pass.
+    """
+    if environment is None:
+        return [f"the `{CORPUS_WRITE_ENVIRONMENT}` environment does not exist or was unread"]
+    problems = _main_only_problems(environment, branch_policies)
+    problems.extend(_subset_problems(secrets, "secrets", CORPUS_WRITE_SECRETS))
+    problems.extend(_subset_problems(variables, "variables", CORPUS_WRITE_VARIABLES))
     return problems
 
 

@@ -157,14 +157,14 @@ jobs:
     # releases the shared corpus-write lock far sooner than GitHub's 6h default if
     # a network step hangs.
     timeout-minutes: 45
-    environment: prod
+    environment: corpus-write
     # Whether this window committed a forecast-relevant change, for the
     # `chain-predict` job.
     outputs:
       forecast_relevant: ${{ steps.relevance.outputs.forecast_relevant }}
     # This environment's whole corpus estate, as one base URL
-    # (s3://<bucket>[/<prefix>]) resolved from the `prod` environment, falling
-    # back to a repo/org variable of the same name. fedcourtsai.paths fixes
+    # (s3://<bucket>[/<prefix>]) resolved from the `corpus-write` environment,
+    # falling back to a repo/org variable of the same name. fedcourtsai.paths fixes
     # both halves beneath it — the index remote every corpus-pull/push
     # resolves the pointer against, and the per-case content store
     # (fedcourtsai.casestore) the payloads live in — so the two can never name
@@ -191,7 +191,7 @@ jobs:
       # no trigger an outside actor can reach. A `schedule` fires only from the
       # DEFAULT branch, so it can run only what a maintainer-merged promotion
       # put on `main`; a `workflow_dispatch` is gated by GitHub on repository
-      # write; and this job binds `prod`, whose deployment branches are
+      # write; and this job binds `corpus-write`, whose deployment branches are
       # restricted to `main`, so a dispatch from any other ref is refused before
       # a step runs. So the job goes straight to the App-token mint and the
       # credentialed checkout, with no pre-flight checkout to pay for.
@@ -238,7 +238,7 @@ jobs:
       # push fresh forward facts into the corpus on the S3 remote. The role
       # grants get/put/list but no delete, so a run can add corpus objects but
       # never wipe them. No static keys; the role ARN and region come from the
-      # `prod` environment.
+      # `corpus-write` environment, the only one the role's trust names.
       - name: Configure AWS credentials (corpus S3 remote, read-write)
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
@@ -514,7 +514,7 @@ jobs:
     # setup (checkout + corpus-pull) before the poll, the opinion-enrichment
     # step's own 6-minute cap after it, and the push.
     timeout-minutes: 40
-    environment: prod
+    environment: corpus-write
     # Whether this window committed a forecast-relevant change, for the
     # `chain-predict` job.
     outputs:
@@ -846,7 +846,7 @@ jobs:
     # round-trip finishes well inside this; the cap frees the shared
     # corpus-write lock if a network step hangs.
     timeout-minutes: 30
-    environment: prod
+    environment: corpus-write
     # This environment's corpus estate as one base URL (see the pull job): both
     # halves derive from it, and the store's address is the corpus-split mode.
     env:

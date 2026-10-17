@@ -183,9 +183,15 @@ runbook, [docs/security.md](docs/security.md).
   One credential stays in reach, and it is a residual rather than a control:
   the cell jobs hold `id-token: write` for the read-only corpus role, so any
   process in the job can request an OIDC token for the job's environment, and
-  every relying party that accepts that subject is reachable with it — the
-  Claude GitHub App's installation-token exchange and any AWS role whose trust
-  names that environment (*S3 / the private stores* in
+  every relying party that accepts that subject is reachable with it. Among
+  AWS roles that is the read-only role alone: the production read-write role
+  trusts `corpus-write`, an environment only the corpus writer jobs bind.
+  Beyond AWS it is the Claude GitHub App's installation-token exchange, which
+  accepts a token from any job in this repository holding `id-token: write`
+  and yields one with the App's write grant: an **accepted residual** — the
+  App also serves Claude Code's own GitHub access, so it stays installed, and
+  no workflow uses the exchange, every `claude-code-action` step passing the
+  job's own token (*S3 / the private stores* in
   [docs/security.md](docs/security.md)).
 - **Agents get no App credential, never a static one.** The Claude agent
   steps in `run-predict` / `run-evaluate` receive the cell job's own
@@ -273,18 +279,20 @@ runbook, [docs/security.md](docs/security.md).
   role — read-only on the production stores, read-write on the staging corpus
   pair alone — so the production stores keep exactly one writer whatever
   happens to it. Every role's OIDC trust is scoped to named environments of
-  this repo — the production read-write role to `prod`, the read-only role to
-  `prod`, `staging` (which is what lets the pre-promotion integration runs
-  read the corpus) and `corpus-check` (the PR corpus-check lane, under the
-  trigger surface below), the staging read-write role to `staging` — and each
-  of those environments restricts deployments to one branch, so a PR-branch
-  job cannot assume any of them. Within an environment the split is provenance,
-  not identity, on both sides of the promotion: any `prod`-bound job could ask
-  for the production write role and any `staging`-bound job for the staging
-  one, and what stops the wrong job asking is review of the code the branch
-  policy admits — deliberately symmetric, so a wrongly-writing change fails
-  visibly against the disposable staging pair before promotion instead of
-  succeeding first in production. No
+  this repo — the production read-write role to `corpus-write`, the read-only
+  role to `prod`, `corpus-write`, `staging` (which is what lets the
+  pre-promotion integration runs read the corpus) and `corpus-check` (the PR
+  corpus-check lane, under the trigger surface below), the staging read-write
+  role to `staging` — and each of those environments restricts deployments to
+  one branch, so a PR-branch job cannot assume any of them. In production the
+  split is identity: only the corpus writer jobs bind `corpus-write`, so no
+  `prod`-bound job — no agent cell — can ask for the write role, whatever it
+  runs (`tests/test_workflow_corpus_write.py` pins the binding; the promotion
+  gate checks the environment's `main`-only policy; the trust itself lives in
+  IAM). In staging it stays provenance: any `staging`-bound job could ask for
+  the staging write role, which writes only the disposable staging pair, and
+  what stops the wrong job asking is review of the code the branch policy
+  admits. No
   committed file carries credentials or the bucket URL — each job (and
   operator) supplies the corpus address out of band — a base URL, one per
   environment, from which both stores' addresses derive (`fedcourtsai.paths`),
@@ -360,8 +368,8 @@ runbook, [docs/security.md](docs/security.md).
   maintainer-merged promotion put on `main`. A `workflow_dispatch` is gated by
   GitHub on repository **write**. And every privileged job binds a deployment
   environment whose branch policy pins the ref it may run from — `prod` to
-  `main`, `staging` to `staging` (below), `corpus-check` and `website` to
-  `main` — so a
+  `main`, `staging` to `staging` (below), `corpus-write`, `corpus-check` and
+  `website` to `main` — so a
   dispatch from any other ref
   holds no role, no secret, no agent: a job naming an environment as a literal
   is refused at the deployment-branch gate before a step runs, and the three
@@ -545,10 +553,14 @@ runbook, [docs/security.md](docs/security.md).
   repairs, and run-repair's dispatch-gated removal of merits events whose
   docket carries no cert grant — each of whose CLI refuses to apply above a
   per-run blast-radius cap, and each of which stages its ledger deletions into
-  the same commit as the corpus pointer they must match. Secrets and the two
-  production S3 role ARNs live in the
+  the same commit as the corpus pointer they must match. Secrets and the
+  production read-only S3 role ARN live in the
   `prod` environment, whose deployment branches are restricted to `main`: a
-  workflow authored on a PR branch runs without them. A second environment,
+  workflow authored on a PR branch runs without them. The production
+  read-write role's ARN lives in `corpus-write`, also restricted to `main`,
+  with copies of the few names the corpus writer jobs read; only those jobs
+  bind it, and the promotion gate's admin-read stage refuses while it admits
+  anything but `main` or holds a name they do not read. Another environment,
   `staging`, is restricted to the `staging` branch and holds the read-only
   role, its own engine keys for the pre-promotion integration runs, the
   staging read-write role. A `website` environment, restricted to `main`,
@@ -556,7 +568,7 @@ runbook, [docs/security.md](docs/security.md).
   that drafts the weekly public update (`docs/security.md`); the promotion
   gate's admin-read stage refuses while it admits anything but `main`, holds
   anything but that key and the draft's tag id, or the key's name is also a
-  repository or organization secret. A third, `review`, holds no secret and no role and admits
+  repository or organization secret. Another, `review`, holds no secret and no role and admits
   `main` and `staging`; beyond that its content is a required-reviewer rule,
   and it exists only as the audit-logged hold
   between a plan that would spend and the spend — run-predict, run-evaluate,
@@ -577,7 +589,7 @@ runbook, [docs/security.md](docs/security.md).
   make a maintainer-dispatched run unreleasable. Revisit if a second maintainer
   joins. The `staging` environment also carries the **staging read-write
   role**'s trust — the only credential in the system that can write a corpus
-  store other than through the `prod` writers, read-only on production and
+  store other than through the `corpus-write` writers, read-only on production and
   read-write on the staging bucket pair alone, so production's single-writer
   discipline is unchanged and the worst a staging-bound write can corrupt is
   the re-seedable fixture the refresh lane rebuilds in one dispatch. Until an

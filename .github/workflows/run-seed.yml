@@ -151,7 +151,7 @@ jobs:
     # killed here while still in setup, which is a different problem. Kept well
     # under the App token's 1h life so one token covers the whole run.
     timeout-minutes: 55
-    environment: prod
+    environment: corpus-write
     # This environment's corpus estate as one base URL (see run-pull): the
     # index remote and the per-case content store are fixed segments beneath
     # it, and the store's address is the corpus-split mode. Job-wide, because
@@ -1735,7 +1735,7 @@ jobs:
     # Setup, the corpus pull, at most the cap's worth of content-store writes,
     # the blob push and the commit.
     timeout-minutes: 30
-    environment: prod
+    environment: corpus-write
     permissions:
       contents: read
       id-token: write # the read-write role for the fresh pull, the write and the push

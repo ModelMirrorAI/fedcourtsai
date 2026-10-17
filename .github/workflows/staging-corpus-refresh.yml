@@ -12,10 +12,11 @@ name: staging-corpus-refresh
 # a write-capable role and a job holding a read-only one are different risk
 # classes, and permissions are scoped per job. Its whole permission surface
 # is one file to read: the staging read-write role's trust names the
-# `staging` environment — deliberately, so staging rehearses production's
-# provenance model (in prod too, the write role trusts the environment every
-# reader binds, and review of what reaches the branch is the control) — and
-# this workflow is the one reviewed asker.
+# `staging` environment, which every staging reader binds too — unlike
+# production, whose read-write role trusts the writer-only `corpus-write`
+# environment, because what staging-head code can write is the disposable,
+# re-seedable staging pair, and review of what reaches the branch is the
+# control (docs/security.md) — and this workflow is the one reviewed asker.
 #
 # It does not reuse the `corpus-readonly` / `corpus-ranged` composites for the
 # credential step, deliberately: those exist to hand a job the PRODUCTION

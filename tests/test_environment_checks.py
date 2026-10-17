@@ -377,3 +377,120 @@ def test_unrelated_repository_secrets_pass_and_unread_ones_fail() -> None:
         "repository secrets were unread" in p for p in ec.shadow_secret_problems(None, other)
     )
     assert any("organization" in p for p in ec.shadow_secret_problems(other, None))
+
+
+# The `corpus-write` environment: the one the production read-write role trusts.
+
+WRITER_SECRETS: dict[str, Any] = {
+    "total_count": 2,
+    "secrets": [{"name": "DATA_APP_PRIVATE_KEY"}, {"name": "COURTLISTENER_API_TOKEN"}],
+}
+WRITER_VARIABLES: dict[str, Any] = {
+    "total_count": 5,
+    "variables": [
+        {"name": "AWS_ROLE_TO_ASSUME"},
+        {"name": "AWS_ROLE_TO_ASSUME_READONLY"},
+        {"name": "AWS_REGION"},
+        {"name": "CORPUS_BASE_URL"},
+        {"name": "DATA_APP_CLIENT_ID"},
+    ],
+}
+
+
+def _corpus_write(**overrides: Any) -> list[str]:
+    values: dict[str, Any] = {
+        # No required reviewers: the writer windows run on a schedule.
+        "environment": _environment(reviewers=[]),
+        "branch_policies": MAIN_ONLY,
+        "secrets": WRITER_SECRETS,
+        "variables": WRITER_VARIABLES,
+    }
+    values.update(overrides)
+    return ec.corpus_write_problems(
+        values["environment"], values["branch_policies"], values["secrets"], values["variables"]
+    )
+
+
+def test_the_configured_corpus_write_environment_passes() -> None:
+    assert _corpus_write() == []
+    # A name served from the repository level instead is absent here, and fine.
+    assert _corpus_write(secrets=NO_SECRETS, variables={"variables": []}) == []
+
+
+@pytest.mark.parametrize(
+    ("overrides", "fragment"),
+    [
+        ({"environment": None}, "`corpus-write` environment does not exist"),
+        ({"environment": _environment(reviewers=[], custom=False)}, "custom branch policy"),
+        (
+            {"environment": _environment(reviewers=[], protected_branches=True)},
+            "custom branch policy",
+        ),
+        ({"branch_policies": None}, "branch policies were unread"),
+        ({"branch_policies": {"branch_policies": []}}, "admits: none"),
+        (
+            {
+                "branch_policies": {
+                    "branch_policies": [
+                        {"name": "main", "type": "branch"},
+                        {"name": "staging", "type": "branch"},
+                    ]
+                }
+            },
+            "admits: main, staging",
+        ),
+        ({"branch_policies": {"branch_policies": [{"name": "main", "type": "tag"}]}}, "exactly"),
+        ({"secrets": None}, "secrets were unread"),
+        ({"secrets": {"secrets": [{"name": "DEV_APP_PRIVATE_KEY"}]}}, "secrets outside"),
+        ({"variables": None}, "variables were unread"),
+        (
+            {"variables": {"variables": [{"name": "AWS_ROLE_TO_ASSUME_STAGING_RW"}]}},
+            "variables outside",
+        ),
+    ],
+)
+def test_each_corpus_write_weakening_is_named(overrides: dict[str, Any], fragment: str) -> None:
+    problems = _corpus_write(**overrides)
+    assert any(fragment in problem for problem in problems), problems
+
+
+def test_the_corpus_write_gate_cli_reads_the_four_listings(tmp_path: Path) -> None:
+    files = {
+        "environment": _environment(reviewers=[]),
+        "branch-policies": MAIN_ONLY,
+        "secrets": WRITER_SECRETS,
+        "variables": WRITER_VARIABLES,
+    }
+    for name, document in files.items():
+        (tmp_path / f"{name}.json").write_text(json.dumps(document))
+    args = [
+        "assert-corpus-write-environment",
+        "--environment-file",
+        str(tmp_path / "environment.json"),
+        "--branch-policies-file",
+        str(tmp_path / "branch-policies.json"),
+        "--secrets-file",
+        str(tmp_path / "secrets.json"),
+        "--variables-file",
+        str(tmp_path / "variables.json"),
+    ]
+    runner = CliRunner()
+    passed = runner.invoke(app, args)
+    assert passed.exit_code == 0, passed.output
+    # An absent listing is an unread one, and fails.
+    (tmp_path / "branch-policies.json").unlink()
+    assert runner.invoke(app, args).exit_code == 1
+
+
+def test_the_promotion_gate_checks_the_corpus_write_environment_unconditionally() -> None:
+    """The read-write role's trust names the environment from the moment IAM
+    says so, before any workflow binding it reaches `main`, so the check does
+    not wait for one."""
+    script = (Path(__file__).resolve().parent.parent / "scripts" / "promotion-gate.sh").read_text()
+    contexts = script[script.index("\ncontexts() {") : script.index("\nregistry() {")]
+    tail = contexts[contexts.index('cw_base="repos/${REPO}/environments/corpus-write"') :]
+    for listing in ("deployment-branch-policies", "secrets", "variables"):
+        assert listing in tail
+    assert "uv run fedcourts assert-corpus-write-environment" in tail
+    assert "fail=1" in tail
+    assert "grep -rq" not in tail
