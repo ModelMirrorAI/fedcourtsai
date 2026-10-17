@@ -1,9 +1,13 @@
 """The committed frozen-process registry and the freeze constants built from it.
 
 The golden values below pin the constants as they stood when they moved into
-the registry, copied verbatim, and a freeze commit extends them with what it
-registers; the registry must keep reproducing them exactly, types, order and
-clock included.
+the registry, copied verbatim, and a commit on `staging` extends them with
+what a promotion stamped once that stamp has synced back; the registry must
+keep reproducing them exactly, types, order and clock included. The harness
+boundaries are pinned as a prefix: the promotion record stamps a pending
+boundary into the registry on `main` in a commit that may touch nothing else,
+so a stamped row can follow the golden ones until that extension, and must
+never move one of them.
 """
 
 from __future__ import annotations
@@ -208,8 +212,9 @@ def test_the_blessing_labels_reproduce_their_golden_values_in_order() -> None:
 
 def test_the_harness_boundaries_reproduce_their_golden_values_in_order() -> None:
     assert isinstance(HARNESS_BOUNDARIES, tuple)
-    assert HARNESS_BOUNDARIES == GOLDEN_BOUNDARIES
-    assert repr(HARNESS_BOUNDARIES) == repr(GOLDEN_BOUNDARIES)
+    pinned = HARNESS_BOUNDARIES[: len(GOLDEN_BOUNDARIES)]
+    assert pinned == GOLDEN_BOUNDARIES
+    assert repr(pinned) == repr(GOLDEN_BOUNDARIES)
 
 
 def test_the_committed_registry_round_trips_through_its_model() -> None:
