@@ -219,11 +219,16 @@ historical:
   # fill sweeps, which converge index columns no channel revisits, reading only
   # the pulled blob and the content-store snapshots the window already holds
   # credentials for, and the order-list vote sweep, which stamps committed
-  # outcomes from its own split jobs. A cap is a slice, not a refusal: a window
+  # outcomes from its own split jobs; and, on every window rather than the
+  # daily one, the OCR sweep, which reads scanned filings in split jobs of its
+  # own. A cap is a slice, not a refusal: a window
   # writes at most this many rows of its class (the fill sweeps in case_id
-  # order, the vote sweep oldest order date first), and the ledger line it tees
+  # order, the vote sweep oldest order date first, the OCR sweep forward-cell
+  # filings stored within a week first, newest first, then the rest rotated
+  # one cap per window), and the ledger line it tees
   # to the run summary (`sweep ledger — <cmd>: would fill N; filled M;
-  # remaining R (cap C)`) carries the rest to the next window. Two classes only fill NULL columns; the marking sweep
+  # remaining R (cap C)`) carries the rest to the next window. On the OCR
+  # sweep's writer, N is the plan's rows and R the ones it skipped. Two classes only fill NULL columns; the marking sweep
   # rewrites docket_number, selected by the marking's exact words and neutral
   # to the identity join. A written row leaves its class either way, so a
   # bounded slice still drains it. Each `<name>_ceiling` is the refusal beside
@@ -247,6 +252,13 @@ historical:
     # ledger outcomes; a long-conference list a few hundred, drained in a
     # couple of windows at this cap.
     order_votes: 200
+    # `ocr-recover-petitions --sweep` (split jobs on every window): scanned
+    # filings re-fetched and read by OCR, forward-cell candidates first. Its
+    # cost is runner minutes in the parse job, about three seconds a page, so
+    # the parse's slice deadline is what holds a heavy slice inside its step;
+    # the cap holds the spend. The class held 10 on the index blob of
+    # 2026-10-17 (sha 7c62d6e4), so one window drains it.
+    ocr: 10
     # Ceilings, each well above the fill class a converged corpus holds. Upper
     # bounds on that class, on the index blob of 2026-10-02 (sha 2b356dbd):
     # 0 marked rows, 179 response candidates, 54 decision-record candidates.
@@ -260,6 +272,9 @@ historical:
     # such as a Term newly in reach, which the dispatched `order-votes` pass
     # applies under a maintainer's bound.
     order_votes_ceiling: 1500
+    # Far above the 10 scanned filings of 2026-10-17: a class that size is an
+    # extractor or fetch regression emptying stored text, not scans to read.
+    ocr_ceiling: 500
 
 predict:
   # Prediction-scope gate (docs/data-pipeline.md "Scope"). Restricts only the agentic
@@ -547,8 +562,8 @@ spend:
 
 # runner = the agentic predict/evaluate cell runner's retry governor (see
 # src/fedcourtsai/pipeline/runner.py). A cell that fails on a TRANSIENT fault —
-# an HTTP 429 / quota-exceeded throttle, a 5xx upstream, a timeout, or a
-# serving-side dropped stream — is retried with exponential backoff and jitter;
+# an HTTP 429 / quota-exceeded throttle, a 5xx upstream, a timeout, a dropped
+# connection, or a serving-side dropped stream — is retried with exponential backoff and jitter;
 # a PERMANENT fault (content-filter trip, context-length blowout, auth error) is
 # a hard failure and never retried. A TERMINAL quota sits on the permanent side
 # though it arrives throttle-shaped: an engine that says its own allowance is

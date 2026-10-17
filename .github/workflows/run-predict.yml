@@ -659,8 +659,11 @@ jobs:
         with:
           restore-cache: "false"
 
-      # Read-only corpus access (OIDC role; no static keys — a compromised
-      # predict runner cannot write or delete corpus objects). No pull: corpus
+      # Read-only corpus access (OIDC role; no static keys). The session this
+      # step assumes is the read-only role's; what else the job's
+      # `id-token: write` can reach depends on which roles' trust names this
+      # job's environment, which lives in IAM rather than in this repository
+      # (docs/security.md, *S3 / the private stores*). No pull: corpus
       # bytes move only as the KBs each ranged lookup touches. The credentials
       # are scoped to the sidecar action's own steps — the agent steps below
       # inherit none; they reach the corpus through the localhost sidecar via
@@ -974,30 +977,6 @@ jobs:
           rm -rf data/qp-topics
           uv run fedcourts hide-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
 
-      - name: Mint agent comment token
-        id: agent-token
-        # Only the Claude step consumes this token (Codex never took one, and
-        # Gemini's CLI strips non-allowlisted env vars from agent shells in CI): don't
-        # mint a live credential in cells that cannot use it — or in a refused
-        # cell, which runs no agent at all.
-        if: matrix.engine == 'claude-code' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
-        # Minted after provisioning so the refusal gate above can actually
-        # withhold it — a step cannot be gated on the output of a later step.
-        # The least-privilege credential claude-code-action requires. No round
-        # here has a triggering issue or PR to comment on, so the issue and
-        # pull-request scopes buy the agent nothing it can reach; what matters is
-        # the absence of contents:write — the agent only writes files locally,
-        # which ride to the collect job as an artifact, and that job (its own
-        # token) does the commit/PR, so a prompt injection in docket text cannot
-        # push code here.
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
-          permission-contents: read
-          permission-issues: write
-          permission-pull-requests: write
-
       # Install the engine's CLI at the version `.github/engines/<engine>/`
       # pins, in its own SECRET-FREE step: the lockfile fixes every package by
       # hash and --ignore-scripts skips npm lifecycle scripts, and the step's
@@ -1200,7 +1179,17 @@ jobs:
           # The pinned CLI from the engine-cli step, never the one the action
           # bundles: the engine a cell runs moves only when the pin does.
           path_to_claude_code_executable: ${{ steps.engine-cli.outputs.path }}
-          github_token: ${{ steps.agent-token.outputs.token }}
+          # The action refuses to start without a GitHub token, and its no-input
+          # fallback is an OIDC exchange for an App installation token that
+          # defaults to contents/issues/pull-requests *write* — reachable here,
+          # since this job holds `id-token: write` for the corpus role. So it
+          # gets the job's own token, capped by the job's permissions block at
+          # `contents: read`: no round has an issue or PR to comment on, and the
+          # cell's files ride to `collect` as an artifact. No App key is named
+          # anywhere in this job, because every secret a job names reaches its
+          # runner at job start, where an injected cell could recover it
+          # (tests/test_workflow_token_holder.py).
+          github_token: ${{ github.token }}
           # Prompt caching is automatic: the stable prefix (AGENTS.md + the
           # prompt template + schema) is cached across the run's tool-use turns.
           # The API key's default cache TTL is only 5 minutes, which would expire
@@ -1419,7 +1408,7 @@ jobs:
           # allowlistable (both named in the settings written above).
           FEDCOURTS_CORPUS_BACKEND: service
           # No GITHUB_TOKEN here: it is simply absent from this step's env, so a
-          # comment token could never be used — flags.json is this engine's
+          # GitHub token could never be used — flags.json is this engine's
           # blocked-channel. Belt and braces: a token could not reach the agent's
           # shell even if it were here, because the CLI hard-filters
           # /TOKEN|SECRET|KEY|AUTH|.../i out of the settings allowlist itself, and

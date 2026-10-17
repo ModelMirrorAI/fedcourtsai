@@ -56,10 +56,14 @@ fields that mean the same thing at every stage:
   predicted. The staged `documents/` carry a `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction
   facts (a `petition`, `application` or `appendix` cut at the cap also marks
-  each cut in its text), and whether its text was passed through the
-  contact-detail scrub — which is where a cell meeting
-  `[contact detail withheld]` in a filing can confirm the pipeline put it there
-  ([live-sources.md](live-sources.md)).
+  each cut in its text), and what the contact-detail scrub did to its text:
+  `contact_scrubbed` (the scrub ran and, where its shape pass ran, its residual
+  check found nothing contact-shaped left on the document's opening or
+  closing), `contact_replacements`,
+  `contact_residuals` (what that check still found, non-zero only beside
+  `false`) and `contact_scrub_passes` (which passes ran) — which is where a
+  cell meeting `[contact detail withheld]` in a filing can confirm the
+  pipeline put it there ([live-sources.md](live-sources.md)).
 
   The `input_snapshot` field is the agent's own string. The prompt contracts one
   spelling — the file's bare basename `YYYY-MM-DD.json`, or the literal
@@ -436,6 +440,49 @@ long-lived agent-feedback tracking issue, so the note survives the trigger
 issue's closure and a maintainer sees it without reading every `reasoning.md`.
 `category` is one of `data-quality` / `scope` / `ambiguous-event` / `blocked` /
 `other`, and `severity` one of `info` / `warning` / `blocker`.
+
+**A flag never fails a predict or evaluate cell.** The cell's judgment is its
+output and its flags are advisory. So `stamp-cell` normalises a `flags.json`
+that does not validate before `validate` runs, rather than let a mis-shaped
+note discard the output beside it. (This section spells the verb the way the
+`normalised` field does.)
+
+- An off-vocabulary `severity` is first matched case- and
+  underscore-insensitively, then through a short synonym table: `low`, `minor`,
+  `note` and `trivial` read as `info`; `medium`, `moderate`, `high`, `warn`,
+  `error`, `critical`, `severe` and `fatal` read as `warning`. Any other value
+  becomes `warning`, loud enough to be read. Nothing is ever coerced to
+  `blocker`.
+- An off-vocabulary `category` becomes `other`, after the same insensitive
+  match, so `"data_quality"` keeps its meaning.
+- An over-long message continues in further flags of the same category,
+  severity and event, so its text is never cut.
+- An unknown key is dropped, and a missing envelope field is filled from the
+  cell's own coordinates.
+- A file with no recoverable structure is carried verbatim in harness notes,
+  up to a bounded number of parts.
+
+Each coerced flag is marked `normalised: true`, and a harness note beside it
+records what changed. What the note quotes of a replaced value (an
+off-vocabulary severity, a dropped key) is bounded. `validate` itself stays
+strict. A `--regrade` leaves flags as committed.
+
+Each flag also carries a `source`: `agent` (the default) or `harness`, for the
+notes a harness step writes into the same file (the stamp's unread-snapshot
+tripwire, the normalisation note). It is a triage label the roll-up filters
+and counts on, not an authentication, since the file is the agent's own.
+
+The roll-up groups flags by case, event, source and theme. The theme is the
+tracked theme a flag's message matches in `src/fedcourtsai/flag_themes.json`
+(a theme-to-issue map), and otherwise the flag's category. So sibling actors'
+notes on one event read as one row naming every actor. An agent flag on a
+tracked theme is counted against its issue rather than listed, so a new theme
+stands out. A `blocker` and a `normalised` flag are listed whether tracked or
+not, and a harness note is never counted as tracked. Nothing checks that a
+mapped issue is still open, so retire its theme from the map when the issue
+closes. The tally line above the table gives three counts that overlap rather
+than partition the total: flags the harness wrote, cells whose malformed file
+was normalised (one per file), and flags on tracked themes.
 
 ```json
 {

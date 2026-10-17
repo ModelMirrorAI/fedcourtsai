@@ -1,7 +1,7 @@
 """Fork `pull_request` runs must get **no** `prod` secrets (see SECURITY.md and
 docs/security.md -> *Going public*). The `prod` environment's deployment branches
 are restricted to `main`, so a workflow running from a fork PR (a non-`main` ref)
-executes without the App keys, agent tokens, CourtListener token, or S3 role. These
+executes without the App keys, CourtListener token, or S3 role. These
 tests lock the *code-side* shape of that control in place so a future edit cannot
 quietly route a secret-bearing job onto the fork-PR path; the live end-to-end check
 from a real fork remains a maintainer step (docs/security.md -> *Going public*).

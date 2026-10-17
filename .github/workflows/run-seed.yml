@@ -26,7 +26,14 @@ name: run-seed
 # front covers the walk and the trailing steps.
 #
 # What runs here is production only: the walk, and the standing sweeps that
-# converge the corpus toward a state a window can reach on its own. Every one
+# converge the corpus toward a state a window can reach on its own (the OCR
+# sweep and the order-list vote sweep each in split jobs of their own, below).
+# The `corpus-write` group below is the run's, so the lock is held until the
+# last job ends. With the OCR sweep on every window that is, at worst, its
+# projection (30 min) and parse (50 min) beside the walk's 55, then its
+# writer's 30: about 115 minutes, against the six hours between windows.
+# A live or pull window that fires meanwhile waits in the group.
+# Every one
 # of them is idempotent and NON-BLOCKING, because a hiccup must converge next
 # window rather than redden a walk nobody is watching. The dispatch-gated
 # maintenance passes have the opposite posture — a maintainer reads a dry-run
@@ -1276,6 +1283,9 @@ jobs:
       contents: read
     outputs:
       plan: ${{ steps.plan.outputs.plan }}
+      # Read by the writer, which downloads the plan by this id rather than by
+      # name, so no other job's upload can stand in for it.
+      plan-artifact: ${{ steps.upload-plan.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1290,8 +1300,8 @@ jobs:
           git fetch origin "${GITHUB_REF_NAME}"
           git reset --hard FETCH_HEAD
 
-      # Restores the uv cache but never saves one: a cache written after a
-      # parse ran would be built on a runner that parse could have altered.
+      # Neither restores nor saves the uv cache: a cache written after a parse
+      # ran would be built on a runner that parse could have altered.
       - uses: ./.github/actions/setup-python-env
         with:
           restore-cache: "false"
@@ -1333,6 +1343,7 @@ jobs:
           echo "plan=written" >> "$GITHUB_OUTPUT"
 
       - name: Upload the plan
+        id: upload-plan
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: order-votes-plan-${{ github.run_id }}
@@ -1352,6 +1363,7 @@ jobs:
     needs: [authorize, seed, order-votes-parse]
     if: >-
       ${{ !cancelled() && needs.order-votes-parse.outputs.plan == 'written'
+      && needs.order-votes-parse.outputs.plan-artifact != ''
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -1381,10 +1393,14 @@ jobs:
         with:
           restore-cache: "false"
 
+      # By artifact id, from the parse job's own outputs: a job of this run
+      # that ran a parse can replace an artifact by name, but not another
+      # job's outputs, and a replaced artifact gets a new id.
       - name: Download the plan
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: order-votes-plan-${{ github.run_id }}
+          artifact-ids: ${{ needs.order-votes-parse.outputs.plan-artifact }}
+          merge-multiple: true
           path: ${{ runner.temp }}/handoff
 
       # The artifact was uploaded by a job that ran a parse, so what it unpacked
@@ -1476,6 +1492,400 @@ jobs:
           git commit -m "seed: stamp settled order-list votes"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "order-vote ledger"
+
+  # The OCR sweep: reads a scanned filing's pages so a forward cell gets the
+  # text, on every window rather than only when a maintainer dispatches
+  # run-repair's `ocr-recovery` pass. A forward cell runs once, usually within
+  # days of the filing it reads, so a dispatch-only recovery reaches it after
+  # the cell has run. The slice is `historical.sweep_caps.ocr` candidates,
+  # those a forward cell will read first (`fedcourtsai.pipeline.ocr_sweep`).
+  #
+  # The same credential split as the vote sweep above, for the same reason:
+  # the step that fetches the Court's PDFs and renders and recognizes them
+  # holds no credential of any kind.
+  #
+  #   ocr-sweep-projection  read-only role; walks the recovery class and writes
+  #                         the window's slice (case id, kind, Court URL, page
+  #                         count), fetching nothing
+  #   ocr-sweep-parse       no environment, no `id-token`, no secret; installs
+  #                         the two OCR binaries, fetches and reads each item
+  #                         and writes the plan (the text it read)
+  #   ocr-sweep             the writer: re-checks the plan whole and per row
+  #                         against a fresh pull, writes the rows, pushes the
+  #                         blob, and only then mints the App token to commit
+  #                         the pointer
+  #
+  # The plan carries the filings' text, which for a self-represented filer
+  # holds contact details, so it crosses under the carve-out proposed in
+  # docs/data-sources.md (*PII stance*), which merging these jobs decides:
+  # the Court's own public filings, read by a job holding no corpus
+  # credential, one artifact, one day, never printed. Any signed-in user can
+  # download it during that day. The summary lines are counts and validated
+  # identifiers.
+  #
+  # Every window, not only the daily one: a scan stored by a live window waits
+  # at most one seed window for its text, rather than a day.
+  #
+  # Standing-sweep posture: every job is continue-on-error, so a fetch hiccup
+  # converges next window; the projection refuses only a class above
+  # `ocr_ceiling`, and each hand-off is a step output.
+  ocr-sweep-projection:
+    needs: [authorize]
+    if: >-
+      ${{ !cancelled()
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    # Setup, the read-only corpus pull (about a gigabyte) and the class walk,
+    # which reads each live-slice case's documents from the content store:
+    # about five minutes on the 2026-10-17 blob.
+    timeout-minutes: 30
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    outputs:
+      worklist: ${{ steps.worklist.outputs.worklist }}
+      # The writer downloads this exact artifact by id: the parse can replace
+      # an artifact by name, but cannot forge another job's outputs.
+      worklist-artifact: ${{ steps.upload-worklist.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # The corpus pointer the projection reads moves with every writer's
+        # commit. The repo is public, so this read-only fetch needs no
+        # credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+
+      - name: Write the OCR worklist
+        id: worklist
+        timeout-minutes: 15
+        env:
+          # The class walk reads each case's documents from the content store.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          HANDOFF_WORKLIST: ${{ runner.temp }}/handoff/worklist.json
+        run: |
+          set -euo pipefail
+          uv run fedcourts ocr-recover-petitions --sweep --emit-worklist "${HANDOFF_WORKLIST}" 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # A converged class hands the parse nothing, so it does not start.
+          items="$(jq '.items | length' "${HANDOFF_WORKLIST}")"
+          if [ "${items}" -gt 0 ]; then
+            echo "worklist=written" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload the worklist
+        id: upload-worklist
+        if: ${{ steps.worklist.outputs.worklist == 'written' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ocr-worklist-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff/worklist.json
+          if-no-files-found: error
+          overwrite: true
+          # Public facts only — case ids, document kinds, the Court's own URLs
+          # and page counts; one day, because it exists to hand one file to
+          # the next job.
+          retention-days: 1
+
+  # The parse: every fetch of a filing and every render and recognition of it
+  # happens here and nowhere else in the sweep. No `environment:`, no
+  # `id-token`, no App token, and the guard asserts the absence, as on the
+  # vote sweep's parse, whose residual — a hostile PDF could alter this job's
+  # own later steps, which hold only this run's artifact and cache token — is
+  # the same and is stated in docs/security.md.
+  ocr-sweep-parse:
+    needs: [authorize, ocr-sweep-projection]
+    if: >-
+      ${{ !cancelled() && needs.ocr-sweep-projection.outputs.worklist == 'written'
+      && needs.ocr-sweep-projection.outputs.worklist-artifact != ''
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    # Setup, the binary install and the read step's cap.
+    timeout-minutes: 50
+    permissions:
+      contents: read
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+      # Read by the writer, which downloads the plan by this id rather than by
+      # name, so no other job's upload can stand in for it.
+      plan-artifact: ${{ steps.upload-plan.outputs.artifact-id }}
+    steps:
+      # The run's own commit, deliberately: the parse reads nothing under
+      # `data/` or the corpus pointer, only the code and config/tracking.yaml,
+      # so it has no reason to move to the branch tip.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Neither restores nor saves the uv cache: a cache written after a parse
+      # ran would be built on a runner that parse could have altered.
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+          save-cache: "false"
+
+      - name: Assert no credential reaches the parse
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables reached the parse job"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the parse job"
+            exit 1
+          fi
+          echo "no cloud credential in the parse job"
+
+      # The two binaries the recognition shells out to, from the runner
+      # image's own Ubuntu archive, as on run-repair's OCR step: no third-party
+      # repository and no added signing key. The versions are echoed rather
+      # than pinned, for that step's reason.
+      - name: Install the OCR binaries
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          sudo apt-get -o Acquire::Retries=3 update -qq
+          sudo apt-get -o Acquire::Retries=3 install -y -qq --no-install-recommends \
+            tesseract-ocr poppler-utils
+          {
+            echo "OCR binaries:"
+            tesseract --version 2>&1 | head -n 1
+            pdftoppm -v 2>&1 | head -n 1
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Download the worklist
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.ocr-sweep-projection.outputs.worklist-artifact }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/handoff
+
+      # Fetch and read each item. The slice deadline (1800s) sits under this
+      # step's 40-minute cap by what a started candidate can run past it: one
+      # document's 600s recognition budget is the larger part, and the plan
+      # write after the loop is seconds. A declined item is reported unreached
+      # and heads the next window's slice.
+      - name: Read the scanned filings
+        id: plan
+        timeout-minutes: 40
+        env:
+          HANDOFF_WORKLIST: ${{ runner.temp }}/handoff/worklist.json
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
+        run: |
+          set -euo pipefail
+          uv run fedcourts ocr-recover-petitions --worklist "${HANDOFF_WORKLIST}" \
+            --plan-out "${HANDOFF_PLAN}" --deadline-seconds 1800 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          # A plan that read nothing gives the writer nothing to pull a corpus for.
+          rows="$(jq '.rows | length' "${HANDOFF_PLAN}")"
+          if [ "${rows}" -gt 0 ]; then
+            echo "plan=written" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload the plan
+        id: upload-plan
+        if: ${{ steps.plan.outputs.plan == 'written' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ocr-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff/plan.json
+          if-no-files-found: error
+          overwrite: true
+          # The Court's own public filings, as read; under the carve-out
+          # proposed in docs/data-sources.md. One day, because it exists to hand one file
+          # to the writer.
+          retention-days: 1
+
+  # The writer. It waits for the walk, so its pull builds on the walk's
+  # pointer and its push follows the walk's commits under the run's lock.
+  # The read-write role is assumed just before the pull it writes on, and the
+  # App token is minted only after the write step has exited; the commit step
+  # blanks the AWS session and asserts it.
+  ocr-sweep:
+    needs: [authorize, seed, ocr-sweep-projection, ocr-sweep-parse]
+    if: >-
+      ${{ !cancelled() && needs.ocr-sweep-parse.outputs.plan == 'written'
+      && needs.ocr-sweep-parse.outputs.plan-artifact != ''
+      && needs.ocr-sweep-projection.outputs.worklist-artifact != ''
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    # Setup, the corpus pull, at most the cap's worth of content-store writes,
+    # the blob push and the commit.
+    timeout-minutes: 30
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write # the read-write role for the fresh pull, the write and the push
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # After the walk: the corpus pointer this job builds on moves with
+        # every writer's commit. The repo is public, so this read-only fetch
+        # needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      # Both files by artifact id, from the job outputs of the jobs that wrote
+      # them: the plan from this sweep's parse, the worklist from its
+      # projection. A job of this run that ran a parse can replace an artifact
+      # by name; it cannot change another job's outputs, and a replaced
+      # artifact gets a new id, so a substitution fails the download.
+      - name: Download the plan
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.ocr-sweep-parse.outputs.plan-artifact }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/handoff/plan
+
+      - name: Download the worklist
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.ocr-sweep-projection.outputs.worklist-artifact }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/handoff/worklist
+
+      # The plan was uploaded by a job that ran a parse, so what was unpacked
+      # is checked before anything reads it: exactly the two files, and
+      # nothing in the checkout changed.
+      - name: Check the downloaded plan
+        run: |
+          set -euo pipefail
+          found="$(find "${RUNNER_TEMP}/handoff" -mindepth 1 -printf '%y %P\n' | sort)"
+          expected="$(printf '%s\n' 'd plan' 'd worklist' 'f plan/plan.json' 'f worklist/worklist.json')"
+          if [ "${found}" != "${expected}" ]; then
+            echo "::error::the downloaded artifacts hold something other than one plan.json and one worklist.json"
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::the plan artifact changed the checkout"
+            exit 1
+          fi
+
+      # Same read-write (append-only) role as the walk's: the write replaces
+      # stored document rows in the content store and the index, and can
+      # never wipe a remote object.
+      - name: Configure AWS credentials (corpus S3 remote, read-write)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 3600 # 1h
+          # Bounded for the corpus job's reason (the workflow-traps list in
+          # docs/pipeline.md).
+          action-timeout-s: 120
+
+      # The blob the write builds on, pulled inside the lock.
+      - name: Pull the current corpus from the remote
+        env:
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts corpus-pull
+
+      # Re-check the plan whole and each row against this corpus, write the
+      # rows and push the blob. No GitHub write credential exists yet.
+      - name: Write the recovered filings
+        timeout-minutes: 15
+        env:
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan/plan.json
+          HANDOFF_WORKLIST: ${{ runner.temp }}/handoff/worklist/worklist.json
+        run: |
+          set -euo pipefail
+          # The ledger echoes the identifiers the plan carries, so workflow
+          # commands are suspended for the run under a token nothing in the
+          # plan can know. A failure is announced after the resume.
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
+          uv run fedcourts ocr-recover-petitions --from-plan "${HANDOFF_PLAN}" \
+            --bind-worklist "${HANDOFF_WORKLIST}" --sweep --apply 2>&1 \
+            | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+          echo "::${stop_token}::"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::ocr-recover-petitions --sweep wrote nothing (exit ${status}): a refused plan — the run summary has the reason."
+            exit "$status"
+          fi
+          # Blob before pointer commit, as everywhere: readers resolve the
+          # committed pointer, so a push without its commit publishes nothing.
+          uv run fedcourts corpus-push
+
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # The pointer alone: the sweep writes no `data/` path. The step holding
+      # the App token needs no AWS session, so the read-write session's
+      # variables are blanked: a step's `env:` does override what the
+      # credentials action exported, which is not true of the OIDC request pair.
+      - name: Commit the OCR pointer
+        env:
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          AWS_SESSION_TOKEN: ""
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+            echo "::error::AWS credential variables reached the OCR sweep commit"
+            exit 1
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "No planned filing was written; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: recover scanned filings (OCR sweep)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "OCR sweep pointer"
 
   # Safety net for the walker. Its own summary step cannot run when the job is
   # cancelled — the hard timeout-minutes kill, an OOM, or a setup step that hangs
@@ -1587,7 +1997,16 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, seed, order-votes-projection, order-votes-parse, order-votes, guard]
+    needs:
+      - authorize
+      - seed
+      - order-votes-projection
+      - order-votes-parse
+      - order-votes
+      - ocr-sweep-projection
+      - ocr-sweep-parse
+      - ocr-sweep
+      - guard
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5

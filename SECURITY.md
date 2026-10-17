@@ -18,13 +18,13 @@ runbook, [docs/security.md](docs/security.md).
   bumps it. The packages `uvx` resolves at run time are *not* in that lock and
   are pinned by version alone: the CourtListener MCP server named in
   `config/predictors.yaml` / `config/evaluators.yaml`, and the workflow linters.
-  A third class is pinned by neither: the OS packages three steps install with
+  A third class is pinned by neither: the OS packages four steps install with
   `apt-get` — the labeler's sandbox on `run-analytics`, the same sandbox on
-  `integration-test`'s labeler smoke, and the OCR recovery's
-  two binaries on `run-repair`. They come from the runner image's own Ubuntu
+  `integration-test`'s labeler smoke, and the OCR recovery's two binaries on
+  `run-repair` and in `run-seed`'s credential-free OCR sweep parse job. They come from the runner image's own Ubuntu
   archive, with no third-party repository and no added signing key, so the trust
   is the runner's rather than ours; an exact version pin would only add a
-  failure the week the image rolls, so the OCR step echoes the versions it
+  failure the week the image rolls, so each OCR step echoes the versions it
   resolved into its run summary instead.
 - **Least-privilege permissions.** Every workflow sets top-level `permissions: {}`
   and grants only what each job needs.
@@ -177,17 +177,27 @@ runbook, [docs/security.md](docs/security.md).
   users regardless, so the last line stays what it always was: the *reachable*
   secret is not worth stealing — the single-account, **read-only**
   CourtListener token whose worst case is spending pull's quota and forcing a
-  rotation (above), not a model key. The GitHub credentials in reach of a cell
-  are comment-shaped and nothing more: the Claude agent's own comment-only
-  token, and nothing in a codex or gemini cell.
-- **Agents get a least-privilege GitHub App token, never a static one.** The
-  Claude agent steps in `run-predict` / `run-evaluate` receive a short-lived
-  App installation token scoped **comment-only** (`contents: read` + `issues` +
-  `pull-requests: write`); the Codex and Gemini **agent steps** get no GitHub
-  token at all — their blocked-channel is `flags.json`, surfaced by the trusted
-  `collect` job. The *workflow* (a distinct `contents: write` App token) does
-  the commit/PR, so a prompt injection in docket text cannot push code with the
-  agent's token. Issue and docket text stay untrusted input.
+  rotation (above), not a model key. No App key and no write-scoped GitHub
+  token is delivered to a cell: the Claude step gets a copy of the cell job's
+  own token, capped at `contents: read`, and a codex or gemini cell gets none.
+  One credential stays in reach, and it is a residual rather than a control:
+  the cell jobs hold `id-token: write` for the read-only corpus role, so any
+  process in the job can request an OIDC token for the job's environment, and
+  every relying party that accepts that subject is reachable with it — the
+  Claude GitHub App's installation-token exchange and any AWS role whose trust
+  names that environment (*S3 / the private stores* in
+  [docs/security.md](docs/security.md)).
+- **Agents get no App credential, never a static one.** The Claude agent
+  steps in `run-predict` / `run-evaluate` receive the cell job's own
+  short-lived token, capped at `contents: read` by the job's permissions; the
+  Codex and Gemini **agent steps** get no GitHub token at all — their
+  blocked-channel is `flags.json`, surfaced by the trusted `collect` job. No
+  job that runs an agent names an App's private key, since every secret a job
+  names reaches its runner. The *workflow*'s `collect` job (a distinct
+  `contents: write` App token) does the commit/PR, so a prompt injection in
+  docket text cannot reach the dev App's token or its approval bypass. The
+  job's OIDC request credential is the residual stated in the item above.
+  Issue and docket text stay untrusted input.
 - **The engine watchdog holds no credential.** The engine hang bound
   (`scripts/engine-watchdog.sh`; *Graceful degradation on limits* in
   [docs/pipeline.md](docs/pipeline.md)) is trusted repo code that brackets
@@ -550,8 +560,8 @@ runbook, [docs/security.md](docs/security.md).
   approved exactly its head with nothing requested since, pinned to that head
   and still bound by the required checks. Otherwise it merges through a
   recorded bypass: the admin role's, or a dev App token with contents write,
-  whose jobs merge nothing but their own lane's PR (or the approved candidate)
-  and change only by an approved promotion. The candidates live under
+  whose jobs merge nothing but their own lane's PR (or the approved candidate),
+  run no agent, and change only by an approved promotion. The candidates live under
   `promote/**`, which two branch rulesets let only the dev App create and
   nobody but the admin role move or delete.
   Code and config reach `main` only as a gated

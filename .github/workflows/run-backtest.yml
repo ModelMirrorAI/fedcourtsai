@@ -468,6 +468,9 @@ jobs:
     concurrency:
       group: run-backtest
       cancel-in-progress: false
+    outputs:
+      # Whether the arm's report was handed off; `publish` runs on it.
+      report: ${{ steps.report.outputs.present }}
     # Sized as headroom for ~25 petitions x 3 routable predictors of real agent
     # cells (claude-code, codex, gemini) plus the corpus pull (~75 cells at the
     # dispatch default); the cap is what keeps a hung engine from burning six
@@ -594,10 +597,9 @@ jobs:
       # away — plus one more: the board is published, and a cell's web tools
       # can reach the public repository. Nothing the replay runs reads either
       # file: the board is a render target of `fedcourts big-cases` and the
-      # metrics refresh, neither of which runs in this job. The review PR step
-      # stages all of `metrics/`, so the files must be back before that step
-      # or the PR would carry their deletion; the restore below puts them back
-      # from the commit.
+      # metrics refresh, neither of which runs in this job. The salience-gate
+      # arm writes under `metrics/` in this checkout after the cells, so the
+      # restore below puts the files back from the commit before it runs.
       - name: Remove the big-case board from the replay's tree
         run: rm -f metrics/big-cases.json metrics/big-cases.md
 
@@ -749,7 +751,7 @@ jobs:
             --work-dir "$work_dir"
 
       # Put the ledger back before anything downstream runs in this checkout —
-      # the salience-gate arm and the review PR step both do. From the commit,
+      # the salience-gate arm and the report hand-off both do. From the commit,
       # which is the whole point: whatever a replay cell did while the agents
       # held this tree, the bytes the rest of the job sees are the reviewed
       # ones. The wipe before the checkout is what makes that cover untracked
@@ -775,13 +777,11 @@ jobs:
           fi
           echo "committed ledger restored pristine"
 
-      # Put the big-case board back from the commit before the review PR step
-      # stages `metrics/`, so the removal above never reaches what gets
-      # committed. `HEAD` rather than the index: a cell that staged its own
-      # bytes for the paths would otherwise have them restored, and the
-      # porcelain check refuses anything left differing from the commit. Before
-      # the salience-gate arm too, which writes under `metrics/` in this
-      # checkout.
+      # Put the big-case board back from the commit before the salience-gate
+      # arm, which writes under `metrics/` in this checkout, and before the
+      # report hand-off. `HEAD` rather than the index: a cell that staged its
+      # own bytes for the paths would otherwise have them restored, and the
+      # porcelain check refuses anything left differing from the commit.
       - name: Restore the big-case board and assert it is pristine
         # `!cancelled()` for the same reason as the ledger restore above: the
         # steps after it read this checkout whether or not the replay failed.
@@ -818,12 +818,183 @@ jobs:
           fi
           uv run fedcourts salience-replay --terms "$BT_TERMS"
 
+      # The report leaves this job as an artifact, and nothing else does: the
+      # review PR is opened by `publish` below, on a fresh runner. This job
+      # runs agents unattended, and a process a replay cell leaves behind lives
+      # until the job ends, long enough to read any later step's environment
+      # out of /proc. The dev App token that opens the PR also carries the
+      # App's bypass of `main`'s approval rule, so it is never minted on a
+      # runner an agent has held. Only the one report the arm writes crosses,
+      # as a regular file: a symlink planted at the path would ship whatever
+      # it points at. No report is a quiet no-op, as it always was.
+      - name: Stage the report for the publish job
+        id: report
+        run: |
+          set -euo pipefail
+          case "$BT_REPLAY" in
+            salience-gate) report=salience-replay.json ;;
+            *) report=cert-backtest.json ;;
+          esac
+          if [ -L "metrics/$report" ]; then
+            echo "::error::metrics/${report} is a symlink; refusing to hand it off"
+            exit 1
+          fi
+          if [ ! -f "metrics/$report" ]; then
+            echo "No replay report produced; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mkdir -p "$RUNNER_TEMP/backtest-report"
+          # `-P` copies a link as a link, so a path swapped for one after the
+          # check above lands as a link and is refused below.
+          cp -P "metrics/$report" "$RUNNER_TEMP/backtest-report/$report"
+          if [ -L "$RUNNER_TEMP/backtest-report/$report" ] \
+              || [ ! -f "$RUNNER_TEMP/backtest-report/$report" ]; then
+            echo "::error::metrics/${report} changed under the copy; refusing to hand it off"
+            exit 1
+          fi
+          echo "present=true" >> "$GITHUB_OUTPUT"
+
+      # One day, the shortest window offered: the PR is the record, and the
+      # artifact is only the hand-off to it.
+      - name: Hand the report to the publish job
+        if: steps.report.outputs.present == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backtest-report
+          path: ${{ runner.temp }}/backtest-report
+          if-no-files-found: error
+          retention-days: 1
+
+  # The review PR, opened from a runner no agent has held. This is the token
+  # holder: the one job in this workflow that mints the dev App token, and it
+  # runs no engine, installs no agent CLI and assumes no role
+  # (tests/test_workflow_token_holder.py). It checks out the run's own commit
+  # and takes only the arm's one report from the replay, as data: the PR plan
+  # is rendered by this checkout's code from that file, and the staged change
+  # is checked and scanned before any token exists. The dev App's bypass
+  # covers `main`'s approval rule, and this job opens a PR and never merges
+  # one; a maintainer merging it is what keeps the report read.
+  publish:
+    needs: [authorize, backtest]
+    # `!cancelled()` because the dispatch path skips `cadence`, `plan` and
+    # `approval`, and a skipped ancestor would otherwise skip this job too.
+    if: >-
+      ${{ !cancelled() && needs.backtest.result == 'success'
+      && needs.backtest.outputs.report == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Two runs' publish jobs force-push the same fixed branch, so one at a
+    # time. A pending one that a newer run supersedes is dropped, which costs
+    # nothing: the newer run force-pushes the same branch with a newer report.
+    concurrency:
+      group: run-backtest-publish
+      cancel-in-progress: false
+    # The dev App's credentials live on `prod`, whose branch policy admits
+    # `main` alone.
+    environment: prod
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Download the report
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: backtest-report
+          path: ${{ runner.temp }}/backtest-report
+
+      # Everything that reads the replay's bytes runs here, before the mint:
+      # the artifact must hold the arm's one report and nothing else, as a
+      # regular file; it overlays the committed copy; the tree must then differ
+      # from the commit at that path alone; the PR prose is rendered by the
+      # tested `cert-backtest-plan` (null pr = no report), or composed inline
+      # for the salience-gate arm, whose report is the reviewable content; and
+      # the change and the prose are scanned for secrets, as `collect` scans a
+      # run's. The steps after the mint only commit, push and open the PR.
+      - name: Stage and check the report
+        id: stage
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          case "$BT_REPLAY" in
+            salience-gate) report=salience-replay.json ;;
+            *) report=cert-backtest.json ;;
+          esac
+          dir="$RUNNER_TEMP/backtest-report"
+          extra=$(find "$dir" -mindepth 1 ! -path "$dir/$report")
+          if [ -n "$extra" ] || [ -L "$dir/$report" ] || [ ! -f "$dir/$report" ]; then
+            echo "::error::the hand-off must hold metrics/${report} alone, as a regular file"
+            exit 1
+          fi
+          cp "$dir/$report" "metrics/$report"
+          changed=$(git status --porcelain --untracked-files=all)
+          if [ -z "$changed" ]; then
+            echo "Replay report unchanged; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "land=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$changed" != " M metrics/${report}" ]; then
+            echo "::error::the tree differs from the commit outside metrics/${report}"
+            git status --porcelain --untracked-files=all
+            exit 1
+          fi
+          pr="$RUNNER_TEMP/pr"
+          mkdir -p "$pr"
+          if [ "$BT_REPLAY" = "salience-gate" ]; then
+            # The prose stays minimal on purpose — the command line it echoes
+            # is the whole parameterization, and the refreshed report is the
+            # reviewable content; anything more would restate CLI defaults
+            # that would go silently stale here.
+            printf '%s' "metrics/salience-replay" > "$pr/branch"
+            printf '%s' "metrics(salience): gate replay over Terms ${BT_TERMS}" > "$pr/title"
+            printf '%s' "metrics(salience): salience-gate replay (run ${GITHUB_RUN_ID})" > "$pr/commit"
+            {
+              printf 'Deterministic salience-gate replay: `fedcourts salience-replay --terms %s`.\n\n' "$BT_TERMS"
+              printf 'Refreshes `metrics/salience-replay.json`. No model ran and no tokens were spent. '
+              printf 'What the numbers may and may not be read as: `metrics/README.md`.\n'
+            } > "$pr/body.md"
+          else
+            plan=$(uv run fedcourts cert-backtest-plan --run-id "$GITHUB_RUN_ID" \
+              --limit "$BT_LIMIT" --engine "$BT_ENGINE")
+            if [ "$(jq -r '.pr' <<<"$plan")" = "null" ]; then
+              echo "No back-test report produced; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "land=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            jq -j '.pr.branch' <<<"$plan" > "$pr/branch"
+            jq -j '.pr.title' <<<"$plan" > "$pr/title"
+            jq -j '.pr.commit_message' <<<"$plan" > "$pr/commit"
+            jq -r '.pr.body' <<<"$plan" > "$pr/body.md"
+          fi
+          git add "metrics/$report"
+          git diff --cached --name-status > "$pr/changes.txt"
+          if ! uv run fedcourts scan-diff-for-secrets --name-status-file "$pr/changes.txt" \
+              --extra-file "metrics/$report" \
+              --extra-file "$pr/body.md" \
+              --run-url "https://github.com/${REPO}/actions/runs/${GITHUB_RUN_ID}"; then
+            echo "::error::secret scan did not pass; withholding the review PR"
+            exit 1
+          fi
+          echo "land=true" >> "$GITHUB_OUTPUT"
+
       # The review PR is opened with the dev App token, exactly like the
       # metrics refresh: the dev App bypasses no required check, so the PR
-      # still faces the required `gate` check, and it is never auto-merged; a
-      # maintainer merging it is what keeps it read. Minted only after the run
-      # produced a report.
+      # still faces the required `gate` check, and it is never auto-merged.
+      # Minted only once there is a checked change to land.
       - name: Mint app token
+        if: steps.stage.outputs.land == 'true'
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
@@ -833,68 +1004,40 @@ jobs:
           permission-pull-requests: write
 
       - name: Configure git identity
+        if: steps.stage.outputs.land == 'true'
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
-      # The cert arm's branch name and PR prose come from the tested
-      # `cert-backtest-plan` (null pr = no report); the salience-gate arm's are
-      # composed inline — a fixed branch and a short static body, since the
-      # report itself is the reviewable content. Either way this step only runs
-      # git and gh, mirroring the metrics-refresh job, and the fixed branch is
-      # force-pushed so an unmerged PR updates in place rather than stacking.
+      # Git and gh only, over what the step above staged and rendered. The
+      # fixed branch is force-pushed so an unmerged PR updates in place rather
+      # than stacking.
       - name: Open or update the review PR
+        if: steps.stage.outputs.land == 'true'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          pr="$RUNNER_TEMP/pr"
+          branch=$(cat "$pr/branch")
+          title=$(cat "$pr/title")
           gh auth setup-git
-          git add -A metrics/
-          if git diff --cached --quiet -- metrics/; then
-            echo "Replay report unchanged; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          if [ "$BT_REPLAY" = "salience-gate" ]; then
-            # The prose stays minimal on purpose — the command line it echoes
-            # is the whole parameterization, and the refreshed report is the
-            # reviewable content; anything more would restate CLI defaults
-            # that would go silently stale here.
-            branch="metrics/salience-replay"
-            title="metrics(salience): gate replay over Terms ${BT_TERMS}"
-            commit_message="metrics(salience): salience-gate replay (run ${GITHUB_RUN_ID})"
-            {
-              printf 'Deterministic salience-gate replay: `fedcourts salience-replay --terms %s`.\n\n' "$BT_TERMS"
-              printf 'Refreshes `metrics/salience-replay.json`. No model ran and no tokens were spent. '
-              printf 'What the numbers may and may not be read as: `metrics/README.md`.\n'
-            } > pr-body.md
-          else
-            plan=$(uv run fedcourts cert-backtest-plan --run-id "$GITHUB_RUN_ID" \
-              --limit "$BT_LIMIT" --engine "$BT_ENGINE")
-            if [ "$(jq -r '.pr' <<<"$plan")" = "null" ]; then
-              echo "No back-test report produced; nothing to land." | tee -a "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            branch=$(jq -r '.pr.branch' <<<"$plan")
-            title=$(jq -r '.pr.title' <<<"$plan")
-            commit_message=$(jq -r '.pr.commit_message' <<<"$plan")
-            jq -r '.pr.body' <<<"$plan" > pr-body.md
-          fi
-          git commit -m "$commit_message"
+          git commit -F "$pr/commit"
           git push --force origin "HEAD:refs/heads/${branch}"
           # Reuse an open PR for the fixed branch (the force-push updated it);
           # otherwise open a fresh one.
           existing=$(gh pr list --repo "$REPO" --state open --head "$branch" \
             --json number --jq '.[0].number // empty')
           if [ -n "$existing" ]; then
-            gh pr edit "$existing" --repo "$REPO" --title "$title" --body-file pr-body.md
+            gh pr edit "$existing" --repo "$REPO" --title "$title" --body-file "$pr/body.md"
             echo "Updated the open back-test PR." | tee -a "$GITHUB_STEP_SUMMARY"
           else
             gh pr create --repo "$REPO" --base main --head "$branch" \
-              --title "$title" --body-file pr-body.md
+              --title "$title" --body-file "$pr/body.md"
           fi
-          cat pr-body.md >> "$GITHUB_STEP_SUMMARY"
+          cat "$pr/body.md" >> "$GITHUB_STEP_SUMMARY"
 
   # The run gate's verdict on the run as a whole. A refused partial re-run
   # skips every job it re-runs, which alone would leave the earlier attempt's
@@ -903,7 +1046,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, cadence, plan, approval, rejected, backtest]
+    needs: [authorize, cadence, plan, approval, rejected, backtest, publish]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
