@@ -1802,8 +1802,12 @@ carve-out above; [security.md](security.md), *S3 / the private stores*, says
 what each holds and why it is public. A job boundary, not a step's `env:`, is
 what does the separating. In a job holding `id-token: write` the runner injects
 the OIDC request pair into every step at run time, after the step's own `env:`,
-so a step there cannot be put out of reach of minting a token for either role
-`prod` is trusted by; a job without the permission has no pair at all. Blanking
+so a step there cannot be put out of reach of minting a token for every role
+its environment is trusted by — both corpus roles under `corpus-write`, which
+only the writer jobs bind, and under `prod`, which the projection job binds,
+the read-only role — alone once the maintainer's IAM step narrows the
+read-write role's trust to `corpus-write` ([security.md](security.md),
+*`corpus-write` holds the production read-write role*); a job without the permission has no pair at all. Blanking
 the AWS variables in a step's `env:` does work — it overrides what the
 credentials action exported — so the commit steps that hold the App token blank
 and assert those. The parse job's residual is that its steps share one user and
@@ -1821,10 +1825,11 @@ twin with either half live-polled is live-owned and never read.
 stored snapshots it parses are private, so they could not cross a public
 artifact. Its dry run reads the pulled index and each candidate's stored
 snapshot from the content store with the read-only session and takes no lock.
-Its apply takes `corpus-write` for the whole job and the read-write role from
+Its apply takes the `corpus-write` lock for the whole job and the read-write role from
 its write step onward, mints the App token only after that step has exited,
 and blanks the AWS session's variables on the commit step that holds it. Every
-step of that job can mint an OIDC token for either `prod`-trusted role. It
+step of that job can mint an OIDC token for either corpus role, since it binds
+the `corpus-write` environment, which both roles' trusts name. It
 takes no dedupe prerequisite: both columns fill-in latch on the upsert path the
 merge writes through, so a reading landed on either half of a twin pair
 survives the merge, and nothing that gates a cell reads them. The

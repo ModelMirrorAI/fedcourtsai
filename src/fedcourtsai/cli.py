@@ -19711,6 +19711,43 @@ def assert_website_environment_cmd(
     typer.echo("the website environment admits main alone and holds only its key and tag id")
 
 
+@app.command("assert-corpus-write-environment")
+def assert_corpus_write_environment_cmd(
+    environment_file: Annotated[
+        Path,
+        typer.Option(help="`GET /repos/{repo}/environments/corpus-write`; absent means unread."),
+    ],
+    branch_policies_file: Annotated[
+        Path, typer.Option(help="Its `deployment-branch-policies`; absent means unread.")
+    ],
+    secrets_file: Annotated[
+        Path, typer.Option(help="Its `secrets` listing (admin read); absent means unread.")
+    ],
+    variables_file: Annotated[
+        Path, typer.Option(help="Its `variables` listing (admin read); absent means unread.")
+    ],
+) -> None:
+    """Check the `corpus-write` environment still keeps the read-write role on `main`.
+
+    Requires the environment to exist, its deployment branches to be a custom
+    policy of exactly `main`, and it to hold no secret or variable outside the
+    names the corpus writer jobs read and every one of them but the optional
+    CourtListener rate caps. Names each problem and exits non-zero if there is
+    any; an unread or truncated listing is a problem.
+    """
+    problems = environment_checks.corpus_write_problems(
+        _read_document(environment_file),
+        _read_document(branch_policies_file),
+        _read_document(secrets_file),
+        _read_document(variables_file),
+    )
+    for problem in problems:
+        typer.echo(f"::error::corpus-write environment: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo("the corpus-write environment admits main alone and holds only the writers' names")
+
+
 @app.command("finalize-produced")
 def finalize_produced_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
