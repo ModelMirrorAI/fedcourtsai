@@ -71,11 +71,14 @@ non-interactive** container. Two consequences shape everything you do:
   staging. (For a predict / evaluate cell
   the *workflow* commits and opens the PR — you only write files; the task
   prompt says which mode you are in.)
-- **You may merge to `staging`; only the maintainer merges to `main`.** The two
-  branches carry different risk, so they get different rules. Into `staging`,
+- **You merge to `staging`; only the maintainer approves what reaches `main`.**
+  The two branches carry different risk, so they get different rules. A
+  `staging` PR is presumptively mergeable without the maintainer: every
+  change is read again in the promotion batch before it reaches `main`. So
   once the required checks are green and you have resolved the reviewer
-  subagents' blockers, you may merge your own PR — merge commit or squash,
-  whichever suits the change. A feature PR is not ancestry-critical: its squash
+  subagents' blockers, merge your own PR — merge commit or squash, whichever
+  suits the change — unless it falls in a class below that waits for the
+  maintainer. A feature PR is not ancestry-critical: its squash
   commit's sole parent is `staging`'s previous tip, so it changes nothing about
   how much of `main` `staging` already contains. Exactly two merges *are*, and
   neither is yours: the **sync** (`main` → `staging`) and the **promotion**
@@ -85,8 +88,8 @@ non-interactive** container. Two consequences shape everything you do:
   through a maintainer-merged promotion batch. (The data-run
   `collect` jobs are the standing exception, opening their per-run PR to `main`
   and merging it themselves once the same required checks pass.)
-  Your own changes travel by PR on both branches — "you may merge" never means
-  "you may skip the PR". The rulesets require one, with two documented bypasses
+  Your own changes travel by PR on both branches — "you merge" never means
+  "you skip the PR". The rulesets require one, with two documented bypasses
   that are not your lane: the data App's deterministic writers push to `main`
   (the `promotion-record` writer's record commit among them, jailed byte-equal
   to its plan and touching only the registry and the freeze record), and an
@@ -100,12 +103,13 @@ non-interactive** container. Two consequences shape everything you do:
   refuses a Release on an existing one, Zenodo archives every published
   Release permanently, and a draft waits for one click to publish. A session
   that holds the maintainer's own credentials holds the admin bypass instead, and for it every rule here
-  is discipline; `gh api user --jq .login` says which account you are. And
-  the staging permission is a permission, not an
-  obligation: leaving a green PR for the maintainer is always a legitimate
-  call, and the better one when the change is large, novel, or rewrites a
-  contract others read. Use judgement; say which you chose in the PR
-  description.
+  is discipline; `gh api user --jq .login` says which account you are.
+  Merging is the default, not a licence to skip judgement: beyond the classes
+  below, leave a green PR for the maintainer when you judge it high-risk in a
+  way no owned path names — a change that could corrupt or silently re-score
+  committed data once promoted, or that rewrites a contract other lanes read.
+  Either way, say in the PR description which you chose and, when you leave
+  it, why.
   **Five kinds of change still wait for the maintainer even into `staging`**,
   because a green gate is weakest evidence exactly where they are strongest
   risk: anything under `.github/workflows/`, `.github/actions/` or
@@ -285,14 +289,14 @@ starts as a branch off `staging`:
 main     ──●─────────────────●────────────  promotion batches (maintainer only)
            │ sync            ↑ promote
            ↓                 │
-staging  ──●──●────●────●────●────────────  you may merge here — or leave it
+staging  ──●──●────●────●────●────────────  you merge here (owned paths wait)
               ↑    ↑    ↑
               feature branches: git switch -c <type>/<desc> origin/staging
 ```
 
 Both `main`→`staging` syncs and `staging`→`main` promotions are merge commits;
 your own feature PR may squash. Data commits bypass `staging` entirely. The
-diagram is not a licence to self-merge anything: the five change classes named
+diagram is not a licence to self-merge everything: the five change classes named
 in the golden rules — the permission surface, the security posture, the
 promotion gate, the agent configs, the unattended-spend authority — wait for
 the maintainer even into `staging`.
