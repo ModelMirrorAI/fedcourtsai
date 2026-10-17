@@ -655,9 +655,25 @@ document staged has its emails, telephone numbers, post-office boxes and
 street addresses replaced by the fixed token `[contact detail withheld]`, which
 keeps the document's structure and tells a reader that something was withheld
 rather than that a line is missing. It runs as two passes. The **shape** pass
-matches what a contact detail looks like, including an email address as a scan
-fragments it (a blank beside the `@` or a dot, a letter-spaced local part,
-`(at)`), and never takes a line break. The **value** pass looks for the
+matches what a contact detail looks like, including the spellings a scan's text
+layer leaves: an email address with a blank beside the `@` or a dot, a
+letter-spaced local part, `(at)`, a blank inside a domain label, or a domain
+whose dot was dropped or read as a comma, a hyphen or (set hard between its
+labels) a colon; a telephone number whose opening parenthesis was dropped or
+read as a bracket, bar or letter, with blanks around its separators, a letter
+read for a digit (`O` for zero, `l` for one) but never opening inside a word,
+or the blank-separated spelling after a telephone label on the same line,
+anywhere in the text; a post-office box with a comma or dash for a dot, a zero
+for the `O`, the words spelled out, or a bare `Box` and number, the box always
+carrying a digit; and a street address with a letter glued to its house number
+or with the lower-case connectors (`de`, `la`, `del`) a street name carries.
+Two shapes are read on the document's **opening** alone (its first 6,000
+characters, which hold the cover page a self-represented caption sets its
+details on), because further in the same shape is mostly something else: a
+blank-separated telephone number alone on its line (an OCR'd index column
+further in) and a street address set in capitals (a heading further in). It
+never takes a line
+break. The **value** pass looks for the
 `Email`, `Phone` and `Address` strings on every served block of each side read
 as self-represented (the filer's own, and any co-party counsel's on that side
 — never a side whose blocks all name counsel; on the `Other` list, the
@@ -667,12 +683,26 @@ where the docket serves a value specific enough to key on (an email with its
 `@`, a telephone number of ten or more digits, an address with a digit and
 eight or more significant characters). Both passes are matched against the
 original text and overlapping matches are withheld as one span, so adding a
-pass can only widen what is withheld. The manifest entry carries what happened: `contact_scrubbed`, whether
-the scrub ran over this document's staged text; `contact_replacements`, how
-many it withheld — so `true, 0` (scrubbed, nothing found) stays
-distinguishable from `false, 0` (a represented docket's text, or the text of
-an amicus-only docket whose amici serve no value specific enough to key on,
-untouched — the run log says `not run` for the latter); and
+pass can only widen what is withheld. Where the shape pass ran, the scrubbed
+text is then read once more by a **residual detector**: looser shapes over the
+document's opening (its first 6,000 characters) and its closing (as many at
+the end, where the signature block and a bundled proof of service sit) — a
+telephone number in any 3-3-4 grouping of blanks, dots, hyphens or a slash, a
+street address opening its line with lower-case name words, `box` and a number
+in any case, and an `@` set hard against letters. It withholds nothing, since
+its shapes would cost legal text, but a document it finds anything on is
+recorded as **not** scrubbed. A clean reading is a claim about those two
+stretches alone, where the shape pass ran: the middle of a document is not
+read, and a document scrubbed by the value pass alone (an amicus-only docket)
+reads `contact_scrubbed: true` with no residual check run. The manifest entry
+carries what happened: `contact_scrubbed`, whether the scrub ran over this
+document's staged text and, where the shape pass ran, the residual detector came
+back clean; `contact_replacements`, how many it withheld — so `true, 0`
+(scrubbed, nothing found) stays distinguishable from `false, 0` (a represented
+docket's text, or the text of an amicus-only docket whose amici serve no value
+specific enough to key on, untouched — the run log says `not run` for the
+latter); `contact_residuals`, how many contact-shaped matches the detector
+still found (non-zero only beside `false`, and named in the run log); and
 `contact_scrub_passes`, which passes ran (`["value", "shape"]`, `["shape"]`,
 `["value"]` on an amicus-only docket, or `[]` where the scrub did not run), so
 a shape-only or value-only scrub is not read as the complete one. A filing by
@@ -1099,8 +1129,8 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   input arrives before the instruction does, which is the argument for pairing
   them on the next bless rather than letting either land alone. **A third rides
   with them**: the contact scrub stages text carrying
-  `[contact detail withheld]` and three manifest keys (`contact_scrubbed`,
-  `contact_replacements`, `contact_scrub_passes`) the prompt describes none
+  `[contact detail withheld]` and four manifest keys (`contact_scrubbed`,
+  `contact_replacements`, `contact_residuals`, `contact_scrub_passes`) the prompt describes none
   of — it has `documents.json` listing what is present, pages and truncation —
   so until that re-bless a cell meeting the token has to account for it
   unaided, and the likeliest cost is a `data-quality` flag spent on it. **A

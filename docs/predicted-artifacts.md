@@ -56,10 +56,14 @@ fields that mean the same thing at every stage:
   predicted. The staged `documents/` carry a `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction
   facts (a `petition`, `application` or `appendix` cut at the cap also marks
-  each cut in its text), and whether its text was passed through the
-  contact-detail scrub — which is where a cell meeting
-  `[contact detail withheld]` in a filing can confirm the pipeline put it there
-  ([live-sources.md](live-sources.md)).
+  each cut in its text), and what the contact-detail scrub did to its text:
+  `contact_scrubbed` (the scrub ran and, where its shape pass ran, its residual
+  check found nothing contact-shaped left on the document's opening or
+  closing), `contact_replacements`,
+  `contact_residuals` (what that check still found, non-zero only beside
+  `false`) and `contact_scrub_passes` (which passes ran) — which is where a
+  cell meeting `[contact detail withheld]` in a filing can confirm the
+  pipeline put it there ([live-sources.md](live-sources.md)).
 
   The `input_snapshot` field is the agent's own string. The prompt contracts one
   spelling — the file's bare basename `YYYY-MM-DD.json`, or the literal

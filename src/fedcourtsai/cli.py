@@ -13539,10 +13539,18 @@ def _document_scrub_echo(
     keyed = SCRUB_PASS_VALUE in ran
     passes = ("value+shape" if keyed else "shape only") if SCRUB_PASS_SHAPE in ran else "value"
     withheld = sum(result.replacements for result in done)
-    return (
+    line = (
         f"{case} contact scrub: {withheld} detail(s) withheld across "
         f"{len(staged)} staged document(s) ({reason}; passes: {passes})"
     )
+    residual = [result for result in done if not result.clean]
+    if residual:
+        line += (
+            f"; {sum(result.residuals for result in residual)} contact-shaped residual(s) "
+            f"left on the opening or closing of {len(residual)} document(s), "
+            "recorded as not scrubbed"
+        )
+    return line
 
 
 @app.command("provision-snapshot")
@@ -13667,10 +13675,13 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     ``Other`` list:
     emails, telephone numbers, post-office boxes and street
     addresses replaced by ``[contact detail withheld]``, with
-    ``contact_scrubbed``, ``contact_replacements`` and ``contact_scrub_passes``
-    on each manifest entry recording that it ran, what it withheld, and whether
-    the value pass keyed on the self-represented filers' own contact values ran
-    beside the shape pass. On a docket read so on its ``Other`` list alone the
+    ``contact_scrubbed``, ``contact_replacements``, ``contact_residuals`` and
+    ``contact_scrub_passes`` on each manifest entry recording that it ran with
+    nothing contact-shaped left on the document's opening or closing (where
+    the shape pass ran), what it withheld,
+    what the residual check still found there, and whether the value pass
+    keyed on the self-represented filers' own contact values ran beside the
+    shape pass. On a docket read so on its ``Other`` list alone the
     value pass runs without the shape pass, since what is staged there is
     counsel's filings. On the same docket the staged snapshot has each
     self-represented block's contact keys withheld and a party's register
