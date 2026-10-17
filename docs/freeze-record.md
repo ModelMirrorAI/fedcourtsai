@@ -10331,3 +10331,42 @@ freeze commit is recorded here.
   2026-10-16, after the 2026-10-13 grant it removes, though its list was fixed
   by a census whose newest pull is 2026-10-09, before that grant. A claim that
   ranks claude above codex quotes both readings.
+
+- **The replay-clock census reads narrower than its entry predicted, recorded
+  2026-10-16.** No rule moves here. This records what the census of the
+  query-clock prior mask found against the prose of its entry (*The replay
+  clock on `fedcourts query` withholds a retrieved prior's post-clock
+  decision record*, dated 2026-10-15), which is filled in place and not
+  otherwise edited.
+
+  **The vintage.** The census ran on the blob both the promotion merge
+  `1c1cd1f25` (`promotion/2026-10-16`) and its first parent point at, index
+  sha256 `a1b834070512…`, `freshness: latest pull 2026-10-16, latest
+  snapshot 2026-07-13`, under the replay clock (cutoff 2026-06-30) and the
+  forward clock. On the first parent nothing was masked; on the merge, the
+  figures below.
+
+  **The opinion cluster is not reset at this vintage.** The entry expected
+  the cluster to be reset on most granted SCOTUS priors that carry it, on a
+  2026-09-29 reading where 0 of 656 granted rows with a cert date carried
+  `date_decided`. At this vintage every admitted prior that carries a
+  cluster also carries a decision date: 39 of 39 dated clusters pass and 0
+  are undated, under both clocks. The undated-cluster rule therefore resets
+  nothing here. It stays in force for a prior whose cluster lands before its
+  decision date does.
+
+  **What the mask does remove.** Under the replay clock, `last_live_polled`
+  is nulled on all 695 admitted priors, `citation_count` on all 40 that
+  store one (about 6% of admitted priors), and `merits_brief_filed` and
+  `distributed_for_conference` on 37 of 488 and 37 of 633, all of which
+  were passed unmasked on the first parent. Under the forward clock,
+  `last_live_polled` is nulled on 724 of 724 and `citation_count` on all
+  43; no date-tested column is nulled. "Expect it to bite widely" holds
+  for the tracking stamp and the citing count, not for the decision record.
+
+  **The reading.** A replay cell before this change could see a prior's
+  citing count and last poll stamp, and in 37 cases a merits brief or
+  conference distribution after its clock. Every opinion cluster it saw at
+  this vintage was one its clock had already reached, so the cluster rule
+  changed nothing it read. A back-test comparison across the change reads
+  its difference against those columns.
