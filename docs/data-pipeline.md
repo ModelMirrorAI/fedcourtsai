@@ -1233,20 +1233,26 @@ or network.
   text; on every window a scan a live window stored waits at most one seed
   window. `ocr-sweep-projection` holds the read-only role, walks the recovery
   class and writes the window's slice of at most `historical.sweep_caps.ocr`
-  candidates: those a forward cell will read first (an open event on an
-  in-scope row that salience has not deferred, or an open merits event),
-  newest stored first, then the backlog in class order rotated one cap
-  further each day, so an unreadable head cannot take every window's cap. It
+  candidates: those a forward cell will read (an open event on an in-scope
+  row that salience has not deferred, or an open merits event) stored within
+  the last week first, newest first; then the older forward candidates and
+  the backlog, each in class order rotated one cap further each window, so
+  an unreadable head cannot take every window's cap. It
   refuses a class above `ocr_ceiling`. Its worklist carries each candidate's
   case id, kind, Court URL and page count, and nothing else. `ocr-sweep-parse`
   holds no credential, installs the two OCR binaries, re-fetches and reads each
   item under a slice deadline, and writes the plan: the text it read. That
-  text crosses under its own carve-out in [data-sources.md](data-sources.md)
-  (*PII stance*). The writer, `ocr-sweep`, waits for the walk, refuses the plan
-  whole above the cap or off its shape, skips a row whose stored document has
-  left the class or moved its URL since the projection, writes the rest as the
-  dispatched apply would, pushes the blob, and only then mints the App token
-  for the pointer commit.
+  text would cross under a proposed carve-out in
+  [data-sources.md](data-sources.md) (*PII stance*). The writer, `ocr-sweep`,
+  waits for the walk and downloads the plan and the projection's worklist by
+  artifact id. It refuses the plan whole above the cap, off its shape, naming
+  anything not on the worklist, or with a row not marked `ocr_derived`; skips
+  a row whose stored document has left the class or moved its URL since the
+  projection; writes the rest as the dispatched apply would; pushes the blob;
+  and only then mints the App token for the pointer commit. The run holds the
+  `corpus-write` lock until its last job ends, so with the sweep on every
+  window the worst-case hold is about 115 minutes (the projection and parse
+  beside the walk, then the writer).
   Dedupe
   first, so the latch pass weighs deduped rows; the event mint immediately
   after the judgment backfill, so pendency is judged on judgment columns as
@@ -1710,8 +1716,9 @@ repair bench can produce.
 installed by a step gated on that selector alone, from the runner image's own
 Ubuntu archive — no third-party repository and no added signing key — so the
 other dispatches never pay for them. The OCR sweep's parse job on run-seed
-installs the same two the same way; it holds no credential, so no job that
-holds one has them on a schedule.
+installs the same two the same way; it holds no credential, so no scheduled
+job that holds one has them. The dispatched pass still installs and runs them
+inside the credentialed corpus job.
 That gating is the same reason the extractor takes its OCR call as an injected
 seam rather than importing one. The resolved versions are echoed into the run
 summary rather than pinned in the install: an exact apt pin goes stale the week

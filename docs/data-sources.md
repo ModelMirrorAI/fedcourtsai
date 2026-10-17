@@ -764,10 +764,11 @@ material**:
   - *Not a precedent:* any other pass whose plan would carry a stored or
     private record still crosses a public-only projection. A new use of this
     carve-out is its own decision, recorded in this section.
-- **A second carve-out: the OCR sweep's plan artifact** (maintainer
-  decision, recorded with the sweep). Every byte it admits is a filing the
-  Court serves openly at supremecourt.gov, read off its page images, and none
-  of it comes from our private stores.
+- **A proposed second carve-out: the OCR sweep's plan artifact** (awaiting
+  the maintainer's decision; date of decision: ____). Merging the sweep's
+  run-seed jobs is that decision. Every byte it would admit is a
+  filing the Court serves openly at supremecourt.gov, read off its page
+  images, and none of it comes from our private stores.
   - *What:* for each item of one window's worklist that the parse could read,
     the text the extractor and OCR recovered from the filing at the item's
     Court URL, with its page count and the `truncated` and `ocr_derived`
@@ -780,12 +781,26 @@ material**:
     consumed by run-seed's OCR sweep writer in the same run. It is never
     committed to git and never printed to a log or step summary; the summary
     carries each row's identifiers, page count, character count and flags.
-    The writer refuses a plan whole above the window's cap or off its shape,
-    and writes a row only into a stored document still empty at the same URL.
-  - *Unchanged:* the corpus and the content store stay access-gated; the
-    contact scrubs below still withhold these details from every cell, model
-    provider and summary, and they run over recovered text as over any other
-    stored text; nothing under this carve-out reaches `data/`.
+    The writer refuses a plan whole above the window's cap, off its shape, or
+    naming anything not on the window's worklist, and writes a row only into
+    a stored document still empty at the same URL.
+  - *Who can read it:* the repository is public, so while the artifact
+    exists any signed-in GitHub user can download it from the run page —
+    for a day, on each of run-seed's four windows a day that recovered
+    anything. The same is true of the application back-fill's artifact above.
+    Deleting the artifact as soon as the writer has consumed it would shorten
+    that to minutes, at the price of `actions: write` on the writer job; that
+    trade is the maintainer's to make, and is not made here.
+  - *Unchanged:* the corpus and the content store stay access-gated, and
+    nothing under this carve-out reaches `data/`. The contact scrubs below
+    run over recovered text as over any other stored text, with one
+    **open residual**: OCR output does not always lay contact details out
+    in the shapes the scrub matches: on one scanned filing (scotus/9026000314)
+    OCR-formatted contact details survived a scrub that reported
+    `contact_scrubbed: true`. This sweep makes OCR text the ordinary input for
+    a scanned filing, so until that is fixed a self-represented filer's
+    scanned filing can reach a cell, its model provider, or a summary with
+    contact details in it.
 - **A filing made in person is scrubbed before a cell reads it.** Where the
   provisioned snapshot serves a counsel block on either party side — petitioner
   or respondent — naming nobody but the party to write to — no attorney, the

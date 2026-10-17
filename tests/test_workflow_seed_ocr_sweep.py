@@ -121,6 +121,7 @@ def test_the_writer_writes_before_any_github_credential_exists() -> None:
     names = _names(writer)
     order = [
         "Download the plan",
+        "Download the worklist",
         "Check the downloaded plan",
         "Configure AWS credentials (corpus S3 remote, read-write)",
         "Pull the current corpus from the remote",
@@ -155,6 +156,8 @@ def test_the_writer_sweeps_with_no_bound() -> None:
         "ocr-recover-petitions",
         "--from-plan",
         "${HANDOFF_PLAN}",
+        "--bind-worklist",
+        "${HANDOFF_WORKLIST}",
         "--sweep",
         "--apply",
     ]
@@ -181,7 +184,7 @@ def test_the_chain_is_non_blocking_every_window_and_gated_on_step_outputs() -> N
     assert "needs.ocr-sweep-projection.outputs.worklist == 'written'" in _norm(
         jobs["ocr-sweep-parse"]["if"]
     )
-    assert own_needs(jobs["ocr-sweep"]) == ["seed", "ocr-sweep-parse"]
+    assert own_needs(jobs["ocr-sweep"]) == ["seed", "ocr-sweep-projection", "ocr-sweep-parse"]
     assert "needs.ocr-sweep-parse.outputs.plan == 'written'" in _norm(jobs["ocr-sweep"]["if"])
     for job, output, step in (
         ("ocr-sweep-projection", "worklist", "Write the OCR worklist"),
@@ -218,13 +221,31 @@ def test_the_handoff_artifacts_are_short_lived_and_named_per_run() -> None:
         assert with_["retention-days"] == 1, name
         assert str(with_["name"]).endswith("-${{ github.run_id }}"), name
         assert str(with_["path"]).startswith("${{ runner.temp }}/handoff/"), name
-    downloads = {
-        str(step["with"]["name"])
+
+    # Every download is by artifact id, read from the producing job's own
+    # outputs: a parse in this run can replace an artifact by name, but cannot
+    # forge another job's outputs.
+    jobs = _jobs()
+    for name, step in uploads:
+        assert "id" in step, name
+        outputs = jobs[name]["outputs"]
+        assert f"${{{{ steps.{step['id']}.outputs.artifact-id }}}}" in outputs.values(), name
+    downloads = [
+        (name, step["with"])
         for name in JOBS
         for step in _job(name)["steps"]
         if str(step.get("uses", "")).startswith("actions/download-artifact@")
-    }
-    assert downloads == {str(step["with"]["name"]) for _, step in uploads}
+    ]
+    assert sorted(str(with_["artifact-ids"]) for _, with_ in downloads) == sorted(
+        [
+            "${{ needs.ocr-sweep-projection.outputs.worklist-artifact }}",
+            "${{ needs.ocr-sweep-projection.outputs.worklist-artifact }}",
+            "${{ needs.ocr-sweep-parse.outputs.plan-artifact }}",
+        ]
+    )
+    for name, with_ in downloads:
+        assert "name" not in with_, name
+        assert with_["merge-multiple"] is True, name
 
 
 @pytest.mark.parametrize("name", JOBS)

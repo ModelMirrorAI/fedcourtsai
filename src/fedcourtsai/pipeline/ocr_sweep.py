@@ -19,7 +19,7 @@ it fetches and parses third-party PDFs:
   extractor and OCR seam the dispatched pass uses. The plan carries the text it
   read, and nothing from our stores. That text is the Court's public filing,
   which for a self-represented filer includes contact details, so it crosses
-  under the carve-out ``docs/data-sources.md`` (*PII stance*) records for it.
+  under the carve-out ``docs/data-sources.md`` (*PII stance*) proposes for it.
 - **apply** (:func:`apply_ocr_plan`) — the writer re-checks every plan row against
   the corpus it is about to write: the row must be an item of this window's
   worklist (read from the projection's own artifact, not the parse's), still in
