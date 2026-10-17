@@ -8,27 +8,36 @@ Declared in a pull request's description as
 
 it runs over the corpus the lane pulled, the content store's dated snapshots
 and the ledger at the checkout, and appends counts and case identifiers — never
-stored snapshot text or a caption — to the file named by `CHECK_SUMMARY`:
+stored snapshot text or a caption — to the file named by `CHECK_SUMMARY`. It
+heads the summary with the corpus vintage, the ledger checkout's git HEAD and
+the newest stored snapshot date it read.
 
 1. **What the detector refuses today** (`pipeline.redocket.is_redocketed`):
-   every SCOTUS corpus event with a title, and every committed ledger
-   `event.yaml`, that the rule reads as opened under another petition than its
-   row's current caption and docketed date name, split by whether a committed
-   outcome and a committed prediction sit beside it.
+   the SCOTUS corpus events with a title (and how many of them sit on a row
+   with a caption, the only ones the rule can read), and every committed ledger
+   `event.yaml`. For each population: how many carry a caption string unlike
+   the row's current caption (mostly re-renderings of the same parties), how
+   many differ in party words on either side (before the rule's respondent-side
+   guards), and how many the rule refuses,
+   split by whether a committed outcome and a committed prediction sit beside
+   it.
 2. **Re-docketed numbers in the snapshot record**: for every live-polled
    SCOTUS row of the named Term prefixes (default `26-`, `26A`, `25-`, `25A`)
    with two or more stored live snapshots, its earliest and latest snapshot
    compared on the docketed date, each caption side's party words and the
    lower-court case numbers. A row whose party words differ on either side is
-   a re-docketed number; a row whose docketed date alone moved is reported
-   apart, as a date correction. Each re-docketed row lists its ledger events
-   with their prediction and outcome counts. Earliest-against-latest is a
-   floor: a number re-entered and then restored reads as unchanged, and a row
-   with one stored snapshot cannot be compared.
+   counted re-docketed — a wider definition than the rule, which reads an
+   interim moment on the petitioner side alone and a respondent change only
+   with a moved docketed date. A row whose docketed date alone moved is
+   reported apart, as a date correction. Each row lists which fields changed
+   and its ledger events with their prediction and outcome counts.
+   Earliest-against-latest is a floor: a number re-entered and then restored
+   reads as unchanged, and a row with one stored snapshot cannot be compared.
 3. **Every predicted case**: every SCOTUS case holding a committed prediction,
    all its stored live snapshots compared pair by consecutive pair on the
    caption sides' party words; each case whose parties change lists the
-   snapshot dates of the change and the prediction runs dated before it.
+   snapshot dates of the change and the prediction runs dated before it, and
+   apart the runs dated the same day, which a date alone cannot place.
 
 Outside the lane, point `CHECK_SUMMARY` at any file and run it from a checkout
 with a pulled corpus and the content store addressed.
@@ -41,6 +50,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
@@ -51,6 +61,7 @@ from fedcourtsai import casestore, corpus
 from fedcourtsai.config import get_settings
 from fedcourtsai.pipeline.redocket import (
     EventIdentity,
+    caption_sides,
     is_redocketed,
     ledger_identities,
     party_words,
@@ -61,9 +72,41 @@ _PREFIXES = ("26-", "26A", "25-", "25A")
 _WORKERS = 32
 
 
+class _Newest:
+    """The newest stored snapshot date any read touched."""
+
+    def __init__(self) -> None:
+        self.day: date | None = None
+        self._lock = threading.Lock()
+
+    def see(self, days: list[date]) -> None:
+        if days:
+            with self._lock:
+                self.day = max(days) if self.day is None else max(self.day, *days)
+
+
+_NEWEST = _Newest()
+
+
 def _event_dir_counts(event_dir: Path) -> tuple[int, bool]:
     predictions = len(list(event_dir.glob("predictions/*/*/prediction.json")))
     return predictions, (event_dir / "outcome.json").is_file()
+
+
+def _captions_differ(title: str, current: str) -> bool:
+    event_sides, current_sides = caption_sides(title), caption_sides(current)
+    return any(sides_differ(a, b) for a, b in zip(event_sides, current_sides, strict=True))
+
+
+def _ledger_detail(data_root: Path, case_id: str) -> str:
+    events = sorted((data_root / "cases" / case_id / "events").glob("*/event.yaml"))
+    parts = []
+    for path in events:
+        predictions, outcome = _event_dir_counts(path.parent)
+        parts.append(
+            f"{path.parent.name} predictions {predictions} outcome {'yes' if outcome else 'no'}"
+        )
+    return "; ".join(parts) or "no ledger events"
 
 
 def _refusals(db: Path, data_root: Path) -> list[str]:
@@ -76,24 +119,32 @@ def _refusals(db: Path, data_root: Path) -> list[str]:
                 "SELECT case_id, case_name, date_filed FROM cases WHERE court = 'scotus'"
             )
         }
-        compared = 0
+        titled = compared = differ = string_differs = 0
         corpus_hits: list[str] = []
-        for case_id, event_id, title, opened in conn.execute(
-            "SELECT case_id, event_id, title, opened_at FROM events "
+        for case_id, event_id, title, opened, stage in conn.execute(
+            "SELECT case_id, event_id, title, opened_at, stage FROM events "
             "WHERE court = 'scotus' AND title != ''"
         ):
+            titled += 1
             caption, docketed = rows.get(str(case_id), ("", None))
             if not caption:
                 continue
             compared += 1
-            identity = EventIdentity(str(title), date.fromisoformat(opened) if opened else None)
+            string_differs += str(title) != caption
+            differ += _captions_differ(str(title), caption)
+            identity = EventIdentity(
+                str(title), date.fromisoformat(opened) if opened else None, stage
+            )
             if is_redocketed(identity, caption, docketed):
                 corpus_hits.append(f"{case_id} {event_id}")
     lines.append(
-        f"- corpus events compared: {compared}; refused: {len(corpus_hits)} "
+        f"- corpus events with a title: {titled}; on a row with a caption: {compared} "
+        f"(the rest sit on captionless rows the rule cannot read); caption string "
+        f"differs: {string_differs}; party words differ on a side: {differ}; "
+        f"refused: {len(corpus_hits)} "
         f"({', '.join(sorted(corpus_hits)) or '-'})"
     )
-    ledger_compared = 0
+    ledger_compared = ledger_differ = ledger_string_differs = 0
     split: Counter[str] = Counter()
     ledger_hits: list[str] = []
     for case_dir in sorted((data_root / "cases" / "scotus").glob("*")):
@@ -105,6 +156,8 @@ def _refusals(db: Path, data_root: Path) -> list[str]:
         identities = ledger_identities(data_root, "scotus", int(case_dir.name), event_ids)
         for event_id, identity in sorted(identities.items()):
             ledger_compared += 1
+            ledger_string_differs += identity.title != caption
+            ledger_differ += _captions_differ(identity.title, caption)
             if not is_redocketed(identity, caption, docketed):
                 continue
             predictions, outcome = _event_dir_counts(case_dir / "events" / event_id)
@@ -114,7 +167,9 @@ def _refusals(db: Path, data_root: Path) -> list[str]:
                 f"outcome {'yes' if outcome else 'no'})"
             )
     lines.append(
-        f"- ledger event.yaml compared: {ledger_compared}; refused: {len(ledger_hits)} "
+        f"- ledger event.yaml compared: {ledger_compared}; caption string differs: "
+        f"{ledger_string_differs}; party words differ on a side: {ledger_differ}; "
+        f"refused: {len(ledger_hits)} "
         f"[{', '.join(f'{k}: {v}' for k, v in sorted(split.items())) or '-'}]"
     )
     lines.extend(f"  - {hit}" for hit in ledger_hits)
@@ -131,6 +186,7 @@ def _sides(payload: dict[str, Any]) -> tuple[frozenset[str], frozenset[str]]:
 def _compare(transport: casestore.ObjectTransport, case_id: str) -> tuple[str, dict[str, bool]]:
     """One row's earliest and latest live snapshot, compared on its identity fields."""
     dates = sorted(casestore._snapshot_dates(transport, case_id))
+    _NEWEST.see(dates)
     if len(dates) < 2:
         return "single", {}
     bodies = [transport.get(casestore.snapshot_key(case_id, d)) for d in (dates[0], dates[-1])]
@@ -145,6 +201,10 @@ def _compare(transport: casestore.ObjectTransport, case_id: str) -> tuple[str, d
         "lower": str(first.get("LowerCourtCaseNumbers") or "").strip()
         != str(last.get("LowerCourtCaseNumbers") or "").strip(),
     }
+
+
+def _flags(found: dict[str, bool]) -> str:
+    return ", ".join(k for k, v in found.items() if v) or "none"
 
 
 def _snapshot_census(db: Path, data_root: Path, prefixes: list[str]) -> list[str]:
@@ -169,15 +229,12 @@ def _snapshot_census(db: Path, data_root: Path, prefixes: list[str]) -> list[str
     with ThreadPoolExecutor(_WORKERS) as pool:
         results = list(pool.map(lambda cid: (cid, *_compare(transport, cid)), case_ids))
     kinds = Counter(kind for _, kind, _ in results)
-    redocketed = [
-        cid for cid, kind, f in results if kind == "pair" and (f["petitioner"] or f["respondent"])
-    ]
-    date_only = [
-        cid
-        for cid, kind, f in results
-        if kind == "pair" and f["docketed"] and not (f["petitioner"] or f["respondent"])
-    ]
-    flags = Counter(k for _, kind, f in results if kind == "pair" for k, v in f.items() if v)
+    found = {cid: f for cid, kind, f in results if kind == "pair"}
+    redocketed = sorted(c for c, f in found.items() if f["petitioner"] or f["respondent"])
+    date_only = sorted(
+        c for c, f in found.items() if f["docketed"] and not (f["petitioner"] or f["respondent"])
+    )
+    flags = Counter(k for f in found.values() for k, v in f.items() if v)
     lines = [
         f"- prefixes {', '.join(prefixes)}: {len(case_ids)} live-polled rows; "
         + ", ".join(f"{k} {v}" for k, v in sorted(kinds.items())),
@@ -185,20 +242,18 @@ def _snapshot_census(db: Path, data_root: Path, prefixes: list[str]) -> list[str
         + (", ".join(f"{k} {v}" for k, v in sorted(flags.items())) or "none"),
         f"- re-docketed (a caption side's party words differ): {len(redocketed)}",
     ]
-    for cid in sorted(redocketed):
-        events = sorted((data_root / "cases" / cid / "events").glob("*/event.yaml"))
-        detail = (
-            "; ".join(
-                f"{e.parent.name} predictions {_event_dir_counts(e.parent)[0]} "
-                f"outcome {'yes' if _event_dir_counts(e.parent)[1] else 'no'}"
-                for e in events
-            )
-            or "no ledger events"
-        )
-        lines.append(f"  - {cid} ({numbers.get(cid, '?')}): {detail}")
+    lines.extend(
+        f"  - {cid} ({numbers.get(cid, '?')}): changed {_flags(found[cid])}; "
+        f"{_ledger_detail(data_root, cid)}"
+        for cid in redocketed
+    )
     lines.append(
-        f"- docketed date moved, same parties (date correction, not refused): {len(date_only)} "
-        f"({', '.join(f'{c} ({numbers.get(c, "?")})' for c in sorted(date_only)) or '-'})"
+        f"- docketed date moved, same parties (date correction, not refused): {len(date_only)}"
+    )
+    lines.extend(
+        f"  - {cid} ({numbers.get(cid, '?')}): changed {_flags(found[cid])}; "
+        f"{_ledger_detail(data_root, cid)}"
+        for cid in date_only
     )
     return lines
 
@@ -210,6 +265,7 @@ def _party_changes(transport: casestore.ObjectTransport, case_id: str) -> tuple[
     snapshots that first show other parties than the one before.
     """
     dates = sorted(casestore._snapshot_dates(transport, case_id))
+    _NEWEST.see(dates)
     sides: list[tuple[str, tuple[frozenset[str], frozenset[str]]]] = []
     for day in dates:
         body = transport.get(casestore.snapshot_key(case_id, day))
@@ -230,9 +286,9 @@ def _predicted_census(data_root: Path) -> list[str]:
     transport = casestore.active_transport()
     if transport is None:
         return ["- content store not addressed; section skipped"]
-    runs: dict[str, list[str]] = {}
+    runs: dict[str, set[str]] = {}
     for path in (data_root / "cases" / "scotus").glob("*/events/*/predictions/*/*/prediction.json"):
-        runs.setdefault(f"scotus/{path.parents[5].name}", []).append(path.parent.name)
+        runs.setdefault(f"scotus/{path.parents[5].name}", set()).add(path.parent.name)
     with ThreadPoolExecutor(_WORKERS) as pool:
         results = list(pool.map(lambda cid: (cid, *_party_changes(transport, cid)), sorted(runs)))
     kinds = Counter(kind for _, kind, _ in results)
@@ -245,12 +301,25 @@ def _predicted_census(data_root: Path) -> list[str]:
     for cid, _, changes in results:
         if not changes:
             continue
-        before = sorted(r for r in runs[cid] if r[:8] < changes[0].replace("-", ""))
+        day = changes[0].replace("-", "")
+        before = sorted(r for r in runs[cid] if r[:8] < day)
+        same_day = sorted(r for r in runs[cid] if r[:8] == day)
         lines.append(
             f"  - {cid}: parties change at snapshot {', '.join(changes)}; "
-            f"prediction runs before it: {', '.join(sorted(set(before))) or 'none'}"
+            f"prediction runs before it: {', '.join(before) or 'none'}; "
+            f"runs the same day (unplaced): {', '.join(same_day) or 'none'}"
         )
     return lines
+
+
+def _git_head(path: Path) -> str:
+    head = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return head.stdout.strip() or "unknown"
 
 
 def main() -> int:
@@ -270,14 +339,20 @@ def main() -> int:
         check=False,
     )
     prefixes = sys.argv[1:] or list(_PREFIXES)
+    body = ["", "**1. What the detector refuses today**", ""]
+    body += _refusals(db, settings.data_root)
+    body += ["", "**2. Re-docketed numbers in the snapshot record**", ""]
+    body += _snapshot_census(db, settings.data_root, prefixes)
+    body += ["", "**3. Every predicted case, every snapshot pair**", ""]
+    body += _predicted_census(settings.data_root)
     lines = ["### Re-docketed SCOTUS numbers", "", "`fedcourts corpus-info`:", ""]
     lines += [f"    {line}" for line in info.stdout.splitlines()]
-    lines += ["", "**1. What the detector refuses today**", ""]
-    lines += _refusals(db, settings.data_root)
-    lines += ["", "**2. Re-docketed numbers in the snapshot record**", ""]
-    lines += _snapshot_census(db, settings.data_root, prefixes)
-    lines += ["", "**3. Every predicted case, every snapshot pair**", ""]
-    lines += _predicted_census(settings.data_root)
+    lines += [
+        "",
+        f"- ledger checkout HEAD: `{_git_head(settings.data_root)}`",
+        f"- newest stored snapshot date read: {_NEWEST.day or 'none'}",
+    ]
+    lines += body
     with Path(summary).open("a", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
     return 0

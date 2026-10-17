@@ -1499,8 +1499,8 @@ entry that states its defect. The admissibility rule is
 [docs/process-version.md](../docs/process-version.md)'s *Voiding an event*: the
 outcome-describes-another-case ground alone, shown from stored docket payloads
 without reference to the outcome or any grading, with the voided gradings'
-scores published and, once the docket-identity detector exists, every flagged
-event voided whatever it scored. Its gradings leave **every rank key, scored
+scores published and every already-graded event the docket-identity detector
+flags voided whatever it scored. Its gradings leave **every rank key, scored
 aggregate, stratum, window composition and export count**: `store.stratify`
 drops them after the run collapse (so a re-grade of one still counts in
 `superseded_gradings`) and before anything else counts them, so they are in
@@ -1512,9 +1512,16 @@ and the ops report carry a `voided_events` block — the shared pass's dropped
 count, the events, and per predictor the count, the hits (`correct: 1`) and the
 mean Brier score of what was dropped — omitted where nothing in scope is voided,
 and the export marks each such grading `excluded_reason: voided` and its
-prediction `voided` with the outcome columns null. **The voids so far were
-found from a grading, not by a scan, so the set may be incomplete** until the
-docket-identity detector sweeps the ledger. A void is not a corrected outcome:
+prediction `voided` with the outcome columns null. The docket-identity
+detector (`pipeline.redocket`) refuses at attribution: outcome detection never
+writes an outcome to a moment opened under another petition than its row now
+names, so such a moment is never graded and needs no void. It leaves every
+scored figure without appearing in any `voided_events` block, and surfaces
+instead on the unrecorded queue and, once the corpus closes it, as a
+`redocketed` no-outcome residue. Only an event graded before the detector, and
+flagged by it, needs a void. The scan of the committed ledger and of every
+predicted case's stored snapshots, at the vintage the freeze-record entry of
+2026-10-17 states, flagged only the event already voided. A void is not a corrected outcome:
 `stamp-cell --regrade` re-scores an event against its true outcome, and a voided
 event has none at that docket number.
 

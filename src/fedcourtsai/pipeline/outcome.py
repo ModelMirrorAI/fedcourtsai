@@ -1189,6 +1189,11 @@ OPENED_AFTER_DECISION_REASON = (
 )
 
 
+def _stage_label(stage: Stage | str | None) -> str | None:
+    """A stored event stage as the plain label :class:`EventIdentity` carries."""
+    return None if stage is None else str(stage)
+
+
 def _attributable(
     outcomes: Mapping[str, Outcome],
     opened: Mapping[str, date | None],
@@ -1998,7 +2003,9 @@ def resolve_case(
             for event in corpus.events_for_case(conn, ids.case_id(court_id, docket_id)):
                 stages[event.event_id] = event.stage
                 opened[event.event_id] = event.opened_at
-                identities[event.event_id] = EventIdentity(event.title, event.opened_at)
+                identities[event.event_id] = EventIdentity(
+                    event.title, event.opened_at, _stage_label(event.stage)
+                )
                 if event.resolved:
                     resolved_event_ids.append(event.event_id)
                 if event.docket_entry_id is not None:
@@ -2304,7 +2311,7 @@ def _plan_case(corpus_db_path: Path, data_root: Path, due: _DueCase) -> _CasePla
             row.case_name,
             row.date_filed,
             {
-                e.event_id: EventIdentity(e.title, e.opened_at)
+                e.event_id: EventIdentity(e.title, e.opened_at, _stage_label(e.stage))
                 for e in events
                 if e.event_id in claimants
             },

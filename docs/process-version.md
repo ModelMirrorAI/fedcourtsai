@@ -983,9 +983,12 @@ A void is admissible only when:
   flag on the resolved event, or found by a systematic scan of stored docket
   identities — **and publishes the voided gradings' scores**, so a void is seen
   to remove hits and misses alike;
-- **and, once the docket-identity detector exists, every event it flags is
-  voided whatever its gradings scored,** so a void is never a choice made after
-  seeing the scores.
+- **and every already-graded event the docket-identity detector
+  (`pipeline.redocket`) flags is voided whatever its gradings scored,** so a
+  void is never a choice made after seeing the scores. The detector refuses at
+  attribution, so a moment it flags before resolution is never graded and needs
+  no void; its scan at the vintage the freeze-record entry of 2026-10-17 states
+  flagged only the event already voided.
 
 The better remedy for such an event would be to re-resolve it against its own
 subject's outcome under that petition's new number. Nothing relocates an event

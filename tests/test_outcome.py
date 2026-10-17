@@ -3066,6 +3066,47 @@ def test_the_outcome_pass_marks_a_redocketed_moment(tmp_path: Path) -> None:
     assert not plan.recorded
 
 
+def test_the_convergence_reads_the_committed_caption_a_prediction_was_made_under(
+    tmp_path: Path,
+) -> None:
+    # The corpus title has re-tracked to the petition now on the number; only
+    # the committed event.yaml names the one the prediction forecast. The
+    # standing sweep reaches a predicted gap at any age, so it is the path that
+    # would otherwise grade the prediction against the other petition.
+    event = _interim_event("evt-motion-disposition", resolved=False).model_copy(
+        update={"title": _REDOCKETED_CAPTION}
+    )
+    db = _seed_application(tmp_path, [event], row=_redocketed_row())
+    write_yaml(
+        CasePaths(tmp_path, "scotus", 9526000325).event(event.event_id).event_file,
+        PredictableEvent(
+            event_id=event.event_id,
+            case_id=event.case_id,
+            kind=event.kind,
+            stage=event.stage,
+            moment=event.moment,
+            title=_EARLIER_PETITION,
+            opened_at=event.opened_at,
+            decision_target=event.decision_target,
+        ),
+    )
+    seed_prediction(tmp_path, "scotus", 9526000325, event.event_id)
+    result = converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    assert not result.recorded
+    assert [u.reason for u in result.unrecorded] == [REDOCKETED_REASON]
+    assert not CasePaths(tmp_path, "scotus", 9526000325).event(event.event_id).outcome.exists()
+
+
+def test_another_courts_event_title_is_never_read_as_a_caption(tmp_path: Path) -> None:
+    # A court of appeals event's title names the filing, not the parties, so
+    # the re-docketing rule is not asked there.
+    _open_event(tmp_path)  # titled "Petition for review"
+    row = from_api_docket(DECIDED_DOCKET)  # "Doe v. Roe"
+    resolution = resolve_case(_db(tmp_path), tmp_path, row, "ca9", 64512345)
+    assert list(resolution.outcomes) == ["evt-petition-review"]
+    assert not resolution.unrecorded
+
+
 # --- the gap read covers open moments of a decided stage -------------------------
 
 

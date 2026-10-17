@@ -1369,15 +1369,23 @@ or network.
      another number and re-enters the freed number for a different petition.
      The row keeps its id and takes on the new petition's caption and docketed
      date, so a moment opened under the earlier petition would receive the new
-     one's disposition. Detection refuses it (`pipeline.redocket`). A SCOTUS
-     moment's caption is read from its corpus event and from its committed
-     `event.yaml`, which keeps the caption a committed prediction was made
-     under because `materialize-event` never rewrites it. When either shares
-     no party word with the row's current caption on the petitioner side, or
-     on the respondent side for a moment opened before the row's current
-     docketed date, the moment is surfaced on the unrecorded queue with that
-     reason and receives nothing. Its siblings still resolve. A moved docketed
-     date with the same parties is a date correction and is not refused.
+     one's disposition. Detection refuses it (`pipeline.redocket`), on every
+     refresh channel and in both convergence passes. A SCOTUS moment's caption
+     is read from its corpus event and from its committed `event.yaml`, which
+     `materialize-event` never rewrites and the outcome writer rewrites only
+     beside an outcome, so it keeps the caption a committed prediction was made
+     under. The exception is a moment whose mint re-fires on every poll (the
+     CVSG and interim response moments): each re-mint rewrites both copies from
+     the row, so after a re-docketing neither keeps the earlier caption. A
+     moment is refused when either caption shares
+     no party word with the row's current caption on the petitioner side, or,
+     for a cert or merits moment opened before the row's current docketed date,
+     on the respondent side. A side with no party word on either caption (an
+     `In re` caption, a bare docket number, initials) is not compared. A refused
+     moment lands on the unrecorded queue with the re-docketing reason and
+     receives nothing, permanently: nothing relocates it to the petition's new
+     number. Its siblings still resolve. A moved docketed date with the same
+     parties is a date correction and is not refused.
 
      **Ledger-outcome convergence.** The poll rotations skip a decided row, so
      a moment detection declined on the poll that saw the decision is not
