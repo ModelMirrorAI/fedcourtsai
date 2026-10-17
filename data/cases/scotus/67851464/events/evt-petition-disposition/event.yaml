@@ -1,0 +1,13 @@
+case_id: scotus/67851464
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2022-11-14'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Consumer Financial Protection Bureau, et al. v. Community Financial Services
+  Association of America, Limited, et al.

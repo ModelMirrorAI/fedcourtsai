@@ -1,0 +1,13 @@
+case_id: scotus/72483081
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2024-01-17'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: John Doe v. Bill Crouch, in His Official Capacity as Cabinet Secretary of the
+  West Virginia Department of Health and Human Resources, et al.

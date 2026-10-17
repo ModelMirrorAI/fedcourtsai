@@ -1,0 +1,12 @@
+case_id: scotus/73279865
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2025-12-22'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Floyd D. Johnson v. United States Congress

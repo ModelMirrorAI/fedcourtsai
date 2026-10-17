@@ -1,0 +1,12 @@
+case_id: scotus/66514681
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2022-02-22'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Joseph Percoco v. United States, et al.

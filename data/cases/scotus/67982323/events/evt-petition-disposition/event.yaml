@@ -1,0 +1,13 @@
+case_id: scotus/67982323
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2023-03-07'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Department of Agriculture Rural Development Rural Housing Service v. Reginald
+  Kirtz

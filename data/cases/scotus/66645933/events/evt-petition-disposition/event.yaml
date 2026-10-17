@@ -1,0 +1,12 @@
+case_id: scotus/66645933
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2018-02-23'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Thomas M. Utterback v. Trustmark National Bank, et al.

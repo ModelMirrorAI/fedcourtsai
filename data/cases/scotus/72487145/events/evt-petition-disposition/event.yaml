@@ -1,0 +1,13 @@
+case_id: scotus/72487145
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2025-02-13'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: AMN Distribution, Inc., a Delaware Corporation, et al. v. Athena Cosmetics,
+  Inc., a Delaware Corporation

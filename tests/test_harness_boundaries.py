@@ -26,6 +26,7 @@ from fedcourtsai.serialize import read_model
 from fedcourtsai.store import stratify
 from tests.conftest import set_windows
 from tests.test_dataset_export import _event, _grade, _outcome, _prediction
+from tests.test_process_registry import GOLDEN_BOUNDARIES
 
 T1 = datetime(2026, 1, 1, tzinfo=UTC)
 T2 = datetime(2026, 4, 1, tzinfo=UTC)
@@ -105,7 +106,8 @@ def test_a_shallow_clone_is_refused(history: tuple[Path, dict[str, str]], tmp_pa
 
 def test_the_registry_is_well_formed() -> None:
     names = [boundary.name for boundary in HARNESS_BOUNDARIES]
-    assert len(names) == len(set(names)) == 12
+    pinned = len(GOLDEN_BOUNDARIES)
+    assert len(names) == len(set(names)) >= pinned
     assert [b.at for b in HARNESS_BOUNDARIES] == sorted(b.at for b in HARNESS_BOUNDARIES)
     for boundary in HARNESS_BOUNDARIES:
         assert len(boundary.merge) == 40 and int(boundary.merge, 16) >= 0
@@ -116,9 +118,9 @@ def test_the_registry_is_well_formed() -> None:
     for boundary in HARNESS_BOUNDARIES:
         if boundary.name in proc_v9:
             assert boundary.predictors == frozenset({"codex-baseline", "gemini-baseline"})
-    # The three that reach a docket only through a later poll or back-fill
-    # are marked gradual.
-    assert {b.name for b in HARNESS_BOUNDARIES if b.gradual} == {
+    # Of the pinned boundaries, the three that reach a docket only through a
+    # later poll or back-fill are marked gradual.
+    assert {b.name for b in HARNESS_BOUNDARIES[:pinned] if b.gradual} == {
         "merits-brief-spellings-consolidated-lead",
         "widened-document-kinds-freshness",
         "merits-brief-partial-support",

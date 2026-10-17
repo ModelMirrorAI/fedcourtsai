@@ -1,0 +1,12 @@
+case_id: scotus/72485897
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2024-12-17'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: David Cassirer, et al. v. Thyssen-Bornemisza Collection Foundation

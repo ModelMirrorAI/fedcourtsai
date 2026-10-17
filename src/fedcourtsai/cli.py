@@ -19158,30 +19158,35 @@ def corpus_check_exec_cmd(
             output_path=output_file,
             kill_user=user,
         )
-        read = subprocess.run(
-            wrap(
-                [
-                    "/usr/bin/head",
-                    "-c",
-                    str(corpus_check.SUMMARY_READ_BYTES),
-                    "--",
-                    corpus_check.SUMMARY_FILENAME,
-                ]
-            ),
-            env=sudo_env,
-            cwd="/",
-            check=False,
-            capture_output=True,
-            timeout=60,
-        )
+        # The check owns the summary file, so reading it back may block or
+        # fail (a FIFO, say); that reads as no summary, never as a failed run
+        # that hides the outcome the check reached.
+        try:
+            read = subprocess.run(
+                wrap(
+                    [
+                        "/usr/bin/head",
+                        "-c",
+                        str(corpus_check.SUMMARY_READ_BYTES),
+                        "--",
+                        corpus_check.SUMMARY_FILENAME,
+                    ]
+                ),
+                env=sudo_env,
+                cwd="/",
+                check=False,
+                capture_output=True,
+                timeout=60,
+            )
+            read_back = read.stdout if read.returncode == 0 else b""
+        except subprocess.SubprocessError:
+            read_back = b""
         corpus_check.kill_account(user)
     except corpus_check.ProcessesSurvived as exc:
         typer.echo(f"::error::corpus-check-exec: {exc}; failing the run", err=True)
         raise typer.Exit(code=1) from exc
     secrets = [os.environ[name] for name in corpus_check.REDACTED_ENV if os.environ.get(name)]
-    summary, clamped = corpus_check.summary_text(
-        read.stdout if read.returncode == 0 else b"", redact=secrets
-    )
+    summary, clamped = corpus_check.summary_text(read_back, redact=secrets)
     result = phase.result
     typer.echo(
         f"corpus-check-exec: {phase.phase} exit {result.exit_code}"
