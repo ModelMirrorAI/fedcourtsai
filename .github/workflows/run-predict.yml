@@ -2192,10 +2192,11 @@ jobs:
   # committed state, so dispatching earlier would hand the stranded-run guard
   # this round's cells to withhold and plan a narrower round. A PR that has not
   # merged inside the wait, or closed unmerged, dispatches nothing — the schedule
-  # picks the backlog up, since the lane is level-triggered. Nor does a ready
-  # promotion PR: the promotion gate's quiescence check fails on any queued,
-  # running or waiting predict round, so the chain stands down until that PR
-  # merges or returns to draft. Each step's answer is `fedcourts chain-step`'s;
+  # picks the backlog up, since the lane is level-triggered. Nor does a
+  # promotion about to merge — a ready `staging` PR, or a ready promotion train
+  # candidate approved at its head: the promotion gate's quiescence check fails
+  # on any queued, running or waiting predict round, so the chain stands down
+  # until that PR merges, returns to draft or loses its approval. Each step's answer is `fedcourts chain-step`'s;
   # the loop below only reads the PRs and acts on it.
   #
   # The dispatched round is an ordinary input-less dispatch on `main`: it
@@ -2257,12 +2258,30 @@ jobs:
             # Reads only (GETs with the query in the URL). A failed read drops
             # its file, which `chain-step` reads as unknown: a missing promotion
             # list stands the chain down, a missing collect PR waits.
-            gh api "repos/${REPO}/pulls?state=open&base=main&per_page=100" > promotion-prs.json \
-              || rm -f promotion-prs.json
+            if gh api --paginate --slurp "repos/${REPO}/pulls?state=open&base=main&per_page=100" \
+              > promotion-prs.pages && jq 'add // []' promotion-prs.pages > promotion-prs.json; then
+              # A ready promotion train candidate stands the chain down only once it is
+              # approved at its head, which its whole review list says. A failed read
+              # leaves the candidate out of the file, and `chain-step` stands the chain
+              # down for a candidate it has no reviews for.
+              echo '{}' > promotion-reviews.json
+              for n in $(jq -r --arg repo "$REPO" '.[] | select(.draft == false
+                  and .head.repo.full_name == $repo and (.head.ref | startswith("promote/")))
+                  | .number' promotion-prs.json); do
+                if gh api --paginate --slurp "repos/${REPO}/pulls/${n}/reviews?per_page=100" > reviews.pages; then
+                  jq --arg n "$n" --slurpfile r reviews.pages '. + {($n): ($r[0] | add // [])}' \
+                    promotion-reviews.json > reviews.next
+                  mv reviews.next promotion-reviews.json
+                fi
+              done
+            else
+              rm -f promotion-prs.json promotion-reviews.json
+            fi
             gh api "repos/${REPO}/pulls?head=${OWNER}:${BRANCH}&state=all&per_page=1" > collect-prs.json \
               || rm -f collect-prs.json
             args=(--mode drain --repo "$REPO" --attempt "$attempt" --max-attempts 40)
             [ -f promotion-prs.json ] && args+=(--promotion-prs-file promotion-prs.json)
+            [ -f promotion-reviews.json ] && args+=(--promotion-reviews-file promotion-reviews.json)
             [ -f collect-prs.json ] && args+=(--collect-prs-file collect-prs.json)
             step=$(uv run fedcourts chain-step "${args[@]}")
             action=$(jq -r '.action' <<<"$step")

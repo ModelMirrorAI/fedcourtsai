@@ -18699,6 +18699,16 @@ def chain_step_cmd(
             help="The open PRs against `main` (REST list). Omitted stands the chain down.",
         ),
     ] = None,
+    promotion_reviews_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--promotion-reviews-file",
+            help=(
+                "Each ready promotion train candidate's full review list, as a JSON object "
+                "keyed by PR number. A candidate missing from it counts as approved."
+            ),
+        ),
+    ] = None,
     collect_prs_file: Annotated[
         Path | None,
         typer.Option(
@@ -18712,8 +18722,10 @@ def chain_step_cmd(
     """Decide one step of a dispatch-chain job: dispatch, wait, or stop.
 
     Prints a `ChainStep` (`action`, `reason`). The chain stands down while a
-    ready promotion PR is open, or when the open PRs could not be read; in drain
-    mode it dispatches only once this round's collect PR has merged.
+    promotion is about to merge — a ready `staging` PR, or a ready promotion
+    train candidate approved at its head — or when the open PRs could not be
+    read; in drain mode it dispatches only once this round's collect PR has
+    merged.
     """
 
     def _read_list(path: Path | None) -> list[Any] | None:
@@ -18725,10 +18737,26 @@ def chain_step_cmd(
             return None
         return loaded if isinstance(loaded, list) else None
 
+    reviews: dict[int, list[Any]] | None = None
+    raw_reviews = _read_json_object(promotion_reviews_file)
+    if raw_reviews is not None:
+        reviews = {
+            int(key): value
+            for key, value in raw_reviews.items()
+            if key.isdigit() and isinstance(value, list)
+        }
+    try:
+        train_config: TrainConfig | None = load_train_config(
+            get_settings().config_root / PROMOTION_TRAIN_CONFIG
+        )
+    except TrainConfigError:
+        train_config = None
     step = chain_step(
         mode,
         repo=repo,
         promotion_pulls=_read_list(promotion_prs_file),
+        promotion_reviews=reviews,
+        train_config=train_config,
         collect_pulls=_read_list(collect_prs_file),
         attempt=attempt,
         max_attempts=max_attempts,
@@ -18759,6 +18787,17 @@ def _read_json_list(path: Path | None, key: str | None = None) -> list[Any] | No
     if key is not None:
         loaded = loaded.get(key) if isinstance(loaded, dict) else None
     return loaded if isinstance(loaded, list) else None
+
+
+def _read_json_object(path: Path | None) -> dict[str, Any] | None:
+    """A JSON object from ``path``; ``None`` when absent or unreadable."""
+    if path is None:
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return loaded if isinstance(loaded, dict) else None
 
 
 def _train_config(config: Path | None) -> TrainConfig:
@@ -18822,6 +18861,28 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
         typer.Option(
             "--staging-differs", help="Did staging change anything since that merge-base?"
         ),
+    ] = _TriState.UNKNOWN,
+    last_promotion_synced: Annotated[
+        _TriState,
+        typer.Option(
+            "--last-promotion-synced",
+            help="Does staging hold main's last promotion merge (yes when main has none)?",
+        ),
+    ] = _TriState.UNKNOWN,
+    recent_dispatches_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--recent-dispatches-file",
+            help="integration-test dispatches of the current UTC day (REST runs document).",
+        ),
+    ] = None,
+    pull_file: Annotated[
+        Path | None,
+        typer.Option("--pull-file", help="The candidate PR (`GET pulls/{n}`, for mergeable)."),
+    ] = None,
+    freshness_ok: Annotated[
+        _TriState,
+        typer.Option("--freshness-ok", help="Did the freshness stage pass at the head and ref?"),
     ] = _TriState.UNKNOWN,
     head_on_staging: Annotated[
         _TriState,
@@ -18895,6 +18956,10 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
         branches=branches,
         staging_sha=staging_sha,
         main_ahead_paths=main_ahead,
+        last_promotion_synced=_tri(last_promotion_synced),
+        recent_dispatches=_read_json_list(recent_dispatches_file, "workflow_runs"),
+        pull=_read_json_object(pull_file),
+        freshness_ok=_tri(freshness_ok),
         staging_differs_from_main=_tri(staging_differs),
         head_on_staging=_tri(head_on_staging),
         runs=_read_json_list(runs_file, "workflow_runs"),
@@ -18928,7 +18993,7 @@ def promotion_train_approval_cmd(
     if reviews is None:
         typer.echo("::error::promotion train: the reviews could not be read", err=True)
         raise typer.Exit(code=1)
-    state, reason = approval_state(reviews, sha=head_sha, config=train_config)
+    state, reason, _ = approval_state(reviews, sha=head_sha, config=train_config)
     typer.echo(reason)
     if state is not Approval.APPROVED:
         raise typer.Exit(code=1)

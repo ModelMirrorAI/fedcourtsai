@@ -39,7 +39,7 @@ ALLOWED_GRANTS = {
 DISPATCH = re.compile(r"\bgh workflow run run-predict\.yml --repo \"\$REPO\" --ref main\s*$")
 TRAIN_DISPATCH = re.compile(
     r"\bgh workflow run integration-test\.yml --repo \"\$REPO\" "
-    + r"--ref \"\$REF\" -f scenario=gate\s*$"
+    + r"--ref \"\$REF\" -f scenario=\"\$SCENARIO\"\s*$"
 )
 DISPATCHES = {**{job: DISPATCH for job in CHAIN_JOBS}, TRAIN_JOB: TRAIN_DISPATCH}
 # The actions a chain job may run: the checkout and env setup its tested
@@ -128,6 +128,10 @@ def test_each_chain_job_decides_through_the_tested_command() -> None:
         assert "uv run fedcourts chain-step" in runs
         assert f"--mode {mode}" in runs
         assert "--promotion-prs-file" in runs
+        # A candidate counts only once approved, from its whole review list.
+        assert "--promotion-reviews-file promotion-reviews.json" in runs
+        assert 'gh api --paginate --slurp "repos/${REPO}/pulls/${n}/reviews?per_page=100"' in runs
+        assert 'gh api --paginate --slurp "repos/${REPO}/pulls?state=open&base=main' in runs
 
 
 def test_the_train_dispatch_job_holds_the_token_alone_and_checks_the_head_first() -> None:
@@ -157,6 +161,13 @@ def test_the_train_dispatch_job_holds_the_token_alone_and_checks_the_head_first(
     run = dispatch["run"]
     assert run.index("integration-test.yml/runs?head_sha=${SHA}") < run.index("gh workflow run")
     assert '[ "$existing" != 0 ]' in run
+    # Title-independent: any dispatched run at the head and ref stops it, and
+    # so does a run list longer than the page read.
+    assert "display_title" not in run
+    assert '.event == \\"workflow_dispatch\\"' in run
+    assert "if .total_count > (.workflow_runs | length) then 1" in run
+    # The suite is one of the two gate suites, validated before the mint.
+    assert "gate | offline-gate) ;;" in check["run"]
 
 
 def test_no_workflow_hands_a_job_every_secret() -> None:

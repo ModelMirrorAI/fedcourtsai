@@ -25,6 +25,10 @@ from pydantic import BaseModel
 BEGIN = "<!-- promotion-prep:begin -->"
 END = "<!-- promotion-prep:end -->"
 
+#: Written once into a promotion train candidate's body, outside the
+#: generated block, when the train marks it ready (`promotion_train`).
+READY_MARKER = "<!-- promotion-train:marked-ready -->"
+
 # A handover note is any heading that names an effect check, at any level and in
 # any of the phrasings feature PRs use ("Effect check, after the next
 # promotion", "Handover: effect check for the promotion", "Post-promotion effect
@@ -159,12 +163,13 @@ def extract_effect_check(body: str) -> str | None:
 
 
 def _unmark(text: str) -> str:
-    """PR text with the block's own markers defused, so it can neither forge
-    nor cut the generated block. Nothing else is touched: a command's `@` or
-    `<!--` must survive verbatim to be copied."""
-    return text.replace(BEGIN, BEGIN.replace("<!--", "&lt;!--")).replace(
-        END, END.replace("<!--", "&lt;!--")
-    )
+    """PR text with the block's own markers — and the train's ready marker —
+    defused, so it can neither forge nor cut the generated block, nor read as
+    the train having marked the candidate ready. Nothing else is touched: a
+    command's `@` or `<!--` must survive verbatim to be copied."""
+    for marker in (BEGIN, END, READY_MARKER):
+        text = text.replace(marker, marker.replace("<!--", "&lt;!--"))
+    return text
 
 
 def _quote_note(text: str) -> str:

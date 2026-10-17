@@ -3,9 +3,10 @@
 `promotion-prep` runs hourly and asks this module what to do next. The answer
 is a single :class:`TrainStep`, derived only from what the workflow read — the
 open PRs into `main`, the existing `promote/*` branches and their heads,
-staging's relation to `main`, and, for the one open candidate, its integration
-runs, reviews, check runs and the gate stages read live — so the rule is
-testable without the Actions API and the workflow only routes on the answer.
+staging's relation to `main`, the train's own paid dispatches today, and, for
+the one open candidate, its PR, integration runs, reviews, check runs and the
+gate stages read live — so the rule is testable without the Actions API and
+the workflow only routes on the answer.
 
 A **candidate** is a frozen release branch, ``promote/<UTC date>`` (``-2``,
 ``-3`` … when the date is taken), cut at staging's tip and never moved again,
@@ -19,33 +20,41 @@ action                when                                              does
 ====================  ================================================  =========================
 ``cut``               no open promotion PR; `main` changed nothing      create the branch at the
                       since its merge-base with staging outside the     staging tip read, open a
-                      writer lanes (staging is synced); staging         draft PR into `main`
+                      writer lanes and staging holds `main`'s last      draft PR into `main`
+                      promotion merge (staging is synced); staging
                       changed something since that merge-base; no
                       ``promote/`` branch already sits at that tip
-``dispatch_gate``     the candidate has no integration ``gate`` run     dispatch integration-test
-                      at its head (queued, running or concluded) and    ``scenario=gate`` at the
-                      the registry gate passes                          branch (dispatch App)
-``mark_ready``        the ``gate`` run at the head succeeded and the    mark ready, request the
-                      PR is a draft the train has not marked before     approvers' review; the
+``dispatch_gate``     no dispatched integration-test run of any kind    dispatch integration-test
+                      at the head and ref, the registry gate passes,    ``gate`` (``offline-gate``
+                      and today's paid-dispatch cap is not reached      under the waiver label)
+``mark_ready``        green evidence at the head and the PR is a        mark ready, request the
+                      draft the train has not marked before             approvers' review; the
                                                                         body edit re-fires CI
 ``refire_gate``       approved at the head, quiescent, registry clean,  edit the body, which
-                      every required check concluded, and only          re-runs ci.yml's
-                      ``promotion-gate`` failed or is missing           ``promotion-gate``
+                      freshness passes, every other required check      re-runs ci.yml's
+                      green, ``promotion-gate`` red or missing, and     ``promotion-gate``
+                      fewer than :data:`REFIRE_CAP` re-fires failed
 ``merge``             approved at the head with no changes requested,   merge commit, pinned to
-                      quiescent now, registry clean, every required     the head SHA (dev App)
-                      check green
+                      mergeable, quiescent now, registry clean, every   the head SHA (dev App)
+                      required check green
 ``wait``              something will change without anyone acting       nothing (body refresh)
 ``report``            a human has to act                                nothing (body refresh)
 ====================  ================================================  =========================
 
-Everything unreadable resolves to ``wait``, never to an act. A failed ``gate``
-run is reported and never re-dispatched: the paid suite runs at most once per
-candidate unless the maintainer re-runs it. Candidate branches are never
-deleted, so a branch already at the staging tip means that tip was cut before:
-a candidate the maintainer closed unmerged is not re-cut, and the next one
-waits for staging to move (reopening the PR, or opening one from the branch,
-puts it back on the train). A hand-opened ``staging`` → `main` PR makes the
-train stand aside, so there is one promotion in flight at a time.
+Green evidence is a green ``gate`` run at the head and ref (an ``offline-gate``
+one under the ``promote:skip-engine-smoke`` label), or the promotion gate's own
+freshness stage passing there — per-scenario runs a maintainer dispatched
+count. Everything unreadable resolves to ``wait``, never to an act. The paid
+suite runs at most once per candidate: the dispatch is refused while *any*
+dispatched integration run sits at the head, whatever its title, so a renamed
+title can never read as "no run yet"; a failed or unrecognised run is reported
+and never re-dispatched, and a daily cap bounds the train's paid dispatches
+across candidates. Candidate branches are never deleted, so a branch already
+at the staging tip means that tip was cut before: a candidate the maintainer
+closed unmerged is not re-cut, and the next one waits for staging to move
+(reopening the PR, or opening one from the branch, puts it back on the train).
+A hand-opened ``staging`` → `main` PR makes the train stand aside, so there is
+one promotion in flight at a time.
 """
 
 from __future__ import annotations
@@ -59,7 +68,9 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from .promotion_body import BEGIN, END, READY_MARKER
 
 #: The train's configuration file, under the config root (``config/``).
 CONFIG_FILENAME = "promotion-train.yaml"
@@ -71,12 +82,13 @@ BRANCH_PREFIX = "promote/"
 #: lanes, never through staging. `main` moves on these every few hours, so the
 #: cut cannot wait for `main` to be an ancestor of staging; what it waits for is
 #: anything *else* `main` holds that staging lacks — after a promotion, the
-#: record commit's registry and freeze-record stamps — which only a sync brings.
+#: merge itself and the record commit's registry and freeze-record stamps —
+#: which only a sync brings.
 WRITER_LANE_PATHS = ("data/", "metrics/", "corpus/corpus.db.ref")
 
 #: The only branch names the train cuts and acts on: the UTC date, and a
-#: numeric suffix from 2 when that date is already taken.
-BRANCH_NAME = re.compile(r"promote/\d{4}-\d{2}-\d{2}(?:-(?:[2-9]|[1-9]\d+))?")
+#: numeric suffix from 2 when that date is already taken. ASCII digits only.
+BRANCH_NAME = re.compile(r"promote/[0-9]{4}-[0-9]{2}-[0-9]{2}(?:-(?:[2-9]|[1-9][0-9]+))?")
 
 #: The integration-test run titles that are whole-suite promotion evidence.
 #: A `promote/*` dispatch resolves the `staging` environment, so the titles are
@@ -84,16 +96,24 @@ BRANCH_NAME = re.compile(r"promote/\d{4}-\d{2}-\d{2}(?:-(?:[2-9]|[1-9]\d+))?")
 GATE_TITLE = "integration-test: gate @ staging"
 OFFLINE_GATE_TITLE = "integration-test: offline-gate @ staging"
 
-#: The label under which the promotion gate accepts an `offline-gate` run.
+#: The label under which the promotion gate accepts an `offline-gate` run, and
+#: under which the train dispatches that token-free suite instead of `gate`.
 WAIVER_LABEL = "promote:skip-engine-smoke"
-
-#: Written once into a candidate's body, outside the generated block, when the
-#: train marks it ready. A draft carrying it was returned to draft by a
-#: maintainer, and the train leaves it there.
-READY_MARKER = "<!-- promotion-train:marked-ready -->"
 
 #: The required check the train may re-fire by a body edit.
 PROMOTION_GATE_CHECK = "promotion-gate"
+
+#: How many ``promotion-gate`` failures after the approval the train re-fires
+#: through before it reports instead: a check that keeps failing with every
+#: other condition holding needs a person, not another CI run.
+REFIRE_CAP = 3
+
+#: The bot login the train's integration dispatches run as.
+DISPATCH_BOT = "fedcourtsai-dispatch[bot]"
+
+#: Logins the approver list may never name: an approval from one would land
+#: code on `main` without the maintainer.
+FORBIDDEN_APPROVERS = frozenset({"modelmirror-agent"})
 
 #: The app every counted check run must come from.
 _ACTIONS_APP = "github-actions"
@@ -108,8 +128,8 @@ class TrainConfigError(ValueError):
 
 
 class TrainConfig(BaseModel):
-    """``config/promotion-train.yaml``: whose approval the train merges on, and on
-    which required checks.
+    """``config/promotion-train.yaml``: whose approval the train merges on, on
+    which required checks, and how many paid gate suites it may start a day.
 
     ``approvers`` are the GitHub logins whose approving review of a candidate's
     head is the merge decision. The dev App bypasses `main`'s approval rule, so
@@ -117,12 +137,15 @@ class TrainConfig(BaseModel):
     ``required_checks`` are the check contexts `main`'s ruleset requires; the
     platform enforces them on the merge too, and the train waits for them so it
     never asks for a merge it knows will be refused.
+    ``max_gate_dispatches_per_day`` caps the integration suites the train
+    starts per UTC day, across candidates: unattended spend, bounded.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     approvers: tuple[str, ...]
     required_checks: tuple[str, ...]
+    max_gate_dispatches_per_day: int = Field(ge=1, le=4)
 
     @field_validator("approvers")
     @classmethod
@@ -132,6 +155,8 @@ class TrainConfig(BaseModel):
         for login in value:
             if not _HUMAN_LOGIN.fullmatch(login):
                 raise ValueError(f"{login!r} is not a GitHub user login")
+            if login.casefold() in FORBIDDEN_APPROVERS:
+                raise ValueError(f"{login!r} may never approve a promotion")
         folded = [login.casefold() for login in value]
         if len(set(folded)) != len(folded):
             raise ValueError("lists a login twice")
@@ -190,6 +215,9 @@ class TrainStep(BaseModel):
     branch: str | None = None
     #: Whose review a ``mark_ready`` requests: the configured approvers.
     reviewers: tuple[str, ...] = ()
+    #: The integration suite a ``dispatch_gate`` starts: ``gate``, or
+    #: ``offline-gate`` under the waiver label.
+    scenario: str | None = None
 
 
 class Candidate(BaseModel):
@@ -217,13 +245,24 @@ class Observed:
     main_ahead_paths: Sequence[str] | None = None
     #: Whether staging changed anything since that merge-base.
     staging_differs_from_main: bool | None = None
+    #: Whether staging contains the last promotion merge on `main`'s
+    #: first-parent chain (true when `main` holds none).
+    last_promotion_synced: bool | None = None
+    #: integration-test dispatches of the current UTC day (REST runs list).
+    recent_dispatches: Sequence[Mapping[str, Any]] | None = None
     # The candidate's own reads; unused when no candidate is open.
     head_on_staging: bool | None = None
+    #: The candidate PR as `GET pulls/{n}` returns it (for ``mergeable``).
+    pull: Mapping[str, Any] | None = None
     runs: Sequence[Mapping[str, Any]] | None = None
     reviews: Sequence[Mapping[str, Any]] | None = None
+    #: Every check run at the head (``filter=all``), re-runs included.
     check_runs: Sequence[Mapping[str, Any]] | None = None
     quiescent: bool | None = None
     registry_ok: bool | None = None
+    #: The promotion gate's freshness stage at the head and ref, read live
+    #: (under the waiver label when the candidate carries it).
+    freshness_ok: bool | None = None
 
 
 def _mapping(value: object) -> Mapping[str, Any]:
@@ -262,6 +301,18 @@ def promotion_pulls(pulls: Iterable[Mapping[str, Any]], *, repo: str) -> list[Ma
         and _same_repo_into_main(pull, repo)
         and (_head_ref(pull) == "staging" or _head_ref(pull).startswith(BRANCH_PREFIX))
     ]
+
+
+def marked_ready(body: str) -> bool:
+    """Whether the train's ready marker sits in ``body`` outside the generated block.
+
+    The block quotes feature PRs' text, so a marker inside it is not the
+    train's; :func:`fedcourtsai.promotion_body.render` defuses one there too.
+    """
+    start = body.find(BEGIN)
+    end = body.find(END, start + len(BEGIN)) if start != -1 else -1
+    outside = body if start == -1 or end == -1 else body[:start] + body[end + len(END) :]
+    return READY_MARKER in outside
 
 
 def find_candidate(
@@ -325,33 +376,40 @@ def next_branch_name(now: datetime, existing: Iterable[str]) -> str:
 
 
 class GateEvidence(StrEnum):
-    """Where the candidate's whole-suite integration run stands."""
+    """Where the candidate's integration runs stand."""
 
     NONE = "none"
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+    #: Dispatched runs sit at the head, but none under a title the train reads.
+    UNRECOGNISED = "unrecognised"
 
 
 def gate_evidence(
     runs: Iterable[Mapping[str, Any]], *, ref: str, sha: str, waived: bool
 ) -> tuple[GateEvidence, Mapping[str, Any] | None]:
-    """The state of the candidate's gate runs, and the run that decides it.
+    """The state of the candidate's integration runs, and the run that decides it.
 
     Only a dispatched run at exactly ``sha`` from exactly ``ref`` counts. A
     green ``gate`` run (or, under the waiver label, a green ``offline-gate``
-    run) is evidence; otherwise one in flight is waited for; otherwise a
-    concluded one is a failure the train reports; otherwise there is none.
+    run) is evidence; otherwise such a run in flight is waited for; otherwise a
+    concluded one is a failure the train reports. Any *other* dispatched run at
+    the head — a per-scenario run, or a whole-suite run whose title this code
+    does not recognise because the candidate's workflow titles it differently
+    — is :attr:`GateEvidence.UNRECOGNISED`, never :attr:`GateEvidence.NONE`:
+    only a head with no dispatched run at all is owed a dispatch, so no drift
+    in the title can make the train pay for the suite again.
     """
     titles = {GATE_TITLE, OFFLINE_GATE_TITLE} if waived else {GATE_TITLE}
-    mine = [
+    at_head = [
         run
         for run in runs
         if run.get("head_sha") == sha
         and run.get("head_branch") == ref
         and run.get("event") == "workflow_dispatch"
-        and run.get("display_title") in titles
     ]
+    mine = [run for run in at_head if run.get("display_title") in titles]
     for run in mine:
         if run.get("status") == "completed" and run.get("conclusion") == "success":
             return GateEvidence.SUCCEEDED, run
@@ -364,7 +422,21 @@ def gate_evidence(
     # Any other status (an unknown one) is not a conclusion: wait on it.
     for run in mine:
         return GateEvidence.RUNNING, run
+    for run in at_head:
+        return GateEvidence.UNRECOGNISED, run
     return GateEvidence.NONE, None
+
+
+def dispatches_today(runs: Iterable[Mapping[str, Any]], *, now: datetime) -> int:
+    """The integration-test runs the dispatch bot started on ``now``'s UTC day."""
+    day = now.strftime("%Y-%m-%d")
+    return sum(
+        1
+        for run in runs
+        if run.get("event") == "workflow_dispatch"
+        and _mapping(run.get("actor")).get("login") == DISPATCH_BOT
+        and str(run.get("created_at") or "").startswith(day)
+    )
 
 
 class Approval(StrEnum):
@@ -377,13 +449,16 @@ class Approval(StrEnum):
 
 def approval_state(
     reviews: Iterable[Mapping[str, Any]], *, sha: str, config: TrainConfig
-) -> tuple[Approval, str]:
+) -> tuple[Approval, str, str]:
     """Whether a listed approver approved exactly ``sha`` with nothing requested since.
 
-    Each reviewer's latest decisive review counts (a comment is not one; a
-    dismissal clears the earlier verdict). Any reviewer whose latest is a
-    change request blocks the merge, whoever they are. An approval counts only
-    from a listed approver and only at ``sha``: one at an older head is stale.
+    Returns the state, its reason, and the approval's ``submitted_at`` (empty
+    unless approved). Each reviewer's latest decisive review counts (a comment
+    is not one; a dismissal clears the earlier verdict). Any reviewer whose
+    latest is a change request blocks the merge, whoever they are. An approval
+    counts only from a listed approver and only at ``sha``: one at an older
+    head is stale. The caller passes *every* review: a list cut short by
+    pagination could hide a later change request.
     """
     latest: dict[str, Mapping[str, Any]] = {}
     ordered = sorted(reviews, key=lambda review: str(review.get("submitted_at") or ""))
@@ -401,19 +476,24 @@ def approval_state(
         if review.get("state") == "CHANGES_REQUESTED"
     )
     if requested:
-        return Approval.CHANGES_REQUESTED, f"changes requested by {', '.join(requested)}"
+        return Approval.CHANGES_REQUESTED, f"changes requested by {', '.join(requested)}", ""
     stale: list[str] = []
     for review in latest.values():
         login = str(_mapping(review.get("user")).get("login"))
         if review.get("state") != "APPROVED" or not config.is_approver(login):
             continue
         if review.get("commit_id") == sha:
-            return Approval.APPROVED, f"approved at {sha[:9]} by {login}"
+            return (
+                Approval.APPROVED,
+                f"approved at {sha[:9]} by {login}",
+                str(review.get("submitted_at") or ""),
+            )
         stale.append(f"{login} at {str(review.get('commit_id'))[:9]}")
     detail = f" (stale approval: {', '.join(sorted(stale))})" if stale else ""
     return (
         Approval.PENDING,
         f"awaiting approval of {sha[:9]} by {' or '.join(config.approvers)}{detail}",
+        "",
     )
 
 
@@ -424,6 +504,14 @@ class Checks(StrEnum):
     PENDING = "pending"
     REFIRE = "refire"
     FAILING = "failing"
+
+
+def _actions_runs(check_runs: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    return [
+        run
+        for run in check_runs
+        if isinstance(run.get("name"), str) and _mapping(run.get("app")).get("slug") == _ACTIONS_APP
+    ]
 
 
 def check_state(
@@ -438,10 +526,8 @@ def check_state(
     or missing check needs a human.
     """
     newest: dict[str, Mapping[str, Any]] = {}
-    for run in check_runs:
-        name = run.get("name")
-        if not isinstance(name, str) or _mapping(run.get("app")).get("slug") != _ACTIONS_APP:
-            continue
+    for run in _actions_runs(check_runs):
+        name = str(run["name"])
         run_id = run.get("id")
         held = newest.get(name)
         if (
@@ -476,8 +562,24 @@ def check_state(
     return Checks.GREEN, "every required check is green"
 
 
-def _dispatch_command(ref: str) -> str:
-    return f"gh workflow run integration-test.yml --ref {ref} -f scenario=gate"
+def gate_failures_since(check_runs: Iterable[Mapping[str, Any]], since: str) -> int:
+    """``promotion-gate`` check runs that concluded red at or after ``since`` (ISO).
+
+    Re-fires happen only once the head is approved, so the failures after the
+    approval are the re-fires that did not take.
+    """
+    return sum(
+        1
+        for run in _actions_runs(check_runs)
+        if run.get("name") == PROMOTION_GATE_CHECK
+        and run.get("status") == "completed"
+        and run.get("conclusion") not in {"success", "skipped", "neutral"}
+        and str(run.get("completed_at") or "") >= since
+    )
+
+
+def _dispatch_command(ref: str, scenario: str) -> str:
+    return f"gh workflow run integration-test.yml --ref {ref} -f scenario={scenario}"
 
 
 def _is_writer_lane_path(path: str) -> bool:
@@ -488,10 +590,22 @@ def _is_writer_lane_path(path: str) -> bool:
 
 
 def _cut_step(observed: Observed) -> TrainStep:  # noqa: PLR0911 - one return per outcome
-    if observed.main_ahead_paths is None or observed.staging_differs_from_main is None:
+    if (
+        observed.main_ahead_paths is None
+        or observed.staging_differs_from_main is None
+        or observed.last_promotion_synced is None
+    ):
         return TrainStep(
             action=TrainAction.WAIT,
             reason="staging's relation to main could not be read; nothing cut",
+        )
+    if not observed.last_promotion_synced:
+        return TrainStep(
+            action=TrainAction.WAIT,
+            reason=(
+                "staging does not yet hold main's last promotion merge; the next "
+                "candidate waits for the sync"
+            ),
         )
     unsynced = sorted(p for p in observed.main_ahead_paths if not _is_writer_lane_path(p))
     if unsynced:
@@ -551,31 +665,61 @@ def _candidate_step(  # noqa: PLR0911, PLR0912 - one return per outcome, each na
             f"head {candidate.sha[:9]} is not on staging's first-parent chain, so it is "
             "not a cut of staging: the train will not dispatch, mark ready or merge it",
         )
+    pull = observed.pull
+    if pull is not None and (
+        pull.get("mergeable") is False or pull.get("mergeable_state") == "dirty"
+    ):
+        return step(
+            TrainAction.REPORT,
+            "conflicts with main; close this candidate — the next one needs a sync that "
+            "resolves the conflict on staging",
+        )
     if observed.runs is None:
         return step(TrainAction.WAIT, "the integration runs at the head could not be read")
     waived = WAIVER_LABEL in candidate.labels
+    scenario = "offline-gate" if waived else "gate"
     evidence, run = gate_evidence(
         observed.runs, ref=candidate.ref, sha=candidate.sha, waived=waived
     )
     run_url = str(_mapping(run).get("html_url") or "")
-    if evidence is GateEvidence.NONE:
-        if observed.registry_ok is None:
-            return step(TrainAction.WAIT, "the registry gate could not be read")
-        if not observed.registry_ok:
+    green = evidence is GateEvidence.SUCCEEDED or observed.freshness_ok is True
+    if not green:
+        if evidence is GateEvidence.NONE:
+            if observed.registry_ok is None:
+                return step(TrainAction.WAIT, "the registry gate could not be read")
+            if not observed.registry_ok:
+                return step(
+                    TrainAction.REPORT,
+                    "the process registry gate refuses this head, so the integration "
+                    "gate is not dispatched (see the run's annotations); fix it on "
+                    "staging and close this candidate",
+                )
+            if observed.recent_dispatches is None:
+                return step(TrainAction.WAIT, "today's integration dispatches could not be read")
+            started = dispatches_today(observed.recent_dispatches, now=observed.now)
+            if started >= config.max_gate_dispatches_per_day:
+                return step(
+                    TrainAction.REPORT,
+                    f"the train already started {started} integration suite(s) today, its "
+                    f"daily cap of {config.max_gate_dispatches_per_day}: dispatch it by hand "
+                    f"(`{_dispatch_command(candidate.ref, scenario)}`) or wait for tomorrow",
+                )
+            return step(
+                TrainAction.DISPATCH_GATE,
+                f"dispatched the integration {scenario} suite at {candidate.sha[:9]} "
+                + f"(`{_dispatch_command(candidate.ref, scenario)}`)",
+            ).model_copy(update={"scenario": scenario})
+        if evidence is GateEvidence.RUNNING:
+            return step(TrainAction.WAIT, f"the integration gate is running ({run_url})")
+        if evidence is GateEvidence.UNRECOGNISED:
             return step(
                 TrainAction.REPORT,
-                "the process registry gate refuses this head, so the integration gate "
-                "is not dispatched (see the run's annotations); fix it on staging and "
-                "close this candidate",
+                f"an integration run the train does not recognise sits at the head "
+                f"({_mapping(run).get('display_title')}, {run_url}) and freshness does not "
+                "pass; the train dispatches no second suite — dispatch "
+                + f"`{_dispatch_command(candidate.ref, scenario)}` yourself, or close this "
+                "candidate",
             )
-        return step(
-            TrainAction.DISPATCH_GATE,
-            f"dispatched the integration gate at {candidate.sha[:9]} "
-            + f"(`{_dispatch_command(candidate.ref)}`)",
-        )
-    if evidence is GateEvidence.RUNNING:
-        return step(TrainAction.WAIT, f"the integration gate is running ({run_url})")
-    if evidence is GateEvidence.FAILED:
         run_id = _mapping(run).get("id")
         return step(
             TrainAction.REPORT,
@@ -584,22 +728,28 @@ def _candidate_step(  # noqa: PLR0911, PLR0912 - one return per outcome, each na
             + f"(`gh run rerun {run_id} --failed`), or close this candidate",
         )
     if candidate.draft:
-        if READY_MARKER in candidate.body:
+        if marked_ready(candidate.body):
             return step(
                 TrainAction.WAIT,
                 "returned to draft after the train marked it ready; left as a draft",
             )
         return step(
             TrainAction.MARK_READY,
-            "the integration gate is green at the head; marked ready for review",
+            "the integration evidence is green at the head; marked ready for review",
         ).model_copy(update={"reviewers": config.approvers})
     if observed.reviews is None:
         return step(TrainAction.WAIT, "the reviews could not be read")
-    approval, approval_reason = approval_state(observed.reviews, sha=candidate.sha, config=config)
+    approval, approval_reason, approved_at = approval_state(
+        observed.reviews, sha=candidate.sha, config=config
+    )
     if approval is Approval.CHANGES_REQUESTED:
         return step(TrainAction.REPORT, approval_reason)
     if approval is Approval.PENDING:
         return step(TrainAction.WAIT, approval_reason)
+    if pull is None or pull.get("mergeable") is not True:
+        return step(
+            TrainAction.WAIT, f"{approval_reason}; waiting for GitHub to compute mergeability"
+        )
     if observed.quiescent is not True:
         return step(
             TrainAction.WAIT,
@@ -620,6 +770,20 @@ def _candidate_step(  # noqa: PLR0911, PLR0912 - one return per outcome, each na
     if checks is Checks.FAILING:
         return step(TrainAction.REPORT, checks_reason)
     if checks is Checks.REFIRE:
+        if observed.freshness_ok is not True:
+            return step(
+                TrainAction.REPORT,
+                f"{approval_reason}; {checks_reason} and freshness does not pass at the "
+                "head, so a re-fire would fail again",
+            )
+        failures = gate_failures_since(observed.check_runs, approved_at)
+        if failures >= REFIRE_CAP:
+            return step(
+                TrainAction.REPORT,
+                f"{approval_reason}; {PROMOTION_GATE_CHECK} failed {failures} time(s) since "
+                "the approval with every other condition holding; the train re-fires it "
+                "no more — read its log",
+            )
         return step(
             TrainAction.REFIRE_GATE,
             f"{approval_reason}; {checks_reason}, re-fired it by a body edit",

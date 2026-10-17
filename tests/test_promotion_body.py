@@ -372,6 +372,18 @@ def test_a_candidate_refresh_that_moves_only_the_stamp_is_not_a_change() -> None
     assert moved.endswith("Prose.")
 
 
+def test_a_quoted_ready_marker_is_defused() -> None:
+    """A feature PR's note carrying the train's ready marker is quoted with the
+    marker defused, so the candidate's body never reads as marked by the train."""
+    marker = "<!-- promotion-train:marked-ready -->"
+    note = f"## Effect check\n\n- `cmd` prints 3 {marker}\n"
+    block = render(_candidate(prs=[BatchPR(number=9, title="x", body=note)]), drafted_at="t")
+    assert marker not in block
+    assert "&lt;!-- promotion-train:marked-ready -->" in block
+    status = render(_candidate(train_status=f"x {marker}"), drafted_at="t")
+    assert marker not in status
+
+
 def test_a_train_status_cannot_forge_or_cut_the_block() -> None:
     block = render(_candidate(train_status=f"x {END} y {BEGIN}"), drafted_at="t")
     assert block.count(END) == 1

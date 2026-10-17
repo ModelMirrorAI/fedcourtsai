@@ -9,8 +9,11 @@ name: promotion-prep
 #
 #   cut           — create `promote/<UTC date>[-N]` at staging's tip and open a
 #                   draft PR from it into `main`, the batch in its body;
-#   dispatch_gate — dispatch integration-test `scenario=gate` at that branch,
-#                   once per head (the dispatch App);
+#   dispatch_gate — dispatch integration-test `scenario=gate` at that branch
+#                   (`offline-gate` under the `promote:skip-engine-smoke`
+#                   label), only while no dispatched integration run of any
+#                   title sits at the head, and within a daily cap (the
+#                   dispatch App);
 #   mark_ready    — the gate is green: mark the PR ready, request the
 #                   approvers' review, refresh the body (which re-fires ci.yml's
 #                   `promotion-gate`);
@@ -133,6 +136,7 @@ jobs:
       sha: ${{ steps.step.outputs.sha }}
       branch: ${{ steps.step.outputs.branch }}
       reviewers: ${{ steps.step.outputs.reviewers }}
+      scenario: ${{ steps.step.outputs.scenario }}
       write: ${{ steps.render.outputs.write }}
       body: ${{ steps.render.outputs.body }}
     steps:
@@ -146,6 +150,9 @@ jobs:
 
       # Every read the decision takes. A failed read leaves its file absent or
       # its fact `unknown`, which the decision turns into a wait, never an act.
+      # Every list is read whole (`--paginate --slurp`, then flattened): a list
+      # cut at its first page could hide a change request, a run at the head or
+      # a promotion PR.
       - name: Read staging, the candidate and the gate
         id: read
         env:
@@ -170,10 +177,40 @@ jobs:
           else
             args+=(--staging-differs yes)
           fi
-          if gh api "repos/${REPO}/pulls?state=open&base=main&per_page=100" > open.json; then
+          # The whole of a paginated list endpoint as one JSON array (or the
+          # whole of `key`'s array for a wrapped one), or a failed read.
+          read_list() {
+            local url=$1 out=$2 key=${3:-}
+            gh api --paginate --slurp "$url" > "${out}.pages" || return 1
+            if [ -n "$key" ]; then
+              jq --arg k "$key" '{($k): (map(.[$k]) | add // [])}' "${out}.pages" > "$out"
+            else
+              jq 'add // []' "${out}.pages" > "$out"
+            fi
+          }
+          if read_list "repos/${REPO}/pulls?state=open&base=main&per_page=100" open.json; then
             args+=(--open-prs-file open.json)
           else
             rm -f open.json
+          fi
+          # The last promotion merge on main's first-parent chain: the newest
+          # merge whose second parent is on staging's first-parent chain. A cut
+          # waits until staging holds it, i.e. until the post-promotion sync.
+          git rev-list --first-parent origin/staging > staging-chain.txt
+          synced=yes
+          for merge in $(git rev-list --first-parent --merges --max-count=400 origin/main); do
+            second=$(git rev-parse "${merge}^2")
+            if grep -Fqx "$second" staging-chain.txt; then
+              git merge-base --is-ancestor "$merge" origin/staging || synced=no
+              break
+            fi
+          done
+          args+=(--last-promotion-synced "$synced")
+          # The train's own dispatches today, against its daily cap.
+          day=$(date -u +%Y-%m-%d)
+          if read_list "repos/${REPO}/actions/workflows/integration-test.yml/runs?event=workflow_dispatch&created=%3E%3D${day}&per_page=100" \
+            dispatches.json workflow_runs; then
+            args+=(--recent-dispatches-file dispatches.json)
           fi
           if gh api --paginate "repos/${REPO}/git/matching-refs/heads/promote/" \
             --jq '.[] | "\(.ref | sub("^refs/heads/"; "")) \(.object.sha)"' > branches.txt; then
@@ -186,6 +223,16 @@ jobs:
           number=$(jq -r '.number // empty' <<<"$candidate")
           ref=$(jq -r '.ref // empty' <<<"$candidate")
           sha=$(jq -r '.sha // empty' <<<"$candidate")
+          labels=''
+          if [ -n "$number" ]; then
+            labels=$(jq -r --argjson n "$number" '.[] | select(.number == $n) | .labels[]?.name' open.json)
+          fi
+          # Under the waiver label the freshness read is the narrowed one the
+          # required check makes, so the train and the check agree on evidence.
+          skip=''
+          if grep -Fqx 'promote:skip-engine-smoke' <<<"$labels"; then
+            skip=1
+          fi
           target_sha="$staging_sha"
           target_ref=staging
           : > gate.ndjson
@@ -197,22 +244,31 @@ jobs:
             else
               args+=(--head-on-staging no)
             fi
-            if gh api "repos/${REPO}/actions/workflows/integration-test.yml/runs?head_sha=${sha}&per_page=100" > runs.json; then
+            if gh api "repos/${REPO}/pulls/${number}" > pull.json; then
+              args+=(--pull-file pull.json)
+            fi
+            if read_list "repos/${REPO}/actions/workflows/integration-test.yml/runs?head_sha=${sha}&per_page=100" \
+              runs.json workflow_runs; then
               args+=(--runs-file runs.json)
             fi
-            if gh api "repos/${REPO}/pulls/${number}/reviews?per_page=100" > reviews.json; then
+            if read_list "repos/${REPO}/pulls/${number}/reviews?per_page=100" reviews.json; then
               args+=(--reviews-file reviews.json)
             fi
-            if gh api "repos/${REPO}/commits/${sha}/check-runs?per_page=100" > checks.json; then
+            # `filter=all`: every run of every check, re-runs included, so the
+            # decision can count promotion-gate failures since the approval.
+            if read_list "repos/${REPO}/commits/${sha}/check-runs?filter=all&per_page=100" \
+              checks.json check_runs; then
               args+=(--check-runs-file checks.json)
             fi
             # Read live, now: the merge waits on these, not on what the
             # required check saw when it last ran.
             if scripts/promotion-gate.sh quiesce > quiesce.log 2>&1; then q=true; else q=false; fi
             if scripts/promotion-gate.sh registry "$sha" > registry.log 2>&1; then r=true; else r=false; fi
-            if scripts/promotion-gate.sh freshness "$sha" "$ref" > fresh.log 2>&1; then f=true; else f=false; fi
+            if PROMOTION_SKIP_SMOKE="$skip" scripts/promotion-gate.sh freshness "$sha" "$ref" \
+              > fresh.log 2>&1; then f=true; else f=false; fi
             args+=(--quiescent "$([ "$q" = true ] && echo yes || echo no)")
             args+=(--registry-ok "$([ "$r" = true ] && echo yes || echo no)")
+            args+=(--freshness-ok "$([ "$f" = true ] && echo yes || echo no)")
             gate_line() {
               # The stage's verdict and its first error lines, without the
               # workflow-command prefix the script prints for annotations.
@@ -221,9 +277,10 @@ jobs:
                 --arg detail "$(grep -E '::error::' "$log" | sed 's/^::error:://' | head -n 3 | paste -sd ';' -)" \
                 '{name: $name, ok: $ok, detail: $detail}'
             }
-            # Quiescence stays out of the body: it flips with every predict
-            # round, and each body edit re-runs CI on the candidate. The
-            # train's status line says when it is what the merge waits on.
+            # The body lists freshness and the registry, not quiescence:
+            # quiescence flips with every predict round and each body edit
+            # re-runs CI on the candidate. The train's status line names it
+            # when it is what the merge is waiting on.
             { gate_line freshness "$f" fresh.log; gate_line registry "$r" registry.log; } > gate.ndjson
           fi
           printf '%s\n' "${args[@]}" > step-args.txt
@@ -246,7 +303,8 @@ jobs:
           reason=$(jq -r '.reason' step.json)
           if [ "$action" = dispatch_gate ] && [ "$CHAIN_ENABLED" != true ]; then
             ref=$(jq -r '.ref' step.json)
-            reason="the integration gate is owed at this head, and the dispatch chain is off: dispatch it with \`gh workflow run integration-test.yml --ref ${ref} -f scenario=gate\`"
+            scenario=$(jq -r '.scenario' step.json)
+            reason="the integration gate is owed at this head, and the dispatch chain is off: dispatch it with \`gh workflow run integration-test.yml --ref ${ref} -f scenario=${scenario}\`"
           fi
           {
             echo "action=${action}"
@@ -255,6 +313,7 @@ jobs:
             echo "sha=$(jq -r '.sha // empty' step.json)"
             echo "branch=$(jq -r '.branch // empty' step.json)"
             echo "reviewers=$(jq -r '.reviewers | join(",")' step.json)"
+            echo "scenario=$(jq -r '.scenario // empty' step.json)"
           } >> "$GITHUB_OUTPUT"
           printf '%s' "$reason" > reason.txt
           echo "## promotion train: ${action} — ${reason}" >> "$GITHUB_STEP_SUMMARY"
@@ -374,6 +433,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Full history and tags: the merge re-check runs the registry stage,
+          # which reads origin/main's ledger and registry and the prereg/ tags.
+          fetch-depth: 0
       - uses: ./.github/actions/setup-python-env
         with:
           restore-cache: "false"
@@ -407,9 +469,11 @@ jobs:
 
       # Re-read, minutes after the plan, everything the merge rests on: the PR is
       # still open, ready, same-repo into main, at exactly the planned head; a
-      # listed approver approved exactly that head with nothing requested since;
-      # and no fan-out is in flight. Any doubt skips the merge; the next tick
-      # plans again.
+      # listed approver approved exactly that head with nothing requested since,
+      # read from every page of the reviews; no fan-out is in flight; and the
+      # registry gate still passes against main as it is now. Any doubt —
+      # a failed or short read included — skips the merge; the next tick plans
+      # again.
       - name: Re-check the merge
         id: recheck
         if: ${{ needs.plan.outputs.action == 'merge' }}
@@ -428,7 +492,12 @@ jobs:
             echo "ok=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          gh api "repos/${REPO}/pulls/${PR}/reviews?per_page=100" > reviews.json
+          if ! gh api --paginate --slurp "repos/${REPO}/pulls/${PR}/reviews?per_page=100" \
+            > reviews.pages || ! jq 'add // []' reviews.pages > reviews.json; then
+            echo "::warning::PR #${PR}'s reviews could not be read whole; not merging this tick"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if ! uv run fedcourts promotion-train-approval --reviews-file reviews.json --head-sha "$SHA"; then
             echo "::warning::PR #${PR} is no longer approved at ${SHA}; not merging this tick"
             echo "ok=false" >> "$GITHUB_OUTPUT"
@@ -436,6 +505,12 @@ jobs:
           fi
           if ! scripts/promotion-gate.sh quiesce; then
             echo "::warning::a fan-out started since the plan; not merging this tick"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --no-tags -q origin main
+          if ! scripts/promotion-gate.sh registry "$SHA"; then
+            echo "::warning::the registry gate refuses ${SHA} against main now; not merging this tick"
             echo "ok=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -506,8 +581,11 @@ jobs:
 
   # The integration gate at a candidate's head, on the dispatch App's token —
   # the only job here that holds it, and it holds nothing else. Once per head:
-  # the plan dispatches only where no `gate` run exists at the head, and this
-  # job re-reads that, and the branch's tip, right before it dispatches.
+  # the plan dispatches only where no dispatched integration run of any title
+  # exists at the head, and this job re-reads that, and the branch's tip, right
+  # before it dispatches. The guard reads no title on purpose: titles come from
+  # the candidate's own workflow file, and a guard keyed on one would read a
+  # renamed title as "no run yet" and pay for the suite again every tick.
   dispatch-gate:
     needs: [authorize, plan]
     if: >-
@@ -529,11 +607,16 @@ jobs:
           REPO: ${{ github.repository }}
           REF: ${{ needs.plan.outputs.ref }}
           SHA: ${{ needs.plan.outputs.sha }}
+          SCENARIO: ${{ needs.plan.outputs.scenario }}
         run: |
           set -euo pipefail
           name='^promote/[0-9]{4}-[0-9]{2}-[0-9]{2}(-([2-9]|[1-9][0-9]+))?$'
           [[ "$REF" =~ $name ]] || { echo "::error::not a candidate name: ${REF}"; exit 1; }
           [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::not a commit SHA: ${SHA}"; exit 1; }
+          case "$SCENARIO" in
+            gate | offline-gate) ;;
+            *) echo "::error::not a gate suite: ${SCENARIO}"; exit 1 ;;
+          esac
           tip=$(gh api "repos/${REPO}/git/ref/heads/${REF}" --jq '.object.sha')
           if [ "$tip" != "$SHA" ]; then
             echo "::error::${REF} is at ${tip}, not the planned ${SHA}: a candidate never moves, so nothing is dispatched"
@@ -554,16 +637,19 @@ jobs:
           REPO: ${{ github.repository }}
           REF: ${{ needs.plan.outputs.ref }}
           SHA: ${{ needs.plan.outputs.sha }}
+          SCENARIO: ${{ needs.plan.outputs.scenario }}
         run: |
           set -euo pipefail
+          # Any dispatched run at this head and ref, whatever its title, stops
+          # the dispatch; so does a list longer than the page read.
           existing=$(gh api "repos/${REPO}/actions/workflows/integration-test.yml/runs?head_sha=${SHA}&per_page=100" \
-            --jq "[.workflow_runs[] | select(.head_branch == \"${REF}\" and .display_title == \"integration-test: gate @ staging\")] | length")
+            --jq "if .total_count > (.workflow_runs | length) then 1 else ([.workflow_runs[] | select(.head_branch == \"${REF}\" and .event == \"workflow_dispatch\")] | length) end")
           if [ "$existing" != 0 ]; then
-            echo "## A gate run already exists at ${REF} (${SHA}); nothing dispatched." >> "$GITHUB_STEP_SUMMARY"
+            echo "## An integration run already exists at ${REF} (${SHA}); nothing dispatched." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          gh workflow run integration-test.yml --repo "$REPO" --ref "$REF" -f scenario=gate
-          echo "## Dispatched integration-test scenario=gate at ${REF} (${SHA})." >> "$GITHUB_STEP_SUMMARY"
+          gh workflow run integration-test.yml --repo "$REPO" --ref "$REF" -f scenario="$SCENARIO"
+          echo "## Dispatched integration-test scenario=${SCENARIO} at ${REF} (${SHA})." >> "$GITHUB_STEP_SUMMARY"
 
   # The run gate's verdict on the run as a whole. A refused partial re-run
   # skips every job it re-runs, which alone would leave the earlier attempt's

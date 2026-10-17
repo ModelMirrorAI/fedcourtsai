@@ -999,9 +999,10 @@ jobs:
   # it derives its own backlog from committed state, and it waits on the review
   # hold unless its own plan auto-releases. `run-predict`'s schedule stays as
   # the backstop for a change the relevance read misses and for a dispatch that
-  # never arrives. No round is dispatched while a promotion PR is ready
-  # (`fedcourts chain-step`): the promotion gate's quiescence check would fail
-  # on it.
+  # never arrives. No round is dispatched while a promotion is about to merge
+  # — a ready `staging` PR, or a ready promotion train candidate approved at
+  # its head (`fedcourts chain-step`): the promotion gate's quiescence check
+  # would fail on it.
   #
   # This job runs no corpus code and holds no corpus role. Its one token is the
   # dispatch App's, scoped to `actions: write` and PR read, so the writer jobs
@@ -1049,10 +1050,28 @@ jobs:
           set -euo pipefail
           # A read only (a GET with the query in the URL). A failed read drops
           # the file, which `chain-step` reads as unknown and stands down on.
-          gh api "repos/${REPO}/pulls?state=open&base=main&per_page=100" > promotion-prs.json \
-            || rm -f promotion-prs.json
+          if gh api --paginate --slurp "repos/${REPO}/pulls?state=open&base=main&per_page=100" \
+            > promotion-prs.pages && jq 'add // []' promotion-prs.pages > promotion-prs.json; then
+            # A ready promotion train candidate stands the chain down only once it is
+            # approved at its head, which its whole review list says. A failed read
+            # leaves the candidate out of the file, and `chain-step` stands the chain
+            # down for a candidate it has no reviews for.
+            echo '{}' > promotion-reviews.json
+            for n in $(jq -r --arg repo "$REPO" '.[] | select(.draft == false
+                and .head.repo.full_name == $repo and (.head.ref | startswith("promote/")))
+                | .number' promotion-prs.json); do
+              if gh api --paginate --slurp "repos/${REPO}/pulls/${n}/reviews?per_page=100" > reviews.pages; then
+                jq --arg n "$n" --slurpfile r reviews.pages '. + {($n): ($r[0] | add // [])}' \
+                  promotion-reviews.json > reviews.next
+                mv reviews.next promotion-reviews.json
+              fi
+            done
+          else
+            rm -f promotion-prs.json promotion-reviews.json
+          fi
           args=(--mode pull --repo "$REPO")
           [ -f promotion-prs.json ] && args+=(--promotion-prs-file promotion-prs.json)
+          [ -f promotion-reviews.json ] && args+=(--promotion-reviews-file promotion-reviews.json)
           step=$(uv run fedcourts chain-step "${args[@]}")
           reason=$(jq -r '.reason' <<<"$step")
           if [ "$(jq -r '.action' <<<"$step")" = "dispatch" ]; then

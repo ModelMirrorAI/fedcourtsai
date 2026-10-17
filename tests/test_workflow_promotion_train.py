@@ -178,4 +178,46 @@ def test_the_render_never_lets_a_refire_be_skipped_as_unchanged() -> None:
 def test_the_dispatch_switch_off_names_the_command_for_the_maintainer() -> None:
     decide = next(step for step in _job("plan")["steps"] if step.get("id") == "step")
     assert decide["env"]["CHAIN_ENABLED"] == "${{ vars.DISPATCH_CHAIN_ENABLED }}"
-    assert "gh workflow run integration-test.yml --ref ${ref} -f scenario=gate" in decide["run"]
+    assert (
+        "gh workflow run integration-test.yml --ref ${ref} -f scenario=${scenario}" in decide["run"]
+    )
+
+
+def test_every_list_read_is_whole() -> None:
+    """A list cut at its first page could hide a change request, a run at the
+    head or a promotion PR: the plan and the merge re-check read every page."""
+    plan = _runs(_job("plan"))
+    assert 'gh api --paginate --slurp "$url"' in plan
+    for url in (
+        "pulls?state=open&base=main&per_page=100",
+        "pulls/${number}/reviews?per_page=100",
+        "check-runs?filter=all&per_page=100",
+        "runs?head_sha=${sha}&per_page=100",
+    ):
+        assert 'read_list "repos/${REPO}/' in plan
+        assert url in plan, url
+    recheck = next(s for s in _job("write")["steps"] if s.get("name") == "Re-check the merge")
+    assert (
+        'gh api --paginate --slurp "repos/${REPO}/pulls/${PR}/reviews?per_page=100"'
+        in (recheck["run"])
+    )
+
+
+def test_the_merge_re_check_re_runs_the_registry_gate() -> None:
+    recheck = next(s for s in _job("write")["steps"] if s.get("name") == "Re-check the merge")
+    assert 'scripts/promotion-gate.sh registry "$SHA"' in recheck["run"]
+    checkout = _job("write")["steps"][0]
+    assert checkout["with"]["fetch-depth"] == 0
+
+
+def test_the_plan_reads_what_the_new_rules_decide_on() -> None:
+    plan = _runs(_job("plan"))
+    for flag in (
+        "--last-promotion-synced",
+        "--recent-dispatches-file",
+        "--pull-file",
+        "--freshness-ok",
+    ):
+        assert flag in plan, flag
+    assert 'PROMOTION_SKIP_SMOKE="$skip" scripts/promotion-gate.sh freshness' in plan
+    assert 'git merge-base --is-ancestor "$merge" origin/staging' in plan

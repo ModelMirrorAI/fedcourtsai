@@ -13,6 +13,15 @@
 # *Branch protection*). The platform enforces them on the merge regardless; the
 # train waits for them so it never asks for a merge it knows will be refused,
 # and re-fires `promotion-gate` (by a body edit) when that check alone is red.
+#
+# `max_gate_dispatches_per_day` — how many integration suites the train may
+# start per UTC day, across candidates (1 to 4; the loader refuses more). A paid
+# `gate` suite is about $8 of staging engine keys with no review hold, so this
+# is unattended-spend authority like `config/review-hold.yaml`'s caps: at the
+# cap the train reports instead of dispatching, and the maintainer dispatches
+# by hand. One candidate needs one suite; the second slot is for a candidate
+# cut the same day the previous one merged.
+max_gate_dispatches_per_day: 2
 approvers:
   - modelmirror
 required_checks:

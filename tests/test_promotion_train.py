@@ -13,10 +13,11 @@ import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
+from fedcourtsai.promotion_body import BEGIN, END, READY_MARKER
 from fedcourtsai.promotion_train import (
     GATE_TITLE,
     OFFLINE_GATE_TITLE,
-    READY_MARKER,
+    REFIRE_CAP,
     WAIVER_LABEL,
     Observed,
     TrainAction,
@@ -25,6 +26,7 @@ from fedcourtsai.promotion_train import (
     decide,
     is_train_branch,
     load_train_config,
+    marked_ready,
     next_branch_name,
 )
 
@@ -37,8 +39,16 @@ REF = "promote/2026-10-17"
 NOW = datetime(2026, 10, 17, 5, 26, tzinfo=UTC)
 MAINTAINER = "maintainer"
 CONFIG = TrainConfig(
-    approvers=(MAINTAINER,), required_checks=("gate", "paths", "promotion-gate", "main-base")
+    approvers=(MAINTAINER,),
+    required_checks=("gate", "paths", "promotion-gate", "main-base"),
+    max_gate_dispatches_per_day=2,
 )
+CONFIG_JSON = {
+    "approvers": [MAINTAINER],
+    "required_checks": list(CONFIG.required_checks),
+    "max_gate_dispatches_per_day": 2,
+}
+MERGEABLE = {"mergeable": True, "mergeable_state": "clean"}
 
 
 def _pull(
@@ -118,6 +128,7 @@ def _no_candidate(**overrides: Any) -> Observed:
         staging_sha=STAGING,
         main_ahead_paths=["data/cases/x/event.yaml", "metrics/big-cases.json"],
         staging_differs_from_main=True,
+        last_promotion_synced=True,
     )
     return replace(observed, **overrides)
 
@@ -134,6 +145,8 @@ def _ready(**overrides: Any) -> Observed:
         check_runs=GREEN,
         quiescent=True,
         registry_ok=True,
+        pull=MERGEABLE,
+        freshness_ok=True,
     )
     return replace(observed, **overrides)
 
@@ -198,6 +211,7 @@ def test_a_staging_that_carries_nothing_cuts_nothing() -> None:
         {"open_pulls": None},
         {"branches": None},
         {"main_ahead_paths": None},
+        {"last_promotion_synced": None},
         {"staging_differs_from_main": None},
         {"staging_sha": None},
         {"staging_sha": "not-a-sha"},
@@ -281,6 +295,8 @@ def _draft(**overrides: Any) -> Observed:
         head_on_staging=True,
         runs=[],
         registry_ok=True,
+        recent_dispatches=[],
+        freshness_ok=False,
     )
     return replace(observed, **overrides)
 
@@ -312,22 +328,71 @@ def test_a_failed_then_re_run_gate_counts_as_green() -> None:
     assert decide(_draft(runs=runs), CONFIG).action is TrainAction.MARK_READY
 
 
+@pytest.mark.parametrize("run", [_run(sha=OLD), _run(branch="staging"), _run(event="schedule")])
+def test_runs_elsewhere_are_not_this_heads_and_the_gate_is_owed(run: dict[str, Any]) -> None:
+    """Another sha, another ref, or not a dispatch: nothing sits at this head."""
+    assert decide(_draft(runs=[run]), CONFIG).action is TrainAction.DISPATCH_GATE
+
+
 @pytest.mark.parametrize(
-    "run",
+    "title",
     [
-        _run(sha=OLD),
-        _run(branch="staging"),
-        _run(event="schedule"),
-        _run(title="integration-test: all @ staging"),
-        _run(title=OFFLINE_GATE_TITLE),
-        _run(title="integration-test: gate @ prod"),
+        "integration-test: all @ staging",
+        OFFLINE_GATE_TITLE,
+        "integration-test: gate @ prod",
+        "integration-test: gate @ promote/2026-10-17",
+        "integration-test: qp-topic / claude-code @ staging",
+        "something renamed entirely",
     ],
 )
-def test_runs_that_are_not_this_heads_gate_are_not_evidence(run: dict[str, Any]) -> None:
-    """Another sha, another ref, a non-dispatch, a superset suite, the token-free
-    suite without the waiver, or another environment: none counts, so the gate
-    is dispatched as if none ran."""
-    assert decide(_draft(runs=[run]), CONFIG).action is TrainAction.DISPATCH_GATE
+@pytest.mark.parametrize("conclusion", ["success", "failure", None])
+def test_any_other_run_at_the_head_never_yields_a_dispatch(
+    title: str, conclusion: str | None
+) -> None:
+    """The dispatch guard is title-independent: a whole-suite run whose title
+    the candidate's workflow renders differently, a per-scenario run, or the
+    token-free suite without the waiver — none is evidence, and none lets the
+    train pay for a second suite. It reports instead."""
+    status = "completed" if conclusion else "in_progress"
+    run = _run(title=title, conclusion=conclusion, status=status)
+    step = decide(_draft(runs=[run]), CONFIG)
+    assert step.action is TrainAction.REPORT
+    assert "does not recognise" in step.reason
+
+
+def test_freshness_passing_is_evidence_whatever_the_runs() -> None:
+    """Per-scenario runs a maintainer dispatched satisfy the gate's own
+    freshness stage, which lifts a failed or unrecognised gate run."""
+    for runs in ([_run(conclusion="failure")], [_run(title="renamed")], []):
+        step = decide(_draft(runs=runs, freshness_ok=True), CONFIG)
+        assert step.action is TrainAction.MARK_READY, runs
+
+
+def test_the_waiver_label_dispatches_the_token_free_suite() -> None:
+    step = decide(_draft(open_pulls=[_pull(labels=(WAIVER_LABEL,))]), CONFIG)
+    assert step.action is TrainAction.DISPATCH_GATE
+    assert step.scenario == "offline-gate"
+    assert "-f scenario=offline-gate" in step.reason
+    assert decide(_draft(), CONFIG).scenario == "gate"
+
+
+def _dispatched(day: str, actor: str = "fedcourtsai-dispatch[bot]") -> dict[str, Any]:
+    return {"event": "workflow_dispatch", "actor": {"login": actor}, "created_at": day}
+
+
+def test_the_daily_dispatch_cap_reports_instead_of_spending() -> None:
+    today = [_dispatched("2026-10-17T01:00:00Z"), _dispatched("2026-10-17T03:00:00Z")]
+    step = decide(_draft(recent_dispatches=today), CONFIG)
+    assert step.action is TrainAction.REPORT
+    assert "daily cap of 2" in step.reason
+    # Yesterday's, and a maintainer's own dispatches, do not count.
+    other = [
+        _dispatched("2026-10-16T23:00:00Z"),
+        _dispatched("2026-10-17T01:00:00Z", actor=MAINTAINER),
+        _dispatched("2026-10-17T02:00:00Z"),
+    ]
+    assert decide(_draft(recent_dispatches=other), CONFIG).action is TrainAction.DISPATCH_GATE
+    assert decide(_draft(recent_dispatches=None), CONFIG).action is TrainAction.WAIT
 
 
 def test_the_waiver_label_accepts_an_offline_gate_run() -> None:
@@ -363,6 +428,16 @@ def test_a_green_gate_marks_the_draft_ready() -> None:
     step = decide(_draft(runs=[_run()]), CONFIG)
     assert step.action is TrainAction.MARK_READY
     assert step.reviewers == (MAINTAINER,)
+
+
+def test_a_marker_inside_the_generated_block_is_not_the_trains() -> None:
+    """A feature PR's quoted note carrying the marker text cannot make the
+    train read its own draft as returned to draft."""
+    body = f"{BEGIN}\n> quoted {READY_MARKER}\n{END}\nprose"
+    observed = _draft(open_pulls=[_pull(body=body)], runs=[_run()])
+    assert decide(observed, CONFIG).action is TrainAction.MARK_READY
+    assert not marked_ready(body)
+    assert marked_ready(f"{BEGIN}\nx\n{END}\n\n{READY_MARKER}")
 
 
 def test_a_draft_the_train_already_marked_ready_is_left_a_draft() -> None:
@@ -439,6 +514,32 @@ def test_a_dismissed_approval_does_not_count() -> None:
     assert decide(_ready(reviews=reviews), CONFIG).action is TrainAction.WAIT
 
 
+def test_a_conflicting_candidate_is_reported_and_an_uncomputed_one_waits() -> None:
+    dirty = {"mergeable": False, "mergeable_state": "dirty"}
+    step = decide(_ready(pull=dirty), CONFIG)
+    assert step.action is TrainAction.REPORT
+    assert "conflicts with main" in step.reason
+    # Reported early too: no suite is paid for a candidate that cannot merge.
+    assert decide(_draft(pull=dirty), CONFIG).action is TrainAction.REPORT
+    for unknown in ({"mergeable": None, "mergeable_state": "unknown"}, None):
+        assert decide(_ready(pull=unknown), CONFIG).action is TrainAction.WAIT
+
+
+def test_a_change_request_past_the_first_page_of_reviews_blocks_the_merge() -> None:
+    """The workflow reads every page; the decision honours a change request
+    wherever it falls in a long list."""
+    reviews = [
+        _review("COMMENTED", login=f"r{i}", at=f"2026-10-17T06:{i % 60:02d}:00Z")
+        for i in range(140)
+    ]
+    reviews.insert(0, _review("APPROVED", at="2026-10-17T05:00:00Z"))
+    reviews.append(_review("CHANGES_REQUESTED", login="late", at="2026-10-17T09:00:00Z"))
+    assert len(reviews) > 100
+    step = decide(_ready(reviews=reviews), CONFIG)
+    assert step.action is TrainAction.REPORT
+    assert "late" in step.reason
+
+
 @pytest.mark.parametrize("quiescent", [False, None])
 def test_a_round_in_flight_waits_and_retries_next_tick(quiescent: bool | None) -> None:
     step = decide(_ready(quiescent=quiescent), CONFIG)
@@ -466,6 +567,30 @@ def test_a_red_promotion_gate_alone_is_re_fired() -> None:
     )
     skipped = [*GREEN[:2], _check("promotion-gate", "skipped"), GREEN[3]]
     assert decide(_ready(check_runs=skipped), CONFIG).action is TrainAction.REFIRE_GATE
+
+
+def test_a_refire_needs_freshness_and_stops_at_the_cap() -> None:
+    red_gate = _check("promotion-gate", "failure", run_id=10)
+    checks = [*GREEN[:2], red_gate, GREEN[3]]
+    no_fresh = decide(_ready(check_runs=checks, freshness_ok=False), CONFIG)
+    assert no_fresh.action is TrainAction.REPORT
+    assert "freshness does not pass" in no_fresh.reason
+    after = "2026-10-17T07:00:00Z"
+    failures = [
+        {**_check("promotion-gate", "failure", run_id=10 + i), "completed_at": after}
+        for i in range(REFIRE_CAP)
+    ]
+    capped = decide(_ready(check_runs=[*GREEN[:2], GREEN[3], *failures]), CONFIG)
+    assert capped.action is TrainAction.REPORT
+    assert f"failed {REFIRE_CAP} time(s)" in capped.reason
+    # Failures before the approval (the draft's) do not count toward the cap.
+    early = [
+        {**_check("promotion-gate", "failure", run_id=10 + i), "completed_at": "2026-10-17T01:00Z"}
+        for i in range(REFIRE_CAP)
+    ]
+    assert decide(_ready(check_runs=[*GREEN[:2], GREEN[3], *early]), CONFIG).action is (
+        TrainAction.REFIRE_GATE
+    )
 
 
 def test_any_other_red_required_check_is_reported() -> None:
@@ -509,13 +634,18 @@ def test_the_committed_config_loads_and_requires_the_gate() -> None:
 @pytest.mark.parametrize(
     "text",
     [
-        "approvers: []\nrequired_checks: [promotion-gate]\n",
-        "approvers: [a]\nrequired_checks: [gate]\n",
+        "approvers: []\nrequired_checks: [promotion-gate]\nmax_gate_dispatches_per_day: 1\n",
+        "approvers: [a]\nrequired_checks: [gate]\nmax_gate_dispatches_per_day: 1\n",
         "approvers: ['not a login']\nrequired_checks: [promotion-gate]\n",
         "approvers: [a, A]\nrequired_checks: [promotion-gate]\n",
         "approvers: [a]\nrequired_checks: [promotion-gate]\nextra: 1\n",
         "- a list\n",
         "approvers: [x[bot]]\nrequired_checks: [promotion-gate]\n",
+        "approvers: [modelmirror-agent]\nrequired_checks: [promotion-gate]\n"
+        + "max_gate_dispatches_per_day: 1\n",
+        "approvers: [a]\nrequired_checks: [promotion-gate]\nmax_gate_dispatches_per_day: 0\n",
+        "approvers: [a]\nrequired_checks: [promotion-gate]\nmax_gate_dispatches_per_day: 5\n",
+        "approvers: [a]\nrequired_checks: [promotion-gate]\n",
     ],
 )
 def test_a_malformed_config_refuses(tmp_path: Path, text: str) -> None:
@@ -558,10 +688,9 @@ def test_the_step_command_merges_a_candidate_that_holds(tmp_path: Path) -> None:
         "--registry-ok",
         "yes",
         "--config",
-        _write(
-            tmp_path / "train.json",
-            {"approvers": [MAINTAINER], "required_checks": list(CONFIG.required_checks)},
-        ),
+        _write(tmp_path / "train.json", CONFIG_JSON),
+        "--pull-file",
+        _write(tmp_path / "pull.json", MERGEABLE),
     ]
     result = CliRunner().invoke(app, args)
     assert result.exit_code == 0, result.output
@@ -589,6 +718,8 @@ def test_the_step_command_cuts_with_the_date_it_is_told(tmp_path: Path) -> None:
             STAGING,
             "--main-ahead-paths-file",
             str(ahead),
+            "--last-promotion-synced",
+            "yes",
             "--staging-differs",
             "yes",
             "--now",
@@ -620,6 +751,8 @@ def test_a_malformed_branches_file_is_unknown(tmp_path: Path) -> None:
             STAGING,
             "--main-ahead-paths-file",
             str(ahead),
+            "--last-promotion-synced",
+            "yes",
             "--staging-differs",
             "yes",
         ],
@@ -667,7 +800,7 @@ def test_the_candidate_command_names_the_one_candidate(tmp_path: Path) -> None:
 def test_the_approval_command_exits_zero_only_at_the_head(tmp_path: Path) -> None:
     config = _write(
         tmp_path / "train.json",
-        {"approvers": [MAINTAINER], "required_checks": ["promotion-gate"]},
+        CONFIG_JSON,
     )
 
     def code(reviews: list[dict[str, Any]], head: str = HEAD) -> int:
