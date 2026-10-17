@@ -832,6 +832,15 @@ _FETCH_FAILED_RESULT = (
         # A model call the network dropped (run-predict's gemini cells on
         # 2026-10-17, abridged to the fields the classifier reads).
         (1, _FETCH_FAILED_RESULT, "", AttemptClass.transient),
+        # The same fault as the CLI actually left it on a failed exit: the stack
+        # and the error object on stderr, nothing parseable on stdout.
+        (
+            1,
+            "",
+            "    at async GeminiChat.makeApiCallAndProcessStream (chunk.js:321564:28)\n"
+            + _FETCH_FAILED_RESULT,
+            AttemptClass.transient,
+        ),
         # A spent quota overrides the throttle words it carries, on either surface.
         (
             1,
