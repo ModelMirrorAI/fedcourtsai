@@ -1365,6 +1365,28 @@ or network.
      its own filing and carries no ledger outcome. Detection writes an outcome
      to a moment only if the moment opened on or before its `resolved_at`.
 
+     **Re-docketed numbers.** The Clerk occasionally moves a petition to
+     another number and re-enters the freed number for a different petition.
+     The row keeps its id and takes on the new petition's caption and docketed
+     date, so a moment opened under the earlier petition would receive the new
+     one's disposition. Detection refuses it (`pipeline.redocket`), on every
+     refresh channel and in both convergence passes. A SCOTUS moment's caption
+     is read from its corpus event and from its committed `event.yaml`, which
+     `materialize-event` never rewrites and the outcome writer rewrites only
+     beside an outcome, so it keeps the caption a committed prediction was made
+     under. The exception is a moment whose mint re-fires on every poll (the
+     CVSG and interim response moments): each re-mint rewrites both copies from
+     the row, so after a re-docketing neither keeps the earlier caption. A
+     moment is refused when either caption shares
+     no party word with the row's current caption on the petitioner side, or,
+     for a cert or merits moment opened before the row's current docketed date,
+     on the respondent side. A side with no party word on either caption (an
+     `In re` caption, a bare docket number, initials) is not compared. A refused
+     moment lands on the unrecorded queue with the re-docketing reason and
+     receives nothing, permanently: nothing relocates it to the petition's new
+     number. Its siblings still resolve. A moved docketed date with the same
+     parties is a date correction and is not refused.
+
      **Ledger-outcome convergence.** The poll rotations skip a decided row, so
      a moment detection declined on the poll that saw the decision is not
      tried again by the poll. The live cycle therefore ends its polls with a
@@ -1407,7 +1429,8 @@ or network.
      outcome pass's: run-repair's `lost-outcomes` runs the same detection and
      writer over every gap at any age, and marks the corpus-resolved ones it
      cannot attribute `resolved_without_outcome` with the reason
-     (`no-snapshot`, `undated`, `opened-after-decision`, `declined`) — a
+     (`no-snapshot`, `undated`, `opened-after-decision`, `redocketed`,
+     `declined`) — a
      first-mint `ingested-decided` closure it cannot attribute is re-marked
      with the pass's own reason, which says why it is still unrecorded.
 

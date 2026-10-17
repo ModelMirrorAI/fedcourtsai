@@ -2922,8 +2922,10 @@ evaluator always scores every committed prediction for its event.
 
 `run-pull` records `outcome.json` itself only when a decided docket is
 unambiguous (a machine-readable disposition, a decision date, and a single open
-event). Everything else — an unreadable/absent disposition, no decision date, or
-a case-level disposition that cannot be attributed across several open events —
+event). Everything else — an unreadable/absent disposition, no decision date, a
+case-level disposition that cannot be attributed across several open events, or
+a moment detection refuses to attribute to (one opened after the decision, or
+one opened under another petition than its re-docketed number now carries) —
 becomes an **unrecorded outcome** (it does not guess): the case lands on the
 runner-local unrecorded queue (`unrecorded-queue.json`, the `UnrecordedOutcome`
 detection in the library) instead of the git ledger. No issue is filed for
