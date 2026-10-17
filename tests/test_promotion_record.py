@@ -541,15 +541,15 @@ _WRAPPED = (
     [
         # Every wrapped placeholder filled: their line breaks go with them.
         "# Freeze record\n\n- **Landed entry (2026-09-01).** Text.\n"
-        "  The replay census is `695 priors`, and the forward census is `727 priors`,"
-        " both read from the blob whose freshness\n"
-        "  line is `latest pull 2026-10-16`.\n",
+        + "  The replay census is `695 priors`, and the forward census is `727 priors`,"
+        + " both read from the blob whose freshness\n"
+        + "  line is `latest pull 2026-10-16`.\n",
         # Only the first filled: the second still wraps.
         "# Freeze record\n\n- **Landed entry (2026-09-01).** Text.\n"
-        "  The replay census is `695 priors`, and the forward census is"
-        " `<FILL: forward census line from the\n"
-        "  check below>`, both read from the blob whose freshness\n"
-        "  line is `<FILL: corpus-info freshness line>`.\n",
+        + "  The replay census is `695 priors`, and the forward census is"
+        + " `<FILL: forward census line from the\n"
+        + "  check below>`, both read from the blob whose freshness\n"
+        + "  line is `<FILL: corpus-info freshness line>`.\n",
         # Left verbatim.
         _WRAPPED,
     ],
