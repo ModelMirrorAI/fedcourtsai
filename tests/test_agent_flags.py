@@ -58,13 +58,92 @@ def test_a_valid_file_comes_back_unchanged() -> None:
     assert result.flags == AgentFlags.model_validate_json(text)
 
 
+def _flag_item(**override: object) -> dict[str, object]:
+    return {"category": "scope", "severity": "info", "message": "m", **override}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        _envelope(_flag_item(), role=["predictor"]),
+        _envelope(_flag_item(), role={"a": 1}),
+        _envelope(_flag_item(), case_id=["scotus/1"]),
+        _envelope(_flag_item(), case_id={"court": "scotus"}),
+        _envelope(_flag_item(), schema_version=["1.0"]),
+        _envelope(_flag_item(source={})),
+        _envelope(_flag_item(source=["harness"])),
+        _envelope(_flag_item(severity=["low"])),
+        _envelope(_flag_item(severity={"level": "low"})),
+        _envelope(_flag_item(category=["scope"])),
+        _envelope(_flag_item(event_id={"id": "e"})),
+        _envelope(_flag_item(message=["m"])),
+        _envelope(_flag_item(), flags={"message": "m"}),
+        "[" * 100000 + "]" * 100000,
+        '{"flags": ' + "[" * 100000 + "]" * 100000 + "}",
+    ],
+    ids=[
+        "role-list",
+        "role-dict",
+        "case-list",
+        "case-dict",
+        "schema-version-list",
+        "source-dict",
+        "source-list",
+        "severity-list",
+        "severity-dict",
+        "category-list",
+        "event-dict",
+        "message-list",
+        "flags-dict",
+        "deep-list",
+        "deep-flags",
+    ],
+)
+def test_normalisation_is_total_on_hostile_shapes(text: str) -> None:
+    """No shape an agent can write makes the normaliser raise, and its output is stable."""
+    result = normalise_flags(text, _WHERE)
+    assert result.changed
+    _round_trips(result.flags)
+    again = normalise_flags(result.flags.model_dump_json(), _WHERE)
+    assert not again.changed
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("low", FlagSeverity.info),
+        ("Minor", FlagSeverity.info),
+        ("note", FlagSeverity.info),
+        ("trivial", FlagSeverity.info),
+        ("medium", FlagSeverity.warning),
+        ("moderate", FlagSeverity.warning),
+        ("HIGH", FlagSeverity.warning),
+        ("warn", FlagSeverity.warning),
+        ("error", FlagSeverity.warning),
+        ("critical", FlagSeverity.warning),
+        ("severe", FlagSeverity.warning),
+        ("fatal", FlagSeverity.warning),
+        ("bogus", FlagSeverity.warning),
+        (3, FlagSeverity.warning),
+        ("Blocker", FlagSeverity.blocker),
+    ],
+)
+def test_a_severity_synonym_maps_by_table_and_an_unknown_one_to_warning(
+    value: object, expected: FlagSeverity
+) -> None:
+    """Only the schema's own `blocker`, however spelled, ever reads as a blocker."""
+    result = normalise_flags(_envelope(_flag_item(severity=value)), _WHERE)
+    assert result.flags.flags[0].severity == expected
+    assert repr(value) in result.flags.flags[-1].message
+
+
 @pytest.mark.parametrize(
     ("field", "value", "expected"),
     [
         ("severity", "low", FlagSeverity.info),
-        ("severity", "critical", FlagSeverity.info),
+        ("severity", "critical", FlagSeverity.warning),
         ("severity", "Warning", FlagSeverity.warning),
-        ("severity", 3, FlagSeverity.info),
+        ("severity", 3, FlagSeverity.warning),
         ("category", "capture-gap", FlagCategory.other),
         ("category", "data_quality", FlagCategory.data_quality),
         ("category", "Ambiguous Event", FlagCategory.ambiguous_event),
@@ -99,15 +178,28 @@ def test_only_the_mis_shaped_flag_is_marked() -> None:
     assert "flag 2: severity 'low'" in note.message
 
 
-def test_an_over_long_message_is_clipped_and_marked() -> None:
+def test_an_over_long_message_continues_whole_across_flags() -> None:
+    """A long disclosure is never cut: its text continues in further flags."""
+    message = "".join(str(i % 10) for i in range(2 * FLAG_MESSAGE_LIMIT + 50))
     result = normalise_flags(
-        _envelope({"category": "other", "message": "x" * (FLAG_MESSAGE_LIMIT + 50)}), _WHERE
+        _envelope(
+            {"category": "data-quality", "severity": "warning", "message": message, "event_id": "e"}
+        ),
+        _WHERE,
     )
     _round_trips(result.flags)
-    clipped = result.flags.flags[0]
-    assert len(clipped.message) == FLAG_MESSAGE_LIMIT
-    assert clipped.message.endswith("…")
-    assert "clipped" in result.flags.flags[1].message
+    *parts, note = result.flags.flags
+    assert len(parts) == 3
+    assert "".join(part.message for part in parts) == message
+    assert {(p.category, p.severity, p.event_id, p.normalised) for p in parts} == {
+        (FlagCategory.data_quality, FlagSeverity.warning, "e", True)
+    }
+    assert "continued across 3 flags" in note.message
+
+
+def test_a_non_text_message_is_carried_as_its_json() -> None:
+    result = normalise_flags(_envelope({"category": "other", "message": {"why": "gap"}}), _WHERE)
+    assert result.flags.flags[0].message == '{"why": "gap"}'
 
 
 def test_unknown_keys_are_dropped_and_their_values_quoted() -> None:

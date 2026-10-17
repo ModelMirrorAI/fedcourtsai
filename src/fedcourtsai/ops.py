@@ -1828,12 +1828,12 @@ def summarize_flags(
     all_sets = list(flag_sets)
     sets = [fs for fs in all_sets if _within_window(fs.run_id, generated_at, window_days)]
     counts = {FlagSeverity.blocker: 0, FlagSeverity.warning: 0, FlagSeverity.info: 0}
-    harness = normalised = 0
+    harness = normalised_cells = 0
     for fs in sets:
+        normalised_cells += any(flag.normalised for flag in fs.flags)
         for flag in fs.flags:
             counts[FlagSeverity(flag.severity)] += 1
             harness += flag.source == FlagSource.harness
-            normalised += flag.normalised
     archived = sum(len(fs.flags) for fs in all_sets) - sum(counts.values())
     # Run ids are UTC timestamps, so descending lexical order is newest-first.
     recent = sorted(sets, key=lambda fs: (fs.run_id, fs.case_id, fs.actor_id), reverse=True)[:limit]
@@ -1844,7 +1844,7 @@ def summarize_flags(
         warnings=counts[FlagSeverity.warning],
         infos=counts[FlagSeverity.info],
         harness=harness,
-        normalised=normalised,
+        normalised_cells=normalised_cells,
         recent=recent,
         window_days=window_days,
         archived=archived,
@@ -2226,11 +2226,15 @@ def render_flags_digest(digest: FlagsDigest) -> str:
     )
     shown = sum(len(fs.flags) for fs in digest.recent)
     note = f" · showing the {shown} most recent" if shown < digest.total else ""
-    provenance = " · ".join(
+    # Two overlapping counts, not a split of the total: a malformed file carried
+    # verbatim is carried in harness flags.
+    provenance = "; ".join(
         part
         for part in (
-            f"{digest.harness} from the harness" if digest.harness else "",
-            f"{digest.normalised} malformed flag(s) normalised" if digest.normalised else "",
+            f"{digest.harness} flag(s) written by the harness" if digest.harness else "",
+            f"{digest.normalised_cells} cell(s) whose malformed flags.json the harness normalised"
+            if digest.normalised_cells
+            else "",
         )
         if part
     )
@@ -2238,7 +2242,7 @@ def render_flags_digest(digest: FlagsDigest) -> str:
         "### Flags",
         "",
         f"**{digest.total}** flag(s) across **{digest.cells}** cell(s) in the {window} — "
-        f"{breakdown}{note}{archived}." + (f" Of these: {provenance}." if provenance else ""),
+        f"{breakdown}{note}{archived}." + (f" Among them: {provenance}." if provenance else ""),
         "",
         "Notes agents surfaced from committed `flags.json`, for triage, collapsed by case, "
         "event, source and theme; the shown cells' tally: "

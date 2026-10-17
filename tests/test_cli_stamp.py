@@ -3482,3 +3482,23 @@ def test_an_off_vocabulary_severity_no_longer_fails_an_evaluate_cell(_data_root:
     assert coerced.message.startswith("The reply brief was recorded")
     assert note.source == FlagSource.harness
     assert "'low'" in note.message
+
+
+def test_a_regrade_leaves_an_off_vocabulary_flags_file_byte_identical(
+    _data_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A re-grade corrects graded fields over committed cells; their flags stay as committed."""
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    event_paths = _seed_cert_cell(_data_root, 23, actual=Disposition.granted)
+    assert _stamp("evaluator", "claude-judge", 23, _CERT_EVENT, "RID").exit_code == 0
+    flags_path = event_paths.evaluation_flags("claude-judge", "RID")
+    flags_path.parent.mkdir(parents=True, exist_ok=True)
+    written = '{"flags": [{"category": "capture-gap", "severity": "low", "message": "m"}]}'
+    flags_path.write_text(written)
+
+    _commit_cert_disposition(event_paths, 23, Disposition.gvr)
+    result = _regrade("evaluator", "claude-judge", 23, _CERT_EVENT, "RID")
+
+    assert result.exit_code == 0, result.output
+    assert flags_path.read_text() == written
+    assert "normalised it" not in result.output

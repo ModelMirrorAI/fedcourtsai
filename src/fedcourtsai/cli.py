@@ -7990,7 +7990,8 @@ _EXTENSION_LIMIT = 6
 #: re-stamp cannot append a second note merely because the wording behind it
 #: moved between the two runs — a reading aid for a maintainer scanning the
 #: roll-up, never a claim of authorship: nothing stops an agent opening a flag
-#: of its own with these words, and `AgentFlag` carries no author. What the
+#: of its own with these words, and `AgentFlag.source` is an unauthenticated
+#: triage label the agent can write too, not an author. What the
 #: harness alone can say is stamped where the agent cannot write, which is
 #: `context` on `prediction.json` and nothing else here — the annotation beside
 #: it is unauthenticated stdout, and what it gives is timing rather than
@@ -8086,17 +8087,20 @@ def _names_a_snapshot(value: str) -> bool:
 
 
 def _normalise_cell_flags(event_paths: EventPaths, where: CellCoordinates) -> None:
-    """Rewrite a cell's ``flags.json`` into the schema's shape, so a flag never fails a cell.
+    """Rewrite a cell's ``flags.json`` into the schema's shape, so it never fails the cell.
 
-    A cell's flags are advisory and its prediction or gradings are its output,
-    so a note the agent mis-shaped — an off-vocabulary severity or category, an
-    over-long message, a stray key, a file that does not parse — must not fail
-    ``validate`` and discard the output beside it. The coercion
-    (:func:`fedcourtsai.agent_flags.normalise_flags`) loses nothing: each coerced
-    flag is marked ``normalised``, a ``harness`` note quotes every value it
-    replaced, and a file with no recoverable structure is carried verbatim in
-    harness flags. A file that already validates is not touched. ``validate``
-    stays strict; this only runs before it.
+    A predict or evaluate cell's flags are advisory and its prediction or
+    gradings are its output, so a note the agent mis-shaped — an off-vocabulary
+    severity or category, an over-long message, a stray key, a file that does
+    not parse — must not fail ``validate`` and discard the output beside it.
+    The coercion (:func:`fedcourtsai.agent_flags.normalise_flags`) marks each
+    coerced flag ``normalised`` and adds a ``harness`` note saying what changed.
+    Message text is never cut (an over-long message continues in further
+    flags), and a file with no recoverable structure is carried verbatim in
+    harness flags, up to a bounded number of parts; what the note quotes of a
+    *replaced* value is bounded too. Bytes that are not UTF-8 are read with the
+    replacement character. A file that already validates is not touched.
+    ``validate`` stays strict; this only runs before it.
     """
     flags_path = (
         event_paths.prediction_flags(where.actor_id, where.run_id)
@@ -8106,9 +8110,9 @@ def _normalise_cell_flags(event_paths: EventPaths, where: CellCoordinates) -> No
     if not flags_path.is_file():
         return
     try:
-        text = flags_path.read_text()
-    except (OSError, UnicodeDecodeError) as exc:
-        text = f"(the file could not be read as text: {type(exc).__name__})"
+        text = flags_path.read_bytes().decode("utf-8", errors="replace")
+    except OSError as exc:
+        text = f"(the file could not be read: {type(exc).__name__})"
     normalised = normalise_flags(text, where)
     if not normalised.changed:
         return
@@ -20294,28 +20298,23 @@ def _load_flag_sets(status_dir: Path, run_id: str) -> list[AgentFlags]:
     — its coerced flags marked ``normalised``, which the roll-up counts — and
     never aborts the run's aggregation. The cell's coordinates come off the
     file's ledger path; one off the layout, or unreadable, is named in a warning
-    rather than dropped silently.
+    rather than dropped silently. So is a file whose own envelope (case, run,
+    role, actor) disagrees with its path: the envelope is kept as written, and
+    it is the envelope's run id the run filter reads, so a mis-stated run id
+    would otherwise drop a note from this run's roll-up without a trace.
     """
     seen: set[str] = set()
     flag_sets: list[AgentFlags] = []
     for path in sorted(status_dir.glob("**/flags.json")):
+        # Per file, and never raising: one file must not take the run's
+        # aggregation — the only copy of its agent output — down with it.
         try:
-            text = path.read_text()
-        except (OSError, UnicodeDecodeError) as exc:
+            flag_set = _read_flag_set(path)
+        except Exception as exc:
             typer.echo(f"::warning::could not read {path} ({type(exc).__name__})", err=True)
             continue
-        try:
-            flag_set = AgentFlags.model_validate_json(text)
-        except ValueError:
-            where = coordinates_from_path(path)
-            if where is None:
-                typer.echo(
-                    f"::warning::{path} does not validate and sits off the ledger layout, "
-                    "so it cannot be attributed to a cell; left out of the roll-up",
-                    err=True,
-                )
-                continue
-            flag_set = normalise_flags(text, where).flags
+        if flag_set is None:
+            continue
         if flag_set.run_id != run_id:
             continue
         identity = flag_set.model_dump_json()
@@ -20324,6 +20323,33 @@ def _load_flag_sets(status_dir: Path, run_id: str) -> list[AgentFlags]:
         seen.add(identity)
         flag_sets.append(flag_set)
     return flag_sets
+
+
+def _read_flag_set(path: Path) -> AgentFlags | None:
+    """One ``flags.json`` for the roll-up: as written, normalised, or ``None`` if unattributable."""
+    text = path.read_bytes().decode("utf-8", errors="replace")
+    where = coordinates_from_path(path)
+    try:
+        flag_set = AgentFlags.model_validate_json(text)
+    except ValueError:
+        if where is None:
+            typer.echo(
+                f"::warning::{path} does not validate and sits off the ledger layout, "
+                "so it cannot be attributed to a cell; left out of the roll-up",
+                err=True,
+            )
+            return None
+        flag_set = normalise_flags(text, where).flags
+    if where is not None:
+        stated = (flag_set.case_id, flag_set.run_id, str(flag_set.role), flag_set.actor_id)
+        placed = (where.case_id, where.run_id, str(where.role), where.actor_id)
+        if stated != placed:
+            typer.echo(
+                f"::warning::{path} states case/run/role/actor {stated} but sits at {placed}; "
+                "kept as stated, so the run filter reads its stated run id",
+                err=True,
+            )
+    return flag_set
 
 
 def _event_id_from_path(path: Path) -> str:

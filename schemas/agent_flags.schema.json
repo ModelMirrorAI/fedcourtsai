@@ -29,7 +29,7 @@
         },
         "normalised": {
           "default": false,
-          "description": "Set by the harness when it coerced this flag to fit the schema (an off-vocabulary severity or category, an over-long message, an unknown key); the `harness` note beside it says what changed. A flag never fails a cell",
+          "description": "Set by the harness when it coerced this flag to fit the schema (an off-vocabulary severity or category, an over-long message, an unknown key); the `harness` note beside it says what changed. A flag never fails a predict or evaluate cell",
           "title": "Normalised",
           "type": "boolean"
         },

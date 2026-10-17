@@ -740,12 +740,17 @@ def test_render_flags_digest_counts_harness_and_normalised_flags() -> None:
                 source=FlagSource.harness,
             ),
             AgentFlag(category=FlagCategory.other, message="coerced", normalised=True),
+            AgentFlag(category=FlagCategory.other, message="coerced, part 2", normalised=True),
         )
     ]
     digest = ops.summarize_flags(sets, generated_at="2026-02-03T12:00:00+00:00")
-    assert (digest.harness, digest.normalised) == (1, 1)
+    # One malformed file is one normalised cell, however many flags it produced.
+    assert (digest.harness, digest.normalised_cells) == (1, 1)
     md = ops.render_flags_digest(digest)
-    assert "Of these: 1 from the harness · 1 malformed flag(s) normalised." in md
+    assert (
+        "Among them: 1 flag(s) written by the harness; "
+        "1 cell(s) whose malformed flags.json the harness normalised." in md
+    )
 
 
 def test_render_flags_digest_clean_ledger_reads_as_none() -> None:

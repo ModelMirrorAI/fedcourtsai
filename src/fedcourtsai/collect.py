@@ -775,12 +775,13 @@ def flags_table(flag_sets: Sequence[AgentFlags], themes: Sequence[FlagTheme] | N
     source, theme)`` (:func:`fedcourtsai.agent_flags.roll_up`): one row per group,
     loudest severity first, naming every actor who raised it and each distinct note
     once, so sibling actors and repeat runs on one event read as one row rather
-    than one per actor. A flag matching a tracked theme (``themes``, defaulting to
-    the committed map) is not listed; it is counted under the table against its
-    issue, so a new theme stands out. A ``blocker`` is listed whether tracked or
-    not. Flag messages are free text written by the cell's agent or, where the
-    harness raised a finding about the cell, by a harness step, so each note is
-    collapsed to one line and pipe-escaped. Returns ``""`` when no set raised a flag.
+    than one per actor. An agent flag matching a tracked theme (``themes``,
+    defaulting to the committed map) is not listed; it is counted under the table
+    against its issue, so a new theme stands out. A ``blocker`` or ``normalised``
+    flag is listed whether tracked or not. Flag messages are free text written by
+    the cell's agent or, where the harness raised a finding about the cell, by a
+    harness step, so each note is collapsed to one line and pipe-escaped. Returns
+    ``""`` when no set raised a flag.
     """
     rollup = roll_up(flag_sets, themes)
     if rollup.total == 0:
@@ -797,17 +798,25 @@ def flags_table(flag_sets: Sequence[AgentFlags], themes: Sequence[FlagTheme] | N
 
 
 def flags_tally(flag_sets: Sequence[AgentFlags], themes: Sequence[FlagTheme] | None = None) -> str:
-    """The one-line count that heads a flag table: rows, harness, normalised, tracked."""
+    """The count that heads a flag table: rows, then three overlapping counts.
+
+    The three are not a partition of the total: a malformed file carried
+    verbatim is both harness-written and a normalised cell. So each is stated on
+    its own, and the normalised count is of *cells*, one per malformed file, not
+    of the flags its normalisation produced.
+    """
     rollup = roll_up(flag_sets, themes)
     tracked = sum(t.flags for t in rollup.tracked)
     parts = [f"{rollup.total} flag(s) in {len(rollup.groups)} row(s)"]
     if rollup.harness:
-        parts.append(f"{rollup.harness} from the harness")
-    if rollup.normalised:
-        parts.append(f"{rollup.normalised} malformed flag(s) normalised")
+        parts.append(f"{rollup.harness} flag(s) written by the harness")
+    if rollup.normalised_cells:
+        parts.append(
+            f"{rollup.normalised_cells} cell(s) whose malformed flags.json the harness normalised"
+        )
     if tracked:
-        parts.append(f"{tracked} on tracked theme(s)")
-    return " · ".join(parts)
+        parts.append(f"{tracked} flag(s) on tracked theme(s), counted below")
+    return "; ".join(parts)
 
 
 def render_flags(flag_sets: Sequence[AgentFlags], themes: Sequence[FlagTheme] | None = None) -> str:
@@ -820,10 +829,11 @@ def render_flags(flag_sets: Sequence[AgentFlags], themes: Sequence[FlagTheme] | 
     with the actors who raised it, rather than buried across the run's
     ``reasoning.md`` files. Most are the agent's own; some are the harness's
     findings about the cell (``source: harness``), written into the same file by
-    ``stamp-cell``. The tally line counts those, the malformed flags the harness
-    normalised rather than let fail a cell, and the flags on themes an issue
-    already tracks. Returns the empty string when no cell raised a flag, so the
-    caller can omit the section entirely.
+    ``stamp-cell``. The tally line counts those, the cells whose malformed file
+    the harness normalised rather than let fail the cell, and the flags on themes
+    an issue already tracks: three overlapping counts, not a partition. Returns
+    the empty string when no cell raised a flag, so the caller can omit the
+    section entirely.
     """
     table = flags_table(flag_sets, themes)
     if not table:

@@ -2282,7 +2282,7 @@ class AgentFlag(_Strict):
         default=False,
         description="Set by the harness when it coerced this flag to fit the schema (an "
         "off-vocabulary severity or category, an over-long message, an unknown key); the "
-        "`harness` note beside it says what changed. A flag never fails a cell",
+        "`harness` note beside it says what changed. A flag never fails a predict or evaluate cell",
     )
 
 
@@ -10863,11 +10863,12 @@ class FlagsDigest(_Strict):
     harness: int = Field(
         default=0, ge=0, description="Of the in-window flags, those marked `source: harness`"
     )
-    normalised: int = Field(
+    normalised_cells: int = Field(
         default=0,
         ge=0,
-        description="Of the in-window flags, those the harness coerced to fit the schema "
-        "rather than let fail their cell",
+        description="In-window cells whose flags.json did not validate and the harness "
+        "normalised rather than let fail the cell: one per file, however many flags it "
+        "produced. Overlaps `harness`, since a file carried verbatim is carried in harness flags",
     )
     recent: list[AgentFlags] = Field(
         default_factory=list, description="Most recent flag-raising cells, newest first (capped)"

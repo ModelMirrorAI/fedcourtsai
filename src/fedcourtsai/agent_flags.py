@@ -3,22 +3,29 @@
 ``flags.json`` is the agents' durable channel to a maintainer (see
 :class:`fedcourtsai.schemas.AgentFlags`). Three things keep it readable:
 
-* **A flag never fails a cell.** A cell's flags are advisory; its prediction or
-  gradings are the output. So an off-vocabulary ``severity`` or ``category``, an
-  over-long message, an unknown key, or a file that does not parse at all is
-  *normalised* (:func:`normalise_flags`) by the stamp, before ``validate`` runs,
-  instead of failing the cell and discarding its schema-true output with it.
-  Every coerced flag is marked ``normalised`` and a ``harness`` note beside it
-  says what changed and quotes the original value, so nothing the agent wrote
-  is lost — only moved into the schema's shape. ``validate`` stays strict: a
-  committed ``flags.json`` is schema law like any other artifact.
+* **A flag never fails a predict or evaluate cell.** A cell's flags are
+  advisory; its prediction or gradings are the output. So an off-vocabulary
+  ``severity`` or ``category``, an over-long message, an unknown key, or a file
+  that does not parse at all is *normalised* (:func:`normalise_flags`) by the
+  stamp, before ``validate`` runs, instead of failing the cell and discarding
+  its schema-true output with it. Every coerced flag is marked ``normalised``
+  (the field's spelling) and a ``harness`` note beside it says what changed.
+  Message text is never cut: an over-long message continues in further flags,
+  and a file with no recoverable structure is carried verbatim (up to
+  :data:`_RAW_CHUNKS_LIMIT` parts). What the note quotes of a *replaced* value
+  — an off-vocabulary severity, a dropped key — is bounded. ``validate`` stays
+  strict: a committed ``flags.json`` is schema law like any other artifact.
 * **Collapse re-reports.** The roll-up (:func:`roll_up`) groups flags by
-  ``(case, event, source, theme)`` and shows one row per group with the actors
+  ``(case, event, source, theme)``, where the theme is the tracked theme a flag
+  matches or else its category, and shows one row per group with the actors
   who raised it, instead of one row per actor per run.
 * **Mark tracked themes.** A committed map (``flag_themes.json``,
-  :func:`load_flag_themes`) names the themes an open issue already tracks. A
-  flag matching one is counted against its issue instead of re-listed in full,
-  so a new theme stands out. A ``blocker`` is always listed, tracked or not.
+  :func:`load_flag_themes`) names the themes an open issue already tracks. An
+  agent flag matching one is counted against its issue instead of re-listed in
+  full, so a new theme stands out. A ``blocker`` and a ``normalised`` flag are
+  always listed, tracked or not, and a harness note is never counted as
+  tracked. Nothing checks that the issue is still open: a theme is retired
+  from the map when its issue closes.
 """
 
 from __future__ import annotations
@@ -32,7 +39,7 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .schemas import (
     SCHEMA_VERSION,
@@ -60,11 +67,23 @@ NORMALISED_PREFIX = "Harness normalised this cell's flags.json so it validates"
 #: the clip is said, so a runaway file cannot grow the roll-up without bound.
 _RAW_CHUNKS_LIMIT = 8
 
-#: How much of an off-vocabulary value the harness note quotes.
+#: How much of a replaced value the harness note quotes.
 _QUOTE_LIMIT = 80
+
+#: Off-vocabulary severities with an unambiguous reading. Never ``blocker``: that
+#: claims the cell could not finish, which only the schema's own spelling says.
+_SEVERITY_SYNONYMS: dict[str, FlagSeverity] = {
+    **dict.fromkeys(("low", "minor", "note", "trivial"), FlagSeverity.info),
+    **dict.fromkeys(
+        ("medium", "moderate", "high", "warn", "error", "critical", "severe", "fatal"),
+        FlagSeverity.warning,
+    ),
+}
 
 _FLAG_KEYS = frozenset(AgentFlag.model_fields)
 _ENVELOPE_KEYS = frozenset(AgentFlags.model_fields)
+_ROLES = {member.value: member for member in UsageRole}
+_SOURCES = {member.value: member for member in FlagSource}
 
 
 @dataclass(frozen=True)
@@ -78,7 +97,10 @@ class CellCoordinates:
 
 
 def _quote(value: object) -> str:
-    text = repr(value)
+    try:
+        text = repr(value)
+    except RecursionError:
+        text = f"<a {type(value).__name__} too deeply nested to quote>"
     return text if len(text) <= _QUOTE_LIMIT else text[: _QUOTE_LIMIT - 1] + "…"
 
 
@@ -87,9 +109,14 @@ def _vocabulary_key(value: str) -> str:
 
 
 def _coerce_enum[E: (FlagSeverity, FlagCategory)](
-    value: object, enum: type[E], default: E, name: str, changes: list[str]
+    value: object,
+    enum: type[E],
+    default: E,
+    name: str,
+    changes: list[str],
+    synonyms: dict[str, E] | None = None,
 ) -> E:
-    """``value`` as a member of ``enum``, else ``default`` — and say which happened."""
+    """``value`` as a member of ``enum``, else a synonym, else ``default`` — and say which."""
     if isinstance(value, str):
         if value in {member.value for member in enum}:
             return enum(value)
@@ -98,20 +125,25 @@ def _coerce_enum[E: (FlagSeverity, FlagCategory)](
             if member.value == spelled:
                 changes.append(f"{name} {_quote(value)} read as '{member.value}'")
                 return member
+        if synonyms and spelled in synonyms:
+            changes.append(f"{name} {_quote(value)} read as '{synonyms[spelled].value}'")
+            return synonyms[spelled]
     changes.append(f"{name} {_quote(value)} is not one of the schema's values; set to '{default}'")
     return default
 
 
-def _clip(message: str) -> str:
-    if len(message) <= FLAG_MESSAGE_LIMIT:
-        return message
-    return message[: FLAG_MESSAGE_LIMIT - 1] + "…"
+def _parts(text: str) -> list[str]:
+    """``text`` cut into consecutive pieces that each fit one flag message."""
+    return [text[i : i + FLAG_MESSAGE_LIMIT] for i in range(0, len(text), FLAG_MESSAGE_LIMIT)]
 
 
-def _coerce_flag(raw: object, index: int, changes: list[str]) -> AgentFlag | None:
-    """One flag item coerced into an :class:`AgentFlag`, or ``None`` if it says nothing.
+def _coerce_flag(raw: object, index: int, changes: list[str]) -> list[AgentFlag]:
+    """One flag item coerced into :class:`AgentFlag` s — one, or several if it overflows.
 
-    ``changes`` collects a line per coercion, prefixed with the flag's position.
+    An over-long message continues in further flags of the same category,
+    severity and event, so its text survives whole. ``[]`` when the item says
+    nothing. ``changes`` collects a line per coercion, prefixed with the flag's
+    position.
     """
     local: list[str] = []
     if isinstance(raw, str):
@@ -119,19 +151,21 @@ def _coerce_flag(raw: object, index: int, changes: list[str]) -> AgentFlag | Non
         local.append("was a bare string; read as the message")
     if not isinstance(raw, dict):
         changes.append(f"flag {index + 1}: {_quote(raw)} is not an object; dropped")
-        return None
+        return []
     message = raw.get("message")
+    if message is not None and not isinstance(message, str):
+        message = json.dumps(message, ensure_ascii=False)
+        local.append("message was not text; carried as its JSON")
     if not isinstance(message, str) or not message.strip():
         changes.append(f"flag {index + 1}: no message; dropped (it read {_quote(raw)})")
-        return None
-    if len(message) > FLAG_MESSAGE_LIMIT:
-        local.append(f"message of {len(message)} characters clipped to {FLAG_MESSAGE_LIMIT}")
+        return []
     severity = _coerce_enum(
         raw.get("severity", FlagSeverity.info.value),
         FlagSeverity,
-        FlagSeverity.info,
+        FlagSeverity.warning,
         "severity",
         local,
+        _SEVERITY_SYNONYMS,
     )
     category = _coerce_enum(
         raw.get("category"), FlagCategory, FlagCategory.other, "category", local
@@ -139,55 +173,63 @@ def _coerce_flag(raw: object, index: int, changes: list[str]) -> AgentFlag | Non
     event_id = raw.get("event_id")
     if event_id is not None and not isinstance(event_id, str):
         local.append(f"event_id {_quote(event_id)} is not a string; read as text")
-        event_id = str(event_id)
+        event_id = json.dumps(event_id, ensure_ascii=False)
     source = raw.get("source", FlagSource.agent.value)
-    if source not in {member.value for member in FlagSource}:
+    if not isinstance(source, str) or source not in _SOURCES:
         local.append(f"source {_quote(source)} is not one of the schema's values; set to 'agent'")
         source = FlagSource.agent.value
     extra = sorted(str(key) for key in raw if key not in _FLAG_KEYS)
     if extra:
         dropped = ", ".join(f"{key}={_quote(raw[key])}" for key in extra)
         local.append(f"unknown key(s) dropped: {dropped}")
+    parts = _parts(message)
+    if len(parts) > 1:
+        local.append(f"message of {len(message)} characters continued across {len(parts)} flags")
     changes.extend(f"flag {index + 1}: {line}" for line in local)
-    return AgentFlag(
-        category=category,
-        severity=severity,
-        message=_clip(message),
-        event_id=event_id,
-        source=FlagSource(source),
-        normalised=bool(local) or raw.get("normalised") is True,
-    )
+    marked = bool(local) or raw.get("normalised") is True
+    return [
+        AgentFlag(
+            category=category,
+            severity=severity,
+            message=part,
+            event_id=event_id,
+            source=_SOURCES[source],
+            normalised=marked,
+        )
+        for part in parts
+    ]
 
 
-def _note(changes: Sequence[str], where: CellCoordinates) -> AgentFlag:
-    """The harness's account of a normalisation, bounded to one flag's message."""
+def _note(changes: Sequence[str], where: CellCoordinates) -> list[AgentFlag]:
+    """The harness's account of a normalisation, continued across flags if it is long."""
     head = f"{NORMALISED_PREFIX} ({where.actor_id}): "
-    body = "; ".join(changes)
-    return AgentFlag(
-        category=FlagCategory.other,
-        severity=FlagSeverity.info,
-        message=_clip(head + body + "."),
-        source=FlagSource.harness,
-    )
+    return [
+        AgentFlag(
+            category=FlagCategory.other,
+            severity=FlagSeverity.info,
+            message=part,
+            source=FlagSource.harness,
+        )
+        for part in _parts(head + "; ".join(changes) + ".")
+    ]
 
 
 def _unparsed(text: str, reason: str, where: CellCoordinates) -> AgentFlags:
     """A file with no recoverable structure, kept as its own text in harness flags."""
-    room = FLAG_MESSAGE_LIMIT - 1
-    chunks = [text[start : start + room] for start in range(0, len(text), room)] or [""]
+    chunks = _parts(text) or [""]
     clipped = len(chunks) > _RAW_CHUNKS_LIMIT
     chunks = chunks[:_RAW_CHUNKS_LIMIT]
     head = (
         f"{NORMALISED_PREFIX} ({where.actor_id}): the file {reason}, so its text is carried "
         f"below verbatim in {len(chunks)} part(s)"
-        + (f", clipped at {_RAW_CHUNKS_LIMIT} parts" if clipped else "")
+        + (f", clipped at {_RAW_CHUNKS_LIMIT} parts of {len(text)} characters" if clipped else "")
         + "."
     )
     flags = [
         AgentFlag(
             category=FlagCategory.other,
             severity=FlagSeverity.info,
-            message=_clip(head),
+            message=head,
             source=FlagSource.harness,
         )
     ]
@@ -229,28 +271,40 @@ class Normalised:
 def normalise_flags(text: str, where: CellCoordinates) -> Normalised:
     """Coerce a cell's ``flags.json`` text into a valid :class:`AgentFlags`.
 
-    Total: whatever ``text`` is, the result validates. A file that already
-    validates comes back unchanged (``changed`` false, byte-for-byte the same
-    model). Otherwise every coercion is recorded in one ``harness`` note
-    appended to the set, and each coerced flag is marked ``normalised``:
+    Total: whatever ``text`` is, the result validates and never raises — any
+    shape no rule below anticipates is carried verbatim instead. A file that
+    already validates comes back unchanged (``changed`` false). Otherwise every
+    coercion is recorded in a ``harness`` note appended to the set, and each
+    coerced flag is marked ``normalised``:
 
-    * an off-vocabulary ``severity`` becomes ``info``, an off-vocabulary
-      ``category`` ``other`` — after a case/underscore-insensitive match, so
-      ``"Warning"`` or ``"data_quality"`` keep their meaning;
-    * a message over the schema's cap is clipped and marked;
-    * an unknown key is dropped and its value quoted in the note;
+    * an off-vocabulary ``severity`` is matched case- and underscore-insensitively,
+      then through a small synonym table (``low`` reads as ``info``, ``high`` or
+      ``critical`` as ``warning``), and is otherwise ``warning`` — loud enough to
+      be read, never ``blocker``; an off-vocabulary ``category`` becomes ``other``;
+    * a message over the schema's cap continues in further flags, never cut;
+    * an unknown key is dropped and its value quoted (bounded) in the note;
     * a missing envelope field (case, run, role, actor) is filled from the
       harness's own coordinates for the cell; a present one is kept as written;
-    * a flag with no message is dropped and quoted in the note;
+    * a flag with no message is dropped and quoted (bounded) in the note;
     * a file that is not a JSON object is carried verbatim in harness flags.
     """
+    # Broad on purpose, both times: totality is the contract. Any refusal of the
+    # strict read falls through to coercion, and any shape coercion did not
+    # foresee is carried verbatim rather than failing the cell.
     try:
         return Normalised(AgentFlags.model_validate_json(text), changed=False)
-    except ValidationError:
+    except Exception:
         pass
     try:
+        return _normalise_structure(text, where)
+    except Exception:
+        return Normalised(_unparsed(text, "could not be normalised", where), changed=True)
+
+
+def _normalise_structure(text: str, where: CellCoordinates) -> Normalised:
+    try:
         raw = json.loads(text)
-    except ValueError:
+    except (ValueError, RecursionError):
         return Normalised(_unparsed(text, "does not parse as JSON", where), changed=True)
     if isinstance(raw, list):
         raw = {"flags": raw}
@@ -265,8 +319,8 @@ def normalise_flags(text: str, where: CellCoordinates) -> Normalised:
     actor_id = _envelope_string(raw, "actor_id", where.actor_id, changes)
     role_value = raw.get("role")
     role = where.role
-    if role_value in {member.value for member in UsageRole}:
-        role = UsageRole(role_value)
+    if isinstance(role_value, str) and role_value in _ROLES:
+        role = _ROLES[role_value]
     else:
         changes.append(f"role {_quote(role_value)} set to '{where.role}'")
     extra = sorted(str(key) for key in raw if key not in _ENVELOPE_KEYS)
@@ -282,9 +336,7 @@ def normalise_flags(text: str, where: CellCoordinates) -> Normalised:
         changes.append(f"flags {_quote(items)} is not a list")
         items = []
     coerced = [
-        flag
-        for index, item in enumerate(items)
-        if (flag := _coerce_flag(item, index, changes)) is not None
+        flag for index, item in enumerate(items) for flag in _coerce_flag(item, index, changes)
     ]
     if not coerced:
         changes.append("no usable flag survived")
@@ -299,7 +351,7 @@ def normalise_flags(text: str, where: CellCoordinates) -> Normalised:
             run_id=run_id,
             role=role,
             actor_id=actor_id,
-            flags=[*coerced, _note(changes, where)],
+            flags=[*coerced, *_note(changes, where)],
         ),
         changed=True,
     )
@@ -449,8 +501,12 @@ class FlagRollup:
     groups: tuple[FlagGroup, ...]
     tracked: tuple[TrackedCount, ...]
     total: int
+    #: Flags marked ``source: harness``.
     harness: int
-    normalised: int
+    #: Cells (flag sets) carrying at least one ``normalised`` flag — one per
+    #: malformed file, however many flags its normalisation produced. Overlaps
+    #: ``harness``: a file carried verbatim is carried in harness flags.
+    normalised_cells: int
 
 
 def roll_up(
@@ -459,21 +515,23 @@ def roll_up(
     """Collapse flag sets by ``(case, event, source, theme)`` and count tracked themes.
 
     ``themes`` defaults to the committed map. A flag matching a tracked theme is
-    counted against it and not listed, unless it is a ``blocker``: a cell that
-    could not finish is always shown in full.
+    counted against it and not listed, unless it is a ``blocker`` (a cell that
+    could not finish is always shown in full) or ``normalised`` (a coerced flag
+    is never hidden inside a count). A harness note is never counted as tracked.
     """
     themes = _packaged_themes() if themes is None else themes
     groups: dict[tuple[str, str, str, str], FlagGroup] = {}
     tracked: dict[str, tuple[FlagTheme, int, set[str], set[str]]] = {}
-    total = harness = normalised = 0
+    total = harness = normalised_cells = 0
     for fs in flag_sets:
+        normalised_cells += any(flag.normalised for flag in fs.flags)
         for flag in fs.flags:
             total += 1
             source = FlagSource(flag.source)
             harness += source == FlagSource.harness
-            normalised += flag.normalised
             theme = theme_of(flag, themes) if source == FlagSource.agent else None
-            if theme is not None and flag.severity != FlagSeverity.blocker:
+            listed_anyway = flag.severity == FlagSeverity.blocker or flag.normalised
+            if theme is not None and not listed_anyway:
                 _, count, actors, cases = tracked.get(theme.id, (theme, 0, set(), set()))
                 tracked[theme.id] = (theme, count + 1, actors | {fs.actor_id}, cases | {fs.case_id})
                 continue
@@ -507,5 +565,5 @@ def roll_up(
         tracked=tuple(counts),
         total=total,
         harness=harness,
-        normalised=normalised,
+        normalised_cells=normalised_cells,
     )

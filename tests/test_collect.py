@@ -710,7 +710,7 @@ def test_render_flags_lists_harness_notes_apart_from_the_agents() -> None:
         ],
         themes=(),
     )
-    assert "2 flag(s) in 2 row(s) · 1 from the harness" in md
+    assert "2 flag(s) in 2 row(s); 1 flag(s) written by the harness" in md
     harness_row = next(line for line in md.splitlines() if "harness says" in line)
     assert "| harness |" in harness_row and "agent says" not in harness_row
 
@@ -727,7 +727,7 @@ def test_render_flags_counts_a_tracked_theme_instead_of_listing_it() -> None:
     assert "Widget off" not in md and "widget again" not in md
     assert "a new theme" in md
     assert "tracked in #77 (widget count is wrong): 2 flag(s) from 2 actor(s) on 1 case(s)" in md
-    assert "2 on tracked theme(s)" in md
+    assert "2 flag(s) on tracked theme(s), counted below" in md
 
 
 def test_render_flags_always_lists_a_tracked_blocker() -> None:
@@ -746,6 +746,24 @@ def test_render_flags_always_lists_a_tracked_blocker() -> None:
     )
     assert "widget stopped me" in md
     assert "_tracked in #77_" in md
+
+
+def test_render_flags_always_lists_a_normalised_flag_even_on_a_tracked_theme() -> None:
+    """A coerced flag is never hidden inside a tracked count."""
+    md = render_flags(
+        [
+            _flagset(
+                "a",
+                AgentFlag(
+                    category=FlagCategory.other, message="widget, re-shaped", normalised=True
+                ),
+            )
+        ],
+        themes=(_THEME,),
+    )
+    assert "widget, re-shaped" in md
+    assert "_tracked in #77_" in md
+    assert "counted below" not in md
 
 
 def test_render_flags_never_tags_a_harness_note_with_a_tracked_theme() -> None:

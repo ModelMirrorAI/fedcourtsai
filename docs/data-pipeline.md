@@ -417,9 +417,9 @@ written only when there is a structured note to surface; the `collect` job
 rolls every cell's flags into the run PR body, the Actions summary, and one
 long-lived **agent-feedback** tracking issue, so the note survives the trigger
 issue's closure, and `run-ops` surfaces recent flags. A mis-shaped flag never
-fails its cell: the stamp normalises it before `validate`, marked and noted
-(*`flags.json`* in [predicted-artifacts.md](predicted-artifacts.md)).
-`tooling.json` (an
+fails its predict or evaluate cell: the stamp normalises it before `validate`,
+marked and noted (*`flags.json`* in
+[predicted-artifacts.md](predicted-artifacts.md)). `tooling.json` (an
 `AgentToolingFeedback`) is solicited every run — a short self-report on the
 cell's tooling, scanned by `run-ops` into a tooling digest, and read per run by
 `collect` for its `used_corpus_query` line alone, which is the self-reported
