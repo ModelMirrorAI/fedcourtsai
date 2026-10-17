@@ -268,7 +268,9 @@ runbook, [docs/security.md](docs/security.md).
   read the corpus), `corpus-check` and `corpus-check-auto` (the PR
   corpus-check lane's approved and unapproved paths, under the trigger
   surface below), the staging read-write role to `staging` — and each
-  of those environments restricts deployments to one branch, so a PR-branch
+  of those environments restricts deployments to its own branches (`staging`
+  also admits the promotion train's `promote/*` candidates: commits already on
+  `staging`, created only by the dev App and never moved), so a PR-branch
   job cannot assume any of them. Within an environment the split is provenance,
   not identity, on both sides of the promotion: any `prod`-bound job could ask
   for the production write role and any `staging`-bound job for the staging
@@ -391,14 +393,17 @@ runbook, [docs/security.md](docs/security.md).
   stays in the run history; `promote` and `run-ops` stay ungated because they
   bind no environment and name no secret; and repository-level secrets, which
   a job reaches without an environment, are assumed absent (`docs/security.md`
-  keeps every secret on an environment). Two jobs dispatch a lane
-  themselves — `run-pull`'s `chain-predict` and `run-predict`'s `chain`, each
-  starting an input-less `run-predict` on `main` with the **dispatch App**,
-  whose token holds Actions write (and PR read) and nothing else and whose key
-  only `main`'s code can mint, and which the allow-list admits for
-  `run-predict` alone. A dispatch from it enters through the same gates as a
-  maintainer's and reaches the same code; the round it starts still waits
-  on the review hold unless its own plan is within the auto-release caps. The
+  keeps every secret on an environment). Three jobs dispatch a lane
+  themselves with the **dispatch App**, whose token holds Actions write (and
+  PR read) and nothing else and whose key only `main`'s code can mint:
+  `run-pull`'s `chain-predict` and `run-predict`'s `chain`, each starting an
+  input-less `run-predict` on `main`, and the promotion train's
+  `dispatch-gate`, starting the side-effect-free `integration-test` `gate`
+  suite at a frozen `promote/` candidate, once per head. The allow-list admits
+  the App for those two workflows alone. A dispatch from it enters through the
+  same gates as a maintainer's and reaches the same code; the round it starts
+  still waits on the review hold unless its own plan is within the
+  auto-release caps. The
   pull window chains only on a forecast-relevant change, and neither job
   dispatches while a promotion PR is ready.
   Three workflows *do* take an outside-reachable trigger — `ci.yml`,
@@ -514,7 +519,8 @@ runbook, [docs/security.md](docs/security.md).
   App; `run-evaluate` and the action-path smoke carry the same pair because the
   cells' invocation surface is held in lockstep. The App's token holds
   `actions: write`, which could start any workflow; the two chain jobs that
-  mint it start nothing but `run-predict`, pinned by
+  mint it start nothing but `run-predict`, and the train's job nothing but
+  `integration-test` `scenario=gate` at a candidate, pinned by
   `tests/test_workflow_dispatch_chain.py`. The gemini steps and `run-backtest` set no such
   allowance.
 - **Branch protection and the deployment boundary.** `main` requires a PR
@@ -532,9 +538,16 @@ runbook, [docs/security.md](docs/security.md).
   production run; still bound by the checks), for the data App, and for any pull request an
   admin merges (how the maintainer's own lands, since GitHub does not let an
   author approve their own). So a promotion — opened by the dev App — merges
-  on the maintainer's approval of its head or through a recorded bypass: the
-  admin role's, or a dev App token with contents write, whose jobs merge
-  nothing but their own lane's PR and change only by an approved promotion.
+  on the maintainer's approval of its head: the promotion train executes that
+  decision with the dev App's recorded bypass, merging a frozen candidate only
+  after re-reading that an approver `config/promotion-train.yaml` names
+  approved exactly its head with nothing requested since, pinned to that head
+  and still bound by the required checks. Otherwise it merges through a
+  recorded bypass: the admin role's, or a dev App token with contents write,
+  whose jobs merge nothing but their own lane's PR (or the approved candidate)
+  and change only by an approved promotion. The candidates live under
+  `promote/**`, which two branch rulesets let only the dev App create and
+  nobody but the admin role move or delete.
   Code and config reach `main` only as a gated
   promotion batch from `staging` — except the `promotion-record` writer's
   one-parent record commit, jailed byte-equal to its plan, touching only
@@ -563,7 +576,8 @@ runbook, [docs/security.md](docs/security.md).
   production S3 role ARNs live in the
   `prod` environment, whose deployment branches are restricted to `main`: a
   workflow authored on a PR branch runs without them. A second environment,
-  `staging`, is restricted to the `staging` branch and holds the read-only
+  `staging`, is restricted to the `staging` branch and the `promote/*`
+  promotion candidates and holds the read-only
   role, its own engine keys for the pre-promotion integration runs, the
   staging read-write role. A `website` environment, restricted to `main`,
   holds one third-party key, the email list's Buttondown key, for the one job

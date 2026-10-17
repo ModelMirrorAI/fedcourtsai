@@ -51,7 +51,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
-| `promotion-prep` | daily schedule + manual dispatch    | script (no agent)    |
+| `promotion-prep` (the promotion train) | hourly schedule (:26) + manual dispatch | script (no agent); its `gate` dispatch runs integration-test's paid suite once per candidate |
 
 † Two gates hold it, both pinned by `tests/test_workflow_auth_gate.py`. The
 **trigger** is one: the test sweeps the whole workflow directory for any trigger
@@ -553,12 +553,15 @@ CLIs or engine actions, the collect contract, or the corpus-consuming
 workflows and before
 releases — from main, or via the `staging` deployment environment (collect
 binds none; qp-topic binds one it never reads; the labeler smoke binds one
-and reads exactly its engine key) from the `staging` branch, which
-is the only branch that environment accepts (those runs are the promotion
-gate's freshness evidence; see *Promotion: staging → main* below). The deployment environment resolves from
-the dispatching branch by default — `main` gets `prod`, `staging` gets
-`staging`, any other branch an empty environment holding no role variables
-and no keys. Four whole-suite selections answer two questions:
+and reads exactly its engine key) from the `staging` branch or a promotion
+train candidate (`promote/<date>`), the only branches that environment accepts
+(those runs are the promotion gate's freshness evidence; see *Promotion:
+staging → main* below). The deployment environment resolves from
+the dispatching branch by default — `main` gets `prod`, `staging` and a
+`promote/` candidate get `staging`, any other branch an empty environment
+holding no role variables and no keys. Concurrency groups are keyed on the
+dispatching ref as well, so a `gate` dispatched at `staging` cannot cancel the
+train's paid `gate` run at a candidate. Four whole-suite selections answer two questions:
 
 | `scenario=` | runs | promotion-gate evidence |
 | --- | --- | --- |
@@ -1279,6 +1282,7 @@ quietly on a draft, an unmerged close or no PR at all), so a backlog drains in
 consecutive rounds instead of one per slot. Both are the same input-less
 dispatch a maintainer would send, on `main`, with the dispatch App
 ([security.md](security.md)); both stand down while a promotion PR is ready
+— a promotion train candidate or a hand-opened `staging` → `main` PR —
 (`fedcourts chain-step`, since the promotion gate's quiescence check fails on
 any queued, running or waiting predict round); both are off until the
 repository-level `DISPATCH_CHAIN_ENABLED` variable is `true`; and
@@ -1648,7 +1652,8 @@ The mechanics:
 - **Feature PRs target `staging`** (AGENTS.md), and the routing is enforced:
   `main`'s required checks are exactly `gate`, `paths`, `promotion-gate`, and
   **`main-base`**. `main-base` is the merge-routing jail — it runs, and fails,
-  only on a PR to `main` whose head is not `staging` or a reviewed non-feature
+  only on a PR to `main` whose head is not `staging`, a promotion train
+  candidate (`promote/…`), or a reviewed non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, and salience-replay PRs, the qp-topic
   labeling run's `qp-topics/refresh` PR, the case-summary lane's
@@ -1688,20 +1693,28 @@ The mechanics:
   already-gated main history joined with already-gated staging history.
   `promote` still checks the ancestry, and still prints the manual
   merge-and-push commands for the maintainer's admin bypass — the escape
-  hatch for a conflicting sync the schedule could not land on its own. The
-  sync defers itself while a promotion PR is open and ready for review, so it
-  never moves the head a batch in flight is being tested against; a draft is
-  `promotion-prep`'s running record of the batch, not a promotion in flight,
-  and syncs continue under it. **Ordering:** `schedule` and
+  hatch for a conflicting sync the schedule could not land on its own. A
+  promotion train candidate never holds the sync back: its head is a frozen
+  branch, so a sync cannot move it, and staging keeps taking `main` while the
+  candidate waits for review. Only a hand-opened `staging` → `main` PR, once
+  ready for review, defers the sync, since there the head *is* `staging`.
+  After a promotion merges, `main` holds a merge commit `staging` lacks; the
+  next sync brings it over, and the train cuts the next candidate only once
+  it has — when `main` holds nothing staging lacks beyond the writer lanes'
+  own commits (`data/`, `metrics/`, the corpus pointer), which arrive every
+  few hours and never ride staging. **Ordering:** `schedule` and
   `workflow_dispatch` both read the file from `main`, and the `prod`
   environment is `main`-only, so an edit to `sync-staging` takes effect only
   once it promotes.
 - **Two gates, one definition.** `scripts/promotion-gate.sh` checks
   *quiescence* (no run-predict / run-evaluate / run-backtest fan-out in
   flight — no unfinished run of any of the three, a round parked on the review
-  hold included) and *freshness* (every
-  required integration scenario green at exactly the staging head being
-  promoted — one green `scenario=gate` run, which succeeds only when every
+  hold included), *provenance* (a `promote/` head must sit on staging's
+  first-parent chain — a cut of staging, which is also what
+  `promotion-record` requires of the merge's second parent) and *freshness* (every
+  required integration scenario green at exactly the head being
+  promoted, dispatched from that head's own ref — one green `scenario=gate`
+  run, which succeeds only when every
   matrix leg and its collect job does, satisfies all twelve required runs at
   once, engine-smoke and engine-actions-smoke counted once per engine each),
   and the *process registry* (Step 0 of a process move, on every batch: the
@@ -1716,9 +1729,12 @@ The mechanics:
   history with tags).
   The `promote` dispatch runs
   it as pre-flight, the registry stage before freshness since it needs no
-  dispatch; ci.yml's `promotion-gate` job runs it as a required
-  check on the promotion PR.
-  Re-run that check right before merging — quiescence is point-in-time.
+  dispatch; the promotion train reads each stage live on every tick; ci.yml's
+  `promotion-gate` job runs it as a required check on the promotion PR, with
+  the PR's head ref (`staging` or the candidate's `promote/<date>`; the script
+  refuses any other name).
+  Re-run that check right before merging — quiescence is point-in-time (the
+  train re-fires it by a body edit when it alone stands red).
 - **The engine-smoke skip, and how far it reaches.** Waiving the six
   token-spending engine runs costs every piece of evidence that real engines
   still run at the sha being promoted: that a cell completes in the production
@@ -1759,27 +1775,55 @@ The mechanics:
   in its log, and the check annotates the PR and writes what was traded away
   into its run summary — so a batch that merged without real-engine evidence
   is legible as such from the promotion's own record.
-- **The draft.** `promotion-prep` runs daily (and on dispatch) and keeps a
-  **draft** staging→main PR in step with `staging`: the batch's feature PRs
-  and syncs, each feature PR's effect-check handover note gathered from its
-  description (`fedcourts promotion-body`) and quoted, the gate's quiescence
-  and freshness at staging's head with the next step they imply, any open
-  `main`→`staging` sync PR (armed to auto-merge, and so to move the head) and
-  any commit pushed to `staging` with no PR, and the freeze-record `<FILL:>`
-  placeholders the batch adds. It writes only between two markers in the body
-  and only while the PR is a draft, re-reading the PR just before it writes and
-  skipping the write if it was marked ready or edited meanwhile, so prose added
-  around the block survives, and once the PR is ready for review it is left
-  alone. A refresh that would change only the stamp or a gate line's counts
-  writes nothing, since every body edit re-runs CI. It opens the
-  PR with the dev App's token, because a PR a workflow opens with its own
-  token triggers no `pull_request` checks; the App bypasses nothing, so the
-  draft merges through the same required checks as a hand-opened PR.
-- **The loop.** Dispatch `promote`; it gates and prints exactly what is still
+- **The promotion train.** `promotion-prep` runs hourly (:26, and on
+  dispatch) and takes one step per tick, decided by the tested `fedcourts
+  promotion-train-step` (`src/fedcourtsai/promotion_train.py`), from a
+  **frozen candidate** rather than from `staging` itself: a branch
+  `promote/<UTC date>` (`-2`, `-3` … when the date is taken) cut at staging's
+  tip and never moved again, with a PR from it into `main`. Staging keeps
+  taking merges and syncs while the maintainer reads the batch, and neither the
+  integration evidence nor the approval — both bound to one SHA — is
+  invalidated by them. The steps, at most one per tick:
+
+  | step | when | does |
+  | --- | --- | --- |
+  | cut | no promotion PR open; since `main` and staging's merge-base, `main` changed nothing outside the writer lanes' paths (`data/`, `metrics/`, the corpus pointer — so staging is synced with every promotion record) and staging changed something; no `promote/` branch already sits at staging's tip | create the branch at the tip (dev App) and open a **draft** PR into `main`, the batch in its body |
+  | dispatch the gate | no `gate` run at the head yet (queued, running or concluded) and the registry gate passes | `integration-test` `scenario=gate` at the branch (dispatch App) — **once per head** |
+  | mark ready | the `gate` run at the head succeeded (or, under the `promote:skip-engine-smoke` label, an `offline-gate` run) | mark the PR ready, request the approvers' review, refresh the body — the edit re-fires `promotion-gate` |
+  | re-fire | approved, quiescent, registry clean, every other required check green, `promotion-gate` red or missing | refresh the body, which re-runs `promotion-gate` |
+  | merge | an approver in `config/promotion-train.yaml` approved **exactly this head**, no change requested since, every required check green, the registry gate clean and no fan-out in flight, read live | merge with a **merge commit**, pinned to the head (dev App), after re-reading the PR, the reviews and quiescence just before the call |
+  | wait / report | anything else: the gate running, checks pending, a fan-out in flight, approval pending; or a human must act — the gate failed, changes requested, the registry refuses | refresh the body's status line |
+
+  The body is the batch as before — the feature PRs and syncs, each feature
+  PR's effect-check handover note (`fedcourts promotion-body`), any commit
+  that reached staging with no PR, the freeze-record placeholders the merge
+  owes — plus the gate's stages at the head and the train's latest step. The
+  train owns the block between the markers and rewrites it only when its
+  content moves (every body edit re-runs CI); prose outside the markers is
+  the maintainer's. **The maintainer's approval of the frozen head is the
+  merge decision; the train executes it.** Merging by hand at any point is
+  still fine (merge commit). Requesting changes stops it at that head;
+  returning the PR to draft after the train marked it ready parks it there;
+  closing it stops it at that staging tip — the branch is never deleted, so a
+  branch already at the tip means the tip was cut, and the next candidate
+  waits for staging to move (reopen the PR, or open one from the branch, to
+  put it back on the train). A hand-opened `staging` → `main` PR makes the
+  train stand aside until it merges or closes; so do two candidates at once
+  or a `promote/` PR whose name the train would not have cut.
+
+  **Cost.** One paid `gate` suite per candidate — three engine-smoke cells
+  plus three boot probes. A failed or cancelled `gate` run is reported in the
+  body and **never re-dispatched**: re-run it (`gh run rerun <id> --failed`,
+  which turns the same run green in place), or close the candidate. With the
+  repository-level `DISPATCH_CHAIN_ENABLED` switch off, the train dispatches
+  nothing and the body names the `gh workflow run integration-test.yml --ref
+  promote/<date> -f scenario=gate` command instead.
+- **By hand.** `promote` remains the read-only pre-flight for promoting
+  `staging` itself: dispatch it; it gates and prints exactly what is still
   needed — the sync commands when staging is behind, the scenario dispatch
   commands when freshness is unmet, or, when green, the `gh pr create` command
-  for the promotion PR, for a batch with no draft open. The workflow performs no
-  write itself. Merge promotions with a
+  for a hand-opened promotion PR. The workflow performs no write itself. Merge
+  promotions with a
   **merge commit**, never squash — `staging` and `main` must share history or
   every later sync re-merges rewritten commits.
 
@@ -1788,53 +1832,50 @@ The full path of a change, operator's view:
 1. Branch off `staging`, work, run the relevant gate stages and reviewers,
    open the PR against `staging`; review and merge. The change is now staged
    but **not live** — production jobs execute from `main`.
-2. When a batch is worth promoting: dispatch `promote`; if it asks, run the
-   sync — dispatch `sync-staging` and let its PR land, or, if that PR
+2. Nothing to dispatch: within an hour of the next sync, the promotion train
+   cuts a `promote/<date>` candidate at staging's tip, opens its draft PR,
+   dispatches the integration `gate` at it, and, once that is green, marks it
+   ready and requests your review. Leave `docket` empty on any dispatch of
+   your own: the run-time case resolver self-resolves on the seeded staging
+   slice as it does on production (the staging-corpus runbook in
+   [security.md](security.md) says which cases the slice holds).
+
+   **The dispatch chain stands down by itself.** Quiescence fails on any
+   queued, running or waiting `run-predict`, and a chained round can start at
+   any pull window. Both chain jobs dispatch nothing while a ready promotion PR
+   — a candidate, or a hand-opened `staging` → `main` PR — is open, so the
+   train finds a gap between scheduled rounds and merges in it. For a longer
+   quiet window, set the `DISPATCH_CHAIN_ENABLED` variable to `false` — which
+   also stops the train dispatching its `gate` — and restore it after the
+   merge.
+3. Read the candidate PR: the batch, its stated effect checks, the gate's
+   stages. Approve it to promote; request changes or close it to stop. On a
+   cell-inert batch you may add the `promote:skip-engine-smoke` label and
+   dispatch `offline-gate` at the candidate instead of paying for the engine
+   legs (*The engine-smoke skip* above): the train and the required check both
+   accept it under the label.
+4. The train merges at the next tick on which everything holds (or merge it
+   yourself, with a merge commit). Its body says what it waits for.
+
+   **Promoting `staging` by hand instead.** Dispatch `promote`; if it asks,
+   run the sync — dispatch `sync-staging` and let its PR land, or, if that PR
    conflicts, run the printed commands (your admin-bypass push) — then
-   re-dispatch.
-3. **Mark the promotion PR ready before any integration dispatch.** Open
-   `promotion-prep`'s draft (or, with none open, open one by hand:
-   `gh pr create --base main --head staging --draft …`) and mark it **ready
-   for review**. That stops the daily refresh and, more to the point, the
-   syncs, which would otherwise move the head under the per-SHA evidence the
-   next step pays for. Marking ready stops a *new* sync only: a sync PR that
-   is already open and armed still auto-merges when its checks pass, so let
-   any open `main`→`staging` sync PR land (or close it) first — the draft's
-   generated block names one when it sees it. Marking it ready does not re-run
-   `promotion-gate` (ci.yml does not trigger on `ready_for_review`); step 5
-   re-fires it.
-4. Dispatch the required integration scenarios at staging's post-sync head —
-   one `gh workflow run integration-test.yml --ref staging -f scenario=gate`
-   covers the whole suite, or per-scenario runs add up to it (the summary
-   prints both forms) — then re-dispatch `promote`. An `all` run is not
-   evidence, however green: dispatch `gate` even when `all` already ran at the
-   head. **Pay for `gate` once per batch, at the head the batch will actually
-   promote**: after the sync has landed and after every staging merge the
-   batch carries. Freshness is per-SHA, so a head that moves afterwards
-   discards the evidence and not the spend — three engine-smoke cells plus
-   three boot probes, re-paid at the new head. Everyday dispatches want the
-   default instead: `gh workflow run integration-test.yml --ref staging` with
-   no `scenario` runs the token-free `offline-gate` suite, which exercises
-   every required scenario but the six engine legs.
-   Leave `docket` empty: the run-time case resolver self-resolves on the seeded
-   staging slice as it does on production, falling back to a content-store probe
-   where the split-on slice's blob carries no snapshot rows, and the plan job
-   echoes its subject to the run summary. Pin a case (`-f court=scotus -f
-   docket=<slice member>`) only to aim a dispatch at one; the staging-corpus
-   runbook in [security.md](security.md) says which cases the slice holds.
-   On a cell-inert batch, `promote -f skip_engine_smoke=true` first: it prints
-   the `offline-gate` form and tells you whether anything *else* is missing
-   before you pay for the engine legs, which step 5 still needs.
+   re-dispatch. **Mark the promotion PR ready before any integration
+   dispatch**: open it (`gh pr create --base main --head staging --draft …`)
+   and mark it **ready for review**, which stops the syncs that would
+   otherwise move the head under the per-SHA evidence the next step pays for —
+   a sync PR already open and armed still auto-merges, so let it land (or
+   close it) first. Then dispatch `gh workflow run integration-test.yml --ref
+   staging -f scenario=gate` at the post-sync head — **once per batch, at the
+   head the batch will actually promote**, since freshness is per-SHA and a
+   head that moves afterwards discards the evidence and not the spend — and
+   re-dispatch `promote`. An `all` run is not evidence, however green.
+   Everyday dispatches want the default instead: `gh workflow run
+   integration-test.yml --ref staging` with no `scenario` runs the token-free
+   `offline-gate` suite.
 
-   **Quiet the dispatch chain first.** Quiescence fails on any queued,
-   running or waiting `run-predict`, and a chained round can start at any
-   pull window. Both chain jobs dispatch nothing while a ready, same-repo
-   `staging` → `main` PR is open, so open the promotion PR (or mark its draft
-   ready) before this step, and let any round already running finish. For a
-   longer quiet window, set the `DISPATCH_CHAIN_ENABLED` variable to `false`
-   and restore it after the merge.
-
-   **When the head moves after a green `gate`.** The gate's rule is
+   **When the head moves after a green `gate`** (a hand promotion only — a
+   candidate's head never moves). The gate's rule is
    mechanical and does not read the delta: the green `gate` run sits at the
    old sha, so at the new one nothing satisfies the twelve, and the choice is
    to re-dispatch `gate` or to dispatch `offline-gate` at the new head and take
@@ -1851,14 +1892,14 @@ The full path of a change, operator's view:
    that is precisely the evidence the skip trades away, and an action version
    bump is the class it breaks silently (*The engine-smoke skip* above).
 5. On the promotion PR, now ready, its `promotion-gate` check re-verifies
-   quiescence + freshness. The body already lists the batch's **stated
-   effect checks** — what should be true once it is live and the command that
-   shows it — gathered from the feature PRs' handover notes (AGENTS.md asks
-   each for one), and names any PR that left none; write the missing ones,
-   and any narrative, outside the generated block (or on the feature PR,
-   before marking ready, for the next refresh to pick up). Edit the body once
-   after the integration run is green to re-fire `promotion-gate`. Re-run the
-   check right before merging, and merge with a **merge commit**. The
+   quiescence, provenance and freshness. The body already lists the batch's
+   **stated effect checks** — what should be true once it is live and the
+   command that shows it — gathered from the feature PRs' handover notes
+   (AGENTS.md asks each for one), and names any PR that left none; write the
+   missing ones, and any narrative, outside the generated block. On a hand
+   promotion, edit the body once after the integration run is green to
+   re-fire `promotion-gate`, re-run the check right before merging, and merge
+   with a **merge commit**; the train does both for its candidates. The
    `promotion-record` workflow then tags the merge commit
    `promotion/<YYYY-MM-DD>` (`-2` for a same-day second batch — the *Tags*
    subsection below), stamps any process registration the batch carried —
@@ -1900,10 +1941,16 @@ status check* procedure below clears it, `main-base` — to `main`'s required
 checks alongside `gate` and `paths`. Each reports `skipped`, which satisfies
 the requirement, on every PR it does not gate; requiring a context before its
 producing job reaches `main` strands every unattended collect PR, which is
-what the procedure's ordering prevents.
+what the procedure's ordering prevents. For the promotion train: the two
+`promote:` branch rulesets (creation by the dev App alone; no update,
+force-push or deletion but by the admin role), `promote/*` added to the
+`staging` environment's deployment branches, the dispatch App's Actions
+write (already granted), and `config/promotion-train.yaml` naming the
+approver (docs/security.md carries each). Close any draft `staging` → `main`
+PR left open, or the train stands aside behind it.
 
 The `staging` *deployment environment* the freshness runs deploy to
-(deployment branches restricted to `staging`, the read-only and staging
+(deployment branches restricted to `staging` and `promote/*`, the read-only and staging
 read-write role trusts, per-environment engine keys) is separate wiring,
 described in docs/security.md.
 
@@ -2003,8 +2050,11 @@ fails if a control docs/security.md records is missing or weaker (`fedcourts
 assert-rulesets`): `main: require approval`'s approval from the maintainers
 team, stale-approval dismissal, merge methods and bypass list; `staging:
 require PR`'s code-owner review, with most-recent-push approval off; the three
-record tag namespaces' update, deletion and creation rules; and each of those
-rulesets' targets and bypass lists. It is **not** part
+record tag namespaces' update, deletion and creation rules; the promotion
+train's `promote/**` creation, update, deletion and force-push rules, with only
+the dev App (and the admin role) able to create a candidate and no App able to
+move one; and each of those rulesets' targets and bypass lists. It also checks
+that the `staging` environment admits exactly `staging` and `promote/*`. It is **not** part
 of `promotion-gate.sh all`: reading a ruleset
 needs repository-administration read, which `GITHUB_TOKEN` cannot hold at all,
 so automating it would mean handing a CI job the repo's most powerful scope to

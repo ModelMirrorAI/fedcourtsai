@@ -208,7 +208,11 @@ workflow offers still runs, and their titles satisfy nothing (the table in
 integration-test.yml --ref staging` runs it — so spending model tokens takes a
 typed `-f scenario=gate` (or `all`), which a promotion pays once per batch at
 the head it will promote (*Promotion: staging → main* in
-[pipeline.md](pipeline.md)). That default is a spend decision as much as a safety
+[pipeline.md](pipeline.md)). The promotion train dispatches exactly that: one
+`gate` run per frozen `promote/<date>` candidate, dispatched once and never
+re-dispatched — a failed one is reported on the candidate for the maintainer to
+re-run or close — so a candidate costs one paid suite. That default is a spend
+decision as much as a safety
 one: a paid `scenario=gate` spends three real cells plus the boot probes, on the
 order of $8 a run (an `all` run adds an evaluate cell and the labeler's cents),
 and at the measured cadence of about 1.4 paid suites a
@@ -589,12 +593,15 @@ construction.
 
 The `deploy-environment` input names which deployment environment supplies the
 role and corpus base URL, and by default resolves from the dispatching branch:
-`main` dispatches use `prod`, and dispatches from `staging` use the `staging`
-environment, which holds the same read-only role and corpus base URL plus its
-own engine keys; any other branch resolves its own name — an unconfigured,
-empty environment with no role variables and no keys — and an explicit choice
-(the input is a closed `auto`/`prod`/`staging` vocabulary) still wins. Each
-environment stays pinned to its one branch.
+`main` dispatches use `prod`, and dispatches from `staging` — or from a
+promotion train candidate, `promote/<date>`, a frozen cut of staging — use the
+`staging` environment, which holds the same read-only role and corpus base URL
+plus its own engine keys; any other branch resolves its own name — an
+unconfigured, empty environment with no role variables and no keys — and an
+explicit choice (the input is a closed `auto`/`prod`/`staging` vocabulary)
+still wins. Each environment stays pinned to its own branches: `prod` to
+`main`, `staging` to `staging` and `promote/*`, whose rulesets let only the dev
+App create a candidate and nobody move one.
 That is what lets a change's read seams run against real infrastructure once it
 is on `staging` and before it is promoted — the capability the trigger path
 structurally cannot provide.
@@ -615,8 +622,10 @@ regardless: the gate needs the twelve required integration runs — all eight
 required scenarios, with engine-smoke and engine-actions-smoke counted once per
 engine each, or one green
 `scenario=gate` run, which covers all twelve because it succeeds only when each
-of its eleven matrix legs and its collect job does — green at exactly that
-staging head, and `promotion-gate` is a required check on `main`, so it is
+of its eleven matrix legs and its collect job does — green at exactly the
+head being promoted and dispatched from its own ref (`staging`, or the
+candidate's `promote/<date>` branch), and `promotion-gate` is a required check
+on `main`, so it is
 branch-protection-enforced rather than advisory. A `promote` dispatch carrying
 `skip_engine_smoke` narrows what *that pre-flight* asks for to the six
 token-free scenarios, taking a green `scenario=offline-gate` run as their
