@@ -1256,7 +1256,9 @@ class _InterimAcc:
     (``sample_weight`` is deliberately unread; the denial-sampling frame covers
     cert petitions only, and every application row is written at weight 1 — if
     a sampling design ever reaches applications, this accumulator must learn
-    to weight).
+    to weight). A count is of application **numbers**: a number the corpus
+    stores under two case ids is offered once, the scan skipping every row
+    :func:`corpus.duplicate_application_case_ids` names before it reaches here.
     The kind tally keeps ``unknown`` (parsed, ask unreadable) apart from
     ``unparsed`` (never application-parsed), so a coverage gap never masquerades
     as a value; the resolved/granted counters and the escalation signals read the
@@ -1704,6 +1706,7 @@ def _accumulate_scotus_terms(
     term_accs: dict[int, _TermAcc],
     interim_accs: dict[int, _InterimAcc],
     merits_accs: dict[int, _MeritsAcc],
+    application_twins: frozenset[str],
 ) -> None:
     """Offer one SCOTUS row to the per-Term accumulators of every stage axis.
 
@@ -1720,13 +1723,19 @@ def _accumulate_scotus_terms(
     contributes no merits row: its vacatur is a cert-stage disposition, and
     pooling it would put a near-certain disturbance into the rate that scores
     merits forecasts, from a case no one was asked to predict.
+
+    ``application_twins`` is the scan's
+    :func:`corpus.duplicate_application_case_ids`: a row in it is a second row
+    for an application number another row already carries, so it joins no
+    interim accumulator, and the interim counts — and the base rate pooled from
+    them — count each number once.
     """
     if row_is_live:
         year = corpus.scotus_term_year(row.docket_number)
         if year is not None:
             term_accs.setdefault(year, _TermAcc()).add(row)
     application_year = corpus.scotus_application_term_year(row.docket_number)
-    if application_year is not None:
+    if application_year is not None and row.case_id not in application_twins:
         interim_accs.setdefault(application_year, _InterimAcc()).add(row)
     if corpus.opens_merits_proceeding(row) and row.date_cert_granted is not None:
         grant_year = october_term_year(row.date_cert_granted)
@@ -1758,6 +1767,7 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
     merits_accs: dict[int, _MeritsAcc] = {}
     with corpus.connect_local_read(corpus_db_path) as conn:
         cursor_rows = corpus.live_cursor_rows(conn)
+        application_twins = corpus.duplicate_application_case_ids(conn)
         for row in corpus.iter_rows(conn):
             overall.add(row)
             if row.last_pulled is not None and (
@@ -1789,7 +1799,9 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
                 for key in keys:
                     slices[key].add(row)
             if row.court == "scotus":
-                _accumulate_scotus_terms(row, row_is_live, term_accs, interim_accs, merits_accs)
+                _accumulate_scotus_terms(
+                    row, row_is_live, term_accs, interim_accs, merits_accs, application_twins
+                )
     return _CorpusScan(
         specs=specs,
         corpus_through=corpus_through,

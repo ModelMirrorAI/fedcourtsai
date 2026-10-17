@@ -8475,9 +8475,12 @@ class _StatPackInterimCounts(_Strict):
 
     Raw counts throughout: the live channel polls every application it discovers
     (no denial sampling, so every row stands only for itself) and nothing here is
-    reweighted. This slice's own ``substantive_grant_rate`` stays **descriptive**
-    — it describes the accumulated cohort and, at the pack level, contains every
-    Term including a scored case's own. The *scored* interim baseline is built
+    reweighted. The unit is the application number, not the corpus row: a
+    number stored under two case ids counts once
+    (:func:`fedcourtsai.corpus.duplicate_application_case_ids`). This slice's
+    own ``substantive_grant_rate`` stays **descriptive** — it describes the
+    accumulated cohort and, at the pack level, contains every Term including a
+    scored case's own. The *scored* interim baseline is built
     from the per-Term entries instead
     (:func:`fedcourtsai.pipeline.base_rates.interim_base_rate`): pooled over
     Terms strictly before the case's, and only where the pooled sample clears the
@@ -8500,7 +8503,9 @@ class _StatPackInterimCounts(_Strict):
         default=0,
         ge=0,
         description="Application dockets (strict `YYAnnn` form — the live channel's "
-        "addressable population) in this slice",
+        "addressable population) in this slice, each number counted once: a number "
+        "the corpus stores under two case ids counts its lowest-docket-id row only, "
+        "here and in every count below",
     )
     extension: int = Field(
         default=0,

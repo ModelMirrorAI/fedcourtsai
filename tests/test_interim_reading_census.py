@@ -194,6 +194,27 @@ def test_the_census_statpack_counts_are_the_statpacks_own(
     }
 
 
+def test_the_census_counts_a_twice_stored_number_once_as_the_statpack_does(
+    seeded: tuple[Path, Path, Path],
+) -> None:
+    """A second row for 26A704 (a granted substantive) is skipped by both, so the
+    census and the statpack still agree and neither counts the grant twice."""
+    db, data_root, _ = seeded
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row("scotus/9704", "26A704", Disposition.granted)])
+        corpus.upsert_snapshot(
+            conn, "scotus/9704", date(2026, 7, 10), _live("26A704", "Application (26A704) granted.")
+        )
+        census = interim_reading_census(conn, data_root)
+    counts = census.terms["OT2026"]
+    assert (counts.statpack_resolved, counts.statpack_granted) == (8, 3)
+    assert census.eligible == 8
+    interim = analytics.build_statpack(corpus_db_path=db).interim
+    assert interim is not None
+    (term,) = interim.terms
+    assert (term.substantive_resolved, term.substantive_granted) == (8, 3)
+
+
 def test_the_census_writes_nothing(seeded: tuple[Path, Path, Path]) -> None:
     """The scored and cell-facing view is the stored one, and it stays byte-identical."""
     db, data_root, outcome = seeded

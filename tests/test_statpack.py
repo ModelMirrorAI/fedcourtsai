@@ -22,7 +22,11 @@ from typer.testing import CliRunner
 from fedcourtsai import analytics, corpus, fixture, serialize
 from fedcourtsai.analytics import _STATPACK_SECTIONS
 from fedcourtsai.cli import app
-from fedcourtsai.pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED, merits_base_rate
+from fedcourtsai.pipeline.base_rates import (
+    INTERIM_BASE_RATE_MIN_RESOLVED,
+    interim_base_rate,
+    merits_base_rate,
+)
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION, SCORERS, SalienceScorer
 from fedcourtsai.schemas import (
@@ -1331,6 +1335,95 @@ def test_interim_counts_by_kind_and_term(tmp_path: Path) -> None:
     assert ot24.substantive_grant_rate == pytest.approx(0.5)
     assert (ot23.applications, ot23.substantive, ot23.substantive_resolved) == (1, 1, 1)
     assert ot23.substantive_grant_rate == 0.0  # a dismissal resolves, ungranted
+
+
+def _application(case_id: str, docket: str, **kwargs: object) -> corpus.CorpusRow:
+    fields: dict[str, object] = {
+        "case_id": case_id,
+        "court": "scotus",
+        "docket_number": docket,
+        "application_kind": "substantive",
+        "last_live_polled": date(2026, 7, 1),
+        "sample_weight": 1,
+    }
+    fields.update(kwargs)
+    return corpus.CorpusRow.model_validate(fields)
+
+
+def test_an_application_number_stored_twice_counts_once(tmp_path: Path) -> None:
+    # The corpus held 24A910 and 24A931, two substantive grants, as two
+    # live-polled rows each, so the OT2024 pool counted each grant twice. The
+    # cohort here: two granted numbers stored twice, one denied number stored
+    # three times, one granted number under a capital annotation beside its
+    # plain spelling, and a lone denial — 5 numbers, 9 rows.
+    db = tmp_path / "corpus.db"
+    granted = {"disposition": Disposition.granted}
+    denied = {"disposition": Disposition.denied}
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _application("scotus/69846237", "24A910", **granted),
+                _application("scotus/72162017", "24A910", **granted),
+                _application("scotus/69856122", "24A931", **granted),
+                _application("scotus/72162016", "24A931", **granted),
+                _application("scotus/18574816", "24A66", **denied),
+                _application("scotus/18583749", "24A66", **denied),
+                _application("scotus/18583750", "24A66", **denied),
+                _application("scotus/500", "24A7", **granted),
+                _application("scotus/9524000007", "24A7 *** CAPITAL CASE ***", **granted),
+                _application("scotus/501", "24A8", **denied),
+            ],
+        )
+        twins = corpus.duplicate_application_case_ids(conn)
+    assert twins == {
+        "scotus/72162017",
+        "scotus/72162016",
+        "scotus/18583749",
+        "scotus/18583750",
+        "scotus/9524000007",
+    }
+    interim = analytics.build_statpack(corpus_db_path=db).interim
+    assert interim is not None
+    (ot24,) = interim.terms
+    assert (ot24.applications, ot24.substantive) == (5, 5)
+    assert (ot24.substantive_resolved, ot24.substantive_granted) == (5, 3)
+    assert (interim.substantive_resolved, interim.substantive_granted) == (5, 3)
+
+
+def test_the_counted_twin_is_the_lowest_docket_id_not_the_first_string(tmp_path: Path) -> None:
+    # `scotus/479784` sorts after `scotus/1625607` as a string but is the lower
+    # docket id — the identity join's survivor — so it is the row counted. The
+    # survivor's own facts are what count: here it is the parsed row.
+    rows = [
+        _application("scotus/1625607", "05A1233", application_kind=None),
+        _application("scotus/479784", "05A1233", disposition=Disposition.granted),
+        # A cert number shared by two rows is no application and is not this rule's.
+        _application("scotus/1", "24-5", application_kind=None),
+        _application("scotus/2", "24-5", application_kind=None),
+    ]
+    with corpus.connect(tmp_path / "corpus.db") as conn:
+        corpus.upsert_rows(conn, rows)
+        assert corpus.duplicate_application_case_ids(conn) == {"scotus/1625607"}
+
+
+def test_the_interim_base_rate_pools_each_number_once(tmp_path: Path) -> None:
+    # The regression the fix exists for, read where cells read it: the pooled
+    # strictly-prior rate an OT2025 cell is scored against.
+    db = tmp_path / "corpus.db"
+    rows = [
+        _application(f"scotus/{700 + i}", f"24A{i}", disposition=Disposition.denied)
+        for i in range(1, INTERIM_BASE_RATE_MIN_RESOLVED + 1)
+    ]
+    rows += [
+        _application("scotus/800", "24A900", disposition=Disposition.granted),
+        _application("scotus/900", "24A900", disposition=Disposition.granted),
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+    pack = analytics.build_statpack(corpus_db_path=db)
+    rate = interim_base_rate(2025, pack)
+    assert rate == pytest.approx(1 / (INTERIM_BASE_RATE_MIN_RESOLVED + 1))
 
 
 def test_interim_rate_is_substantive_only(tmp_path: Path) -> None:

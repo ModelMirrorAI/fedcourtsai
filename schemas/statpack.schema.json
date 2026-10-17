@@ -158,7 +158,7 @@
       "properties": {
         "applications": {
           "default": 0,
-          "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice",
+          "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice, each number counted once: a number the corpus stores under two case ids counts its lowest-docket-id row only, here and in every count below",
           "minimum": 0,
           "title": "Applications",
           "type": "integer"
@@ -259,7 +259,7 @@
       "properties": {
         "applications": {
           "default": 0,
-          "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice",
+          "description": "Application dockets (strict `YYAnnn` form \u2014 the live channel's addressable population) in this slice, each number counted once: a number the corpus stores under two case ids counts its lowest-docket-id row only, here and in every count below",
           "minimum": 0,
           "title": "Applications",
           "type": "integer"

@@ -2504,6 +2504,55 @@ def scotus_application_term_year(docket_number: str) -> int | None:
     return 1900 + two_digit if two_digit >= 30 else 2000 + two_digit
 
 
+def _survivor_order(case_id: str) -> tuple[int, int, str]:
+    """Sort key putting the lowest numeric docket id first, then any other id."""
+    tail = case_id.rsplit("/", 1)[-1]
+    return (0, int(tail), case_id) if tail.isdigit() else (1, 0, case_id)
+
+
+def duplicate_application_case_ids(conn: ReadConnection) -> frozenset[str]:
+    """The SCOTUS application rows a count or rate reads past: one number, one row.
+
+    The corpus can hold one interim application number under more than one
+    ``case_id`` (two upstream docket ids for the same number, each written as
+    its own row), so a reader that counts rows counts that application twice.
+    Every reader whose figure is a count or rate over application numbers (the
+    statpack's interim section, and with it the interim base rate; the interim
+    reading census that replicates it) skips the ids this returns, so each
+    number counts once.
+
+    The key is the parsed ``(term, serial)`` of the strict ``YYAnnn`` form
+    (:func:`scotus_application_term_year`'s own parse, annotation stripped) —
+    exactly the population the interim section is keyed on, so a row this
+    skips is one the section would otherwise have counted. The **survivor** of
+    each group is the row with the lowest numeric docket id, the rule the
+    identity join applies when two rows match one number
+    (:func:`scotus_case_id_by_docket_number`) and the one
+    :mod:`fedcourtsai.dedupe` keeps, so the counted row is the id the rest of the
+    pipeline resolves the number to. Which row survives moves no count where the
+    rows agree; where they disagree, the survivor's facts are the ones counted,
+    and the dedupe census (``scripts/checks/application_duplicates.py``) lists
+    each group's differing fields. Read-only; a row is skipped, never altered,
+    and a corpus merge of the groups would leave this returning an empty set.
+    """
+    groups: dict[tuple[int, int], list[str]] = {}
+    for record in conn.execute(
+        "SELECT case_id, docket_number FROM cases "
+        "WHERE court = 'scotus' AND docket_number LIKE '%A%'"
+    ):
+        key = parse_scotus_application_number(
+            strip_docket_annotation(str(record["docket_number"] or ""))
+        )
+        if key is not None:
+            groups.setdefault(key, []).append(str(record["case_id"]))
+    return frozenset(
+        case_id
+        for case_ids in groups.values()
+        if len(case_ids) > 1
+        for case_id in sorted(case_ids, key=_survivor_order)[1:]
+    )
+
+
 def is_modern_cert(row: CorpusRow) -> bool:
     """Whether a SCOTUS docket is a modern discretionary-cert petition, by form.
 

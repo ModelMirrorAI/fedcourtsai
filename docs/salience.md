@@ -1774,7 +1774,11 @@ ask, the substantive slice's resolved/granted counts and raw grant rate, and
 the escalation-signal counts, pack-level and per application-Term (the amicus
 column there counts applications carrying **at least one** brief, not briefs —
 the count itself stays on the corpus row) — and its
-**per-Term entries are what the scored baseline pools**:
+**per-Term entries are what the scored baseline pools**. The unit is the
+application number, not the corpus row: a number the corpus stores under two
+or more case ids counts once, as its lowest-docket-id row, the identity join's
+survivor (`corpus.duplicate_application_case_ids`), so a twice-stored grant is
+one grant in the pool:
 `segment_base_rate` takes an application arm keyed on the `YYAnnn` Term
 (`base_rates.interim_base_rate`), which is the estimator registered below. The
 pack-level rate beside it stays descriptive and is never the baseline, because
