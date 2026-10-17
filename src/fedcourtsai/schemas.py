@@ -2328,8 +2328,12 @@ class AgentToolingFeedback(_Strict):
     PR's prior-availability note (the field asks whether the cell *used* the CLI,
     which that note weighs against what capture saw rather than treating as a
     verdict on the corpus). It is the agent's own account —
-    subjective, advisory, and never a gate. The token stays comment-only: the file is
-    written locally and the trusted ``collect`` job commits it with the cell's output.
+    subjective, advisory, and never a gate. The stamp normalises a mis-shaped report
+    before ``validate`` (:func:`fedcourtsai.agent_tooling.normalise_tooling`), short
+    of supplying a ``used_corpus_query`` the cell did not answer or reading a file
+    that is not a JSON object. The token stays comment-only: the
+    file is written locally and the trusted ``collect`` job commits it with the cell's
+    output.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION

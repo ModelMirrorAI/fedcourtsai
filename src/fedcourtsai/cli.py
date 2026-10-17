@@ -78,6 +78,7 @@ from . import (
 )
 from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
 from .agent_flags import CellCoordinates, coordinates_from_path, normalise_flags
+from .agent_tooling import normalise_tooling
 from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
     relabel_application_baseline_events,
@@ -8040,16 +8041,15 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         # Before the tripwire below, so it appends to a file that parses, and
         # before `validate`, so an advisory note can never take the cell's output
         # with it. A re-grade is a correction over committed cells and leaves
-        # their flags as committed.
-        _normalise_cell_flags(
-            event_paths,
-            CellCoordinates(
-                case_id=ids.case_id(court, docket),
-                run_id=run_id,
-                role=UsageRole(role),
-                actor_id=actor,
-            ),
+        # their flags and tooling reports as committed.
+        coordinates = CellCoordinates(
+            case_id=ids.case_id(court, docket),
+            run_id=run_id,
+            role=UsageRole(role),
+            actor_id=actor,
         )
+        _normalise_cell_flags(event_paths, coordinates)
+        _normalise_cell_tooling(event_paths, coordinates)
 
     if role == "predictor":
         targets = [event_paths.prediction(actor, run_id)]
@@ -8415,6 +8415,41 @@ def _normalise_cell_flags(event_paths: EventPaths, where: CellCoordinates) -> No
         err=True,
     )
     write_json(flags_path, normalised.flags)
+
+
+def _normalise_cell_tooling(event_paths: EventPaths, where: CellCoordinates) -> None:
+    """Rewrite a cell's ``tooling.json`` into the schema's shape where that is honest.
+
+    The cell's self-report on its tooling is advisory and never graded, so a
+    report the agent mis-shaped — an invented key, a list written as text — must
+    not fail ``validate`` and discard the prediction or gradings beside it. The
+    coercion (:func:`fedcourtsai.agent_tooling.normalise_tooling`) records what
+    it changed in a ``[harness]`` line on the report's ``notes``. It leaves a
+    file whose ``used_corpus_query`` is not a yes or no as written, since the
+    ``collect`` job reads that field as the cell's own word and no value could
+    be supplied for it; ``validate`` then decides, as it does for a file that
+    already validates. ``validate`` stays strict; this only runs before it.
+    """
+    tooling_path = (
+        event_paths.prediction_tooling(where.actor_id, where.run_id)
+        if where.role == UsageRole.predictor
+        else event_paths.evaluation_tooling(where.actor_id, where.run_id)
+    )
+    if not tooling_path.is_file():
+        return
+    try:
+        text = tooling_path.read_bytes().decode("utf-8", errors="replace")
+    except OSError:
+        return
+    normalised = normalise_tooling(text, where)
+    if normalised.feedback is None:
+        return
+    typer.echo(
+        f"::warning::stamp: {where.actor_id} {_one_line(where.case_id)} tooling.json did not "
+        + "validate; normalised it (a [harness] line in its notes records what changed).",
+        err=True,
+    )
+    write_json(tooling_path, normalised.feedback)
 
 
 def _flag_unread_snapshot(
