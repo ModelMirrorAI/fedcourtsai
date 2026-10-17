@@ -1853,8 +1853,8 @@ The full path of a change, operator's view:
    (docs/process-version.md, *Freezing*) — fills the closed-key placeholders
    the merge added, and comments on the PR with whatever it left for a maintainer — free-text
    placeholders, and stale ones an earlier merge carried. A merge it refuses
-   (a hand-written fill that rewrapped a landed placeholder, say) opens a
-   `promotion-record-log` issue. If that merge carried a registration, its
+   (a hand-written fill that rewrapped the prose around a landed
+   placeholder, say) opens a `promotion-record-log` issue. If that merge carried a registration, its
    rows stay pending — never stamp them by hand: fix the cause and re-dispatch
    `gh workflow run promotion-record.yml --ref main -f merge=<merge SHA>`.
    Until the stamp lands, Step 0's pending-on-`main` check refuses every later
@@ -2922,8 +2922,10 @@ evaluator always scores every committed prediction for its event.
 
 `run-pull` records `outcome.json` itself only when a decided docket is
 unambiguous (a machine-readable disposition, a decision date, and a single open
-event). Everything else — an unreadable/absent disposition, no decision date, or
-a case-level disposition that cannot be attributed across several open events —
+event). Everything else — an unreadable/absent disposition, no decision date, a
+case-level disposition that cannot be attributed across several open events, or
+a moment detection refuses to attribute to (one opened after the decision, or
+one opened under another petition than its re-docketed number now carries) —
 becomes an **unrecorded outcome** (it does not guess): the case lands on the
 runner-local unrecorded queue (`unrecorded-queue.json`, the `UnrecordedOutcome`
 detection in the library) instead of the git ledger. No issue is filed for

@@ -4810,13 +4810,15 @@ def _event_from_record(record: RecordRow) -> CorpusEvent:
 #: (:func:`fedcourtsai.pipeline.outcome.record_lost_outcomes`) reasons for a
 #: corpus-resolved moment it could not attribute: no stored snapshot to read the
 #: order text from, no decision date for the stage, a moment that opened after
-#: the decision, or a disposition detection declined.
+#: the decision, a moment whose caption names another petition than the docket
+#: now does (a re-docketed number), or a disposition detection declined.
 NO_OUTCOME_INGESTED_DECIDED = "ingested-decided"
 NO_OUTCOME_REASONS: tuple[str, ...] = (
     NO_OUTCOME_INGESTED_DECIDED,
     "no-snapshot",
     "undated",
     "opened-after-decision",
+    "redocketed",
     "declined",
 )
 

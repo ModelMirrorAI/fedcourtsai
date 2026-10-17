@@ -604,13 +604,17 @@ placeholders, while a landed one adds nothing:
 - not where the entry is moved, since its heading is not new.
 
 Every placeholder the first parent's record holds must also reach the merge's
-record on its own line, verbatim or filled: the same line with each
-placeholder replaced by a one-line value holding no `<`, `>` or backtick. A
-landed placeholder whose line was reworded, rewrapped, joined onto its
-heading or deleted makes the plan **refuse**, naming it, rather than guess
-which placeholder became which. A promotion that carries a hand-written fill
-which rewraps its lines is therefore refused and handled by hand. Fills of
-landed placeholders reach `main` directly rather than riding a promotion.
+record on its own line(s), verbatim or filled: the same text with each
+placeholder left as is or replaced by a one-line value holding no `<`, `>` or
+backtick. The lines a placeholder spans are one unit, and placeholders that
+share a line share it, so a placeholder wrapped across a line break loses that
+break when it is filled, as the writer's own fill does. A landed placeholder
+whose lines were otherwise reworded, rewrapped, joined onto its heading or
+deleted makes the plan **refuse**, naming it, rather than guess which
+placeholder became which. A promotion that carries a hand-written fill which
+rewraps the prose around a placeholder is therefore refused and handled by
+hand. Fills of landed placeholders reach `main` directly rather than riding a
+promotion.
 
 The plan refuses a merge committed
 before either parent, in the future, or before an instant the registry
@@ -983,9 +987,12 @@ A void is admissible only when:
   flag on the resolved event, or found by a systematic scan of stored docket
   identities — **and publishes the voided gradings' scores**, so a void is seen
   to remove hits and misses alike;
-- **and, once the docket-identity detector exists, every event it flags is
-  voided whatever its gradings scored,** so a void is never a choice made after
-  seeing the scores.
+- **and every already-graded event the docket-identity detector
+  (`pipeline.redocket`) flags is voided whatever its gradings scored,** so a
+  void is never a choice made after seeing the scores. The detector refuses at
+  attribution, so a moment it flags before resolution is never graded and needs
+  no void; its scan at the vintage the freeze-record entry of 2026-10-17 states
+  flagged only the event already voided.
 
 The better remedy for such an event would be to re-resolve it against its own
 subject's outcome under that petition's new number. Nothing relocates an event
