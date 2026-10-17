@@ -48,7 +48,8 @@ moves them.
 event`** ([case-summaries.md](case-summaries.md)). It is one non-agentic
 call per predicted case (a second when a rejected response is retried) on
 Claude Sonnet 5, written only when a case's record
-changes, on the environment's Anthropic key behind the `review` hold.
+changes, on the environment's Anthropic key behind the `review` hold or its
+budgeted auto-release.
 Measured basis: a median
 staged record of ~120k characters (≈50k tokens) puts a summary at
 ≈$0.10–0.20. The backfill of ~195 predicted cases is ≈$20–40 once; about 4% of

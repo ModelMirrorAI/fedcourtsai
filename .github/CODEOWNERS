@@ -104,6 +104,7 @@
 /src/fedcourtsai/planning_rates.py @modelmirror
 /src/fedcourtsai/review_hold.py @modelmirror
 /src/fedcourtsai/spend.py @modelmirror
+/tests/test_spend.py @modelmirror
 /src/fedcourtsai/dispatch_chain.py @modelmirror
 /tests/test_review_hold.py @modelmirror
 /tests/test_dispatch_chain.py @modelmirror

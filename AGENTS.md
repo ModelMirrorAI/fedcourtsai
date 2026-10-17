@@ -253,7 +253,8 @@ non-interactive** container. Two consequences shape everything you do:
   (non-draft) same-repository PRs by the authors on `config/corpus-check.yaml`
   are answered, one head SHA once, and the summary is posted publicly, so
   report counts and identifiers, never stored snapshot text. Every push to a
-  PR still carrying the block asks again and holds the lane for an approval,
+  PR still carrying the block asks again — an `at: main` request re-runs
+  unattended, any other holds the lane for an approval —
   so **remove the block once the check is answered**, and put it back only
   for a head that needs checking. A result counts only when its comment
   links a `corpus-check` run on `main` whose post-job summary carries the

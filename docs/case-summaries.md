@@ -290,7 +290,8 @@ prediction panel, and its plan stands down while a predict or evaluate round
 is running (checked at plan time, so a hold released later can overlap a
 round, harmlessly). It does share the key's provider spend limit with the
 cells, so what bounds a runaway plan is the `review` hold in front of every
-run and the per-document cap; [budget.md](budget.md) carries the expected
+run that does not auto-release, the auto-release's per-round cap and trailing
+budget, and the per-document cap; [budget.md](budget.md) carries the expected
 spend.
 
 **Staged like a cell.** The record a summary reads is the one a forward predict
@@ -401,7 +402,7 @@ backfill at ≈$20–40, a margin over that estimate — the plan's range assume
 2.5–3.5 characters per token and a typical-to-capped output — until a run's
 recorded usage replaces both. At ~4% of records changing a day, steady state is
 roughly 5–10 summaries a day, ≈$1–2 a day or ≈$30–60 a month, each run
-behind the `review` hold. See [budget.md](budget.md).
+behind the `review` hold or auto-released within the trailing budget. See [budget.md](budget.md).
 
 A body-contract change re-plans every eligible case at once (`body-outdated`,
 above), so it costs one backfill. The 206 summaries committed by 2026-09-27,

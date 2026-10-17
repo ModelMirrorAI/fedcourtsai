@@ -45,9 +45,9 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates one Buttondown draft, never sends |
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
-| `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the manual `review` release | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
+| `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
-| `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command (no agent) |
+| `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
@@ -520,7 +520,7 @@ committed prediction whose newest corpus record differs, by content digest,
 from the one its newest summary was written from — so a run that was declined
 or never fired is simply re-derived by the next. Every run holds on `review`
 before it spends, unless a `main` run's plan is within the auto-release caps
-and budget (*Auto-release*, above). The corpus role and the Anthropic API key never share
+and budget (*Auto-release*, below). The corpus role and the Anthropic API key never share
 a job; on `main` the result lands as one reviewed PR from the fixed branch
 `summaries/refresh`, never auto-merged, which later runs update in place until
 it merges. A `staging` dispatch is a rehearsal whose summaries stay in the run
@@ -2281,8 +2281,10 @@ committed record lags and the deployment count is what binds.
 
 The budget is a projection over a ledger that lags, so it is a floor on
 spend, not a live figure: a round a maintainer released by hand and whose
-collect PR has not landed, a summaries PR still open, and a rejected summary
-response's tokens are all invisible to it. That is why the budget must sit
+collect PR has not landed, an auto-released round whose collect PR is still
+open more than 24 hours on, a summaries PR still open (except to the summarize
+plan, which carries that PR's summaries and counts them), and a rejected
+summary response's tokens are all invisible to it. That is why the budget must sit
 below the `spend` backstop's ceiling (`tracking.yaml`): the backstop stops
 minting outright, and the budget stops only the *unattended* release, leaving
 the gap between the two for rounds a maintainer chooses to release. A budget at

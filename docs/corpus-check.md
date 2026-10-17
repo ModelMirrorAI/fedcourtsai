@@ -100,8 +100,9 @@ request and a held one are both waiting, the auto one is answered first, since
 it waits on no one.
 
 **Every new head asks again.** A push to a PR still carrying the block is a new
-head with no result, so the next poll plans it and the lane holds for another
-approval — and while one approval waits, every other request waits behind it.
+head with no result, so the next poll plans it: an `at: main` request runs
+again without approval, and any other holds the lane for another approval —
+and while one approval waits, every other request waits behind it.
 So remove the block once the check is answered, and put it back only for a head
 that needs checking; to re-run an unchanged head, push a commit (an empty one
 will do). A head whose comment cannot be posted — a locked conversation, say —
@@ -455,8 +456,9 @@ most any token it could then mint reaches is the read-only role.
   Until step 2, an auto run fails at its role assumption and posts `not run`;
   nothing else is affected.
 - **Changing the auto allowlist** is an edit to `auto_subcommands` in
-  `config/corpus-check.yaml` and to the test that pins it
-  (`tests/test_corpus_check.py`), both maintainer-owned, effective once
+  `config/corpus-check.yaml` and to the tests that pin it — the names in
+  `tests/test_corpus_check.py` and each command's full option surface in
+  `tests/test_corpus_check_auto_surface.py` — all maintainer-owned, effective once
   promoted. Vet an addition against the rule in that file's comment: reads
   only, writes nothing, no path or URL option, no model, stdout of counts and
   identifiers.

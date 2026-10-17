@@ -40,7 +40,8 @@ on:
     # 06:47 live window; the replay only ever reads the corpus
     # and takes no `corpus-write` lock, so an overlap would cost a staler read
     # and nothing else. The minute is off every other workflow's (:00, :12, :13,
-    # :17, :27, :30, :31, :32, :39, :41, :47, :53) so the repo's offset grid
+    # :17, :19, :26, :27, :30, :31, :32, :36, :39, :41, :43, :47, :49, :53, :57)
+    # so the repo's offset grid
     # stays legible.
     #
     # The **effective cadence is biweekly**, and the cron cannot say so: GitHub

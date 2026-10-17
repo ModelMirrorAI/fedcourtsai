@@ -760,8 +760,10 @@ only through the wrapper as the unprivileged account whose separation the job
 proves, the auto job's complementary route, its tree the run's own commit and
 no plan output but the route and the command, its provisioning step the held
 job's byte for byte, no `${{ }}` in any script, no PR code in the post job;
-and `test_environment_checks`: each environment's reviewer, `main`-only policy
-and contents, which the promotion gate checks unconditionally), the
+`test_environment_checks`: each environment's reviewer, `main`-only policy
+and contents, which the promotion gate checks unconditionally; and
+`test_corpus_check_auto_surface`: every auto-allowlisted subcommand's full
+option surface, none taking a path), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants

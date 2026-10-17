@@ -59,7 +59,10 @@
 #   which differs from actual by engine mix) and holds a campaign-sized one
 #   for a human read.
 # - Six rounds a day: the four scheduled slots (two predict, one evaluate, one
-#   summarize) plus two predict drain rounds the chain dispatches. Unattended
+#   summarize) plus two chained predict rounds. The chain can dispatch far more
+#   than two — after any of the sixteen pull and live windows that changes a
+#   forecast-relevant record, and after a capped round — so this cap, not the
+#   chain, is what bounds how many of them run unattended. Unattended
 #   *estimated* spend is then at most 6 x $75 = $450 a day, up to a race at the
 #   count when two lanes plan at the same moment (each reads the count before
 #   either deploys). The in-flight allowance reaches $375 before the sixth

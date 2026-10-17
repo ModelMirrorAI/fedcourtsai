@@ -279,17 +279,16 @@ and existence checks and no list or delete primitive to call. So the prefix
 only grows. The scale: the blob is ~1.1 GB and the writers hold twenty
 scheduled windows a day (`run-pull`'s four pull windows and twelve live ones,
 plus `run-seed`'s four historical ones), with dispatched runs on top
-and several pushes possible inside one window. Measured when the live channel
-ran four windows a day, the committed pointer moved a median of **13 times a
-day**, on the order of 14 GB a day of new objects. Each live window commits a
-pointer, so the eight live windows the two-hourly cadence adds raise that to
-an estimated ~21 moves and ~24 GB a day until a re-measurement replaces the
-estimate. Either figure is a floor on the accretion, not a count of it: a push
+and several pushes possible inside one window. A measurement taken over
+four live windows a day put the committed pointer's moves at a median of
+**13 a day**, on the order of 14 GB a day of new objects. Each live window
+commits a pointer, so at twelve live windows the estimate is ~21 moves and
+~24 GB a day until a re-measurement at the current cadence replaces it. Either figure is a floor on the accretion, not a count of it: a push
 whose pointer commit never lands still leaves its object behind.
 
 Those figures are measurements and an estimate, and they age. The push rates
 were read off the pointer's own history on **2026-08-28** (621 revisions since
-2026-07-13), before the live cadence moved to every two hours; re-measure them from `git log --follow --format=%cI -- corpus/corpus.db.ref` on
+2026-07-13), over four live windows a day; re-measure them from `git log --follow --format=%cI -- corpus/corpus.db.ref` on
 `main`, and the blob size from `fedcourts corpus-info` after a pull. The
 lifecycle rule below is sized against them, so a figure that has moved is a
 reason to re-read that sizing.

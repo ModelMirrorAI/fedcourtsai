@@ -10399,7 +10399,6 @@ freeze commit is recorded here.
   cadence on `main`: <FILL: promotion tag, merge commit and the first
   12-window run's id and start time>. A reading that compares realized
   selected-versus-N counts or arrival-cohort coverage across conferences
-  either side of it reads the two regimes separately, and the first
-  conferences after it are checked against those before it
-  (<FILL: per-conference realized-selected vs N for the first three
-  conferences after the boundary and the three before, as one plain line>).
+  either side of it reads the two regimes separately. The comparison of the
+  first conferences after it against those before it is recorded by a later
+  entry, once those conferences have been selected.
