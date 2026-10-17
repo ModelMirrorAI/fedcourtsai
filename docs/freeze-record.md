@@ -10217,14 +10217,14 @@ freeze commit is recorded here.
   - *Rules 1, 2 and 4 against the corpus:* the predicted events the corpus
     records resolved with no outcome (selected and unselected rows), and the
     open declared moments on decided selected rows (predicted and not), are:
-    <FILL: corpus-check sections 2 and 3 counts as one plain line>.
+    at corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39042494154 at b8021042d, read after the pass was applied in ff7b0f4fa on 2026-10-16, of 213 predicted events with no outcome.json, 0 corpus-resolved on a selected row and 0 on an unselected row, so the pass owes no grade; and 0 open declared moments on decided selected rows with no ledger outcome, predicted or not, which follows from the pass's gap population reading 0.
     A predicted moment there gains an outcome and an owed grade; nothing
     changes which moment an outcome attaches to.
   - *Rule 5: new forward merits cells.* Each merits event the pass mints is a
     **new forward merits cell** for the predict lane — new spend, and a new
     predicted case, minted long after its grant on a case selected for its
     cert stage. The dry run's split of the recorded grants is:
-    <FILL: corpus-check section 1 merits split minted-pending, judgment-latched, terminated, stale, out-of-scope as one plain line>.
+    not captured from the dry run, and recomputed after the apply by classifying the 243 grants it recorded against each row's merits ladder: minted-pending 0 (the apply minted no merits event), judgment-latched 219, terminated 6, stale 0, out-of-scope 0, and 18 carrying a merits event at this blob, matching the 18 the apply gave no verdict (243 less 225); only the total of 225 recorded without a merits event is the apply's own figure, and the 219 and 6 split is read at corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39042494154 at b8021042d, read after the pass was applied in ff7b0f4fa on 2026-10-16, not at the apply's blob.
     A merits case minted this way is forecast forward like any other, but its
     cohort entered the merits population at the pass's apply, not at its
     grant, and a merits figure that counts it reads that beside this entry.
@@ -10233,7 +10233,7 @@ freeze commit is recorded here.
     above were recorded), missing on 45% of granted, 39% of gvr, 32% of
     dismissed and 31% of denied selected moments. The attributable and
     residue counts by disposition are:
-    <FILL: corpus-check sections 0 and 1 recorded and residue by disposition as one plain line>.
+    the dry run read a gap population of 969 and the apply recorded 969 gap moments, denied 585, granted 243, gvr 112, dismissed 29, so the pass held back, failed, marked as residue or left open 0; a re-dry-run and this census both read the population at 0, which a residue mark or an open gap would have kept above 0; the 162 moments between the 1,131 measured on the 2026-09-27 blob and this population left it before the apply by routes this pass does not attribute; at corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39042494154 at b8021042d, read after the pass was applied in ff7b0f4fa on 2026-10-16, the 3,304 decided declared moments on selected rows, denied 2,328, granted 564, gvr 310, dismissed 98, withdrawn 4, all carry a complete ledger pair.
     None carries a prediction, so recording them moves no board, export or
     grade. The residue left unrecorded is not neutral by disposition, and
     any count of ledger outcomes beyond predicted events reads it beside the
@@ -10265,7 +10265,7 @@ freeze commit is recorded here.
   reading as every interim outcome the poll records. The rows exposed to the
   shape (selected application rows and committed interim outcomes whose
   stored proceedings carry it, read-only) are:
-  <FILL: corpus-check section 4 exposure counts as one plain line>.
+  at corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39042494154 at b8021042d, read after the pass was applied in ff7b0f4fa on 2026-10-16, 0 selected application rows whose stored proceedings carry the shape, and 0 committed interim outcomes on such a docket, 0 of them on a predicted event, counted only for a sentence opening with a motion that names the application, in stored proceedings no newer than 2026-07-13; this is a different shape from the clause-scope probe, whose candidate denials the interim census entry lists, and it does not count them.
 
   **Reading rule.** No scored figure moves at the carrying merge. A tally of
   ledger outcomes on selected rows taken before the `lost-outcomes` apply
