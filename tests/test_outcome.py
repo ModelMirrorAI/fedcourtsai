@@ -41,6 +41,7 @@ from fedcourtsai.pipeline.outcome import (
     snapshot_shows_judgment,
     termination_signal,
 )
+from fedcourtsai.pipeline.redocket import REDOCKETED_REASON
 from fedcourtsai.schemas import (
     Disposition,
     EventKind,
@@ -2938,6 +2939,131 @@ def test_record_outcomes_refuses_a_moment_opened_after_its_outcome(tmp_path: Pat
     with pytest.raises(RuntimeError, match="opened 2026-09-23 after its outcome"):
         record_outcomes(db, tmp_path, "scotus", 9526000325, resolution)
     assert not CasePaths(tmp_path, "scotus", 9526000325).base.exists()
+
+
+# --- a re-docketed number: the event names another petition ------------------------
+
+#: The caption of a petition the number carried before the Clerk re-entered it.
+_EARLIER_PETITION = "Acme Holdings, Inc. v. Springfield Board of Education, et al."
+
+
+_REDOCKETED_CAPTION = "Jane Doe v. Superior Court"
+
+
+def _redocketed_row() -> corpus.CorpusRow:
+    """The decided application row, its caption naming the petition now on the number."""
+    return _decided_application_row().model_copy(update={"case_name": _REDOCKETED_CAPTION})
+
+
+def _redocketed_poll_row() -> CorpusRow:
+    """The same docket as the live poll maps it."""
+    return from_api_docket(
+        {
+            "id": 9526000325,
+            "court_id": "scotus",
+            "docket_number": "26A325",
+            "case_name": _REDOCKETED_CAPTION,
+            "date_filed": "2026-09-09",
+            "date_terminated": "2026-09-22",
+            "disposition": "denied",
+        }
+    )
+
+
+def test_a_redocketed_moment_never_receives_the_new_petitions_disposition() -> None:
+    # The arrival moment opened under the earlier petition; the docket now
+    # names another, which was denied. The baseline (opened under the current
+    # petition) resolves; the arrival moment is surfaced with the fixed reason.
+    row = from_api_docket(
+        {
+            "id": 9026000221,
+            "court_id": "scotus",
+            "docket_number": "26-221",
+            "case_name": "Doe v. Kansas",
+            "date_cert_denied": "2026-10-13",
+        }
+    )
+    open_ids = ["evt-petition-disposition", "evt-petition-arrival-disposition"]
+    resolution = detect_resolution(
+        row,
+        "scotus",
+        9026000221,
+        open_ids,
+        stages=dict.fromkeys(open_ids, Stage.cert),
+        redocketed={"evt-petition-arrival-disposition"},
+    )
+    assert set(resolution.outcomes) == {"evt-petition-disposition"}
+    (refused,) = resolution.unrecorded
+    assert refused.event_id == "evt-petition-arrival-disposition"
+    assert refused.reason == REDOCKETED_REASON
+
+
+def test_the_poll_refuses_a_moment_whose_corpus_caption_names_another_petition(
+    tmp_path: Path,
+) -> None:
+    db = _seed_application(
+        tmp_path,
+        [
+            _interim_event("evt-motion-disposition", resolved=False),
+            _interim_event("evt-order-response-requested-disposition", resolved=False).model_copy(
+                update={"title": _EARLIER_PETITION}
+            ),
+        ],
+        row=_redocketed_row(),
+    )
+    resolution = resolve_case(db, tmp_path, _redocketed_poll_row(), "scotus", 9526000325)
+    assert list(resolution.outcomes) == ["evt-motion-disposition"]
+    (refused,) = resolution.unrecorded
+    assert refused.event_id == "evt-order-response-requested-disposition"
+    assert refused.reason == REDOCKETED_REASON
+    case = CasePaths(tmp_path, "scotus", 9526000325)
+    assert not case.event("evt-order-response-requested-disposition").outcome.exists()
+    with corpus.connect(db) as conn:
+        events = {e.event_id: e for e in corpus.events_for_case(conn, "scotus/9526000325")}
+    assert events["evt-order-response-requested-disposition"].resolved is False
+
+
+def test_the_poll_reads_the_committed_caption_a_baseline_was_predicted_under(
+    tmp_path: Path,
+) -> None:
+    # A baseline's corpus title re-tracks the row on re-extraction, so only the
+    # committed event.yaml still names the petition its prediction forecast.
+    event = _interim_event("evt-motion-disposition", resolved=False)
+    db = _seed_application(tmp_path, [event], row=_redocketed_row())
+    write_yaml(
+        CasePaths(tmp_path, "scotus", 9526000325).event(event.event_id).event_file,
+        PredictableEvent(
+            event_id=event.event_id,
+            case_id=event.case_id,
+            kind=event.kind,
+            stage=event.stage,
+            moment=event.moment,
+            title=_EARLIER_PETITION,
+            opened_at=event.opened_at,
+            decision_target=event.decision_target,
+        ),
+    )
+    seed_prediction(tmp_path, "scotus", 9526000325, event.event_id)
+    resolution = resolve_case(db, tmp_path, _redocketed_poll_row(), "scotus", 9526000325)
+    assert not resolution.outcomes
+    (refused,) = resolution.unrecorded
+    assert refused.reason == REDOCKETED_REASON
+    assert not CasePaths(tmp_path, "scotus", 9526000325).event(event.event_id).outcome.exists()
+
+
+def test_the_outcome_pass_marks_a_redocketed_moment(tmp_path: Path) -> None:
+    db = _seed_application(
+        tmp_path,
+        [
+            _interim_event("evt-motion-disposition", resolved=True).model_copy(
+                update={"title": _EARLIER_PETITION}
+            )
+        ],
+        row=_redocketed_row(),
+    )
+    plan = outcome_module.record_lost_outcomes(db, tmp_path)
+    assert plan.residue == {"scotus/9526000325": {"evt-motion-disposition": "redocketed"}}
+    assert not plan.recorded
 
 
 # --- the gap read covers open moments of a decided stage -------------------------

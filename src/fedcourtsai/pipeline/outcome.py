@@ -102,6 +102,12 @@ from .judgment import (
     last_judgment_entry,
     match_merits_termination,
 )
+from .redocket import (
+    REDOCKETED_REASON,
+    EventIdentity,
+    ledger_identities,
+    redocketed_events,
+)
 
 #: The row detection reads: the ingestion-stage row a refresh channel just built,
 #: or the persisted corpus row the ledger-outcome convergence re-reads. Both
@@ -1183,33 +1189,43 @@ OPENED_AFTER_DECISION_REASON = (
 )
 
 
-def _opened_in_time(
+def _attributable(
     outcomes: Mapping[str, Outcome],
     opened: Mapping[str, date | None],
+    redocketed: Collection[str],
     row: ResolvableRow,
     court_id: str,
     docket_id: int,
 ) -> Resolution:
-    """Keep the outcomes whose moment opened on or before ``resolved_at``; surface the rest."""
+    """Keep the outcomes their moment may receive; surface the rest for triage.
+
+    A moment whose caption names another petition than the docket now does is
+    refused first (:data:`REDOCKETED_REASON`), then a moment that opened after
+    the outcome's ``resolved_at`` (:data:`OPENED_AFTER_DECISION_REASON`).
+    """
     kept: dict[str, Outcome] = {}
-    late: list[UnrecordedOutcome] = []
+    refused: list[UnrecordedOutcome] = []
     for event_id, outcome in outcomes.items():
         opened_at = opened.get(event_id)
-        if opened_at is not None and opened_at > outcome.resolved_at:
-            late.append(
-                UnrecordedOutcome(
-                    case_id=row.case_id,
-                    court_id=court_id,
-                    docket_id=docket_id,
-                    event_id=event_id,
-                    disposition=row.disposition,
-                    date_decided=row.date_decided,
-                    reason=OPENED_AFTER_DECISION_REASON,
-                )
-            )
+        if event_id in redocketed:
+            reason = REDOCKETED_REASON
+        elif opened_at is not None and opened_at > outcome.resolved_at:
+            reason = OPENED_AFTER_DECISION_REASON
+        else:
+            kept[event_id] = outcome
             continue
-        kept[event_id] = outcome
-    return Resolution(outcomes=kept, unrecorded=tuple(late))
+        refused.append(
+            UnrecordedOutcome(
+                case_id=row.case_id,
+                court_id=court_id,
+                docket_id=docket_id,
+                event_id=event_id,
+                disposition=row.disposition,
+                date_decided=row.date_decided,
+                reason=reason,
+            )
+        )
+    return Resolution(outcomes=kept, unrecorded=tuple(refused))
 
 
 def detect_resolution(  # noqa: PLR0913 - the row plus the corpus facts detection is pure over
@@ -1224,6 +1240,7 @@ def detect_resolution(  # noqa: PLR0913 - the row plus the corpus facts detectio
     order: OrderMarkers = NO_ORDER_MARKERS,
     entry_pinned: Collection[str] = frozenset(),
     opened: Mapping[str, date | None] | None = None,
+    redocketed: Collection[str] = frozenset(),
 ) -> Resolution:
     """Decide how each open event resolves, given the refreshed corpus row.
 
@@ -1261,6 +1278,13 @@ def detect_resolution(  # noqa: PLR0913 - the row plus the corpus facts detectio
     resolve. A moment with no recorded ``opened_at`` cannot be checked and is
     not refused.
 
+    ``redocketed`` names the events opened under another petition than the row
+    now names (:func:`fedcourtsai.pipeline.redocket.is_redocketed`):
+    the docket number was re-entered for a different petition after the event
+    opened, so the row's disposition is not that event's outcome. Such an event
+    is surfaced for triage with :data:`REDOCKETED_REASON` and never receives
+    the disposition; its siblings still resolve.
+
     ``resolved_event_ids`` lists the case's already-closed events and gates the
     one clean no-op: when no open event can claim the disposition, a resolved
     event already carries it (:func:`_cert_already_attributed`), and the row
@@ -1296,7 +1320,7 @@ def detect_resolution(  # noqa: PLR0913 - the row plus the corpus facts detectio
         # separate forecasts of one question, so they share one ground truth —
         # each gets its own `outcome.json` carrying identical facts, which is
         # what lets each be scored against the information set it actually had.
-        return _opened_in_time(
+        return _attributable(
             {
                 target: _build_outcome(
                     row,
@@ -1309,6 +1333,7 @@ def detect_resolution(  # noqa: PLR0913 - the row plus the corpus facts detectio
                 for target in targets
             },
             opened or {},
+            redocketed,
             row,
             court_id,
             docket_id,
@@ -1332,7 +1357,7 @@ def detect_resolution(  # noqa: PLR0913 - the row plus the corpus facts detectio
         # value surfaces for triage, never a crash in the poll.
         parsed = _known_judgment(row.merits_judgment)
         if parsed is not None and row.merits_decided is not None:
-            return _opened_in_time(
+            return _attributable(
                 {
                     merits_event: build_merits_outcome(
                         row.case_id,
@@ -1346,6 +1371,7 @@ def detect_resolution(  # noqa: PLR0913 - the row plus the corpus facts detectio
                     for merits_event in merits_events
                 },
                 opened or {},
+                redocketed,
                 row,
                 court_id,
                 docket_id,
@@ -1487,7 +1513,7 @@ def record_outcomes(
                 )
             if event.opened_at is not None and event.opened_at > outcome.resolved_at:
                 # Detection never attributes to a moment opened after the
-                # decision (`_opened_in_time`); reaching here is a caller that
+                # decision (`_attributable`); reaching here is a caller that
                 # built the resolution some other way, and the write refuses it.
                 raise RuntimeError(
                     f"{case_id} {event_id!r} opened {event.opened_at} after its outcome's "
@@ -1966,11 +1992,13 @@ def resolve_case(
     resolved_event_ids: list[str] = []
     entry_pinned: set[str] = set()
     opened: dict[str, date | None] = {}
+    identities: dict[str, EventIdentity] = {}
     if open_event_ids:  # the corpus exists — open_events read from it
         with corpus.connect(corpus_db_path) as conn:
             for event in corpus.events_for_case(conn, ids.case_id(court_id, docket_id)):
                 stages[event.event_id] = event.stage
                 opened[event.event_id] = event.opened_at
+                identities[event.event_id] = EventIdentity(event.title, event.opened_at)
                 if event.resolved:
                     resolved_event_ids.append(event.event_id)
                 if event.docket_entry_id is not None:
@@ -1986,6 +2014,18 @@ def resolve_case(
         order=order,
         entry_pinned=entry_pinned,
         opened=opened,
+        # Re-docketing is the Supreme Court Clerk's (`pipeline.redocket`); on
+        # another court's docket an event's title is not the docket's caption.
+        redocketed=(
+            redocketed_events(
+                row.case_name,
+                row.date_filed,
+                {eid: identities[eid] for eid in open_event_ids if eid in identities},
+                ledger_identities(data_root, court_id, docket_id, open_event_ids),
+            )
+            if court_id == "scotus"
+            else frozenset()
+        ),
     )
     record_outcomes(corpus_db_path, data_root, court_id, docket_id, resolution)
     # After the attribution, so the detection pass that resolves the petition
@@ -2225,14 +2265,14 @@ class _CasePlan:
     no_snapshot: bool = False
 
 
-def _plan_case(corpus_db_path: Path, due: _DueCase) -> _CasePlan:
+def _plan_case(corpus_db_path: Path, data_root: Path, due: _DueCase) -> _CasePlan:
     """Re-run detection for one due case, writing nothing.
 
     The gap's moments are counted as claimants beside the case's open events,
     and the disposition basis and order markers are read from the case's
     **latest** stored snapshot. Entry-pinned events are never claimants, and an
     outcome is attributed only to a moment that opened on or before its
-    ``resolved_at``.
+    ``resolved_at`` and whose caption names the petition the docket now does.
     """
     row, gap_ids = due.row, due.gap_ids
     docket_id = int(row.case_id.rsplit("/", 1)[-1])
@@ -2246,11 +2286,12 @@ def _plan_case(corpus_db_path: Path, due: _DueCase) -> _CasePlan:
         return _CasePlan(Resolution(), events, no_snapshot=True)
     payload = snapshot[1]
     open_ids = [e.event_id for e in events if not e.resolved]
+    claimants = open_ids + [eid for eid in gap_ids if eid not in open_ids]
     resolution = detect_resolution(
         row,
         "scotus",
         docket_id,
-        open_ids + [eid for eid in gap_ids if eid not in open_ids],
+        claimants,
         disposition_basis(payload),
         stages={e.event_id: e.stage for e in events},
         resolved_event_ids=[e.event_id for e in events if e.resolved and e.event_id not in gap_ids],
@@ -2259,6 +2300,16 @@ def _plan_case(corpus_db_path: Path, due: _DueCase) -> _CasePlan:
         ),
         entry_pinned={e.event_id for e in events if e.docket_entry_id is not None},
         opened={e.event_id: e.opened_at for e in events},
+        redocketed=redocketed_events(
+            row.case_name,
+            row.date_filed,
+            {
+                e.event_id: EventIdentity(e.title, e.opened_at)
+                for e in events
+                if e.event_id in claimants
+            },
+            ledger_identities(data_root, "scotus", docket_id, claimants),
+        ),
     )
     return _CasePlan(resolution, events)
 
@@ -2333,7 +2384,7 @@ def _converge_case(
     today: date,
 ) -> None:
     """Re-run detection for one due case and record what it attributes."""
-    plan = _plan_case(corpus_db_path, due)
+    plan = _plan_case(corpus_db_path, data_root, due)
     if plan.no_snapshot:
         result.unrecorded.extend(_sweep_unrecorded(due.row, due.gap_ids, _NO_SNAPSHOT_REASON))
         return
@@ -2467,6 +2518,8 @@ def _residue_reason(reason: str) -> str:
     """The no-outcome vocabulary word for one triage reason."""
     if reason == OPENED_AFTER_DECISION_REASON:
         return "opened-after-decision"
+    if reason == REDOCKETED_REASON:
+        return "redocketed"
     return "declined"
 
 
@@ -2598,7 +2651,7 @@ def _plan_unless_predicted(
     """Plan one case, or ``None`` when a gap's stage carries a committed prediction."""
     if _gap_stage_predicted(corpus_db_path, data_root, case.row, case.gap_ids):
         return None
-    return _plan_case(corpus_db_path, case)
+    return _plan_case(corpus_db_path, data_root, case)
 
 
 def _bump(counts: dict[str, int], label: str, by: int) -> None:

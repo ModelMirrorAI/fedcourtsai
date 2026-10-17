@@ -1365,6 +1365,20 @@ or network.
      its own filing and carries no ledger outcome. Detection writes an outcome
      to a moment only if the moment opened on or before its `resolved_at`.
 
+     **Re-docketed numbers.** The Clerk occasionally moves a petition to
+     another number and re-enters the freed number for a different petition.
+     The row keeps its id and takes on the new petition's caption and docketed
+     date, so a moment opened under the earlier petition would receive the new
+     one's disposition. Detection refuses it (`pipeline.redocket`). A SCOTUS
+     moment's caption is read from its corpus event and from its committed
+     `event.yaml`, which keeps the caption a committed prediction was made
+     under because `materialize-event` never rewrites it. When either shares
+     no party word with the row's current caption on the petitioner side, or
+     on the respondent side for a moment opened before the row's current
+     docketed date, the moment is surfaced on the unrecorded queue with that
+     reason and receives nothing. Its siblings still resolve. A moved docketed
+     date with the same parties is a date correction and is not refused.
+
      **Ledger-outcome convergence.** The poll rotations skip a decided row, so
      a moment detection declined on the poll that saw the decision is not
      tried again by the poll. The live cycle therefore ends its polls with a
@@ -1407,7 +1421,8 @@ or network.
      outcome pass's: run-repair's `lost-outcomes` runs the same detection and
      writer over every gap at any age, and marks the corpus-resolved ones it
      cannot attribute `resolved_without_outcome` with the reason
-     (`no-snapshot`, `undated`, `opened-after-decision`, `declined`) — a
+     (`no-snapshot`, `undated`, `opened-after-decision`, `redocketed`,
+     `declined`) — a
      first-mint `ingested-decided` closure it cannot attribute is re-marked
      with the pass's own reason, which says why it is still unrecorded.
 

@@ -10331,3 +10331,85 @@ freeze commit is recorded here.
   2026-10-16, after the 2026-10-13 grant it removes, though its list was fixed
   by a census whose newest pull is 2026-10-09, before that grant. A claim that
   ranks claude above codex quotes both readings.
+
+- **Outcome detection refuses a moment opened under another petition than its
+  re-docketed number now carries, 2026-10-17.** An **attribution** change to
+  which moment an outcome may attach to. It moves no digest: no prompt
+  template, neither agent config and not `src/fedcourtsai/process_version.py`
+  changes, and `uv run fedcourts process-digest --all` prints `proc-v9` and the
+  six digests the entries above list.
+
+  **The rule.** From this entry's carrying merge, outcome detection
+  (`pipeline.outcome.detect_resolution`, on the poll and in both convergence
+  passes) does not attribute a SCOTUS row's disposition to a moment that
+  `pipeline.redocket.is_redocketed` reads as opened under another petition.
+  The moment's caption is read twice: from its corpus event, and from its
+  committed `event.yaml`, which `materialize-event` never rewrites and so keeps
+  the caption a committed prediction was made under. Either reading
+  disqualifies the moment if
+  - it shares no party word with the row's current caption on the petitioner
+    side; or
+  - it shares none on the respondent side **and** the moment opened before the
+    row's current docketed date.
+
+  Party words are a side's words of three or more letters outside a fixed list
+  of role words, matched by prefix. Such a moment is surfaced on the unrecorded
+  queue with a fixed reason and receives nothing; its siblings still resolve.
+  run-repair's `lost-outcomes` pass marks a corpus-resolved one
+  `resolved_without_outcome` with the new reason `redocketed`. A moved docketed
+  date with the same parties is a date correction and is not refused. The rule
+  reads identity only, never the outcome. Like the *opened in time* rule of
+  2026-10-16, it is a refusal: a refused moment is never graded, so it never
+  reaches a board and needs no void.
+
+  **What moves, checked against the corpus and the ledger.** The blob is
+  pointer `7c62d6e4…`, latest pull 2026-10-17, read with the content store's
+  dated snapshots on 2026-10-17. The ledger is `data/` at `main` `2ba3d8fc9`
+  (`scripts/checks/redocketed_numbers.py`).
+  - *Against the committed ledger:* of 14,294 SCOTUS `event.yaml` files and
+    33,591 titled SCOTUS corpus events, the rule refuses exactly one:
+    `scotus/9026000221` `evt-petition-arrival-disposition`, already voided by
+    the 2026-10-14 entry. Its committed outcome stays as written, because no
+    committed outcome is rewritten. Its sibling `evt-petition-disposition` is
+    not refused, matching that entry's reasoning. **0 scored outcomes move.**
+  - *Re-docketed numbers in the snapshot record:* among the 7,474 live-polled
+    `26-`, `26A`, `25-` and `25A` rows, 5,386 have two or more stored live
+    snapshots. Comparing each one's earliest and latest snapshot, 7 changed
+    parties: Nos. 26-221, 26-246, 26-5334, 26-5502, 26-5569, 26A266 and
+    26A286. Each of those also changed its lower-court case number and its
+    docketed date. Apart from 26-221, none carries a ledger event, a
+    prediction or an outcome. 4 more moved only their docketed date, with the
+    same parties: Nos. 26-263, 26-354, 26-5442 and 26A290. Those are date
+    corrections and are not refused. 2,088 rows have a single snapshot and
+    cannot be compared.
+  - *The 2026-10-14 void's owed scan:* all 306 SCOTUS cases holding a
+    committed prediction were compared on every consecutive pair of stored
+    live snapshots. Only `scotus/9026000221` changes parties, at its
+    2026-10-05 snapshot, and its only prediction run before the change is
+    `20260820T231432Z`, the one voided. That settles the cases the entry
+    listed as unchecked (`scotus/9026000006`, `9026000027`, `9026000045`,
+    `9026000139`, `9026000152`, `9026000173`, and the predicted cases
+    pending at `5643cbbee`): none was re-docketed at this vintage. **No
+    further void is owed.**
+
+  **Limits.** A re-docketing is missed when both petitions share a party word
+  on the petitioner side (one surname, say) and the respondent side is kept or
+  the moment opened on or after the new docketed date. A moment with no
+  committed `event.yaml` is read from its corpus title alone, and a baseline's
+  corpus title re-tracks the row, so a baseline re-docketed before its first
+  touch is invisible. Nothing was predicted on it, though. The detector reads
+  stored state at resolution and does not relocate the earlier petition: Nathan
+  under No. 26-257 is still owed, as the 2026-10-14 entry records.
+
+  **Where it landed.** Merged to `staging` as `<FILL: staging merge commit>`
+  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: promotion merge commit>`, merged `<FILL: merge date>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_redocket.py tests/test_outcome.py -k "redocket"`
+    is green;
+  - with the corpus pulled and the content store addressed,
+    `CHECK_SUMMARY=<file> uv run python scripts/checks/redocketed_numbers.py`
+    reports section 1 refusing only `scotus/9026000221`
+    `evt-petition-arrival-disposition`, and section 3 one case with a party
+    change, or names each new one, which is a new void candidate to triage.
