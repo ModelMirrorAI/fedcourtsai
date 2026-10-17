@@ -183,7 +183,9 @@ jobs:
             local url=$1 out=$2 key=${3:-}
             gh api --paginate --slurp "$url" > "${out}.pages" || return 1
             if [ -n "$key" ]; then
-              jq --arg k "$key" '{($k): (map(.[$k]) | add // [])}' "${out}.pages" > "$out"
+              # A page without the key is a malformed read, never an empty list.
+              jq --arg k "$key" '{($k): (map(.[$k] // error("a page lacks \($k)")) | add // [])}' \
+                "${out}.pages" > "$out"
             else
               jq 'add // []' "${out}.pages" > "$out"
             fi
@@ -508,7 +510,11 @@ jobs:
             echo "ok=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git fetch --no-tags -q origin main
+          if ! git fetch --no-tags -q origin main; then
+            echo "::warning::could not fetch main for the registry re-check; not merging this tick"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if ! scripts/promotion-gate.sh registry "$SHA"; then
             echo "::warning::the registry gate refuses ${SHA} against main now; not merging this tick"
             echo "ok=false" >> "$GITHUB_OUTPUT"
