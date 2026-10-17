@@ -29,9 +29,11 @@ it fetches and parses third-party PDFs:
 
 Both files are untrusted on the receiving side. Every identifier in them is
 pattern-checked (a SCOTUS case id, a recoverable kind, a Court URL, a reason
-from a closed set), so nothing a forged file carries reaches a step summary
-except a validated identifier or a count, and nothing malformed survives the
-read to fail an apply halfway through.
+from a closed set), and a file that fails is refused with only the error type
+and list positions named (:func:`fedcourtsai.handoff.read_handoff`), never a
+key, field name or value from the file. So nothing a forged file carries
+reaches a step summary except a validated identifier or a count, and nothing
+malformed survives the read to fail an apply halfway through.
 
 **Sweep order** (:func:`order_sweep_class`, pure). A candidate a forward cell
 will read is *forward*: its case carries an open event, its row is in predict
@@ -58,7 +60,14 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Annotated, Final, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    StringConstraints,
+)
 
 from .. import corpus
 from ..handoff import HandoffRefused
@@ -110,6 +119,11 @@ def _recoverable_kind(kind: str) -> str:
     return kind
 
 
+def _recoverable_key(key: str) -> str:
+    _recoverable_kind(key.split(" ", 1)[1])
+    return key
+
+
 def _court_url(url: str) -> str:
     if not fetchable_document_url(url) or any(ord(ch) < 0x21 for ch in url):
         raise ValueError("not a single https link on the Court's own host")
@@ -119,7 +133,11 @@ def _court_url(url: str) -> str:
 _CaseId = Annotated[str, StringConstraints(pattern=r"^scotus/[0-9]{1,12}$")]
 _Kind = Annotated[str, AfterValidator(_recoverable_kind)]
 _Url = Annotated[str, StringConstraints(max_length=2048), AfterValidator(_court_url)]
-_Key = Annotated[str, StringConstraints(pattern=r"^scotus/[0-9]{1,12} [a-z-]{1,40}$")]
+_Key = Annotated[
+    str,
+    StringConstraints(pattern=r"^scotus/[0-9]{1,12} [a-z-]{1,40}$"),
+    AfterValidator(_recoverable_key),
+]
 _Reason = Annotated[str, StringConstraints(pattern=_REASON_PATTERN)]
 
 
@@ -206,7 +224,7 @@ class OcrWorkItem(BaseModel):
     case_id: _CaseId
     kind: _Kind
     url: _Url
-    pages: int = Field(ge=1, le=100_000)
+    pages: StrictInt = Field(ge=1, le=100_000)
     forward: bool
 
     @property
@@ -248,7 +266,7 @@ class OcrPlanRow(BaseModel):
     kind: _Kind
     url: _Url
     text: str = Field(min_length=1, max_length=MAX_PLAN_TEXT_CHARS)
-    pages: int = Field(ge=1, le=100_000)
+    pages: StrictInt = Field(ge=1, le=100_000)
     truncated: bool
     ocr_derived: bool
 
@@ -501,6 +519,12 @@ def apply_ocr_plan(
             continue
         if document.url != row.url:
             skipped[row.key] = "url-changed"
+            continue
+        if document.pages != row.pages:
+            # The link now serves a filing of another length than the one the
+            # projection counted: a different document, which the dispatched
+            # pass, reading it whole, is the route for.
+            skipped[row.key] = "pages-changed"
             continue
         recovered = document.model_copy(
             update={

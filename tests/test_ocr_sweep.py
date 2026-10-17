@@ -716,7 +716,7 @@ def test_the_cli_split_round_trips_through_its_files(
     _fake_binary(binaries, "pdftoppm", "printf PNG")
     _fake_binary(binaries, "tesseract", "printf 'Recovered page text.'")
     monkeypatch.setenv("PATH", f"{binaries}{os.pathsep}{os.environ['PATH']}")
-    pdf = _blank_pdf(3)
+    pdf = _blank_pdf(12)  # the page count the stored row carries
 
     class _Served(SupremeCourtClient):
         def __init__(self, **_kwargs: object) -> None:
@@ -747,7 +747,7 @@ def test_the_cli_split_round_trips_through_its_files(
     assert parsed.exit_code == 0, parsed.output
     assert "read 1; not recovered 0; unreached 0" in parsed.output
     assert "Recovered page text" not in parsed.output, "the parse never prints filing text"
-    assert "scotus/1 petition: pages=3" in parsed.output
+    assert "scotus/1 petition: pages=12" in parsed.output
 
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
     written = runner.invoke(
@@ -857,3 +857,60 @@ def test_the_cli_writer_refuses_a_plan_above_the_cap(
     assert result.exit_code == 1, result.output
     assert "above the cap of 10" in result.output
     assert _documents(db, "scotus/1")[KIND_PETITION].text == ""
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"rows": [], "EVIL **md** [x](https://e.vil) 555-1212": 1},
+        {"rows": [], "failures": {"## John Doe 123 Main St": "not-served"}},
+        {"rows": [], "failures": {"scotus/1\npetition": "not-served"}},
+        {"rows": [], "failures": {"scotus/1 petition": "## John Doe 123 Main St\n"}},
+    ],
+)
+def test_a_refusal_names_none_of_the_files_own_text(
+    tmp_path: Path, payload: dict[str, object]
+) -> None:
+    """The refusal reaches a public step summary: an extra field's name or a dict key
+    is the file's own text, so the message carries only the error type and positions."""
+    path = tmp_path / "plan.json"
+    path.write_text(json.dumps(payload))
+    with pytest.raises(HandoffRefused) as refused:
+        read_handoff(path, OcrPlan)
+    message = str(refused.value).replace(str(path), "<path>")
+    for forged in ("\n", "EVIL", "**", "](", "555", "1212", "John", "123", "Main", "##"):
+        assert forged not in message, (forged, message)
+    assert "not a valid OcrPlan" in message
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"failures": {"scotus/1 questions-presented": "not-served"}},
+        {"unreached": ["scotus/1 not-a-kind"]},
+    ],
+)
+def test_a_key_naming_a_kind_outside_the_class_is_refused_on_read(
+    tmp_path: Path, extra: dict[str, object]
+) -> None:
+    path = tmp_path / "plan.json"
+    path.write_text(json.dumps({"rows": [], **extra}))
+    with pytest.raises(HandoffRefused, match="not a valid OcrPlan"):
+        read_handoff(path, OcrPlan)
+
+
+def test_a_page_count_must_be_an_integer(tmp_path: Path) -> None:
+    row = _row(_document("scotus/1")).model_dump()
+    path = tmp_path / "plan.json"
+    path.write_text(json.dumps({"rows": [{**row, "pages": "12"}]}))
+    with pytest.raises(HandoffRefused, match="not a valid OcrPlan"):
+        read_handoff(path, OcrPlan)
+
+
+def test_the_writer_skips_a_reading_of_another_length(tmp_path: Path) -> None:
+    """The link now serves a different filing than the one the projection counted."""
+    stored = _document("scotus/1", pages=12)
+    db = _seed(tmp_path / "corpus", [stored])
+    result = _apply(db, OcrPlan(rows=[_row(stored).model_copy(update={"pages": 30})]))
+    assert result.written == {}
+    assert result.skipped == {"scotus/1 petition": "pages-changed"}
