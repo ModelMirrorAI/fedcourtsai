@@ -290,6 +290,14 @@
       "predictors": null,
       "reach": "all",
       "gradual": false
+    },
+    {
+      "name": "scrub-scanned-caption-residuals",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "self-represented dockets",
+      "gradual": false
     }
   ]
 }

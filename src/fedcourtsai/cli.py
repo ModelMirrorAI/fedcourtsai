@@ -13491,7 +13491,8 @@ def _document_scrub_echo(
     if residual:
         line += (
             f"; {sum(result.residuals for result in residual)} contact-shaped residual(s) "
-            f"left on the opening of {len(residual)} document(s), recorded as not scrubbed"
+            f"left on the opening or closing of {len(residual)} document(s), "
+            "recorded as not scrubbed"
         )
     return line
 
@@ -13620,7 +13621,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     addresses replaced by ``[contact detail withheld]``, with
     ``contact_scrubbed``, ``contact_replacements``, ``contact_residuals`` and
     ``contact_scrub_passes`` on each manifest entry recording that it ran with
-    nothing contact-shaped left on the document's opening, what it withheld,
+    nothing contact-shaped left on the document's opening or closing (where
+    the shape pass ran), what it withheld,
     what the residual check still found there, and whether the value pass
     keyed on the self-represented filers' own contact values ran beside the
     shape pass. On a docket read so on its ``Other`` list alone the

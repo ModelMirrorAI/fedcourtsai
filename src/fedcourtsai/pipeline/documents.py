@@ -2198,7 +2198,7 @@ _EMAIL_RE = re.compile(
 _EMAIL_GAP = r"[ \t]{0,2}"
 _EMAIL_AT = rf"(?:{_EMAIL_GAP}@{_EMAIL_GAP}|[ \t]{{0,2}}[(\[{{][ \t]?at[ \t]?[)\]}}][ \t]{{0,2}})"
 _EMAIL_DOT = (
-    rf"(?:{_EMAIL_GAP}[.:]{_EMAIL_GAP}|[ \t]{{0,2}}[(\[{{][ \t]?dot[ \t]?[)\]}}][ \t]{{0,2}})"
+    rf"(?:{_EMAIL_GAP}\.{_EMAIL_GAP}|:|[ \t]{{0,2}}[(\[{{][ \t]?dot[ \t]?[)\]}}][ \t]{{0,2}})"
 )
 _EMAIL_LABEL = r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
 _EMAIL_TLDS = "com|corn|c0m|net|org|edu|gov|mil|us|info|biz|io|co|me|law|uk|ca"
@@ -2241,7 +2241,8 @@ _GLUED_EMAIL_RE = re.compile(
 # and the **same** punctuation — `202-555-0147`, `202.555.0147` — which a run of
 # unrelated numbers has no reason to be, or the exchange and line number are
 # joined by punctuation after a blank-separated area code (`202 555-0147`), the
-# spelling a scan makes of a parenthesis it dropped. The blank-separated spelling
+# spelling a scan makes of a parenthesis it dropped — save after `No.`, where
+# the same digits are a docket or index number (`No. 123 456-2019`). The blank-separated spelling
 # (`202 555 0147`) is deliberately not read: an appendix index, a table of
 # authorities and an OCR'd column all emit 3-3-4 runs of blank-separated digits,
 # and the population this scrub runs over is disproportionately the scanned one,
@@ -2256,22 +2257,29 @@ _GLUED_EMAIL_RE = re.compile(
 # arm keys on — and a digit read as the letter it resembles (`O` or `o` for a
 # zero, `I` or `l` for a one). The letter readings are kept honest by a count:
 # a match must still hold at least `_MIN_PHONE_SHAPE_DIGITS` real digits, which
-# no run of words in telephone shape does. The digit/hyphen guards on either
+# no run of words in telephone shape does, and a match may not open on a letter
+# that continues a word (`_PHONE_START`). The digit/hyphen guards on either
 # side keep the match out of the middle of a longer number, so a docket number
 # (`23-1234`), an ISO date (`2026-09-21`) and a ZIP+4 (`20543-0001`) are all
 # structurally unable to match.
 _PHONE_DIGIT = "[0-9OoIl]"
 _PHONE_SEP_GAP = r"[ \t]{0,2}"
-_PHONE_OPEN = r"(?:[(\[{|]|(?<![A-Za-z])[A-Za-z])[ \t]?"
+_PHONE_OPEN = r"(?:[(\[{|][ \t]?|(?<![A-Za-z])[A-Za-z])"
+# A match never opens inside a word: its first character is a digit not set
+# after a digit or hyphen, or a letter (a digit's reading or the parenthesis's)
+# not set after another letter — so "school 555-1234" is not read as a number
+# from its `ool`.
+_PHONE_START = r"(?<![\d-])(?!(?<=[A-Za-z])[A-Za-z])"
 _PHONE_RE = re.compile(
-    r"(?<![\d-])"
+    rf"{_PHONE_START}"
     r"(?:"
     rf"(?:{_PHONE_OPEN})?{_PHONE_DIGIT}{{3}}[ \t]?[)\]}}]"
     rf"{_PHONE_SEP_GAP}[.-]?{_PHONE_SEP_GAP}{_PHONE_DIGIT}{{3}}"
     rf"{_PHONE_SEP_GAP}[.-]?{_PHONE_SEP_GAP}{_PHONE_DIGIT}{{4}}"
     rf"|(?:\+?1[ .-])?{_PHONE_DIGIT}{{3}}[ \t]?([.-])[ \t]?{_PHONE_DIGIT}{{3}}"
     rf"[ \t]?\1[ \t]?{_PHONE_DIGIT}{{4}}"
-    rf"|{_PHONE_DIGIT}{{3}}[ \t]{_PHONE_DIGIT}{{3}}[ \t]?[.-][ \t]?{_PHONE_DIGIT}{{4}}"
+    rf"|(?<!No\.[ \t])(?<!No[ \t])(?<!No\.)"
+    rf"{_PHONE_DIGIT}{{3}}[ \t]{_PHONE_DIGIT}{{3}}[ \t]?[.-][ \t]?{_PHONE_DIGIT}{{4}}"
     r")"
     r"(?![\d-])"
 )
@@ -2294,18 +2302,20 @@ _LABELLED_PHONE_RE = re.compile(
 _LINE_PHONE_RE = re.compile(rf"^[ \t]*(?P<num>{_PHONE_BLANKED})[ \t]*$", re.MULTILINE)
 
 # A post-office box, the mailing address a filer with no fixed street address
-# signs with. No ambiguity to trade off: the literal words carry the shape, in
-# every spelling a scan leaves them — a blank inside the initials (`P. O. Box`),
+# signs with. The literal words carry the shape, in every spelling a scan
+# leaves them — a blank inside the initials (`P. O. Box`),
 # the `O` read as a zero (`P.0. Box`), a comma, semicolon or dash for a dot
 # (`P.O, Box`, `P.O.- Box`), an underline run into the initials, and the words
 # spelled out (`Post Office Box`). A capitalized `Box` and a number is read
 # without the initials too, which is how a rural route (`RR 2 Box 14`) and a
 # scan that lost them (`Box 4417`) spell it; its cost is a form's numbered box
-# ("Box 12 of the W-2") on a self-represented docket.
+# ("Box 12 of the W-2") on a self-represented docket. The box itself must
+# carry a digit: the words alone are prose as often as an address (the
+# prison-mailbox rule's "placed it in the post office box").
 _PO_BOX_RE = re.compile(
     r"(?<![A-Za-z0-9])(?:"
     r"(?i:(?:P[ \t]?[.,;]?[ \t]?[O0]|Post[ \t]+Office)[ \t]*[.,;:_-]{0,2}[ \t]*Box)"
-    r"[ \t]*#?[ \t]*[\w-]+"
+    r"[ \t]*#?[ \t]*(?=[\w-]*\d)[\w-]+"
     r"|(?:Box|BOX)[ \t]*#?[ \t]*\d[\w-]*"
     r")"
 )
@@ -2318,18 +2328,20 @@ _PO_BOX_RE = re.compile(
 # costs a street address spelled with one of them and buys immunity from three
 # words this corpus is made of. `Drive` spelled out stays, since nothing else
 # spells it that way.
-# Each is read as written and in capitals, since a caption sets its lines in
-# capitals (`1234 MAPLE STREET`); the match stays case-sensitive otherwise, so
-# "3 blocks down the street" is not an address. `CIR` is the one capital form
-# left out: a citation set in capitals spells the circuit that way
-# ("(5TH CIR. 2019)").
+# Each is read as written everywhere, and in capitals on the document's
+# opening alone (`OPENING_WINDOW_CHARS`): a caption sets its lines in capitals
+# (`1234 MAPLE STREET`), but further in a heading set in capitals reads the
+# same way ("THE 2 CASES ARE ALIKE IN EVERY WAY"). The match stays
+# case-sensitive otherwise, so "3 blocks down the street" is not an address.
+# `CIR` is the one capital form left out even on the opening: a citation set
+# in capitals spells the circuit that way ("(5TH CIR. 2019)").
 _STREET_SUFFIX_WORDS = (
     "Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Circle|Cir|"
     "Way|Place|Parkway|Pkwy|Highway|Hwy|Square|Trail|Trl|Plaza"
 )
-_STREET_SUFFIXES = "|".join(
-    [_STREET_SUFFIX_WORDS]
-    + [word.upper() for word in _STREET_SUFFIX_WORDS.split("|") if word != "Cir"]
+_STREET_SUFFIXES = _STREET_SUFFIX_WORDS
+_STREET_CAPITAL_SUFFIXES = "|".join(
+    word.upper() for word in _STREET_SUFFIX_WORDS.split("|") if word != "Cir"
 )
 
 # A house number, at least one name token, and a street type — with an optional
@@ -2355,15 +2367,24 @@ _STREET_SUFFIXES = "|".join(
 # `del`, `van`) are read as part of the name; `of` and `the` are not, since
 # "Title 23 of the Federal Highway Act" would then read as an address.
 _STREET_CONNECTORS = "(?:de|del|la|las|los|el|du|des|da|van|von|der)"
-_STREET_RE = re.compile(
-    r"(?:(?<![\w.-])|(?<=^[.-]))\d[0-9OoIl]{0,5}[A-Za-z]?[ \t]+"
-    rf"(?:(?:[A-Z0-9][\w'.-]{{0,40}}|{_STREET_CONNECTORS})[ \t]+){{0,4}}"
-    r"(?:[A-Z][\w'.-]{0,40}|\d{1,3}(?:st|nd|rd|th))[ \t]+"
-    rf"(?:{_STREET_SUFFIXES})\b\.?"
-    r"(?:[ \t]*,?[ \t]*(?:Apt|Apartment|Suite|Ste|Unit|Floor|Fl|Rm|Room|No)\.?[ \t]*[\w-]+"
-    r"|[ \t]*#[ \t]*[\w-]+)?",
-    re.MULTILINE,
-)
+
+
+def _street_pattern(suffixes: str) -> re.Pattern[str]:
+    """The street-address shape ending on one of ``suffixes``."""
+    return re.compile(
+        r"(?:(?<![\w.-])|(?<=^[.-]))\d[0-9OoIl]{0,5}[A-Za-z]?[ \t]+"
+        rf"(?:(?:[A-Z0-9][\w'.-]{{0,40}}|{_STREET_CONNECTORS})[ \t]+){{0,4}}"
+        r"(?:[A-Z][\w'.-]{0,40}|\d{1,3}(?:st|nd|rd|th))[ \t]+"
+        rf"(?:{suffixes})\b\.?"
+        r"(?:[ \t]*,?[ \t]*(?:Apt|Apartment|Suite|Ste|Unit|Floor|Fl|Rm|Room|No|APT|UNIT)"
+        r"\.?[ \t]*[\w-]+"
+        r"|[ \t]*#[ \t]*[\w-]+)?",
+        re.MULTILINE,
+    )
+
+
+_STREET_RE = _street_pattern(_STREET_SUFFIXES)
+_CAPITAL_STREET_RE = _street_pattern(_STREET_CAPITAL_SUFFIXES)
 
 # Every pattern here, and every value pattern below, is matched against the
 # **original** text, and overlapping matches are merged into one withheld span
@@ -2383,6 +2404,7 @@ _CONTACT_PATTERNS: tuple[re.Pattern[str], ...] = (
     _LINE_PHONE_RE,
     _PO_BOX_RE,
     _STREET_RE,
+    _CAPITAL_STREET_RE,
 )
 
 # The telephone shapes whose letter-for-digit readings are kept honest by a
@@ -2392,7 +2414,7 @@ _DIGIT_COUNTED: frozenset[re.Pattern[str]] = frozenset(
 )
 
 # The shapes read on the document's opening alone.
-_OPENING_ONLY: frozenset[re.Pattern[str]] = frozenset({_LINE_PHONE_RE})
+_OPENING_ONLY: frozenset[re.Pattern[str]] = frozenset({_LINE_PHONE_RE, _CAPITAL_STREET_RE})
 
 # The email shapes that cannot match without a sign to anchor on.
 _ANCHORED_EMAIL_PATTERNS: frozenset[re.Pattern[str]] = frozenset(
@@ -2518,7 +2540,7 @@ def _value_pattern(value: str) -> re.Pattern[str] | None:
         # number — and the bracket, bar or lone letter a scan reads that
         # parenthesis as, glued to the area code. Only a digit beside the run
         # makes it a different number, so a letter there is no boundary.
-        lead = r"(?:[(+\[{|][ \t]?|(?<![A-Za-z])[A-Za-z][ \t]?)?"
+        lead = r"(?:[(+\[{|][ \t]?|(?<![A-Za-z])[A-Za-z](?=\d))?"
         return re.compile(rf"(?<!\d){lead}{body}(?!\d)")
     return re.compile(rf"(?<![A-Za-z0-9]){body}(?![A-Za-z0-9])", re.IGNORECASE)
 
@@ -2528,7 +2550,7 @@ class ScrubbedText:
     """Staged text with contact details withheld, how many were, and by which passes.
 
     ``residuals`` is what :func:`contact_residuals` still finds on the opening
-    of the scrubbed text where the shape pass ran — zero where it did not run,
+    and closing of the scrubbed text where the shape pass ran — zero where it did not run,
     since the detector's shapes are the shape pass's own question.
     """
 
@@ -2539,7 +2561,7 @@ class ScrubbedText:
 
     @property
     def clean(self) -> bool:
-        """Whether the scrub left nothing contact-shaped on the opening it checks."""
+        """Whether the scrub left nothing contact-shaped on the opening and closing it checks."""
         return self.residuals == 0
 
 
@@ -2551,13 +2573,16 @@ class ScrubbedText:
 # does not read is simply absent from its count. So the scrubbed text is read a
 # second time, by looser shapes that only **detect**: anything still on the
 # opening of the document — the cover page, where a self-represented filer's
-# caption sets their address and telephone number — that is telephone-, street-,
-# box- or email-shaped under a wider reading. Nothing it finds is withheld (the
-# looser shapes would cost legal text the scrub keeps); a document with a
-# residual is recorded as **not** contact-scrubbed, so the manifest never states
-# a pass the text does not bear out.
+# caption sets their address and telephone number — or on its closing, where
+# the signature block and a bundled proof of service sit, that is telephone-,
+# street-, box- or email-shaped under a wider reading. Nothing it finds is
+# withheld (the looser shapes would cost legal text the scrub keeps); a document
+# with a residual is recorded as **not** contact-scrubbed. A clean reading is a
+# claim about those two stretches alone, and only where the shape pass ran: the
+# middle of a document is not read, and a document scrubbed by the value pass
+# alone is never read by the detector at all.
 #
-# The wider readings, each a superset of its scrub pattern's on the opening:
+# The wider readings, each a superset of its scrub pattern's where both read:
 # a telephone number in any 3-3-4 grouping whose separators are blanks, dots,
 # hyphens or a slash, under the same letter-for-digit readings — but never run
 # together, since a ten-digit or six-and-four-digit case number reads that way,
@@ -2569,9 +2594,10 @@ class ScrubbedText:
 # `box` and a number in any case; and an `@` with two letters or digits on
 # one side of it and two letters on the other, a blank allowed on one side
 # only (OCR noise sets a lone `@` between single characters), or opening a
-# dotted domain whose local part a line break took away. The window is the opening
+# dotted domain whose local part a line break took away. The opening is the first
 # `OPENING_WINDOW_CHARS` characters, which holds the cover page and the
-# questions presented on every petition shape.
+# questions presented on every petition shape; the closing is as many at the
+# end, not overlapping the opening.
 
 
 _RESIDUAL_PHONE_RE = re.compile(
@@ -2615,21 +2641,35 @@ def _phone_digits_ok(match: re.Match[str]) -> bool:
     return sum(ch.isdigit() for ch in match.string[start:end]) >= _MIN_PHONE_SHAPE_DIGITS
 
 
-def contact_residual_matches(text: str) -> list[tuple[str, re.Match[str]]]:
-    """Every residual-shaped match on the opening of ``text``, by shape name.
-
-    Read over a scrubbed text, this is what the scrub left that still looks
-    like a contact detail; see the section comment above. The placeholder
-    carries none of the shapes, so withheld spans never count.
-    """
-    window = text[:OPENING_WINDOW_CHARS]
+def residual_shape_matches(
+    text: str, start: int = 0, end: int | None = None
+) -> list[tuple[str, re.Match[str]]]:
+    """Every residual-shaped match in ``text[start:end]``, by shape name, at text offsets."""
+    stop = len(text) if end is None else end
     found: list[tuple[str, re.Match[str]]] = []
     for name, pattern in RESIDUAL_SHAPES:
-        for match in pattern.finditer(window):
+        for match in pattern.finditer(text, start, stop):
             if pattern is _RESIDUAL_PHONE_RE and not _phone_digits_ok(match):
                 continue
             found.append((name, match))
     return found
+
+
+def contact_residual_matches(text: str) -> list[tuple[str, re.Match[str]]]:
+    """Every residual-shaped match on the opening or closing of ``text``, by shape name.
+
+    Read over a scrubbed text, this is what the scrub left that still looks
+    like a contact detail on the two stretches a filer's own details sit on:
+    the opening (``OPENING_WINDOW_CHARS``) and the closing, the same number of
+    characters at the end and not overlapping the opening, which holds the
+    signature block and a bundled proof of service. See the section comment
+    above. The placeholder carries none of the shapes, so withheld spans never
+    count.
+    """
+    closing = max(OPENING_WINDOW_CHARS, len(text) - OPENING_WINDOW_CHARS)
+    return residual_shape_matches(text, 0, OPENING_WINDOW_CHARS) + residual_shape_matches(
+        text, closing
+    )
 
 
 def contact_residuals(text: str) -> int:
@@ -2711,8 +2751,10 @@ def scrub_contact_details(
 
     Where the shape pass ran, ``residuals`` counts what the looser residual
     detector (:func:`contact_residuals`) still finds on the scrubbed text's
-    opening, which is how most of the misses above show up: a caller records a
-    document with a residual as not scrubbed (:attr:`ScrubbedText.clean`).
+    opening and closing, which is how most of the misses above show up there: a
+    caller records a document with a residual as not scrubbed
+    (:attr:`ScrubbedText.clean`). A clean result says nothing about the
+    middle of the document, and nothing at all where the value pass ran alone.
     """
     patterns = [p for p in (_value_pattern(v) for v in values) if p is not None]
     passes = ((SCRUB_PASS_VALUE,) if patterns else ()) + ((SCRUB_PASS_SHAPE,) if shape else ())
@@ -2723,12 +2765,12 @@ def scrub_contact_details(
         [
             _withheld_span(m)
             for p in patterns
-            for m in (
-                p.finditer(text, 0, OPENING_WINDOW_CHARS)
-                if p in _OPENING_ONLY
-                else p.finditer(text)
-            )
-            if p not in _DIGIT_COUNTED or _phone_digits_ok(m)
+            for m in p.finditer(text)
+            # An opening-only shape keeps the matches that start on the opening,
+            # read over the whole text so a line straddling the window's edge is
+            # matched as the line it is, not as its cut.
+            if (p not in _OPENING_ONLY or m.start() < OPENING_WINDOW_CHARS)
+            and (p not in _DIGIT_COUNTED or _phone_digits_ok(m))
         ]
     )
     parts: list[str] = []

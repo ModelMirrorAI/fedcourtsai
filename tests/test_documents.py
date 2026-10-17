@@ -4590,6 +4590,63 @@ def test_the_widened_shapes_leave_legal_text_alone(survivor: str) -> None:
     assert scrubbed.replacements == 0
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # A letter-for-digit reading never opens a match inside a word.
+        ("Call the school 555-1234", "Call the school 555-1234"),
+        ("Pool 123-4567", "Pool 123-4567"),
+        # A one-letter word before the number is a word, not the parenthesis.
+        ("a 202) 555-0147", f"a {CONTACT_PLACEHOLDER}"),
+        ("see I 202) 555-0147", f"see I {CONTACT_PLACEHOLDER}"),
+        # A docket or index number after `No.` in the blank-then-hyphen spelling.
+        ("Smith v. Jones, No. 123 456-2019 (Tex. App.)", None),
+        ("Index No 123 456-2019", None),
+        # The prison-mailbox rule names the box with no number.
+        ("he placed it in the post office box at the prison", None),
+        ("P.O. Box was empty", None),
+        # A colon is read for a domain's dot only set hard between its labels.
+        ("the court @ trial: me", None),
+    ],
+)
+def test_the_widened_shapes_stop_where_prose_starts(text: str, expected: str | None) -> None:
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == (text if expected is None else expected)
+
+
+def test_a_capitals_street_shape_is_read_on_the_opening_alone() -> None:
+    heading = "THE 2 CASES ARE ALIKE IN EVERY WAY"
+    far = "x" * documents_module.OPENING_WINDOW_CHARS + f"\n{heading}\n"
+
+    assert scrub_contact_details(far).text == far
+    # On the opening the same capitals are a caption's address line.
+    assert scrub_contact_details("1234 MAPLE STREET\n").text == f"{CONTACT_PLACEHOLDER}\n"
+
+
+def test_a_line_straddling_the_opening_is_read_whole() -> None:
+    # A line opening just before the window's edge and running past it is a
+    # longer number, not a telephone number cut at the edge.
+    text = "x" * (documents_module.OPENING_WINDOW_CHARS - 13) + "\n123 456 78901234\n"
+
+    assert scrub_contact_details(text).text == text
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("call a 202 555 0147 now", f"call a {CONTACT_PLACEHOLDER} now"),
+        ("Exhibit B 2025550147", f"Exhibit B {CONTACT_PLACEHOLDER}"),
+    ],
+)
+def test_the_value_pass_leaves_a_one_letter_word_before_the_number(
+    text: str, expected: str
+) -> None:
+    scrubbed = scrub_contact_details(text, ("(202) 555-0147",), shape=False)
+
+    assert scrubbed.text == expected
+
+
 def test_the_value_pass_reads_through_a_letter_a_scan_glued_to_the_number() -> None:
     # A served telephone number whose parenthesis the scan read as a letter set
     # against the digits: only a digit beside the run makes it another number.
@@ -4636,13 +4693,25 @@ def test_a_contact_shape_the_scrub_leaves_on_the_opening_is_a_residual(
     assert not scrubbed.clean
 
 
-def test_a_residual_past_the_opening_is_not_read() -> None:
-    text = "x" * documents_module.OPENING_WINDOW_CHARS + "\n713/555/0147\n"
+def test_a_residual_in_the_middle_of_a_document_is_not_read() -> None:
+    window = documents_module.OPENING_WINDOW_CHARS
+    text = "x" * window + "\n713/555/0147\n" + "y" * window
 
     scrubbed = scrub_contact_details(text)
 
     assert scrubbed.residuals == 0
     assert scrubbed.clean
+
+
+def test_a_residual_on_the_closing_is_read() -> None:
+    # The signature block and a bundled proof of service sit at the end.
+    window = documents_module.OPENING_WINDOW_CHARS
+    text = "x" * (2 * window) + "\nRespectfully submitted,\n713/555/0147\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.residuals == 1
+    assert not scrubbed.clean
 
 
 def test_the_residual_detector_runs_only_where_the_shape_pass_did() -> None:

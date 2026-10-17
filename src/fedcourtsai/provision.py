@@ -828,9 +828,11 @@ def document_manifest(
             # document the scrub never saw, and a cell that meets the
             # placeholder in the text can tell from here that the pipeline put
             # it there. A scrub that ran but left something contact-shaped on
-            # the document's opening reads `false` with a non-zero
-            # `contact_residuals`, so the flag never states a pass the text
-            # does not bear out; `contact_scrub_passes` still names what ran.
+            # the document's opening or closing reads `false` with a non-zero
+            # `contact_residuals`; `contact_scrub_passes` still names what ran.
+            # `true` is a claim about those two stretches where the shape pass
+            # ran: the middle is not read, and a value-only scrub reads `true`
+            # with no residual check run.
             "contact_scrubbed": scrubbed is not None and scrubbed.clean,
             "contact_replacements": 0 if scrubbed is None else scrubbed.replacements,
             "contact_residuals": 0 if scrubbed is None else scrubbed.residuals,

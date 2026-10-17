@@ -2288,7 +2288,10 @@ def test_a_scrub_leaving_a_contact_shape_on_the_opening_is_not_recorded_as_a_pas
     assert entry["contact_replacements"] == 1
     assert entry["contact_residuals"] == 1
     assert entry["contact_scrub_passes"] == ["shape"]
-    assert "1 contact-shaped residual(s) left on the opening of 1 document(s)" in result.output
+    assert (
+        "1 contact-shaped residual(s) left on the opening or closing of 1 document(s)"
+        in result.output
+    )
     assert "713/555/0147" not in result.output
 
 
