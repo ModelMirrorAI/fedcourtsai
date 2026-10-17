@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -763,6 +764,23 @@ def test_run_outputs_encode_the_summary() -> None:
     assert "\n" not in outputs["summary_b64"]
 
 
+def test_the_run_outputs_pass_the_output_writer(tmp_path: Path) -> None:
+    """Every key the run job writes is one the writer accepts, digits included."""
+    phase = cc.PhaseResult(phase="check", result=cc.CheckResult(0, False, 0))
+    out = tmp_path / "out"
+    cc.write_outputs(out, cc.run_outputs(phase, "line one\nline two"))
+    keys = [line.partition("=")[0] for line in out.read_text().splitlines()]
+    assert keys == ["phase", "exit_code", "timed_out", "summary_b64"]
+
+
+def test_the_output_writer_refuses_a_key_that_could_forge_a_line(tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    for key in ("Found", "found=true\nsha", "9lives", ""):
+        with pytest.raises(ValueError, match="lowercase identifier"):
+            cc.write_outputs(out, {key: "x"})
+    assert not out.exists()
+
+
 # --- the CLI seams --------------------------------------------------------
 
 
@@ -889,6 +907,53 @@ def test_the_exec_cli_refuses_a_command_outside_the_grammar(tmp_path: Path) -> N
     relative = [*base, "uv run fedcourts corpus-info"]
     relative[relative.index("--workdir") + 1] = "check"
     assert CliRunner().invoke(app, relative).exit_code == 1
+
+
+def _exec_args(tmp_path: Path) -> list[str]:
+    return [
+        "corpus-check-exec",
+        "--user",
+        "corpuscheck",
+        "--workdir",
+        str(tmp_path / "check"),
+        "--corpus-root",
+        str(tmp_path / "corpus"),
+        "--output-file",
+        str(tmp_path / "log"),
+        "--github-output",
+        str(tmp_path / "gh-output"),
+        "--command",
+        "uv run fedcourts corpus-info",
+    ]
+
+
+@pytest.mark.parametrize("read_back", ["ok", "timeout"])
+def test_the_exec_cli_writes_every_run_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, read_back: str
+) -> None:
+    """The run job's whole output hand-off, from the command down to the output file."""
+
+    def fake_run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        if read_back == "timeout" and "/usr/bin/head" in argv:
+            raise subprocess.TimeoutExpired(argv, 60)
+        return subprocess.CompletedProcess(argv, 0, stdout=b"counts: 3\n", stderr=b"")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        cc,
+        "run_phases",
+        lambda **_: cc.PhaseResult(phase="check", result=cc.CheckResult(0, False, 9)),
+    )
+    monkeypatch.setattr(cc, "kill_account", lambda _user: None)
+    result = CliRunner().invoke(app, _exec_args(tmp_path))
+    assert result.exit_code == 0, result.output
+    outputs = dict(
+        line.partition("=")[::2] for line in (tmp_path / "gh-output").read_text().splitlines()
+    )
+    assert outputs.keys() == {"phase", "exit_code", "timed_out", "summary_b64"}
+    assert (outputs["phase"], outputs["exit_code"], outputs["timed_out"]) == ("check", "0", "false")
+    summary = base64.b64decode(outputs["summary_b64"]).decode()
+    assert summary == ("counts: 3\n" if read_back == "ok" else "")
 
 
 def test_the_approver_cli_prints_the_configured_login(
