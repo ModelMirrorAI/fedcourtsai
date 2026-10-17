@@ -235,7 +235,12 @@ non-interactive** container. Two consequences shape everything you do:
   **corpus-check** lane instead: put one fenced `corpus-check` block in the PR
   description naming the command — `uv run fedcourts <subcommand> …` or
   `uv run python scripts/checks/<name>.py …`, a script the PR may add — that
-  writes the figure to the file `CHECK_SUMMARY` names. Once the maintainer
+  writes the figure to the file `CHECK_SUMMARY` names. A block that opens
+  with the line `at: main` and names a `uv run fedcourts` subcommand on the
+  auto allowlist (`auto_subcommands` in `config/corpus-check.yaml`) runs at
+  `main`'s own commit without approval — no PR code runs, so its figure is
+  `main`'s code's, not the change's — once per head and command, and its
+  stdout is the posted summary. Otherwise, once the maintainer
   approves the run, the lane runs it at the PR's head against the production
   corpus and posts a comment with the result and the vintage to quote beside
   it; until then the claim is unverified, and the PR says so. Only ready
