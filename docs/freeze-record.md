@@ -10370,3 +10370,116 @@ freeze commit is recorded here.
   this vintage was one its clock had already reached, so the cluster rule
   changed nothing it read. A back-test comparison across the change reads
   its difference against those columns.
+
+- **The contact scrub reads the spellings a scanned caption leaves, and a
+  document it leaves anything contact-shaped on is no longer recorded as
+  scrubbed, 2026-10-17.** A **conditioning** entry in the *what the pipeline
+  provisions* class. In predict run `20261015T142602Z`, codex-baseline flagged
+  `scotus/9026000314` (`evt-petition-disposition`): the provisioned
+  `petition.txt`'s cover page still carried an address-shaped and a
+  telephone-shaped detail, while `documents.json` read `contact_scrubbed:
+  true` with `contact_scrub_passes` `["value", "shape"]`. The agent did not
+  reproduce them. Two scan shapes defeated both passes: a letter glued to the
+  house number, and the telephone number's opening parenthesis read as a
+  letter set against the area code, which also put the served value's
+  left boundary out of the value pass's reach. The staged text is
+  runner-local and never committed, so nothing was published.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v9` and
+  the six digests `605201bd…` (claude-baseline), `70fee158…`
+  (codex-baseline), `a9033e56…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `18a76b93…` (codex-judge) and `22558044…` (gemini-judge).
+
+  **What changes.** Three things, all on the staged copy alone.
+  - **The shape pass reads more spellings**
+    (`pipeline.documents.scrub_contact_details`). A telephone number whose
+    opening parenthesis was dropped or read as a bracket, bar or letter,
+    with blanks around its separators or a letter read for a digit (`O`,
+    `o`, `I`, `l`, kept honest by a seven-real-digit floor), and the
+    blank-separated spelling after a telephone label or alone on its line on
+    the document's opening (its first 6,000 characters). A post-office box
+    with a comma or dash for a dot, a zero for the `O`, an underline run
+    into it, the words spelled out, or a capitalized `Box` and a number. A
+    street address set in capitals (`CIR` excepted), with a letter glued to
+    or a letter read for a digit of its house number, behind a stray dot or
+    dash opening its line, or with a lower-case connector in its name (`de`,
+    `la`, `del`, `van`; not `of` or `the`). An email whose domain label
+    carries a blank, whose dot was read as a colon, which ends `c0m`, or
+    whose sign sits hard between two runs of letters or digits.
+  - **The value pass** reads a served telephone number through a bracket,
+    bar or lone letter glued to its area code, bounded only by digits.
+  - **A residual detector** (`contact_residuals`) reads the scrubbed text's
+    opening once more wherever the shape pass ran, with looser shapes that
+    withhold nothing. A document it finds anything on is staged as scrubbed
+    but recorded `contact_scrubbed: false`, with the new manifest key
+    `contact_residuals` carrying the count and the run log naming it.
+    `contact_scrub_passes` still names what ran.
+
+  **The trade.** The widened shapes withhold more of every staged document
+  on a docket read as self-represented on a party side, as the shape pass
+  already does. A read of a masked sample of the spans they add (letters and
+  digits masked, no value read) found contact details in all but a handful:
+  an in-rem case name led by a street address, a phrase reading `PO Box`
+  and a word, and a citation's capital `CIR` (excluded before this entry).
+  A form's numbered box (`Box 12 of the W-2`) is the known cost of the bare
+  `Box` arm.
+
+  **The census.** Read-only, over the production corpus (blob `7c62d6e4…`,
+  newest pull stamp `2026-10-17`, newest blob snapshot row `2026-07-13`;
+  documents and the latest live snapshot read from the content store), every
+  stored document of every live-slice SCOTUS row, on its latest live
+  snapshot's reading:
+  9913 cases hold documents (22564 documents). 3720 cases read as
+  self-represented, and 6927 of their documents were recorded
+  `contact_scrubbed: true` before this change (640 of them value-only, which
+  the detector does not read). Of those, 271 documents on 262 cases carry a
+  residual under the detector (238 petitions, 23 briefs in opposition, 9
+  questions-presented rows, 1 application). After this change 41 documents on
+  37 cases still do, and those are now recorded `contact_scrubbed: false`.
+  The widened scrub withholds 665 more spans across 399 documents. The case
+  that prompted this entry carries no residual after it. The census was read
+  at each case's latest snapshot, not at any cell's placement, so it sizes
+  the documents rather than any cell.
+
+  **A harness boundary.** The change moves what a predict cell reads under
+  unchanged digests, so it is composition under the 2026-10-11 pooled rule,
+  as for the earlier scrub boundaries: reach `self-represented dockets`, every
+  predictor, not gradual (provisioning reads what is already stored). Its
+  registry row is the maintainer's to register pending:
+  <FILL: registered boundary name, or the maintainer's decision not to register one>.
+
+  **What a post-change cell reads.** On an affected docket, a subset of the
+  pre-change document text and the same snapshot. Its `documents.json` rows
+  carry `contact_residuals`, and a row whose opening still holds a
+  contact-shaped match reads `contact_scrubbed: false` where before it read
+  `true`. No skill movement is predicted. A movement in **either** direction
+  across this boundary may not be read as a model effect.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves. Nothing is written to the corpus: the corpus row,
+  the content-store payload and the source PDF are untouched, and no repair
+  pass is owed, since the scrub applies at provisioning. Predict cells,
+  evaluate cells and the case-summary lane's `summary-stage` narrow the same
+  way from the carrying promotion on; existing summaries and cells already
+  run stay as they are. The committed ledger for the 262 residual cases
+  carries no withheld-shape match beyond one prose phrase that is not a
+  contact detail.
+
+  **The amendment debt.** One manifest key is added that the prompt does not
+  describe, `contact_residuals`, beside the three the re-bless already owes
+  (`docs/live-sources.md`).
+
+  Carried to `main` by <FILL: promotion tag> (merge commit
+  <FILL: merge hash>, merged <FILL: merged-at>).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py tests/test_cli_provision.py -k
+    "scanned_caption or residual"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    six digests above;
+  - with the corpus pulled, `uv run fedcourts provision-snapshot --court
+    scotus --docket 9026000314` (with the data root pointed at a scratch
+    directory) echoes a `contact scrub:` line naming no residual, and its
+    `documents.json` petition row reads `contact_scrubbed: true` with
+    `contact_residuals` `0`.

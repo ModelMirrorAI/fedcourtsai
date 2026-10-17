@@ -821,14 +821,19 @@ def document_manifest(
             # scrub replaces a contact detail with a placeholder and can never
             # empty text that had any.
             "empty_text": not doc.text.strip(),
-            # Whether the scrub ran over this document's staged text, and how
-            # many details it withheld. The two are separate facts: a scrubbed
-            # document with nothing to withhold reads `true, 0`, which is a
-            # different statement from a document the scrub never saw, and a
-            # cell that meets the placeholder in the text can tell from here
-            # that the pipeline put it there.
-            "contact_scrubbed": scrubbed is not None,
+            # Whether the scrub ran over this document's staged text **and** its
+            # residual check came back clean, and how many details it withheld.
+            # The two are separate facts: a scrubbed document with nothing to
+            # withhold reads `true, 0`, which is a different statement from a
+            # document the scrub never saw, and a cell that meets the
+            # placeholder in the text can tell from here that the pipeline put
+            # it there. A scrub that ran but left something contact-shaped on
+            # the document's opening reads `false` with a non-zero
+            # `contact_residuals`, so the flag never states a pass the text
+            # does not bear out; `contact_scrub_passes` still names what ran.
+            "contact_scrubbed": scrubbed is not None and scrubbed.clean,
             "contact_replacements": 0 if scrubbed is None else scrubbed.replacements,
+            "contact_residuals": 0 if scrubbed is None else scrubbed.residuals,
             # Which passes ran: `shape` wherever the scrub ran on a docket read
             # as self-represented on a party side, `value` only where the docket
             # served a contact value specific enough to key on — and `value`

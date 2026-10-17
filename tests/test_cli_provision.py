@@ -2266,6 +2266,45 @@ def test_a_pro_se_dockets_staged_text_is_scrubbed_of_contact_details(
     assert entry["contact_scrub_passes"] == ["shape"]
 
 
+def test_a_scrub_leaving_a_contact_shape_on_the_opening_is_not_recorded_as_a_pass(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The scrub ran, but the caption still carries a telephone number in a
+    # spelling no shape withholds (slash-separated, synthetic). The manifest must
+    # not state a pass the text does not bear out: `contact_scrubbed` is false,
+    # the residual count says why, the passes still name what ran, and the run
+    # log carries the count — never the value.
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _PRO_SE_DOCKET)
+    _seed_petition(
+        fixture_corpus,
+        "Jane Doe, Petitioner Pro Se\n1234 Maple Street\n713/555/0147\n\nQUESTION PRESENTED\n",
+    )
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    entry = _documents_manifest(fixture_corpus)["petition"]
+    assert entry["contact_scrubbed"] is False
+    assert entry["contact_replacements"] == 1
+    assert entry["contact_residuals"] == 1
+    assert entry["contact_scrub_passes"] == ["shape"]
+    assert "1 contact-shaped residual(s) left on the opening of 1 document(s)" in result.output
+    assert "713/555/0147" not in result.output
+
+
+def test_a_clean_scrub_records_no_residual(fixture_corpus: FixtureCorpus) -> None:
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _PRO_SE_DOCKET)
+    _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    entry = _documents_manifest(fixture_corpus)["petition"]
+    assert entry["contact_scrubbed"] is True
+    assert entry["contact_residuals"] == 0
+    assert "residual" not in result.output
+
+
 def test_the_filers_own_values_key_a_second_pass_that_reaches_fragmented_spellings(
     fixture_corpus: FixtureCorpus,
 ) -> None:
@@ -2620,7 +2659,7 @@ def test_a_self_represented_respondent_is_scrubbed_on_a_counselled_petition(
     # person: the respondent's block is withheld in the staged snapshot, the
     # petitioner's counsel block stays as served, and the value pass keys on the
     # respondent's own values — each spelled in the opposition so only that
-    # pass reaches it — and not on the counselled side's, whose blank-separated
+    # pass reaches it — and not on the counselled side's, whose run-together
     # number (a shape the shape pass never reads) survives in the petition.
     payload = {
         **_REPRESENTED_DOCKET,
@@ -2665,7 +2704,7 @@ def test_a_self_represented_respondent_is_scrubbed_on_a_counselled_petition(
                     url="https://example/petition.pdf",
                     entry_date="2026-07-01",
                     fetched_at=date(2026, 7, 2),
-                    text="Counsel of Record\nTel. 202 555 0100\n",
+                    text="Counsel of Record\nTel. 2025550100\n",
                 ),
                 corpus.CaseDocument(
                     case_id="scotus/305",
@@ -2695,7 +2734,7 @@ def test_a_self_represented_respondent_is_scrubbed_on_a_counselled_petition(
     assert "4417 County Road 12" not in staged
     assert "Respondent opposes the petition." in staged
     assert staged.count("\n") == opposition.count("\n")
-    assert "202 555 0100" in paths.document("petition").read_text()
+    assert "2025550100" in paths.document("petition").read_text()
     manifest = _documents_manifest(fixture_corpus)
     assert manifest["brief-in-opposition"]["contact_scrub_passes"] == ["value", "shape"]
     assert manifest["petition"]["contact_scrubbed"] is True
