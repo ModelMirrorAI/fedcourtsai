@@ -1,0 +1,3 @@
+Distributed once so far; expect no further relists before a decision on the petition. The case is a routine immigration petition from the Fifth Circuit, and without the text of the questions presented, the statistical baseline strongly points to a denial at the first conference. The Solicitor General is already the respondent and has filed a Brief in Opposition, so there will be no CVSG.
+
+If granted, a summary GVR is plausible if an intervening decision on immigration law affects the Fifth Circuit's holding, though without the case specifics, plenary review is still the default. Should the Court deny, expect no separate writing.
