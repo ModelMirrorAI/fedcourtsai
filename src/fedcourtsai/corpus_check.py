@@ -641,8 +641,8 @@ def outcome(
         return (
             "not run",
             f"The run job ended `{result}` before it reported a result: an approval "
-            + "rejected or left to expire, a cancelled run, or a failed setup step "
-            + "(the run says which).",
+            + "rejected or left to expire, a cancelled run, a failed setup step, or "
+            + "a failure after the check ran (the run says which).",
         )
     return _ran_outcome(
         parse_exit_code(exit_code),
@@ -972,9 +972,15 @@ def run_outputs(phase: PhaseResult, summary: str) -> dict[str, str]:
 
 
 def write_outputs(path: Path, outputs: Mapping[str, str]) -> None:
-    """Append ``key=value`` lines to a step's output file, refusing a multi-line value."""
+    """Append ``key=value`` lines to a step's output file.
+
+    Refuses a key that is not a lowercase identifier and a value that is not a
+    single line: either would let one output forge another's line.
+    """
     for key, value in outputs.items():
-        if "\n" in value or "\r" in value or not re.fullmatch(r"[a-z_]+", key):
+        if not re.fullmatch(r"[a-z][a-z0-9_]*", key):
+            raise ValueError(f"output key {key!r} is not a lowercase identifier")
+        if "\n" in value or "\r" in value:
             raise ValueError(f"output {key!r} is not a single line")
     with path.open("a", encoding="utf-8") as handle:
         for key, value in outputs.items():
