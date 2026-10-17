@@ -10370,3 +10370,36 @@ freeze commit is recorded here.
   this vintage was one its clock had already reached, so the cluster rule
   changed nothing it read. A back-test comparison across the change reads
   its difference against those columns.
+
+- **The live channel polls every two hours, and selection passes run with
+  it; recorded 2026-10-17.** A **membership-rule** entry under unchanged
+  digests: no value, digest or `salience_version` moves, but which cases enter
+  the predicted population can.
+
+  **What moved.** The `run-pull` live job runs at :47 every even hour (twelve
+  windows a day) rather than at 04, 10, 16 and 22 (four). The per-cycle caps in
+  `config/tracking.yaml`'s `live` section are re-sized for the twelve cycles
+  (`max_cases_per_run` 300 → 150, `max_overdue_per_run` 100 → 50,
+  `max_new_cases_per_run` 100 → 50, `document_freshness_per_run` 20 → 10);
+  `salience.sweep_cases_per_cycle` stays 25. The CourtListener opinion
+  enrichment still runs on the four original windows only.
+
+  **Why it is a boundary.** Selection is additive-above-N and sticky per
+  conference, and a selection pass runs in every live cycle over the pool the
+  rotation has discovered so far. Three times the passes, each over a pool
+  that fills at half the per-cycle rate, can change which cases latch and how
+  far above N a conference's realized count ends. Faster onboarding (a
+  two-hour rather than six-hour latency, and 600 rather than 400 new dockets a
+  day) also moves the arrival cohort, which is the draw intersected with the
+  cases onboarded before any distribution. The likely direction is less
+  truncation of that cohort, but nothing here measures it in advance. Neither
+  effect moves the forward/retrospective stratum of a cell already minted.
+
+  **The boundary instant** is the first scheduled live window that ran the new
+  cadence on `main`: <FILL: promotion tag, merge commit and the first
+  12-window run's id and start time>. A reading that compares realized
+  selected-versus-N counts or arrival-cohort coverage across conferences
+  either side of it reads the two regimes separately, and the first
+  conferences after it are checked against those before it
+  (<FILL: per-conference realized-selected vs N for the first three
+  conferences after the boundary and the three before, as one plain line>).

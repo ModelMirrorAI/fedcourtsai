@@ -24,32 +24,47 @@
 # A predict or evaluate round's price is the planning rate table's
 # (src/fedcourtsai/planning_rates.py), taken over both the plan's would-mint
 # cells and the matrix the round actually minted, the larger of the two; a
-# summarize round's is its plan's upper estimate. Those rates price some
-# engines low, and retries spend more than a cell's rate, so actual spend can
-# exceed the estimate. The budget is a projection over a ledger that lags —
-# a manually released round in flight, an unmerged summaries PR and a rejected
-# summary response are invisible to it — which is why it must sit below the
+# summarize round's is its plan's upper estimate, one call per case, which
+# leaves out a rejected response's retry. Those rates price some engines low,
+# and retries spend more than a cell's rate, so actual spend can exceed the
+# estimate. The budget is a projection over a ledger that lags — a manually
+# released round in flight, an auto-released round whose collect PR is still
+# open more than 24 hours on, an unmerged summaries PR (except in the
+# summarize plan, which counts the summaries it carries) and a rejected summary
+# response are invisible to it — which is why it must sit below the
 # backstop's ceiling: a budget at or above `spend.ceiling_usd` keeps every
 # round on the hold. `0` in any knob DISABLES auto-release.
 #
-# The values. Measured on the committed ledger at 2026-10-17 (newest usage
-# created_at 2026-10-16T15:45:57Z): $2,715.66 over 1,155 agent cells plus $97.32
-# over 751 case summaries in the trailing 30 days, $2,812.98 in all — the
-# long-conference campaign (2026-09-16..18 and 2026-10-05..07) still sits in the
-# window. Committed rounds since that campaign ran $0.41-$97.25 each (predict)
-# and $1.82-$90.48 (evaluate); campaign rounds ran $160-$200.
+# The values. Measured on the committed ledger evaluated on 2026-10-17 before
+# ~19:50Z (newest usage created_at 2026-10-16T15:45:57Z): $2,715.66 over 1,155
+# agent cells plus $97.32 over 751 case summaries in the trailing 30 days,
+# $2,812.98 in all. The figure falls by roughly $350 a day while the
+# long-conference campaign (2026-09-16..18 and 2026-10-05..07) rolls out of the
+# window. Committed rounds since that campaign (2026-10-08 on, 16 rounds) cost
+# $0.41-$97.25 each (predict) and $1.82-$90.48 (evaluate) by actual spend;
+# full-size campaign rounds cost ~$99-$196.
 #
-# - Budget $2,000: the model-API envelope in docs/budget.md, half the
-#   backstop's $4,000 ceiling, so manual releases keep $2,000 of room above
-#   where unattended spend stops. With the campaign still in the window, nothing
-#   auto-releases until it rolls off (roughly early November at the current
-#   ledger); the steady state since then runs at ~$1,300 per 30 days.
-# - Per round $75: releases the steady-state rounds and holds a campaign-sized
-#   one for a human read.
+# - Budget $2,000: the model-API envelope in docs/budget.md. The backstop's
+#   ceiling stands at $4,000 only while the campaign sits in its window and
+#   returns to $2,500 once it leaves (tracking.yaml `spend:`), which is before
+#   this budget can first release a round — nothing auto-releases until the
+#   campaign rolls off, roughly early November at the current ledger — so the
+#   standing room above the budget is $500. The two bases differ: the budget
+#   counts summaries and the backstop does not. The steady state since the
+#   campaign runs at ~$1,425 per 30 days on the budget's base (cells ~$1,320 +
+#   summaries ~$105), extrapolated from 9 days, two of which carry over a
+#   third of the cell spend.
+# - Per round $75: releases most steady-state rounds (14 of the 16 since
+#   2026-10-08 by actual spend; the cap applies to the planning-rate price,
+#   which differs from actual by engine mix) and holds a campaign-sized one
+#   for a human read.
 # - Six rounds a day: the four scheduled slots (two predict, one evaluate, one
 #   summarize) plus two predict drain rounds the chain dispatches. Unattended
-#   estimated spend is then at most 6 x $75 = $450 a day, and the in-flight
-#   bound reaches $375 before the sixth round.
+#   *estimated* spend is then at most 6 x $75 = $450 a day, up to a race at the
+#   count when two lanes plan at the same moment (each reads the count before
+#   either deploys). The in-flight allowance reaches $375 before the sixth
+#   round, and it also counts rounds that already landed, so auto-release in
+#   practice stops a few hundred dollars short of the budget.
 auto_release_usd_per_round: 75
 auto_release_rounds_per_day: 6
 auto_release_budget_usd: 2000

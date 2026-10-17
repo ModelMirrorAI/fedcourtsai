@@ -451,7 +451,10 @@ runbook, [docs/security.md](docs/security.md).
   the approval because it supplies no code: a block that asks for `main`'s
   code (`at: main`) and names a `uv run fedcourts` subcommand on the
   maintainer-owned auto allowlist (`config/corpus-check.yaml`: read-only
-  queries that print counts and identifiers) runs in a separate job binding
+  queries that print counts and identifiers, each one's full option surface
+  pinned by the maintainer-owned `tests/test_corpus_check_auto_surface.py`, and
+  the allowlist re-checked by the job itself before it runs) runs in a
+  separate job binding
   the reviewer-less `corpus-check-auto` environment, whose tree is the run's
   own commit of `main` — the PR head is never checked out or fetched, and the
   parsed command line is all the job takes from the PR. That environment's

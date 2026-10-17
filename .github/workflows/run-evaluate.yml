@@ -280,10 +280,12 @@ jobs:
       # a released round's commit; `main`'s history is append-only). A failed
       # read leaves its flag off, which holds. This step only reads; the rule
       # and the summary are the command's. An evaluate round never chains
-      # another — the drain is run-predict's alone.
+      # another — the drain is run-predict's alone. On `main` only:
+      # `review-auto`'s branch policy admits no other ref, so a rehearsal
+      # always holds.
       - name: Decide the hold
         id: hold
-        if: ${{ steps.plan.outputs.has_jobs == 'true' }}
+        if: ${{ steps.plan.outputs.has_jobs == 'true' && github.ref == 'refs/heads/main' }}
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ github.token }}

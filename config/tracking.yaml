@@ -421,10 +421,14 @@ salience:
   # sits inside the live section's politeness arithmetic. Model spend is not
   # what this reader sets: the cases it can provision are the salience-selected
   # ones (and the cohort completions narrowed to an existing cohort), whose
-  # count the capacity caps above fix per conference, so a faster
-  # sweep moves that intake earlier in the day rather than multiplying it, and
-  # the per-run predict caps, the review hold and `spend:` below still bound
-  # what a day spends. The deriver reader runs per predict round, not per live
+  # count the capacity caps above set per conference, so a faster sweep mostly
+  # moves that intake earlier in the day, and the per-run predict caps, the
+  # review hold and `spend:` below still bound what a day spends. The cadence
+  # is not neutral for selection, though: selection is additive-above-N and
+  # sticky, and a pass runs in every live cycle over the pool discovered so far,
+  # so more passes over partial pools can change which cases latch and how far
+  # above N a cohort ends (docs/salience.md, *Selection*; the freeze record
+  # carries the cadence change as a boundary). The deriver reader runs per predict round, not per live
   # cycle, so cutting the knob to hold the sweep's daily volume flat (25 -> 8)
   # would instead cut every predict round's fan-out by two thirds.
   sweep_cases_per_cycle: 25

@@ -1363,6 +1363,32 @@ def test_the_exec_cli_reports_an_auto_checks_stdout_as_its_summary(
     assert base64.b64decode(outputs["summary_b64"]).decode() == "rows: 12\n"
 
 
+@pytest.mark.parametrize(
+    ("allowlist", "command"),
+    [
+        ("auto_subcommands: [decision-census]\n", "uv run fedcourts corpus-info"),
+        ("auto_subcommands: corpus-info\n", "uv run fedcourts corpus-info"),
+        ("auto_subcommands: [corpus-info]\n", "uv run python scripts/checks/x.py"),
+    ],
+)
+def test_the_exec_cli_refuses_an_auto_check_off_the_allowlist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, allowlist: str, command: str
+) -> None:
+    config = tmp_path / "config"
+    config.mkdir()
+    (config / cc.CONFIG_FILENAME).write_text("requesters: [modelmirror-agent]\n" + allowlist)
+    monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(config))
+
+    def never(**_kwargs: Any) -> cc.PhaseResult:
+        raise AssertionError("an auto check off the allowlist must not run")
+
+    monkeypatch.setattr(cc, "run_phases", never)
+    args = [*_exec_args(tmp_path)[:-1], command, "--stdout-summary-file", str(tmp_path / "o")]
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 1
+    assert "refused" in result.output
+
+
 def _auto_plan(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, auto_environment: Any, auto_policies: Any
 ) -> dict[str, str]:

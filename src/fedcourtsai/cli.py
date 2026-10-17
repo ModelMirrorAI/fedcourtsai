@@ -19198,6 +19198,19 @@ def corpus_check_exec_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
     except corpus_check.CommandRefused as exc:
         typer.echo(f"corpus-check-exec: refused: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+    if stdout_summary_file is not None:
+        # The auto path posts stdout unread, so it re-checks the allowlist here
+        # rather than trusting the plan's routing alone.
+        allowlist, allowlist_problem = _corpus_check_config("corpus-check-exec").auto_allowlist()
+        reason = corpus_check.auto_ineligibility(
+            command,
+            allowlist=allowlist,
+            allowlist_problem=allowlist_problem,
+            environment_problems=(),
+        )
+        if reason is not None:
+            typer.echo(f"corpus-check-exec: refused: {reason}", err=True)
+            raise typer.Exit(code=1)
     if not workdir.is_absolute() or not corpus_root.is_absolute():
         typer.echo("corpus-check-exec: --workdir and --corpus-root must be absolute", err=True)
         raise typer.Exit(code=1)

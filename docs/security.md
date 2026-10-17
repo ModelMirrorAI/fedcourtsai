@@ -800,7 +800,9 @@ which runs no PR code.** The `run-auto` job of `corpus-check.yml` binds it,
 and no other job may. It answers only a request whose block asks for `main`'s
 code (`at: main`) and names a `uv run fedcourts` subcommand on the auto
 allowlist in `config/corpus-check.yaml` — read-only queries that print counts
-and identifiers — and its tree is the run's own commit of `main`: the PR head
+and identifiers, whose full option surface the maintainer-owned
+`tests/test_corpus_check_auto_surface.py` pins, so widening one is an owned
+change — and its tree is the run's own commit of `main`: the PR head
 is never checked out or fetched, and the parsed command line is all the job
 takes from the PR. So the lane's invariant holds across both environments: no
 PR-supplied code runs with the corpus credential without the maintainer's
