@@ -108,10 +108,13 @@ BRANCH_POLICIED_ENVIRONMENTS = frozenset({"prod", "staging"})
 # AWS role trust policies pin the OIDC `sub` to the named environments, so a
 # run under an auto-created one can assume nothing (docs/security.md carries
 # that carve-out). This one is integration-test's: resolved from its
-# `deploy-environment` input, falling back to the ref's own name.
+# `deploy-environment` input, falling back to the ref — `main` to `prod`, a
+# promotion train candidate (`promote/…`) to `staging`, whose branch policy
+# admits `promote/*`, anything else to its own name.
 COMPUTED_ENVIRONMENT = (
     "${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment "
-    "|| (github.ref_name == 'main' && 'prod' || github.ref_name) }}"
+    "|| (github.ref_name == 'main' && 'prod' "
+    "|| (startsWith(github.ref_name, 'promote/') && 'staging' || github.ref_name)) }}"
 )
 
 # The other computed form, run-analytics's: pure branch resolution with no
@@ -762,6 +765,18 @@ def test_the_chained_rounds_are_dispatched_by_a_bot_the_allow_list_admits() -> N
     or every chained round is refused at its first job."""
     config = load_dispatchers(ROOT / DISPATCHERS_PATH)
     assert config.is_dispatch_bot("fedcourtsai-dispatch[bot]", "run-predict.yml")
+
+
+def test_the_promotion_train_gate_is_dispatched_by_a_bot_the_allow_list_admits() -> None:
+    """promotion-prep's `dispatch-gate` job starts integration-test's `gate`
+    suite at a candidate branch with the dispatch App's token. The gate reads
+    the allow-list from the dispatched ref — a cut of staging — so the entry
+    must be there, and must name that bot for integration-test alone: the
+    dispatch App gains no other workflow by it."""
+    config = load_dispatchers(ROOT / DISPATCHERS_PATH)
+    assert config.is_dispatch_bot("fedcourtsai-dispatch[bot]", "integration-test.yml")
+    allowed = {wf for wf, bots in config.bots.items() if "fedcourtsai-dispatch[bot]" in bots}
+    assert allowed == {"integration-test.yml", "run-predict.yml"}
 
 
 def test_the_disjunction_check_reads_quotes_and_parentheses() -> None:

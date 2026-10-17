@@ -1,0 +1,22 @@
+# The promotion train (`promotion-prep.yml`, `src/fedcourtsai/promotion_train.py`):
+# whose approval it merges a promotion candidate on, and which required checks
+# it waits for before asking.
+#
+# `approvers` — the GitHub logins whose approving review of a candidate's head
+# is the merge decision. The train merges with the dev App, which bypasses
+# `main: require approval` for pull requests, so this list — checked against
+# the reviews right before the merge call, at exactly the head SHA — is what
+# binds an unattended promotion merge to a person. Never list the agent account
+# or a bot: a listed login's approval lands code on `main`.
+#
+# `required_checks` — the contexts `main`'s rulesets require (docs/security.md,
+# *Branch protection*). The platform enforces them on the merge regardless; the
+# train waits for them so it never asks for a merge it knows will be refused,
+# and re-fires `promotion-gate` (by a body edit) when that check alone is red.
+approvers:
+  - modelmirror
+required_checks:
+  - gate
+  - paths
+  - promotion-gate
+  - main-base

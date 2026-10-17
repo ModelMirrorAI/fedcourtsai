@@ -238,6 +238,30 @@ def test_the_committed_allow_list_loads() -> None:
     assert config.humans
 
 
+def test_the_committed_allow_list_admits_the_train_dispatch_and_nothing_wider() -> None:
+    """The dispatch App may start integration-test (the promotion train's gate
+    suite) and run-predict (the chained rounds), as a first attempt only: it
+    re-runs nothing, and it starts no other gated workflow."""
+    config = load_dispatchers(ROOT / DISPATCHERS_PATH)
+    bot = "fedcourtsai-dispatch[bot]"
+
+    def allowed(workflow: str, attempt: str = "1", triggering: str = bot) -> bool:
+        return decide(
+            event_name="workflow_dispatch",
+            actor=bot,
+            triggering_actor=triggering,
+            run_attempt=attempt,
+            workflow_file=workflow,
+            config=config,
+        ).authorized
+
+    assert allowed("integration-test.yml")
+    assert allowed("run-predict.yml")
+    assert not allowed("integration-test.yml", attempt="2")
+    for workflow in ("run-pull.yml", "run-evaluate.yml", "promotion-prep.yml", "run-repair.yml"):
+        assert not allowed(workflow), workflow
+
+
 # --- The entry point --------------------------------------------------------
 
 

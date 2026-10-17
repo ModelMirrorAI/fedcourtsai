@@ -1,11 +1,14 @@
-"""The generated part of a draft promotion PR's body.
+"""The generated part of a promotion PR's body.
 
 A promotion batch is assembled from the feature PRs merged into `staging` since
 the last promotion. Each of them is asked (AGENTS.md) to carry its effect check
 as a handover note, and the promotion body is where those notes meet, beside
 the gate's state and what is still owed after the merge. Writing that by hand
 is the mechanical part of a promotion; this module writes it, and the
-`promotion-prep` workflow keeps it current on a draft PR.
+promotion train (the `promotion-prep` workflow) keeps it current on each
+`promote/<date>` candidate it cuts, with the train's latest step beside the
+gate. A hand-opened `staging` → `main` promotion renders the same batch with
+the manual next steps instead.
 
 The block sits between two HTML-comment markers, so everything a maintainer
 writes outside them survives a refresh: the narrative stays theirs, the lists
@@ -79,6 +82,18 @@ class Batch(BaseModel):
     unmapped_commits: list[str] = []
     gate: list[GateCheck] = []
     owed_fills: list[str] = []
+    # The promotion's head ref: `staging` for a hand-opened promotion, or the
+    # promotion train's frozen `promote/<date>` candidate, whose head is
+    # `staging_sha` for good.
+    head_ref: str = "staging"
+    # The train's latest step on a candidate, one line (`fedcourts
+    # promotion-train-step`'s reason).
+    train_status: str = ""
+
+    @property
+    def is_candidate(self) -> bool:
+        """Whether this is a promotion train candidate rather than `staging` itself."""
+        return self.head_ref != "staging"
 
 
 class _Fence:
@@ -242,20 +257,60 @@ def _next_step(batch: Batch) -> list[str]:
     return lines
 
 
-def render(batch: Batch, *, drafted_at: str) -> str:
-    """The generated block, markers included."""
-    out = [
-        BEGIN,
-        f"_Drafted by `promotion-prep` at {drafted_at} for staging "
-        f"`{batch.staging_sha[:9]}` over main `{batch.main_sha[:9]}`. The block between "
-        "the markers is regenerated while this PR is a draft; write anything else outside "
-        "it. Once the PR is ready for review it is no longer refreshed, so the gate "
-        "status and next step below are as of this stamp._",
+def _train_next_step(batch: Batch) -> list[str]:
+    """What the maintainer does on a promotion train candidate.
+
+    The head is frozen, so nothing the maintainer does here can be invalidated
+    by a sync or a later staging merge, and the train does every mechanical
+    step; the maintainer's one act is the approval of this head.
+    """
+    sha = batch.staging_sha[:9]
+    return [
+        f"**Train:** {_unmark(batch.train_status) or 'not yet stepped'}",
+        "",
+        f"**Next (maintainer):** read the batch and approve this PR at `{sha}`. The "
+        "train then merges it with a **merge commit** once the integration `gate` run, "
+        "the required checks and the registry gate hold at this head and no "
+        "predict/evaluate/back-test round is in flight. Merging it yourself instead is "
+        "fine. To stop it, request changes or close it: a closed candidate is not re-cut "
+        "at the same staging tip, and the next one is cut once staging moves.",
+    ]
+
+
+def _header(batch: Batch, *, drafted_at: str) -> list[str]:
+    """The block's stamp, gate status and next step: the train's for a candidate."""
+    if batch.is_candidate:
+        return [
+            f"_Drafted by the promotion train at {drafted_at} for `{batch.head_ref}` at "
+            f"`{batch.staging_sha[:9]}` over main `{batch.main_sha[:9]}`. The branch was cut "
+            "from staging and never moves, so the integration evidence and an approval of "
+            "this head stay valid while staging carries on. The train regenerates the block "
+            "between the markers while this PR is open; write anything else outside it._",
+            "",
+            f"**Gate status** (`{batch.head_ref}` at `{batch.staging_sha[:9]}`):",
+            *_gate_lines(batch),
+            "",
+            *_train_next_step(batch),
+        ]
+    return [
+        f"_Drafted by `fedcourts promotion-body` at {drafted_at} for staging "
+        f"`{batch.staging_sha[:9]}` over main `{batch.main_sha[:9]}`. Write anything "
+        "else outside the markers; the gate status and next step below are as of this "
+        "stamp._",
         "",
         f"**Gate status** (staging `{batch.staging_sha[:9]}`):",
         *_gate_lines(batch),
         "",
         *_next_step(batch),
+    ]
+
+
+def render(batch: Batch, *, drafted_at: str) -> str:
+    """The generated block, markers included."""
+    header = _header(batch, drafted_at=drafted_at)
+    out = [
+        BEGIN,
+        *header,
         "",
         "## The batch",
         "",
@@ -351,7 +406,9 @@ def same_body(left: str, right: str) -> bool:
             # reads of an unchanged batch; the verdict itself does not.
             _DIGITS.sub("N", line.rstrip()) if _GATE_LINE.match(line) else line.rstrip()
             for line in body.replace("\r\n", "\n").rstrip().split("\n")
-            if not line.startswith("_Drafted by `promotion-prep`")
+            if not line.startswith(
+                ("_Drafted by `fedcourts promotion-body`", "_Drafted by the promotion train")
+            )
         ]
 
     return norm(left) == norm(right)

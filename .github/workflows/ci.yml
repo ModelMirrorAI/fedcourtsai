@@ -228,11 +228,15 @@ jobs:
           uv run fedcourts assert-cleanup-paths --name-status-file changes.txt
 
   promotion-gate:
-    # The staging→main promotion PR's gate: quiescence, integration-run
+    # The promotion PR's gate: quiescence, the head's provenance, integration-run
     # freshness and the process registry's Step 0 at the PR head, via
     # scripts/promotion-gate.sh — the same
-    # script the `promote` dispatch runs, so the pre-flight and this required
-    # check cannot drift apart on what the gate *means*. What each asks for
+    # script the `promote` dispatch and the promotion train run, so the
+    # pre-flight, the train and this required check cannot drift apart on
+    # what the gate *means*. A promotion's head is `staging` (a hand-opened
+    # promotion) or a promotion train candidate `promote/<date>`, a frozen cut
+    # of staging; the script takes the head ref, refuses any other name, and
+    # pins freshness to runs dispatched from that ref. What each asks for
     # can differ. PROMOTION_SCENARIOS is set by nothing: an arbitrary required
     # set is a local re-check narrowing, never a merge gate. PROMOTION_SKIP_SMOKE
     # has two sanctioned setters — promote.yml's `skip_engine_smoke` input,
@@ -253,13 +257,16 @@ jobs:
     #
     # Skipped — and therefore green as a required
     # check — on every other PR. Gate state is point-in-time: re-run this
-    # check immediately before merging the promotion. Same-repo head only: a
-    # fork branch named `staging` gets the skip, never the gate (and a fork's
-    # read-only token could not satisfy it anyway).
+    # check immediately before merging the promotion (the train re-fires it by
+    # a body edit). Same-repo head only: a fork branch named `staging` or
+    # `promote/…` gets the skip, never the gate (and a fork's read-only token
+    # could not satisfy it anyway). `startsWith` compares case-insensitively,
+    # so a `Promote/…` head runs the gate — and fails it, since the script's
+    # ref check is case-sensitive.
     if: >-
       github.event_name == 'pull_request' &&
       github.base_ref == 'main' &&
-      github.head_ref == 'staging' &&
+      (github.head_ref == 'staging' || startsWith(github.head_ref, 'promote/')) &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -320,18 +327,21 @@ jobs:
             echo
             echo "Remove the label and re-run this check to demand them."
           } >>"$GITHUB_STEP_SUMMARY"
-      - name: Quiescence, freshness and the process registry at the PR head
+      - name: Quiescence, provenance, freshness and the process registry at the PR head
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.head_ref }}
           # Empty unless the step above matched the label — and the script
           # treats anything but `1` as strict.
           PROMOTION_SKIP_SMOKE: ${{ steps.waiver.outputs.skip }}
-        run: scripts/promotion-gate.sh all "$HEAD_SHA"
+        run: scripts/promotion-gate.sh all "$HEAD_SHA" "$HEAD_REF"
 
   main-base:
     # Merge routing, on the `paths` pattern: code reaches `main` only through
-    # the staging→main promotion or a non-feature lane — the collect
+    # a promotion (from `staging`, or a promotion train candidate
+    # `promote/<date>`, whose own ruleset lets only the dev App create one, at
+    # a staging commit) or a non-feature lane — the collect
     # run branches, the maintainer's cleanup sweep, the metrics-refresh /
     # cert-backtest / salience-replay PRs, the qp-topic labeling run's
     # labels PR, the case-summary lane's `summaries/refresh` PR, and the
@@ -356,6 +366,7 @@ jobs:
         github.event.pull_request.head.repo.full_name == github.repository &&
         (
           github.head_ref == 'staging' ||
+          startsWith(github.head_ref, 'promote/') ||
           startsWith(github.head_ref, 'predict/run-') ||
           startsWith(github.head_ref, 'evaluate/run-') ||
           startsWith(github.head_ref, 'cleanup/') ||
@@ -373,5 +384,5 @@ jobs:
     steps:
       - run: |
           set -euo pipefail
-          echo "::error::PRs to main carry only promotion batches (head 'staging') or the bot lanes; feature PRs target 'staging' (AGENTS.md)."
+          echo "::error::PRs to main carry only promotion batches (head 'staging' or a promote/ candidate) or the bot lanes; feature PRs target 'staging' (AGENTS.md)."
           exit 1

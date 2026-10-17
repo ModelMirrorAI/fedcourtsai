@@ -2,10 +2,12 @@
 
 Its token can start any workflow on any ref, so the security argument for it
 (docs/security.md, *The GitHub Apps*) rests on the code that mints it rather than
-on the token's scope: exactly two jobs mint it, each binds `prod` (so only
+on the token's scope: exactly three jobs mint it, each binds `prod` (so only
 `main`'s promoted code reaches the key), holds nothing else, and starts exactly
-one thing — an input-less `run-predict` on `main`. A new minter, a wider grant
-or a different dispatch reopens that argument, so each is a failure here.
+one thing — the two drain-chain jobs an input-less `run-predict` on `main`, the
+promotion train's `dispatch-gate` the integration `gate` suite at a validated
+`promote/<date>` candidate. A new minter, a wider grant or a different dispatch
+reopens that argument, so each is a failure here.
 """
 
 from __future__ import annotations
@@ -19,8 +21,11 @@ import yaml
 WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 
 DISPATCH_KEY = "secrets.DISPATCH_APP_PRIVATE_KEY"
-MINTERS = {("run-pull.yml", "chain-predict"), ("run-predict.yml", "chain")}
+CHAIN_JOBS = {("run-pull.yml", "chain-predict"), ("run-predict.yml", "chain")}
+TRAIN_JOB = ("promotion-prep.yml", "dispatch-gate")
+MINTERS = CHAIN_JOBS | {TRAIN_JOB}
 ALLOWED_GRANTS = {
+    TRAIN_JOB: {"permission-actions": "write"},
     ("run-pull.yml", "chain-predict"): {
         "permission-actions": "write",
         "permission-pull-requests": "read",
@@ -30,8 +35,13 @@ ALLOWED_GRANTS = {
         "permission-pull-requests": "read",
     },
 }
-# The one dispatch either job may send.
+# The one dispatch each job may send.
 DISPATCH = re.compile(r"\bgh workflow run run-predict\.yml --repo \"\$REPO\" --ref main\s*$")
+TRAIN_DISPATCH = re.compile(
+    r"\bgh workflow run integration-test\.yml --repo \"\$REPO\" "
+    + r"--ref \"\$REF\" -f scenario=gate\s*$"
+)
+DISPATCHES = {**{job: DISPATCH for job in CHAIN_JOBS}, TRAIN_JOB: TRAIN_DISPATCH}
 # The actions a chain job may run: the checkout and env setup its tested
 # `fedcourts chain-step` needs, then the token mint, in that order.
 CHECKOUT = "actions/checkout@"
@@ -55,7 +65,7 @@ def _steps(job: dict[str, Any]) -> list[dict[str, Any]]:
     return list(job.get("steps", []) or [])
 
 
-def test_only_the_two_chain_jobs_reference_the_dispatch_key() -> None:
+def test_only_the_three_minters_reference_the_dispatch_key() -> None:
     found = set()
     for path in sorted(WORKFLOWS.glob("*.yml")):
         for job_name, job in (_load(path).get("jobs") or {}).items():
@@ -65,7 +75,7 @@ def test_only_the_two_chain_jobs_reference_the_dispatch_key() -> None:
 
 
 def test_each_chain_job_binds_prod_and_holds_nothing_else() -> None:
-    for workflow, job_name in MINTERS:
+    for workflow, job_name in CHAIN_JOBS:
         job = _load(WORKFLOWS / workflow)["jobs"][job_name]
         assert job["environment"] == "prod"
         # The checkout's read and nothing more: everything else rides the token.
@@ -91,7 +101,7 @@ def test_each_chain_job_binds_prod_and_holds_nothing_else() -> None:
             assert "uses" in step or "run" in step
 
 
-def test_each_chain_job_dispatches_only_run_predict_on_main() -> None:
+def test_each_minter_dispatches_only_its_one_workflow() -> None:
     for workflow, job_name in MINTERS:
         job = _load(WORKFLOWS / workflow)["jobs"][job_name]
         # A backslash-continued command is one logical line: join it first, or a
@@ -100,7 +110,9 @@ def test_each_chain_job_dispatches_only_run_predict_on_main() -> None:
         dispatches = [line for line in runs.splitlines() if "gh workflow run" in line]
         assert dispatches, f"{workflow}:{job_name} dispatches nothing"
         for line in dispatches:
-            assert DISPATCH.search(line), f"{workflow}:{job_name} dispatches {line.strip()!r}"
+            assert DISPATCHES[(workflow, job_name)].search(line), (
+                f"{workflow}:{job_name} dispatches {line.strip()!r}"
+            )
         for line in runs.splitlines():
             for call in GH_API_CALL.findall(line):
                 assert not WRITING_FLAGS.search(call), (
@@ -116,6 +128,35 @@ def test_each_chain_job_decides_through_the_tested_command() -> None:
         assert "uv run fedcourts chain-step" in runs
         assert f"--mode {mode}" in runs
         assert "--promotion-prs-file" in runs
+
+
+def test_the_train_dispatch_job_holds_the_token_alone_and_checks_the_head_first() -> None:
+    """The promotion train's dispatcher binds `prod`, sits behind the same
+    repository switch as the chain jobs, runs no project code, and mints the
+    token only after the candidate's tip is confirmed at the planned head, with
+    the ambient token; the dispatch step re-reads the runs at the head, so one
+    head gets one paid gate suite."""
+    workflow, job_name = TRAIN_JOB
+    job = _load(WORKFLOWS / workflow)["jobs"][job_name]
+    assert job["environment"] == "prod"
+    assert job["permissions"] == {"contents": "read"}
+    assert "vars.DISPATCH_CHAIN_ENABLED == 'true'" in job["if"]
+    assert "needs.plan.outputs.action == 'dispatch_gate'" in job["if"]
+    steps = _steps(job)
+    uses = [step["uses"] for step in steps if "uses" in step]
+    assert len(uses) == 1 and MINT in uses[0], "no checkout, no project code, one mint"
+    mint = next(i for i, step in enumerate(steps) if MINT in step.get("uses", ""))
+    check = steps[0]
+    assert mint == 1
+    assert check["env"]["GH_TOKEN"] == "${{ github.token }}"
+    assert "git/ref/heads/${REF}" in check["run"]
+    assert '"$tip" != "$SHA"' in check["run"]
+    assert "^promote/[0-9]{4}-[0-9]{2}-[0-9]{2}" in check["run"]
+    dispatch = steps[2]
+    assert dispatch["env"]["GH_TOKEN"] == "${{ steps.app-token.outputs.token }}"
+    run = dispatch["run"]
+    assert run.index("integration-test.yml/runs?head_sha=${SHA}") < run.index("gh workflow run")
+    assert '[ "$existing" != 0 ]' in run
 
 
 def test_no_workflow_hands_a_job_every_secret() -> None:

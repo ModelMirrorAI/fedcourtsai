@@ -24,6 +24,7 @@ from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, S
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
+from enum import StrEnum
 from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast, get_args
@@ -372,6 +373,19 @@ from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
 from .planning_rates import price_cells
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .promotion_body import Batch, batch_prs, render, same_body, splice
+from .promotion_train import (
+    CONFIG_FILENAME as PROMOTION_TRAIN_CONFIG,
+)
+from .promotion_train import (
+    Approval,
+    Observed,
+    TrainConfig,
+    TrainConfigError,
+    approval_state,
+    find_candidate,
+    load_train_config,
+)
+from .promotion_train import decide as promotion_train_decide
 from .public_update import (
     build_public_update,
     last_complete_week,
@@ -18720,6 +18734,188 @@ def chain_step_cmd(
         max_attempts=max_attempts,
     )
     typer.echo(step.model_dump_json())
+
+
+class _TriState(StrEnum):
+    """A fact the caller read: ``yes``, ``no``, or ``unknown`` when the read failed."""
+
+    YES = "yes"
+    NO = "no"
+    UNKNOWN = "unknown"
+
+
+def _tri(value: _TriState) -> bool | None:
+    return None if value is _TriState.UNKNOWN else value is _TriState.YES
+
+
+def _read_json_list(path: Path | None, key: str | None = None) -> list[Any] | None:
+    """A JSON list from ``path`` (or the list under ``key``); ``None`` when unreadable."""
+    if path is None:
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if key is not None:
+        loaded = loaded.get(key) if isinstance(loaded, dict) else None
+    return loaded if isinstance(loaded, list) else None
+
+
+def _train_config(config: Path | None) -> TrainConfig:
+    path = config if config is not None else get_settings().config_root / PROMOTION_TRAIN_CONFIG
+    try:
+        return load_train_config(path)
+    except TrainConfigError as exc:
+        typer.echo(f"::error::promotion train: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+
+@app.command("promotion-train-candidate")
+def promotion_train_candidate_cmd(
+    repo: Annotated[str, typer.Option(help="The `owner/name` the train promotes in.")],
+    open_prs_file: Annotated[
+        Path, typer.Option("--open-prs-file", help="The open PRs into `main` (REST list).")
+    ],
+) -> None:
+    """Name the one open promotion candidate the train would act on.
+
+    Prints `{"number", "ref", "sha"}` for exactly one open same-repo PR into
+    `main` from a `promote/<date>` branch, and `{}` otherwise — no promotion
+    open, a hand-opened `staging` PR, a `promote/` head the train does not cut,
+    more than one candidate, or an unreadable file. The caller reads the
+    candidate's runs, reviews and checks only when one is named.
+    """
+    pulls = _read_json_list(open_prs_file)
+    candidate, _ = find_candidate(pulls or [], repo=repo)
+    if candidate is None:
+        typer.echo("{}")
+        return
+    typer.echo(json.dumps({"number": candidate.number, "ref": candidate.ref, "sha": candidate.sha}))
+
+
+@app.command("promotion-train-step")
+def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to reads
+    repo: Annotated[str, typer.Option(help="The `owner/name` the train promotes in.")],
+    open_prs_file: Annotated[
+        Path | None,
+        typer.Option("--open-prs-file", help="The open PRs into `main` (REST list)."),
+    ] = None,
+    branches_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--branches-file",
+            help="The existing `promote/*` branches, one `<name> <head SHA>` a line.",
+        ),
+    ] = None,
+    staging_sha: Annotated[
+        str | None, typer.Option("--staging-sha", help="The staging tip that was read.")
+    ] = None,
+    staging_contains_main: Annotated[
+        _TriState, typer.Option("--staging-contains-main", help="Is main an ancestor of staging?")
+    ] = _TriState.UNKNOWN,
+    staging_differs: Annotated[
+        _TriState,
+        typer.Option("--staging-differs", help="Does staging's tree differ from main's?"),
+    ] = _TriState.UNKNOWN,
+    head_on_staging: Annotated[
+        _TriState,
+        typer.Option(
+            "--head-on-staging", help="Is the candidate's head on staging's first-parent chain?"
+        ),
+    ] = _TriState.UNKNOWN,
+    runs_file: Annotated[
+        Path | None,
+        typer.Option("--runs-file", help="integration-test runs at the head (REST document)."),
+    ] = None,
+    reviews_file: Annotated[
+        Path | None, typer.Option("--reviews-file", help="The candidate's reviews (REST list).")
+    ] = None,
+    check_runs_file: Annotated[
+        Path | None,
+        typer.Option("--check-runs-file", help="Check runs at the head (REST document)."),
+    ] = None,
+    quiescent: Annotated[
+        _TriState, typer.Option("--quiescent", help="Did the quiesce stage pass just now?")
+    ] = _TriState.UNKNOWN,
+    registry_ok: Annotated[
+        _TriState, typer.Option("--registry-ok", help="Did the registry stage pass at the head?")
+    ] = _TriState.UNKNOWN,
+    now: Annotated[
+        str | None, typer.Option("--now", help="ISO time the tick reads as now (default: now).")
+    ] = None,
+    config: Annotated[
+        Path | None, typer.Option("--config", help="The train's config (default: its own path).")
+    ] = None,
+) -> None:
+    """Decide one tick of the promotion train.
+
+    Prints a `TrainStep` (`action`, `reason`, and the `pr`, `ref`, `sha` or
+    `branch` it acts on): cut a candidate, dispatch its integration gate, mark
+    it ready, re-fire its promotion-gate check, merge it, wait, or report. Every
+    file or fact left out or unreadable is unknown, and an unknown never leads
+    to an act. Reads no corpus and calls no API.
+    """
+    train_config = _train_config(config)
+    try:
+        at = datetime.fromisoformat(now) if now else datetime.now(UTC)
+    except ValueError as exc:
+        typer.echo(f"promotion-train-step: --now {now!r} is not an ISO time", err=True)
+        raise typer.Exit(code=1) from exc
+    branches: list[tuple[str, str]] | None = None
+    if branches_file is not None:
+        try:
+            pairs = [
+                line.split()
+                for line in branches_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            branches = [(p[0], p[1]) for p in pairs] if all(len(p) == 2 for p in pairs) else None
+        except OSError:
+            branches = None
+    observed = Observed(
+        repo=repo,
+        now=at.astimezone(UTC),
+        open_pulls=_read_json_list(open_prs_file),
+        branches=branches,
+        staging_sha=staging_sha,
+        staging_contains_main=_tri(staging_contains_main),
+        staging_differs_from_main=_tri(staging_differs),
+        head_on_staging=_tri(head_on_staging),
+        runs=_read_json_list(runs_file, "workflow_runs"),
+        reviews=_read_json_list(reviews_file),
+        check_runs=_read_json_list(check_runs_file, "check_runs"),
+        quiescent=_tri(quiescent),
+        registry_ok=_tri(registry_ok),
+    )
+    typer.echo(promotion_train_decide(observed, train_config).model_dump_json())
+
+
+@app.command("promotion-train-approval")
+def promotion_train_approval_cmd(
+    reviews_file: Annotated[
+        Path, typer.Option("--reviews-file", help="The candidate's reviews (REST list).")
+    ],
+    head_sha: Annotated[str, typer.Option("--head-sha", help="The head the merge is pinned to.")],
+    config: Annotated[
+        Path | None, typer.Option("--config", help="The train's config (default: its own path).")
+    ] = None,
+) -> None:
+    """Exit 0 only when a listed approver approved exactly `--head-sha`.
+
+    The train's merge step asks this immediately before its merge call, on
+    reviews it has just re-read: the dev App bypasses `main`'s approval rule, so
+    this check is what binds the merge to the maintainer's decision. Any change
+    request since, an approval at another head, or an unreadable file exits 1.
+    """
+    train_config = _train_config(config)
+    reviews = _read_json_list(reviews_file)
+    if reviews is None:
+        typer.echo("::error::promotion train: the reviews could not be read", err=True)
+        raise typer.Exit(code=1)
+    state, reason = approval_state(reviews, sha=head_sha, config=train_config)
+    typer.echo(reason)
+    if state is not Approval.APPROVED:
+        raise typer.Exit(code=1)
 
 
 @app.command("evaluate-plan")

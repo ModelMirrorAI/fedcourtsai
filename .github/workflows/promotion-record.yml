@@ -126,12 +126,18 @@ jobs:
           if [ "$EVENT" = "push" ] && [ "${parent_list[0]}" != "$BEFORE" ]; then
             not_a_promotion "${sha}'s first parent is not the tip it replaced"
           fi
+          # A promotion's head is `staging` (a hand-opened promotion) or a
+          # promotion train candidate, `promote/<UTC date>[-N]`: a frozen cut of
+          # staging. Either way the merge's second parent is on staging's
+          # first-parent chain, which the plan checks again from git.
           pr=$(gh api "repos/${REPO}/commits/${sha}/pulls" --jq "[.[] | select(
-              .merged_at != null and .base.ref == \"main\" and .head.ref == \"staging\"
+              .merged_at != null and .base.ref == \"main\"
+              and (.head.ref == \"staging\"
+                or (.head.ref | test(\"^promote/[0-9]{4}-[0-9]{2}-[0-9]{2}(-([2-9]|[1-9][0-9]+))?\$\")))
               and .head.repo.full_name == \"${REPO}\" and .merge_commit_sha == \"${sha}\"
             ) | .number] | if length == 1 then .[0] else empty end")
           if [ -z "$pr" ]; then
-            not_a_promotion "${sha} is not the merge commit of a merged staging→main PR"
+            not_a_promotion "${sha} is not the merge commit of a merged promotion PR into main"
           fi
           echo "${sha} is the merge of promotion PR #${pr}"
           {

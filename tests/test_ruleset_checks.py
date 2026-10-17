@@ -14,6 +14,9 @@ from fedcourtsai.cli import app
 from fedcourtsai.ruleset_checks import (
     ADMIN_ROLE_ID,
     MAIN_APPROVAL_RULESET,
+    PROMOTE_BRANCH_PATTERN,
+    PROMOTE_CREATION_RULESET,
+    PROMOTE_FREEZE_RULESET,
     RECORD_TAG_NAMESPACES,
     STAGING_PR_RULESET,
     Expected,
@@ -35,6 +38,23 @@ def _branch(name: str, include: list[str], rules: list[dict[str, Any]]) -> dict[
         "conditions": {"ref_name": {"include": include, "exclude": []}},
         "rules": rules,
     }
+
+
+def _promote() -> list[dict[str, Any]]:
+    """The promotion train's two candidate-branch rulesets: creation by the dev
+    App alone, and a freeze the admin role alone bypasses."""
+    creation = _branch(PROMOTE_CREATION_RULESET, [PROMOTE_BRANCH_PATTERN], [{"type": "creation"}])
+    creation["bypass_actors"] = [
+        {"actor_id": DEV_APP, "actor_type": "Integration", "bypass_mode": "always"},
+        dict(ADMIN_ALWAYS),
+    ]
+    freeze = _branch(
+        PROMOTE_FREEZE_RULESET,
+        [PROMOTE_BRANCH_PATTERN],
+        [{"type": "update"}, {"type": "deletion"}, {"type": "non_fast_forward"}],
+    )
+    freeze["bypass_actors"] = [dict(ADMIN_ALWAYS)]
+    return [creation, freeze]
 
 
 def _good() -> list[dict[str, Any]]:
@@ -120,7 +140,7 @@ def _good() -> list[dict[str, Any]]:
         "rules": [{"type": "creation"}],
         "bypass_actors": [dict(ADMIN_ALWAYS)],
     }
-    return [approval, staging, protect, writer, others]
+    return [approval, staging, protect, writer, others, *_promote()]
 
 
 def _approval_params(rulesets: list[dict[str, Any]]) -> dict[str, Any]:
@@ -285,7 +305,7 @@ def test_staging_last_push_approval_is_named() -> None:
 @pytest.mark.parametrize("namespace", RECORD_TAG_NAMESPACES)
 def test_each_record_namespace_needs_a_creation_rule(namespace: str) -> None:
     rulesets = _good()
-    for ruleset in rulesets[3:]:
+    for ruleset in rulesets[3:5]:
         ruleset["conditions"]["ref_name"]["exclude"].append(f"refs/tags/{namespace}/**")
     problems = ruleset_problems(rulesets, EXPECTED)
     assert any(f"creation of {namespace}/**" in p for p in problems)
@@ -293,7 +313,7 @@ def test_each_record_namespace_needs_a_creation_rule(namespace: str) -> None:
 
 
 def test_without_creation_rulesets_every_namespace_is_named() -> None:
-    problems = ruleset_problems(_good()[:3], EXPECTED)
+    problems = ruleset_problems([*_good()[:3], *_good()[5:]], EXPECTED)
     assert sorted(problems) == sorted(
         f"no active tag ruleset restricts creation of {ns}/**: "
         + "a record tag can be created by any write holder"
@@ -317,6 +337,88 @@ def test_a_branch_ruleset_does_not_count_for_tags() -> None:
     assert any("update of prereg/**" in p for p in ruleset_problems(rulesets, EXPECTED))
 
 
+# --- The promotion train's candidate branches --------------------------------
+
+
+def _without(name: str) -> list[dict[str, Any]]:
+    return [r for r in _good() if r["name"] != name]
+
+
+def test_without_the_promote_rulesets_every_rule_is_named() -> None:
+    problems = ruleset_problems(_good()[:5], EXPECTED)
+    assert sorted(problems) == sorted(
+        f"no active branch ruleset restricts {rule} of promote/**: "
+        + f"a promotion candidate can be {what}"
+        for rule, what in (
+            ("creation", "created by any write holder"),
+            ("update", "moved after it is cut"),
+            ("deletion", "deleted"),
+            ("non_fast_forward", "force-pushed"),
+        )
+    )
+
+
+def test_a_missing_creation_rule_lets_anyone_cut_a_candidate() -> None:
+    problems = ruleset_problems(_without(PROMOTE_CREATION_RULESET), EXPECTED)
+    assert problems == [
+        "no active branch ruleset restricts creation of promote/**: "
+        + "a promotion candidate can be created by any write holder"
+    ]
+
+
+def test_a_missing_freeze_lets_a_candidate_move() -> None:
+    problems = ruleset_problems(_without(PROMOTE_FREEZE_RULESET), EXPECTED)
+    assert any("update of promote/**" in p for p in problems)
+    assert any("deletion of promote/**" in p for p in problems)
+
+
+def test_the_dev_app_bypassing_the_freeze_is_named() -> None:
+    """The App may create a candidate, never move or delete one."""
+    rulesets = _good()
+    rulesets[6]["bypass_actors"].append(
+        {"actor_id": DEV_APP, "actor_type": "Integration", "bypass_mode": "always"}
+    )
+    assert any(f"Integration {DEV_APP}" in p for p in ruleset_problems(rulesets, EXPECTED))
+
+
+def test_one_ruleset_holding_both_rules_cannot_let_the_dev_app_bypass() -> None:
+    """Whatever the name: a ruleset that freezes candidates admits no App bypass,
+    so folding creation into the freeze with the App on its list is a finding."""
+    creation, freeze = _promote()
+    freeze["rules"].append({"type": "creation"})
+    freeze["bypass_actors"] = creation["bypass_actors"]
+    problems = ruleset_problems([*_good()[:5], freeze], EXPECTED)
+    assert any(f"Integration {DEV_APP}" in p for p in problems)
+
+
+def test_another_identity_allowed_to_cut_is_named() -> None:
+    rulesets = _good()
+    rulesets[5]["bypass_actors"].append(
+        {"actor_id": DATA_APP, "actor_type": "Integration", "bypass_mode": "always"}
+    )
+    assert any(f"Integration {DATA_APP}" in p for p in ruleset_problems(rulesets, EXPECTED))
+
+
+@pytest.mark.parametrize(
+    "include",
+    [["refs/heads/promote/*"], ["refs/heads/staging"], ["refs/heads/promote/2026-*"]],
+)
+def test_a_pattern_short_of_every_candidate_covers_none(include: list[str]) -> None:
+    """`promote/*` would leave `promote/a/b` open; only `promote/**` (or ~ALL) covers."""
+    rulesets = _good()
+    for ruleset in rulesets[5:]:
+        ruleset["conditions"]["ref_name"]["include"] = include
+    problems = ruleset_problems(rulesets, EXPECTED)
+    assert any("creation of promote/**" in p for p in problems)
+    assert any("update of promote/**" in p for p in problems)
+
+
+def test_an_exclude_uncovers_the_candidates() -> None:
+    rulesets = _good()
+    rulesets[6]["conditions"]["ref_name"]["exclude"] = ["refs/heads/promote/old/**"]
+    assert any("update of promote/**" in p for p in ruleset_problems(rulesets, EXPECTED))
+
+
 _CLI = [
     "assert-rulesets",
     "--reviewer-team-id",
@@ -338,7 +440,7 @@ def test_the_cli_passes_the_documented_arrangement(tmp_path: Path) -> None:
     _write(tmp_path / "r", _good())
     result = CliRunner().invoke(app, [*_CLI, "--rulesets-dir", str(tmp_path / "r")])
     assert result.exit_code == 0, result.output
-    assert "rulesets OK (5 read)" in result.output
+    assert "rulesets OK (7 read)" in result.output
 
 
 def test_the_cli_fails_and_names_the_problem(tmp_path: Path) -> None:

@@ -334,3 +334,66 @@ def test_a_gate_count_change_alone_is_not_a_change() -> None:
     assert same_body(first, second)
     flipped = render(_batch(gate=[GateCheck(name="quiescence", ok=True)]), drafted_at="t3")
     assert not same_body(first, flipped)
+
+
+# --- A promotion train candidate ----------------------------------------------
+
+
+def _candidate(**overrides: object) -> Batch:
+    data: dict[str, object] = {
+        "head_ref": "promote/2026-10-17",
+        "train_status": "awaiting approval",
+    }
+    data.update(overrides)
+    return _batch(**data)
+
+
+def test_a_candidate_block_names_its_frozen_head_and_the_train_step() -> None:
+    block = render(_candidate(), drafted_at="2026-10-17T05:26Z")
+    assert "_Drafted by the promotion train at 2026-10-17T05:26Z for `promote/2026-10-17`" in block
+    assert "never moves" in block
+    assert "**Train:** awaiting approval" in block
+    assert "approve this PR at `aaaaaaaaa`" in block
+    assert "**merge commit**" in block
+    # The manual flow's steps belong to a hand-opened staging promotion only.
+    assert "mark it ready" not in block
+    assert "--ref staging" not in block
+    # The batch, its notes and the owed fills render as for any promotion.
+    assert "- #1: feat: one" in block
+    assert "<FILL: promotion tag>" in block
+
+
+def test_a_candidate_refresh_that_moves_only_the_stamp_is_not_a_change() -> None:
+    first = splice("Prose.", render(_candidate(), drafted_at="t1"))
+    again = splice(first, render(_candidate(), drafted_at="t2"))
+    assert same_body(first, again)
+    moved = splice(first, render(_candidate(train_status="gate running"), drafted_at="t3"))
+    assert not same_body(first, moved)
+    assert moved.endswith("Prose.")
+
+
+def test_a_train_status_cannot_forge_or_cut_the_block() -> None:
+    block = render(_candidate(train_status=f"x {END} y {BEGIN}"), drafted_at="t")
+    assert block.count(END) == 1
+    assert block.count(BEGIN) == 1
+
+
+def test_the_cli_renders_a_candidate_from_its_batch_file(tmp_path: Path) -> None:
+    batch = tmp_path / "batch.json"
+    batch.write_text(
+        json.dumps(
+            {
+                "staging_sha": "c" * 40,
+                "main_sha": "d" * 40,
+                "prs": [],
+                "head_ref": "promote/2026-10-17-2",
+                "train_status": "dispatched the integration gate",
+            }
+        )
+    )
+    result = CliRunner().invoke(
+        app, ["promotion-body", "--batch-file", str(batch), "--drafted-at", "t"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "`promote/2026-10-17-2` at `ccccccccc`" in result.output
+    assert "**Train:** dispatched the integration gate" in result.output

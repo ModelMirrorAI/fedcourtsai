@@ -39,7 +39,8 @@ GATE_SCRIPT = ROOT / "scripts" / "promotion-gate.sh"
 # literal here is what keeps the sites from drifting apart.
 ENV_RESOLUTION = (
     "inputs.deploy-environment != 'auto' && inputs.deploy-environment "
-    "|| (github.ref_name == 'main' && 'prod' || github.ref_name)"
+    "|| (github.ref_name == 'main' && 'prod' "
+    "|| (startsWith(github.ref_name, 'promote/') && 'staging' || github.ref_name))"
 )
 
 # Whether a dispatch resolves its own case, pinned whole rather than by parts:
@@ -171,7 +172,8 @@ def test_ci_promotion_gate_runs_only_on_the_same_repo_promotion_pr() -> None:
     job = _load(WORKFLOWS / "ci.yml")["jobs"]["promotion-gate"]
     condition = job["if"]
     assert "github.base_ref == 'main'" in condition
-    assert "github.head_ref == 'staging'" in condition
+    # A hand-opened staging promotion, or a promotion train candidate.
+    assert "(github.head_ref == 'staging' || startsWith(github.head_ref, 'promote/'))" in condition
     # A fork branch named `staging` must get the skip, never the gate.
     assert "github.event.pull_request.head.repo.full_name == github.repository" in condition
     assert "scripts/promotion-gate.sh all" in _steps_text(job)
@@ -180,6 +182,10 @@ def test_ci_promotion_gate_runs_only_on_the_same_repo_promotion_pr() -> None:
     # the synthetic merge-commit sha, so github.sha would be vacuously red.
     (gate_step,) = [s for s in job["steps"] if "promotion-gate.sh" in str(s.get("run", ""))]
     assert gate_step["env"]["HEAD_SHA"] == "${{ github.event.pull_request.head.sha }}"
+    # The head ref rides along, so freshness pins runs to it and provenance
+    # checks a candidate is a cut of staging.
+    assert gate_step["env"]["HEAD_REF"] == "${{ github.head_ref }}"
+    assert gate_step["run"] == 'scripts/promotion-gate.sh all "$HEAD_SHA" "$HEAD_REF"'
 
 
 def test_freshness_title_coupling_holds_at_both_ends() -> None:
@@ -206,7 +212,13 @@ def test_freshness_title_coupling_holds_at_both_ends() -> None:
     # that somehow preserved a newline is excluded before matching, so it can
     # never split into a fabricated extra line.
     assert 'grep "@ staging$"' in script
-    assert '.head_branch == "staging"' in script
+    # The branch pin is the promotion's own head ref, validated against a
+    # fixed vocabulary before it reaches the jq filter.
+    assert '.head_branch == "\'"${ref}"\'"' in script
+    assert (
+        "HEAD_REF_PATTERN='^(staging|promote/[0-9]{4}-[0-9]{2}-[0-9]{2}"
+        + "(-([2-9]|[1-9][0-9]+))?)$'"
+    ) in script
     assert '(.display_title | test("\\n")) | not' in script
     run_name = _load(WORKFLOWS / "integration-test.yml")["run-name"]
     assert isinstance(run_name, str)
@@ -1000,6 +1012,156 @@ def test_a_local_narrowing_still_forbids_the_whole_suite_shortcut(tmp_path: Path
     assert "would check nothing" in empty.stdout
 
 
+CANDIDATE = "promote/2026-10-17"
+
+
+def _run_freshness_on_runs(
+    tmp_path: Path, runs: list[dict[str, Any]], *args: str
+) -> subprocess.CompletedProcess[str]:
+    """Run the freshness stage against canned run documents, through the
+    script's own jq filter: the stub applies whatever `--jq` the script passes
+    to the runs, so the head_branch pin is exercised, not just the titles."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    runs_file = tmp_path / "runs.json"
+    runs_file.write_text(json.dumps({"workflow_runs": runs}))
+    gh = bin_dir / "gh"
+    gh.write_text(
+        "#!/usr/bin/env bash\n"
+        + 'filter=""\n'
+        + "while [ $# -gt 0 ]; do\n"
+        + '  case "$1" in --jq) filter="$2"; shift 2 ;; *) shift ;; esac\n'
+        + "done\n"
+        + f'jq -r "$filter" {shlex.quote(str(runs_file))}\n'
+    )
+    gh.chmod(0o755)
+    return subprocess.run(
+        ["bash", str(GATE_SCRIPT), "freshness", "0" * 40, *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={
+            "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+            "GITHUB_REPOSITORY": "owner/repo",
+        },
+    )
+
+
+def _gate_run(branch: str, conclusion: str = "success") -> dict[str, Any]:
+    return {
+        "display_title": "integration-test: gate @ staging",
+        "conclusion": conclusion,
+        "head_branch": branch,
+    }
+
+
+@needs_jq
+def test_freshness_pins_evidence_to_the_promotions_own_head_ref(tmp_path: Path) -> None:
+    """A train candidate's `gate` run (titled `@ staging`: the candidate resolves
+    the staging environment) counts for that candidate's ref only — and a run
+    dispatched from staging at the same sha does not count for the candidate,
+    nor the candidate's for a staging-headed promotion."""
+    candidate_run = _gate_run(CANDIDATE)
+    assert _run_freshness_on_runs(tmp_path, [candidate_run], CANDIDATE).returncode == 0
+    assert _run_freshness_on_runs(tmp_path, [_gate_run("staging")], CANDIDATE).returncode == 1
+    assert _run_freshness_on_runs(tmp_path, [candidate_run]).returncode == 1
+    assert _run_freshness_on_runs(tmp_path, [_gate_run("staging")], "staging").returncode == 0
+    other = _gate_run("promote/2026-10-16")
+    assert _run_freshness_on_runs(tmp_path, [other], CANDIDATE).returncode == 1
+    red = _gate_run(CANDIDATE, conclusion="failure")
+    assert _run_freshness_on_runs(tmp_path, [red], CANDIDATE).returncode == 1
+
+
+@pytest.mark.parametrize(
+    "ref",
+    ["feature", "promote/x", "Promote/2026-10-17", "promote/2026-10-17-1", 'staging" or true'],
+)
+def test_a_head_ref_outside_the_vocabulary_is_refused(tmp_path: Path, ref: str) -> None:
+    """The ref reaches a jq filter, so it is validated first and refused whole."""
+    result = _run_freshness(tmp_path, ["integration-test: gate @ staging"])
+    assert result.returncode == 0
+    refused = subprocess.run(
+        ["bash", str(GATE_SCRIPT), "freshness", "0" * 40, ref],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={"PATH": os.environ["PATH"], "GITHUB_REPOSITORY": "owner/repo"},
+    )
+    assert refused.returncode == 2
+    assert "neither staging nor a promote/<date> candidate" in refused.stderr
+
+
+def _git_repo(tmp_path: Path) -> tuple[Path, str, str]:
+    """A repository whose origin/staging first-parent chain holds `cut`, and a
+    side-branch commit `side` merged into staging as a second parent."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(repo), *args], capture_output=True, text=True, check=True
+        ).stdout.strip()
+
+    git("init", "-q", "-b", "staging")
+    git("config", "user.email", "t@example.invalid")
+    git("config", "user.name", "t")
+    git("commit", "-q", "--allow-empty", "-m", "base")
+    git("switch", "-q", "-c", "side")
+    git("commit", "-q", "--allow-empty", "-m", "side")
+    side = git("rev-parse", "HEAD")
+    git("switch", "-q", "staging")
+    git("commit", "-q", "--allow-empty", "-m", "cut here")
+    cut = git("rev-parse", "HEAD")
+    git("merge", "-q", "--no-ff", "--no-edit", "side")
+    git("commit", "-q", "--allow-empty", "-m", "later")
+    git("update-ref", "refs/remotes/origin/staging", "HEAD")
+    return repo, cut, side
+
+
+def _provenance(repo: Path, sha: str, ref: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["bash", str(GATE_SCRIPT), "provenance", sha, ref],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=repo,
+        env={"PATH": os.environ["PATH"], "GITHUB_REPOSITORY": "owner/repo"},
+    )
+
+
+def test_provenance_admits_a_candidate_cut_from_stagings_first_parent_chain(
+    tmp_path: Path,
+) -> None:
+    """A cut stays on the chain after staging moves on; a commit that reached
+    staging only as a merge's second parent was never staging's tip, so a
+    branch at it is not a cut of staging."""
+    repo, cut, side = _git_repo(tmp_path)
+    assert _provenance(repo, cut, CANDIDATE).returncode == 0
+    refused = _provenance(repo, side, CANDIDATE)
+    assert refused.returncode == 1
+    assert "not on staging's first-parent chain" in refused.stdout
+    # A staging-headed promotion is staging itself.
+    assert _provenance(repo, side, "staging").returncode == 0
+
+
+def test_provenance_refuses_without_staging_fetched(tmp_path: Path) -> None:
+    repo, cut, _ = _git_repo(tmp_path)
+    subprocess.run(
+        ["git", "-C", str(repo), "update-ref", "-d", "refs/remotes/origin/staging"], check=True
+    )
+    result = _provenance(repo, cut, CANDIDATE)
+    assert result.returncode == 1
+    assert "origin/staging is not fetched" in result.stdout
+
+
+def test_all_runs_provenance_before_freshness_with_the_head_ref() -> None:
+    script = GATE_SCRIPT.read_text()
+    all_stage = script.split("  all)", 1)[1].split(";;", 1)[0]
+    order = [all_stage.index(stage) for stage in ("quiesce", "provenance ", "freshness ")]
+    assert order == sorted(order)
+    assert 'freshness "$2" "$ref"' in all_stage
+
+
 def test_promote_threads_the_skip_to_the_freshness_step_only() -> None:
     # Two explicit acts stand between a promotion and a smoke-free gate: the
     # dispatch input here, and the `offline-gate` scenario the maintainer must
@@ -1106,6 +1268,8 @@ def test_main_base_jail_covers_every_legitimate_lane() -> None:
     for role in FinalizeRole:
         assert run_branch(role, "20260916T170237Z").startswith(f"{role.value}/run-")
     assert "startsWith(github.head_ref, 'cleanup/')" in condition
+    # The promotion train's candidates are promotions too.
+    assert "startsWith(github.head_ref, 'promote/')" in condition
     assert f"github.head_ref == '{metrics_refresh.REFRESH_BRANCH}'" in condition
     assert f"github.head_ref == '{metrics_refresh.BACKTEST_BRANCH}'" in condition
     assert job["permissions"] == {}

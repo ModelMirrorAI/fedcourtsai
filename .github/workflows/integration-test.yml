@@ -20,7 +20,7 @@ name: integration-test
 # names itself instead, in a shape that matches no freshness prefix (there is
 # no ` / <engine> @` in it) on top of the two screens it already fails — it
 # runs from `main`, not `staging`, and binds `prod`.
-run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-actions-smoke (canary)' || ((inputs.scenario == 'gate' || inputs.scenario == 'offline-gate' || inputs.scenario == 'all' || inputs.scenario == 'all-offline') && inputs.scenario || format('{0} / {1}', inputs.scenario, inputs.engine)) }} @ ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}"
+run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-actions-smoke (canary)' || ((inputs.scenario == 'gate' || inputs.scenario == 'offline-gate' || inputs.scenario == 'all' || inputs.scenario == 'all-offline') && inputs.scenario || format('{0} / {1}', inputs.scenario, inputs.engine)) }} @ ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || (startsWith(github.ref_name, 'promote/') && 'staging' || github.ref_name)) }}"
 
 # Live integration scenarios for the pieces a PR branch cannot exercise through
 # the trigger path: the corpus read backends, the credential-scoped corpus
@@ -113,10 +113,15 @@ run-name: "integration-test: ${{ github.event_name == 'schedule' && 'engine-acti
 # corpus base URL plus its own engine keys, and the trust of the staging
 # read-write role, which any staging-bound job may therefore ask for (the
 # refresh lane is the one reviewed asker; docs/security.md carries the
-# provenance model) — and any other branch resolves its own name, which
+# provenance model) — a promotion train candidate (`promote/<date>`, a
+# frozen cut of staging) resolves `staging` too, so its `gate` run exercises
+# the staging infrastructure at exactly the commit the candidate promotes —
+# and any other branch resolves its own name, which
 # names no configured environment and so binds nothing: no role
 # variables, no keys. An explicit choice still wins over the resolution.
-# Each environment restricts deployments to its one branch, so the
+# Each environment restricts deployments to its own branches — `prod` to
+# `main`, `staging` to `staging` and `promote/*`, whose rulesets let only the
+# dev App create one, at a staging commit, and nobody move it — so the
 # gate is code provenance — only what passed a PR and the branch's required
 # checks can bind either — rather than a per-run approval, which asserts
 # nothing about the code. A dispatch whose job BINDS an environment from the
@@ -262,11 +267,11 @@ on:
         description: >-
           Deployment environment supplying the role and the corpus base URL. The
           `auto` default resolves it from the dispatching branch — `main`
-          resolves `prod`, `staging` resolves `staging`, and any other branch
-          resolves its own name, which names no configured environment and so
-          binds no role variables and no keys — fail-closed. An explicit
-          choice still wins, and each environment stays pinned to its one
-          branch. A closed choice, not free text: run titles feed the
+          resolves `prod`, `staging` and a `promote/<date>` promotion
+          candidate resolve `staging`, and any other branch resolves its own
+          name, which names no configured environment and so binds no role
+          variables and no keys — fail-closed. An explicit choice still wins,
+          and each environment stays pinned to its own branches. A closed choice, not free text: run titles feed the
           promotion gate's freshness matching, so every dispatcher-controlled
           title component must come from a server-validated vocabulary.
           Unused by the collect scenario, whose job binds no environment and
@@ -314,9 +319,13 @@ permissions: {}
 # promotion is waiting on, nor an `all` someone is reading. The
 # canary keys on its own name for the whole-suite reason: a schedule supplies
 # no inputs, so the pair would collapse to a constant anyway, and naming it
-# says which runs supersede each other.
+# says which runs supersede each other. Every group is also keyed on the
+# dispatching ref: the promotion train's `gate` run at its frozen
+# `promote/<date>` candidate is paid for once per candidate and never
+# re-dispatched, so a `gate` pre-flight dispatched at `staging` (or at another
+# candidate) must not be able to cancel it.
 concurrency:
-  group: integration-test-${{ github.event_name == 'schedule' && 'canary' || ((inputs.scenario == 'gate' || inputs.scenario == 'offline-gate' || inputs.scenario == 'all' || inputs.scenario == 'all-offline') && inputs.scenario || format('{0}-{1}', inputs.scenario, inputs.engine)) }}
+  group: integration-test-${{ github.ref_name }}-${{ github.event_name == 'schedule' && 'canary' || ((inputs.scenario == 'gate' || inputs.scenario == 'offline-gate' || inputs.scenario == 'all' || inputs.scenario == 'all-offline') && inputs.scenario || format('{0}-{1}', inputs.scenario, inputs.engine)) }}
   cancel-in-progress: true
 
 jobs:
@@ -403,7 +412,7 @@ jobs:
     # of some other environment's corpus). Keep this expression identical to
     # `run-name:`'s, the scenario job's and the labeler smoke's; see the
     # deploy-environment input.
-    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
+    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || (startsWith(github.ref_name, 'promote/') && 'staging' || github.ref_name)) }}
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role for the ranged corpus read
@@ -645,7 +654,7 @@ jobs:
     # identical to `run-name:`'s, the plan job's and the labeler smoke's (YAML
     # anchors do not work in workflows), and see the deploy-environment input
     # for what resolves.
-    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
+    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || (startsWith(github.ref_name, 'promote/') && 'staging' || github.ref_name)) }}
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role for the corpus reads
@@ -2878,7 +2887,7 @@ jobs:
     # see the deploy-environment input for what resolves. What the
     # environment supplies here is exactly one secret: the engine key the
     # labeler spends — staging's own key on a staging-bound rehearsal.
-    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || github.ref_name) }}
+    environment: ${{ inputs.deploy-environment != 'auto' && inputs.deploy-environment || (github.ref_name == 'main' && 'prod' || (startsWith(github.ref_name, 'promote/') && 'staging' || github.ref_name)) }}
     permissions:
       contents: read
     steps:

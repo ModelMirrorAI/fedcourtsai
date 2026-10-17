@@ -13,7 +13,8 @@ answer and the rule is testable without the Actions API.
   records are where a newly opened moment or a new forecastable event shows,
   and they are what the predict backlog is derived from. A change the proxy
   misses is still picked up by the scheduled rounds.
-- **No chained round starts while a promotion is ready** (:func:`chain_step`).
+- **No chained round starts while a promotion is ready** (:func:`chain_step`),
+  whether its head is `staging` or a promotion train candidate (`promote/`).
   The promotion gate's quiescence check fails on any queued, running or
   waiting predict round, so a chain running beside a ready promotion PR would
   keep the promotion from ever settling. The chain stands down until that PR
@@ -123,11 +124,13 @@ class ChainStep(BaseModel):
 
 
 def ready_promotion(pulls: Iterable[Mapping[str, Any]], *, repo: str) -> int | None:
-    """The number of an open, ready, same-repo `staging` → `main` PR, if any.
+    """The number of an open, ready, same-repo promotion PR into `main`, if any.
 
-    ``pulls`` is the REST list of open PRs against `main`. A draft promotion does
-    not count: drafts stand open routinely while a batch assembles, and the
-    quiescence check binds only once the PR is ready.
+    A promotion's head is `staging` (a hand-opened promotion) or a promotion
+    train candidate under `promote/`. ``pulls`` is the REST list of open PRs
+    against `main`. A draft does not count: the train keeps its candidate a
+    draft until the integration gate is green, and the quiescence check binds
+    only once the PR is ready.
     """
 
     def _mapping(value: object) -> Mapping[str, Any]:
@@ -141,7 +144,7 @@ def ready_promotion(pulls: Iterable[Mapping[str, Any]], *, repo: str) -> int | N
             pull.get("state") == "open"
             and pull.get("draft") is False
             and base.get("ref") == "main"
-            and head.get("ref") == "staging"
+            and (head.get("ref") == "staging" or str(head.get("ref") or "").startswith("promote/"))
             and head_repo.get("full_name") == repo
         ):
             number = pull.get("number")

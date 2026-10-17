@@ -81,9 +81,22 @@ def test_a_ready_same_repo_promotion_is_found() -> None:
     assert ready_promotion([_pull()], repo=REPO) == 2373
 
 
+def test_a_ready_promotion_train_candidate_is_found() -> None:
+    """The train's frozen `promote/<date>` head is a promotion like `staging`."""
+    assert ready_promotion([_pull(head="promote/2026-10-17", number=2400)], repo=REPO) == 2400
+    assert ready_promotion([_pull(head="promote/2026-10-17-2", number=2401)], repo=REPO) == 2401
+
+
 @pytest.mark.parametrize(
     "pull",
-    [_pull(draft=True), _pull(head="feature"), _pull(repo="someone/fork")],
+    [
+        _pull(draft=True),
+        _pull(head="feature"),
+        _pull(repo="someone/fork"),
+        _pull(head="promote/2026-10-17", draft=True),
+        _pull(head="promote/2026-10-17", repo="someone/fork"),
+        _pull(head="promoter/2026-10-17"),
+    ],
 )
 def test_drafts_other_heads_and_forks_are_not_a_ready_promotion(pull: dict[str, Any]) -> None:
     assert ready_promotion([pull], repo=REPO) is None
