@@ -206,9 +206,12 @@ historical:
   # daily one, the OCR sweep, which reads scanned filings in split jobs of its
   # own. A cap is a slice, not a refusal: a window
   # writes at most this many rows of its class (the fill sweeps in case_id
-  # order, the vote sweep oldest order date first), and the ledger line it tees
+  # order, the vote sweep oldest order date first, the OCR sweep forward-cell
+  # filings stored within a week first, newest first, then the rest rotated
+  # one cap per window), and the ledger line it tees
   # to the run summary (`sweep ledger — <cmd>: would fill N; filled M;
-  # remaining R (cap C)`) carries the rest to the next window. Two classes only fill NULL columns; the marking sweep
+  # remaining R (cap C)`) carries the rest to the next window. On the OCR
+  # sweep's writer, N is the plan's rows and R the ones it skipped. Two classes only fill NULL columns; the marking sweep
   # rewrites docket_number, selected by the marking's exact words and neutral
   # to the identity join. A written row leaves its class either way, so a
   # bounded slice still drains it. Each `<name>_ceiling` is the refusal beside

@@ -50,8 +50,10 @@ that does, on the terms recorded in *Contract for the recovery pass*
 Two binaries, no new Python dependency: ``pdftoppm`` (poppler-utils) renders a
 page to a PNG and ``tesseract`` reads it. They are installed by two steps only:
 the `run-repair` OCR step, and the credential-free parse job of run-seed's OCR
-sweep (:mod:`fedcourtsai.pipeline.ocr_sweep`), so no job holding a corpus
-credential has them. That is why the seam is injected rather than imported, and
+sweep (:mod:`fedcourtsai.pipeline.ocr_sweep`), so no *scheduled* job holding a
+credential has them. The dispatched `run-repair` step does: it installs and runs
+them inside the job that holds the read-write corpus role and the data App
+token. That is why the seam is injected rather than imported, and
 why an apply **refuses** where they are absent rather than silently recovering
 nothing.
 """

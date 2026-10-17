@@ -21,22 +21,32 @@ it fetches and parses third-party PDFs:
   which for a self-represented filer includes contact details, so it crosses
   under the carve-out ``docs/data-sources.md`` (*PII stance*) records for it.
 - **apply** (:func:`apply_ocr_plan`) — the writer re-checks every plan row against
-  the corpus it is about to write: the row must still be in the recovery class,
-  at the same URL, and the plan no larger than the cap. Then it writes exactly
-  what the dispatched pass would: the text, the ``ocr_derived`` marker, and a
-  petition's re-derived questions-presented row.
+  the corpus it is about to write: the row must be an item of this window's
+  worklist (read from the projection's own artifact, not the parse's), still in
+  the recovery class at the same URL, and the plan no larger than the cap. Then
+  it writes exactly what the dispatched pass would: the text, the
+  ``ocr_derived`` marker, and a petition's re-derived questions-presented row.
+
+Both files are untrusted on the receiving side. Every identifier in them is
+pattern-checked (a SCOTUS case id, a recoverable kind, a Court URL, a reason
+from a closed set), so nothing a forged file carries reaches a step summary
+except a validated identifier or a count, and nothing malformed survives the
+read to fail an apply halfway through.
 
 **Sweep order** (:func:`order_sweep_class`, pure). A candidate a forward cell
-will read comes first: its case carries an open event, its row is in predict
+will read is *forward*: its case carries an open event, its row is in predict
 scope, and salience has not deferred it (an open merits event bypasses
-salience, as at the predict seams). These are ordered newest stored first,
-because the cell for a new scan is closest. The backlog follows in class order,
-rotated by the window's date. A candidate the sweep cannot recover (an
-unreadable scan, a refused fetch) stays in the class, as on the dispatched pass,
-so without the rotation an unreadable head would take the cap every window and
-starve the rest. The forward tier is not rotated. A case leaves it when it is
-decided, so an unreadable forward scan holds the cap for days at most, not
-indefinitely.
+salience, as at the predict seams). Forward candidates stored within
+:data:`FRESH_DAYS` of the window come first, newest stored first, because the
+cell for a new scan is closest. The older forward candidates follow, then the
+backlog, each in class order rotated by the window. A candidate the sweep cannot
+recover (an unreadable scan, a refused fetch, a recognition the document budget
+cuts short) stays in the class, as on the dispatched pass, so without the
+rotation an unreadable head would take the cap every window and starve the
+rest. Only the fresh head is unrotated, and a candidate leaves it after
+:data:`FRESH_DAYS`, so an unreadable fresh scan holds a slot for that long at
+most. A long-open cert petition that never reads moves into the rotated forward
+tier, where it takes its turn rather than a fixed slot.
 """
 
 from __future__ import annotations
@@ -45,10 +55,10 @@ import sqlite3
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
-from typing import Literal
+from datetime import date, datetime, timedelta
+from typing import Annotated, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
 from .. import corpus
 from ..handoff import HandoffRefused
@@ -62,6 +72,7 @@ from .ocr_recovery import (
     _rederived_questions,
     estimated_seconds_for_pages,
     exclusion_reason,
+    fetchable_document_url,
     ocr_page_for_pdf,
     read_scanned_document,
     require_ocr_binaries,
@@ -76,6 +87,40 @@ MAX_SWEEP_ITEMS = 200
 #: The largest text one plan row may carry. Above any configured document cap;
 #: the writer also checks each row against the cap it is configured with.
 MAX_PLAN_TEXT_CHARS = 1_000_000
+
+#: How long a forward candidate stays in the unrotated head of the slice, in
+#: days from when it was stored. A forward cell for an application usually runs
+#: within days of the filing; past this a candidate takes its turn in rotation.
+FRESH_DAYS: Final = 7
+
+#: Windows a day, for the rotation key: run-seed's four.
+WINDOWS_PER_DAY: Final = 4
+
+#: Why the parse read no text for an item: the dispatched pass's reasons, and
+#: nothing else. A closed set, so a forged plan cannot put free text in one.
+_REASON_PATTERN: Final = (
+    r"^(unfetchable-url|transport-error|not-served|oversized|"
+    r"budget-exhausted|empty-after-ocr|http-[0-9]{3})$"
+)
+
+
+def _recoverable_kind(kind: str) -> str:
+    if kind not in RECOVERABLE_KINDS:
+        raise ValueError(f"not a recoverable kind: {kind[:40]!r}")
+    return kind
+
+
+def _court_url(url: str) -> str:
+    if not fetchable_document_url(url) or any(ord(ch) < 0x21 for ch in url):
+        raise ValueError("not a single https link on the Court's own host")
+    return url
+
+
+_CaseId = Annotated[str, StringConstraints(pattern=r"^scotus/[0-9]{1,12}$")]
+_Kind = Annotated[str, AfterValidator(_recoverable_kind)]
+_Url = Annotated[str, StringConstraints(max_length=2048), AfterValidator(_court_url)]
+_Key = Annotated[str, StringConstraints(pattern=r"^scotus/[0-9]{1,12} [a-z-]{1,40}$")]
+_Reason = Annotated[str, StringConstraints(pattern=_REASON_PATTERN)]
 
 
 @dataclass(frozen=True)
@@ -110,49 +155,57 @@ def forward_case_ids(conn: corpus.ReadConnection) -> frozenset[str]:
 
 
 def order_sweep_class(
-    candidates: Sequence[SweepCandidate], *, rotation: int
+    candidates: Sequence[SweepCandidate], *, rotation: int, today: date
 ) -> list[SweepCandidate]:
-    """The recovery class in sweep order: forward newest-stored first, then the rotated backlog.
+    """The recovery class in sweep order: the fresh forward head, then two rotated tiers.
 
-    ``candidates`` arrive in class order (``case_id``, then kind), which is the
-    order ties keep within the forward tier and the order the backlog rotates
-    from. ``rotation`` is any integer; the backlog starts at ``rotation`` modulo
-    its length. Pure: the same class and rotation give the same order.
+    ``candidates`` arrive in class order (``case_id``, then kind). Forward
+    candidates stored on or after ``today`` less :data:`FRESH_DAYS` come first,
+    newest stored first (ties keep class order). The older forward candidates
+    follow, then the backlog; each of those two tiers starts at ``rotation``
+    modulo its length. Pure: the same class, rotation and day give the same order.
     """
-    forward = [c for c in candidates if c.forward]
+    fresh_from = today - timedelta(days=FRESH_DAYS)
+    fresh = [c for c in candidates if c.forward and c.scanned.document.fetched_at >= fresh_from]
+    stale = [c for c in candidates if c.forward and c.scanned.document.fetched_at < fresh_from]
     backlog = [c for c in candidates if not c.forward]
     # Newest stored first. Python's sort is stable, so equal dates keep class order.
-    forward.sort(key=lambda c: c.scanned.document.fetched_at, reverse=True)
-    if backlog:
-        start = rotation % len(backlog)
-        backlog = backlog[start:] + backlog[:start]
-    return forward + backlog
+    fresh.sort(key=lambda c: c.scanned.document.fetched_at, reverse=True)
+    return fresh + _rotated(stale, rotation) + _rotated(backlog, rotation)
 
 
-def backlog_rotation(today: date, cap: int) -> int:
-    """The backlog's starting offset for a window on ``today``.
+def _rotated(tier: list[SweepCandidate], rotation: int) -> list[SweepCandidate]:
+    if not tier:
+        return tier
+    start = rotation % len(tier)
+    return tier[start:] + tier[:start]
 
-    One cap's width further on each day, so that over consecutive days the slices
-    tile the backlog rather than retrying the same head. Windows on the same day
-    share the offset; between them the class only shrinks by what they recovered.
+
+def window_rotation(now: datetime, cap: int) -> int:
+    """The rotated tiers' starting offset for the window running at ``now``.
+
+    One cap's width further on each of run-seed's windows (six hours apart), so
+    consecutive windows tile a rotated tier rather than retrying the same head.
     """
-    return today.toordinal() * cap
+    window = now.date().toordinal() * WINDOWS_PER_DAY + now.hour * WINDOWS_PER_DAY // 24
+    return window * cap
 
 
 class OcrWorkItem(BaseModel):
     """One candidate the parse should re-read.
 
     Public: a ledger case id, a document kind, the Court's own URL for the filing,
-    and the page count of the PDF served there. ``forward`` says that a forward
-    cell will read it, which the committed predictions under ``data/`` already
-    show. No text, snapshot or other row content.
+    and the page count of the PDF served there. ``forward`` says the case has an
+    open event in predict scope, which the committed event files and predictions
+    under ``data/`` already show for every case a forward cell has run on. No
+    text, snapshot or other row content.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    case_id: str = Field(min_length=1, max_length=64)
-    kind: str = Field(min_length=1, max_length=64)
-    url: str = Field(min_length=1, max_length=2048)
+    case_id: _CaseId
+    kind: _Kind
+    url: _Url
     pages: int = Field(ge=1, le=100_000)
     forward: bool
 
@@ -183,17 +236,17 @@ class OcrPlanRow(BaseModel):
 
     The text is the Court's own public filing as served at ``url``, read through
     the extractor with the OCR seam supplied. It can carry a self-represented
-    filer's contact details, which is why it crosses under the recorded carve-out
-    and is never printed. ``pages``, ``truncated`` and ``ocr_derived`` are the
-    extractor's own readings, stored on the row exactly as the dispatched pass
+    filer's contact details, which is why it crosses under the proposed
+    carve-out and is never printed. ``pages``, ``truncated`` and ``ocr_derived``
+    are the extractor's own readings, stored on the row as the dispatched pass
     stores them.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    case_id: str = Field(min_length=1, max_length=64)
-    kind: str = Field(min_length=1, max_length=64)
-    url: str = Field(min_length=1, max_length=2048)
+    case_id: _CaseId
+    kind: _Kind
+    url: _Url
     text: str = Field(min_length=1, max_length=MAX_PLAN_TEXT_CHARS)
     pages: int = Field(ge=1, le=100_000)
     truncated: bool
@@ -212,12 +265,14 @@ class OcrPlan(BaseModel):
     format: Literal["fedcourts/ocr-plan"] = "fedcourts/ocr-plan"
     version: Literal[1] = 1
     rows: list[OcrPlanRow] = Field(max_length=MAX_SWEEP_ITEMS)
-    failures: dict[str, str] = Field(
+    failures: dict[_Key, _Reason] = Field(
         default_factory=dict,
+        max_length=MAX_SWEEP_ITEMS,
         description="`<case_id> <kind>` -> why the parse read no text for it",
     )
-    unreached: list[str] = Field(
+    unreached: list[_Key] = Field(
         default_factory=list,
+        max_length=MAX_SWEEP_ITEMS,
         description="Worklist items the slice deadline declined to start, in sweep order",
     )
 
@@ -234,15 +289,15 @@ class SweepSelection:
 
 
 def select_sweep(
-    candidates: Sequence[SweepCandidate], *, cap: int, rotation: int
+    candidates: Sequence[SweepCandidate], *, cap: int, rotation: int, today: date
 ) -> tuple[SweepCandidate, ...]:
     """The first ``cap`` candidates in sweep order (:func:`order_sweep_class`)."""
     if cap < 1:
         raise ValueError("the sweep cap must be at least 1")
-    return tuple(order_sweep_class(candidates, rotation=rotation)[:cap])
+    return tuple(order_sweep_class(candidates, rotation=rotation, today=today)[:cap])
 
 
-def sweep_selection(conn: corpus.ReadConnection, *, cap: int, today: date) -> SweepSelection:
+def sweep_selection(conn: corpus.ReadConnection, *, cap: int, now: datetime) -> SweepSelection:
     """Walk the recovery class and take the window's slice."""
     scan = scanned_documents(conn)
     forward_ids = forward_case_ids(conn)
@@ -259,7 +314,9 @@ def sweep_selection(conn: corpus.ReadConnection, *, cap: int, today: date) -> Sw
         forward_size=sum(1 for c in candidates if c.forward),
         class_by_kind={k: by_kind[k] for k in RECOVERABLE_KINDS if by_kind.get(k)},
         documents_seen=scan.documents_seen,
-        slice=select_sweep(candidates, cap=cap, rotation=backlog_rotation(today, cap)),
+        slice=select_sweep(
+            candidates, cap=cap, rotation=window_rotation(now, cap), today=now.date()
+        ),
     )
 
 
@@ -297,9 +354,6 @@ def check_worklist(worklist: OcrWorklist) -> None:
             f"the worklist carries {len(worklist.items)} items, above its cap of {worklist.cap}"
         )
     _check_unique([item.key for item in worklist.items], "worklist")
-    for item in worklist.items:
-        if item.kind not in RECOVERABLE_KINDS:
-            raise HandoffRefused(f"the worklist names {item.key}, not a recoverable kind")
 
 
 def plan_worklist(
@@ -370,19 +424,33 @@ class OcrSweepApplyResult(BaseModel):
     questions_rederived: int = Field(ge=0, default=0)
 
 
-def check_plan(plan: OcrPlan, *, cap: int, char_cap: int) -> None:
+def check_plan(plan: OcrPlan, worklist: OcrWorklist, *, cap: int, char_cap: int) -> None:
     """Refuse a plan the parse could not have written for this window, whole.
 
-    More rows than the window's cap, a key named twice, a kind outside the
-    recovery class, a text longer than the configured document cap, or a text
-    that is whitespace only.
+    The read already refused any malformed identifier, URL or reason. Beyond
+    that: more rows than the window's cap; a key named twice; a row, failure or
+    unreached key that is not an item of ``worklist`` (the projection's own
+    file, which the parse cannot replace), or a row at a URL other than its
+    item's; a row not marked ``ocr_derived`` (every class member is a scan whose
+    stored extraction read empty, so a reading of it that OCR did not contribute
+    to is not one this sweep produces); a text longer than the configured
+    document cap; or a text that is whitespace only.
     """
+    check_worklist(worklist)
     if len(plan.rows) > cap:
         raise HandoffRefused(f"the plan carries {len(plan.rows)} rows, above the cap of {cap}")
     _check_unique([row.key for row in plan.rows], "plan")
+    urls = {item.key: item.url for item in worklist.items}
+    for key in [*plan.failures, *plan.unreached]:
+        if key not in urls:
+            raise HandoffRefused(f"the plan reports {key}, which is not on this window's worklist")
     for row in plan.rows:
-        if row.kind not in RECOVERABLE_KINDS:
-            raise HandoffRefused(f"the plan names {row.key}, not a recoverable kind")
+        if urls.get(row.key) != row.url:
+            raise HandoffRefused(
+                f"the plan's row {row.key} is not an item of this window's worklist at its URL"
+            )
+        if not row.ocr_derived:
+            raise HandoffRefused(f"the plan's row {row.key} is not marked ocr_derived")
         if len(row.text) > char_cap:
             raise HandoffRefused(
                 f"the plan's text for {row.key} is {len(row.text)} characters, "
@@ -395,6 +463,7 @@ def check_plan(plan: OcrPlan, *, cap: int, char_cap: int) -> None:
 def apply_ocr_plan(
     conn: sqlite3.Connection,
     plan: OcrPlan,
+    worklist: OcrWorklist,
     *,
     cap: int,
     char_cap: int,
@@ -403,7 +472,8 @@ def apply_ocr_plan(
 ) -> OcrSweepApplyResult:
     """Write each plan row whose stored row is still the scan the projection saw.
 
-    The plan is checked whole first (:func:`check_plan`). Then, per row, the
+    The plan is checked whole first, against this window's worklist
+    (:func:`check_plan`). Then, per row, the
     stored document of that case and kind must still be in the recovery class
     (:func:`~fedcourtsai.pipeline.ocr_recovery.exclusion_reason`) at the plan's URL. A
     row that has since gained text, or whose link moved, is skipped and named:
@@ -413,7 +483,7 @@ def apply_ocr_plan(
     petition re-derives its questions-presented row against the question
     stored now. Without ``apply`` it reports what it would write and writes nothing.
     """
-    check_plan(plan, cap=cap, char_cap=char_cap)
+    check_plan(plan, worklist, cap=cap, char_cap=char_cap)
     written: dict[str, str] = {}
     skipped: dict[str, str] = {}
     rederived = 0
