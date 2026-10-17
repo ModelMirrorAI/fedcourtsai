@@ -2477,10 +2477,10 @@ now says plainly what the artifact used to hide. The stamp also appends a
 into the run PR body, the Actions summary, and the agent-feedback issue rather
 than living only in the artifact — unless the run's secret scan hits, which
 withholds the whole flag roll-up. It is a harness-authored note in a channel
-that is otherwise the agent's, and its `Harness tripwire:` prefix is what
-separates the two by eye — a reading aid, not a signature. `flags.json` is the
-cell's own file and a flag carries no author, so an agent can open one with
-those words too, and the job log is unauthenticated stdout that carries
+that is otherwise the agent's, marked `source: harness` for the roll-up, and its
+`Harness tripwire:` prefix is what separates the two by eye — a reading aid,
+not a signature. `flags.json` is the cell's own file, so an agent can write
+that `source` and open a flag with those words too, and the job log is unauthenticated stdout that carries
 whatever a step printed. The one surface here that is the harness's word and
 no agent's is `context.snapshot_uptake` on the committed `prediction.json`,
 which the stamp overwrites from the provisioned file. What the `::warning::`
@@ -2709,6 +2709,12 @@ gated on the run's secret scan, since flag messages are agent free text — the 
 body, the Actions summary, and one long-lived **agent-feedback** tracking issue (the
 single latched-issue pattern of `data-validation` / `pipeline-health`) — so a note
 reaches a durable, centralized home even when a fully-failed run opens no PR.
+The roll-up collapses flags by case, event, source and theme, one row per group
+naming every actor who raised it. Flags on a theme an open issue already
+tracks (`src/fedcourtsai/flag_themes.json`) are counted against that issue
+rather than listed. A flag file that does not validate is normalised, not
+skipped, and the tally counts it (*`flags.json`* in
+[predicted-artifacts.md](predicted-artifacts.md)).
 It also reads the run's own harness-captured `retrieval_log.json` files and, if
 any cell's manifest-tool results came back rate-limited, warns in the same PR
 body that the shared upstream quota starved this run's retrieval — how many

@@ -38,6 +38,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
+from .agent_flags import FlagGroup, FlagRollup, FlagTheme, roll_up
 from .blinding import neutral_tool_class
 from .finalize import FinalizeRole
 from .schemas import AgentFlags, CellFailure, FlagSeverity, RetrievalCall, normalize_call
@@ -712,8 +713,6 @@ def _table(cells: Sequence[CellStatus], *, with_reason: bool) -> str:
     return "\n".join([header, rule, *rows])
 
 
-# Loudest first, so the roll-up leads with anything that blocked a cell.
-_SEVERITY_RANK = {FlagSeverity.blocker: 0, FlagSeverity.warning: 1, FlagSeverity.info: 2}
 # info carries no icon (its glyph is visually ambiguous and adds nothing).
 _SEVERITY_ICON = {FlagSeverity.blocker: "🛑", FlagSeverity.warning: "⚠️"}
 
@@ -729,61 +728,112 @@ def _md_cell(value: object) -> str:
 
 # The columns a maintainer triages flags on, shared by every flag table.
 FLAGS_TABLE_HEADER = (
-    "| severity | category | actor | case | event | note |\n|---|---|---|---|---|---|"
+    "| severity | category | source | actors | case | event | note |\n|---|---|---|---|---|---|---|"
 )
 
 
-def flags_table(flag_sets: Sequence[AgentFlags]) -> str:
-    """Render flag sets as one severity-sorted markdown table, or ``""`` if none.
+def _group_row(group: FlagGroup) -> str:
+    """One collapsed row: every actor who raised the theme, each distinct note once."""
+    severity = group.severity
+    actors = ", ".join(f"`{_md_cell(actor)}`" for actor in group.actors)
+    if len(group.actors) > 1:
+        actors += f" ({len(group.actors)})"
+    if len(group.runs) > 1:
+        actors += f" · {len(group.runs)} runs"
+    notes = []
+    for message, writers in group.notes.items():
+        note = _md_cell(message)
+        if len(group.actors) > 1:
+            note = f"{', '.join(f'`{_md_cell(w)}`' for w in writers)}: {note}"
+        notes.append(note)
+    if group.theme is not None:
+        notes.append(f"_tracked in #{group.theme.issue}_")
+    category = _md_cell(group.category)
+    if group.theme is not None:
+        category += f" · {_md_cell(group.theme.id)}"
+    event = f"`{_md_cell(group.event_id)}`" if group.event_id else "—"
+    return (
+        f"| {_SEVERITY_ICON.get(severity, '')} {severity.value} | {category} "
+        f"| {group.source.value} | {actors} | `{_md_cell(group.case_id)}` | {event} "
+        f"| {' <br> '.join(notes)} |"
+    )
 
-    The shared table body behind both the per-run roll-up (:func:`render_flags`) and
-    the run-ops report's open-flags section: one row per flag, loudest severity
-    first, carrying the columns a maintainer triages on (severity, category, actor,
-    case, event, note). Flag messages are free text written by the cell's agent or,
-    where the harness raised a finding about the cell, by the stamp, so each cell is
+
+def _tracked_lines(rollup: FlagRollup) -> list[str]:
+    return [
+        f"- tracked in #{t.theme.issue} ({_md_cell(t.theme.summary)}): {t.flags} flag(s) "
+        f"from {t.actors} actor(s) on {t.cases} case(s)"
+        for t in rollup.tracked
+    ]
+
+
+def flags_table(flag_sets: Sequence[AgentFlags], themes: Sequence[FlagTheme] | None = None) -> str:
+    """Render flag sets as one collapsed, severity-sorted markdown block, or ``""``.
+
+    The shared body behind both the per-run roll-up (:func:`render_flags`) and the
+    run-ops report's open-flags section. Flags are collapsed by ``(case, event,
+    source, theme)`` (:func:`fedcourtsai.agent_flags.roll_up`): one row per group,
+    loudest severity first, naming every actor who raised it and each distinct note
+    once, so sibling actors and repeat runs on one event read as one row rather
+    than one per actor. A flag matching a tracked theme (``themes``, defaulting to
+    the committed map) is not listed; it is counted under the table against its
+    issue, so a new theme stands out. A ``blocker`` is listed whether tracked or
+    not. Flag messages are free text written by the cell's agent or, where the
+    harness raised a finding about the cell, by a harness step, so each note is
     collapsed to one line and pipe-escaped. Returns ``""`` when no set raised a flag.
     """
-    rows: list[tuple[int, str, str, str]] = []
-    for fs in flag_sets:
-        for flag in fs.flags:
-            severity = FlagSeverity(flag.severity)
-            event = flag.event_id or ""
-            rows.append(
-                (
-                    _SEVERITY_RANK.get(severity, 99),
-                    fs.actor_id,
-                    event,
-                    f"| {_SEVERITY_ICON.get(severity, '')} {severity.value} "
-                    f"| {_md_cell(flag.category)} | `{_md_cell(fs.actor_id)}` "
-                    f"| `{_md_cell(fs.case_id)}` | {f'`{_md_cell(event)}`' if event else '—'} "
-                    f"| {_md_cell(flag.message)} |",
-                )
-            )
-    if not rows:
+    rollup = roll_up(flag_sets, themes)
+    if rollup.total == 0:
         return ""
-    body = "\n".join(row[3] for row in sorted(rows, key=lambda r: r[:3]))
-    return f"{FLAGS_TABLE_HEADER}\n{body}"
+    blocks = []
+    if rollup.groups:
+        rows = "\n".join(_group_row(group) for group in rollup.groups)
+        blocks.append(f"{FLAGS_TABLE_HEADER}\n{rows}")
+    if rollup.tracked:
+        blocks.append(
+            "Already tracked, counted rather than listed:\n\n" + "\n".join(_tracked_lines(rollup))
+        )
+    return "\n\n".join(blocks)
 
 
-def render_flags(flag_sets: Sequence[AgentFlags]) -> str:
+def flags_tally(flag_sets: Sequence[AgentFlags], themes: Sequence[FlagTheme] | None = None) -> str:
+    """The one-line count that heads a flag table: rows, harness, normalised, tracked."""
+    rollup = roll_up(flag_sets, themes)
+    tracked = sum(t.flags for t in rollup.tracked)
+    parts = [f"{rollup.total} flag(s) in {len(rollup.groups)} row(s)"]
+    if rollup.harness:
+        parts.append(f"{rollup.harness} from the harness")
+    if rollup.normalised:
+        parts.append(f"{rollup.normalised} malformed flag(s) normalised")
+    if tracked:
+        parts.append(f"{tracked} on tracked theme(s)")
+    return " · ".join(parts)
+
+
+def render_flags(flag_sets: Sequence[AgentFlags], themes: Sequence[FlagTheme] | None = None) -> str:
     """Roll a run's per-cell ``flags.json`` into one markdown section, or ``""``.
 
-    One row per flag, loudest severity first, so a maintainer reading the run PR (or
-    the Actions summary) sees every note surfaced against a cell — a data-quality
-    problem, a scope question, the reason a cell was blocked — in one place rather
-    than buried across the run's ``reasoning.md`` files. Most are the agent's own;
-    a few are the harness's findings about the cell, written by ``stamp-cell`` into
-    the same file and counted here with the rest. Returns the empty string when no
-    cell raised a flag, so the caller can omit the section entirely.
+    Collapsed by case, event, source and theme (:func:`flags_table`), loudest
+    severity first, so a maintainer reading the run PR (or the Actions summary, or
+    the agent-feedback issue) sees each note surfaced against a cell — a
+    data-quality problem, a scope question, the reason a cell was blocked — once,
+    with the actors who raised it, rather than buried across the run's
+    ``reasoning.md`` files. Most are the agent's own; some are the harness's
+    findings about the cell (``source: harness``), written into the same file by
+    ``stamp-cell``. The tally line counts those, the malformed flags the harness
+    normalised rather than let fail a cell, and the flags on themes an issue
+    already tracks. Returns the empty string when no cell raised a flag, so the
+    caller can omit the section entirely.
     """
-    table = flags_table(flag_sets)
+    table = flags_table(flag_sets, themes)
     if not table:
         return ""
     count = sum(len(fs.flags) for fs in flag_sets)
     return (
         f"## 🚩 Agent flags ({count})\n\n"
         "Structured notes surfaced against this run's cells, for triage — the "
-        "agents' own, plus any the harness raised.\n\n" + table
+        "agents' own, plus any the harness raised.\n\n"
+        f"{flags_tally(flag_sets, themes)}.\n\n" + table
     )
 
 

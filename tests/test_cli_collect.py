@@ -1015,6 +1015,39 @@ def test_collect_plan_tolerates_malformed_flag_file(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert json.loads(result.stdout)["flags"] == ""
+    assert "cannot be attributed to a cell" in result.output
+
+
+def test_collect_plan_normalises_a_mis_shaped_flag_file_rather_than_dropping_it(
+    tmp_path: Path,
+) -> None:
+    """A flag file on the ledger layout that does not validate still reaches the roll-up.
+
+    Its cell is read off the path, its off-vocabulary values are coerced, and the
+    tally says how many flags were normalised, so a mis-shaped note is counted
+    instead of vanishing from the run PR and the agent-feedback issue.
+    """
+    _write_cell(tmp_path, "cell-a", actor="gemini-judge", **_CELL, **_READY)
+    flag_dir = (
+        tmp_path / "cell-a" / "data" / "cases" / "scotus" / "1" / "events" / "evt-x"
+        / "evaluations" / "gemini-judge" / "R"
+    )  # fmt: skip
+    flag_dir.mkdir(parents=True)
+    (flag_dir / "flags.json").write_text(
+        json.dumps({"flags": [{"category": "data-quality", "severity": "low", "message": "gap"}]})
+    )
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "evaluate", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    flags = json.loads(result.stdout)["flags"]
+    assert "🚩 Agent flags (2)" in flags
+    assert "1 malformed flag(s) normalised" in flags
+    assert "1 from the harness" in flags
+    assert "`gemini-judge`" in flags and "gap" in flags
 
 
 _CELL = {"court": "scotus", "docket": 1, "event_id": "evt-x", "run_id": "R"}

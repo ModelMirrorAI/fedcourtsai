@@ -1,0 +1,13 @@
+{
+  "themes": [
+    {
+      "id": "distribution-count-overstates-relists",
+      "issue": 1858,
+      "summary": "the frozen distribution_count counts a distribution that is not a conference of the petition (a sealing motion, a called-for response), so it overstates relists",
+      "all_of": [
+        "distribution[_ ]count",
+        "seal|motion|response[ -]request|called[- ]for|call for a response|pre-?empt|redistribut|relist|not a distribution of|upper bound|inflat|overstat"
+      ]
+    }
+  ]
+}

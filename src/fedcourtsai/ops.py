@@ -30,7 +30,7 @@ from typing import Literal
 
 from .agent_feedback import already_posted, marker_head
 from .analytics import _GRANT_LABELS
-from .collect import flags_table
+from .collect import flags_table, flags_tally
 from .integrity import FORWARD, RETROSPECTIVE
 from .metrics_refresh import arm_mix_text, arm_score_text, outcome_mix
 from .process_version import (
@@ -55,6 +55,7 @@ from .schemas import (
     Evaluation,
     FlagsDigest,
     FlagSeverity,
+    FlagSource,
     ForwardClaimRecord,
     LeakageDigest,
     LeakageExclusionRecord,
@@ -1827,9 +1828,12 @@ def summarize_flags(
     all_sets = list(flag_sets)
     sets = [fs for fs in all_sets if _within_window(fs.run_id, generated_at, window_days)]
     counts = {FlagSeverity.blocker: 0, FlagSeverity.warning: 0, FlagSeverity.info: 0}
+    harness = normalised = 0
     for fs in sets:
         for flag in fs.flags:
             counts[FlagSeverity(flag.severity)] += 1
+            harness += flag.source == FlagSource.harness
+            normalised += flag.normalised
     archived = sum(len(fs.flags) for fs in all_sets) - sum(counts.values())
     # Run ids are UTC timestamps, so descending lexical order is newest-first.
     recent = sorted(sets, key=lambda fs: (fs.run_id, fs.case_id, fs.actor_id), reverse=True)[:limit]
@@ -1839,6 +1843,8 @@ def summarize_flags(
         blockers=counts[FlagSeverity.blocker],
         warnings=counts[FlagSeverity.warning],
         infos=counts[FlagSeverity.info],
+        harness=harness,
+        normalised=normalised,
         recent=recent,
         window_days=window_days,
         archived=archived,
@@ -2198,8 +2204,9 @@ def render_flags_digest(digest: FlagsDigest) -> str:
 
     Scoped to the digest's recency window, so long-since-fixed flags do not dominate;
     leads with the in-window severity breakdown (older flags noted as archived in the
-    ledger), then the most recent flag-raising cells using the same table the per-run
-    roll-up renders (:func:`fedcourtsai.collect.flags_table`).
+    ledger) and how many were harness-raised or harness-normalised, then the most
+    recent flag-raising cells using the same collapsed table the per-run roll-up
+    renders (:func:`fedcourtsai.collect.flags_table`), tracked themes as counts.
     """
     window = f"last {digest.window_days}d" if digest.window_days else "all time"
     archived = f" · {digest.archived} older archived in the ledger" if digest.archived else ""
@@ -2219,13 +2226,23 @@ def render_flags_digest(digest: FlagsDigest) -> str:
     )
     shown = sum(len(fs.flags) for fs in digest.recent)
     note = f" · showing the {shown} most recent" if shown < digest.total else ""
+    provenance = " · ".join(
+        part
+        for part in (
+            f"{digest.harness} from the harness" if digest.harness else "",
+            f"{digest.normalised} malformed flag(s) normalised" if digest.normalised else "",
+        )
+        if part
+    )
     lines = [
         "### Flags",
         "",
         f"**{digest.total}** flag(s) across **{digest.cells}** cell(s) in the {window} — "
-        f"{breakdown}{note}{archived}.",
+        f"{breakdown}{note}{archived}." + (f" Of these: {provenance}." if provenance else ""),
         "",
-        "Notes agents surfaced from committed `flags.json`, for triage.",
+        "Notes agents surfaced from committed `flags.json`, for triage, collapsed by case, "
+        "event, source and theme; the shown cells' tally: "
+        f"{flags_tally(digest.recent)}.",
         "",
         flags_table(digest.recent),
     ]

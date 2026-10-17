@@ -34,6 +34,7 @@ from fedcourtsai.schemas import (
     EventKind,
     FlagCategory,
     FlagSeverity,
+    FlagSource,
     InterimResolutionSignals,
     Judgment,
     JusticeVote,
@@ -58,6 +59,7 @@ from fedcourtsai.schemas import (
     VoteValue,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
+from fedcourtsai.validate import validate_ledger
 from tests.conftest import frozen_stamp, seed_evaluation, seed_prediction
 
 runner = CliRunner()
@@ -3087,13 +3089,14 @@ def test_stamp_annotates_the_run_log_on_every_invocation(_data_root: Path) -> No
         assert "snapshot_uptake 'unread'" in result.output
 
 
-def test_stamp_leaves_an_unparseable_flags_file_alone(_data_root: Path) -> None:
-    """An agent's prose is never overwritten to make room for the harness's note.
+def test_stamp_carries_an_unparseable_flags_file_verbatim_and_still_appends(
+    _data_root: Path,
+) -> None:
+    """A flags file that does not parse no longer fails the cell, and loses nothing.
 
-    The finding still lands where it counts — on the stamped context — and the
-    cell still exits 0, because an unparseable `flags.json` fails `validate` into
-    the draft PR a maintainer reads anyway. Overwriting it would destroy the
-    cell's own account to add a line about it.
+    The stamp normalises it before `validate`: the agent's text rides verbatim in
+    harness flags, so the cell's account survives, the file validates, and the
+    tripwire's own note then lands beside it like on any other cell.
     """
     event = "evt-petition-disposition"
     _provision(_data_root, 46)
@@ -3106,11 +3109,40 @@ def test_stamp_leaves_an_unparseable_flags_file_alone(_data_root: Path) -> None:
     result = _stamp("predictor", "claude-baseline", 46, event, "RID")
 
     assert result.exit_code == 0, result.output
-    assert "does not parse" in result.output
-    assert flags_path.read_text() == garbage
+    assert "flags.json did not validate; normalised it" in result.output
+    flags = read_model(flags_path, AgentFlags)
+    assert flags.case_id == "scotus/46"
+    assert flags.actor_id == "claude-baseline"
+    assert all(flag.source == FlagSource.harness for flag in flags.flags)
+    assert any(flag.message == garbage for flag in flags.flags)
+    assert flags.flags[-1].message.startswith(_TRIPWIRE_PREFIX)
     stamped = read_model(event_paths.prediction("claude-baseline", "RID"), Prediction)
     assert stamped.context is not None
     assert stamped.context.snapshot_uptake == "unread"
+
+
+def test_a_re_stamp_leaves_a_normalised_flags_file_as_it_is(_data_root: Path) -> None:
+    """Normalisation is idempotent: a file it wrote validates, so a re-stamp is a no-op."""
+    event = "evt-petition-disposition"
+    seed_evaluation(_data_root, "scotus", 47, event, evaluator_id="gemini-judge", run_id="RID")
+    flags_path = (
+        CasePaths(_data_root, "scotus", 47).event(event).evaluation_flags("gemini-judge", "RID")
+    )
+    flags_path.parent.mkdir(parents=True, exist_ok=True)
+    flags_path.write_text('{"flags": [{"category": "capture-gap", "message": "x"}]}')
+
+    assert _stamp("evaluator", "gemini-judge", 47, event, "RID").exit_code == 0
+    once = flags_path.read_text()
+    second = _stamp("evaluator", "gemini-judge", 47, event, "RID")
+
+    assert second.exit_code == 0, second.output
+    assert "normalised it" not in second.output
+    assert flags_path.read_text() == once
+    flags = read_model(flags_path, AgentFlags)
+    assert flags.role == UsageRole.evaluator
+    assert flags.run_id == "RID"
+    assert flags.flags[0].category == FlagCategory.other
+    assert "'capture-gap'" in flags.flags[1].message
 
 
 def test_stamp_leaves_the_conditioning_unjudged_with_no_snapshot_on_disk(
@@ -3390,3 +3422,63 @@ def test_an_agent_written_lookalike_does_not_suppress_the_harness_s_own_note(
     flags = read_model(flags_path, AgentFlags)
     assert len(flags.flags) == 2
     assert "Provisioning is not the cause" in flags.flags[1].message
+
+
+def test_an_off_vocabulary_severity_no_longer_fails_an_evaluate_cell(_data_root: Path) -> None:
+    """The shape that discarded three valid gradings: `"severity": "low"`.
+
+    An evaluate cell's gradings were all schema-true, but its `flags.json` used
+    a severity outside `info`/`warning`/`blocker`, so `validate` refused the
+    cell and every grading it carried went with it. The stamp, which runs before
+    `validate`, coerces the off-vocabulary value and records what it changed, so
+    the cell's own output validates and the note still reaches the roll-up.
+    """
+    event = "evt-petition-disposition"
+    for predictor in ("claude-baseline", "codex-baseline", "gemini-baseline"):
+        seed_evaluation(
+            _data_root,
+            "scotus",
+            73521973,
+            event,
+            evaluator_id="gemini-judge",
+            predictor_id=predictor,
+            run_id="RID",
+        )
+    event_paths = CasePaths(_data_root, "scotus", 73521973).event(event)
+    flags_path = event_paths.evaluation_flags("gemini-judge", "RID")
+    flags_path.parent.mkdir(parents=True, exist_ok=True)
+    flags_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "case_id": "scotus/73521973",
+                "run_id": "RID",
+                "role": "evaluator",
+                "actor_id": "gemini-judge",
+                "flags": [
+                    {
+                        "category": "data-quality",
+                        "severity": "low",
+                        "message": "The reply brief was recorded but its text was not provisioned.",
+                        "event_id": event,
+                    }
+                ],
+            }
+        )
+    )
+    before = validate_ledger(_data_root)
+    assert any("flags.json" in problem for problem in before.problems)
+
+    result = _stamp("evaluator", "gemini-judge", 73521973, event, "RID")
+
+    assert result.exit_code == 0, result.output
+    after = validate_ledger(_data_root)
+    assert after.ok, after.problems
+    assert "3 file(s)" in result.output
+    flags = read_model(flags_path, AgentFlags)
+    coerced, note = flags.flags
+    assert coerced.severity == FlagSeverity.info
+    assert coerced.normalised is True
+    assert coerced.message.startswith("The reply brief was recorded")
+    assert note.source == FlagSource.harness
+    assert "'low'" in note.message

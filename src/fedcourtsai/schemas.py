@@ -453,6 +453,19 @@ class FlagSeverity(StrEnum):
     blocker = "blocker"
 
 
+class FlagSource(StrEnum):
+    """Who wrote an agent flag: the cell's agent, or a post-agent harness step.
+
+    A triage label, not an authentication: ``flags.json`` is the agent's own
+    file, so nothing stops an agent writing ``harness`` itself. What only the
+    harness can say is stamped where no agent writes (``context`` on
+    ``prediction.json``, the ``::warning::`` lines in the run log).
+    """
+
+    agent = "agent"
+    harness = "harness"
+
+
 class SemanticSupport(StrEnum):
     """How far the opinion supports one declared semantic claim — the ``semantic-v1`` grade.
 
@@ -2259,6 +2272,18 @@ class AgentFlag(_Strict):
     event_id: str | None = Field(
         default=None, description="The specific event this flag is about, if narrower than the cell"
     )
+    source: FlagSource = Field(
+        default=FlagSource.agent,
+        description="Who wrote the note: `agent` (the cell's own, the default) or `harness` "
+        "(a post-agent step's finding about the cell). A triage label the roll-up filters and "
+        "counts on, not an authentication",
+    )
+    normalised: bool = Field(
+        default=False,
+        description="Set by the harness when it coerced this flag to fit the schema (an "
+        "off-vocabulary severity or category, an over-long message, an unknown key); the "
+        "`harness` note beside it says what changed. A flag never fails a cell",
+    )
 
 
 class AgentFlags(_Strict):
@@ -2269,12 +2294,15 @@ class AgentFlags(_Strict):
     reason it was blocked. Mostly the agent's own word, but not exclusively: a
     post-agent harness step appends its own findings about the cell to the same
     file (``stamp-cell``, where a cell reports not having read its provisioned
-    snapshot), and the roll-up counts those with the rest — the message text is
-    what distinguishes them. It rides the cell's artifact to the ``collect`` job, which
-    rolls every cell's flags into the run PR body (and the Actions summary), so a
-    note outlives the run that raised it and a maintainer sees it without
-    reading every ``reasoning.md``. The agent token stays comment-only: the file is
-    written locally and the trusted ``collect`` job does the surfacing.
+    snapshot, and the normalisation note when the agent's file did not validate),
+    marked ``source: harness`` so the roll-up lists and counts them apart. A
+    mis-shaped file never fails its cell: the stamp normalises it before
+    ``validate`` (:func:`fedcourtsai.agent_flags.normalise_flags`). It rides the
+    cell's artifact to the ``collect`` job, which rolls every cell's flags into
+    the run PR body (and the Actions summary), so a note outlives the run that
+    raised it and a maintainer sees it without reading every ``reasoning.md``.
+    The agent token stays comment-only: the file is written locally and the
+    trusted ``collect`` job does the surfacing.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -10832,6 +10860,15 @@ class FlagsDigest(_Strict):
     blockers: int = Field(ge=0, description="Flags at blocker severity")
     warnings: int = Field(ge=0, description="Flags at warning severity")
     infos: int = Field(ge=0, description="Flags at info severity")
+    harness: int = Field(
+        default=0, ge=0, description="Of the in-window flags, those marked `source: harness`"
+    )
+    normalised: int = Field(
+        default=0,
+        ge=0,
+        description="Of the in-window flags, those the harness coerced to fit the schema "
+        "rather than let fail their cell",
+    )
     recent: list[AgentFlags] = Field(
         default_factory=list, description="Most recent flag-raising cells, newest first (capped)"
     )

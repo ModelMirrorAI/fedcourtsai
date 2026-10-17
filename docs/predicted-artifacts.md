@@ -437,6 +437,31 @@ issue's closure and a maintainer sees it without reading every `reasoning.md`.
 `category` is one of `data-quality` / `scope` / `ambiguous-event` / `blocked` /
 `other`, and `severity` one of `info` / `warning` / `blocker`.
 
+**A flag never fails a cell.** The cell's judgment is its output and its flags
+are advisory, so `stamp-cell` normalises a `flags.json` that does not validate
+before `validate` runs, rather than let a mis-shaped note discard the output
+beside it. An off-vocabulary `severity` becomes `info` and an off-vocabulary
+`category` becomes `other`, after a case- and underscore-insensitive match (so
+`"Warning"` or `"data_quality"` keep their meaning). An over-long message is
+clipped, an unknown key is dropped, and a missing envelope field is filled from
+the cell's own coordinates. Each coerced flag is marked `normalised: true`, and
+one harness note beside it quotes every value it replaced. A file with no
+recoverable structure at all is carried verbatim in harness notes. `validate`
+itself stays strict.
+
+Each flag also carries a `source`: `agent` (the default) or `harness`, for the
+notes a harness step writes into the same file (the stamp's unread-snapshot
+tripwire, the normalisation note). It is a triage label the roll-up filters
+and counts on, not an authentication, since the file is the agent's own.
+
+The roll-up collapses flags by case, event, source and theme, so sibling
+actors' notes on one event read as one row naming every actor. A flag whose
+message matches a theme an open issue already tracks
+(`src/fedcourtsai/flag_themes.json`, theme to issue number) is counted against
+that issue rather than listed, so a new theme stands out; a `blocker` is listed
+whether tracked or not. The tally line above the table counts the harness's
+notes, the normalised flags and the tracked ones.
+
 ```json
 {
   "schema_version": "1.0",

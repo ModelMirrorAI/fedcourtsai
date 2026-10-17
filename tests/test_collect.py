@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from fedcourtsai import retrieval
+from fedcourtsai.agent_flags import FlagTheme
 from fedcourtsai.blinding import neutral_tool_class
 from fedcourtsai.collect import (
     AUTO_RELEASED_MARKER,
@@ -54,6 +55,7 @@ from fedcourtsai.schemas import (
     AgentFlags,
     FlagCategory,
     FlagSeverity,
+    FlagSource,
     RetrievalCall,
     UsageRole,
 )
@@ -661,6 +663,105 @@ def test_render_flags_escapes_pipes_and_newlines() -> None:
     # The message stays on one table row: newline collapsed, pipe escaped.
     assert "a \\| b c" in md
     assert "\nc |" not in md
+
+
+_THEME = FlagTheme(id="widget-count", issue=77, summary="widget count is wrong", all_of=("widget",))
+
+
+def test_render_flags_collapses_sibling_actors_on_one_event_into_one_row() -> None:
+    """Three actors' notes on one event read as one row naming all three."""
+    sets = [
+        _flagset(
+            actor,
+            AgentFlag(category=FlagCategory.data_quality, message=f"{actor} saw it", event_id="e"),
+        )
+        for actor in ("claude-baseline", "codex-baseline", "gemini-baseline")
+    ]
+    md = render_flags(sets, themes=())
+    rows = [line for line in md.splitlines() if line.startswith("| ") and "`scotus/1`" in line]
+    assert len(rows) == 1
+    assert "`claude-baseline`, `codex-baseline`, `gemini-baseline` (3)" in rows[0]
+    assert "`codex-baseline`: codex-baseline saw it" in rows[0]
+    assert "3 flag(s) in 1 row(s)" in md
+
+
+def test_render_flags_keeps_a_repeated_note_once_with_every_writer() -> None:
+    sets = [
+        _flagset(actor, AgentFlag(category=FlagCategory.other, message="same  note"))
+        for actor in ("a", "b")
+    ]
+    md = render_flags(sets, themes=())
+    assert md.count("same note") == 1
+    assert "`a`, `b`: same note" in md
+
+
+def test_render_flags_lists_harness_notes_apart_from_the_agents() -> None:
+    md = render_flags(
+        [
+            _flagset(
+                "a",
+                AgentFlag(category=FlagCategory.data_quality, message="agent says"),
+                AgentFlag(
+                    category=FlagCategory.data_quality,
+                    message="harness says",
+                    source=FlagSource.harness,
+                ),
+            )
+        ],
+        themes=(),
+    )
+    assert "2 flag(s) in 2 row(s) · 1 from the harness" in md
+    harness_row = next(line for line in md.splitlines() if "harness says" in line)
+    assert "| harness |" in harness_row and "agent says" not in harness_row
+
+
+def test_render_flags_counts_a_tracked_theme_instead_of_listing_it() -> None:
+    md = render_flags(
+        [
+            _flagset("a", AgentFlag(category=FlagCategory.data_quality, message="Widget off")),
+            _flagset("b", AgentFlag(category=FlagCategory.other, message="the widget again")),
+            _flagset("b", AgentFlag(category=FlagCategory.scope, message="a new theme")),
+        ],
+        themes=(_THEME,),
+    )
+    assert "Widget off" not in md and "widget again" not in md
+    assert "a new theme" in md
+    assert "tracked in #77 (widget count is wrong): 2 flag(s) from 2 actor(s) on 1 case(s)" in md
+    assert "2 on tracked theme(s)" in md
+
+
+def test_render_flags_always_lists_a_tracked_blocker() -> None:
+    md = render_flags(
+        [
+            _flagset(
+                "a",
+                AgentFlag(
+                    category=FlagCategory.blocked,
+                    severity=FlagSeverity.blocker,
+                    message="widget stopped me",
+                ),
+            )
+        ],
+        themes=(_THEME,),
+    )
+    assert "widget stopped me" in md
+    assert "_tracked in #77_" in md
+
+
+def test_render_flags_never_tags_a_harness_note_with_a_tracked_theme() -> None:
+    md = render_flags(
+        [
+            _flagset(
+                "a",
+                AgentFlag(
+                    category=FlagCategory.other, message="widget harness", source=FlagSource.harness
+                ),
+            )
+        ],
+        themes=(_THEME,),
+    )
+    assert "widget harness" in md
+    assert "#77" not in md
 
 
 def test_collect_plan_folds_flags_into_ready_body() -> None:

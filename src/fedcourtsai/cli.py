@@ -76,6 +76,7 @@ from . import (
     window_records,
 )
 from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
+from .agent_flags import CellCoordinates, coordinates_from_path, normalise_flags
 from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
     relabel_application_baseline_events,
@@ -426,6 +427,7 @@ from .schemas import (
     Evaluation,
     FlagCategory,
     FlagSeverity,
+    FlagSource,
     ForwardClaimRecord,
     Leaderboard,
     LeaderboardEntry,
@@ -7738,12 +7740,25 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     # carries — over a version this run does not write.
     digest = ""
     update: dict[str, object] = {}
+    case_paths = CasePaths(settings.data_root, court, docket)
+    event_paths = case_paths.event(event)
     if not regrade:
         digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
         update["process_version"] = _resolve_stamp(digest, pipeline_sha, stamped_at)
+        # Before the tripwire below, so it appends to a file that parses, and
+        # before `validate`, so an advisory note can never take the cell's output
+        # with it. A re-grade is a correction over committed cells and leaves
+        # their flags as committed.
+        _normalise_cell_flags(
+            event_paths,
+            CellCoordinates(
+                case_id=ids.case_id(court, docket),
+                run_id=run_id,
+                role=UsageRole(role),
+                actor_id=actor,
+            ),
+        )
 
-    case_paths = CasePaths(settings.data_root, court, docket)
-    event_paths = case_paths.event(event)
     if role == "predictor":
         targets = [event_paths.prediction(actor, run_id)]
         model_cls: type[Prediction] | type[Evaluation] = Prediction
@@ -8070,6 +8085,42 @@ def _names_a_snapshot(value: str) -> bool:
     return True
 
 
+def _normalise_cell_flags(event_paths: EventPaths, where: CellCoordinates) -> None:
+    """Rewrite a cell's ``flags.json`` into the schema's shape, so a flag never fails a cell.
+
+    A cell's flags are advisory and its prediction or gradings are its output,
+    so a note the agent mis-shaped — an off-vocabulary severity or category, an
+    over-long message, a stray key, a file that does not parse — must not fail
+    ``validate`` and discard the output beside it. The coercion
+    (:func:`fedcourtsai.agent_flags.normalise_flags`) loses nothing: each coerced
+    flag is marked ``normalised``, a ``harness`` note quotes every value it
+    replaced, and a file with no recoverable structure is carried verbatim in
+    harness flags. A file that already validates is not touched. ``validate``
+    stays strict; this only runs before it.
+    """
+    flags_path = (
+        event_paths.prediction_flags(where.actor_id, where.run_id)
+        if where.role == UsageRole.predictor
+        else event_paths.evaluation_flags(where.actor_id, where.run_id)
+    )
+    if not flags_path.is_file():
+        return
+    try:
+        text = flags_path.read_text()
+    except (OSError, UnicodeDecodeError) as exc:
+        text = f"(the file could not be read as text: {type(exc).__name__})"
+    normalised = normalise_flags(text, where)
+    if not normalised.changed:
+        return
+    typer.echo(
+        f"::warning::stamp: {where.actor_id} {_one_line(where.case_id)} flags.json did not "
+        + "validate; normalised it (coerced flags are marked `normalised`, and a harness note "
+        + "records what changed).",
+        err=True,
+    )
+    write_json(flags_path, normalised.flags)
+
+
 def _flag_unread_snapshot(
     flags_path: Path,
     snapshot: str,
@@ -8088,10 +8139,10 @@ def _flag_unread_snapshot(
 
     Appended to the agent's own file where there is one, because a cell that
     noticed its own missing snapshot already wrote a flag saying so and the
-    harness's confirmation belongs beside it rather than over it. A file that
-    does not parse is left alone: overwriting it would destroy agent prose to
-    add a note, and an unparseable ``flags.json`` fails ``validate`` into the
-    draft PR a maintainer reads anyway. Deduplicated on the opening, plus the
+    harness's confirmation belongs beside it rather than over it. The stamp has
+    already normalised that file (:func:`_normalise_cell_flags`), so it parses;
+    one that still does not — unreadable on disk — is left alone rather than
+    overwritten to add a note. Deduplicated on the opening, plus the
     category, severity and event this note is always written with, so a re-stamp
     of the same cell does not grow the list even where the prose behind that
     opening moved between the two runs. That match is a convenience, not an
@@ -8103,9 +8154,9 @@ def _flag_unread_snapshot(
     ``warning`` rather than ``blocker``: the cell finished and its artifact is
     usable and fully scoreable — what is wrong is upstream of it, a cell that
     could not find the inputs it was given, which is what ``data-quality`` names.
-    It is a **harness-authored** note in a channel that is otherwise the agent's;
-    the roll-up counts it with the rest, and the ``Harness tripwire:`` prefix is
-    what separates the two by eye.
+    It is a **harness-authored** note in a channel that is otherwise the agent's,
+    marked ``source: harness`` so the roll-up can list and count it apart from
+    the agents' own; the ``Harness tripwire:`` prefix separates the two by eye.
 
     The note also says **which** of the two misses this was, because
     ``snapshot_uptake`` cannot: a cell that named another day's file and a cell
@@ -8167,6 +8218,7 @@ def _flag_unread_snapshot(
         severity=FlagSeverity.warning,
         message=message,
         event_id=record.event_id,
+        source=FlagSource.harness,
     )
     flags = AgentFlags(
         case_id=record.case_id,
@@ -20236,16 +20288,34 @@ def _load_flag_sets(status_dir: Path, run_id: str) -> list[AgentFlags]:
     * **identity** — collapse byte-identical flag files, so the same note shipped in
       more than one cell's artifact counts once.
 
-    A malformed flag file is skipped (the cell's own status already reflects its
-    failure) rather than aborting the run's aggregation.
+    A flag file that does not validate is **normalised, not skipped**
+    (:func:`fedcourtsai.agent_flags.normalise_flags`, the same coercion the stamp
+    applies before ``validate``), so a mis-shaped note still reaches the roll-up
+    — its coerced flags marked ``normalised``, which the roll-up counts — and
+    never aborts the run's aggregation. The cell's coordinates come off the
+    file's ledger path; one off the layout, or unreadable, is named in a warning
+    rather than dropped silently.
     """
     seen: set[str] = set()
     flag_sets: list[AgentFlags] = []
     for path in sorted(status_dir.glob("**/flags.json")):
         try:
-            flag_set = AgentFlags.model_validate_json(path.read_text())
-        except (OSError, ValueError):
+            text = path.read_text()
+        except (OSError, UnicodeDecodeError) as exc:
+            typer.echo(f"::warning::could not read {path} ({type(exc).__name__})", err=True)
             continue
+        try:
+            flag_set = AgentFlags.model_validate_json(text)
+        except ValueError:
+            where = coordinates_from_path(path)
+            if where is None:
+                typer.echo(
+                    f"::warning::{path} does not validate and sits off the ledger layout, "
+                    "so it cannot be attributed to a cell; left out of the roll-up",
+                    err=True,
+                )
+                continue
+            flag_set = normalise_flags(text, where).flags
         if flag_set.run_id != run_id:
             continue
         identity = flag_set.model_dump_json()

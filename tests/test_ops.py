@@ -40,6 +40,7 @@ from fedcourtsai.schemas import (
     EventKind,
     FlagCategory,
     FlagSeverity,
+    FlagSource,
     GroupBy,
     LeakageAssessment,
     LedgerValidation,
@@ -720,9 +721,31 @@ def test_render_flags_digest_lists_recent_and_notes_truncation() -> None:
     assert "**3** flag(s) across **3** cell(s)" in md and "last 14d" in md
     assert "showing the 2 most recent" in md
     # The shared collect table renders the triage columns.
-    assert "| severity | category | actor | case | event | note |" in md
-    # Only the two most recent cells appear in the table.
+    assert "| severity | category | source | actors | case | event | note |" in md
+    # Only the two most recent cells appear in the table, collapsed into the one
+    # (case, event, source, category) row they share.
     assert "`p3`" in md and "`p2`" in md and "`p1`" not in md
+    assert "`p3`, `p2` (2) · 2 runs" in md
+    assert "2 flag(s) in 1 row(s)" in md
+
+
+def test_render_flags_digest_counts_harness_and_normalised_flags() -> None:
+    sets = [
+        _flags(
+            "20260202T000000Z",
+            AgentFlag(category=FlagCategory.other, message="agent note"),
+            AgentFlag(
+                category=FlagCategory.other,
+                message="Harness normalised ...",
+                source=FlagSource.harness,
+            ),
+            AgentFlag(category=FlagCategory.other, message="coerced", normalised=True),
+        )
+    ]
+    digest = ops.summarize_flags(sets, generated_at="2026-02-03T12:00:00+00:00")
+    assert (digest.harness, digest.normalised) == (1, 1)
+    md = ops.render_flags_digest(digest)
+    assert "Of these: 1 from the harness · 1 malformed flag(s) normalised." in md
 
 
 def test_render_flags_digest_clean_ledger_reads_as_none() -> None:
