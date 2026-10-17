@@ -29,14 +29,15 @@ last 24 hours times the per-round cap, an allowance for the *estimated* spend
 of released rounds that have not reached the ledger yet (a collect PR lands
 only once its checks pass) — not a bound on actual spend, which can exceed a
 round's planning-rate price with its engine mix, nor on a round released
-earlier whose collect PR is still open; and *estimate* is this round's price. The ledger is a floor on
-what was spent — a manually released round still in flight, an auto-released
-round whose collect PR is still open more than 24 hours on, a summary run whose
-review PR has not merged (outside the summarize plan, which carries the open
-refresh PR's summaries and so counts them), and a rejected summary response's
-tokens are all invisible to it — so the budget sits below the backstop's ceiling, which stops
-minting outright, and a budget at or above that ceiling keeps every round on
-the hold rather than being adopted silently.
+earlier whose collect PR is still open; and *estimate* is this round's price.
+The ledger is a floor on what was spent — a manually released round still in
+flight, an auto-released round whose collect PR is still open more than 24
+hours on, a summary run whose review PR has not merged (outside the summarize
+plan, which carries the open refresh PR's summaries and so counts them), and a
+rejected summary response's tokens are all invisible to it — so the budget sits
+below the backstop's ceiling, which stops minting outright, and a budget at or
+above that ceiling keeps every round on the hold rather than being adopted
+silently.
 
 **What is priced is what runs.** A predict or evaluate plan document is a
 second walk of the backlog; the cells that actually spend are the matrix the
