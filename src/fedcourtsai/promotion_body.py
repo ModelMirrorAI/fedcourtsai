@@ -389,7 +389,7 @@ def splice(existing: str, block: str) -> str:
     return (existing[:start] + block + existing[end + len(END) :]).rstrip()
 
 
-_GATE_LINE = re.compile(r"^- (?:quiescence|freshness): \*\*")
+_GATE_LINE = re.compile(r"^- (?:quiescence|freshness|registry): \*\*")
 
 
 def same_body(left: str, right: str) -> bool:

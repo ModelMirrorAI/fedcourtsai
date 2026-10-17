@@ -84,9 +84,11 @@ def test_the_plan_decides_through_the_tested_commands_with_the_gate_stages_live(
         'scripts/promotion-gate.sh freshness "$sha" "$ref"',
     ):
         assert stage in runs, stage
-    # A sync merge alone is not a batch: the cut reads the tree.
-    assert "git diff --quiet origin/main origin/staging" in runs
-    assert "git merge-base --is-ancestor origin/main origin/staging" in runs
+    # Both sides against the merge-base: main's paths decide whether staging
+    # is synced, staging's tree whether there is anything to promote.
+    assert "base=$(git merge-base origin/main origin/staging)" in runs
+    assert 'git diff --name-only "$base" origin/main > main-ahead.txt' in runs
+    assert 'git diff --quiet "$base" origin/staging' in runs
 
 
 def test_only_the_write_job_holds_the_dev_app_and_it_binds_prod() -> None:

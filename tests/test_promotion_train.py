@@ -116,7 +116,7 @@ def _no_candidate(**overrides: Any) -> Observed:
         open_pulls=[],
         branches=[],
         staging_sha=STAGING,
-        staging_contains_main=True,
+        main_ahead_paths=["data/cases/x/event.yaml", "metrics/big-cases.json"],
         staging_differs_from_main=True,
     )
     return replace(observed, **overrides)
@@ -157,10 +157,32 @@ def test_a_taken_date_gets_the_next_free_suffix() -> None:
     assert next_branch_name(NOW, ["promote/2026-10-16", f"{REF}-2"]) == REF
 
 
-def test_an_unsynced_staging_waits_for_the_sync() -> None:
-    step = decide(_no_candidate(staging_contains_main=False), CONFIG)
+def test_main_moving_on_the_writer_lanes_alone_does_not_hold_the_cut() -> None:
+    """Main takes data, metrics and corpus-pointer commits every few hours; they
+    never ride staging, so they cannot be what the cut waits for."""
+    paths = ["data/cases/scotus/1/events/e/event.yaml", "metrics/big-cases.md"]
+    observed = _no_candidate(main_ahead_paths=[*paths, "corpus/corpus.db.ref"])
+    assert decide(observed, CONFIG).action is TrainAction.CUT
+    assert decide(_no_candidate(main_ahead_paths=[]), CONFIG).action is TrainAction.CUT
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/fedcourtsai/process_registry.json",
+        "docs/freeze-record.md",
+        ".github/workflows/ci.yml",
+        "corpus/README.md",
+        "dataset.txt",
+    ],
+)
+def test_an_unsynced_promotion_waits_for_the_sync(path: str) -> None:
+    """After a promotion, main's record commit (registry, freeze record) is
+    something only a sync brings to staging: the next cut waits for it."""
+    step = decide(_no_candidate(main_ahead_paths=["data/x.json", path]), CONFIG)
     assert step.action is TrainAction.WAIT
     assert "sync" in step.reason
+    assert path in step.reason
 
 
 def test_a_staging_that_carries_nothing_cuts_nothing() -> None:
@@ -175,7 +197,7 @@ def test_a_staging_that_carries_nothing_cuts_nothing() -> None:
     [
         {"open_pulls": None},
         {"branches": None},
-        {"staging_contains_main": None},
+        {"main_ahead_paths": None},
         {"staging_differs_from_main": None},
         {"staging_sha": None},
         {"staging_sha": "not-a-sha"},
@@ -549,6 +571,8 @@ def test_the_step_command_merges_a_candidate_that_holds(tmp_path: Path) -> None:
 
 
 def test_the_step_command_cuts_with_the_date_it_is_told(tmp_path: Path) -> None:
+    ahead = tmp_path / "ahead.txt"
+    ahead.write_text("data/cases/x.json\n")
     branches = tmp_path / "branches.txt"
     branches.write_text(f"promote/2026-11-02 {OLD}\n")
     result = CliRunner().invoke(
@@ -563,8 +587,8 @@ def test_the_step_command_cuts_with_the_date_it_is_told(tmp_path: Path) -> None:
             str(branches),
             "--staging-sha",
             STAGING,
-            "--staging-contains-main",
-            "yes",
+            "--main-ahead-paths-file",
+            str(ahead),
             "--staging-differs",
             "yes",
             "--now",
@@ -578,6 +602,8 @@ def test_the_step_command_cuts_with_the_date_it_is_told(tmp_path: Path) -> None:
 
 
 def test_a_malformed_branches_file_is_unknown(tmp_path: Path) -> None:
+    ahead = tmp_path / "ahead.txt"
+    ahead.write_text("data/cases/x.json\n")
     branches = tmp_path / "branches.txt"
     branches.write_text("promote/2026-11-02\n")
     result = CliRunner().invoke(
@@ -592,8 +618,8 @@ def test_a_malformed_branches_file_is_unknown(tmp_path: Path) -> None:
             str(branches),
             "--staging-sha",
             STAGING,
-            "--staging-contains-main",
-            "yes",
+            "--main-ahead-paths-file",
+            str(ahead),
             "--staging-differs",
             "yes",
         ],

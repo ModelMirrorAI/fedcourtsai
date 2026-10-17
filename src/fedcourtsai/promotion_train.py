@@ -17,9 +17,11 @@ one SHA — is invalidated by them. The steps:
 ====================  ================================================  =========================
 action                when                                              does
 ====================  ================================================  =========================
-``cut``               no open promotion PR; staging contains `main`     create the branch at the
-                      and its tree differs from `main`'s; no            staging tip read, open a
-                      ``promote/`` branch already sits at that tip      draft PR into `main`
+``cut``               no open promotion PR; `main` changed nothing      create the branch at the
+                      since its merge-base with staging outside the     staging tip read, open a
+                      writer lanes (staging is synced); staging         draft PR into `main`
+                      changed something since that merge-base; no
+                      ``promote/`` branch already sits at that tip
 ``dispatch_gate``     the candidate has no integration ``gate`` run     dispatch integration-test
                       at its head (queued, running or concluded) and    ``scenario=gate`` at the
                       the registry gate passes                          branch (dispatch App)
@@ -64,6 +66,13 @@ CONFIG_FILENAME = "promotion-train.yaml"
 
 #: Every candidate branch lives under this prefix.
 BRANCH_PREFIX = "promote/"
+
+#: The paths `main` takes directly from the deterministic writers and the bot
+#: lanes, never through staging. `main` moves on these every few hours, so the
+#: cut cannot wait for `main` to be an ancestor of staging; what it waits for is
+#: anything *else* `main` holds that staging lacks — after a promotion, the
+#: record commit's registry and freeze-record stamps — which only a sync brings.
+WRITER_LANE_PATHS = ("data/", "metrics/", "corpus/corpus.db.ref")
 
 #: The only branch names the train cuts and acts on: the UTC date, and a
 #: numeric suffix from 2 when that date is already taken.
@@ -204,7 +213,9 @@ class Observed:
     #: The existing ``promote/`` branches as ``(name, head SHA)``.
     branches: Sequence[tuple[str, str]] | None = None
     staging_sha: str | None = None
-    staging_contains_main: bool | None = None
+    #: The paths `main` changed since its merge-base with staging.
+    main_ahead_paths: Sequence[str] | None = None
+    #: Whether staging changed anything since that merge-base.
     staging_differs_from_main: bool | None = None
     # The candidate's own reads; unused when no candidate is open.
     head_on_staging: bool | None = None
@@ -469,16 +480,28 @@ def _dispatch_command(ref: str) -> str:
     return f"gh workflow run integration-test.yml --ref {ref} -f scenario=gate"
 
 
+def _is_writer_lane_path(path: str) -> bool:
+    return any(
+        path == prefix or (prefix.endswith("/") and path.startswith(prefix))
+        for prefix in WRITER_LANE_PATHS
+    )
+
+
 def _cut_step(observed: Observed) -> TrainStep:  # noqa: PLR0911 - one return per outcome
-    if observed.staging_contains_main is None or observed.staging_differs_from_main is None:
+    if observed.main_ahead_paths is None or observed.staging_differs_from_main is None:
         return TrainStep(
             action=TrainAction.WAIT,
             reason="staging's relation to main could not be read; nothing cut",
         )
-    if not observed.staging_contains_main:
+    unsynced = sorted(p for p in observed.main_ahead_paths if not _is_writer_lane_path(p))
+    if unsynced:
+        shown = ", ".join(unsynced[:3]) + (" …" if len(unsynced) > 3 else "")
         return TrainStep(
             action=TrainAction.WAIT,
-            reason="staging does not contain main yet; the next candidate waits for the sync",
+            reason=(
+                f"main holds changes staging lacks outside the writer lanes ({shown}); "
+                "the next candidate waits for the sync"
+            ),
         )
     if not observed.staging_differs_from_main:
         return TrainStep(

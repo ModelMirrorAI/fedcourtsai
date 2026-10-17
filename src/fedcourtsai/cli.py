@@ -18810,12 +18810,18 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
     staging_sha: Annotated[
         str | None, typer.Option("--staging-sha", help="The staging tip that was read.")
     ] = None,
-    staging_contains_main: Annotated[
-        _TriState, typer.Option("--staging-contains-main", help="Is main an ancestor of staging?")
-    ] = _TriState.UNKNOWN,
+    main_ahead_paths_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--main-ahead-paths-file",
+            help="The paths main changed since its merge-base with staging, one a line.",
+        ),
+    ] = None,
     staging_differs: Annotated[
         _TriState,
-        typer.Option("--staging-differs", help="Does staging's tree differ from main's?"),
+        typer.Option(
+            "--staging-differs", help="Did staging change anything since that merge-base?"
+        ),
     ] = _TriState.UNKNOWN,
     head_on_staging: Annotated[
         _TriState,
@@ -18872,13 +18878,23 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
             branches = [(p[0], p[1]) for p in pairs] if all(len(p) == 2 for p in pairs) else None
         except OSError:
             branches = None
+    main_ahead: list[str] | None = None
+    if main_ahead_paths_file is not None:
+        try:
+            main_ahead = [
+                line
+                for line in main_ahead_paths_file.read_text(encoding="utf-8").splitlines()
+                if line
+            ]
+        except OSError:
+            main_ahead = None
     observed = Observed(
         repo=repo,
         now=at.astimezone(UTC),
         open_pulls=_read_json_list(open_prs_file),
         branches=branches,
         staging_sha=staging_sha,
-        staging_contains_main=_tri(staging_contains_main),
+        main_ahead_paths=main_ahead,
         staging_differs_from_main=_tri(staging_differs),
         head_on_staging=_tri(head_on_staging),
         runs=_read_json_list(runs_file, "workflow_runs"),

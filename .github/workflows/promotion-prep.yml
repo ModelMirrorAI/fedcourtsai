@@ -157,14 +157,15 @@ jobs:
           main_sha=$(git rev-parse origin/main)
           staging_sha=$(git rev-parse origin/staging)
           args=(--repo "$REPO" --staging-sha "$staging_sha")
-          if git merge-base --is-ancestor origin/main origin/staging; then
-            args+=(--staging-contains-main yes)
-          else
-            args+=(--staging-contains-main no)
-          fi
-          # The tree, not the commit count: a sync merge alone puts staging a
-          # commit ahead of main while carrying nothing to promote.
-          if git diff --quiet origin/main origin/staging; then
+          # Both sides against their merge-base. Main's side may hold only the
+          # writer lanes' paths for a cut (the decision checks which); staging's
+          # side is what a candidate would carry — the tree, not the commit
+          # count, since a sync merge alone puts staging a commit ahead while
+          # carrying nothing to promote.
+          base=$(git merge-base origin/main origin/staging)
+          git diff --name-only "$base" origin/main > main-ahead.txt
+          args+=(--main-ahead-paths-file main-ahead.txt)
+          if git diff --quiet "$base" origin/staging; then
             args+=(--staging-differs no)
           else
             args+=(--staging-differs yes)
@@ -220,8 +221,10 @@ jobs:
                 --arg detail "$(grep -E '::error::' "$log" | sed 's/^::error:://' | head -n 3 | paste -sd ';' -)" \
                 '{name: $name, ok: $ok, detail: $detail}'
             }
-            { gate_line quiescence "$q" quiesce.log; gate_line freshness "$f" fresh.log
-              gate_line registry "$r" registry.log; } > gate.ndjson
+            # Quiescence stays out of the body: it flips with every predict
+            # round, and each body edit re-runs CI on the candidate. The
+            # train's status line says when it is what the merge waits on.
+            { gate_line freshness "$f" fresh.log; gate_line registry "$r" registry.log; } > gate.ndjson
           fi
           printf '%s\n' "${args[@]}" > step-args.txt
           {
