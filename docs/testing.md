@@ -744,13 +744,15 @@ decision and that the module imports only the standard library), the cache
 job restores the uv cache unless allowed and holding nothing, no workflow
 or composite restores a cache any other way, and no root `package.json` turns
 on a `setup-node` cache), the corpus-check lane
-(`test_workflow_corpus_check`: each job's grants, the environment and the
-read-only role on the run job alone, the planned head checked out beside the
+(`test_workflow_corpus_check`: each job's grants, each environment and the
+read-only role on its run job alone, the planned head checked out beside the
 run's own ref and after the vintage read, the head's install and check run
 only through the wrapper as the unprivileged account whose separation the job
-proves, no `${{ }}` in any script, no PR code in the post job; and
-`test_environment_checks`: the environment's reviewer, `main`-only policy and
-contents, which the promotion gate checks unconditionally), the
+proves, the auto job's complementary route, its tree the run's own commit and
+no plan output but the route and the command, its provisioning step the held
+job's byte for byte, no `${{ }}` in any script, no PR code in the post job;
+and `test_environment_checks`: each environment's reviewer, `main`-only policy
+and contents, which the promotion gate checks unconditionally), the
 bot allowlists (`test_workflow_agent_bot`), the promotion-gate couplings
 (`test_workflow_promote`), the collect scenario's partition
 (`test_workflow_collect`), the cell invariants

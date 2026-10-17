@@ -9,15 +9,15 @@ name: corpus-check
 #
 # Its own workflow because its risk class is one no other lane has: it runs
 # PR-head code — the whole point is to measure the change — with a corpus
-# credential. Three things bound that, and the jobs below are shaped by them:
+# credential. Four things bound that, and the jobs below are shaped by them:
 #
 #   - the approval: `run` binds the `corpus-check` environment, whose required
 #     reviewer is the maintainer, and takes the SHA and the command from the
 #     plan's outputs — the run summary the approver reads names both — never
 #     from the PR, whose head or body may have moved since;
 #   - the trust: the read-only role is the only role whose OIDC trust names
-#     `environment:corpus-check`, so the PR's code can mint nothing that writes
-#     (docs/security.md);
+#     `environment:corpus-check` (or `environment:corpus-check-auto`), so the
+#     PR's code can mint nothing that writes (docs/security.md);
 #   - the account: the head's install and the check run as a separate,
 #     unprivileged UNIX account with no sudo, whose environment is the
 #     read-only session, the corpus address and two paths, and which cannot
@@ -29,16 +29,29 @@ name: corpus-check
 #     credential (tests/test_workflow_cache_restore.py). Every job here
 #     installs with the cache off.
 #
-# Three jobs, each holding only what it names, under a zero top-level grant:
+# One kind of request skips the approval because it runs no PR code: a block
+# that opens with `at: main` and names a `uv run fedcourts` subcommand on the
+# auto allowlist (config/corpus-check.yaml). `run-auto` answers it, binding the
+# reviewer-less `corpus-check-auto` environment, and checks out nothing but
+# this run's own commit of `main`: the PR head is never fetched, and the plan's
+# parsed command is all that reaches the job from the PR. Everything else —
+# PR-head code, a `scripts/checks/` script, an unlisted subcommand, a block that
+# does not ask for `main`, or any doubt (an unreadable allowlist, a missing or
+# unpolicied `corpus-check-auto`) — waits on the approval in `run`.
+#
+# Four jobs between the run gate's two, each holding only what it names, under
+# a zero top-level grant:
 #
 #   - plan: no credential. Plans nothing unless the `corpus-check` environment
 #     holds its required reviewer and its `main`-only branch policy. Lists the
 #     open PRs, keeps the ready requests from a head in this repository by an
 #     author on config/corpus-check.yaml (read from this run's own checkout of
-#     `main`, never from a PR), and picks the oldest whose head SHA has no
-#     result comment from this workflow's bot. Pins the PR, SHA and command as
-#     outputs and renders them to the run summary with a comparison pinned to
-#     the SHA and the head commit's author, committer and signature.
+#     `main`, never from a PR), routes each `at: main` request auto or held,
+#     and picks the oldest unanswered auto request, else the oldest held one
+#     whose head SHA has no result comment from this workflow's bot. Pins the
+#     PR, SHA, command and route as outputs and renders them to the run
+#     summary with a comparison pinned to the SHA and the head commit's author,
+#     committer and signature.
 #   - run: the environment, `contents: read` and `id-token: write`. Checks out
 #     this run's own ref for the composites and the corpus pull — so the blob
 #     is the one `main`'s committed pointer names, and the vintage is read by
@@ -47,6 +60,10 @@ name: corpus-check
 #     install and then the command as that account, with no shell, each under
 #     its own hard timeout, output kept off the public log. Emits the phase,
 #     the exit code, the summary the check wrote and the vintage.
+#   - run-auto: `corpus-check-auto`, `contents: read` and `id-token: write`.
+#     The same steps as `run`, but the tree beside the workspace is a second
+#     checkout of this run's own commit, never the PR's, and the summary is the
+#     allowlisted command's stdout.
 #   - post: no environment, no `id-token`, no PR code. Renders one comment from
 #     the run's outputs, treating each as untrusted text, and posts it with the
 #     job's own token.
@@ -124,13 +141,15 @@ jobs:
     permissions:
       contents: read
       pull-requests: read # list the open PRs and read their comments and head commits
-      actions: read # read the corpus-check environment's protection rules
+      actions: read # read both corpus-check environments' protection rules
     outputs:
       found: ${{ steps.plan.outputs.found }}
       pr: ${{ steps.plan.outputs.pr }}
       sha: ${{ steps.plan.outputs.sha }}
       command: ${{ steps.plan.outputs.command }}
       refusal: ${{ steps.plan.outputs.refusal }}
+      auto: ${{ steps.plan.outputs.auto }}
+      held_reason: ${{ steps.plan.outputs.held_reason }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -186,6 +205,13 @@ jobs:
             > "${work}/environment.json" 2>/dev/null || rm -f "${work}/environment.json"
           gh api "repos/${REPO}/environments/corpus-check/deployment-branch-policies?per_page=100" \
             > "${work}/branch-policies.json" 2>/dev/null || rm -f "${work}/branch-policies.json"
+          # The unapproved path's environment: unless its `main`-only policy is
+          # read here, every request is routed to the approval.
+          gh api "repos/${REPO}/environments/corpus-check-auto" \
+            > "${work}/auto-environment.json" 2>/dev/null || rm -f "${work}/auto-environment.json"
+          gh api "repos/${REPO}/environments/corpus-check-auto/deployment-branch-policies?per_page=100" \
+            > "${work}/auto-branch-policies.json" 2>/dev/null \
+            || rm -f "${work}/auto-branch-policies.json"
           # The tested CLI decides which PRs are candidates (`<pr> <sha>`
           # lines); only theirs are read: the comments, and the head commit.
           candidates=$(uv run fedcourts corpus-check-candidates \
@@ -206,15 +232,19 @@ jobs:
             --commits-dir "${work}/commits" \
             --environment-file "${work}/environment.json" \
             --branch-policies-file "${work}/branch-policies.json" \
+            --auto-environment-file "${work}/auto-environment.json" \
+            --auto-branch-policies-file "${work}/auto-branch-policies.json" \
             --server-url "$SERVER_URL" \
             --github-output "$GITHUB_OUTPUT" \
             --summary-file "$GITHUB_STEP_SUMMARY"
 
   run:
     needs: [authorize, plan]
-    # A refused request runs nothing: the post job tells the PR why.
+    # A refused request runs nothing: the post job tells the PR why. Every
+    # request the plan did not route auto waits here on the approval.
     if: >-
       ${{ needs.plan.outputs.found == 'true' && needs.plan.outputs.refusal == ''
+      && needs.plan.outputs.auto != 'true'
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -422,10 +452,218 @@ jobs:
             --timeout-seconds 1800 \
             --github-output "$GITHUB_OUTPUT"
 
+  # An auto-eligible request: an allowlisted `fedcourts` subcommand the block
+  # asked to run at `main`. No approval — `corpus-check-auto` has no reviewer —
+  # so nothing from the PR but the plan's command reaches this job: no step
+  # here checks out, fetches or reads the PR head. The tree the command runs
+  # in is this run's own commit, checked out a second time beside the
+  # workspace, and it runs exactly as `run` runs a head — the same account,
+  # the same proofs, the same wrapper — so an option of an allowlisted command
+  # reaches no more than the check's account can. The summary is the
+  # command's stdout, since the allowlisted commands print their figure.
+  run-auto:
+    needs: [authorize, plan]
+    if: >-
+      ${{ needs.plan.outputs.found == 'true' && needs.plan.outputs.refusal == ''
+      && needs.plan.outputs.auto == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-24.04
+    # As `run`: guard < step < job, all inside the role's one-hour session.
+    timeout-minutes: 75
+    environment: corpus-check-auto
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    outputs:
+      phase: ${{ steps.check.outputs.phase }}
+      exit_code: ${{ steps.check.outputs.exit_code }}
+      timed_out: ${{ steps.check.outputs.timed_out }}
+      summary_b64: ${{ steps.check.outputs.summary_b64 }}
+      vintage_b64: ${{ steps.vintage.outputs.vintage_b64 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+          save-cache: "false"
+
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+
+      - name: Read the corpus vintage
+        id: vintage
+        run: |
+          set -euo pipefail
+          info=$(uv run fedcourts corpus-info)
+          {
+            printf 'blob sha256 %s\n' "$(jq -r '.sha256' corpus/corpus.db.ref)"
+            grep -E '^(freshness|pointer):' <<<"$info" || true
+          } > "${RUNNER_TEMP}/vintage.txt"
+          cat "${RUNNER_TEMP}/vintage.txt"
+          echo "vintage_b64=$(base64 -w0 < "${RUNNER_TEMP}/vintage.txt")" >> "$GITHUB_OUTPUT"
+
+      # `main`'s tree at this run's own commit, where `run` puts the head: the
+      # comment names this SHA as the code that ran.
+      - name: Check out this run's own commit as the check's tree
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          path: check
+          persist-credentials: false
+
+      # Reviewed code, but still run as `run` runs the head: the allowlisted
+      # command's options then reach only what the check's account can.
+      - name: Provision the check's unprivileged account
+        env:
+          CHECK_USER: corpuscheck
+        run: |
+          set -euo pipefail
+          home="/home/${CHECK_USER}"
+          sudo useradd -m -d "$home" -s /usr/sbin/nologin -U "$CHECK_USER"
+          sudo chmod 700 "$home"
+          # Its own copies of the head and the corpus, which it owns: nothing it
+          # needs stays under the runner's home.
+          sudo cp -a "${GITHUB_WORKSPACE}/check" "${home}/check"
+          sudo cp -a "${GITHUB_WORKSPACE}/corpus" "${home}/corpus"
+          sudo chown -R "${CHECK_USER}:${CHECK_USER}" "${home}/check" "${home}/corpus"
+          # `uv` on sudo's secure_path; a public tool, root-owned.
+          sudo install -o root -g root -m 755 "$(command -v uv)" /usr/local/bin/uv
+          # Close the runner's home and temp tree to other accounts. The runner
+          # owns both, so its own access is unchanged.
+          sudo chmod o-rwx "$HOME" "$RUNNER_TEMP"
+          # No persistence past a phase: the account may schedule nothing.
+          echo "$CHECK_USER" | sudo tee -a /etc/cron.deny /etc/at.deny > /dev/null
+          for allow in /etc/cron.allow /etc/at.allow; do
+            if [ -f "$allow" ]; then
+              sudo sed -i "/^${CHECK_USER}\$/d" "$allow"
+            fi
+          done
+          # Less kernel surface: no unprivileged user namespaces. The AppArmor
+          # restriction must take; the older Debian/Ubuntu switch is set where
+          # the kernel has it.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=1
+          userns_clone=false
+          if [ -e /proc/sys/kernel/unprivileged_userns_clone ]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=0
+            userns_clone=true
+          fi
+          # No route to the platform's metadata endpoints for the account:
+          # Azure's instance metadata service and its wire server, both
+          # IPv4-only, so there is no IPv6 rule to add.
+          for endpoint in 169.254.169.254 168.63.129.16; do
+            sudo iptables -I OUTPUT 1 -m owner --uid-owner "$CHECK_USER" -d "$endpoint" \
+              -j REJECT --reject-with icmp-port-unreachable
+          done
+          # The runner's install root, from the worker process itself; a layout
+          # this cannot read fails the step rather than leaving a path unproven.
+          worker="$(pgrep -o -f 'Runner.Worker' || true)"
+          if [ -z "$worker" ]; then
+            echo "::error::cannot find the Runner.Worker process to derive the runner's install root"
+            exit 1
+          fi
+          exe="$(readlink -f "/proc/${worker}/exe" || true)"
+          case "$exe" in
+            */bin/Runner.Worker) ;;
+            *) exe="$(tr '\0' '\n' < "/proc/${worker}/cmdline" | grep -m1 'Runner.Worker' || true)" ;;
+          esac
+          runner_root="$(dirname "$(dirname "$exe")")"
+          if [ -z "$exe" ] || [ ! -d "$runner_root" ] || [ "$runner_root" = "/" ]; then
+            echo "::error::cannot derive the runner's install root from the worker (got '${exe}')"
+            exit 1
+          fi
+          echo "runner install root: ${runner_root}"
+          # Prove the separation rather than assume it: each attempt below must
+          # fail as the check's account, and each `require` must succeed.
+          as_check() { sudo -n -u "$CHECK_USER" -H -- "$@"; }
+          refuse() {
+            if as_check "$@" > /dev/null 2>&1; then
+              echo "::error::the check's account can run: $*"
+              exit 1
+            fi
+          }
+          require() {
+            if ! as_check "$@" > /dev/null 2>&1; then
+              echo "::error::the check's account was not refused by: $*"
+              exit 1
+            fi
+          }
+          refuse sudo -n true
+          refuse sudo -n -l
+          refuse /usr/bin/cat -- "/proc/$$/environ"
+          refuse /usr/bin/cat -- "/proc/${worker}/environ"
+          refuse /usr/bin/ls -- "$RUNNER_TEMP"
+          refuse /usr/bin/ls -- "$HOME"
+          refuse /usr/bin/ls -- "$GITHUB_WORKSPACE"
+          refuse /usr/bin/cat -- "${GITHUB_WORKSPACE}/corpus/corpus.db.ref"
+          refuse /usr/bin/ls -- "$runner_root"
+          refuse /usr/bin/cat -- "${runner_root}/.runner"
+          refuse /usr/bin/cat -- "$GITHUB_ENV"
+          refuse /usr/bin/test -w /var/run/docker.sock
+          if command -v crontab > /dev/null; then
+            refuse crontab /dev/null
+          fi
+          if command -v at > /dev/null; then
+            refuse at -l
+          fi
+          if [ "$userns_clone" = true ]; then
+            refuse /usr/bin/unshare --user true
+          fi
+          # A refused connection, not a timeout: the rule answered, so the
+          # endpoint is unreachable rather than merely slow.
+          for endpoint in 169.254.169.254 168.63.129.16; do
+            require /usr/bin/python3 -I -c "
+          import socket, sys
+          try:
+              socket.create_connection((sys.argv[1], 80), timeout=5)
+          except ConnectionRefusedError:
+              sys.exit(0)
+          sys.exit(1)
+          " "$endpoint"
+          done
+          groups="$(id -nG "$CHECK_USER")"
+          if [ "$groups" != "$CHECK_USER" ]; then
+            echo "::error::the check's account is in groups beyond its own: ${groups}"
+            exit 1
+          fi
+
+      # The plan's command through the environment, never interpolated; the
+      # wrapper re-validates it and runs the tree's `uv sync --locked` and then
+      # the command as the check's account. Its stdout goes to a runner-owned
+      # file that becomes the summary; its stderr to the unposted output file.
+      - name: Run the check
+        id: check
+        timeout-minutes: 45
+        env:
+          CHECK_COMMAND: ${{ needs.plan.outputs.command }}
+          CHECK_USER: corpuscheck
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts corpus-check-exec \
+            --command "$CHECK_COMMAND" \
+            --user "$CHECK_USER" \
+            --workdir "/home/${CHECK_USER}/check" \
+            --corpus-root "/home/${CHECK_USER}/corpus" \
+            --output-file "${RUNNER_TEMP}/corpus-check/output.log" \
+            --stdout-summary-file "${RUNNER_TEMP}/corpus-check/stdout.txt" \
+            --install-timeout-seconds 480 \
+            --timeout-seconds 1800 \
+            --github-output "$GITHUB_OUTPUT"
+
   post:
-    needs: [authorize, plan, run]
+    needs: [authorize, plan, run, run-auto]
     # Whatever became of the run — approved, rejected, expired, failed — one
-    # comment names the SHA, so the next poll does not plan it again.
+    # comment names the SHA (and, for an auto run, the command), so the next
+    # poll does not plan it again. The plan's route picks which run job's
+    # result and outputs it reports: the other was skipped.
     if: >-
       ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.found == 'true'
       && needs.authorize.result == 'success'
@@ -459,12 +697,15 @@ jobs:
           CHECK_SHA: ${{ needs.plan.outputs.sha }}
           CHECK_COMMAND: ${{ needs.plan.outputs.command }}
           CHECK_REFUSAL: ${{ needs.plan.outputs.refusal }}
-          RUN_RESULT: ${{ needs.run.result }}
-          CHECK_PHASE: ${{ needs.run.outputs.phase }}
-          CHECK_EXIT_CODE: ${{ needs.run.outputs.exit_code }}
-          CHECK_TIMED_OUT: ${{ needs.run.outputs.timed_out }}
-          CHECK_SUMMARY_B64: ${{ needs.run.outputs.summary_b64 }}
-          CHECK_VINTAGE_B64: ${{ needs.run.outputs.vintage_b64 }}
+          CHECK_AUTO: ${{ needs.plan.outputs.auto }}
+          CHECK_HELD_REASON: ${{ needs.plan.outputs.held_reason }}
+          CODE_SHA: ${{ github.sha }}
+          RUN_RESULT: ${{ needs.plan.outputs.auto == 'true' && needs.run-auto.result || needs.run.result }}
+          CHECK_PHASE: ${{ needs.plan.outputs.auto == 'true' && needs.run-auto.outputs.phase || needs.run.outputs.phase }}
+          CHECK_EXIT_CODE: ${{ needs.plan.outputs.auto == 'true' && needs.run-auto.outputs.exit_code || needs.run.outputs.exit_code }}
+          CHECK_TIMED_OUT: ${{ needs.plan.outputs.auto == 'true' && needs.run-auto.outputs.timed_out || needs.run.outputs.timed_out }}
+          CHECK_SUMMARY_B64: ${{ needs.plan.outputs.auto == 'true' && needs.run-auto.outputs.summary_b64 || needs.run.outputs.summary_b64 }}
+          CHECK_VINTAGE_B64: ${{ needs.plan.outputs.auto == 'true' && needs.run-auto.outputs.vintage_b64 || needs.run.outputs.vintage_b64 }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -484,7 +725,7 @@ jobs:
             "repos/${REPO}/issues/${PR}/comments" -F "body=@${body}"
 
   run-gate:
-    needs: [authorize, plan, run, post]
+    needs: [authorize, plan, run, run-auto, post]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5

@@ -485,6 +485,37 @@ contexts() {
     fail=1
   fi
 
+  # The corpus-check-auto environment, on the same reasoning and just as
+  # unconditional: the read-only role's trust names
+  # `environment:corpus-check-auto` too, and that environment has no reviewer
+  # by design, so its `main`-only branch policy is its one control — a missing
+  # environment is one any branch's workflow creates unprotected by binding it.
+  # Required: it exists, admits `main` alone, and holds no secret and no
+  # variable but the read-only role's three. Reviewers are not checked: one
+  # added there is the stop for the unapproved path. The decision is tested
+  # Python (tests/test_environment_checks.py).
+  local cca_dir="${workdir}/corpus-check-auto-environment" cca_base
+  cca_base="repos/${REPO}/environments/corpus-check-auto"
+  mkdir -p "$cca_dir"
+  gh api "$cca_base" >"${cca_dir}/environment.json" 2>/dev/null \
+    || rm -f "${cca_dir}/environment.json"
+  gh api "${cca_base}/deployment-branch-policies?per_page=100" \
+    >"${cca_dir}/branch-policies.json" 2>/dev/null || rm -f "${cca_dir}/branch-policies.json"
+  gh api "${cca_base}/secrets?per_page=100" >"${cca_dir}/secrets.json" 2>/dev/null \
+    || rm -f "${cca_dir}/secrets.json"
+  gh api "${cca_base}/variables?per_page=30" >"${cca_dir}/variables.json" 2>/dev/null \
+    || rm -f "${cca_dir}/variables.json"
+  if uv run fedcourts assert-corpus-check-auto-environment \
+    --environment-file "${cca_dir}/environment.json" \
+    --branch-policies-file "${cca_dir}/branch-policies.json" \
+    --secrets-file "${cca_dir}/secrets.json" \
+    --variables-file "${cca_dir}/variables.json"; then
+    echo "contexts: the corpus-check-auto environment admits main alone and holds only the read-only role's variables"
+  else
+    echo "::error::contexts: fix the corpus-check-auto environment before promoting — the read-only role's trust names it (docs/security.md)"
+    fail=1
+  fi
+
   # The website environment, unconditionally: it holds the Buttondown API key
   # from the moment it is configured, whether or not main's workflows bind it
   # yet, and its `main`-only branch policy is the one thing keeping that key

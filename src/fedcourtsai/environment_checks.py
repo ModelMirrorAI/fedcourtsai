@@ -21,6 +21,17 @@ the same predicate:
   `main`-only policy, so the lane plans nothing while they are missing. It cannot see
   secrets or variables, which is why the gate is the check that holds.
 
+The read-only role's trust also names `environment:corpus-check-auto`, the
+reviewer-less environment the lane's `run-auto` job binds to run an
+allowlisted `fedcourts` subcommand at `main`'s own commit — no PR code — without
+the approval. Its branch policy is its only control, so the same two readers
+check it: the promotion gate (:func:`auto_environment_problems`) requires it to
+exist, admit `main` alone, and hold no secret and no variable outside
+:data:`CORPUS_CHECK_VARIABLES`; the plan (:func:`auto_protection_problems`)
+requires the existence and the policy, and while either is missing routes
+every request to the approval. Neither requires or refuses a reviewer: one
+added there is the immediate stop, holding every auto run for a click.
+
 The same stage checks the `website` environment (:func:`website_problems`),
 which holds the Buttondown API key `post-public-update` drafts the weekly
 update with: its `main`-only policy is what keeps the key from any other ref,
@@ -34,6 +45,9 @@ from typing import Any
 
 #: The environment the corpus-check lane's `run` job binds.
 CORPUS_CHECK_ENVIRONMENT = "corpus-check"
+
+#: The reviewer-less environment the lane's `run-auto` job binds.
+CORPUS_CHECK_AUTO_ENVIRONMENT = "corpus-check-auto"
 
 #: The only variables the environment may hold: the read-only role, its region
 #: and the corpus estate's address. The check's code can read everything its
@@ -130,6 +144,70 @@ def _main_only_problems(
     return problems
 
 
+def auto_protection_problems(
+    environment: Mapping[str, Any] | None, branch_policies: Mapping[str, Any] | None
+) -> list[str]:
+    """What `corpus-check-auto` lacks of its existence and its `main`-only policy.
+
+    ``environment`` is ``GET /repos/{repo}/environments/corpus-check-auto`` and
+    ``branch_policies`` its ``deployment-branch-policies`` listing; None means
+    the read failed or the environment does not exist, and fails — GitHub
+    would create a referenced environment with no branch policy, which the
+    read-only role's trust would then hand to any branch's workflow.
+    """
+    if environment is None:
+        return [f"the `{CORPUS_CHECK_AUTO_ENVIRONMENT}` environment does not exist or was unread"]
+    return _main_only_problems(environment, branch_policies)
+
+
+def auto_environment_problems(
+    environment: Mapping[str, Any] | None,
+    branch_policies: Mapping[str, Any] | None,
+    secrets: Mapping[str, Any] | None,
+    variables: Mapping[str, Any] | None,
+) -> list[str]:
+    """Everything the promotion gate requires of the `corpus-check-auto` environment.
+
+    Its existence and `main`-only policy (:func:`auto_protection_problems`),
+    no secret at all, and no variable outside :data:`CORPUS_CHECK_VARIABLES`.
+    Reviewers are not checked: the environment has none by design, and one
+    added is the stop for the unapproved path, which must not block a
+    promotion. An unread listing is a problem, never a pass.
+    """
+    problems = auto_protection_problems(environment, branch_policies)
+    if environment is None:
+        return problems
+    problems.extend(_contents_problems(secrets, variables))
+    return problems
+
+
+def _contents_problems(
+    secrets: Mapping[str, Any] | None, variables: Mapping[str, Any] | None
+) -> list[str]:
+    """No secret, and no variable outside :data:`CORPUS_CHECK_VARIABLES`; unread fails."""
+    problems: list[str] = []
+    secret_items = _items(secrets, "secrets")
+    if secret_items is None:
+        problems.append("the environment's secrets were unread")
+    elif secret_items:
+        problems.append(f"the environment holds {len(secret_items)} secret(s); it may hold none")
+    variable_items = _items(variables, "variables")
+    if variable_items is None:
+        problems.append("the environment's variables were unread")
+    else:
+        extra = sorted(
+            str(item.get("name"))
+            for item in variable_items
+            if item.get("name") not in CORPUS_CHECK_VARIABLES
+        )
+        if extra:
+            problems.append(
+                "the environment holds variables outside "
+                + f"{sorted(CORPUS_CHECK_VARIABLES)}: {', '.join(extra)}"
+            )
+    return problems
+
+
 def _exact_names_problems(
     listing: Mapping[str, Any] | None, key: str, expected: frozenset[str]
 ) -> list[str]:
@@ -172,25 +250,7 @@ def environment_problems(
     )
     if environment is None:
         return problems
-    secret_items = _items(secrets, "secrets")
-    if secret_items is None:
-        problems.append("the environment's secrets were unread")
-    elif secret_items:
-        problems.append(f"the environment holds {len(secret_items)} secret(s); it may hold none")
-    variable_items = _items(variables, "variables")
-    if variable_items is None:
-        problems.append("the environment's variables were unread")
-    else:
-        extra = sorted(
-            str(item.get("name"))
-            for item in variable_items
-            if item.get("name") not in CORPUS_CHECK_VARIABLES
-        )
-        if extra:
-            problems.append(
-                "the environment holds variables outside "
-                + f"{sorted(CORPUS_CHECK_VARIABLES)}: {', '.join(extra)}"
-            )
+    problems.extend(_contents_problems(secrets, variables))
     return problems
 
 

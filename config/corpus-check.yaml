@@ -21,3 +21,36 @@ requesters:
 # policy) is missing, and the promotion gate's `contexts` stage refuses a
 # promotion until the environment holds it (src/fedcourtsai/environment_checks.py).
 approver: modelmirror
+
+# The auto allowlist: the `fedcourts` subcommands a request may run without the
+# maintainer's approval. A request is auto-eligible only when its block opens
+# with the line `at: main` and its command is `uv run fedcourts <subcommand> …`
+# with the subcommand listed here; it then runs at `main`'s own commit in the
+# reviewer-less `corpus-check-auto` environment — the PR head is never checked
+# out, so no PR code runs, and the parsed argv is all that reaches the job. Its
+# stdout is the summary posted publicly, unread by anyone first.
+#
+# So each entry must be a subcommand of `main`'s CLI that only reads: it writes
+# nothing (no corpus, no data/, no file at a path an option names), pushes and
+# fetches nothing but the corpus reads the read-only session allows, calls no
+# model, takes no URL, and prints to stdout counts, rates and identifiers —
+# never stored snapshot or document text — and opens the index read-only, so not
+# even the job's own copy of the blob changes. A `scripts/checks/` script is never
+# eligible. Anything not listed, an absent list, or a malformed one waits on
+# the approval as every other request does (src/fedcourtsai/corpus_check.py).
+auto_subcommands:
+  # The vintage: row and snapshot counts, the freshness and pointer lines; opens
+  # the blob read-only with no migration (`--text-coverage` adds per-kind empty
+  # counts from the content store).
+  - corpus-info
+  # Per-Term counts of the merits decision record, from the index alone.
+  - decision-census
+  # Per-Term petitioner-class counts and grant-family rates under a registered
+  # caption rule; read-only connection, unregistered labels refused.
+  - caption-census
+  # Party-side and administration counts under a registered annotation rule;
+  # read-only connection, counts only.
+  - party-census
+  # Counts and changed case ids under two registered distribution parses, read
+  # from stored snapshots without printing them; read-only connection.
+  - distribution-census

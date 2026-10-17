@@ -265,8 +265,9 @@ runbook, [docs/security.md](docs/security.md).
   happens to it. Every role's OIDC trust is scoped to named environments of
   this repo — the production read-write role to `prod`, the read-only role to
   `prod`, `staging` (which is what lets the pre-promotion integration runs
-  read the corpus) and `corpus-check` (the PR corpus-check lane, under the
-  trigger surface below), the staging read-write role to `staging` — and each
+  read the corpus), `corpus-check` and `corpus-check-auto` (the PR
+  corpus-check lane's approved and unapproved paths, under the trigger
+  surface below), the staging read-write role to `staging` — and each
   of those environments restricts deployments to one branch, so a PR-branch
   job cannot assume any of them. Within an environment the split is provenance,
   not identity, on both sides of the promotion: any `prod`-bound job could ask
@@ -350,8 +351,8 @@ runbook, [docs/security.md](docs/security.md).
   maintainer-merged promotion put on `main`. A `workflow_dispatch` is gated by
   GitHub on repository **write**. And every privileged job binds a deployment
   environment whose branch policy pins the ref it may run from — `prod` to
-  `main`, `staging` to `staging` (below), `corpus-check` and `website` to
-  `main` — so a
+  `main`, `staging` to `staging` (below), `corpus-check`,
+  `corpus-check-auto` and `website` to `main` — so a
   dispatch from any other ref
   holds no role, no secret, no agent: a job naming an environment as a literal
   is refused at the deployment-branch gate before a step runs, and the three
@@ -444,7 +445,23 @@ runbook, [docs/security.md](docs/security.md).
   `environment:corpus-check`, which holds that role, its region and the
   corpus address and no other credential. And the **cache rule** below. What
   stays open is network egress, the read-only session for the rest of its
-  hour, and the kernel itself. Like every workflow that binds an environment,
+  hour, and the kernel itself.
+  The lane's invariant is precise: **no PR-supplied code runs with the corpus
+  credential without the maintainer's approval.** One kind of request skips
+  the approval because it supplies no code: a block that asks for `main`'s
+  code (`at: main`) and names a `uv run fedcourts` subcommand on the
+  maintainer-owned auto allowlist (`config/corpus-check.yaml`: read-only
+  queries that print counts and identifiers) runs in a separate job binding
+  the reviewer-less `corpus-check-auto` environment, whose tree is the run's
+  own commit of `main` — the PR head is never checked out or fetched, and the
+  parsed command line is all the job takes from the PR. That environment's
+  `main`-only branch policy is its control: the plan routes nothing to it
+  while the policy is missing, the promotion gate refuses a promotion until it
+  holds the policy and nothing but the read-only role's three variables, and
+  the read-only role is the only role, and its trust the only OIDC exchange,
+  that may accept `environment:corpus-check-auto`. Every other request — any
+  PR-head code, any `scripts/checks/` script, any unlisted subcommand, any
+  doubt about the allowlist or the environment — waits on the approval. Like every workflow that binds an environment,
   the lane opens with the run gate: the schedule passes it, and a dispatch or
   re-run proceeds only for a human `config/dispatchers.json` names — a re-run
   of the check also needs a fresh approval. The requester list (`config/corpus-check.yaml`) is maintainer-owned,
@@ -456,8 +473,9 @@ runbook, [docs/security.md](docs/security.md).
   directory for a reachable trigger, pins the five privileged lanes to those
   two, and requires every job that mints a token, assumes a role, or runs an
   agent — directly or through a composite that does — to bind one of the
-  branch-policied environments, `corpus-check` admitted for its own workflow
-  alone — so a workflow added later inherits the boundary. Behind all of it the `review` hold remains the
+  branch-policied environments, `corpus-check` and `corpus-check-auto`
+  admitted for their own workflow alone — so a workflow added later inherits
+  the boundary. Behind all of it the `review` hold remains the
   thing between a plan and any spend, on every round alike — save one bounded
   carve-out: a predict, evaluate or summarize round whose own plan is within
   the auto-release caps and budget (`config/review-hold.yaml`; any knob at 0

@@ -131,16 +131,19 @@ COMPUTED_ENVIRONMENTS = {
     "summarize.yml": BRANCH_RESOLVED_ENVIRONMENT,
 }
 
-# One environment bound by one workflow alone, each for a risk class of its
-# own. `corpus-check` holds the read-only role for the lane that runs PR-head
-# code after the maintainer approves it (docs/corpus-check.md): its required
+# Environments bound by one workflow alone, each for a risk class of its own.
+# `corpus-check` holds the read-only role for the lane that runs PR-head code
+# after the maintainer approves it (docs/corpus-check.md): its required
 # reviewer is the gate, its branch policy admits `main` alone, and the
-# read-only role is the only role whose trust names it. Pinned per workflow, so
-# another lane binding it — and so reaching a role behind an approval meant for
-# a different question — fails the sweep below.
-LANE_ENVIRONMENTS = {
-    "corpus-check.yml": "corpus-check",
-    "post-public-update.yml": "website",
+# read-only role is the only role whose trust names it. `corpus-check-auto`
+# holds the same role for the same lane's unapproved path, which runs an
+# allowlisted subcommand at `main`'s own commit and no PR code: its `main`-only
+# branch policy is its control. Pinned per workflow, so another lane binding
+# either — and so reaching a role behind an approval, or a reviewer-less
+# environment, meant for a different question — fails the sweep below.
+LANE_ENVIRONMENTS: dict[str, frozenset[str]] = {
+    "corpus-check.yml": frozenset({"corpus-check", "corpus-check-auto"}),
+    "post-public-update.yml": frozenset({"website"}),
 }
 
 # Step markers that mean "privileged work has started": minting an App token,
@@ -289,9 +292,10 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
     across every workflow, for the same reason as the trigger sweep above. A
     job is privileged when it uses a marker action directly or through a local
     composite that does, so the read-only corpus composites' callers are swept
-    too. The one lane environment, `corpus-check`, is admitted for its own
-    workflow only: its branch policy admits `main` alone, and its required
-    reviewer is what stands between a planned check and the read-only role.
+    too. The lane environments, `corpus-check` and `corpus-check-auto`, are
+    admitted for their own workflow only: each admits `main` alone, and the
+    first's required reviewer is what stands between a planned check of PR
+    code and the read-only role.
     """
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         for job_name, job in _jobs(_load(path.name)).items():
@@ -301,7 +305,7 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
             assert (
                 environment in BRANCH_POLICIED_ENVIRONMENTS
                 or environment == COMPUTED_ENVIRONMENTS.get(path.name)
-                or environment == LANE_ENVIRONMENTS.get(path.name)
+                or environment in LANE_ENVIRONMENTS.get(path.name, frozenset())
             ), (
                 f"{path.name}:{job_name} mints a token, assumes the S3 role or runs an "
                 f"agent under environment {environment!r} — not one whose branch policy "
@@ -311,21 +315,23 @@ def test_every_privileged_job_binds_a_deployment_environment() -> None:
 
 def test_a_lane_environment_is_bound_by_its_own_workflow_alone() -> None:
     """`corpus-check`'s reviewer approves one question — run this SHA's check —
-    and the read-only role trusts it for that; `website` holds the email
-    list's key for the one job that drafts the weekly update. A job elsewhere
-    binding either would reach what it holds for a purpose it was not set up
-    for."""
-    bound: dict[str, set[str]] = {env: set() for env in LANE_ENVIRONMENTS.values()}
+    and the read-only role trusts it for that; `corpus-check-auto` hands the
+    same role, unapproved, to the job that runs an allowlisted subcommand at
+    `main`; `website` holds the email list's key for the one job that drafts
+    the weekly update. A job elsewhere binding any of them would reach what it
+    holds for a purpose it was not set up for."""
+    bound: dict[str, set[str]] = {env: set() for envs in LANE_ENVIRONMENTS.values() for env in envs}
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
         for job in _jobs(_load(path.name)).values():
             environment = job.get("environment")
             name = environment.get("name") if isinstance(environment, dict) else environment
             if name in bound:
                 bound[str(name)].add(path.name)
-    for workflow, environment in LANE_ENVIRONMENTS.items():
-        assert bound[environment] == {workflow}, (
-            f"`{environment}` is bound by {sorted(bound[environment])}, not {workflow} alone"
-        )
+    for workflow, environments in LANE_ENVIRONMENTS.items():
+        for environment in environments:
+            assert bound[environment] == {workflow}, (
+                f"`{environment}` is bound by {sorted(bound[environment])}, not {workflow} alone"
+            )
 
 
 # The hold's one routed form: a round whose own plan auto-released it binds the
@@ -779,7 +785,7 @@ def test_a_job_that_names_a_secret_binds_a_branch_policied_environment() -> None
             assert (
                 environment in BRANCH_POLICIED_ENVIRONMENTS
                 or environment == COMPUTED_ENVIRONMENTS.get(path.name)
-                or environment == LANE_ENVIRONMENTS.get(path.name)
+                or environment in LANE_ENVIRONMENTS.get(path.name, frozenset())
             ), f"{path.name}:{job_name} names a secret under environment {environment!r}"
 
 

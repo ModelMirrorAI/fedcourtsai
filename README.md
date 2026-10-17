@@ -59,8 +59,9 @@ tool-usage roll-up, the metrics refresh, the daily big-case board, and the
 qp-topic labeler (the only one that runs an agent) — both schedule/dispatch
 only. A development lane, `corpus-check`, runs the check a pull request's
 description declares at the PR's head against the corpus, read-only, once the
-maintainer approves it, and posts the result to the PR
-([`docs/corpus-check.md`](docs/corpus-check.md)). The cascade runs
+maintainer approves it — or, for an allowlisted read-only query the PR asks to
+run at `main`'s own commit, without the approval, since no PR code runs — and
+posts the result to the PR ([`docs/corpus-check.md`](docs/corpus-check.md)). The cascade runs
 pull/live → corpus → `run-predict`, which on each scheduled wake derives its own
 fan-out from the predict backlog — the arrival-cohort picks, conference
 distributions, and changed open cases the committed record does not yet

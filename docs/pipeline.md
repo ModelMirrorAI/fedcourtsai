@@ -20,7 +20,8 @@ a maintainer-merged promotion put on `main`; a `workflow_dispatch` is refused by
 GitHub to anyone without repository write, and by the run gate to any write
 holder `config/dispatchers.json` does not name; and every privileged job binds a
 deployment environment whose branch policy pins the ref it may run from (`prod`
-to `main`, `staging` to `staging`, `corpus-check` to `main`) — a job naming one
+to `main`, `staging` to `staging`, `corpus-check` and `corpus-check-auto` to
+`main`) — a job naming one
 as a literal is refused at
 the deployment gate from any other ref before a step runs, and the three
 branch-resolving workflows (`integration-test`, `run-analytics`, `summarize`) resolve an
@@ -46,7 +47,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the manual `review` release | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
-| `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; each check runs only on the maintainer's `corpus-check` approval | script — the PR's own declared command (no agent) |
+| `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command (no agent) |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
@@ -610,23 +611,31 @@ it at the PR's head against the production corpus, read-only, and posts the
 result back as a comment naming the commit, the command and the corpus
 vintage. It answers ready (non-draft) same-repository PRs whose author is on
 `config/corpus-check.yaml` and commands of two forms (`uv run fedcourts …`,
-`uv run python scripts/checks/<name>.py …`), one head SHA once. How to write
-a check, what the comment carries, and what the lane gives up:
-[corpus-check.md](corpus-check.md).
+`uv run python scripts/checks/<name>.py …`), one head SHA once. A block that
+opens with `at: main` and names a `fedcourts` subcommand on the config's auto
+allowlist runs instead at `main`'s own commit, with no PR code and no
+approval, once per head and command. How to write a check, what the comment
+carries, and what the lane gives up: [corpus-check.md](corpus-check.md).
 
-Three jobs. `plan` (no credential, `main` only) stops after one listing when
+Four jobs. `plan` (no credential, `main` only) stops after one listing when
 no open PR mentions a block, plans nothing while the `corpus-check`
-environment lacks its reviewer or its `main`-only policy, and otherwise picks
-the oldest unanswered request from the open PRs and their comments and pins
-its head SHA and command, rendering both to the run summary with a comparison
-pinned to that SHA and the head commit's author, committer and signature.
+environment lacks its reviewer or its `main`-only policy, routes each
+`at: main` request auto or held (held unless the subcommand is allowlisted and
+the `corpus-check-auto` environment admits `main` alone), and picks the
+oldest unanswered auto request, else the oldest unanswered held one, pinning
+its head SHA, command and route and rendering them to the run summary with a
+comparison pinned to that SHA and the head commit's author, committer and
+signature.
 `run` binds the `corpus-check` environment — the maintainer's approval —
 assumes the read-only role, pulls the corpus at `main`'s committed pointer and
 reads its vintage, then runs the head's `uv sync --locked` (8 minutes) and the
 command (30 minutes) as a separate unprivileged account holding only the
-read-only session, without a shell, output kept off the public log. `post` (no
-environment, no PR code) posts one comment whatever became of the run, so the
-head is not planned again, and records the comment's sha256 in its run
+read-only session, without a shell, output kept off the public log.
+`run-auto` binds the reviewer-less `corpus-check-auto` environment for an auto
+request and does the same with one difference: its tree is the run's own
+commit of `main`, never the PR head, and the command's stdout is the summary.
+`post` (no environment, no PR code) posts one comment whatever became of the
+run, so the request is not planned again, and records the comment's sha256 in its run
 summary — what tells the lane's result from a comment any write holder's
 workflow could post as the same bot.
 

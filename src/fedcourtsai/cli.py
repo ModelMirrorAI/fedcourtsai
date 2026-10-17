@@ -19030,6 +19030,20 @@ def corpus_check_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
             help="One `<sha>.json` per candidate head: `GET /repos/{repo}/commits/{sha}`.",
         ),
     ] = None,
+    auto_environment_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--auto-environment-file",
+            help="`GET /repos/{repo}/environments/corpus-check-auto`; absent means unread.",
+        ),
+    ] = None,
+    auto_branch_policies_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--auto-branch-policies-file",
+            help="That environment's `deployment-branch-policies`; absent means unread.",
+        ),
+    ] = None,
     github_output: Annotated[
         Path | None,
         typer.Option("--github-output", help="Append the plan's job outputs to this file."),
@@ -19047,11 +19061,18 @@ def corpus_check_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
     Plans nothing while the `corpus-check` environment lacks its sole required
     reviewer (`config/corpus-check.yaml`'s `approver`) or its policy admitting
     `main` alone — the read-only role trusts that environment, so its
-    protection is the gate (`fedcourtsai.environment_checks`). Otherwise the
-    oldest candidate whose head SHA carries no result comment from the
-    workflow's own bot (`github-actions[bot]`; the same marker from anyone else
-    does not count). Prints the plan as JSON, appends `found`, `pr`, `sha`,
-    `author`, `command` and `refusal` to `--github-output`, and the approver's
+    protection is the gate (`fedcourtsai.environment_checks`). An `at: main`
+    request whose `uv run fedcourts` subcommand is on the auto allowlist
+    (`config/corpus-check.yaml`'s `auto_subcommands`) is routed to run at
+    `main` without approval, while the `corpus-check-auto` environment
+    (`--auto-environment-file`, `--auto-branch-policies-file`; absent is unread
+    and routes every request to the approval) admits `main` alone. Then the
+    oldest unanswered auto-eligible request, else the oldest held one whose head
+    SHA carries no result comment from the workflow's own bot
+    (`github-actions[bot]`; the same marker from anyone else does not count) —
+    an auto request is answered by a result for its head SHA and command.
+    Prints the plan as JSON, appends `found`, `pr`, `sha`, `author`, `command`,
+    `refusal`, `auto` and `held_reason` to `--github-output`, and the approver's
     summary — PR, SHA, PR author, the head commit's author, committer and
     signature, the fenced command and a comparison pinned to the SHA — to
     `--summary-file`. A candidate whose comments file is missing exits 1 rather
@@ -19063,7 +19084,19 @@ def corpus_check_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
         _read_document(branch_policies_file),
         approver_login=config.approver,
     )
+    allowlist, allowlist_problem = config.auto_allowlist()
+    if allowlist_problem is not None:
+        typer.echo(f"::warning::corpus-check-plan: {allowlist_problem}", err=True)
+    auto_problems = environment_checks.auto_protection_problems(
+        _read_document(auto_environment_file), _read_document(auto_branch_policies_file)
+    )
     requests, passed = _corpus_check_candidates(prs_file, repo, "corpus-check-plan")
+    requests = corpus_check.route_requests(
+        requests,
+        allowlist=allowlist,
+        allowlist_problem=allowlist_problem,
+        environment_problems=auto_problems,
+    )
     chosen = None
     commit = None
     if problems:
@@ -19096,7 +19129,7 @@ def corpus_check_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
 
 
 @app.command("corpus-check-exec")
-def corpus_check_exec_cmd(
+def corpus_check_exec_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     command: Annotated[str, typer.Option(help="The planned command, re-validated here.")],
     user: Annotated[
         str, typer.Option(help="The unprivileged account the install and the check run as.")
@@ -19133,8 +19166,15 @@ def corpus_check_exec_cmd(
             help="Append `phase`, `exit_code`, `timed_out` and `summary_b64` to this file.",
         ),
     ] = None,
+    stdout_summary_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--stdout-summary-file",
+            help="Send the check's stdout here and report it as the summary (an auto check).",
+        ),
+    ] = None,
 ) -> None:
-    """Install a planned PR head and run its corpus check as an unprivileged account.
+    """Install a planned tree and run its corpus check as an unprivileged account.
 
     Re-validates the command against the two accepted forms, then runs, as
     `--user` in `--workdir` through `sudo -u` with no shell: an empty
@@ -19144,7 +19184,11 @@ def corpus_check_exec_cmd(
     `FEDCOURTS_CORPUS_ROOT` and `CHECK_SUMMARY` alone; output goes to
     `--output-file`, and every process the account owns is killed after each
     phase. The summary is read back as the account, the job's credential
-    values and the corpus address redacted, clamped to 50,000 bytes. Prints
+    values and the corpus address redacted, clamped to 50,000 bytes. With
+    `--stdout-summary-file` — the auto path, whose tree is `main`'s and whose
+    command is an allowlisted subcommand that prints its figure — the check's
+    stdout goes to that runner-owned file and is the summary instead, its
+    stderr to `--output-file`. Prints
     only sizes and exit codes: the job log is public. Exits 0 whatever the
     check's own exit code; a command outside the grammar exits 1 unrun, and a
     process of the account's that survives the kill passes exits 1.
@@ -19184,34 +19228,60 @@ def corpus_check_exec_cmd(
             check_timeout_seconds=timeout_seconds,
             output_path=output_file,
             kill_user=user,
+            check_stdout_path=stdout_summary_file,
         )
-        # The check owns the summary file, so reading it back may block or
-        # fail (a FIFO, say); that reads as no summary, never as a failed run
-        # that hides the outcome the check reached.
-        try:
-            read = subprocess.run(
-                wrap(
-                    [
-                        "/usr/bin/head",
-                        "-c",
-                        str(corpus_check.SUMMARY_READ_BYTES),
-                        "--",
-                        corpus_check.SUMMARY_FILENAME,
-                    ]
-                ),
-                env=sudo_env,
-                cwd="/",
-                check=False,
-                capture_output=True,
-                timeout=60,
-            )
-            read_back = read.stdout if read.returncode == 0 else b""
-        except subprocess.SubprocessError:
-            read_back = b""
+        if stdout_summary_file is not None:
+            read_back = _read_head(stdout_summary_file, corpus_check.SUMMARY_READ_BYTES)
+        else:
+            read_back = _read_summary_as(wrap, sudo_env)
         corpus_check.kill_account(user)
     except corpus_check.ProcessesSurvived as exc:
         typer.echo(f"::error::corpus-check-exec: {exc}; failing the run", err=True)
         raise typer.Exit(code=1) from exc
+    _finish_corpus_check_exec(phase, read_back, github_output)
+
+
+def _read_head(path: Path, limit: int) -> bytes:
+    """Up to ``limit`` bytes of a runner-owned file; an unreadable one is empty."""
+    try:
+        with path.open("rb") as handle:
+            return handle.read(limit)
+    except OSError:
+        return b""
+
+
+def _read_summary_as(wrap: Callable[[list[str]], list[str]], sudo_env: dict[str, str]) -> bytes:
+    """The check's summary file, read back as the check's own account.
+
+    The check owns the file, so reading it back may block or fail (a FIFO,
+    say); that reads as no summary, never as a failed run that hides the
+    outcome the check reached.
+    """
+    try:
+        read = subprocess.run(
+            wrap(
+                [
+                    "/usr/bin/head",
+                    "-c",
+                    str(corpus_check.SUMMARY_READ_BYTES),
+                    "--",
+                    corpus_check.SUMMARY_FILENAME,
+                ]
+            ),
+            env=sudo_env,
+            cwd="/",
+            check=False,
+            capture_output=True,
+            timeout=60,
+        )
+        return read.stdout if read.returncode == 0 else b""
+    except subprocess.SubprocessError:
+        return b""
+
+
+def _finish_corpus_check_exec(
+    phase: corpus_check.PhaseResult, read_back: bytes, github_output: Path | None
+) -> None:
     secrets = [os.environ[name] for name in corpus_check.REDACTED_ENV if os.environ.get(name)]
     summary, clamped = corpus_check.summary_text(read_back, redact=secrets)
     result = phase.result
@@ -19250,6 +19320,18 @@ def corpus_check_comment_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
         str, typer.Option(envvar="CHECK_VINTAGE_B64", help="The corpus vintage, base64.")
     ] = "",
     run_url: Annotated[str, typer.Option(envvar="RUN_URL", help="This run's URL.")] = "",
+    auto: Annotated[
+        str, typer.Option(envvar="CHECK_AUTO", help="The plan's route: `true` for an auto run.")
+    ] = "",
+    code_sha: Annotated[
+        str, typer.Option(envvar="CODE_SHA", help="The `main` commit an auto run's code was.")
+    ] = "",
+    held_reason: Annotated[
+        str,
+        typer.Option(
+            envvar="CHECK_HELD_REASON", help="Why an `at: main` request was held, if it was."
+        ),
+    ] = "",
 ) -> None:
     """Render the one result comment a corpus check posts on its PR.
 
@@ -19257,8 +19339,10 @@ def corpus_check_comment_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
     after PR code ran — so each is decoded defensively, fenced with a fence
     longer than any backtick run inside it, has its mentions broken, and the
     whole is clamped under GitHub's 65,536-character comment limit. The first
-    line is the hidden marker naming the SHA, which is what tells a later plan
-    this head is answered. Prints the comment; posts nothing.
+    line is the hidden marker naming the SHA — and for an auto run the
+    command's digest — which is what tells a later plan this request is
+    answered. An auto run's comment says it ran at `main@<code sha>`, not at
+    the PR head. Prints the comment; posts nothing.
     """
     try:
         rendered = corpus_check.render_comment(
@@ -19273,6 +19357,9 @@ def corpus_check_comment_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
                 vintage_b64=vintage_b64,
                 run_url=run_url,
                 phase=phase,
+                auto=auto,
+                code_sha=code_sha,
+                held_reason=held_reason,
             )
         )
     except ValueError as exc:
@@ -19341,6 +19428,50 @@ def assert_corpus_check_environment_cmd(
     typer.echo(
         "the corpus-check environment holds its reviewer, its main-only policy "
         + "and nothing but the read-only role's variables"
+    )
+
+
+@app.command("assert-corpus-check-auto-environment")
+def assert_corpus_check_auto_environment_cmd(
+    environment_file: Annotated[
+        Path,
+        typer.Option(
+            help="`GET /repos/{repo}/environments/corpus-check-auto`; absent means unread."
+        ),
+    ],
+    branch_policies_file: Annotated[
+        Path, typer.Option(help="Its `deployment-branch-policies`; absent means unread.")
+    ],
+    secrets_file: Annotated[
+        Path, typer.Option(help="Its `secrets` listing (admin read); absent means unread.")
+    ],
+    variables_file: Annotated[
+        Path, typer.Option(help="Its `variables` listing (admin read); absent means unread.")
+    ],
+) -> None:
+    """Check the `corpus-check-auto` environment still confines the read-only role to `main`.
+
+    The read-only role's trust names it and it has no required reviewer, so
+    its branch policy is its one control: it must exist, its deployment
+    branches be a custom policy of exactly `main`, and it hold no secret and no
+    variable but the read-only role, the region and the corpus base URL.
+    Reviewers are not checked — one added is the stop for the unapproved path.
+    Names each problem and exits non-zero if there is any; an unread listing is
+    a problem.
+    """
+    problems = environment_checks.auto_environment_problems(
+        _read_document(environment_file),
+        _read_document(branch_policies_file),
+        _read_document(secrets_file),
+        _read_document(variables_file),
+    )
+    for problem in problems:
+        typer.echo(f"::error::corpus-check-auto environment: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(
+        "the corpus-check-auto environment admits main alone "
+        + "and holds nothing but the read-only role's variables"
     )
 
 
