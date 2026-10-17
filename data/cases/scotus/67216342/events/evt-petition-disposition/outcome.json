@@ -1,0 +1,22 @@
+{
+  "actual_disposition": "granted",
+  "actual_granted": 1,
+  "case_id": "scotus/67216342",
+  "disposition_basis": "standard",
+  "disposition_route": "plenary",
+  "event_id": "evt-petition-disposition",
+  "interim_signals": null,
+  "judgment": null,
+  "noted_dissent_from_denial": null,
+  "resolved_at": "2023-01-13",
+  "schema_version": "1.0",
+  "signals": {
+    "cvsg_date": "2022-08-22",
+    "distribution_count": 4,
+    "distribution_parse": "dist-v2"
+  },
+  "source": null,
+  "vote_provenance": null,
+  "votes": [],
+  "writing_roles": null
+}

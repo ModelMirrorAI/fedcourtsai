@@ -1,0 +1,13 @@
+case_id: scotus/73278506
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2025-10-16'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Donata Edwards v. U.S. Bank National Association, Trustee for RMAC Trust, Series
+  2016-CTT, et al.

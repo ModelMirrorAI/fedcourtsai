@@ -1,0 +1,12 @@
+case_id: scotus/72470944
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2022-06-28'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Areli Carbajal Escobar v. Texas

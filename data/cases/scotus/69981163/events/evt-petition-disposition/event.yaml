@@ -1,0 +1,12 @@
+case_id: scotus/69981163
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2024-09-18'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Laboratory Corporation of America Holdings, dba Labcorp v. Luke Davis, et al.

@@ -1,0 +1,13 @@
+case_id: scotus/66645715
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2017-12-26'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Kelsey-Hayes Company, et al. v. International Union, United Automobile, Aerospace
+  and Agricultural Implement Workers of America, et al.

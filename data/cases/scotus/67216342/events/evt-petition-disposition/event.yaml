@@ -1,0 +1,13 @@
+case_id: scotus/67216342
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2022-04-05'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: United States, et al., ex rel. Tracy Schutte, et al. v. SuperValu Inc., et
+  al.

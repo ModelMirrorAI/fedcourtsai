@@ -1,0 +1,12 @@
+case_id: scotus/7305445
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2017-11-20'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Mary Anne Sause v. Timothy J. Bauer, et al.

@@ -1,0 +1,14 @@
+case_id: scotus/66646015
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2018-03-01'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Lisa Anne Henry, et al. v. Brian Weiss, Liquidation Trustee of the Walldesign
+  Liquidating Trust, Successor in Interest to the Official Committee of Unsecured
+  Creditors of Walldesign, Inc.

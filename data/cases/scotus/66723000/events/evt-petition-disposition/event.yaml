@@ -1,0 +1,12 @@
+case_id: scotus/66723000
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2018-09-07'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Nicholas Honchariw v. County of Stanislaus, California, et al.

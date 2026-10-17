@@ -1,0 +1,13 @@
+case_id: scotus/7022587
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2017-11-03'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Alex M. Azar, II, Secretary of Health and Human Services, et al. v. Rochelle
+  Garza, as Guardian ad Litem to Unaccompanied Minor J. D.
