@@ -1038,6 +1038,14 @@ _TRANSIENT_FAILURE = re.compile(
     | deadline[\s_-]*exceeded          # gRPC deadline
     | (?:temporarily[\s_-]*)?unavailable  # 503 UNAVAILABLE / temporarily unavailable
     | connection[\s_-]*(?:reset|error|refused|aborted)
+    # Node's fetch rejects with "TypeError: fetch failed" whenever a request got
+    # no response — a dropped socket, a refused connection, a DNS or TLS
+    # failure — which is how the gemini CLI reports a lost model call
+    # ("exception TypeError: fetch failed sending request"). A refusal that
+    # persists (egress blocked, the localhost sidecar down) is retried too, as
+    # `connection refused` above already is: the attempts are capped, and a
+    # request that never left the runner spends no model tokens.
+    | fetch[\s_-]*failed
     # Gemini's INVALID_STREAM ("Invalid stream: The model returned an empty
     # response or malformed tool call") arrives seconds into a cell while
     # sibling cells on the same model run to completion — a serving hiccup,
