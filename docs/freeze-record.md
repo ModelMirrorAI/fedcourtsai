@@ -10931,3 +10931,56 @@ freeze commit is recorded here.
   either side of it reads the two regimes separately. The comparison of the
   first conferences after it against those before it is recorded by a later
   entry, once those conferences have been selected.
+
+- **The contact scrub leaves an Ohio State Reports citation alone, and its
+  email shape is bounded at the address limits; recorded 2026-10-18.** A
+  **conditioning** entry in the *what the pipeline provisions* class, under
+  unchanged digests: no prompt byte and no registry field the digests read
+  moves, and `uv run fedcourts process-digest --all` at this commit prints
+  `proc-v9` and the six digests `605201bd…` (claude-baseline), `70fee158…`
+  (codex-baseline), `a9033e56…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `18a76b93…` (codex-judge) and `22558044…` (gemini-judge).
+
+  **What changes**, on the staged copy alone
+  (`pipeline.documents.scrub_contact_details` and the residual detector).
+  - **A citation is no longer withheld as an address.** The shape pass and the
+    residual detector read `Ohio St.` followed by an optional `2d`/`3d` series
+    and a page of one to four digits (`123 Ohio St. 3d 456`) as the reporter
+    it is. On a self-represented docket the shape pass withheld it, and where
+    it opened a line on a document's opening or closing the detector counted
+    it, so the row read `contact_scrubbed: false`. A street address on Ohio
+    Street (`350 Ohio St.`, `12 W Ohio St. Apt 4`) is withheld as before.
+  - **The plain email shape bounds every run**: a local part of at most 64
+    characters, labels of at most 63, at most nine labels and a top-level
+    label of at most 63. An address a filer signs with is inside every
+    bound. A long run of address characters with a sign and no domain behind
+    it took time quadratic in its length (about 29 s at the 150,000-character
+    document cap) and now scans in linear time.
+
+  **A harness boundary under the 2026-10-11 pooled rule**, composition and not
+  a cut, read the way the earlier scrub boundaries are.
+  - **The registry row** is `scrub-ohio-reporter-citation`: every predictor,
+    reach `self-represented dockets`, not gradual, since provisioning reads the
+    stored documents and the next cell provisioned on an affected docket reads
+    the change. It is registered **pending** in the change's own PR
+    (`fedcourts register-boundary`) and stamped by the promotion merge that
+    carries it to `main`.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`; a cell with no `pipeline_sha` is on
+    neither side.
+  - **Exposure is an upper bound**: whether a docket reads as
+    self-represented, and whether its documents cite the Ohio reports, lives
+    only in the corpus.
+
+  **What a post-change cell reads.** On an affected docket, a superset of the
+  pre-change text: the citations the scrub had replaced with its placeholder.
+  No skill movement is predicted, and a movement in either direction across
+  this boundary may not be read as a model effect. No base rate re-prices, no
+  membership rule moves, no scored figure moves, and nothing is written to the
+  corpus.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_documents.py -k "ohio or linear_time or not_a_contact"` is green,
+  and `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+  same six digests.

@@ -306,6 +306,14 @@
       "predictors": null,
       "reach": "all",
       "gradual": true
+    },
+    {
+      "name": "scrub-ohio-reporter-citation",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "self-represented dockets",
+      "gradual": false
     }
   ]
 }
