@@ -32,6 +32,7 @@ Three rules shape the rest:
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
@@ -102,7 +103,7 @@ def _get(
             code = response.status_code
             if code < _SERVER_ERROR and code != _RATE_LIMITED:
                 if code != httpx.codes.OK:
-                    raise ButtondownError(f"GET {path} returned {code}")
+                    raise ButtondownError(f"GET {path} returned {code}{_reason(response)}")
                 return _object(response, f"GET {path}")
             last = f"HTTP {code}"
         if attempt < _READ_ATTEMPTS - 1:
@@ -119,6 +120,38 @@ def _object(response: httpx.Response, what: str) -> dict[str, Any]:
     if not isinstance(body, dict):
         raise ButtondownError(f"{what} returned a non-object body")
     return body
+
+
+_REASON_MAX: Final = 300
+
+
+def _reason(response: httpx.Response) -> str:
+    """Buttondown's own account of a refusal, bounded, for the run log.
+
+    A refused request's JSON body names the field or rule it failed, which a bare
+    status code cannot. The request carried no secret in its body: the key
+    travels in the Authorization header, which error bodies are assumed not to
+    echo, and everything else sent is the public update. The one-line,
+    bounded cut is the backstop on that assumption, and a body that is not JSON
+    contributes nothing.
+    """
+    try:
+        body = response.json()
+    except ValueError:
+        return ""
+    if isinstance(body, Mapping):
+        parts = [
+            str(body[key]) for key in ("code", "detail", "message") if body.get(key) is not None
+        ]
+        text = " — ".join(parts) if parts else json.dumps(body, sort_keys=True)
+    else:
+        text = json.dumps(body, sort_keys=True)
+    text = " ".join(text.split())
+    if not text:
+        return ""
+    if len(text) > _REASON_MAX:
+        text = text[: _REASON_MAX - 1] + "…"
+    return f": {text}"
 
 
 def _results(
@@ -259,7 +292,9 @@ def post_draft(
             "since the subject lookup finds a draft the attempt may have made"
         ) from exc
     if response.status_code != httpx.codes.CREATED:
-        raise ButtondownError(f"creating the draft returned {response.status_code}")
+        raise ButtondownError(
+            f"creating the draft returned {response.status_code}{_reason(response)}"
+        )
     created = _object(response, "creating the draft")
     if created.get("status") != DRAFT_STATUS:
         raise ButtondownError(
