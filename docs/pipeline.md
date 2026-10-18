@@ -2038,8 +2038,10 @@ checks alongside `gate` and `paths`. Each reports `skipped`, which satisfies
 the requirement, on every PR it does not gate; requiring a context before its
 producing job reaches `main` strands every unattended collect PR, which is
 what the procedure's ordering prevents. For the promotion train, **in this
-order**: (1) the two `promote:` branch rulesets (creation by the dev App
-alone; no update, force-push or deletion but by the admin role), and
+order**: (1) the two `promote:` branch rulesets over `promote/**` and every
+casing of the prefix (creation by the dev App alone; no update, force-push or
+deletion but by the admin role), the `case variants: restrict creation`
+ruleset, and
 `scripts/promotion-gate.sh contexts` green with an admin token; (2) only then
 `promote/*` added to the `staging` environment's deployment branches —
 before the creation ruleset holds, any write holder could push a
@@ -2047,7 +2049,7 @@ before the creation ruleset holds, any write holder could push a
 dev App checked to hold no Workflows permission, the dispatch App's Actions
 write (already granted), and `config/promotion-train.yaml` naming the
 approver and the daily dispatch cap (docs/security.md carries each, and the
-case-sensitivity check the first setup owes). Close any draft `staging` →
+non-admin push checks that confirm the rulesets). Close any draft `staging` →
 `main` PR left open, or the train stands aside behind it.
 
 The `staging` *deployment environment* the freshness runs deploy to
