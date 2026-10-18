@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
@@ -156,6 +157,26 @@ def test_the_contexts_verdict_is_shown_and_never_blocks() -> None:
     assert "contexts (admin read, run by hand): **not due**" in not_due
     unread = render(_batch(gate=clean), drafted_at="t")
     assert "contexts (admin read" not in unread
+
+
+@pytest.mark.parametrize("head_ref", ["staging", "promote/2026-10-18"])
+def test_the_contexts_line_appears_once_and_says_when_to_run(head_ref: str) -> None:
+    """Before the merge for what the stage reads from the checkout; after it for workflows."""
+    block = render(
+        _batch(
+            head_ref=head_ref,
+            contexts_due=[".github/workflows/ci.yml", "scripts/promotion-gate.sh"],
+        ),
+        drafted_at="t",
+    )
+    assert block.count("contexts (admin read") == 1
+    assert "before merging" in block
+    assert "`scripts/promotion-gate.sh contexts` again once this merges" in block
+    workflows_only = render(
+        _batch(head_ref=head_ref, contexts_due=[".github/workflows/ci.yml"]), drafted_at="t"
+    )
+    assert "before merging." not in workflows_only
+    assert "`scripts/promotion-gate.sh contexts` again once this merges" in workflows_only
 
 
 # --- splicing into an edited body --------------------------------------------

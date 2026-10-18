@@ -289,7 +289,7 @@ jobs:
           # commit the body describes: advisory, so a read that fails leaves
           # the body silent on it rather than red.
           uv run fedcourts contexts-due --at "$target_sha" --main-ref origin/main --json \
-            > contexts-due.json 2>/dev/null || rm -f contexts-due.json
+            > contexts-due.json 2> contexts-due.log || { cat contexts-due.log; rm -f contexts-due.json; }
           printf '%s\n' "${args[@]}" > step-args.txt
           {
             echo "main_sha=${main_sha}"

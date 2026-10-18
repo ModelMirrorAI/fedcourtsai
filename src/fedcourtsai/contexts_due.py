@@ -11,7 +11,9 @@ judged against: a workflow renames a required job or names a new environment
 :func:`contexts_due` names the paths in a batch that do the latter. The gate's
 ``contexts-due`` stage and the promotion train's body print the verdict, so a
 promotion that changes one of them says so before it merges; one that changes
-none does not ask for the stage. The verdict is advisory and never fails the
+none does not ask for the stage. The stage reads `main`'s own workflows, so a
+workflow change is checked once it has merged; what else it reads comes from
+the checkout, so the rest is checked before. The verdict is advisory and never fails the
 gate: a setting changed by hand drifts with no batch at all, which is what
 running the stage after any settings change is for.
 """
@@ -34,11 +36,16 @@ CONTEXTS_SENSITIVE: tuple[str, ...] = (
     "src/fedcourtsai/required_checks.py",
     "src/fedcourtsai/ruleset_checks.py",
     "src/fedcourtsai/environment_checks.py",
-    # The configs those judgments read: the corpus-check approver, and the
-    # review-hold caps the `review-auto` environment is checked against.
+    # The corpus-check approver the environment is checked against: the config
+    # that names it and the module that parses it.
     "config/corpus-check.yaml",
-    "config/review-hold.yaml",
+    "src/fedcourtsai/corpus_check.py",
 )
+
+#: The paths the stage reads from `main` rather than from the checkout: it
+#: unpacks `main`'s own workflows, so a batch's workflow change is checked once
+#: it has merged, not before.
+_READ_FROM_MAIN = ".github/workflows/"
 
 #: How many due paths the one-line verdict names before counting the rest.
 _NAMED = 5
@@ -58,22 +65,36 @@ def contexts_due(paths: Iterable[str]) -> list[str]:
     return sorted(due)
 
 
+def split_due(due: list[str]) -> tuple[list[str], list[str]]:
+    """The due paths the stage checks before the merge, and those it checks only after."""
+    after = [path for path in due if path.startswith(_READ_FROM_MAIN)]
+    return [path for path in due if not path.startswith(_READ_FROM_MAIN)], after
+
+
 def batch_paths(repo: Path, at: str, main_ref: str) -> list[str]:
     """The paths a promotion of ``at`` changes on ``main_ref``: the three-dot diff.
 
     Three-dot, from the merge base, so what ``main`` gained since the batch
     branched (data commits, a promotion record) is not read as the batch's own.
+    Where history criss-crosses and there is more than one merge base, git
+    picks one; the verdict is advisory, so that edge is accepted.
     """
     return git(repo, "diff", "--name-only", f"{main_ref}...{at}").splitlines()
 
 
 def verdict_line(due: list[str]) -> str:
-    """The one line the gate prints: due, naming what makes it so, or not due."""
+    """The one line the gate prints: due, naming what makes it so and when to run, or not due."""
     if not due:
         return "contexts: not due — the batch changes nothing the admin-read stage judges against"
     named = ", ".join(due[:_NAMED])
     more = f" (+{len(due) - _NAMED} more)" if len(due) > _NAMED else ""
+    before, after = split_due(due)
+    when = []
+    if before:
+        when.append("before merging")
+    if after:
+        when.append("after merging for the workflow changes, since it reads main's workflows")
     return (
         f"contexts: due — the batch changes {named}{more}; run "
-        "`scripts/promotion-gate.sh contexts` with an admin-read token before merging"
+        f"`scripts/promotion-gate.sh contexts` with an admin-read token {' and '.join(when)}"
     )

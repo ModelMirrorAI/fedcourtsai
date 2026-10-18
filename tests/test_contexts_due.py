@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -11,7 +12,13 @@ import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
-from fedcourtsai.contexts_due import CONTEXTS_SENSITIVE, batch_paths, contexts_due, verdict_line
+from fedcourtsai.contexts_due import (
+    CONTEXTS_SENSITIVE,
+    batch_paths,
+    contexts_due,
+    split_due,
+    verdict_line,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -26,7 +33,7 @@ ROOT = Path(__file__).resolve().parent.parent
         "src/fedcourtsai/environment_checks.py",
         "src/fedcourtsai/required_checks.py",
         "config/corpus-check.yaml",
-        "config/review-hold.yaml",
+        "src/fedcourtsai/corpus_check.py",
     ],
 )
 def test_a_path_the_stage_judges_against_makes_it_due(path: str) -> None:
@@ -42,6 +49,7 @@ def test_a_path_the_stage_judges_against_makes_it_due(path: str) -> None:
         ".github/workflows",  # the directory's name alone is no file in it
         "scripts/promotion-gate.sh.orig",
         "src/fedcourtsai/ruleset_checks_extra.py",
+        "config/review-hold.yaml",  # nothing the stage runs reads it
         "",
     ],
 )
@@ -50,8 +58,8 @@ def test_anything_else_does_not(path: str) -> None:
 
 
 def test_the_due_paths_come_back_sorted_and_once() -> None:
-    paths = ["config/review-hold.yaml\n", ".github/workflows/b.yml", ".github/workflows/b.yml"]
-    assert contexts_due(paths) == [".github/workflows/b.yml", "config/review-hold.yaml"]
+    paths = ["config/corpus-check.yaml\n", ".github/workflows/b.yml", ".github/workflows/b.yml"]
+    assert contexts_due(paths) == [".github/workflows/b.yml", "config/corpus-check.yaml"]
 
 
 def test_every_listed_file_exists() -> None:
@@ -59,6 +67,25 @@ def test_every_listed_file_exists() -> None:
     for entry in CONTEXTS_SENSITIVE:
         target = ROOT / entry
         assert target.is_dir() if entry.endswith("/") else target.is_file(), entry
+
+
+@pytest.mark.parametrize(
+    ("due", "before", "after"),
+    [
+        (["scripts/promotion-gate.sh"], True, False),
+        ([".github/workflows/ci.yml"], False, True),
+        ([".github/workflows/ci.yml", "src/fedcourtsai/corpus_check.py"], True, True),
+    ],
+)
+def test_the_verdict_says_when_to_run_the_stage(due: list[str], before: bool, after: bool) -> None:
+    """The stage reads main's workflows, so a workflow change is checked after the merge."""
+    assert split_due(due) == (
+        [p for p in due if not p.startswith(".github/")],
+        [p for p in due if p.startswith(".github/")],
+    )
+    line = verdict_line(due)
+    assert ("before merging" in line) is before
+    assert ("after merging for the workflow changes" in line) is after
 
 
 def test_the_verdict_names_what_makes_it_due_and_counts_the_rest() -> None:
@@ -132,7 +159,7 @@ def test_the_cli_exits_1_when_git_cannot_read_the_diff(
 def test_the_gate_stage_reports_and_never_fails() -> None:
     script = (ROOT / "scripts" / "promotion-gate.sh").read_text()
     stage = script.split("contexts_due() {", 1)[1].split("\n}\n", 1)[0]
-    assert "fail=" not in stage
+    assert not re.search(r"\bfail\b", stage)
     all_stage = script.split("  all)", 1)[1].split(";;", 1)[0]
     assert all_stage.index("registry ") < all_stage.index("contexts_due ")
 

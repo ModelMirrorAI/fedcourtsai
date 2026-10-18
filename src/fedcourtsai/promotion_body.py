@@ -22,6 +22,8 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel
 
+from .contexts_due import split_due
+
 BEGIN = "<!-- promotion-prep:begin -->"
 END = "<!-- promotion-prep:end -->"
 
@@ -221,17 +223,33 @@ def _gate_lines(batch: Batch) -> list[str]:
 
 
 def _contexts_line(batch: Batch) -> list[str]:
-    """Whether the batch owes the admin-read `contexts` stage, which no CI token can run."""
+    """Whether the batch owes the admin-read `contexts` stage, which no CI token can run.
+
+    The stage reads `main`'s own workflows, so a workflow change is checked
+    after the merge; everything else it reads from the checkout, before.
+    """
     if batch.contexts_due is None:
         return []
     if not batch.contexts_due:
         return ["- contexts (admin read, run by hand): **not due** — nothing it judges changed"]
-    named = ", ".join(f"`{path}`" for path in batch.contexts_due[:5])
-    more = f" (+{len(batch.contexts_due) - 5} more)" if len(batch.contexts_due) > 5 else ""
-    return [
-        f"- contexts (admin read, run by hand): **due** — the batch changes {named}{more}.",
-        "  Run `scripts/promotion-gate.sh contexts` with an admin-read token before merging.",
-    ]
+    before, after = split_due(batch.contexts_due)
+    named = _named(batch.contexts_due)
+    lines = [f"- contexts (admin read, run by hand): **due** — the batch changes {named}."]
+    if before:
+        lines.append(
+            "  Run `scripts/promotion-gate.sh contexts` with an admin-read token before merging."
+        )
+    if after:
+        lines.append(
+            "  It reads `main`'s workflows, so for the workflow changes run"
+            " `scripts/promotion-gate.sh contexts` again once this merges."
+        )
+    return lines
+
+
+def _named(paths: list[str]) -> str:
+    named = ", ".join(f"`{path}`" for path in paths[:5])
+    return named + (f" (+{len(paths) - 5} more)" if len(paths) > 5 else "")
 
 
 def _next_step(batch: Batch) -> list[str]:
@@ -312,7 +330,6 @@ def _header(batch: Batch, *, drafted_at: str) -> list[str]:
             "",
             f"**Gate status** (`{batch.head_ref}` at `{batch.staging_sha[:9]}`):",
             *_gate_lines(batch),
-            *_contexts_line(batch),
             *_contexts_line(batch),
             "",
             *_train_next_step(batch),

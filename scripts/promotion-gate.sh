@@ -56,8 +56,11 @@
 #   scripts/promotion-gate.sh contexts-due <sha>
 #       Whether this batch owes the `contexts` stage above: due when it changes
 #       anything that stage judges settings against — a workflow, this script,
-#       the required-check, ruleset or environment judgments, or the configs
-#       they read (`fedcourts contexts-due`, src/fedcourtsai/contexts_due.py).
+#       the required-check, ruleset or environment judgments, or the
+#       corpus-check approver they check against (`fedcourts contexts-due`,
+#       src/fedcourtsai/contexts_due.py). The verdict says when to run it:
+#       `contexts` reads main's own workflows, so a workflow change is checked
+#       once the promotion merges, and the rest before.
 #       It prints the verdict and never fails the gate: `contexts` needs an
 #       admin-read token no CI job holds, so the verdict tells the maintainer
 #       which promotions to run it for, and a setting changed by hand needs it
@@ -91,7 +94,7 @@
 #
 # quiesce and freshness need `gh` with Actions read (GH_TOKEN in CI); contexts
 # additionally needs repository administration read (see above); registry
-# needs `uv` and the fetched refs, and no token.
+# and contexts-due need `uv` and the fetched refs, and no token.
 #
 # Two environment variables move the required set, and they are not peers:
 #

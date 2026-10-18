@@ -441,10 +441,11 @@ most any token it could then mint reaches is the read-only role.
   The other order leaves a window in which the trust names an environment any
   write holder's branch workflow can create unprotected by binding it.
   [security.md](security.md) carries both steps, and the promotion gate's
-  `contexts` stage checks the environment on every promotion.
+  maintainer-run `contexts` stage checks the environment.
 - **Provisioning the unapproved path** (maintainer, once, **before the
-  promotion that carries it**: the promotion gate refuses until the
-  environment is in place), in the same order:
+  promotion that carries it**: the gate's `contexts` stage fails until the
+  environment is in place, and that promotion's `contexts-due` verdict marks
+  it *due*), in the same order:
   1. create the `corpus-check-auto` environment with **no** required
      reviewers, deployment branches restricted to `main` by a named custom
      policy, the same three variables with the values `prod` holds, and no
