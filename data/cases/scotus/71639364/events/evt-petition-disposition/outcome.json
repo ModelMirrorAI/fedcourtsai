@@ -16,7 +16,62 @@
     "distribution_parse": "dist-v2"
   },
   "source": null,
-  "vote_provenance": null,
+  "vote_provenance": {
+    "complete": false,
+    "documents": [
+      "https://www.supremecourt.gov/opinions/25pdf/24-1180_dc8f.pdf",
+      "https://www.supremecourt.gov/orders/courtorders/101425zor_8m58.pdf"
+    ],
+    "grammars": [
+      {
+        "grammar": "scotus-order-notations",
+        "version": 3
+      },
+      {
+        "grammar": "scotus-writing-headers",
+        "version": 3
+      }
+    ],
+    "participating": 9,
+    "source": "supremecourt-orders"
+  },
   "votes": [],
-  "writing_roles": null
+  "writing_roles": [
+    {
+      "justice": "Thomas",
+      "writing": "none"
+    },
+    {
+      "justice": "Roberts",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "writing": "none"
+    },
+    {
+      "justice": "Sotomayor",
+      "writing": "none"
+    },
+    {
+      "justice": "Kagan",
+      "writing": "none"
+    },
+    {
+      "justice": "Gorsuch",
+      "writing": "statement"
+    },
+    {
+      "justice": "Kavanaugh",
+      "writing": "none"
+    },
+    {
+      "justice": "Barrett",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "writing": "none"
+    }
+  ]
 }

@@ -16,7 +16,59 @@
     "distribution_parse": "dist-v2"
   },
   "source": null,
-  "vote_provenance": null,
-  "votes": [],
-  "writing_roles": null
+  "vote_provenance": {
+    "complete": false,
+    "documents": [
+      "https://www.supremecourt.gov/orders/courtorders/100625zor_5368.pdf"
+    ],
+    "grammars": [
+      {
+        "grammar": "scotus-order-notations",
+        "version": 3
+      }
+    ],
+    "participating": 8,
+    "source": "supremecourt-orders"
+  },
+  "votes": [
+    {
+      "justice": "Barrett",
+      "vote": "did-not-participate",
+      "writing": null
+    }
+  ],
+  "writing_roles": [
+    {
+      "justice": "Thomas",
+      "writing": "none"
+    },
+    {
+      "justice": "Roberts",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "writing": "none"
+    },
+    {
+      "justice": "Sotomayor",
+      "writing": "none"
+    },
+    {
+      "justice": "Kagan",
+      "writing": "none"
+    },
+    {
+      "justice": "Gorsuch",
+      "writing": "none"
+    },
+    {
+      "justice": "Kavanaugh",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "writing": "none"
+    }
+  ]
 }
