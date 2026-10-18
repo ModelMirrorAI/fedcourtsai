@@ -736,9 +736,9 @@ material**:
   above inventories (the case-summary lane's contact-scrubbed staged record,
   run-analytics' questions-presented extracts). The only PII that can reach
   public git is whatever a piece of reasoning quotes from a public docket while
-  explaining a prediction. The one place a self-represented filer's contact
-  detail travels unscrubbed is the transient run artifact in the carve-out
-  below, which holds no stored copy and never reaches git.
+  explaining a prediction. The only places a self-represented filer's contact
+  detail travels unscrubbed are the transient run artifacts in the two
+  carve-outs below, which hold no stored copy and never reach git.
 - **One carve-out: the application back-fill's plan artifact** (maintainer
   decision, 2026-10-01). Every byte it admits is the Court's own public docket
   record, served openly at supremecourt.gov, and none of it comes from our
@@ -764,6 +764,43 @@ material**:
   - *Not a precedent:* any other pass whose plan would carry a stored or
     private record still crosses a public-only projection. A new use of this
     carve-out is its own decision, recorded in this section.
+- **A proposed second carve-out: the OCR sweep's plan artifact** (awaiting
+  the maintainer's decision). Merging the sweep's run-seed jobs is that
+  decision. Every byte it would admit is a
+  filing the Court serves openly at supremecourt.gov, read off its page
+  images, and none of it comes from our private stores.
+  - *What:* for each item of one window's worklist that the parse could read,
+    the text the extractor and OCR recovered from the filing at the item's
+    Court URL, with its page count and the `truncated` and `ocr_derived`
+    flags. A self-represented filer's scanned application or petition carries
+    a home address, telephone or prisoner register number in that text.
+    Nothing read from the corpus, the content store or any stored snapshot:
+    the job that writes the plan holds no corpus credential, and the worklist
+    it reads carries case ids, kinds, Court URLs and page counts only.
+  - *Where:* one workflow artifact, `ocr-plan-<run_id>`, kept one day and
+    consumed by run-seed's OCR sweep writer in the same run. It is never
+    committed to git and never printed to a log or step summary; the summary
+    carries each row's identifiers, page count, character count and flags.
+    The writer refuses a plan whole above the window's cap, off its shape, or
+    naming anything not on the window's worklist, and writes a row only into
+    a stored document still empty at the same URL.
+  - *Who can read it:* the repository is public, so while the artifact
+    exists any signed-in GitHub user can download it from the run page —
+    for a day, on each of run-seed's four windows a day that recovered
+    anything. The same is true of the application back-fill's artifact above.
+    Deleting the artifact as soon as the writer has consumed it would shorten
+    that to minutes, at the price of `actions: write` on the writer job; that
+    trade is the maintainer's to make, and is not made here.
+  - *Unchanged:* the corpus and the content store stay access-gated, and
+    nothing under this carve-out reaches `data/`. The contact scrubs below
+    run over recovered text as over any other stored text, with one
+    **open residual**: OCR output does not always lay contact details out
+    in the shapes the scrub matches: on one scanned filing (scotus/9026000314)
+    OCR-formatted contact details survived a scrub that reported
+    `contact_scrubbed: true`. This sweep makes OCR text the ordinary input for
+    a scanned filing, so until that is fixed a self-represented filer's
+    scanned filing can reach a cell, its model provider, or a summary with
+    contact details in it.
 - **A filing made in person is scrubbed before a cell reads it.** Where the
   provisioned snapshot serves a counsel block on either party side — petitioner
   or respondent — naming nobody but the party to write to — no attorney, the

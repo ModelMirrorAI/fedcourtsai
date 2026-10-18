@@ -527,6 +527,57 @@ def test_a_rewritten_landed_placeholder_refuses_the_plan(tmp_path: Path, after: 
         _plan(repo, merge)
 
 
+_WRAPPED = (
+    "# Freeze record\n\n- **Landed entry (2026-09-01).** Text.\n"
+    "  The replay census is `<FILL: replay census line from the check\n"
+    "  below>`, and the forward census is `<FILL: forward census line from the\n"
+    "  check below>`, both read from the blob whose freshness\n"
+    "  line is `<FILL: corpus-info freshness line>`.\n"
+)
+
+
+@pytest.mark.parametrize(
+    "after",
+    [
+        # Every wrapped placeholder filled: their line breaks go with them.
+        "# Freeze record\n\n- **Landed entry (2026-09-01).** Text.\n"
+        + "  The replay census is `695 priors`, and the forward census is `727 priors`,"
+        + " both read from the blob whose freshness\n"
+        + "  line is `latest pull 2026-10-16`.\n",
+        # Only the first filled: the second still wraps.
+        "# Freeze record\n\n- **Landed entry (2026-09-01).** Text.\n"
+        + "  The replay census is `695 priors`, and the forward census is"
+        + " `<FILL: forward census line from the\n"
+        + "  check below>`, both read from the blob whose freshness\n"
+        + "  line is `<FILL: corpus-info freshness line>`.\n",
+        # Left verbatim.
+        _WRAPPED,
+    ],
+    ids=["all-filled", "first-filled", "verbatim"],
+)
+def test_a_wrapped_landed_placeholder_may_be_filled(tmp_path: Path, after: str) -> None:
+    """A placeholder wrapped across a line break, filled by hand, is not a rewrite."""
+    before = _WRAPPED.replace("# Freeze record\n\n", "# Freeze record\n\n" + _DECLARATION + "\n")
+    after = after.replace("# Freeze record\n\n", "# Freeze record\n\n" + _DECLARATION + "\n")
+    repo, merge = _promote(tmp_path, before=before, staging_record=after)
+    _plan(repo, merge)
+
+
+def test_a_wrapped_landed_placeholder_reworded_still_refuses(tmp_path: Path) -> None:
+    """Joining a wrapped unit does not loosen the check on the prose around it."""
+    after = (
+        "# Freeze record\n\n- **Landed entry (2026-09-01).** Text.\n"
+        "  The replay census reads `695 priors`, and the forward census is `727 priors`,"
+        " both read from the blob whose freshness\n"
+        "  line is `latest pull 2026-10-16`.\n"
+    )
+    before = _WRAPPED.replace("# Freeze record\n\n", "# Freeze record\n\n" + _DECLARATION + "\n")
+    after = after.replace("# Freeze record\n\n", "# Freeze record\n\n" + _DECLARATION + "\n")
+    repo, merge = _promote(tmp_path, before=before, staging_record=after)
+    with pytest.raises(PromotionRecordError, match="rewrites landed placeholders"):
+        _plan(repo, merge)
+
+
 def test_a_new_entry_copying_a_filled_entrys_lines_is_still_added(tmp_path: Path) -> None:
     """The batch fills an old entry and appends a new one built from the same template."""
     template = "  Carried by `<FILL: promotion tag>` (merge `<FILL: merge hash>`).\n"
@@ -666,6 +717,64 @@ def test_a_stray_or_lightweight_tag_on_the_merge_is_refused(tmp_path: Path) -> N
     _git(repo3, "tag", "prereg/proc-v10", merge3)
     with pytest.raises(PromotionRecordError, match="lightweight"):
         _plan(repo3, merge3)
+
+
+def test_a_train_candidate_merged_after_staging_moved_on_is_a_promotion(tmp_path: Path) -> None:
+    """The promotion train merges a frozen `promote/<date>` branch cut at a staging
+    tip, often after staging has taken more merges. The cut stays on staging's
+    first-parent chain, so the record plans the merge as for a staging head."""
+    repo = _init(tmp_path)
+    _write(repo, REGISTRY_PATH, dump_registry(DECLARED))
+    _write(repo, FREEZE_RECORD_PATH, _ENTRY_BEFORE)
+    _artifact(repo, "predictions", 1, "sha256:" + "c" * 64)
+    _commit(repo, "main", datetime(2026, 10, 12, tzinfo=UTC))
+    _git(repo, "switch", "-q", "-c", "staging")
+    _write(repo, REGISTRY_PATH, dump_registry(_registered()))
+    _write(repo, FREEZE_RECORD_PATH, _ENTRY_BEFORE + _ENTRY_ADDED)
+    _artifact(repo, "predictions", 2, NEW_CLAUDE)
+    _artifact(repo, "predictions", 3, NEW_CLAUDE)
+    _artifact(repo, "evaluations", 2, NEW_CLAUDE)
+    cut = _commit(repo, "register proc-v10", datetime(2026, 10, 12, 12, tzinfo=UTC))
+    _git(repo, "branch", "promote/2026-10-12", cut)
+    # Staging moves on: a feature merged after the cut, which the candidate
+    # does not carry.
+    _git(repo, "switch", "-q", "-c", "feature")
+    _write(repo, "later.txt", "x")
+    _commit(repo, "later feature", datetime(2026, 10, 12, 13, tzinfo=UTC))
+    _git(repo, "switch", "-q", "staging")
+    _git(
+        repo,
+        "merge",
+        "-q",
+        "--no-ff",
+        "feature",
+        "-m",
+        "feature PR",
+        when=datetime(2026, 10, 12, 14, tzinfo=UTC),
+    )
+    _git(repo, "switch", "-q", "main")
+    _git(repo, "merge", "-q", "--no-ff", "promote/2026-10-12", "-m", "promote", when=MERGED_AT)
+    merge = _git(repo, "rev-parse", "HEAD")
+    plan = _plan(repo, merge)
+    assert plan.promotion_tag.name.startswith("promotion/")
+    assert not (repo / "later.txt").exists()
+    # A branch at a commit that reached staging only as a merge's second parent
+    # was never a staging tip, so a candidate there is refused.
+    _git(repo, "switch", "-q", "-c", "fake", f"{merge}^1")
+    _git(
+        repo,
+        "merge",
+        "-q",
+        "--no-ff",
+        _git(repo, "rev-parse", "feature"),
+        "-m",
+        "promote side",
+        when=MERGED_AT + timedelta(minutes=5),
+    )
+    with pytest.raises(PromotionRecordError, match="first-parent chain"):
+        plan_promotion_record(
+            repo, _git(repo, "rev-parse", "HEAD"), main_ref="fake", staging_ref="staging"
+        )
 
 
 def test_a_data_merge_stays_refused_after_a_sync(tmp_path: Path) -> None:

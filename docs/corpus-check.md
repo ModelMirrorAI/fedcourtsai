@@ -9,9 +9,16 @@ command executes at the PR's head against the production corpus read-only,
 and the result is posted back to the PR as a comment naming the commit, the
 command and the corpus vintage.
 
+One kind of request needs no approval, because it runs no PR code: a block
+that asks for `main`'s code and names a read-only `fedcourts` subcommand on
+the maintainer-owned auto allowlist runs at `main`'s own commit, with the PR
+head never checked out ([below](#running-at-main-without-approval)). The
+invariant the lane keeps either way: **no PR-supplied code runs with the
+corpus credential without the maintainer's approval.**
+
 The workflow is `.github/workflows/corpus-check.yml`; its decisions are
 `src/fedcourtsai/corpus_check.py` and `src/fedcourtsai/environment_checks.py`,
-and the requester list and the environment's approver are
+and the requester list, the environment's approver and the auto allowlist are
 `config/corpus-check.yaml`.
 
 ## Requesting a check
@@ -39,11 +46,63 @@ The lane answers it when all of these hold:
   separators — at most 40 of them and 400 characters in all. A listed
   author's block that breaks these rules is answered with a `refused` comment
   saying why, and nothing runs.
-- **The PR's head SHA has no result yet.** Each head is answered once.
+- **The PR's head SHA has no result yet.** Each head is answered once (an
+  auto request: each head and command, below).
+
+### Running at `main` without approval
+
+A block may open with the line `at: main`, before its command:
+
+````
+```corpus-check
+at: main
+uv run fedcourts decision-census --first-term 2020
+```
+````
+
+That asks for the command to run at `main`'s own commit rather than at the
+PR's head. It is **auto-eligible** — answered without the maintainer's
+approval — when all of these hold as well:
+
+- the command is `uv run fedcourts <subcommand> [args…]` within the grammar
+  above, never a `scripts/checks/` script;
+- `<subcommand>` is on the **auto allowlist**, `auto_subcommands` in
+  `config/corpus-check.yaml`: subcommands that only read the index and the
+  content store, write nothing (not even the job's copy of the blob, which
+  they open read-only), take no path or URL, call no model, and print counts,
+  rates and identifiers to stdout — never stored snapshot or document text.
+  The list today is `corpus-info`, `decision-census`, `caption-census`,
+  `party-census` and `distribution-census`;
+- the `corpus-check-auto` environment exists with its branch policy admitting
+  `main` alone (below).
+
+An auto-eligible request runs in the `run-auto` job: it checks out this run's
+own commit of `main` — never the PR head, which is not fetched at all — and
+runs the command there exactly as a held check runs a head (the same
+unprivileged account, the same proofs, the same timeouts). Nothing from the
+PR reaches the job but the parsed command line. So **the figure is `main`'s
+code's figure, not the change's**: use it for a corpus figure that does not
+depend on the PR, and leave out `at: main` when the point is to measure the
+change.
+
+Everything else waits on the approval and runs at the PR head. That includes
+an `at: main` block that is not auto-eligible — an unlisted subcommand, a
+script, an allowlist the plan cannot read, a `corpus-check-auto` that is
+missing or not restricted to `main` — whose run summary and comment say why it
+was held; approving it runs the command at the PR head, like any held request.
+Any other line before the command (`at: head`, `at:main`, a second `at: main`)
+is refused.
+
+An auto request is identified by its head SHA **and** its command, and is
+answered once per pair: editing the block's command asks again at the same
+head, and the same command at the same head is never run twice. When an auto
+request and a held one are both waiting, the auto one is answered first, since
+it waits on no one.
 
 **Every new head asks again.** A push to a PR still carrying the block is a new
-head with no result, so the next poll plans it and the lane holds for another
-approval — and while one approval waits, every other request waits behind it.
+head with no result, so the next poll plans it: an `at: main` request runs
+again without approval, and any other holds the lane for another approval —
+and while one approval waits, every other request waits behind it.
 So remove the block once the check is answered, and put it back only for a head
 that needs checking; to re-run an unchanged head, push a commit (an empty one
 will do). A head whose comment cannot be posted — a locked conversation, say —
@@ -53,8 +112,9 @@ reopens.
 The lane polls every 30 minutes (`:19` and `:49`). The maintainer can also
 start it at once from the Actions tab (`corpus-check`, *Run workflow* on
 `main`; it takes no inputs) — the run gate admits a dispatch, or a re-run,
-only from a human `config/dispatchers.json` names, never the agent account. Each run answers at most one request, the oldest
-open one, so several requests are answered one per run in PR-creation order.
+only from a human `config/dispatchers.json` names, never the agent account. Each run answers at most one request: the oldest open
+auto request, else the oldest open held one, so several requests are answered
+one per run, auto ones first, each kind in PR-creation order.
 
 ### Writing the check
 
@@ -87,6 +147,11 @@ compute the figure, append what it means to report to `CHECK_SUMMARY`, exit
 non-zero if the check itself failed. Report counts and case identifiers,
 never stored snapshot text — the summary is published (below).
 
+An auto check is an allowlisted subcommand, not something written for the PR,
+and those print their figure rather than writing a file: its **stdout** is the
+summary, captured to a runner-owned file, while its stderr joins the unposted
+output.
+
 ## What comes back
 
 One comment on the PR from `github-actions[bot]`, whatever became of the run.
@@ -99,12 +164,16 @@ bot, is how a later run knows the head is answered. The comment carries:
   ended before reporting, because the approval was rejected or left to expire,
   the run was cancelled, or a setup step failed (the run's own page says
   which);
-- the commit and the command, and a link to the run;
+- the commit and the command, and a link to the run — for an auto run, a line
+  saying it **ran at `main@<sha>`, not at the PR head**, with that commit as
+  the code and the PR head named only as the request; for a held `at: main`
+  request, why it was held;
 - the **corpus vintage**: the pointer's `sha256` and the `freshness:` and
   `pointer:` lines `fedcourts corpus-info` printed, read by `main`'s code
   before any PR code ran — quote this beside any figure taken from the
   summary;
-- the **summary** the check wrote, as plain text in a code block: control,
+- the **summary** the check wrote (an auto run: the command's stdout), as
+  plain text in a code block: control,
   bidirectional and zero-width characters dropped, `@`-mentions broken,
   clamped to 50,000 bytes in the run job and further if the whole comment
   would pass GitHub's 65,536-character limit (which refuses an over-long
@@ -121,7 +190,7 @@ comment's body.
 
 ## How it runs
 
-Three jobs under a zero top-level grant, each holding only what it names,
+Four jobs under a zero top-level grant, each holding only what it names,
 between the run gate's two (`src/fedcourtsai/run_gate.py`; *The run gate and
 its allow-list* in [security.md](security.md)): **`authorize`** opens the
 run, holding `contents: read` alone, and every job below needs it and ends its
@@ -139,10 +208,15 @@ refused.
      required reviewers are exactly the configured approver — no other user,
      no team — and its branch policy admits `main` alone; the run summary
      says what is missing.
-   - It reads the requester list from its own checkout of `main` (never from a
-     PR), reads the comments and head commit of the PRs that qualify, and
-     picks the oldest request whose head has no result. It pins the PR, head
-     SHA and command as job outputs.
+   - It reads the `corpus-check-auto` environment and its branch policies too;
+     unless that environment exists admitting `main` alone, every request is
+     routed to the approval.
+   - It reads the requester list and the auto allowlist from its own checkout
+     of `main` (never from a PR), reads the comments and head commit of the
+     PRs that qualify, routes each `at: main` request auto or held, and picks
+     the oldest unanswered auto request, else the oldest held request whose
+     head has no result. It pins the PR, head SHA, command and route as job
+     outputs.
    - It writes the run summary the approver lands on (the approval UI shows
      only a workflow name and a ref): the PR and its author, the pinned head
      SHA, the head commit's author, committer and signature state, the command
@@ -193,13 +267,28 @@ refused.
      whose head or body may have moved since the approval. Its outputs are the
      phase, the exit code, the timeout flag, the summary (base64, so no line
      in it can forge another output) and the vintage.
-3. **`post`** — no environment, no `id-token`, no PR code (it checks out the
+3. **`run-auto`** — binds the **`corpus-check-auto`** environment, which has
+   no reviewer, so it starts at once; holds `contents: read` and
+   `id-token: write`, and runs only for a request the plan routed auto (`run`
+   runs for every other, so exactly one of the two runs).
+   - Its steps are `run`'s with one difference of substance: the tree beside
+     the workspace is a second checkout of this run's own commit
+     (`ref: ${{ github.sha }}`), not the planned head. No step names the head
+     SHA, fetches anything from the PR, or reads any plan output but the route
+     and the command (`tests/test_workflow_corpus_check.py` pins all of it).
+   - The account is provisioned and proven by the step `run` uses, byte for
+     byte, and the command runs through the same wrapper, so an option of an
+     allowlisted subcommand reaches only what that account can. The
+     command's stdout goes to a runner-owned file and is the summary.
+4. **`post`** — no environment, no `id-token`, no PR code (it checks out the
    run's own ref, for the renderer); `contents: read` and `pull-requests:
    write` on the job's own token. It renders the comment with `fedcourts
    corpus-check-comment`, treating every value the run job emitted as
    untrusted text, posts it, and writes the posted body's sha256 to its run
    summary. It runs whenever the plan found a request, so a rejected or
-   failed run still leaves a comment and the head is not planned again.
+   failed run still leaves a comment and the request is not planned again;
+   the plan's route picks which run job's result it reports, and for an auto
+   run it names this run's own commit as the code that ran.
 
 **One check at a time.** The workflow takes one concurrency group without
 cancelling in progress. A run waiting on approval holds it, and GitHub keeps at
@@ -210,9 +299,9 @@ that does start sees the comment the previous run posted and plans the next
 request rather than the same one again. While an approval waits, the run
 history shows the half-hourly polls cancelling one another in the pending
 slot; none of them ran anything, and `run-ops`' health report does not count
-them as failures. An approval left waiting blocks every other request until it
-is decided or expires (GitHub's limit is 30 days); rejecting it posts
-`not run` for that head and lets the queue move.
+them as failures. An approval left waiting blocks every other request — auto
+ones included — until it is decided or expires (GitHub's limit is 30 days);
+rejecting it posts `not run` for that head and lets the queue move.
 
 ## Why it is bounded
 
@@ -262,6 +351,23 @@ runs where the corpus can be read. What bounds it:
   it cannot save an entry at all; the rule is what makes an entry harmless
   should one be saved anyway.
 
+- **The unapproved path runs no PR code.** `run-auto` never checks out or
+  fetches the PR head: its tree is this run's own commit of `main`, reviewed
+  code, and the one thing from the PR in the job is the command line — which
+  the plan accepts only within the grammar, only for a `fedcourts` subcommand
+  on the maintainer-owned allowlist, and which the wrapper re-validates and
+  runs with no shell. What the PR author chooses is which read-only query
+  `main`'s code answers, and its arguments. So the approval is skipped
+  exactly where there is no PR code for it to judge, and the invariant holds:
+  no PR-supplied code runs with the corpus credential without the
+  maintainer's approval. `corpus-check-auto` has no reviewer, so its `main`-only
+  branch policy is what keeps any other ref's workflow from binding it; the
+  plan routes nothing auto while that policy is missing, and the promotion
+  gate refuses a promotion until the environment exists with it and holds no
+  secret and no variable but the read-only role's three. The read-only role's
+  trust names `environment:corpus-check-auto` beside `corpus-check`, under the
+  same rule: no other role and no other OIDC exchange may accept it.
+
 What stays open: **network egress** — the account can reach the internet,
 the metadata endpoints apart — **the read-only session** for the rest of the
 role's hour, which the check can use or send elsewhere, and **the kernel**. A
@@ -296,6 +402,16 @@ most any token it could then mint reaches is the read-only role.
   names the PR's author; anyone with write can push a commit to that PR's
   branch. The run summary names the head commit's author, committer and
   signature state so the approver sees whose code it is.
+- **An auto result is published unread.** No one reads an auto summary
+  before it is posted, so what may be posted is decided in advance, by the
+  allowlist: subcommands whose stdout is counts, rates and identifiers. A
+  subcommand added there that prints stored text would publish it with no
+  approval in between, which is why the allowlist is maintainer-owned and its
+  test pins it exactly.
+- **An auto result answers a different question.** It is `main`'s code's
+  figure at the corpus vintage it names, not the PR's: it cannot show what
+  the change does. The comment says so; quoting it as the change's effect is
+  the reader's error to avoid.
 - **The comment is as trustworthy as the approved code.** Everything after the
   vintage line was produced by the check; it could report any exit code or
   summary it likes. The comment records what the approved code reported, not
@@ -326,6 +442,31 @@ most any token it could then mint reaches is the read-only role.
   write holder's branch workflow can create unprotected by binding it.
   [security.md](security.md) carries both steps, and the promotion gate's
   `contexts` stage checks the environment on every promotion.
+- **Provisioning the unapproved path** (maintainer, once, **before the
+  promotion that carries it**: the promotion gate refuses until the
+  environment is in place), in the same order:
+  1. create the `corpus-check-auto` environment with **no** required
+     reviewers, deployment branches restricted to `main` by a named custom
+     policy, the same three variables with the values `prod` holds, and no
+     secrets;
+  2. only then add `environment:corpus-check-auto` to the read-only role's
+     OIDC trust, beside `environment:corpus-check`, confirming as for that
+     subject that no other role or OIDC exchange accepts it.
+
+  Until step 2, an auto run fails at its role assumption and posts `not run`;
+  nothing else is affected.
+- **Changing the auto allowlist** is an edit to `auto_subcommands` in
+  `config/corpus-check.yaml` and to the tests that pin it — the names in
+  `tests/test_corpus_check.py` and each command's full option surface in
+  `tests/test_corpus_check_auto_surface.py` — all maintainer-owned, effective once
+  promoted. Vet an addition against the rule in that file's comment: reads
+  only, writes nothing, no path or URL option, no model, stdout of counts and
+  identifiers.
+- **Stopping the unapproved path at once**, with no commit: add a required
+  reviewer to `corpus-check-auto`. Every auto run then waits for a click like
+  a held one — the promotion gate does not object to the reviewer. Deleting
+  the environment also stops it, routing every request to the approval, but
+  blocks promotion until it is restored.
 - **Changing who may ask, or who approves,** is an edit to
   `config/corpus-check.yaml`, which is maintainer-owned (`.github/CODEOWNERS`)
   and takes effect only once promoted to `main`, since the plan job reads it

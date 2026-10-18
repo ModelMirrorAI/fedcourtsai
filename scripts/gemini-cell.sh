@@ -144,12 +144,15 @@ while :; do
   echo "gemini attempt ${attempt}/${max_attempts}: exit ${status}, ${verdict}"
   [ "$verdict" = ok ] && break
 
-  # The fault's own name for the log, shape-screened: it lands in a workflow
-  # annotation, and a result file is the agent's turn's to shape.
-  fault=$(jq -r '.error.type? // empty' "$out" 2> /dev/null | head -c 64 || true)
-  case "$fault" in
-    *[!A-Za-z0-9_]*) fault="" ;;
-  esac
+  # The fault in the engine's own words, for the annotation: read from
+  # whichever stream carries it (a failed exit leaves the error object on
+  # stderr), with credential-shaped runs replaced. It lands in a workflow
+  # annotation and a result file is the agent's turn's to shape, so the line is
+  # screened again here: one line, a plain character set, a bounded length.
+  # It goes last on the annotation, behind a fixed label, so nothing the step
+  # itself says follows text the turn could have shaped.
+  fault=$(harness engine-attempt-fault --stdout-file "$out" --stderr-file "$err" 2> /dev/null |
+    head -n 1 | tr -cd "A-Za-z0-9 _.,:'#/-" | head -c 160 || true)
   wait_s=$((backoff_s * attempt + RANDOM % (backoff_s + 1)))
 
   reason=""
@@ -169,7 +172,7 @@ while :; do
     reason="under ${min_remaining_s}s of the ${ENGINE_DEADLINE_MINUTES}-minute engine deadline would remain"
   fi
   if [ -n "$reason" ]; then
-    echo "::warning::gemini (${cell}): attempt ${attempt}/${max_attempts} ended ${verdict}${fault:+ (${fault})}; not retried: ${reason}"
+    echo "::warning::gemini (${cell}): attempt ${attempt}/${max_attempts} ended ${verdict}; not retried: ${reason}${fault:+; engine said: ${fault}}"
     break
   fi
   harness cell-output-reset "${coords[@]}" --snapshot "$snapshot"
@@ -182,10 +185,10 @@ while :; do
     else
       reason="the output root could not be reset"
     fi
-    echo "::warning::gemini (${cell}): attempt ${attempt}/${max_attempts} ended ${verdict}${fault:+ (${fault})}; not retried: ${reason}"
+    echo "::warning::gemini (${cell}): attempt ${attempt}/${max_attempts} ended ${verdict}; not retried: ${reason}${fault:+; engine said: ${fault}}"
     break
   fi
-  echo "::warning::gemini (${cell}): attempt ${attempt}/${max_attempts} ended transient${fault:+ (${fault})}; retrying from a clean output root in ${wait_s}s"
+  echo "::warning::gemini (${cell}): attempt ${attempt}/${max_attempts} ended transient; retrying from a clean output root in ${wait_s}s${fault:+; engine said: ${fault}}"
   sleep "$wait_s"
 done
 

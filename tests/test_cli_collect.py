@@ -1015,6 +1015,97 @@ def test_collect_plan_tolerates_malformed_flag_file(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert json.loads(result.stdout)["flags"] == ""
+    assert "cannot be attributed to a cell" in result.output
+
+
+def test_collect_plan_normalises_a_mis_shaped_flag_file_rather_than_dropping_it(
+    tmp_path: Path,
+) -> None:
+    """A flag file on the ledger layout that does not validate still reaches the roll-up.
+
+    Its cell is read off the path, its off-vocabulary values are coerced, and the
+    tally says how many flags were normalised, so a mis-shaped note is counted
+    instead of vanishing from the run PR and the agent-feedback issue.
+    """
+    _write_cell(tmp_path, "cell-a", actor="gemini-judge", **_CELL, **_READY)
+    flag_dir = (
+        tmp_path / "cell-a" / "data" / "cases" / "scotus" / "1" / "events" / "evt-x"
+        / "evaluations" / "gemini-judge" / "R"
+    )  # fmt: skip
+    flag_dir.mkdir(parents=True)
+    (flag_dir / "flags.json").write_text(
+        json.dumps({"flags": [{"category": "data-quality", "severity": "low", "message": "gap"}]})
+    )
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "evaluate", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    flags = json.loads(result.stdout)["flags"]
+    assert "🚩 Agent flags (2)" in flags
+    assert "1 cell(s) whose malformed flags.json the harness normalised" in flags
+    assert "1 flag(s) written by the harness" in flags
+    assert "`gemini-judge`" in flags and "gap" in flags
+
+
+def _ledger_flag_dir(root: Path, actor: str = "gemini-judge") -> Path:
+    flag_dir = (
+        root / "cell-a" / "data" / "cases" / "scotus" / "1" / "events" / "evt-x"
+        / "evaluations" / actor / "R"
+    )  # fmt: skip
+    flag_dir.mkdir(parents=True)
+    return flag_dir
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "[" * 100000 + "]" * 100000,
+        json.dumps({"role": ["evaluator"], "flags": [{"message": "m", "source": {}}]}),
+    ],
+    ids=["deep-nesting", "unhashable-values"],
+)
+def test_collect_plan_survives_a_hostile_flag_file(tmp_path: Path, text: str) -> None:
+    """No flag file's shape can abort the run's aggregation, and its cell's note still shows."""
+    _write_cell(tmp_path, "cell-a", actor="gemini-judge", **_CELL, **_READY)
+    (_ledger_flag_dir(tmp_path) / "flags.json").write_text(text)
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "evaluate", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.stdout)
+    assert "`gemini-judge`" in plan["flags"]
+    assert plan["ready"] is not None
+
+
+def test_collect_plan_warns_where_a_flag_file_disagrees_with_its_path(tmp_path: Path) -> None:
+    """A stated run id that is not the path's is kept, and the drop it causes is said."""
+    _write_cell(tmp_path, "cell-a", actor="gemini-judge", **_CELL, **_READY)
+    (_ledger_flag_dir(tmp_path) / "flags.json").write_text(
+        json.dumps(
+            {
+                "case_id": "scotus/1",
+                "run_id": "WRONG",
+                "role": "evaluator",
+                "actor_id": "gemini-judge",
+                "flags": [{"category": "scope", "message": "m"}],
+            }
+        )
+    )
+
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "evaluate", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "states case/run/role/actor" in result.output
+    assert "'WRONG'" in result.output
 
 
 _CELL = {"court": "scotus", "docket": 1, "event_id": "evt-x", "run_id": "R"}

@@ -27,9 +27,20 @@
           "title": "Message",
           "type": "string"
         },
+        "normalised": {
+          "default": false,
+          "description": "Set by the harness when it coerced this flag to fit the schema (an off-vocabulary severity or category, an over-long message, an unknown key); the `harness` note beside it says what changed. A flag never fails a predict or evaluate cell",
+          "title": "Normalised",
+          "type": "boolean"
+        },
         "severity": {
           "$ref": "#/$defs/FlagSeverity",
           "default": "info"
+        },
+        "source": {
+          "$ref": "#/$defs/FlagSource",
+          "default": "agent",
+          "description": "Who wrote the note: `agent` (the cell's own, the default) or `harness` (a post-agent step's finding about the cell). A triage label the roll-up filters and counts on, not an authentication"
         }
       },
       "required": [
@@ -41,7 +52,7 @@
     },
     "AgentFlags": {
       "additionalProperties": false,
-      "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate cell writes this *only when it has something to\nsurface* \u2014 a data-quality problem, a scope question, an ambiguous event, or the\nreason it was blocked. Mostly the agent's own word, but not exclusively: a\npost-agent harness step appends its own findings about the cell to the same\nfile (``stamp-cell``, where a cell reports not having read its provisioned\nsnapshot), and the roll-up counts those with the rest \u2014 the message text is\nwhat distinguishes them. It rides the cell's artifact to the ``collect`` job, which\nrolls every cell's flags into the run PR body (and the Actions summary), so a\nnote outlives the run that raised it and a maintainer sees it without\nreading every ``reasoning.md``. The agent token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job does the surfacing.",
+      "description": "``flags.json`` \u2014 a cell's durable, structured feedback for maintainer triage.\n\nA predict/evaluate cell writes this *only when it has something to\nsurface* \u2014 a data-quality problem, a scope question, an ambiguous event, or the\nreason it was blocked. Mostly the agent's own word, but not exclusively: a\npost-agent harness step appends its own findings about the cell to the same\nfile (``stamp-cell``, where a cell reports not having read its provisioned\nsnapshot, and the normalisation note when the agent's file did not validate),\nmarked ``source: harness`` so the roll-up lists and counts them apart. A\nmis-shaped file never fails its cell: the stamp normalises it before\n``validate`` (:func:`fedcourtsai.agent_flags.normalise_flags`). It rides the\ncell's artifact to the ``collect`` job, which rolls every cell's flags into\nthe run PR body (and the Actions summary), so a note outlives the run that\nraised it and a maintainer sees it without reading every ``reasoning.md``.\nThe agent token stays comment-only: the file is written locally and the\ntrusted ``collect`` job does the surfacing.",
       "properties": {
         "actor_id": {
           "description": "The predictor_id (predict) or evaluator_id (evaluate)",
@@ -88,7 +99,7 @@
     },
     "AgentToolingFeedback": {
       "additionalProperties": false,
-      "description": "``tooling.json`` \u2014 a cell's self-report on the agent tooling it was given.\n\nUnlike :class:`AgentFlags` (exception-based \u2014 written only on a problem with the\n*data or task*), every predict/evaluate cell is *invited* to write this\nshort, structured note about its *environment*: whether it used the ``fedcourts``\ncorpus-query CLI, which abilities actually helped, and what was missing. Rolled up\nacross runs on the run-ops report, it tells maintainers whether the corpus\ntooling earns its keep and where to invest next; ``used_corpus_query`` alone is\nalso read per run by the ``collect`` job, as the self-reported side of the run\nPR's prior-availability note (the field asks whether the cell *used* the CLI,\nwhich that note weighs against what capture saw rather than treating as a\nverdict on the corpus). It is the agent's own account \u2014\nsubjective, advisory, and never a gate. The token stays comment-only: the file is\nwritten locally and the trusted ``collect`` job commits it with the cell's output.",
+      "description": "``tooling.json`` \u2014 a cell's self-report on the agent tooling it was given.\n\nUnlike :class:`AgentFlags` (exception-based \u2014 written only on a problem with the\n*data or task*), every predict/evaluate cell is *invited* to write this\nshort, structured note about its *environment*: whether it used the ``fedcourts``\ncorpus-query CLI, which abilities actually helped, and what was missing. Rolled up\nacross runs on the run-ops report, it tells maintainers whether the corpus\ntooling earns its keep and where to invest next; ``used_corpus_query`` alone is\nalso read per run by the ``collect`` job, as the self-reported side of the run\nPR's prior-availability note (the field asks whether the cell *used* the CLI,\nwhich that note weighs against what capture saw rather than treating as a\nverdict on the corpus). It is the agent's own account \u2014\nsubjective, advisory, and never a gate. The stamp normalises a mis-shaped report\nbefore ``validate`` (:func:`fedcourtsai.agent_tooling.normalise_tooling`), short\nof supplying a ``used_corpus_query`` the cell did not answer or reading a file\nthat is not a JSON object. The token stays comment-only: the\nfile is written locally and the trusted ``collect`` job commits it with the cell's\noutput.",
       "properties": {
         "actor_id": {
           "description": "The predictor_id (predict) or evaluator_id (evaluate)",
@@ -469,6 +480,15 @@
       "title": "FlagSeverity",
       "type": "string"
     },
+    "FlagSource": {
+      "description": "Who wrote an agent flag: the cell's agent, or a post-agent harness step.\n\nA triage label, not an authentication: ``flags.json`` is the agent's own\nfile, so nothing stops an agent writing ``harness`` itself. What only the\nharness can say is stamped where no agent writes (``context`` on\n``prediction.json``, the ``::warning::`` lines in the run log).",
+      "enum": [
+        "agent",
+        "harness"
+      ],
+      "title": "FlagSource",
+      "type": "string"
+    },
     "FlagsDigest": {
       "additionalProperties": false,
       "description": "Open agent flags scanned from the committed ``flags.json`` files under ``data/``.\n\nA read-only roll-up the run-ops report presents so agent-surfaced feedback is\nvisible alongside the other operational analytics \u2014 not only in the run PR that\nproduced it. The severity counts and ``recent`` cover only flags from runs within\n``window_days`` of generation, so long-since-fixed flags stop dominating the\nsummary; ``archived`` reports how many older flags remain in the committed\n``flags.json`` ledger (and the agent-feedback issue), which keep everything.",
@@ -492,10 +512,24 @@
           "title": "Cells",
           "type": "integer"
         },
+        "harness": {
+          "default": 0,
+          "description": "Of the in-window flags, those marked `source: harness`",
+          "minimum": 0,
+          "title": "Harness",
+          "type": "integer"
+        },
         "infos": {
           "description": "Flags at info severity",
           "minimum": 0,
           "title": "Infos",
+          "type": "integer"
+        },
+        "normalised_cells": {
+          "default": 0,
+          "description": "In-window cells whose flags.json did not validate and the harness normalised rather than let fail the cell: one per file, however many flags it produced. Overlaps `harness`, since a file carried verbatim is carried in harness flags",
+          "minimum": 0,
+          "title": "Normalised Cells",
           "type": "integer"
         },
         "recent": {

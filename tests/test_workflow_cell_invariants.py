@@ -398,6 +398,27 @@ def test_every_gemini_allowlist_covers_its_own_cell_env_contract() -> None:
             assert {"DECIDED_BEFORE", "REPLAY_CUTOFF"} <= allowed, name
 
 
+def _backtest_report_upload(steps: list[dict[str, Any]]) -> int:
+    """The replay job's one hand-off: the arm's report, staged out of the tree
+    and uploaded for the publish job."""
+    stage = next(i for i, step in enumerate(steps) if step.get("id") == "report")
+    found = [i for i, step in enumerate(steps) if "upload-artifact" in str(step.get("uses") or "")]
+    assert len(found) == 1, f"expected exactly one upload, found {found}"
+    upload = steps[found[0]]
+    assert upload["with"]["path"] == "${{ runner.temp }}/backtest-report", (
+        "only the staged report may cross, never the checkout's metrics/"
+    )
+    assert upload.get("if") == "steps.report.outputs.present == 'true'"
+    assert stage < found[0]
+    run = str(steps[stage]["run"])
+    assert '[ -L "metrics/$report" ]' in run, "a symlinked report must be refused"
+    assert "salience-gate) report=salience-replay.json" in run
+    assert "*) report=cert-backtest.json" in run
+    # Implicit `success()`: a failed replay hands nothing off.
+    assert "if" not in steps[stage]
+    return found[0]
+
+
 def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> None:
     """A replayed petition is decided, so the committed ledger in the same
     checkout can hold the `outcome.json` the cell is being asked to forecast —
@@ -431,13 +452,13 @@ def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> Non
     restore = index("git checkout -- data/cases")
     # Likewise pinned to the invocation, not the PR body's echo of it.
     salience = index('fedcourts salience-replay --terms "$BT_TERMS"')
-    pr = index("gh pr create")
+    upload = _backtest_report_upload(steps)
 
     assert remove < cells, "the ledger leaves the tree before the replay cells run"
     assert cells < restore < salience, (
         "the restore is the first post-cell step and precedes the salience-gate arm"
     )
-    assert restore < pr, "the review PR step runs against a restored tree"
+    assert restore < upload, "the report leaves for the publish job from a restored tree"
     # The wipe before the checkout is what makes the restore cover untracked
     # files: `git checkout --` restores tracked paths only, so a cell that
     # wrote its own directory under data/cases would survive a bare restore.
@@ -465,12 +486,11 @@ def test_the_backtest_replay_brackets_its_cells_with_the_big_case_board_removal(
     event in the JSON carries `actual_disposition`, and in both files a case's
     moment names its newest predicted event, where a merits moment discloses
     the grant. So both halves leave the tree with the ledger. The review PR
-    step stages all of `metrics/`, which makes the restore load-bearing twice
-    over: a restore that lands after that step commits the board's deletion,
-    and one that restores from the index rather than the commit reinstates
-    bytes a cell could have staged. Nothing the replay runs reads the board —
-    it is a render target of `fedcourts big-cases` and the metrics refresh,
-    neither of which runs here.
+    salience-gate arm writes under `metrics/` in the same checkout after the
+    cells, so the restore must land before it, and from the commit rather than
+    the index, which would reinstate bytes a cell could have staged. Nothing
+    the replay runs reads the board — it is a render target of `fedcourts
+    big-cases` and the metrics refresh, neither of which runs here.
     """
     # The fenced paths are the board's own, every half of it, so a rename or a
     # new companion file breaks here rather than on the runner.
@@ -492,15 +512,11 @@ def test_the_backtest_replay_brackets_its_cells_with_the_big_case_board_removal(
     cells = index('--work-dir "$work_dir"')
     restore = index(f"git checkout HEAD -- {paths}")
     salience = index('fedcourts salience-replay --terms "$BT_TERMS"')
-    pr = index("gh pr create")
-    stage = index("git add -A metrics/")
+    upload = _backtest_report_upload(steps)
 
     assert remove < cells, "the board leaves the tree before the replay cells run"
-    assert cells < restore < salience, (
-        "the restore follows the cells and precedes the salience-gate arm"
-    )
-    assert restore < stage and stage == pr, (
-        "the board is back before the review PR step stages metrics/"
+    assert cells < restore < salience < upload, (
+        "the restore follows the cells and precedes the salience-gate arm and the upload"
     )
     assert f"git status --porcelain -- {paths}" in runs[restore], (
         "the pristine assertion must refuse a board differing from the commit"
@@ -510,6 +526,36 @@ def test_the_backtest_replay_brackets_its_cells_with_the_big_case_board_removal(
     assert "if" not in steps[remove]
     assert steps[restore].get("if") == "${{ !cancelled() }}"
     assert "continue-on-error" not in steps[restore]
+
+
+def test_the_backtest_publish_job_checks_the_report_before_it_mints() -> None:
+    """The publish job holds the dev App token, whose bypass covers `main`'s
+    approval rule, and reads bytes a replay cell could have written. So every
+    step that reads them runs before the mint: the hand-off must hold the arm's
+    one report and nothing else, as a regular file; it overlays the committed
+    copy rather than replacing `metrics/` (an upload drops dotfiles, and a
+    replaced tree would stage their deletion); the tree may then differ from
+    the commit at that path alone; the plan is rendered and the change and
+    the prose are scanned for secrets. The token steps run only on a checked
+    change, and run git and gh alone."""
+    steps = _load("run-backtest.yml")["jobs"]["publish"]["steps"]
+    names = [step.get("name") for step in steps]
+    stage_at = next(i for i, step in enumerate(steps) if step.get("id") == "stage")
+    mint_at = names.index("Mint app token")
+    assert stage_at < mint_at
+    run = str(steps[stage_at]["run"])
+    assert "rm -rf metrics" not in run and "git add -A" not in run
+    assert 'find "$dir" -mindepth 1 ! -path "$dir/$report"' in run
+    assert '[ -L "$dir/$report" ]' in run
+    assert 'cp "$dir/$report" "metrics/$report"' in run
+    assert 'if [ "$changed" != " M metrics/${report}" ]; then' in run
+    assert "uv run fedcourts cert-backtest-plan" in run
+    assert "uv run fedcourts scan-diff-for-secrets" in run
+    assert run.index('git add "metrics/$report"') < run.index("scan-diff-for-secrets")
+    assert run.rstrip().endswith('echo "land=true" >> "$GITHUB_OUTPUT"')
+    for step in steps[mint_at:]:
+        assert step.get("if") == "steps.stage.outputs.land == 'true'", step.get("name")
+        assert "uv run" not in str(step.get("run") or ""), step.get("name")
 
 
 def test_case_summaries_sit_inside_the_backtest_ledger_fence() -> None:
@@ -1257,10 +1303,10 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
     textual scan) and an unprovisioned record — no snapshot in the corpus, or a
     provisioning write that did not land complete, which the `record` step reads
     off disk. Every step that would spend tokens, hold a credential, or write a
-    runner-local config for the agent — the comment token mint, the MCP
-    retrieval config, the engine installs and runs, and the event
-    materialization — must carry *both* halves of the gate, or a refused cell
-    produces a context-less prediction claiming a mode it never had.
+    runner-local config for the agent — the MCP retrieval config, the engine
+    installs and runs, and the event materialization — must carry *both*
+    halves of the gate, or a refused cell produces a context-less prediction
+    claiming a mode it never had.
     """
     wf = _load("run-predict.yml")
     steps = wf["jobs"]["predict"]["steps"]
@@ -1284,7 +1330,6 @@ def test_the_forward_refusal_short_circuits_every_agent_step() -> None:
     # absent: that one is `always()`, because a cell that armed nothing must
     # still be safe to stand down.
     gated = [
-        "Mint agent comment token",
         "Configure agent retrieval (MCP)",
         "Materialize the event definition for the ledger",
         "Predict with Claude Code",
@@ -1570,17 +1615,40 @@ def test_the_qp_labeling_run_publishes_on_its_count_not_on_the_agents_verdict() 
     # And nothing in it reads the agent's own verdict, which is the whole point.
     assert "steps.label.outcome" not in gate and "steps.label.conclusion" not in gate, gate
 
-    # The publish trio follows measure rather than the default gate: a named
-    # `if:` carries no implicit `success()`, so every gate is spelled out.
-    publishers = [
-        s
-        for s in steps
-        if "create-github-app-token" in str(s.get("uses") or "")
-        or "steps.app-token.outputs" in yaml.safe_dump(s)
-    ]
-    assert len(publishers) == 3
-    for step in publishers:
-        assert "steps.measure.outcome == 'success'" in _norm(step["if"]), step.get("name")
+    # The hand-off follows measure rather than the default gate: a named `if:`
+    # carries no implicit `success()`, so every gate is spelled out, and the
+    # publish job keys on the hand-off's outcome alone, past a failed job.
+    stage = next(s for s in steps if s.get("id") == "stage_publish")
+    upload = next(s for s in steps if s.get("id") == "publish_upload")
+    assert steps.index(measure) < steps.index(stage) < steps.index(upload)
+    assert _norm(stage["if"]) == "${{ !cancelled() && steps.measure.outcome == 'success' }}"
+    assert "steps.stage_publish.outcome == 'success'" in _norm(upload["if"])
+    wf = _load("run-analytics.yml")
+    assert wf["jobs"]["qp-topic-label"]["outputs"]["publish"] == (
+        "${{ steps.publish_upload.outcome }}"
+    )
+    publish_gate = _norm(wf["jobs"]["qp-topic-publish"]["if"])
+    assert publish_gate.startswith(
+        "${{ !cancelled() && needs.qp-topic-label.outputs.publish == 'success' && "
+    ), publish_gate
+    assert "needs.qp-topic-label.result" not in publish_gate, (
+        "the publish job must not read the label job's verdict, which a turn overrun fails"
+    )
+    # The labels file crossed from the labeler's runner, so the publish job
+    # holds it to the strict model again, on every ref, before the mint.
+    publish_steps = wf["jobs"]["qp-topic-publish"]["steps"]
+    names = [s.get("name") for s in publish_steps]
+    revalidate = publish_steps[names.index("Re-validate the measured artifact")]
+    assert "uv run fedcourts validate data/qp-topics" in revalidate["run"]
+    # The measured block lands in a public PR body, so it is bounded and
+    # scanned with the labels file, and the hand-off holds those two alone.
+    assert "-gt 65536" in revalidate["run"]
+    assert '--extra-file "$dir/measured.txt"' in revalidate["run"]
+    assert '--extra-file "$dir/qp-topics.json"' in revalidate["run"]
+    assert '! -path "$dir/qp-topics.json" ! -path "$dir/measured.txt"' in revalidate["run"]
+    assert '[ -L "$f" ]' in stage["run"], "the source side refuses a symlinked file"
+    assert "if" not in revalidate
+    assert names.index("Re-validate the measured artifact") < names.index("Mint app token")
 
 
 def test_the_qp_transcript_scanner_runs_from_an_install_the_labeler_never_saw() -> None:
@@ -1749,11 +1817,18 @@ def test_the_qp_measure_composite_is_shared_by_the_paid_run_and_the_scenario() -
 
     # The paid job must consume the measured block through the composite's
     # declared output, never a path convention that a composite-internal
-    # rename would silently break after the model spend.
+    # rename would silently break after the model spend. It reaches the PR
+    # body through the hand-off, which copies it from that output.
     assert production[0].get("id") == "measure"
-    pr_step = next(s for s in label_steps if s.get("name") == "Open or update the review PR")
-    assert pr_step["env"]["MEASURED_FILE"] == "${{ steps.measure.outputs.measured-file }}", (
-        "the PR body must read the measured block from the composite's output"
+    stage = next(s for s in label_steps if s.get("id") == "stage_publish")
+    assert stage["env"]["MEASURED_FILE"] == "${{ steps.measure.outputs.measured-file }}", (
+        "the hand-off must read the measured block from the composite's output"
+    )
+    assert '"$RUNNER_TEMP/qp-publish/measured.txt"' in stage["run"]
+    publish_steps = _load("run-analytics.yml")["jobs"]["qp-topic-publish"]["steps"]
+    pr_step = next(s for s in publish_steps if s.get("name") == "Open or update the review PR")
+    assert pr_step["env"]["MEASURED_FILE"] == "${{ runner.temp }}/qp-publish/measured.txt", (
+        "the PR body must read the measured block the hand-off carried"
     )
     # And no inlined copy of the measure invocation may reappear beside it
     # (`--labels` marks the command; the job's prose mentions the command name).
@@ -4106,11 +4181,7 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
     mint step is a publishing job, and every step that mints or that touches
     the minted token is a publisher — so a new consumer of the token, or a
     mint added to a third job, lands inside the fence's sweep by default.
-    A publisher may carry further conjuncts — the labeling job's trio also
-    requires its measure step to have succeeded, since gating publication on
-    the label-line count rather than on the agent's own verdict costs those
-    steps the implicit `success()` a bare condition would carry — but
-    conjuncts only: a
+    A publisher may carry further conjuncts, but conjuncts only: a
     disjunction anywhere in the condition is a route around the fence, so
     `||` is refused outright."""
     fence = "github.ref == 'refs/heads/main'"
@@ -4120,7 +4191,7 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
         for job_id, job in wf["jobs"].items()
         if any("create-github-app-token" in str(s.get("uses") or "") for s in job["steps"])
     }
-    assert set(publishing_jobs) == {"metrics-refresh", "big-cases", "qp-topic-label"}, (
+    assert set(publishing_jobs) == {"metrics-refresh", "big-cases", "qp-topic-publish"}, (
         f"the publishing-job set moved: {sorted(publishing_jobs)}"
     )
     for job_id, steps in publishing_jobs.items():
@@ -4184,6 +4255,45 @@ def test_every_run_analytics_cron_is_claimed_by_exactly_one_job() -> None:
             f"{job_id} gates on the event class rather than on which cron fired, "
             "so it runs on every cron the workflow declares"
         )
+
+
+def test_run_pull_polls_live_every_two_hours_and_enriches_on_four_windows() -> None:
+    """The live cadence and the one budgeted step inside it are set separately.
+
+    The live poll is budget-free, so it runs every two hours on two cron entries
+    whose shared `47 ` minute selects the `live` job. Its awaiting-grading
+    enrichment step spends CourtListener budget, so it must gate on the one
+    four-window entry by its exact string: a `startsWith` on the minute, or a
+    renamed cron the gate no longer names, would either run the step on all
+    twelve windows (tripling the spend against the daily ceiling the pull
+    windows already approach) or silently on none.
+    """
+    wf = _load("run-pull.yml")
+    crons = _schedule("run-pull.yml")
+    assert len(crons) == len(set(crons)), f"duplicate cron in run-pull: {crons}"
+    claims = {
+        cron: [
+            job_id
+            for job_id, job in wf["jobs"].items()
+            if f"startsWith(github.event.schedule, '{cron.split()[0]} ')"
+            in str(job.get("if") or "")
+        ]
+        for cron in crons
+    }
+    assert all(len(jobs) == 1 for jobs in claims.values()), f"crons are not claimed 1:1: {claims}"
+    live = [cron for cron, jobs in claims.items() if jobs == ["live"]]
+    hours = sorted(int(hour) for cron in live for hour in cron.split()[1].split(","))
+    assert hours == list(range(0, 24, 2)), f"live windows are not every two hours: {hours}"
+
+    step = next(s for s in wf["jobs"]["live"]["steps"] if s.get("id") == "enrich-awaiting")
+    gate = str(step.get("if") or "")
+    assert "startsWith" not in gate, "the enrichment gate must name one cron, not a minute"
+    named = [cron for cron in live if f"github.event.schedule == '{cron}'" in gate]
+    assert len(named) == 1, f"the enrichment gate names {named}, not one declared live cron"
+    assert len(named[0].split()[1].split(",")) == 4, (
+        f"the enrichment step runs on {named[0]!r}, not four windows a day"
+    )
+    assert "github.event_name != 'schedule'" in gate, "a live dispatch must still enrich"
 
 
 def test_every_run_analytics_mode_is_gated_by_a_job_and_every_job_by_a_mode() -> None:

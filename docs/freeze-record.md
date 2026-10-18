@@ -8767,7 +8767,7 @@ freeze commit is recorded here.
   Its summary counts, with the blob's sha and its `corpus-info` vintage, go
   on the next line, which must stay one line of plain prose with no angle
   bracket or backtick:
-  <FILL: census summary counts, blob sha and vintage, as one plain line>
+  At corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39041844535 at a0c0ba591: 25805 live-slice SCOTUS rows walked, 25682 with a live snapshot; 113 carry a withheld petitioner block, 112 newly scrubbed (15 selected, 4 pending, 40 with stored documents, 425 spans withheld), 0 value-only to value+shape, 1 unchanged; 54 residual rows carry the Court shape with neither counsel key (0 selected, 2 pending).
 
   **A harness boundary under the 2026-10-11 pooled rule.** The change moves
   what a predict cell reads under unchanged digests, so it is composition and
@@ -9170,7 +9170,7 @@ freeze commit is recorded here.
   still parked and never fired, each with n, and the corpus vintage) goes on
   the next line, which must stay one line of plain prose with no angle
   bracket or backtick:
-  <FILL: resolved-application census, old vs new scan, outcome split freed, still parked and never fired with n, corpus vintage>
+  At corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39041844535 at a0c0ba591: the old pattern is the current base pattern, and the new scan fires on 0 snapshots the old does not; of 8 pending applications, 0 without a snapshot, neither scan fires on any (0 dockets freed); of 635 resolved substantive applications, 51 read at a last pre-resolution snapshot split freed n=0, still parked n=0, never fired n=51 (42 denied, 7 granted, 2 withdrawn), and 584 skipped for no resolution date or no pre-resolution snapshot.
 
   **Not comparable across either boundary.** Forward interim figures are not
   comparable across this entry's carrying merge, or across the boundary of the
@@ -9408,7 +9408,7 @@ freeze commit is recorded here.
   `cluster_undated.passed` are 0, and `last_live_polled.nulled` equals its
   `stored`.
 
-  **Where it landed.** Merged to `staging` as `<FILL: staging merge commit>`
+  **Where it landed.** Merged to `staging` as `44b2c9d1a`
   and carried to `main` by the promotion tagged `promotion/2026-10-16`
   (merge commit `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`). At that
   promotion's first parent, `src/fedcourtsai/corpus.py` has no
@@ -9565,7 +9565,7 @@ freeze commit is recorded here.
   binding test refuses a row no entry of its date names), and it moves the
   default from that entry on. The census that reconciles the list with the
   corpus, `scripts/checks/post_conference_census.py`, also counts the events
-  a relist kept in. Read at the carrying head: <FILL: post-conference census at the carrying head as one plain line, census events, listed, owed, relist keep-ins, unreadable, and the corpus vintage>.
+  a relist kept in. Read at the carrying head: 16 census events (7 resolved, 7 with graded cells, 63 graded cells), all 16 listed in set_aside_events.json, 0 owed, 0 listed events the census does not find, 0 unreadable, and 60 events kept in by a relist docketed by the first cell's run day, read after the carrying merge, at corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39041844535 at a0c0ba591, ledger at a0c0ba591, newest prediction run 20261016T142604Z, newest evaluation run 20261016T154557Z.
 
   **What it moves.** At the ledger above 7 of the listed events are resolved
   and graded, 63 frozen-scope gradings (7 events by 9 gradings, 21 per
@@ -9856,7 +9856,7 @@ freeze commit is recorded here.
   overwrites that day's, so a referral entered after the latest pull is
   missing from it; the census counts such a referral unreadable where the
   corpus row records one. Read at the PR head the corpus-check lane answered at:
-  <FILL: increment timing census at the PR head the corpus-check lane answered at as one plain line, before-run, during-run and run-day counts per claim by both readings, referral claims dated before or on the run day, unreadable referrals, and the corpus vintage>.
+  At corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39041844535 at a0c0ba591, ledger at a0c0ba591, newest prediction run 20261016T142604Z, newest evaluation run 20261016T154557Z: response-requested-increment 68 live claims with the signal 24 before the run, 0 during it and 3 on the run day, by both readings; cvsg-increment 742 live at this ledger, against 739 at 10cf97c36 above, with 0, 0 and 0 by both readings; referral-increment 144 live, 0 before and 0 during the run by both readings, on the run day 15 by the corpus reading, all resolved, on scotus/9526000428 and scotus/9526000477, against 0 by the ledger reading, and unassessable 66 by the ledger reading and 0 by the corpus reading, the corpus reading's 15 lying within the ledger reading's 66; so by the corpus reading 0 referral claims dated before the run day and 15 on it; 0 unreadable referrals; no disagreement between the readings beyond the unassessable.
 
   Carried to `main` by `promotion/2026-10-16` (merge commit
   `1c1cd1f257e1bcbcd4f5339173fff2dab68ed317`, merged `2026-10-16T20:17:17Z`).
@@ -10119,7 +10119,7 @@ freeze commit is recorded here.
   reading names, by Term, ask and label, and the committed interim outcomes
   on them. Its result goes on the next line, one line of plain prose with no
   angle bracket or backtick:
-  <FILL: interim reading census at corpus sha256 and corpus-info freshness, rows named partial or moot by Term and ask, statpack vs re-read substantive counts by Term with unobservable and non-live counts, registered disagreements, stored denials with a granting application clause as unconfirmed candidates for a side-motion misread, committed outcomes on the named rows>
+  At corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39041844535 at a0c0ba591, ledger at a0c0ba591, newest prediction run 20261016T142604Z, newest evaluation run 20261016T154557Z: 23 rows named, granted-in-part and dismissed-moot by Term and ask OT2023 substantive 0 and 3, OT2024 substantive 2 and 5, OT2024 unknown 1 and 0, OT2025 substantive 2 and 8, OT2026 substantive 0 and 2; substantive granted over resolved, statpack and re-read identical, OT2023 18/127, OT2024 18/196, OT2025 17/226, OT2026 9/86, with 0 unobservable and 0 non-live in every Term; the registered reading reproduces 4442 of 4442 stored labels, so 0 registered disagreements; 6 stored denials with a granting application clause, unconfirmed side-motion candidates, scotus/69874414, scotus/71168440, scotus/72416526, scotus/72417039, scotus/73278732, scotus/73541961; 6 committed interim outcomes on the named rows, 3 events each on scotus/9526000139 and scotus/9526000477, all recorded denied where the finer reading names dismissed-moot, carrying 18 predictions in all.
 
   **Residuals of the finer reading.**
   - A partial stay worded only in a later sentence ("The application is
@@ -10217,14 +10217,14 @@ freeze commit is recorded here.
   - *Rules 1, 2 and 4 against the corpus:* the predicted events the corpus
     records resolved with no outcome (selected and unselected rows), and the
     open declared moments on decided selected rows (predicted and not), are:
-    <FILL: corpus-check sections 2 and 3 counts as one plain line>.
+    at corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39042494154 at b8021042d, read after the pass was applied in ff7b0f4fa on 2026-10-16, of 213 predicted events with no outcome.json, 0 corpus-resolved on a selected row and 0 on an unselected row, so the pass owes no grade; and 0 open declared moments on decided selected rows with no ledger outcome, predicted or not, which follows from the pass's gap population reading 0.
     A predicted moment there gains an outcome and an owed grade; nothing
     changes which moment an outcome attaches to.
   - *Rule 5: new forward merits cells.* Each merits event the pass mints is a
     **new forward merits cell** for the predict lane — new spend, and a new
     predicted case, minted long after its grant on a case selected for its
     cert stage. The dry run's split of the recorded grants is:
-    <FILL: corpus-check section 1 merits split minted-pending, judgment-latched, terminated, stale, out-of-scope as one plain line>.
+    not captured from the dry run, and recomputed after the apply by classifying the 243 grants it recorded against each row's merits ladder: minted-pending 0 (the apply minted no merits event), judgment-latched 219, terminated 6, stale 0, out-of-scope 0, and 18 carrying a merits event at this blob, matching the 18 the apply gave no verdict (243 less 225); only the total of 225 recorded without a merits event is the apply's own figure, and the 219 and 6 split is read at corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39042494154 at b8021042d, read after the pass was applied in ff7b0f4fa on 2026-10-16, not at the apply's blob.
     A merits case minted this way is forecast forward like any other, but its
     cohort entered the merits population at the pass's apply, not at its
     grant, and a merits figure that counts it reads that beside this entry.
@@ -10233,7 +10233,7 @@ freeze commit is recorded here.
     above were recorded), missing on 45% of granted, 39% of gvr, 32% of
     dismissed and 31% of denied selected moments. The attributable and
     residue counts by disposition are:
-    <FILL: corpus-check sections 0 and 1 recorded and residue by disposition as one plain line>.
+    the dry run read a gap population of 969 and the apply recorded 969 gap moments, denied 585, granted 243, gvr 112, dismissed 29, so the pass held back, failed, marked as residue or left open 0; a re-dry-run and this census both read the population at 0, which a residue mark or an open gap would have kept above 0; the 162 moments between the 1,131 measured on the 2026-09-27 blob and this population left it before the apply by routes this pass does not attribute; at corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39042494154 at b8021042d, read after the pass was applied in ff7b0f4fa on 2026-10-16, the 3,304 decided declared moments on selected rows, denied 2,328, granted 564, gvr 310, dismissed 98, withdrawn 4, all carry a complete ledger pair.
     None carries a prediction, so recording them moves no board, export or
     grade. The residue left unrecorded is not neutral by disposition, and
     any count of ledger outcomes beyond predicted events reads it beside the
@@ -10265,7 +10265,7 @@ freeze commit is recorded here.
   reading as every interim outcome the poll records. The rows exposed to the
   shape (selected application rows and committed interim outcomes whose
   stored proceedings carry it, read-only) are:
-  <FILL: corpus-check section 4 exposure counts as one plain line>.
+  at corpus blob 5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e, freshness latest pull 2026-10-17, latest snapshot 2026-07-13, corpus-check run 39042494154 at b8021042d, read after the pass was applied in ff7b0f4fa on 2026-10-16, 0 selected application rows whose stored proceedings carry the shape, and 0 committed interim outcomes on such a docket, 0 of them on a predicted event, counted only for a sentence opening with a motion that names the application, in stored proceedings no newer than 2026-07-13; this is a different shape from the clause-scope probe, whose candidate denials the interim census entry lists, and it does not count them.
 
   **Reading rule.** No scored figure moves at the carrying merge. A tally of
   ledger outcomes on selected rows taken before the `lost-outcomes` apply
@@ -10370,3 +10370,565 @@ freeze commit is recorded here.
   this vintage was one its clock had already reached, so the cluster rule
   changed nothing it read. A back-test comparison across the change reads
   its difference against those columns.
+
+- **Outcome detection refuses a moment opened under another petition than its
+  re-docketed number now carries, 2026-10-17.** An **attribution** change to
+  which moment an outcome may attach to, and with it a **membership** change.
+  A refused moment never receives an outcome, so a predicted one is never
+  graded. It leaves every scored figure without appearing in any board's
+  `voided_events` block. It moves no digest: no prompt template, neither agent
+  config and not `src/fedcourtsai/process_version.py` changes, and
+  `uv run fedcourts process-digest --all` prints `proc-v9` and the six digests
+  the entries above list.
+
+  **The rule.** From this entry's carrying merge, outcome detection
+  (`pipeline.outcome.detect_resolution`) does not attribute a SCOTUS row's
+  disposition to a moment that `pipeline.redocket.is_redocketed` reads as opened
+  under another petition. That holds on every refresh channel (the live poll and
+  the pull) and in both convergence passes. The moment's identity is read twice:
+  from its corpus event, and from its committed `event.yaml`, which
+  `materialize-event` never rewrites and so keeps the caption a committed
+  prediction was made under. Either reading disqualifies the moment if
+  - it shares no party word with the row's current caption on the petitioner
+    side; or
+  - it shares none on the respondent side, the moment is a cert or merits
+    moment, **and** it opened before the row's current docketed date.
+
+  Party words are a side's words of three or more letters, accents folded and
+  apostrophes dropped, outside a fixed list of role words. Two words match when
+  equal, or when the shorter has four or more letters and is a prefix or an
+  in-order abbreviation of the longer. A side with no party word on either
+  caption is not compared: an `In re` caption, a bare number, or initials.
+
+  An interim moment is read on the petitioner side alone. An application's
+  baseline opens at the application's filing, which routinely precedes its
+  docketing, so "opened before docketing" corroborates nothing there.
+
+  **What a refusal does, and where it shows.** The refused moment is surfaced on
+  the unrecorded queue with a fixed reason on every window that reaches it, and
+  receives nothing. run-repair's `lost-outcomes` pass marks a corpus-resolved
+  one `resolved_without_outcome` with the new reason `redocketed`. The
+  missed-forecast scan behind `evaluate-plan --missed-since` lists a predicted
+  refused moment under `no_outcome_record`. That was confirmed by running
+  `pipeline.missed.scan_predictionless_resolutions` over the convergence-path
+  test fixture after the sweep refused it.
+
+  The refusal is a **permanent missing outcome**. Nothing relocates the moment
+  to its petition's new number, so a forecast made before a re-docketing is
+  never scored.
+
+  The rule reads identity only, never the outcome, but its population is not
+  neutral. Re-docketing is rare: 7 of the 5,386 comparable rows below. It falls
+  where a number is fresh, which leans arrival-stage, IFP and applications. A
+  forward arrival-stage figure quotes its `redocketed` refusal count beside its
+  n.
+
+  **This supersedes the flag definition of the 2026-10-14 void entry.** That
+  entry counted a stored docket whose `DocketedDate` *or* petitioner identity
+  changes between snapshots as a re-docketing. A `DocketedDate` change alone
+  is not one: every such row below kept its parties. They are Nos. 26-263,
+  26-354, 26-5442 and 26A290, none carrying a ledger event, a prediction or an
+  outcome. Such a change is a date correction, so the date counts only as the
+  respondent side's corroboration. A respondent change alone is not one either.
+  On `scotus/72483835` (No. 24-1329) the first-named respondent left the case,
+  with the petition and its docketed date unchanged. That unpredicted committed
+  outcome is not refused.
+
+  **What moves, checked against the corpus and the ledger.** Vintage:
+  - the blob is `origin/main`'s pointer `5d4bac58…`, latest pull 2026-10-17;
+  - the content store's dated snapshots were read 2026-10-17, the newest
+    stored snapshot date read being 2026-10-17;
+  - the ledger is `data/` at `main` `3a77cf324`.
+
+  Figures are from `scripts/checks/redocketed_numbers.py`.
+  - *Against the committed ledger.* The corpus holds 591,662 titled SCOTUS
+    events. 33,611 of them sit on a row with a caption. The rest sit on
+    captionless historical rows the rule cannot read.
+
+    Of those 33,611, 153 carry a caption string unlike the row's. 1 of them
+    differs in party words on a side, and the rule refuses that 1. Of the
+    14,294 committed SCOTUS `event.yaml`, 12,438 carry a caption string unlike
+    the row's, almost all re-renderings of the same parties. 2 differ in party
+    words on a side, and the rule refuses 1.
+
+    The one refused event is `scotus/9026000221`
+    `evt-petition-arrival-disposition`, already voided by the 2026-10-14 entry.
+    Its committed outcome stays as written, since no committed outcome is
+    rewritten. The other differing file is the 24-1329 respondent change above.
+    **0 scored outcomes move.**
+  - *Re-docketed numbers in the snapshot record.* The census counts a number
+    re-docketed on either side's party words. That definition is wider than
+    the rule.
+
+    Among the 7,474 live-polled `26-`, `26A`, `25-` and `25A` rows, 5,386 have
+    two or more stored live snapshots. Comparing each one's earliest and latest
+    snapshot, 7 changed parties: Nos. 26-221, 26-246, 26-5334, 26-5502,
+    26-5569, 26A266 and 26A286. All 7 changed the petitioner side, docketed
+    date and lower-court number, and all but 26-5502 the respondent side.
+
+    Apart from 26-221, none carries a ledger event, a prediction or an outcome.
+    2,088 rows have a single snapshot and cannot be compared.
+  - *The 2026-10-14 void's owed scan.* All 306 SCOTUS cases holding a committed
+    prediction were compared on every consecutive pair of stored live
+    snapshots. Only `scotus/9026000221` changes parties, at its 2026-10-05
+    snapshot.
+
+    Its one prediction run dated before that is `20260820T231432Z`, the voided
+    one. Run `20261005T153213Z` is dated the same day and the date alone cannot
+    place it, but the void entry shows it was made from Purdy's 2026-10-05
+    snapshot.
+
+    That settles the cases the entry listed as unchecked (`scotus/9026000006`,
+    `9026000027`, `9026000045`, `9026000139`, `9026000152`, `9026000173`, and
+    the predicted cases pending at `5643cbbee`). None was re-docketed at this
+    vintage. **No further void is owed.**
+
+  **Limits.**
+  - *Shared words.* A re-docketing is missed when both petitions share a party
+    word on the petitioner side (a common first name or surname, a shared word
+    such as `County`), and the respondent arm does not apply or finds an
+    overlap. An interim moment has no respondent arm at all.
+  - *Renamed parties.* A party renamed outright, such as a corporation's new
+    name or an officer substituted without an office word, reads as another
+    petition and refuses a real decision.
+  - *Rewritten witnesses.* A moment whose mint re-fires on every poll, the CVSG
+    and interim response moments, has its corpus title and its `event.yaml`
+    rewritten from the row on each re-mint. After a re-docketing neither
+    keeps the earlier caption.
+  - *Baselines before first touch.* A baseline's corpus title re-tracks the row,
+    so a baseline re-docketed before its first touch is invisible. Nothing was
+    predicted on it, though.
+  - *Attribution only.* Only outcome attribution reads the rule. A refused
+    moment on a still-pending re-docketed row stays open and forecastable.
+    Predicted, it re-lists on the unrecorded queue on every window that reaches
+    it.
+  - *Nothing relocated.* The detector does not relocate the earlier petition.
+    Nathan under No. 26-257 is still owed, as the 2026-10-14 entry records.
+
+  **Where it landed.** Merged to `staging` as `<FILL: staging merge commit>`
+  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  (merge commit `<FILL: promotion merge commit>`, merged `<FILL: merge date>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_redocket.py tests/test_outcome.py -k "redocket or committed_caption or another_courts"`
+    is green;
+  - with the corpus pulled and the content store addressed,
+    `CHECK_SUMMARY=<file> uv run python scripts/checks/redocketed_numbers.py`
+    reports section 1 refusing only `scotus/9026000221`
+    `evt-petition-arrival-disposition`, and section 3 one case with a party
+    change. A further case it names is a new void candidate to triage.
+
+- **The contact scrub reads the spellings a scanned caption leaves, and a
+  document it leaves anything contact-shaped on is no longer recorded as
+  scrubbed, 2026-10-17.** A **conditioning** entry in the *what the pipeline
+  provisions* class. In predict run `20261015T142602Z`, codex-baseline flagged
+  `scotus/9026000314` (`evt-petition-disposition`): the provisioned
+  `petition.txt`'s cover page still carried an address-shaped and a
+  telephone-shaped detail, while `documents.json` read `contact_scrubbed:
+  true` with `contact_scrub_passes` `["value", "shape"]`. The agent did not
+  reproduce them. Two scan shapes defeated both passes: a letter glued to the
+  house number, and the telephone number's opening parenthesis read as a
+  letter set against the area code, which also put the served value's
+  left boundary out of the value pass's reach. A predict cell's staged text
+  is runner-local and never committed. The case-summary lane's
+  `summary-stage` artifact carries the same scrubbed text and is public for
+  a day; the committed ledger holds no summary for this case.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v9` and
+  the six digests `605201bd…` (claude-baseline), `70fee158…`
+  (codex-baseline), `a9033e56…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `18a76b93…` (codex-judge) and `22558044…` (gemini-judge).
+
+  **What changes.** Three things, all on the staged copy alone.
+  - **The shape pass reads more spellings**
+    (`pipeline.documents.scrub_contact_details`). A telephone number whose
+    opening parenthesis was dropped or read as a bracket or bar, or as a
+    letter set hard against the area code; with blanks around its separators;
+    or with a letter read for a digit (`O`, `o`, `I`, `l`), kept honest by a
+    seven-real-digit floor and by never opening on a letter that continues a
+    word. A blank-separated area code before a punctuated number, save after
+    `No.`. The blank-separated spelling after a telephone label on the same
+    line, anywhere in the text. A post-office box with a comma or dash for a
+    dot, a zero for the `O`, an underline run into it, the words spelled out,
+    or a capitalized `Box`, the box always carrying a digit. A street address
+    with a letter glued to or a letter read for a digit of its house number,
+    behind a stray dot or dash opening its line, or with a lower-case
+    connector in its name (`de`, `la`, `del`, `van`; not `of` or `the`). An
+    email whose domain label carries a blank, whose dot was read as a colon
+    set hard between its labels, which ends `c0m`, or whose sign sits hard
+    between two runs of letters or digits. Two shapes are read on the
+    document's **opening** alone (its first 6,000 characters), since further
+    in the same shape is mostly something else: the blank-separated spelling
+    alone on its line (an OCR'd index column) and a street address set in
+    capitals (`CIR` excepted; a heading set in capitals).
+  - **The value pass** reads a served telephone number through a bracket or
+    bar glued to its area code, or a lone letter set hard against it, bounded
+    only by digits.
+  - **A residual detector** (`contact_residuals`) reads the scrubbed text's
+    opening and its closing (as many characters at the end, where the
+    signature block and a bundled proof of service sit) once more, wherever
+    the shape pass ran, with looser shapes that withhold nothing. A document
+    it finds anything on is staged as scrubbed but recorded
+    `contact_scrubbed: false`, with the new manifest key `contact_residuals`
+    carrying the count and the run log naming it. `contact_scrub_passes` still
+    names what ran. A clean reading is a claim about those two stretches
+    alone: the middle of a document is not read, and a document the value pass
+    scrubbed alone reads `true` with no residual check run.
+
+  **The trade.** The widened shapes withhold more of every staged document
+  on a docket read as self-represented on a party side, as the shape pass
+  already does. A masked read of the spans they add (letters and digits
+  masked, no value read), over 60 documents drawn at random from those the
+  census below found gaining spans, gave 76 added spans on 55 documents (the
+  other 5 gained none once the shapes were narrowed under review). 3 were not
+  clearly contact details: two runs of OCR noise taken as a street and as a
+  box, and a numbered box named in prose. A form's numbered box
+  (`Box 12 of the W-2`) is the known cost of the bare `Box` arm.
+
+  **The census.** Read-only, over the production corpus at the pointer `main`
+  commits (blob `sha256:5d4bac58…`, `main` `3a77cf324`; newest pull stamp
+  `2026-10-17`, newest blob snapshot row `2026-07-13`; documents and the
+  latest live snapshot read from the content store), by
+  `uv run python scripts/checks/contact_scrub_residual_census.py --base
+  cbd3afa99`, which compares the scrub at `cbd3afa99` (this change's base on
+  `staging`) with this change's. It walks the 25,805 live-slice SCOTUS rows
+  on each case's latest live snapshot's reading:
+  - 9,913 cases hold documents (22,564 documents); 36 of them (100 documents)
+    have no live snapshot and are not read.
+  - 3,720 cases have documents, a live snapshot and a non-empty
+    self-represented reading: 3,574 on a party side, 146 on the `Other` list
+    alone. Their 6,927 documents would have read `contact_scrubbed: true`
+    before this change; 640 of those (all on the `Other`-only dockets) are
+    scrubbed by the value pass alone, which the detector does not read, so the
+    detector's denominator is the 6,287 shape-scrubbed documents.
+  - **Before this change**, 351 of the 6,287 (341 cases) carry a residual on
+    the opening or closing: 271 on the opening (262 cases; 238 petitions, 23
+    briefs in opposition, 9 questions-presented rows, 1 application) and 146
+    on the closing (145 cases).
+  - **After it**, 86 of the 6,287 (81 cases) still do — 41 on the opening (37
+    cases) and 54 on the closing (54 cases) — and those now read
+    `contact_scrubbed: false`.
+  - Over the whole text, which the detector does not read, 431 documents (421
+    cases) carry a residual shape before this change and 150 (145 cases)
+    after it.
+  - The scrub withholds 528 more spans across 359 documents and 23 fewer
+    across 18 where a wider span merges two, net +505.
+  - As a comparison population, the shape pass and detector over the 15,537
+    documents of the 6,157 cases read as represented, where no scrub runs,
+    flag 304 (296 cases; 78 on the opening, 264 on the closing, mostly a
+    street address the shape pass does not read there: set in capitals past
+    the opening, or in lower case): a represented filer's detail the
+    shape pass misses and a detector false positive together, an upper bound
+    on the second.
+
+  The case that prompted this entry carries no residual after the change. The
+  census was read at each case's latest snapshot, not at any cell's
+  placement, so it sizes the documents rather than any cell.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut. The pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row.** The boundary is `scrub-scanned-caption-residuals`.
+    It applies to every predictor, its reach is `self-represented dockets`,
+    and it is not gradual: provisioning reads the payload and documents
+    already stored, so the next cell provisioned on an affected docket reads
+    the change, with no back-fill needed. The row is registered **pending** in
+    the change's own PR (`fedcourts register-boundary`), under the 2026-10-14
+    merge-stamping declaration. Its `merge` and `at` are null until the
+    promotion merge that carries it to `main` stamps them with that merge's
+    SHA and committer time (`promotion-record`). Until then the row is left out
+    of `process_version.HARNESS_BOUNDARIES`, so no cell has a side of it. A
+    board built meanwhile names it under `frozen_process.pending`.
+  - **The side test** is the registered one. A stamped cell is after the change
+    if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`. A cell with no `pipeline_sha` is counted on
+    neither side, and its number is listed.
+  - **Exposure is an upper bound,** as for the earlier scrub boundaries.
+    Whether a docket reads as self-represented, and whether its documents
+    carry a shape this change reads, lives only in the corpus, so the
+    after-side `n` counts the cells that could have read the change, not the
+    cells that did.
+  - **The counting windows it falls inside.** For claude-baseline, the open
+    `proc-v9` window (opened 2026-10-11). For codex-baseline and
+    gemini-baseline, their still-open `proc-v8` windows, whose digests are
+    the ones this entry quotes under the `proc-v9` label. No window opens or
+    closes here. On the evaluator side the change is dated by this entry, not
+    partitioned: the boundary registry splits predictor cells only, and an
+    evaluate cell provisioned after the carrying merge reads the narrower text
+    under the same evaluator digests.
+
+  **What a post-change cell reads.** On an affected docket, a subset of the
+  pre-change document text and the same snapshot. Its `documents.json` rows
+  carry `contact_residuals`, and a row whose opening or closing still holds
+  a contact-shaped match reads `contact_scrubbed: false` where before it read
+  `true`. No skill movement is predicted. A movement in **either** direction
+  across this boundary may not be read as a model effect.
+
+  **What does not move.** No base rate re-prices, no membership rule moves and
+  no scored figure moves. Nothing is written to the corpus: the corpus row,
+  the content-store payload and the source PDF are untouched, and no repair
+  pass is owed, since the scrub applies at provisioning. Predict cells,
+  evaluate cells and the case-summary lane's `summary-stage` narrow the same
+  way from the carrying promotion on; existing summaries and cells already
+  run stay as they are. The committed ledger for the 262 cases with an
+  opening residual before the change carries no withheld-shape match beyond
+  one prose phrase that is not a contact detail.
+
+  **The amendment debt.** One manifest key is added that the prompt does not
+  describe, `contact_residuals`, beside the three the re-bless already owes
+  (`docs/live-sources.md`).
+
+  Carried to `main` by <FILL: promotion tag> (merge commit
+  <FILL: merge hash>, merged <FILL: merged-at>).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py tests/test_cli_provision.py -k
+    "scanned_caption or residual or prose_starts"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    six digests above;
+  - with the corpus pulled, `uv run fedcourts provision-snapshot --court
+    scotus --docket 9026000314` (with the data root pointed at a scratch
+    directory) echoes a `contact scrub:` line naming no residual, and its
+    `documents.json` petition row reads `contact_scrubbed: true` with
+    `contact_residuals` `0`.
+
+- **The statpack's interim section counts each application number once, so
+  the two OT2024 grants stored as two rows each leave the pooled interim base
+  rate's double count, 2026-10-17.** A **scoring-baseline** entry, and a
+  **conditioning** one through the same number: the provisioned statpack's
+  interim section is what interim cells anchor on, and its pooled rate is the
+  baseline their harness skill is stamped against. It moves no digest: no
+  prompt template, neither agent config and not
+  `src/fedcourtsai/process_version.py` changes, and `uv run fedcourts
+  process-digest --all` prints `proc-v9` and the same six digests before and
+  after the change. It registers one harness boundary, below. Nothing is
+  written to the corpus.
+
+  **The defect.** The corpus holds 19 strict-form (`YYAnnn`) application
+  numbers under two or more case ids, 23 rows beyond one per number. Four
+  are OT2024's, a caveat the 2026-09-30 OT2024 back-fill entry raised (naming
+  the two grants) and did not correct: `24A884`, `24A910`, `24A931` and
+  `24A1007`, each two live-polled rows under two CourtListener docket ids
+  (none in the live-minted reserved range), agreeing on every field but
+  `last_live_polled`. `24A910` and `24A931` are substantive grants, so the
+  OT2024 pool counted each grant twice; `24A884` and `24A1007` are granted
+  with an `unknown` ask and sit outside the substantive pool. The other 15
+  numbers (OT2005 2, OT2012 1, OT2013 1, OT2014 2, OT2018 1, OT2019 2,
+  OT2020 3, OT2021 2, OT2022 1) are CourtListener stubs, none live-polled or
+  application-parsed, so they inflate only the `applications` and `unparsed`
+  counts. Because neither id of any pair is live-minted, the
+  `dedupe-live-rows` pass, whose pattern is one CourtListener id beside one
+  reserved-range id, never matches them. How one number came to be keyed
+  twice upstream is not established: the census shows two CourtListener ids
+  per number and nothing about why CourtListener holds both.
+
+  **The rule.** From this entry's carrying merge, every reader that counts or
+  rates application numbers skips every row but one per number
+  (`corpus.duplicate_application_case_ids`): the statpack's interim section,
+  and with it `pipeline.base_rates.interim_base_rate`, and the interim
+  reading census, which reproduces the statpack's counts. The key is the
+  numeric `(term, serial)` pair of the strict form, case-folded and with the
+  capital annotation stripped, which is the parse the interim section's
+  Term split already reads. The counted row is chosen in two steps:
+  - a row the live channel observed (application-parsed or live-polled) is
+    preferred over one it did not, so a stub can never displace the parsed
+    row of the same number;
+  - among the rows left, the lowest numeric docket id counts, the identity
+    join's rule (`corpus.scotus_case_id_by_docket_number`) and the row
+    `dedupe-live-rows` keeps.
+
+  At this vintage no group mixes observed and unobserved rows, so every
+  counted row is also the plain lowest docket id, and the choice moves no
+  figure: the OT2024 pairs agree on every counted field and the stubs carry
+  no ask. The section now states what it left out as `duplicate_rows`, per
+  Term and pack-level. A pack built before this rule carries no such key, and
+  its absence reads as unknown, not zero. The rule skips rows on read and
+  alters none, so a later corpus merge of the groups leaves it skipping
+  nothing. `party-rates` keeps its own first-row-per-docket-number rule,
+  reading rows in `case_id` string order. At this vintage that picks the same
+  row in all 4 groups its live-slice population holds, because each pair's
+  two ids are the same width.
+
+  **What moves, at blob
+  `5d4bac58cb9b20bbc2827b08c375914f19cfddf7eb135ae48ac93c7dad3f814e`**
+  (`freshness: latest pull 2026-10-17, latest snapshot 2026-07-13`, read by
+  `scripts/checks/application_duplicates.py` from a dev checkout; the
+  pointer matched `origin/main`'s). Each figure is given with every row
+  counted, then with one row per number, at the registered lookback of 10:
+  - **The pool for OT2025 application cells** (OT2023 and OT2024) moves from
+    **36/323 = 11.15%** to **34/321 = 10.59%**.
+  - **The pool for OT2026 application cells** (OT2023 to OT2025) moves from
+    **53/549 = 9.65%** to **51/547 = 9.32%**.
+  - **The pool for OT2024 application cells** (OT2023 alone) does not move:
+    **18/127 = 14.17%**.
+  - These match the "counted by application" projections the 2026-10-12
+    OT2023 back-fill entry gave (34/321, 51/547).
+  - OT2024's interim row moves `applications` 1299 to 1295, `substantive`
+    196 to 194, `unknown` 63 to 61, `substantive_resolved` 196 to 194,
+    `substantive_granted` 18 to 16, `response_requested` 49 to 47,
+    `referred_to_court` 125 to 123 and `with_amicus` 38 to 36, and reads
+    `duplicate_rows` 4. Its own descriptive rate moves from 18/196 = 9.18%
+    to 16/194 = 8.25%.
+  - Nine earlier Terms' rows lose 1 to 5 `applications` and as many
+    `unparsed`, which they state as `duplicate_rows`; none feeds a pool.
+  - Pack level: `applications` 27847 to 27824, `substantive` 643 to 641,
+    `unknown` 196 to 194, `unparsed` 23387 to 23368, `substantive_resolved`
+    635 to 633, `substantive_granted` 62 to 60, `response_requested` 131 to
+    129, `referred_to_court` 349 to 347, `with_amicus` 101 to 99, and
+    `duplicate_rows` 23. The pack-level descriptive rate, never a baseline,
+    moves from 9.76% to 9.48%.
+  - The census confirms that `build_statpack`'s interim section at this blob
+    equals the one-row-per-number counts.
+
+  **Every stamped interim baseline on `main` carries the double count.** Read
+  at `origin/main` `4e41711ac`, 375 interim evaluation records on 37 events
+  of 18 OT2026 applications carry a stamped `segment_base_rate`. The value
+  counts below are (event, value) pairs, 44 in all, since some events were
+  graded at two values. Each value is the OT2026-cell pool of the statpack
+  current when it was stamped, read from that statpack's history on `main`:
+
+  | Stamped value | Events | Records | Pool, by row | Pool, by number |
+  | --- | --- | --- | --- | --- |
+  | 0.1333 | 6 | 54 | 30/225 (`491d1418b`) | 28/223 = 0.1256, if both twins were in it |
+  | 0.1322 | 1 | 6 | 30/227 (`8019091bc`) | 28/225 = 0.1244, if both twins were in it |
+  | 0.1047 | 31 | 261 | 31/296 (`5435f0a24`) | 29/294 = 0.0986 |
+  | 0.0965 | 6 | 54 | 53/549 (`cf9ae960e`) | 51/547 = 0.0932 |
+
+  - Both twins were in the 31/296 pool, as the 2026-09-30 entry's 12/68 by
+    application against 14/70 by row shows. The committed record cannot show
+    whether they were already in the two August pools, so those by-number
+    figures are conditional.
+  - Every pool was inflated in the same direction: two extra grants raise the
+    base rate, and a higher base rate flatters the skill of a low forecast on
+    a denial, which is most of the interim docket. For a 0.10 forecast on a
+    denial, Brier skill reads:
+    - +0.088 against 0.1047, and −0.028 against 0.0986;
+    - −0.073 against 0.0965, and −0.150 against 0.0932;
+    - +0.438 against 0.1333, and +0.366 against 0.1256.
+  - The tagged release's leaderboard (`results/ot2026-longconf`) carries
+    `interim@arrival`, `interim@response-requested` and
+    `interim@response-filed` blocks scored against these stamped values. It
+    reads its own tag and does not move, but an interim skill figure from it
+    is read against an inflated pool and quotes this direction.
+  - No committed `evaluation.json` is rewritten. A stamped cell keeps the
+    base rate it was stamped with, and a re-grade is a separate dispatch.
+
+  **Timing.** The rates move at the first statpack refresh on `main` after
+  the carrying merge. Interim skill is read keyed on the stamped
+  `segment_base_rate` value, as the 2026-10-12 entry registers, so that
+  refresh is one more dated, digest-silent break in the series, of about
+  0.006 for OT2025 cells and 0.003 for OT2026 cells. At the per-cell scale
+  above, that is a move from −0.073 to −0.150 for a 0.10 forecast on a
+  denial in an OT2026 cell. A cell provisioned before the refresh and
+  stamped after it anchored on one pool and is scored against the other, as
+  at each back-fill refresh.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The 2026-10-11
+  entry settling the pooled default's implementation choices names this
+  class: a scoring-baseline change that is also a conditioning one joins the
+  boundary registry through its conditioning half, for interim cells. This
+  change moves the statpack interim cells are provisioned with, so it joins.
+  - **The registry row.** The boundary is `interim-pool-one-row-per-number`.
+    It applies to every predictor and is **gradual**, because the input a
+    cell reads moves at the statpack refresh that follows the carrying merge,
+    not at the merge itself. That is the same shape as the registry's other
+    gradual rows, whose change reaches cells through a later pass. Its reach
+    is registered as `all`: the registry's reach vocabulary (`self-represented
+    dockets`, `granted dockets`, `all`, `replay cells`) has no interim value,
+    and a reach is printed beside the counts as scope, never applied as a
+    filter. Only interim cells read the moved section. The row is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`),
+    under the 2026-10-14 merge-stamping declaration. Its `merge` and `at` stay
+    null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before the
+    refresh still anchored on the double-counted pool, so the after-side `n`
+    is an upper bound on exposure. The anchoring side is read from the cell's
+    provisioning run id against the refresh commit's time, as the 2026-10-12
+    entry reads it.
+  - **Owed rows, not registered here.** The same 2026-10-11 bullet promised a
+    row for the 2026-09-30 OT2024 application back-fill, through the
+    same conditioning half, and the 2026-10-12 OT2023 back-fill is the same
+    class. Neither row was ever registered. Both moved interim cells' input
+    at a statpack refresh rather than at a merge: OT2024 at `ea0a1e70a`
+    (2026-10-12T21:45:55Z), OT2023 at `cf9ae960e` (2026-10-13T19:17:46Z).
+    Choosing the carrying commit that a registry row stamps is a judgement
+    this entry does not make, so they remain owed.
+
+  **What does not move.**
+  - No cert rate, no cert Term entry and no cert-stage section: the rule
+    reads application rows only.
+  - The statpack's full-corpus overview counts (`corpus_rows`, the court and
+    era sections, live-slice coverage) still count rows, as they do for the
+    bulk import's own repeated cert numbers.
+  - The arrival-cut ledger (`pipeline.arrival_cut`) still counts per row. It
+    is a provisioning diagnostic, not a rate.
+  - The salience interim reserve and moment minting do not read the skip set.
+    A pending number stored twice could take two reserve slots or two cells.
+    None does today: all 23 skipped rows carry a corpus event, but none
+    carries a committed ledger directory on `main` or `staging`, so no
+    committed prediction, outcome or evaluation names a skipped id.
+  - The 8 live-slice cert numbers held under a CourtListener id and a
+    reserved-range id (`17-1107`, `18-1109`, `19-1302`, `20-1009`, `20-1084`,
+    `21-439`, `21-511`, `21-846`) are `dedupe-live-rows`' pattern, not this
+    rule's.
+  - **The 2026-10-12 effect check's duplicate detector.** That check reads an
+    OT2023 `applications` count above 1177 as a duplicated number. Under this
+    rule a duplicate no longer raises `applications`, so the detector is
+    OT2023's `duplicate_rows`, which reads 0 at this blob.
+
+  Carried to `main` by <FILL: promotion tag> (merge commit
+  <FILL: merge hash>, merged <FILL: merged-at>). The first statpack refreshed
+  after it, at commit <FILL: refresh commit>, reads the OT2026 pool as
+  <FILL: OT2026-cell pool> and the OT2025 pool as
+  <FILL: OT2025-cell pool>.
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_statpack.py tests/test_interim_reading_census.py
+    tests/test_application_duplicates_check.py -k "once or twin or
+    duplicate or statpacks_own or census"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v9` and the
+    same six digests;
+  - after the next statpack refresh, `jq '.interim.terms[] | select(.term ==
+    2024) | [.applications, .substantive_resolved, .substantive_granted,
+    .duplicate_rows]' metrics/statpack.json` prints `[1295, 194, 16, 4]` at
+    this blob, or values that differ from it only by rows landed since;
+  - `CHECK_SUMMARY=out.md uv run python
+    scripts/checks/application_duplicates.py` over a pulled corpus reports
+    `build_statpack`'s interim section equal to the one-row-per-number counts.
+
+- **The live channel polls every two hours, and selection passes run with
+  it; recorded 2026-10-17.** A **membership-rule** entry under unchanged
+  digests: no value, digest or `salience_version` moves, but which cases enter
+  the predicted population can.
+
+  **What moved.** The `run-pull` live job runs at :47 every even hour (twelve
+  windows a day) rather than at 04, 10, 16 and 22 (four). The per-cycle caps in
+  `config/tracking.yaml`'s `live` section are re-sized for the twelve cycles
+  (`max_cases_per_run` 300 → 150, `max_overdue_per_run` 100 → 50,
+  `max_new_cases_per_run` 100 → 50, `document_freshness_per_run` 20 → 10);
+  `salience.sweep_cases_per_cycle` stays 25. The CourtListener opinion
+  enrichment still runs on the four original windows only.
+
+  **Why it is a boundary.** Selection is additive-above-N and sticky per
+  conference, and a selection pass runs in every live cycle over the pool the
+  rotation has discovered so far. Three times the passes, each over a pool
+  that fills at half the per-cycle rate, can change which cases latch and how
+  far above N a conference's realized count ends. Faster onboarding (a
+  two-hour rather than six-hour latency, and 600 rather than 400 new dockets a
+  day) also moves the arrival cohort, which is the draw intersected with the
+  cases onboarded before any distribution. The likely direction is less
+  truncation of that cohort, but nothing here measures it in advance. Neither
+  effect moves the forward/retrospective stratum of a cell already minted.
+
+  **The boundary instant** is the first scheduled live window that ran the new
+  cadence on `main`: <FILL: promotion tag, merge commit and the first
+  12-window run's id and start time>. A reading that compares realized
+  selected-versus-N counts or arrival-cohort coverage across conferences
+  either side of it reads the two regimes separately. The comparison of the
+  first conferences after it against those before it is recorded by a later
+  entry, once those conferences have been selected.

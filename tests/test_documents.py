@@ -4056,11 +4056,13 @@ def test_the_scrub_withholds_everything_any_single_shape_would(text: str) -> Non
 
 
 def test_a_listed_top_level_label_must_end_its_word() -> None:
+    # The sign glued between two runs is withheld as the address it is, but the
+    # `Co` of the next sentence is not read as its top-level label.
     text = "Contact j.doe@mail. Co-counsel filed the reply."
 
     scrubbed = scrub_contact_details(text)
 
-    assert scrubbed.text == text
+    assert scrubbed.text == f"Contact {CONTACT_PLACEHOLDER}. Co-counsel filed the reply."
 
 
 def test_a_withheld_span_gives_back_every_line_boundary_it_held() -> None:
@@ -4471,7 +4473,8 @@ def test_a_withheld_petitioner_block_keeps_the_other_lists_readings() -> None:
         "Pet. App. 100 101 1023",
         "the 100 200 3000 series",
         "Appendix\n12 101 1023\n13 102 1024\n",
-        "202 555 0147",
+        # A 3-3-4 line of its own past the opening, where an index column sets it.
+        "x" * documents_module.OPENING_WINDOW_CHARS + "\n202 555 0147\n",
         # A statute cite whose section number precedes a word that is elsewhere
         # a street type.
         "28 U. S. C. 2254 Way",
@@ -4487,6 +4490,275 @@ def test_the_scrub_leaves_the_shapes_an_extracted_filing_is_full_of(survivor: st
 
     assert scrubbed.text == survivor
     assert scrubbed.replacements == 0
+
+
+# The shapes below are the ones a scanned self-represented caption leaves
+# (scotus/9026000314 among them), each spelled with synthetic values.
+
+
+@pytest.mark.parametrize(
+    "detail",
+    [
+        # The opening parenthesis read as a letter, a bracket or a bar glued to
+        # the area code, or dropped: the closing one is the evidence.
+        "C202) 555-0147",
+        "[202) 555-0147",
+        "|202) 555-0147",
+        "202) 555-0147",
+        # Blanks inside the parentheses and around the separators.
+        "( 202 ) 555 - 0147",
+        "202 - 555 - 0147",
+        # A letter read for a digit.
+        "2O2-555-O147",
+        "(2l2) 555-0l47",
+        # A blank-separated area code before a punctuated number.
+        "202 555-0147",
+        # A blank-separated number alone on its line on the opening.
+        "202 555 0147",
+        # A letter glued to the house number, a caption set in capitals, and a
+        # street name's lower-case connectors.
+        "1234B Maple Rd.",
+        "1234 MAPLE STREET",
+        "99 Rue de la Paix Avenue",
+        "1234 Calle del Sol Way",
+        # A box with a comma, dash or zero for the initials' dots, spelled out,
+        # set in capitals, or with the initials lost.
+        "P.0. Box 4417",
+        "P.O, Box 4417",
+        "P.O.- Box 4417",
+        "Post Office Box 4417",
+        "PO BOX 4417",
+        "Box 4417",
+        # A domain broken by a blank, its dot dropped or misread, `c0m`.
+        "jane.doe@g mail .com",
+        "jane.doe@mail:com",
+        "jane.doe@mailcom",
+        "jane.doe@mail,com",
+        "jdoe99@mail-Com",
+        "jane.doe@example.c0m",
+    ],
+)
+def test_the_scrub_withholds_the_shapes_a_scanned_caption_leaves(detail: str) -> None:
+    text = f"Jane Doe, Petitioner Pro Se\n{detail}\nHouston, TX 77002\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == (
+        f"Jane Doe, Petitioner Pro Se\n{CONTACT_PLACEHOLDER}\nHouston, TX 77002\n"
+    )
+    assert scrubbed.replacements == 1
+    assert scrubbed.residuals == 0
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("Phone: 202 555 0147", f"Phone: {CONTACT_PLACEHOLDER}"),
+        ("Tel. 202 555 0147 (cell)", f"Tel. {CONTACT_PLACEHOLDER} (cell)"),
+        ("Fax 202  555  0147", f"Fax {CONTACT_PLACEHOLDER}"),
+    ],
+)
+def test_a_labelled_blank_separated_number_is_withheld_and_its_label_kept(
+    line: str, expected: str
+) -> None:
+    scrubbed = scrub_contact_details(line)
+
+    assert scrubbed.text == expected
+
+
+@pytest.mark.parametrize(
+    "survivor",
+    [
+        # A statute named by its title number: `of the` is no street connector.
+        "Title 23 of the Federal Highway Act",
+        # A capitalized citation spells the circuit as a capital `CIR`.
+        "SMITH V. JONES, 123 F.3D 456 (5TH CIR. 2019)",
+        # Prose about a street rather than an address.
+        "He lived 3 blocks down the street.",
+        # A pin cite glued to its sign has a page number, never a domain.
+        "Id.@45",
+        "Roe v. Wade, 410 U.S. @ 153 (1973)",
+        # A box without a number, and a box spelled in prose.
+        "Box A of the form",
+        "the box 12 inches wide",
+    ],
+)
+def test_the_widened_shapes_leave_legal_text_alone(survivor: str) -> None:
+    scrubbed = scrub_contact_details(survivor)
+
+    assert scrubbed.text == survivor
+    assert scrubbed.replacements == 0
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # A letter-for-digit reading never opens a match inside a word.
+        ("Call the school 555-1234", "Call the school 555-1234"),
+        ("Pool 123-4567", "Pool 123-4567"),
+        # A one-letter word before the number is a word, not the parenthesis.
+        ("a 202) 555-0147", f"a {CONTACT_PLACEHOLDER}"),
+        ("see I 202) 555-0147", f"see I {CONTACT_PLACEHOLDER}"),
+        # A docket or index number after `No.` in the blank-then-hyphen spelling.
+        ("Smith v. Jones, No. 123 456-2019 (Tex. App.)", None),
+        ("Index No 123 456-2019", None),
+        # The prison-mailbox rule names the box with no number.
+        ("he placed it in the post office box at the prison", None),
+        ("P.O. Box was empty", None),
+        # A colon is read for a domain's dot only set hard between its labels.
+        ("the court @ trial: me", None),
+    ],
+)
+def test_the_widened_shapes_stop_where_prose_starts(text: str, expected: str | None) -> None:
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == (text if expected is None else expected)
+
+
+def test_a_capitals_street_shape_is_read_on_the_opening_alone() -> None:
+    heading = "THE 2 CASES ARE ALIKE IN EVERY WAY"
+    far = "x" * documents_module.OPENING_WINDOW_CHARS + f"\n{heading}\n"
+
+    assert scrub_contact_details(far).text == far
+    # On the opening the same capitals are a caption's address line.
+    assert scrub_contact_details("1234 MAPLE STREET\n").text == f"{CONTACT_PLACEHOLDER}\n"
+
+
+def test_a_line_straddling_the_opening_is_read_whole() -> None:
+    # A line opening just before the window's edge and running past it is a
+    # longer number, not a telephone number cut at the edge.
+    text = "x" * (documents_module.OPENING_WINDOW_CHARS - 13) + "\n123 456 78901234\n"
+
+    assert scrub_contact_details(text).text == text
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("call a 202 555 0147 now", f"call a {CONTACT_PLACEHOLDER} now"),
+        ("Exhibit B 2025550147", f"Exhibit B {CONTACT_PLACEHOLDER}"),
+    ],
+)
+def test_the_value_pass_leaves_a_one_letter_word_before_the_number(
+    text: str, expected: str
+) -> None:
+    scrubbed = scrub_contact_details(text, ("(202) 555-0147",), shape=False)
+
+    assert scrubbed.text == expected
+
+
+def test_the_value_pass_reads_through_a_letter_a_scan_glued_to_the_number() -> None:
+    # A served telephone number whose parenthesis the scan read as a letter set
+    # against the digits: only a digit beside the run makes it another number.
+    text = "Jane Doe\nA2025550147\nTel2025550147\n"
+
+    scrubbed = scrub_contact_details(text, ("(202) 555-0147",), shape=False)
+
+    assert scrubbed.text == f"Jane Doe\n{CONTACT_PLACEHOLDER}\nTel{CONTACT_PLACEHOLDER}\n"
+
+
+def test_the_value_pass_does_not_take_a_number_inside_a_longer_one() -> None:
+    text = "Account 120255501470\n"
+
+    scrubbed = scrub_contact_details(text, ("202-555-0147",), shape=False)
+
+    assert scrubbed.text == text
+
+
+@pytest.mark.parametrize(
+    ("residual", "shape"),
+    [
+        # A slash-separated number, and a blank-separated one beside a name.
+        ("713/555/0147", "phone"),
+        ("Jane Doe 713 555 0147", "phone"),
+        # A street name set in lower case.
+        ("1234 maple Street", "street"),
+        # A box number in lower case.
+        ("box 4417", "box"),
+        # An address with a blank before its sign and no domain dot.
+        ("jane.doe @mail", "email"),
+        # A domain whose local part a line break took away.
+        ("jane.doe\n@mail.example.com", "email"),
+    ],
+)
+def test_a_contact_shape_the_scrub_leaves_on_the_opening_is_a_residual(
+    residual: str, shape: str
+) -> None:
+    text = f"Jane Doe, Petitioner Pro Se\n{residual}\n\nQUESTION PRESENTED\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert [name for name, _ in documents_module.contact_residual_matches(scrubbed.text)] == [shape]
+    assert scrubbed.residuals == 1
+    assert not scrubbed.clean
+
+
+def test_a_residual_in_the_middle_of_a_document_is_not_read() -> None:
+    window = documents_module.OPENING_WINDOW_CHARS
+    text = "x" * window + "\n713/555/0147\n" + "y" * window
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.residuals == 0
+    assert scrubbed.clean
+
+
+def test_a_residual_on_the_closing_is_read() -> None:
+    # The signature block and a bundled proof of service sit at the end.
+    window = documents_module.OPENING_WINDOW_CHARS
+    text = "x" * (2 * window) + "\nRespectfully submitted,\n713/555/0147\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.residuals == 1
+    assert not scrubbed.clean
+
+
+def test_the_residual_detector_runs_only_where_the_shape_pass_did() -> None:
+    # A value-only scrub (an amicus-only docket) stages counsel's filings, whose
+    # professional details the shape pass is deliberately not run over.
+    scrubbed = scrub_contact_details("Counsel\n713/555/0147\n", ("jd@example.com",), shape=False)
+
+    assert scrubbed.passes == (SCRUB_PASS_VALUE,)
+    assert scrubbed.residuals == 0
+
+
+def test_a_scrubbed_caption_leaves_no_residual() -> None:
+    # Placeholders carry none of the residual shapes, so a caption the scrub
+    # withheld in full reads clean.
+    block = (
+        "Jane Doe, Petitioner Pro Se\n"
+        + "1234B Maple Rd.\n"
+        + "Houston, TX 77002\n"
+        + "C713) 555-0147\n"
+        + "jane.doe@g mail .com\n"
+    )
+
+    scrubbed = scrub_contact_details(block)
+
+    assert scrubbed.replacements == 3
+    assert scrubbed.residuals == 0
+    assert scrubbed.clean
+
+
+@pytest.mark.parametrize(
+    "survivor",
+    [
+        # Reporter citations: a pin cite and year after the volume and page.
+        "Roe v. Wade, 410 U.S. 113, 153 (1973)",
+        # Case numbers run together or split six-and-four.
+        "No. 123456/2020",
+        "No. 2025550147",
+        "Index No. 123456-2020",
+        # A party named Lane, a state statute, and a circuit, mid-line.
+        "See Smith v. Lane, 123 F.3d 456 (5th Cir. 2019); Fla. St. 123.45",
+        # The pin cite written with the sign.
+        "He wrote to the clerk @ the Court.",
+        "42 U.S.C. § 1983; 28 U.S.C. 1254(1)",
+    ],
+)
+def test_the_residual_detector_leaves_legal_text_alone(survivor: str) -> None:
+    assert documents_module.contact_residuals(survivor) == 0
 
 
 def test_no_scrub_ever_spans_a_line_break() -> None:

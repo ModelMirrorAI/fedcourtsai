@@ -16,11 +16,12 @@ result comments, and still started only by a schedule or a dispatch.
 
 The trigger surface is therefore the trust boundary†, and the platform holds it:
 a `schedule` fires only from the **default branch**, so a cron can run only what
-a maintainer-merged promotion put on `main`; a `workflow_dispatch` is refused by
+a maintainer-approved promotion put on `main`; a `workflow_dispatch` is refused by
 GitHub to anyone without repository write, and by the run gate to any write
 holder `config/dispatchers.json` does not name; and every privileged job binds a
 deployment environment whose branch policy pins the ref it may run from (`prod`
-to `main`, `staging` to `staging`, `corpus-check` to `main`) — a job naming one
+to `main`, `staging` to `staging` and the promotion train's `promote/*`
+candidates, `corpus-check` and `corpus-check-auto` to `main`) — a job naming one
 as a literal is refused at
 the deployment gate from any other ref before a step runs, and the three
 branch-resolving workflows (`integration-test`, `run-analytics`, `summarize`) resolve an
@@ -35,8 +36,8 @@ token or role, so privilege and outside reachability stay disjoint — see
 
 | Workflow         | Trigger(s)                          | Engine(s)            |
 |------------------|-------------------------------------|----------------------|
-| `run-pull`       | daily schedules (pull + live jobs), manual dispatch (+ dispatch-only `enrich-opinions` mode) | script (no agent)    |
-| `run-seed`       | daily schedules (4 dead-zone windows), manual | script (no agent)    |
+| `run-pull`       | daily schedules (4 pull windows, 12 live windows every 2h), manual dispatch (+ dispatch-only `enrich-opinions` mode) | script (no agent)    |
+| `run-seed`       | daily schedules (4 windows), manual | script (no agent)    |
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
 | `run-evaluate`   | daily schedule (15:39 UTC), input-less manual dispatch | Claude Code + Codex + Gemini |
@@ -44,13 +45,13 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates one Buttondown draft, never sends |
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
-| `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the manual `review` release | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
+| `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
-| `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; each check runs only on the maintainer's `corpus-check` approval | script — the PR's own declared command (no agent) |
+| `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
-| `promotion-prep` | daily schedule + manual dispatch    | script (no agent)    |
+| `promotion-prep` (the promotion train) | hourly schedule (:26) + manual dispatch | script (no agent); its `gate` dispatch runs integration-test's paid suite once per candidate |
 
 † Two gates hold it, both pinned by `tests/test_workflow_auth_gate.py`. The
 **trigger** is one: the test sweeps the whole workflow directory for any trigger
@@ -101,7 +102,10 @@ readiness — each sub-block shown only once its feed exists), **spend & cost**
 (the `usage.json` ledger + Actions minutes from run durations), **agent signals**
 (the committed `flags.json` / `tooling.json` and evaluator leakage gradings,
 scoped to a recent window so old, fixed flags age out of the summary — the
-`agent-feedback` issue and the raw ledger still keep every flag), and **stale
+`agent-feedback` issue and the raw ledger still keep every flag; the flags
+table is the per-run roll-up's grouped table, with tracked themes as counts,
+and a provenance line counts the harness-written flags and the cells whose
+malformed `flags.json` was normalised), and **stale
 fan-out labels** (open issues wearing a `run:*` label, oldest first — markers
 left behind rather than queued work, since nothing keys on a label and each
 stage derives its own backlog, so the section says to clear them; deleting the
@@ -385,7 +389,7 @@ queues behind the production run of the same mode. The modes:
   byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
   by the tested `metrics-refresh-plan` command: never a
   direct commit to `main`, never auto-merged. It mints the dev App token to do
-  so; `big-cases` and `qp-topic-label` below are the only other jobs here that
+  so; `big-cases` and `qp-topic-publish` below are the only other jobs here that
   do. The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
   place by the next tick rather than stacking. It gates on the weekly cron by
@@ -458,8 +462,13 @@ queues behind the production run of the same mode. The modes:
   states stop the run in the extract job, before any model spend: a frame with
   nothing left to label outside the reference set, and one holding too little of
   the reference set to clear the publication gate's coverage floor. It is the only
-  mode that runs an agent, and therefore the only one **split across two jobs**,
-  because `corpus-readonly` exports the assumed role's credentials job-wide:
+  mode that runs an agent, and therefore the only one **split across jobs**.
+  The PR is opened by a third job, `qp-topic-publish`, which runs no agent and
+  takes only the measured labels file and the measured block, as a one-day
+  artifact: the dev App token that opens the PR also carries the App's bypass
+  of `main`'s approval rule, and a process the labeler left behind could read
+  any later step's environment in its own job. The first split is
+  there because `corpus-readonly` exports the assumed role's credentials job-wide:
   `qp-topic-extract` holds the read-only S3 role and writes the extract
   (`fedcourts qp-corpus`, under `$RUNNER_TEMP` — the command refuses an `--out`
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
@@ -518,7 +527,8 @@ summarize-plan` derives the owed cases from committed state — a case with a
 committed prediction whose newest corpus record differs, by content digest,
 from the one its newest summary was written from — so a run that was declined
 or never fired is simply re-derived by the next. Every run holds on `review`
-before it spends. The corpus role and the Anthropic API key never share
+before it spends, unless a `main` run's plan is within the auto-release caps
+and budget (*Auto-release*, below). The corpus role and the Anthropic API key never share
 a job; on `main` the result lands as one reviewed PR from the fixed branch
 `summaries/refresh`, never auto-merged, which later runs update in place until
 it merges. A `staging` dispatch is a rehearsal whose summaries stay in the run
@@ -551,12 +561,15 @@ CLIs or engine actions, the collect contract, or the corpus-consuming
 workflows and before
 releases — from main, or via the `staging` deployment environment (collect
 binds none; qp-topic binds one it never reads; the labeler smoke binds one
-and reads exactly its engine key) from the `staging` branch, which
-is the only branch that environment accepts (those runs are the promotion
-gate's freshness evidence; see *Promotion: staging → main* below). The deployment environment resolves from
-the dispatching branch by default — `main` gets `prod`, `staging` gets
-`staging`, any other branch an empty environment holding no role variables
-and no keys. Four whole-suite selections answer two questions:
+and reads exactly its engine key) from the `staging` branch or a promotion
+train candidate (`promote/<date>`), the only branches that environment accepts
+(those runs are the promotion gate's freshness evidence; see *Promotion:
+staging → main* below). The deployment environment resolves from
+the dispatching branch by default — `main` gets `prod`, `staging` and a
+`promote/` candidate get `staging`, any other branch an empty environment
+holding no role variables and no keys. Concurrency groups are keyed on the
+dispatching ref as well, so a `gate` dispatched at `staging` cannot cancel the
+train's paid `gate` run at a candidate. Four whole-suite selections answer two questions:
 
 | `scenario=` | runs | promotion-gate evidence |
 | --- | --- | --- |
@@ -609,23 +622,31 @@ it at the PR's head against the production corpus, read-only, and posts the
 result back as a comment naming the commit, the command and the corpus
 vintage. It answers ready (non-draft) same-repository PRs whose author is on
 `config/corpus-check.yaml` and commands of two forms (`uv run fedcourts …`,
-`uv run python scripts/checks/<name>.py …`), one head SHA once. How to write
-a check, what the comment carries, and what the lane gives up:
-[corpus-check.md](corpus-check.md).
+`uv run python scripts/checks/<name>.py …`), one head SHA once. A block that
+opens with `at: main` and names a `fedcourts` subcommand on the config's auto
+allowlist runs instead at `main`'s own commit, with no PR code and no
+approval, once per head and command. How to write a check, what the comment
+carries, and what the lane gives up: [corpus-check.md](corpus-check.md).
 
-Three jobs. `plan` (no credential, `main` only) stops after one listing when
+Four jobs. `plan` (no credential, `main` only) stops after one listing when
 no open PR mentions a block, plans nothing while the `corpus-check`
-environment lacks its reviewer or its `main`-only policy, and otherwise picks
-the oldest unanswered request from the open PRs and their comments and pins
-its head SHA and command, rendering both to the run summary with a comparison
-pinned to that SHA and the head commit's author, committer and signature.
+environment lacks its reviewer or its `main`-only policy, routes each
+`at: main` request auto or held (held unless the subcommand is allowlisted and
+the `corpus-check-auto` environment admits `main` alone), and picks the
+oldest unanswered auto request, else the oldest unanswered held one, pinning
+its head SHA, command and route and rendering them to the run summary with a
+comparison pinned to that SHA and the head commit's author, committer and
+signature.
 `run` binds the `corpus-check` environment — the maintainer's approval —
 assumes the read-only role, pulls the corpus at `main`'s committed pointer and
 reads its vintage, then runs the head's `uv sync --locked` (8 minutes) and the
 command (30 minutes) as a separate unprivileged account holding only the
-read-only session, without a shell, output kept off the public log. `post` (no
-environment, no PR code) posts one comment whatever became of the run, so the
-head is not planned again, and records the comment's sha256 in its run
+read-only session, without a shell, output kept off the public log.
+`run-auto` binds the reviewer-less `corpus-check-auto` environment for an auto
+request and does the same with one difference: its tree is the run's own
+commit of `main`, never the PR head, and the command's stdout is the summary.
+`post` (no environment, no PR code) posts one comment whatever became of the
+run, so the request is not planned again, and records the comment's sha256 in its run
 summary — what tells the lane's result from a comment any write holder's
 workflow could post as the same bot.
 
@@ -680,9 +701,11 @@ that repointing — is the maintainer runbook in [security.md](security.md).
 **run-seed** runs the **historical Term walker** (supremecourt.gov, budget-free),
 accumulating resolved outcomes reverse-chronologically by Term for the statpack's
 per-Term base rates and the cert back-test set. It is a corpus writer split out
-of run-pull so the backfill runs on a denser schedule (four dead-zone windows a
-day); it shares the `corpus-write` concurrency group, so it still serializes with
-run-pull's forward writers. **run-pull**'s **pull** job does targeted
+of run-pull so the backfill runs on a denser schedule (four windows a day, at
+`:31` past 02/08/14/20); it shares the `corpus-write` concurrency group, so it
+still serializes with run-pull's forward writers — each of its windows shares
+its hour with a live window, and whichever fires second waits on the lock for
+the first, with two hours before the next scheduled writer can supersede it. **run-pull**'s **pull** job does targeted
 CourtListener enrichment from the rate-limited **REST API** (the live job owns
 SCOTUS freshness for free). The opinion enrichment pass
 (`fedcourts enrich-opinions`; scope, walk order and arithmetic in
@@ -690,13 +713,15 @@ SCOTUS freshness for free). The opinion enrichment pass
 **run-pull**'s dispatch-only **enrich** job (`mode=enrich-opinions`, sized by
 the `max_cases` input) walks the granted SCOTUS backlog to its published
 opinion clusters and lands the reporter citations and opinion bodies. It is
-never scheduled, and is dispatched into a dead zone between pull windows so it
-neither queues on the corpus-write lock nor stacks API spend onto a pull
-window's. The job carries `max_cases` and nothing else: the walk orders itself
+never scheduled, and is dispatched into a quiet slot — from about `:15` past an
+odd hour without a pull window (03, 05, 09, 11, 15, 17, 21, 23) — so it neither
+queues on the corpus-write lock nor stacks API spend onto a pull window's. The job carries `max_cases` and nothing else: the walk orders itself
 ledger-first, so the cases the pipeline is waiting on reach the head without a
 dispatch naming them, and the CLI's `--case` targeting stays a local
 maintenance tool rather than a dispatch input. The **live** job runs the second
-lane on every window, one bounded step after the poll: `enrich-opinions
+lane on its four full windows a day (the `47 4,10,16,22` cron and every
+dispatch; the eight live-only windows skip it, so the two-hourly cadence never
+multiplies the spend), one bounded step after the poll: `enrich-opinions
 --awaiting-grading --max-cases 8` walks only the merits cases decided within
 the evaluate lane's opinion-hold window, so a just-decided case's body usually
 lands before the next evaluate tick (*The evaluate queue is level-triggered
@@ -780,6 +805,25 @@ records, oldest order date first, a class above `order_votes_ceiling` refused
 whole, one ledger line to the run summary), and only then mints the App token
 that pushes its `outcome.json` commit. All three jobs are continue-on-error, so
 a fetch hiccup converges next window; the sweep never replaces a record.
+
+**Every** window, not the daily one alone, runs a second split sweep beside
+the walk: the **OCR sweep** (`fedcourts ocr-recover-petitions --sweep`), the
+`ocr-recovery` pass on a schedule. A forward cell runs once, usually within
+days of the filing it reads, so a scanned filing waiting for a dispatch reaches
+its cell with no text. `ocr-sweep-projection` holds the read-only role and
+writes the window's worklist: at most `historical.sweep_caps.ocr` candidates,
+those a forward cell will read and stored in the last week first, then the
+rest rotated one cap per window. `ocr-sweep-parse` holds no credential, is the
+only scheduled job that installs `tesseract` and `pdftoppm`, and fetches and
+reads each item under a slice deadline. `ocr-sweep` waits for the walk,
+downloads the plan and the worklist by artifact id, refuses a plan naming
+anything off the worklist, writes the rest, pushes the blob, and only then
+mints the App token for the pointer commit. The plan carries filing text, so it
+would cross under a proposed carve-out in [data-sources.md](data-sources.md)
+(*PII stance*). The run's `corpus-write` lock is held until its last job ends,
+which with this sweep is at worst about 115 minutes: the projection (30) and
+parse (50) beside the walk (55), then the writer (30). A window that fires in
+that time waits in the group.
 
 Two further writer steps sit **ahead of the loop** on a dispatch-only footing —
 the `refresh_terms` cursor reset and the `refresh_dockets` targeted re-serve —
@@ -884,8 +928,8 @@ multi-respondent opposition, stored as a single row whose URL is the canonical
 join of every brief fetched into it — a set key, not a link to re-fetch. Its
 per-brief headings are themselves text, so such a row is not empty by the
 coverage report's test either: it reads as covered while carrying no argument,
-and neither surface sizes it. It is the only pass that installs a
-binary dependency, in its own gated step (`tesseract` and poppler's `pdftoppm`,
+and neither surface sizes it. It is the only pass here that installs a
+binary dependency, in its own gated step inside the credentialed corpus job (`tesseract` and poppler's `pdftoppm`,
 from the runner image's own archive), and one of the two whose bound is a
 **slice size** rather than a refusal threshold: each case costs a re-fetch and a
 page-by-page recognition, and runner minutes are the whole cost. That makes the
@@ -1065,7 +1109,8 @@ evaluate, so the pass moves no grade. Its bound is the dry run's
 Four of the passes that fetch and parse the Court's content — `opinion-votes`,
 `order-votes`, `application-backfill` and `opinion-record` — run as a
 **credential split** of three jobs (`ocr-recovery` and `document-backfill`
-also parse fetched PDFs, inside the corpus job, and are not split). `handoff-projection` holds the read-only
+also parse fetched PDFs, inside the corpus job, and are not split here;
+run-seed's OCR sweep is the split, scheduled route to the same recovery). `handoff-projection` holds the read-only
 role, pulls the corpus and writes the few public facts the parse needs;
 `handoff-parse` holds no credential at all (no environment, no `id-token`, no
 secret), fetches and parses, prints the dry-run ledger, and on an apply writes
@@ -1265,6 +1310,7 @@ quietly on a draft, an unmerged close or no PR at all), so a backlog drains in
 consecutive rounds instead of one per slot. Both are the same input-less
 dispatch a maintainer would send, on `main`, with the dispatch App
 ([security.md](security.md)); both stand down while a promotion PR is ready
+— a promotion train candidate or a hand-opened `staging` → `main` PR —
 (`fedcourts chain-step`, since the promotion gate's quiescence check fails on
 any queued, running or waiting predict round); both are off until the
 repository-level `DISPATCH_CHAIN_ENABLED` variable is `true`; and
@@ -1287,7 +1333,7 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  └─ derive the evaluate backlog (owed gradings,
                                     beside this cycle's fresh resolutions; both are
                                     reported as counts, and nothing is handed on)
-   daily ×4 → run-pull (live job) → push fresh facts to the corpus
+   daily ×12 → run-pull (live job) → push fresh facts to the corpus
                                  ├─ probe supremecourt.gov docket-number frontier
                                  │  → onboard new petitions + applications
                                  │    (per-(Term, stream) cursors)
@@ -1400,6 +1446,23 @@ guard in that choice, since a group is taken before `if:` is read. A workflow
 that gains its first environment gains both gate jobs. `tests/workflow_gate.py`
 holds the guard's exact text, and `tests/test_workflow_auth_gate.py` refuses a
 job without it.
+
+**A job that runs an agent names no App credential at all.** Every secret a
+job names is delivered to its runner when the job starts, whatever a step's
+`if:` says, and a process an agent leaves behind lives until the job ends, as
+the same user as every later step: it can recover the key, or read a later
+step's environment out of `/proc`. The dev App's token carries its bypass of
+`main`'s approval rule, so with contents write it could merge any green PR,
+and its key mints that token. So an agent job mints no App token of any
+scope, names no secret holding `PRIVATE_KEY`, and never hands over the whole
+secrets context. A Claude step that needs a GitHub token gets the job's own,
+capped by the job's `permissions` block. A lane whose agent output ends in a
+PR opens it from a separate job that runs no agent and takes the output as an
+artifact: the cell lanes' `collect`, `run-backtest`'s `publish`,
+`run-analytics`'s `qp-topic-publish`. Read the agent's bytes, and check them,
+before that job mints. `tests/test_workflow_token_holder.py` refuses any other
+shape, counting the engine-CLI install, the claude-code and codex actions and
+the codex user setup as agent steps.
 
 **A `workflow_dispatch` may declare at most 10 inputs, and the "Run workflow"
 form is where the limit bites** — inputs past it are reachable by API but the
@@ -1634,7 +1697,8 @@ The mechanics:
 - **Feature PRs target `staging`** (AGENTS.md), and the routing is enforced:
   `main`'s required checks are exactly `gate`, `paths`, `promotion-gate`, and
   **`main-base`**. `main-base` is the merge-routing jail — it runs, and fails,
-  only on a PR to `main` whose head is not `staging` or a reviewed non-feature
+  only on a PR to `main` whose head is not `staging`, a promotion train
+  candidate (`promote/…`), or a reviewed non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, and salience-replay PRs, the qp-topic
   labeling run's `qp-topics/refresh` PR, the case-summary lane's
@@ -1674,20 +1738,28 @@ The mechanics:
   already-gated main history joined with already-gated staging history.
   `promote` still checks the ancestry, and still prints the manual
   merge-and-push commands for the maintainer's admin bypass — the escape
-  hatch for a conflicting sync the schedule could not land on its own. The
-  sync defers itself while a promotion PR is open and ready for review, so it
-  never moves the head a batch in flight is being tested against; a draft is
-  `promotion-prep`'s running record of the batch, not a promotion in flight,
-  and syncs continue under it. **Ordering:** `schedule` and
+  hatch for a conflicting sync the schedule could not land on its own. A
+  promotion train candidate never holds the sync back: its head is a frozen
+  branch, so a sync cannot move it, and staging keeps taking `main` while the
+  candidate waits for review. Only a hand-opened `staging` → `main` PR, once
+  ready for review, defers the sync, since there the head *is* `staging`.
+  After a promotion merges, `main` holds a merge commit `staging` lacks; the
+  next sync brings it over, and the train cuts the next candidate only once
+  it has — when `main` holds nothing staging lacks beyond the writer lanes'
+  own commits (`data/`, `metrics/`, the corpus pointer), which arrive every
+  few hours and never ride staging. **Ordering:** `schedule` and
   `workflow_dispatch` both read the file from `main`, and the `prod`
   environment is `main`-only, so an edit to `sync-staging` takes effect only
   once it promotes.
 - **Two gates, one definition.** `scripts/promotion-gate.sh` checks
   *quiescence* (no run-predict / run-evaluate / run-backtest fan-out in
   flight — no unfinished run of any of the three, a round parked on the review
-  hold included) and *freshness* (every
-  required integration scenario green at exactly the staging head being
-  promoted — one green `scenario=gate` run, which succeeds only when every
+  hold included), *provenance* (a `promote/` head must sit on staging's
+  first-parent chain — a cut of staging, which is also what
+  `promotion-record` requires of the merge's second parent) and *freshness* (every
+  required integration scenario green at exactly the head being
+  promoted, dispatched from that head's own ref — one green `scenario=gate`
+  run, which succeeds only when every
   matrix leg and its collect job does, satisfies all twelve required runs at
   once, engine-smoke and engine-actions-smoke counted once per engine each),
   and the *process registry* (Step 0 of a process move, on every batch: the
@@ -1702,9 +1774,12 @@ The mechanics:
   history with tags).
   The `promote` dispatch runs
   it as pre-flight, the registry stage before freshness since it needs no
-  dispatch; ci.yml's `promotion-gate` job runs it as a required
-  check on the promotion PR.
-  Re-run that check right before merging — quiescence is point-in-time.
+  dispatch; the promotion train reads each stage live on every tick; ci.yml's
+  `promotion-gate` job runs it as a required check on the promotion PR, with
+  the PR's head ref (`staging` or the candidate's `promote/<date>`; the script
+  refuses any other name).
+  Re-run that check right before merging — quiescence is point-in-time (the
+  train re-fires it by a body edit when it alone stands red).
 - **The engine-smoke skip, and how far it reaches.** Waiving the six
   token-spending engine runs costs every piece of evidence that real engines
   still run at the sha being promoted: that a cell completes in the production
@@ -1745,27 +1820,63 @@ The mechanics:
   in its log, and the check annotates the PR and writes what was traded away
   into its run summary — so a batch that merged without real-engine evidence
   is legible as such from the promotion's own record.
-- **The draft.** `promotion-prep` runs daily (and on dispatch) and keeps a
-  **draft** staging→main PR in step with `staging`: the batch's feature PRs
-  and syncs, each feature PR's effect-check handover note gathered from its
-  description (`fedcourts promotion-body`) and quoted, the gate's quiescence
-  and freshness at staging's head with the next step they imply, any open
-  `main`→`staging` sync PR (armed to auto-merge, and so to move the head) and
-  any commit pushed to `staging` with no PR, and the freeze-record `<FILL:>`
-  placeholders the batch adds. It writes only between two markers in the body
-  and only while the PR is a draft, re-reading the PR just before it writes and
-  skipping the write if it was marked ready or edited meanwhile, so prose added
-  around the block survives, and once the PR is ready for review it is left
-  alone. A refresh that would change only the stamp or a gate line's counts
-  writes nothing, since every body edit re-runs CI. It opens the
-  PR with the dev App's token, because a PR a workflow opens with its own
-  token triggers no `pull_request` checks; the App bypasses nothing, so the
-  draft merges through the same required checks as a hand-opened PR.
-- **The loop.** Dispatch `promote`; it gates and prints exactly what is still
+- **The promotion train.** `promotion-prep` runs hourly (:26, and on
+  dispatch) and takes one step per tick, decided by the tested `fedcourts
+  promotion-train-step` (`src/fedcourtsai/promotion_train.py`), from a
+  **frozen candidate** rather than from `staging` itself: a branch
+  `promote/<UTC date>` (`-2`, `-3` … when the date is taken) cut at staging's
+  tip and never moved again, with a PR from it into `main`. Staging keeps
+  taking merges and syncs while the maintainer reads the batch, and neither the
+  integration evidence nor the approval — both bound to one SHA — is
+  invalidated by them. The steps, at most one per tick:
+
+  | step | when | does |
+  | --- | --- | --- |
+  | cut | no promotion PR open; staging holds `main`'s last promotion merge, and since their merge-base `main` changed nothing outside the writer lanes' paths (`data/`, `metrics/`, the corpus pointer) — so staging is synced with every promotion and its record — while staging changed something; no `promote/` branch already sits at staging's tip | create the branch at the tip (dev App) and open a **draft** PR into `main`, the batch in its body |
+  | dispatch the gate | no dispatched integration run of any title at the head and ref yet (queued, running or concluded), the registry gate passes, and the train is under its daily dispatch cap | `integration-test` `scenario=gate` at the branch — `offline-gate` under the `promote:skip-engine-smoke` label — (dispatch App), **once per head** |
+  | mark ready | green evidence at the head: the `gate` run succeeded (under the label, an `offline-gate` run), or the promotion gate's freshness stage passes there — per-scenario runs a maintainer dispatched count | mark the PR ready, request the approvers' review, refresh the body — the edit re-fires `promotion-gate` |
+  | re-fire | approved, quiescent, registry clean, freshness passing, every other required check green, `promotion-gate` red or missing — at most three times after the approval, then report | refresh the body, which re-runs `promotion-gate` |
+  | merge | an approver in `config/promotion-train.yaml` approved **exactly this head**, no change requested since (every page of the reviews), GitHub reports the PR mergeable, every required check green, the registry gate clean and no fan-out in flight, read live | merge with a **merge commit**, pinned to the head (dev App), after re-reading the PR, the reviews, quiescence and the registry just before the call |
+  | wait / report | anything else: the gate running, checks pending, mergeability not yet computed, a fan-out in flight, approval pending; or a human must act — the gate failed, an integration run the train does not recognise sits at the head, the candidate conflicts with `main`, changes requested, the registry refuses, the daily cap is reached | refresh the body's status line |
+
+  The body is the batch as before — the feature PRs and syncs, each feature
+  PR's effect-check handover note (`fedcourts promotion-body`), any commit
+  that reached staging with no PR, the freeze-record placeholders the merge
+  owes — plus the gate's stages at the head and the train's latest step. The
+  train owns the block between the markers and rewrites it only when its
+  content moves (every body edit re-runs CI); prose outside the markers is
+  the maintainer's. **The maintainer's approval of the frozen head is the
+  merge decision; the train executes it.** Merging by hand at any point is
+  still fine (merge commit). Requesting changes stops it at that head;
+  returning the PR to draft after the train marked it ready parks it there;
+  closing it stops it at that staging tip — the branch is never deleted, so a
+  branch already at the tip means the tip was cut, and the next candidate
+  waits for staging to move (reopen the PR, or open one from the branch, to
+  put it back on the train). A hand-opened `staging` → `main` PR makes the
+  train stand aside until it merges or closes; so do two candidates at once
+  or a `promote/` PR whose name the train would not have cut.
+
+  **Cost.** One paid `gate` suite per candidate — three engine-smoke cells
+  plus three boot probes, about $8 of staging's engine keys, with no review
+  hold and outside the auto-release budget. The dispatch is refused while
+  *any* dispatched integration run sits at the head, whatever its title, so a
+  title the candidate's workflow renders differently can never read as "no
+  run yet"; a failed, cancelled or unrecognised run is reported in the body
+  and **never re-dispatched**: re-run it (`gh run rerun <id> --failed`, which
+  turns the same run green in place), dispatch the per-scenario runs the
+  freshness stage accepts, or close the candidate. Across candidates the
+  train starts at most `max_gate_dispatches_per_day` suites a UTC day
+  (`config/promotion-train.yaml`, code-owned spend authority like the review
+  hold's caps); at the cap it reports and names the command. With the
+  repository-level `DISPATCH_CHAIN_ENABLED` switch off, the train dispatches
+  nothing and the body names the `gh workflow run integration-test.yml --ref
+  promote/<date> -f scenario=gate` command instead.
+- **By hand.** `promote` remains the read-only pre-flight for promoting
+  `staging` itself: dispatch it; it gates and prints exactly what is still
   needed — the sync commands when staging is behind, the scenario dispatch
   commands when freshness is unmet, or, when green, the `gh pr create` command
-  for the promotion PR, for a batch with no draft open. The workflow performs no
-  write itself. Merge promotions with a
+  for a hand-opened promotion PR. The workflow performs no write itself. Merge
+  promotions with a
   **merge commit**, never squash — `staging` and `main` must share history or
   every later sync re-merges rewritten commits.
 
@@ -1774,53 +1885,57 @@ The full path of a change, operator's view:
 1. Branch off `staging`, work, run the relevant gate stages and reviewers,
    open the PR against `staging`; review and merge. The change is now staged
    but **not live** — production jobs execute from `main`.
-2. When a batch is worth promoting: dispatch `promote`; if it asks, run the
-   sync — dispatch `sync-staging` and let its PR land, or, if that PR
+2. Nothing to dispatch: within an hour of the next sync, the promotion train
+   cuts a `promote/<date>` candidate at staging's tip, opens its draft PR,
+   dispatches the integration `gate` at it, and, once that is green, marks it
+   ready and requests your review. Leave `docket` empty on any dispatch of
+   your own: the run-time case resolver self-resolves on the seeded staging
+   slice as it does on production (the staging-corpus runbook in
+   [security.md](security.md) says which cases the slice holds).
+
+   **The dispatch chain stands down by itself.** Quiescence fails on any
+   queued, running or waiting `run-predict`, and a chained round can start at
+   any pull window. Both chain jobs dispatch nothing while a promotion is
+   about to merge — a candidate that is ready *and* approved at its head, or
+   a hand-opened `staging` → `main` PR that is ready — so a candidate waiting
+   days for review does not stop the chain, and once approved the train finds
+   a gap between scheduled rounds and merges in it. For a longer
+   quiet window, set the `DISPATCH_CHAIN_ENABLED` variable to `false` — which
+   also stops the train dispatching its `gate` — and restore it after the
+   merge.
+3. Read the candidate PR: the batch, its stated effect checks, the gate's
+   stages. Approve it to promote; request changes or close it to stop. The
+   train dispatches its suite at the first tick after the cut, so the
+   `promote:skip-engine-smoke` label (*The engine-smoke skip* above) does two
+   different things depending on when it lands. On the draft before that
+   tick — the cut's tick opens it, the next one dispatches — it makes the
+   train dispatch the token-free `offline-gate` instead of the paid `gate`.
+   After a paid `gate` failed for an engine-side reason on a cell-inert batch,
+   it lets you dispatch `offline-gate` at the candidate yourself (`gh workflow
+   run integration-test.yml --ref promote/<date> -f scenario=offline-gate`);
+   the train and the required check both accept that run under the label.
+4. The train merges at the next tick on which everything holds (or merge it
+   yourself, with a merge commit). Its body says what it waits for.
+
+   **Promoting `staging` by hand instead.** Dispatch `promote`; if it asks,
+   run the sync — dispatch `sync-staging` and let its PR land, or, if that PR
    conflicts, run the printed commands (your admin-bypass push) — then
-   re-dispatch.
-3. **Mark the promotion PR ready before any integration dispatch.** Open
-   `promotion-prep`'s draft (or, with none open, open one by hand:
-   `gh pr create --base main --head staging --draft …`) and mark it **ready
-   for review**. That stops the daily refresh and, more to the point, the
-   syncs, which would otherwise move the head under the per-SHA evidence the
-   next step pays for. Marking ready stops a *new* sync only: a sync PR that
-   is already open and armed still auto-merges when its checks pass, so let
-   any open `main`→`staging` sync PR land (or close it) first — the draft's
-   generated block names one when it sees it. Marking it ready does not re-run
-   `promotion-gate` (ci.yml does not trigger on `ready_for_review`); step 5
-   re-fires it.
-4. Dispatch the required integration scenarios at staging's post-sync head —
-   one `gh workflow run integration-test.yml --ref staging -f scenario=gate`
-   covers the whole suite, or per-scenario runs add up to it (the summary
-   prints both forms) — then re-dispatch `promote`. An `all` run is not
-   evidence, however green: dispatch `gate` even when `all` already ran at the
-   head. **Pay for `gate` once per batch, at the head the batch will actually
-   promote**: after the sync has landed and after every staging merge the
-   batch carries. Freshness is per-SHA, so a head that moves afterwards
-   discards the evidence and not the spend — three engine-smoke cells plus
-   three boot probes, re-paid at the new head. Everyday dispatches want the
-   default instead: `gh workflow run integration-test.yml --ref staging` with
-   no `scenario` runs the token-free `offline-gate` suite, which exercises
-   every required scenario but the six engine legs.
-   Leave `docket` empty: the run-time case resolver self-resolves on the seeded
-   staging slice as it does on production, falling back to a content-store probe
-   where the split-on slice's blob carries no snapshot rows, and the plan job
-   echoes its subject to the run summary. Pin a case (`-f court=scotus -f
-   docket=<slice member>`) only to aim a dispatch at one; the staging-corpus
-   runbook in [security.md](security.md) says which cases the slice holds.
-   On a cell-inert batch, `promote -f skip_engine_smoke=true` first: it prints
-   the `offline-gate` form and tells you whether anything *else* is missing
-   before you pay for the engine legs, which step 5 still needs.
+   re-dispatch. **Mark the promotion PR ready before any integration
+   dispatch**: open it (`gh pr create --base main --head staging --draft …`)
+   and mark it **ready for review**, which stops the syncs that would
+   otherwise move the head under the per-SHA evidence the next step pays for —
+   a sync PR already open and armed still auto-merges, so let it land (or
+   close it) first. Then dispatch `gh workflow run integration-test.yml --ref
+   staging -f scenario=gate` at the post-sync head — **once per batch, at the
+   head the batch will actually promote**, since freshness is per-SHA and a
+   head that moves afterwards discards the evidence and not the spend — and
+   re-dispatch `promote`. An `all` run is not evidence, however green.
+   Everyday dispatches want the default instead: `gh workflow run
+   integration-test.yml --ref staging` with no `scenario` runs the token-free
+   `offline-gate` suite.
 
-   **Quiet the dispatch chain first.** Quiescence fails on any queued,
-   running or waiting `run-predict`, and a chained round can start at any
-   pull window. Both chain jobs dispatch nothing while a ready, same-repo
-   `staging` → `main` PR is open, so open the promotion PR (or mark its draft
-   ready) before this step, and let any round already running finish. For a
-   longer quiet window, set the `DISPATCH_CHAIN_ENABLED` variable to `false`
-   and restore it after the merge.
-
-   **When the head moves after a green `gate`.** The gate's rule is
+   **When the head moves after a green `gate`** (a hand promotion only — a
+   candidate's head never moves). The gate's rule is
    mechanical and does not read the delta: the green `gate` run sits at the
    old sha, so at the new one nothing satisfies the twelve, and the choice is
    to re-dispatch `gate` or to dispatch `offline-gate` at the new head and take
@@ -1837,14 +1952,14 @@ The full path of a change, operator's view:
    that is precisely the evidence the skip trades away, and an action version
    bump is the class it breaks silently (*The engine-smoke skip* above).
 5. On the promotion PR, now ready, its `promotion-gate` check re-verifies
-   quiescence + freshness. The body already lists the batch's **stated
-   effect checks** — what should be true once it is live and the command that
-   shows it — gathered from the feature PRs' handover notes (AGENTS.md asks
-   each for one), and names any PR that left none; write the missing ones,
-   and any narrative, outside the generated block (or on the feature PR,
-   before marking ready, for the next refresh to pick up). Edit the body once
-   after the integration run is green to re-fire `promotion-gate`. Re-run the
-   check right before merging, and merge with a **merge commit**. The
+   quiescence, provenance and freshness. The body already lists the batch's
+   **stated effect checks** — what should be true once it is live and the
+   command that shows it — gathered from the feature PRs' handover notes
+   (AGENTS.md asks each for one), and names any PR that left none; write the
+   missing ones, and any narrative, outside the generated block. On a hand
+   promotion, edit the body once after the integration run is green to
+   re-fire `promotion-gate`, re-run the check right before merging, and merge
+   with a **merge commit**; the train does both for its candidates. The
    `promotion-record` workflow then tags the merge commit
    `promotion/<YYYY-MM-DD>` (`-2` for a same-day second batch — the *Tags*
    subsection below), stamps any process registration the batch carried —
@@ -1853,8 +1968,8 @@ The full path of a change, operator's view:
    (docs/process-version.md, *Freezing*) — fills the closed-key placeholders
    the merge added, and comments on the PR with whatever it left for a maintainer — free-text
    placeholders, and stale ones an earlier merge carried. A merge it refuses
-   (a hand-written fill that rewrapped a landed placeholder, say) opens a
-   `promotion-record-log` issue. If that merge carried a registration, its
+   (a hand-written fill that rewrapped the prose around a landed
+   placeholder, say) opens a `promotion-record-log` issue. If that merge carried a registration, its
    rows stay pending — never stamp them by hand: fix the cause and re-dispatch
    `gh workflow run promotion-record.yml --ref main -f merge=<merge SHA>`.
    Until the stamp lands, Step 0's pending-on-`main` check refuses every later
@@ -1886,10 +2001,21 @@ status check* procedure below clears it, `main-base` — to `main`'s required
 checks alongside `gate` and `paths`. Each reports `skipped`, which satisfies
 the requirement, on every PR it does not gate; requiring a context before its
 producing job reaches `main` strands every unattended collect PR, which is
-what the procedure's ordering prevents.
+what the procedure's ordering prevents. For the promotion train, **in this
+order**: (1) the two `promote:` branch rulesets (creation by the dev App
+alone; no update, force-push or deletion but by the admin role), and
+`scripts/promotion-gate.sh contexts` green with an admin token; (2) only then
+`promote/*` added to the `staging` environment's deployment branches —
+before the creation ruleset holds, any write holder could push a
+`promote/x` branch whose own `on: push` workflow binds `staging`; (3) the
+dev App checked to hold no Workflows permission, the dispatch App's Actions
+write (already granted), and `config/promotion-train.yaml` naming the
+approver and the daily dispatch cap (docs/security.md carries each, and the
+case-sensitivity check the first setup owes). Close any draft `staging` →
+`main` PR left open, or the train stands aside behind it.
 
 The `staging` *deployment environment* the freshness runs deploy to
-(deployment branches restricted to `staging`, the read-only and staging
+(deployment branches restricted to `staging` and `promote/*`, the read-only and staging
 read-write role trusts, per-environment engine keys) is separate wiring,
 described in docs/security.md.
 
@@ -1989,8 +2115,11 @@ fails if a control docs/security.md records is missing or weaker (`fedcourts
 assert-rulesets`): `main: require approval`'s approval from the maintainers
 team, stale-approval dismissal, merge methods and bypass list; `staging:
 require PR`'s code-owner review, with most-recent-push approval off; the three
-record tag namespaces' update, deletion and creation rules; and each of those
-rulesets' targets and bypass lists. It is **not** part
+record tag namespaces' update, deletion and creation rules; the promotion
+train's `promote/**` creation, update, deletion and force-push rules, with only
+the dev App (and the admin role) able to create a candidate and no App able to
+move one; and each of those rulesets' targets and bypass lists. It also checks
+that the `staging` environment admits `staging` and no branch but `promote/*`. It is **not** part
 of `promotion-gate.sh all`: reading a ruleset
 needs repository-administration read, which `GITHUB_TOKEN` cannot hold at all,
 so automating it would mean handing a CI job the repo's most powerful scope to
@@ -2183,37 +2312,66 @@ events were each minted before the other spent, and releasing both
 double-spends the overlap. The two plan reports make the overlap visible
 before either release, each on its own run's step summary.
 
-**Auto-release.** A predict round can skip the wait. Its plan job runs `fedcourts
-hold-decision` over the plan document the report renders and the matrix the
-round minted. A round auto-releases, binding the reviewer-less `review-auto`
-environment instead of `review`, when three things hold:
+**Auto-release.** A predict, evaluate or summarize round can skip the wait;
+the back-test cannot. Its plan job runs `fedcourts hold-decision --seam
+<lane>` over the plan document the report renders, the matrix the round minted
+(predict and evaluate; a summarize run has none, because its generate job runs
+the plan itself) and the committed spend ledger in its checkout. A round
+auto-releases, binding the reviewer-less `review-auto` environment instead of
+`review`, when four things hold:
 - the matrix holds exactly the plan's would-mint cells, so the price is the
-  price of what runs;
-- the larger of the plan's estimate and the matrix's own cells at the planning
-  rates is within `auto_release_usd_per_round` (`config/review-hold.yaml`);
-- fewer than `auto_release_rounds_per_day` rounds were auto-released in the
-  trailing 24 hours.
+  price of what runs (predict and evaluate);
+- the round's price is within `auto_release_usd_per_round`
+  (`config/review-hold.yaml`): the larger of the plan's estimate and the
+  matrix's own cells at the planning rates for that seam, or a summarize
+  plan's upper estimate (`estimated_cost_usd_high`);
+- fewer than `auto_release_rounds_per_day` rounds, across the three lanes
+  together, were auto-released in the trailing 24 hours;
+- measured spend over the `spend` backstop's trailing window, plus the
+  in-flight bound, plus this round's price, is within
+  `auto_release_budget_usd`. Measured spend is every committed `usage.json`
+  plus the usage each committed case summary's front matter records; the
+  in-flight bound is the rounds auto-released in the last 24 hours times the
+  per-round cap, standing in for released spend whose collect PR has not
+  landed yet. The run's summary prints the sum term by term.
 
 The daily count is the larger of two records: the round's deployment to
-`review-auto`, and its ready collect commit on `main`, which collect marks
-`[auto-released]`. A write holder could prune the first or edit an unmerged
-collect PR, but not `main`'s history. The `spend` backstop, read from the
-committed ledger, stays behind both. It is an ex-post bound that lags the
-ledger, so the two caps' product, which bounds *estimated* spend, is the only
-bound that applies before a round spends. Both caps start at 0, which disables
-it, and the decision fails closed: an unreadable count, a missing or mismatched
-matrix, or a plan with no estimate keeps the hold. The caps, the planning rates
-and the decision code are maintainer-owned. Lowering a cap rides a promotion,
-so the emergency stop is a required reviewer on the `review-auto` environment:
-it takes effect at the next round, without a commit, and every round then waits
-as if held. The `DISPATCH_CHAIN_ENABLED` variable is no substitute, because
-`false` stops only the chaining and a scheduled round still auto-releases. The staleness rule above does not bite on
-this path, because the plan is released minutes after it is minted; what keeps
-a following round from re-planning this one's cells is the stranded-run guard,
-and the `chain` job's wait for the collect PR to merge. The plan report and a
-*Hold and drain* line on the run's summary record what was released and why,
-so an auto-released round reads like a held one afterwards. Evaluate and the
-back-test have no auto-release; every round of theirs waits on the hold. A
+`review-auto`, which all three lanes share, and its commit on `main`, which
+carries the `[auto-released]` mark: collect marks a predict or evaluate
+round's ready commit, and summarize's publish step marks its commit, whose
+subject names the Actions run. A write holder could prune the first or edit an
+unmerged PR, but not `main`'s history. The summaries branch is rebuilt each
+run and its PR merges only on a maintainer's review, so for that lane the
+committed record lags and the deployment count is what binds.
+
+The budget is a projection over a ledger that lags, so it is a floor on
+spend, not a live figure: a round a maintainer released by hand and whose
+collect PR has not landed, an auto-released round whose collect PR is still
+open more than 24 hours on, a summaries PR still open (except to the summarize
+plan, which carries that PR's summaries and counts them), and a rejected
+summary response's tokens are all invisible to it. That is why the budget must sit
+below the `spend` backstop's ceiling (`tracking.yaml`): the backstop stops
+minting outright, and the budget stops only the *unattended* release, leaving
+the gap between the two for rounds a maintainer chooses to release. A budget at
+or above the ceiling, or a backstop at 0, keeps every round on the hold with
+that reason named rather than adopting the budget. Any knob at 0 disables
+auto-release, and the decision fails closed: an unreadable count or ledger, a
+missing or mismatched matrix, or a plan with no estimate keeps the hold. The
+knobs, the planning rates and the decision code are maintainer-owned. Lowering
+a knob rides a promotion, so the emergency stop is a required reviewer on the
+`review-auto` environment: it takes effect at the next round of every lane,
+without a commit, and every round then waits as if held. The
+`DISPATCH_CHAIN_ENABLED` variable is no substitute, because `false` stops only
+predict's chaining and a scheduled round still auto-releases. The staleness
+rule above does not bite on this path, because the plan is released minutes
+after it is minted; what keeps a following predict round from re-planning this
+one's cells is the stranded-run guard and the `chain` job's wait for the
+collect PR to merge, and what keeps evaluate and summarize from re-planning
+theirs is their own serializing group and plan-time gates. The plan report and
+a *Hold* block on the run's summary (*Hold and drain* on predict) record what
+was released and why, so an auto-released round reads like a held one
+afterwards. The back-test has no auto-release; every one of its rounds waits on
+the hold. A
 rejected hold is an unsatisfied-gate report, not an incident — but unlike
 `promote`, whose failures the ops report annotates as gate reports, the
 report cannot distinguish a rejected hold from a real fan-out failure,
@@ -2346,8 +2504,13 @@ tree on unequal terms, with the harness watching only for stray *writes*. The
 kickoff already tells every off-ledger cell not to read or write under `data/`
 at all; `run-backtest` makes that structural by deleting `data/cases` before
 the cells run and restoring it **from the commit** afterwards, asserting the
-path pristine. The restore lands before the salience-gate arm and the review PR
-step, which run in the same checkout. The measurement loses nothing by it: the
+path pristine. The restore lands before the salience-gate arm, which runs in
+the same checkout, and before the report is handed off. Only the arm's one
+report crosses to the `publish` job, as a regular file in a one-day artifact;
+`publish` overlays it on its own checkout, requires the tree to differ from
+the commit at that path alone, and scans the change and the PR prose for
+secrets before it mints the token that opens the review PR. The measurement
+loses nothing by it: the
 population, the snapshots and the outcomes the replay scores against all come
 from the corpus, and every cell is provisioned under `--work-dir`. The
 misplaced-write probe is unaffected — an engine following the prompt template's
@@ -2382,10 +2545,10 @@ the petitions the replay can draw, and it names them beside their outcomes:
 each resolved event in the JSON carries `actual_disposition`, and in both
 files a case's moment names its newest predicted event, where a merits moment
 discloses the grant the way a merits event in the ledger does. Nothing the
-replay runs reads either file. The review PR step stages all of `metrics/`, so
-the board comes back from the commit, asserted pristine, before the
-salience-gate arm and that step run, and its removal never reaches what the PR
-commits. The standing `metrics/cert-backtest.json` is withheld by
+replay runs reads either file. The salience-gate arm writes under `metrics/`
+in the same checkout, so the board comes back from the commit, asserted
+pristine, before that arm runs; and since only the arm's own report crosses
+to `publish`, its removal never reaches what the PR commits. The standing `metrics/cert-backtest.json` is withheld by
 `cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)).
 
 Two residuals ride that fence, and both are the reason it is described as
@@ -2477,11 +2640,11 @@ now says plainly what the artifact used to hide. The stamp also appends a
 into the run PR body, the Actions summary, and the agent-feedback issue rather
 than living only in the artifact — unless the run's secret scan hits, which
 withholds the whole flag roll-up. It is a harness-authored note in a channel
-that is otherwise the agent's, and its `Harness tripwire:` prefix is what
-separates the two by eye — a reading aid, not a signature. `flags.json` is the
-cell's own file and a flag carries no author, so an agent can open one with
-those words too, and the job log is unauthenticated stdout that carries
-whatever a step printed. The one surface here that is the harness's word and
+that is otherwise the agent's, marked `source: harness` for the roll-up, and its
+`Harness tripwire:` prefix is what separates the two by eye — a reading aid,
+not a signature. `flags.json` is the cell's own file, so an agent can write
+that `source` and open a flag with those words too, and the job log is
+unauthenticated stdout that carries whatever a step printed. The one surface here that is the harness's word and
 no agent's is `context.snapshot_uptake` on the committed `prediction.json`,
 which the stamp overwrites from the provisioned file. What the `::warning::`
 annotation adds is not provenance but timing: it is emitted before the note is
@@ -2709,6 +2872,15 @@ gated on the run's secret scan, since flag messages are agent free text — the 
 body, the Actions summary, and one long-lived **agent-feedback** tracking issue (the
 single latched-issue pattern of `data-validation` / `pipeline-health`) — so a note
 reaches a durable, centralized home even when a fully-failed run opens no PR.
+The roll-up groups flags by case, event, source and theme, one row per group
+naming every actor who raised it. The theme is the tracked theme a flag
+matches in `src/fedcourtsai/flag_themes.json`, and otherwise its category. An
+agent flag on a tracked theme is counted against its issue rather than listed;
+a `blocker` or `normalised` flag is always listed, and a harness note is never
+counted as tracked. Nothing checks that a mapped issue is still open, so a
+theme is retired from the map when its issue closes. A flag file that does not
+validate is normalised, not skipped, and the tally counts its cell (*`flags.json`*
+in [predicted-artifacts.md](predicted-artifacts.md)).
 It also reads the run's own harness-captured `retrieval_log.json` files and, if
 any cell's manifest-tool results came back rate-limited, warns in the same PR
 body that the shared upstream quota starved this run's retrieval — how many
@@ -2922,8 +3094,10 @@ evaluator always scores every committed prediction for its event.
 
 `run-pull` records `outcome.json` itself only when a decided docket is
 unambiguous (a machine-readable disposition, a decision date, and a single open
-event). Everything else — an unreadable/absent disposition, no decision date, or
-a case-level disposition that cannot be attributed across several open events —
+event). Everything else — an unreadable/absent disposition, no decision date, a
+case-level disposition that cannot be attributed across several open events, or
+a moment detection refuses to attribute to (one opened after the decision, or
+one opened under another petition than its re-docketed number now carries) —
 becomes an **unrecorded outcome** (it does not guess): the case lands on the
 runner-local unrecorded queue (`unrecorded-queue.json`, the `UnrecordedOutcome`
 detection in the library) instead of the git ledger. No issue is filed for
@@ -3010,8 +3184,8 @@ executes the ref the run was dispatched at — the scanner it ran included —
 so it re-trips the same rule regardless of what has landed since. The
 remedies are to **salvage by hand** — extract each withheld cell's run-scoped
 output from the artifacts into a data PR before the artifacts' 7-day
-retention lapses (the maintainer merges it, like every non-collect merge to
-`main`) — or to **let a later round re-derive the cells and accept the
+retention lapses (the maintainer merges it: no lane merges a hand-built data
+PR) — or to **let a later round re-derive the cells and accept the
 re-spend**. On **predict** the stranded-run guard holds that decision open for
 the case where the withhold left the run with **no branch at all**: matching no
 collect PR is what the guard reads as a withheld collect, so it withholds that
@@ -3136,7 +3310,10 @@ The telemetry log stays in place across attempts — gemini-cli opens it for
 append — so `usage.json` and `retrieval_log.json` count every attempt's tokens
 and tool calls, failed turns included. The step's exit status is its last
 attempt's, and each non-`ok` attempt leaves a `::warning::` naming the cell, the
-verdict and, where the result names one, the engine's fault type. A cell that
+verdict and, where the engine reported one, its fault in one screened line
+after `engine said:` (`fedcourts engine-attempt-fault`): the result's error,
+else the error object a failed exit leaves on stderr, else stderr's last
+non-frame line. A cell that
 still lands nothing is named by its record step in a `::warning::` too, beside
 the failure fact the collect job records against its attempt cap (`no_output`,
 or `quota` when the whole engine produced nothing); the job stays green, as
@@ -3519,7 +3696,8 @@ mints nothing that cycle, and since the stamp-free deriver re-derives the same
 head every cycle, counting it would starve every other owed grading for the
 whole window. What usually ends a hold early is the live job's scoped
 enrichment step (`enrich-opinions --awaiting-grading`, above), which fetches the
-body within hours of the latch and retries each window until it lands. The hold
+body within hours of the latch and retries each full live window (four a day)
+until it lands. The hold
 moves *when* a decided merits event is first graded, never what it is graded
 against; its pre-registration standing is a dated entry in
 [freeze-record.md](freeze-record.md).
@@ -3592,7 +3770,8 @@ backfill:
 **The hold, not the enable, is the spend gate.** A resuming round starts
 at the plan job, which renders a fresh plan report, and the matrix waits behind
 the approval job on the `review` environment's required reviewers — or, for a
-predict round within the auto-release caps, binds `review-auto` at once. So a
+predict, evaluate or summarize round within the auto-release caps and budget,
+binds `review-auto` at once. So a
 recovery cannot leak spend past the hold or those caps, and the fresh plan re-anchors the
 already-predicted gate and the stranded-run guard exactly as the review-hold
 rules above require. Two outcomes of that first round back are the machinery

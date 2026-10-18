@@ -23,6 +23,7 @@ from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline import runner as runner_module
 from fedcourtsai.pipeline.runner import (
     DRAIN_CUTOFF_NOTICE,
+    FAULT_TEXT_MAX,
     AttemptClass,
     ClaudeCodeRunner,
     CodexRunner,
@@ -41,6 +42,7 @@ from fedcourtsai.pipeline.runner import (
     _run_subprocess,
     _run_subprocess_capturing,
     classify_engine_attempt,
+    engine_attempt_fault,
     engine_result_error,
     get_runner,
     run_piped,
@@ -752,6 +754,8 @@ def test_retry_after_hint_is_capped_at_backoff_max(tmp_path: Path) -> None:
         "the request timed out",
         "deadline exceeded",
         "Connection reset by peer",
+        # Node's fetch losing the model call, as the gemini CLI reports it.
+        "TypeError: fetch failed",
         # Gemini's INVALID_STREAM envelope, as the CLI writes it on exit.
         '{"error":{"type":"INVALID_STREAM","message":"Invalid stream: The model '
         + 'returned an empty response or malformed tool call."}}',
@@ -797,6 +801,12 @@ _INVALID_STREAM_RESULT = (
 )
 
 
+_FETCH_FAILED_RESULT = (
+    '{"session_id": "s", "error": {"type": "Error", "message": '
+    + '"exception TypeError: fetch failed sending request", "code": 1}}'
+)
+
+
 @pytest.mark.parametrize(
     ("returncode", "stdout", "stderr", "expected"),
     [
@@ -821,6 +831,18 @@ _INVALID_STREAM_RESULT = (
         (1, "", "", AttemptClass.permanent),
         # … plus the result's error, when the CLI wrote one.
         (1, _INVALID_STREAM_RESULT, "", AttemptClass.transient),
+        # A model call the network dropped (run-predict's gemini cells on
+        # 2026-10-17, abridged to the fields the classifier reads).
+        (1, _FETCH_FAILED_RESULT, "", AttemptClass.transient),
+        # The same fault as the CLI actually left it on a failed exit: the stack
+        # and the error object on stderr, nothing parseable on stdout.
+        (
+            1,
+            "",
+            "    at async GeminiChat.makeApiCallAndProcessStream (chunk.js:321564:28)\n"
+            + _FETCH_FAILED_RESULT,
+            AttemptClass.transient,
+        ),
         # A spent quota overrides the throttle words it carries, on either surface.
         (
             1,
@@ -848,6 +870,7 @@ def test_classify_engine_attempt(
         "HTTP 429 Too Many Requests",
         "503 Service Unavailable",
         "connection reset",
+        "TypeError: fetch failed",
         "TerminalQuotaError: exhausted your daily quota 429",
         "context length exceeded",
         "",
@@ -1608,3 +1631,74 @@ def test_stub_input_snapshot_falls_back_to_the_run_id_day(tmp_path: Path) -> Non
     )
 
     assert _input_snapshot(request).endswith("record/snapshots/2026-04-01.json")
+
+
+@pytest.mark.parametrize(
+    ("stdout", "stderr", "expected"),
+    [
+        # The result's error, type and message.
+        (
+            '{"error": {"type": "INVALID_STREAM", "message": "Invalid stream."}}',
+            "",
+            "INVALID_STREAM: Invalid stream.",
+        ),
+        # A failed exit's object on stderr, after the stack.
+        (
+            "",
+            "    at async Turn.run (chunk.js:1:2)\n"
+            + '{\n  "session_id": "s",\n  "error": {"type": "Error", '
+            + '"message": "exception TypeError: fetch failed sending request"}\n}',
+            "Error: exception TypeError: fetch failed sending request",
+        ),
+        # No object anywhere: stderr's last line that is not a stack frame.
+        (
+            "",
+            "API error: request exceeds the context length\n    at x (y.js:1:2)\n",
+            "API error: request exceeds the context length",
+        ),
+        # Credential shapes the harness's scan names go, short and dotted ones
+        # too, with the scan's marker naming the shape (the brackets screened).
+        (
+            "",
+            "denied for key=" + "AIza" + "Sy" + "0" * 33 + " 100%",
+            "denied for key redacted:google-key 100",
+        ),
+        ("", "id " + "AKIA" + "IOSFODNN7EXAMPLE" + " refused", "id redacted:aws-key-id refused"),
+        # A long run no named shape covers still goes.
+        ("", "session " + "q" * 30 + " lost", "session REDACTED lost"),
+        # Unsafe characters go, the step's own punctuation among them.
+        ("", "<b>`boom`</b> (x); y", "b boom /b x y"),
+        # A real message that opens with "at" is not a stack frame.
+        ("", "at capacity: model overloaded", "at capacity: model overloaded"),
+        # Node's fetch failure with a cause ends on braces; the last line that
+        # still says something is named.
+        (
+            "",
+            "TypeError: fetch failed\n"
+            + "    at node:internal/deps/undici:1:1 {\n"
+            + "  [cause]: ConnectTimeoutError: Connect Timeout Error\n"
+            + "      at onConnectTimeout (x.js:1:1) {\n"
+            + "    code: 'UND_ERR_CONNECT_TIMEOUT'\n"
+            + "  }\n"
+            + "}\n",
+            "code: 'UND_ERR_CONNECT_TIMEOUT'",
+        ),
+        # The error object is found though a later {-line follows it.
+        (
+            "",
+            '{"error": {"type": "Error", "message": "fetch failed"}}\n{"level": "warn"}',
+            "Error: fetch failed",
+        ),
+        ("", "", None),
+        ("not json", "    at only (a.js:1:1)", None),
+    ],
+)
+def test_engine_attempt_fault(stdout: str, stderr: str, expected: str | None) -> None:
+    assert engine_attempt_fault(stdout, stderr) == expected
+
+
+def test_engine_attempt_fault_is_cut_at_its_bound() -> None:
+    fault = engine_attempt_fault("", "word " * 100)
+    assert fault is not None
+    assert len(fault) <= FAULT_TEXT_MAX
+    assert fault.endswith("...")

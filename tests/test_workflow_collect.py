@@ -133,22 +133,21 @@ def test_the_two_call_sites_differ_only_by_role() -> None:
     assert "needs.approval.result == 'success'" in evaluate_if
     assert predict_if == evaluate_if
 
-    # The delegating step differs only in `role` and, on predict alone, the
-    # auto-released mark the review hold's daily cap is counted from (evaluate
-    # has no auto-release, so it leaves the input at its `false` default).
-    # Normalize both out, then the two jobs must be byte-equal — setup steps,
-    # permissions, timeout, everything.
+    # The delegating step differs only in `role`. Both pass the auto-released
+    # mark the review hold's daily cap is counted from, from their own plan's
+    # decision. Normalize the role out, then the two jobs must be byte-equal —
+    # setup steps, permissions, timeout, everything.
     def _call(job: dict[str, Any]) -> dict[str, Any]:
         call = next(s for s in _steps(job) if s.get("uses", "").endswith("collect-run"))
         assert isinstance(call, dict)
         return call
 
-    assert _call(predict)["with"]["auto-released"] == "${{ needs.plan.outputs.auto_release }}"
-    assert "auto-released" not in _call(evaluate)["with"]
+    for job in (predict, evaluate):
+        assert _call(job)["with"]["auto-released"] == "${{ needs.plan.outputs.auto_release }}"
 
     def _normalized(job: dict[str, Any]) -> dict[str, Any]:
         call = _call(job)
-        call["with"] = {k: v for k, v in call["with"].items() if k not in {"role", "auto-released"}}
+        call["with"] = {k: v for k, v in call["with"].items() if k != "role"}
         return job
 
     assert _normalized(predict) == _normalized(evaluate), (

@@ -20,23 +20,24 @@ name: run-predict
 # `chain` job, when a cap stopped a round short of the backlog. Both are the same input-less dispatch.
 # What decides whether a round spends is the `review` hold: every run renders its
 # plan report and waits on that environment's required reviewers before a cell
-# spends a token, unless its plan is within the auto-release caps
+# spends a token, unless its plan is within the auto-release caps and budget
 # (`config/review-hold.yaml`).
 on:
   schedule:
     # Twice a day, each slot margined after one of run-pull's ingestion windows
     # so a round reads a corpus the day's writer has finished with. The pull
     # windows run at :17 past 01/07/13/19 capped at 45 minutes (13:17 -> 14:02)
-    # and the live windows at :47 past 04/10/16/22 capped at 35 (16:47 ->
-    # 17:22), so :12 past 14 and :32 past 17 each open after a window has
-    # committed. This job only ever *reads* the corpus and takes no
-    # `corpus-write` lock, so an overlap would cost nothing but a staler read;
-    # the slots open clear of one, though a slow pull inside this job's own
-    # 30-minute cap can still run into run-seed's 14:31 walk. The minutes are off
+    # and the live windows at :47 past every even hour capped at 40 (16:47 ->
+    # 17:27), so :12 past 14 and :32 past 17 each open after a window has
+    # committed and before the next live window (14:47, 18:47). This job only
+    # ever *reads* the corpus and takes no `corpus-write` lock, so an overlap
+    # would cost nothing but a staler read; the slots open clear of one, though
+    # a slow pull inside this job's own 30-minute cap can still run into
+    # run-seed's 14:31 walk and the 14:47 live window. The minutes are off
     # every other workflow's (:00, :13, :17, :27, :30, :31, :39, :41, :47, :53)
     # so the repo's offset grid stays legible.
     #
-    # Two slots, not eight — one per ingestion channel's freshest window rather
+    # Two slots, not sixteen — one per ingestion channel's freshest window rather
     # than one per window. Two things size the lane and neither is the cron:
     # the derivation's per-cycle cap, and the serializing group below, which
     # queues a round behind one still holding the review hold — so a faster
@@ -172,7 +173,7 @@ jobs:
     steps:
       # No authorization gate here, and none is missing: this workflow carries no
       # trigger an outside actor can reach. A `schedule` fires only from the
-      # DEFAULT branch, so it can run only what a maintainer-merged promotion put
+      # DEFAULT branch, so it can run only what a maintainer-approved promotion put
       # on `main`; a `workflow_dispatch` is gated by GitHub on repository write;
       # and this job binds `prod`, whose deployment branches are restricted to
       # `main`, so a dispatch from any other ref is refused before a step runs.
@@ -487,15 +488,18 @@ jobs:
 
       # Whether this round waits on the hold, and whether it owes another round.
       # Both are `fedcourts hold-decision` over the plan document above, the
-      # matrix the round minted and `config/review-hold.yaml`'s caps. It fails
-      # closed: with the caps at 0 (the default), a matrix that disagrees with
-      # the plan, or a 24-hour count this step cannot read, the round waits on
-      # the `review` hold. The count has two sources, and the larger binds: the
-      # `review-auto` environment's deployments (one per auto-released round,
-      # but prunable by a write holder) and the auto-released commits on `main`
-      # (collect marks a released round's ready commit; `main`'s history is
-      # append-only). A failed read leaves its flag off, which holds. This step
-      # only reads; the rule and the summary are the command's.
+      # matrix the round minted, `config/review-hold.yaml`'s caps and trailing
+      # budget, and the committed spend ledger in this checkout's `data/`
+      # (measured spend over tracking.yaml's spend window, the budget's base).
+      # It fails closed: with any knob at 0, a matrix that disagrees with the
+      # plan, an unreadable ledger, or a 24-hour count this step cannot read,
+      # the round waits on the `review` hold. The count is shared with
+      # run-evaluate and summarize and has two sources, and the larger binds:
+      # the `review-auto` environment's deployments (one per auto-released
+      # round of any lane, but prunable by a write holder) and the auto-released
+      # commits on `main` (each lane marks a released round's commit; `main`'s
+      # history is append-only). A failed read leaves its flag off, which holds.
+      # This step only reads; the rule and the summary are the command's.
       - name: Decide the hold and the drain
         id: hold
         if: ${{ steps.plan.outputs.has_jobs == 'true' }}
@@ -520,7 +524,7 @@ jobs:
           else
             echo "::warning::could not read main's commits from the last 24h ($(head -c 300 subjects-read.err | tr -s '\n:' '  ')); this round waits on the hold"
           fi
-          decision=$(uv run fedcourts hold-decision --plan-file plan.json \
+          decision=$(uv run fedcourts hold-decision --seam predict --plan-file plan.json \
             --matrix-file matrix.json --summary-file "$GITHUB_STEP_SUMMARY" "${count_args[@]}")
           echo "auto_release=$(jq -r '.auto_release' <<<"$decision")" >> "$GITHUB_OUTPUT"
           echo "drain_more=$(jq -r '.drain_more' <<<"$decision")" >> "$GITHUB_OUTPUT"
@@ -535,10 +539,12 @@ jobs:
   # environment unprotected, and an unprotected environment is no gate at all.
   #
   # A round the plan job auto-released (`hold-decision`: its minted matrix
-  # priced within the per-round cap, under the daily count) binds `review-auto`
-  # instead. That environment has no reviewers on purpose, so the job runs at
-  # once; what it adds is one of the two records the next round's plan counts
-  # against the daily cap (the other is the marked collect commit on `main`).
+  # priced within the per-round cap, under the daily count, and within the
+  # trailing budget) binds `review-auto` instead — the environment run-evaluate
+  # and summarize route to on the same decision. It has no reviewers on
+  # purpose, so the job runs at once; what it adds is one of the two records
+  # the next round's plan, in any of the three lanes, counts against the daily
+  # cap (the other is the marked collect commit on `main`).
   # Every job downstream reads `approval.result` whichever environment it
   # bound, so the two paths differ only in whether a human released this job.
   #
@@ -653,8 +659,11 @@ jobs:
         with:
           restore-cache: "false"
 
-      # Read-only corpus access (OIDC role; no static keys — a compromised
-      # predict runner cannot write or delete corpus objects). No pull: corpus
+      # Read-only corpus access (OIDC role; no static keys). The session this
+      # step assumes is the read-only role's; what else the job's
+      # `id-token: write` can reach depends on which roles' trust names this
+      # job's environment, which lives in IAM rather than in this repository
+      # (docs/security.md, *S3 / the private stores*). No pull: corpus
       # bytes move only as the KBs each ranged lookup touches. The credentials
       # are scoped to the sidecar action's own steps — the agent steps below
       # inherit none; they reach the corpus through the localhost sidecar via
@@ -968,30 +977,6 @@ jobs:
           rm -rf data/qp-topics
           uv run fedcourts hide-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
 
-      - name: Mint agent comment token
-        id: agent-token
-        # Only the Claude step consumes this token (Codex never took one, and
-        # Gemini's CLI strips non-allowlisted env vars from agent shells in CI): don't
-        # mint a live credential in cells that cannot use it — or in a refused
-        # cell, which runs no agent at all.
-        if: matrix.engine == 'claude-code' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
-        # Minted after provisioning so the refusal gate above can actually
-        # withhold it — a step cannot be gated on the output of a later step.
-        # The least-privilege credential claude-code-action requires. No round
-        # here has a triggering issue or PR to comment on, so the issue and
-        # pull-request scopes buy the agent nothing it can reach; what matters is
-        # the absence of contents:write — the agent only writes files locally,
-        # which ride to the collect job as an artifact, and that job (its own
-        # token) does the commit/PR, so a prompt injection in docket text cannot
-        # push code here.
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
-          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
-          permission-contents: read
-          permission-issues: write
-          permission-pull-requests: write
-
       # Install the engine's CLI at the version `.github/engines/<engine>/`
       # pins, in its own SECRET-FREE step: the lockfile fixes every package by
       # hash and --ignore-scripts skips npm lifecycle scripts, and the step's
@@ -1194,7 +1179,17 @@ jobs:
           # The pinned CLI from the engine-cli step, never the one the action
           # bundles: the engine a cell runs moves only when the pin does.
           path_to_claude_code_executable: ${{ steps.engine-cli.outputs.path }}
-          github_token: ${{ steps.agent-token.outputs.token }}
+          # The action refuses to start without a GitHub token, and its no-input
+          # fallback is an OIDC exchange for an App installation token that
+          # defaults to contents/issues/pull-requests *write* — reachable here,
+          # since this job holds `id-token: write` for the corpus role. So it
+          # gets the job's own token, capped by the job's permissions block at
+          # `contents: read`: no round has an issue or PR to comment on, and the
+          # cell's files ride to `collect` as an artifact. No App key is named
+          # anywhere in this job, because every secret a job names reaches its
+          # runner at job start, where an injected cell could recover it
+          # (tests/test_workflow_token_holder.py).
+          github_token: ${{ github.token }}
           # Prompt caching is automatic: the stable prefix (AGENTS.md + the
           # prompt template + schema) is cached across the run's tool-use turns.
           # The API key's default cache TTL is only 5 minutes, which would expire
@@ -1413,7 +1408,7 @@ jobs:
           # allowlistable (both named in the settings written above).
           FEDCOURTS_CORPUS_BACKEND: service
           # No GITHUB_TOKEN here: it is simply absent from this step's env, so a
-          # comment token could never be used — flags.json is this engine's
+          # GitHub token could never be used — flags.json is this engine's
           # blocked-channel. Belt and braces: a token could not reach the agent's
           # shell even if it were here, because the CLI hard-filters
           # /TOKEN|SECRET|KEY|AUTH|.../i out of the settings allowlist itself, and
@@ -2186,10 +2181,11 @@ jobs:
   # committed state, so dispatching earlier would hand the stranded-run guard
   # this round's cells to withhold and plan a narrower round. A PR that has not
   # merged inside the wait, or closed unmerged, dispatches nothing — the schedule
-  # picks the backlog up, since the lane is level-triggered. Nor does a ready
-  # promotion PR: the promotion gate's quiescence check fails on any queued,
-  # running or waiting predict round, so the chain stands down until that PR
-  # merges or returns to draft. Each step's answer is `fedcourts chain-step`'s;
+  # picks the backlog up, since the lane is level-triggered. Nor does a
+  # promotion about to merge — a ready `staging` PR, or a ready promotion train
+  # candidate approved at its head: the promotion gate's quiescence check fails
+  # on any queued, running or waiting predict round, so the chain stands down
+  # until that PR merges, returns to draft or loses its approval. Each step's answer is `fedcourts chain-step`'s;
   # the loop below only reads the PRs and acts on it.
   #
   # The dispatched round is an ordinary input-less dispatch on `main`: it
@@ -2251,12 +2247,30 @@ jobs:
             # Reads only (GETs with the query in the URL). A failed read drops
             # its file, which `chain-step` reads as unknown: a missing promotion
             # list stands the chain down, a missing collect PR waits.
-            gh api "repos/${REPO}/pulls?state=open&base=main&per_page=100" > promotion-prs.json \
-              || rm -f promotion-prs.json
+            if gh api --paginate --slurp "repos/${REPO}/pulls?state=open&base=main&per_page=100" \
+              > promotion-prs.pages && jq 'add // []' promotion-prs.pages > promotion-prs.json; then
+              # A ready promotion train candidate stands the chain down only once it is
+              # approved at its head, which its whole review list says. A failed read
+              # leaves the candidate out of the file, and `chain-step` stands the chain
+              # down for a candidate it has no reviews for.
+              echo '{}' > promotion-reviews.json
+              for n in $(jq -r --arg repo "$REPO" '.[] | select(.draft == false
+                  and .head.repo.full_name == $repo and (.head.ref | startswith("promote/")))
+                  | .number' promotion-prs.json); do
+                if gh api --paginate --slurp "repos/${REPO}/pulls/${n}/reviews?per_page=100" > reviews.pages; then
+                  jq --arg n "$n" --slurpfile r reviews.pages '. + {($n): ($r[0] | add // [])}' \
+                    promotion-reviews.json > reviews.next
+                  mv reviews.next promotion-reviews.json
+                fi
+              done
+            else
+              rm -f promotion-prs.json promotion-reviews.json
+            fi
             gh api "repos/${REPO}/pulls?head=${OWNER}:${BRANCH}&state=all&per_page=1" > collect-prs.json \
               || rm -f collect-prs.json
             args=(--mode drain --repo "$REPO" --attempt "$attempt" --max-attempts 40)
             [ -f promotion-prs.json ] && args+=(--promotion-prs-file promotion-prs.json)
+            [ -f promotion-reviews.json ] && args+=(--promotion-reviews-file promotion-reviews.json)
             [ -f collect-prs.json ] && args+=(--collect-prs-file collect-prs.json)
             step=$(uv run fedcourts chain-step "${args[@]}")
             action=$(jq -r '.action' <<<"$step")

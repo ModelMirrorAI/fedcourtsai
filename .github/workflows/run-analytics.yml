@@ -106,8 +106,8 @@ on:
     # schedule event carries no inputs.
     #
     # Weekly metrics refresh (Mon 05:41 UTC) — a quiet slot after run-pull's
-    # 02:31 historical and 04:47 live windows, before its 07:17 pull window, so
-    # the refresh sees a settled corpus.
+    # 04:47 live window (40-minute cap) has committed and before its 06:47 live
+    # window, so the refresh sees a settled corpus.
     - cron: "41 5 * * 1"
     # Daily big-case board (04:36 UTC). It reads the committed ledger and no
     # corpus, so it waits on no pull window; the slot is its own minute on the
@@ -1221,14 +1221,14 @@ jobs:
     # `fetch-depth: 0` checkout, apt, the artifact download, the label-line
     # count, the scanner path clear, the two artifact uploads, the short-batch
     # refusal, the measure
-    # composite (which also revalidates the data root), the App token, and the
-    # PR step's fetch and push. Twelve minutes for that set is headroom for
-    # two things worth naming: the measure composite, which runs the labels
-    # through `qp-topics` and then revalidates the whole data root, and the PR
-    # step's fetch and push. The diagnostic steps deliberately run before
-    # measure, so their worst case is charged first — a run that publishes
-    # nothing must still be readable, and a run that publishes must not lose
-    # its PR to a clock the diagnostics spent.
+    # composite (which also revalidates the data root), and the hand-off
+    # staging and upload. Twelve minutes for that set is headroom for the one
+    # thing worth naming: the measure composite, which runs the labels through
+    # `qp-topics` and then revalidates the whole data root. The PR itself is
+    # opened by `qp-topic-publish`, on its own clock. The diagnostic steps
+    # deliberately run before measure, so their worst case is charged first —
+    # a run that publishes nothing must still be readable, and a run that
+    # publishes must not lose its hand-off to a clock the diagnostics spent.
     timeout-minutes: 75
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
@@ -1236,6 +1236,10 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: read
+    outputs:
+      # Whether the measured artifact was handed off; `qp-topic-publish` runs
+      # on this alone, so the labeling step's own verdict never reaches it.
+      publish: ${{ steps.publish_upload.outcome }}
     env:
       # The actor string recorded on the labels artifact, and the model the
       # agent step runs. Both come from the one dispatch input so the recorded
@@ -1934,7 +1938,7 @@ jobs:
       # every outcome the runner survives. A run whose labeling step failed
       # is already red and this adds a second, more specific reason; a complete
       # run skips it. Nothing downstream is gated on this step: the measure
-      # step and the publish trio carry their own conditions, so failing here
+      # step and the hand-off carry their own conditions, so failing here
       # cannot cost a complete batch its PR.
       - name: Refuse a labels file short of the batch
         if: >-
@@ -2003,29 +2007,157 @@ jobs:
             log), and the qp-labels artifact carries the rows the run did
             write, whose count the step summary states either way.
 
-      # Minted only after the agent has finished and the gate has passed, as
-      # run-backtest does: a write-capable installation token has no business
-      # existing while an agent runs unattended on the same runner, and a token
-      # minted at the top of a 75-minute job would spend its whole 1-hour life
-      # waiting for a step that may never run — and be dead by the time it
-      # does. The dev App bypasses no required check, so the PR still faces
-      # the required `gate` check, and it is never auto-merged; a maintainer
-      # merging it is what keeps it read.
-      # Minted on `main`-ref runs only: the dev App's credentials live on the
-      # prod environment alone, and a rehearsal's labels stay on the runner —
-      # the measured block in the step summary and the transcript artifact are
-      # its record, and the fenced note below states the boundary.
-      # The publish trio — this step, the identity, and the PR — each carry the
-      # measure step's outcome beside that fence: a named `if:` carries no
+      # The PR is opened by `qp-topic-publish`, never here. This job ran an
+      # agent with a Write grant over the checkout, and a process it leaves
+      # behind lives until the job ends, long enough to read any later step's
+      # environment out of /proc. The dev App token that opens the PR also
+      # carries the App's bypass of `main`'s approval rule, so it is never
+      # minted on a runner an agent has held. What crosses is the measured
+      # artifact and the sanitized measured block, the two files the PR is
+      # built from, copied out of the measure step's own outputs. Gated on the
+      # measure step's outcome, not on the job's: a named `if:` carries no
       # implicit `success()`, and the labeling step's post-hoc turn complaint
-      # is precisely the failure these steps must survive. The outcome is the
+      # is precisely the failure the hand-off must survive. The outcome is the
       # narrower gate anyway — it holds only where the measure step's own
       # condition held (pristine tree, a full batch on disk) *and* the
       # publication gate then passed.
+      - name: Stage the measured artifact for the publish job
+        id: stage_publish
+        if: ${{ !cancelled() && steps.measure.outcome == 'success' }}
+        env:
+          # The composite's declared output, not a path convention: where the
+          # sanitized measured block lands is the measure step's contract.
+          MEASURED_FILE: ${{ steps.measure.outputs.measured-file }}
+        run: |
+          set -euo pipefail
+          # A symlink planted at either path would ship whatever it points at.
+          for f in data/qp-topics/qp-topics.json "$MEASURED_FILE"; do
+            if [ -L "$f" ] || [ ! -f "$f" ]; then
+              echo "::error::${f} is not a regular file; refusing to hand it off"
+              exit 1
+            fi
+          done
+          mkdir -p "$RUNNER_TEMP/qp-publish"
+          cp data/qp-topics/qp-topics.json "$RUNNER_TEMP/qp-publish/qp-topics.json"
+          cp "$MEASURED_FILE" "$RUNNER_TEMP/qp-publish/measured.txt"
+
+      # One day, as for the extract and the transcript: the publish job reads
+      # it within minutes, and the PR is the record.
+      - name: Hand the measured artifact to the publish job
+        id: publish_upload
+        if: ${{ !cancelled() && steps.stage_publish.outcome == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: qp-publish
+          path: ${{ runner.temp }}/qp-publish
+          if-no-files-found: error
+          retention-days: 1
+
+      # The rehearsal's boundary, stated where the operator reads — and on
+      # every outcome the runner survives, not only success: a measure-gate
+      # refusal is the single most informative rehearsal result, and it must
+      # not be the one that leaves the operator inferring whether publication
+      # was fenced or attempted.
+      - name: Note the rehearsal boundary (publish fenced off this ref)
+        if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
+        run: |
+          echo "qp-topic-label rehearsal: whatever ran above, the labels PR is fenced to main-branch runs — nothing published from this dispatch." \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+  # The labels PR, opened from a runner no agent has held. This is the token
+  # holder: the one job of the labeling lane that mints the dev App token, and
+  # it runs no engine, installs no agent CLI and assumes no role
+  # (tests/test_workflow_token_holder.py). It takes the measured artifact and
+  # the measured block from the label job as data, and runs only git, jq and
+  # gh over them. The dev App's bypass covers `main`'s approval rule, and this
+  # job opens a PR and never merges one; a maintainer merging it is what
+  # keeps it read.
+  qp-topic-publish:
+    needs: [authorize, qp-topic-label]
+    # `!cancelled()` so a labeling step that failed after the fact (a turn
+    # overrun on a complete batch) does not cost the batch its PR: the label
+    # job's `publish` output is the measure step's gate, carried across.
+    if: >-
+      ${{ !cancelled() && needs.qp-topic-label.outputs.publish == 'success'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    concurrency:
+      group: run-analytics-qp-topic-publish-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      # The labeler string the PR title names, from the same dispatch input
+      # the label job recorded on the artifact.
+      LABELER: claude-code/${{ inputs.label_model }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Download the measured artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: qp-publish
+          path: ${{ runner.temp }}/qp-publish
+
+      # Both files crossed from a runner the labeler held, after the measure
+      # step wrote them, so they are checked again here before any token
+      # exists, on every ref so a rehearsal exercises it. The hand-off must
+      # hold exactly the two files, as regular files, with the measured block
+      # no larger than a measured block runs. The labels file is held to this
+      # checkout's strict model — every field a copied key, a vocabulary enum,
+      # a bool, or a stamp the builder assigns — and both are scanned for
+      # secrets, since the block lands in a public PR body and was not
+      # re-derived here. A false positive costs the batch its PR; a leaked key
+      # in that body costs more. The PR step copies the same bytes from
+      # $RUNNER_TEMP, and the checkout's tree is discarded there.
+      - name: Re-validate the measured artifact
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          dir="$RUNNER_TEMP/qp-publish"
+          extra=$(find "$dir" -mindepth 1 ! -path "$dir/qp-topics.json" ! -path "$dir/measured.txt")
+          for f in "$dir/qp-topics.json" "$dir/measured.txt"; do
+            if [ -L "$f" ] || [ ! -f "$f" ]; then extra="${extra} ${f}"; fi
+          done
+          if [ -n "$extra" ]; then
+            echo "::error::the hand-off must hold qp-topics.json and measured.txt alone, as regular files"
+            exit 1
+          fi
+          if [ "$(wc -c < "$dir/measured.txt")" -gt 65536 ]; then
+            echo "::error::the measured block is over 64 KiB; refusing to put it in a PR body"
+            exit 1
+          fi
+          cp "$dir/qp-topics.json" data/qp-topics/qp-topics.json
+          uv run fedcourts validate data/qp-topics
+          if ! uv run fedcourts scan-diff-for-secrets --name-status-file /dev/null \
+              --extra-file "$dir/qp-topics.json" \
+              --extra-file "$dir/measured.txt" \
+              --run-url "https://github.com/${REPO}/actions/runs/${GITHUB_RUN_ID}"; then
+            echo "::error::secret scan did not pass; withholding the labels PR"
+            exit 1
+          fi
+
+      # Minted after the hand-off is on this runner, and on `main`-ref runs
+      # only: the dev App's credentials live on the prod environment alone, and
+      # a rehearsal's labels stay off any branch — the measured block in the
+      # label job's step summary and the transcript artifact are its record,
+      # and the fenced note below states the boundary. The dev App bypasses no
+      # required check, so the PR still faces the required `gate` check, and it
+      # is never auto-merged.
       - name: Mint app token
-        if: >-
-          ${{ !cancelled() && steps.measure.outcome == 'success'
-          && github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/main' }}
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
@@ -2034,15 +2166,8 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      # `steps.app-token.outcome` beside the measure gate, on both steps that
-      # consume the token: with the implicit `success()` gone, nothing else
-      # orders the trio, and a mint that failed would otherwise hand these two
-      # an empty token and turn one clean skip into two opaque `gh` errors.
       - name: Configure git identity
-        if: >-
-          ${{ !cancelled() && steps.measure.outcome == 'success'
-          && steps.app-token.outcome == 'success'
-          && github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/main' }}
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -2052,22 +2177,19 @@ jobs:
       # unmerged labeling PR updates in place rather than stacking, opened
       # against `main` and never auto-merged.
       - name: Open or update the review PR
-        if: >-
-          ${{ !cancelled() && steps.measure.outcome == 'success'
-          && steps.app-token.outcome == 'success'
-          && github.ref == 'refs/heads/main' }}
+        if: ${{ github.ref == 'refs/heads/main' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
           BRANCH: qp-topics/refresh
-          # The composite's declared output, not a path convention: where the
-          # sanitized measured block lands is the measure step's contract.
-          MEASURED_FILE: ${{ steps.measure.outputs.measured-file }}
+          # The sanitized measured block, as the label job staged it from the
+          # measure composite's declared output.
+          MEASURED_FILE: ${{ runner.temp }}/qp-publish/measured.txt
         run: |
           set -euo pipefail
           gh auth setup-git
-          # Carry the artifact out of the work tree before switching branches:
-          # the branch is cut from a freshly fetched origin/main, not from this
+          # The artifact arrived under $RUNNER_TEMP, out of the work tree. The
+          # branch is cut from a freshly fetched origin/main, not from this
           # job's checkout, so the push pack is this one data file and nothing
           # the deterministic writers landed (or this dispatch's ref carried)
           # while the agent ran. -f discards the local tree, which is safe
@@ -2081,7 +2203,7 @@ jobs:
           # publishes. The guard below refuses that push mechanically (ledger
           # extension + row containment); the reviewed, never-auto-merged PR
           # stays the human backstop behind it.
-          cp data/qp-topics/qp-topics.json "$RUNNER_TEMP/qp-topics.json"
+          cp "$RUNNER_TEMP/qp-publish/qp-topics.json" "$RUNNER_TEMP/qp-topics.json"
           git fetch --no-tags -q origin main
           git checkout -q -f -B "$BRANCH" origin/main
           # Accrual makes the cut a supersession, so check it is one — on the
@@ -2165,14 +2287,17 @@ jobs:
           batch=$(jq -er '.batches[-1].batch' data/qp-topics/qp-topics.json)
           labeled=$(jq -er '.batches[-1].labeler_rows' data/qp-topics/qp-topics.json)
           title="data(qp-topics): batch ${batch} — ${labeled} new qp-topic-v0 label(s) by ${LABELER} (${cases} total)"
-          # The body carries only CLI-rendered numbers and vocabulary labels —
-          # no agent prose and no petition text — and so does the committed
-          # artifact: `QpTopicPublishedEntry` is a strict pydantic model whose
-          # every field is a copied key, a vocabulary enum, a bool, or a stamp
-          # the builder assigns, joined to the extract on both keys, so no
-          # agent-authored string can reach either. That mechanism, not reviewer
-          # attention, is why this step runs no secret scan where `collect-run`
-          # does.
+          # The committed artifact carries no agent prose and no petition text:
+          # `QpTopicPublishedEntry` is a strict pydantic model whose every field
+          # is a copied key, a vocabulary enum, a bool, or a stamp the builder
+          # assigns, joined to the extract on both keys, and the re-validation
+          # step above holds this file to it. The body's measured block is the
+          # measure composite's sanitized rendering of numbers and vocabulary
+          # labels, carried across as a file and not re-derived here, so a
+          # process the labeler left behind could have rewritten it before the
+          # hand-off: the same step caps its size and scans it, with the labels
+          # file, for secrets, and the reviewed, never-auto-merged PR is the
+          # backstop for the rest.
           {
             printf '%s\n\n' "Batch ${batch} of the \`qp-topic-v0\` labeling frame, by \`${LABELER}\` from the stored questions-presented text alone: ${labeled} new label(s), bringing the artifact to ${cases}. The artifact accrues one batch a run, so the block below is this batch's measurement and not the file's — the rest of what this batch read is the hand reference set, re-graded every run for that measurement and published from its own adjudicated labels rather than the labeler's. Prior batches' rows are carried forward unchanged."
             printf '%s\n\n' "The command enforces the publication gate, so this PR exists only because the run cleared it. What the numbers mean — agreement with a single v0 reference rater, **not** accuracy; a grant-enriched frame that certifies the grant stream only; per-label rates suppressed under the support floor — is in \`docs/qp-topic.md\`."
@@ -2198,15 +2323,12 @@ jobs:
             echo "Opened review PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
-      # The rehearsal's boundary, stated where the operator reads — and on
-      # every outcome the runner survives, not only success: a measure-gate
-      # refusal is the single most informative rehearsal result, and it must
-      # not be the one that leaves the operator inferring whether publication
-      # was fenced or attempted.
+      # This job runs on a rehearsal too, so the hand-off is exercised off
+      # `main`; the label job's own note covers the runs that never reach here.
       - name: Note the rehearsal boundary (publish fenced off this ref)
-        if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
+        if: ${{ github.ref != 'refs/heads/main' }}
         run: |
-          echo "qp-topic-label rehearsal: whatever ran above, the labels PR is fenced to main-branch runs — nothing published from this dispatch." \
+          echo "qp-topic-publish rehearsal: the measured artifact reached the publish job; the labels PR is fenced to main-branch runs — nothing published from this dispatch." \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
   # The run gate's verdict on the run as a whole. A refused partial re-run
@@ -2216,7 +2338,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, corpus-stats, distribution-census, tool-usage, text-coverage, metrics-refresh, big-cases, qp-topic-extract, qp-topic-label]
+    needs: [authorize, corpus-stats, distribution-census, tool-usage, text-coverage, metrics-refresh, big-cases, qp-topic-extract, qp-topic-label, qp-topic-publish]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5

@@ -453,6 +453,19 @@ class FlagSeverity(StrEnum):
     blocker = "blocker"
 
 
+class FlagSource(StrEnum):
+    """Who wrote an agent flag: the cell's agent, or a post-agent harness step.
+
+    A triage label, not an authentication: ``flags.json`` is the agent's own
+    file, so nothing stops an agent writing ``harness`` itself. What only the
+    harness can say is stamped where no agent writes (``context`` on
+    ``prediction.json``, the ``::warning::`` lines in the run log).
+    """
+
+    agent = "agent"
+    harness = "harness"
+
+
 class SemanticSupport(StrEnum):
     """How far the opinion supports one declared semantic claim — the ``semantic-v1`` grade.
 
@@ -2259,6 +2272,18 @@ class AgentFlag(_Strict):
     event_id: str | None = Field(
         default=None, description="The specific event this flag is about, if narrower than the cell"
     )
+    source: FlagSource = Field(
+        default=FlagSource.agent,
+        description="Who wrote the note: `agent` (the cell's own, the default) or `harness` "
+        "(a post-agent step's finding about the cell). A triage label the roll-up filters and "
+        "counts on, not an authentication",
+    )
+    normalised: bool = Field(
+        default=False,
+        description="Set by the harness when it coerced this flag to fit the schema (an "
+        "off-vocabulary severity or category, an over-long message, an unknown key); the "
+        "`harness` note beside it says what changed. A flag never fails a predict or evaluate cell",
+    )
 
 
 class AgentFlags(_Strict):
@@ -2269,12 +2294,15 @@ class AgentFlags(_Strict):
     reason it was blocked. Mostly the agent's own word, but not exclusively: a
     post-agent harness step appends its own findings about the cell to the same
     file (``stamp-cell``, where a cell reports not having read its provisioned
-    snapshot), and the roll-up counts those with the rest — the message text is
-    what distinguishes them. It rides the cell's artifact to the ``collect`` job, which
-    rolls every cell's flags into the run PR body (and the Actions summary), so a
-    note outlives the run that raised it and a maintainer sees it without
-    reading every ``reasoning.md``. The agent token stays comment-only: the file is
-    written locally and the trusted ``collect`` job does the surfacing.
+    snapshot, and the normalisation note when the agent's file did not validate),
+    marked ``source: harness`` so the roll-up lists and counts them apart. A
+    mis-shaped file never fails its cell: the stamp normalises it before
+    ``validate`` (:func:`fedcourtsai.agent_flags.normalise_flags`). It rides the
+    cell's artifact to the ``collect`` job, which rolls every cell's flags into
+    the run PR body (and the Actions summary), so a note outlives the run that
+    raised it and a maintainer sees it without reading every ``reasoning.md``.
+    The agent token stays comment-only: the file is written locally and the
+    trusted ``collect`` job does the surfacing.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -2300,8 +2328,12 @@ class AgentToolingFeedback(_Strict):
     PR's prior-availability note (the field asks whether the cell *used* the CLI,
     which that note weighs against what capture saw rather than treating as a
     verdict on the corpus). It is the agent's own account —
-    subjective, advisory, and never a gate. The token stays comment-only: the file is
-    written locally and the trusted ``collect`` job commits it with the cell's output.
+    subjective, advisory, and never a gate. The stamp normalises a mis-shaped report
+    before ``validate`` (:func:`fedcourtsai.agent_tooling.normalise_tooling`), short
+    of supplying a ``used_corpus_query`` the cell did not answer or reading a file
+    that is not a JSON object. The token stays comment-only: the
+    file is written locally and the trusted ``collect`` job commits it with the cell's
+    output.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -8447,9 +8479,12 @@ class _StatPackInterimCounts(_Strict):
 
     Raw counts throughout: the live channel polls every application it discovers
     (no denial sampling, so every row stands only for itself) and nothing here is
-    reweighted. This slice's own ``substantive_grant_rate`` stays **descriptive**
-    — it describes the accumulated cohort and, at the pack level, contains every
-    Term including a scored case's own. The *scored* interim baseline is built
+    reweighted. The unit is the application number, not the corpus row: a
+    number stored under two case ids counts once
+    (:func:`fedcourtsai.corpus.duplicate_application_case_ids`). This slice's
+    own ``substantive_grant_rate`` stays **descriptive** — it describes the
+    accumulated cohort and, at the pack level, contains every Term including a
+    scored case's own. The *scored* interim baseline is built
     from the per-Term entries instead
     (:func:`fedcourtsai.pipeline.base_rates.interim_base_rate`): pooled over
     Terms strictly before the case's, and only where the pooled sample clears the
@@ -8472,7 +8507,9 @@ class _StatPackInterimCounts(_Strict):
         default=0,
         ge=0,
         description="Application dockets (strict `YYAnnn` form — the live channel's "
-        "addressable population) in this slice",
+        "addressable population) in this slice, each number counted once: a number "
+        "the corpus stores under two case ids counts one row only (see "
+        "`duplicate_rows`), here and in every count below",
     )
     extension: int = Field(
         default=0,
@@ -8544,6 +8581,23 @@ class _StatPackInterimCounts(_Strict):
         description="Substantive applications whose docket records at least one "
         "amicus brief — a stakes proxy, flagged here rather than summed",
     )
+    duplicate_rows: int | None = Field(
+        default=None,
+        ge=0,
+        description="Corpus rows left out of every count here because another row "
+        "carries the same application number (`corpus.duplicate_application_case_ids`: "
+        "one row per number, an observed row before a stub, then the lowest docket "
+        "id). Absent from a pack built before the one-row-per-number rule, which "
+        "counted rows, so absent reads as unknown, never as zero",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_unset_duplicate_rows(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``duplicate_rows`` while unset, so a pack built before it reads as before."""
+        payload = handler(self)
+        if isinstance(payload, dict) and self.duplicate_rows is None:
+            payload.pop("duplicate_rows", None)
+        return payload
 
 
 class StatPackInterimTerm(_StatPackInterimCounts):
@@ -10832,6 +10886,16 @@ class FlagsDigest(_Strict):
     blockers: int = Field(ge=0, description="Flags at blocker severity")
     warnings: int = Field(ge=0, description="Flags at warning severity")
     infos: int = Field(ge=0, description="Flags at info severity")
+    harness: int = Field(
+        default=0, ge=0, description="Of the in-window flags, those marked `source: harness`"
+    )
+    normalised_cells: int = Field(
+        default=0,
+        ge=0,
+        description="In-window cells whose flags.json did not validate and the harness "
+        "normalised rather than let fail the cell: one per file, however many flags it "
+        "produced. Overlaps `harness`, since a file carried verbatim is carried in harness flags",
+    )
     recent: list[AgentFlags] = Field(
         default_factory=list, description="Most recent flag-raising cells, newest first (capped)"
     )
