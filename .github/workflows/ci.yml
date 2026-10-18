@@ -328,7 +328,7 @@ jobs:
             echo
             echo "Remove the label and re-run this check to demand them."
           } >>"$GITHUB_STEP_SUMMARY"
-      - name: Quiescence, provenance, freshness and the process registry at the PR head
+      - name: Quiescence, provenance, freshness, the process registry and the contexts-due verdict at the PR head
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}

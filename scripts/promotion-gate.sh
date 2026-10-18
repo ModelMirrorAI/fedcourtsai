@@ -53,6 +53,19 @@
 #       administration read, which `GITHUB_TOKEN` cannot hold at all — hence
 #       not part of `promotion-gate.sh all`, and the maintainer's to run.
 #
+#   scripts/promotion-gate.sh contexts-due <sha>
+#       Whether this batch owes the `contexts` stage above: due when it changes
+#       anything that stage judges settings against — a workflow, this script,
+#       the required-check, ruleset or environment judgments, or the
+#       corpus-check approver they check against (`fedcourts contexts-due`,
+#       src/fedcourtsai/contexts_due.py). The verdict says when to run it:
+#       `contexts` reads main's own workflows, so a workflow change is checked
+#       once the promotion merges, and the rest before.
+#       It prints the verdict and never fails the gate: `contexts` needs an
+#       admin-read token no CI job holds, so the verdict tells the maintainer
+#       which promotions to run it for, and a setting changed by hand needs it
+#       with no batch at all. Reads git alone; the caller fetches main first.
+#
 #   scripts/promotion-gate.sh registry <sha>
 #       Step 0 of a process move, checked on every batch: the process registry
 #       at <sha> must exist, load, and be stampable by the merge that carries
@@ -76,11 +89,12 @@
 #       git alone; the caller fetches staging first.
 #
 #   scripts/promotion-gate.sh all <sha> [<head-ref>]
-#       The quiesce, provenance, freshness and registry stages, in order.
+#       The quiesce, provenance, freshness and registry stages, in order, then
+#       the contexts-due verdict, which reports and never fails.
 #
 # quiesce and freshness need `gh` with Actions read (GH_TOKEN in CI); contexts
 # additionally needs repository administration read (see above); registry
-# needs `uv` and the fetched refs, and no token.
+# and contexts-due need `uv` and the fetched refs, and no token.
 #
 # Two environment variables move the required set, and they are not peers:
 #
@@ -467,10 +481,10 @@ contexts() {
   fi
 
   # The staging environment's mirror of the same failure mode: the staging
-  # read-write role's trust names `environment: staging` — deliberately, so
-  # staging rehearses production's provenance model — which makes that
-  # environment's deployment-branch policy the one thing keeping the only
-  # write-capable role outside `prod` off arbitrary branches. Unconditional,
+  # read-write role's trust names `environment: staging` — deliberately, the
+  # environment every staging reader binds (docs/security.md) — which makes
+  # that environment's deployment-branch policy the one thing keeping the only
+  # write-capable role outside `corpus-write` off arbitrary branches. Unconditional,
   # unlike the review-environment check above: the trust exists from the
   # moment the role is provisioned on the AWS side, before any workflow that
   # binds it reaches main, and the policy predates the role (the integration
@@ -615,6 +629,38 @@ contexts() {
     echo "::error::contexts: fix the website environment before promoting — its branch policy is what keeps the Buttondown key on main (docs/security.md)"
     fail=1
   fi
+
+  # The corpus-write environment, unconditionally, on the corpus-check
+  # check's reasoning: the production read-write role's trust is to name
+  # `environment:corpus-write` alone — an IAM statement this stage cannot
+  # read, so it checks only the environment — and from the moment the trust
+  # names it, an environment that is missing or open
+  # to any branch hands that role to whatever branch workflow binds it — and
+  # GitHub auto-creates a referenced environment with no branch policy.
+  # Required: the environment exists, its branch policy admits `main` alone,
+  # and it holds no secret or variable outside the names the writer jobs read.
+  # The decision is tested Python (tests/test_environment_checks.py).
+  local cw_dir="${workdir}/corpus-write-environment" cw_base
+  cw_base="repos/${REPO}/environments/corpus-write"
+  mkdir -p "$cw_dir"
+  gh api "$cw_base" >"${cw_dir}/environment.json" 2>/dev/null \
+    || rm -f "${cw_dir}/environment.json"
+  gh api "${cw_base}/deployment-branch-policies?per_page=100" \
+    >"${cw_dir}/branch-policies.json" 2>/dev/null || rm -f "${cw_dir}/branch-policies.json"
+  gh api "${cw_base}/secrets?per_page=100" >"${cw_dir}/secrets.json" 2>/dev/null \
+    || rm -f "${cw_dir}/secrets.json"
+  gh api "${cw_base}/variables?per_page=30" >"${cw_dir}/variables.json" 2>/dev/null \
+    || rm -f "${cw_dir}/variables.json"
+  if uv run fedcourts assert-corpus-write-environment \
+    --environment-file "${cw_dir}/environment.json" \
+    --branch-policies-file "${cw_dir}/branch-policies.json" \
+    --secrets-file "${cw_dir}/secrets.json" \
+    --variables-file "${cw_dir}/variables.json"; then
+    echo "contexts: the corpus-write environment admits main alone and holds only the writers' names"
+  else
+    echo "::error::contexts: fix the corpus-write environment before promoting — the production read-write role's trust is to name it (docs/security.md)"
+    fail=1
+  fi
 }
 
 registry() {
@@ -637,6 +683,18 @@ registry() {
   fi
 }
 
+contexts_due() {
+  local sha="$1"
+  if ! git rev-parse --verify -q "origin/main^{commit}" >/dev/null; then
+    echo "::warning::contexts-due: origin/main is not fetched, so whether this batch owes the contexts stage was not read"
+    return
+  fi
+  # Advisory: a failed read is a warning, never a gate failure.
+  if ! uv run fedcourts contexts-due --at "$sha" --main-ref origin/main; then
+    echo "::warning::contexts-due: the batch's paths could not be read; run the contexts stage if unsure"
+  fi
+}
+
 case "${1:-}" in
   quiesce)
     quiesce
@@ -652,6 +710,9 @@ case "${1:-}" in
   contexts)
     contexts "${@:2}"
     ;;
+  contexts-due)
+    contexts_due "${2:?usage: promotion-gate.sh contexts-due <sha>}"
+    ;;
   registry)
     registry "${2:?usage: promotion-gate.sh registry <sha>}"
     ;;
@@ -661,9 +722,10 @@ case "${1:-}" in
     provenance "${2:?usage: promotion-gate.sh all <sha> [<head-ref>]}" "$ref"
     freshness "$2" "$ref"
     registry "$2"
+    contexts_due "$2"
     ;;
   *)
-    echo "usage: scripts/promotion-gate.sh {quiesce|freshness <sha> [<head-ref>]|provenance <sha> [<head-ref>]|contexts [candidate...]|registry <sha>|all <sha> [<head-ref>]}" >&2
+    echo "usage: scripts/promotion-gate.sh {quiesce|freshness <sha> [<head-ref>]|provenance <sha> [<head-ref>]|contexts [candidate...]|contexts-due <sha>|registry <sha>|all <sha> [<head-ref>]}" >&2
     exit 2
     ;;
 esac

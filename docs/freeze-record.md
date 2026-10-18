@@ -10505,9 +10505,9 @@ freeze commit is recorded here.
   - *Nothing relocated.* The detector does not relocate the earlier petition.
     Nathan under No. 26-257 is still owed, as the 2026-10-14 entry records.
 
-  **Where it landed.** Merged to `staging` as `<FILL: staging merge commit>`
+  **Where it landed.** Merged to `staging` as `ca25e1285`
   and carried to `main` by the promotion tagged `promotion/2026-10-18`
-  (merge commit `<FILL: promotion merge commit>`, merged `<FILL: merge date>`).
+  (merge commit `dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c`, merged `2026-10-18T01:06:13Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_redocket.py tests/test_outcome.py -k "redocket or committed_caption or another_courts"`
@@ -10926,8 +10926,7 @@ freeze commit is recorded here.
   effect moves the forward/retrospective stratum of a cell already minted.
 
   **The boundary instant** is the first scheduled live window that ran the new
-  cadence on `main`: <FILL: promotion tag, merge commit and the first
-  12-window run's id and start time>. A reading that compares realized
+  cadence on `main`: promotion/2026-10-18 (merge commit dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c), whose first live window on the new cadence is run-pull run 39091707696, started 2026-10-18T02:53:58Z in the 02:47 slot the old live crons did not hold. A reading that compares realized
   selected-versus-N counts or arrival-cohort coverage across conferences
   either side of it reads the two regimes separately. The comparison of the
   first conferences after it against those before it is recorded by a later

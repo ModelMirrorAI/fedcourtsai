@@ -50,6 +50,7 @@ from . import (
     blinding,
     casestore,
     cleanup,
+    contexts_due,
     corpus,
     corpus_check,
     corpus_index,
@@ -9858,6 +9859,32 @@ def registry_gate_cmd(
     typer.echo(f"registry: {result.pending} pending, step 0 clean")
 
 
+@app.command("contexts-due")
+def contexts_due_cmd(
+    at: Annotated[str, typer.Option("--at", help="The batch's head: the commit to promote.")],
+    main_ref: Annotated[str, typer.Option("--main-ref", help="The ref the batch merges into.")],
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print the due paths as a JSON list instead.")
+    ] = False,
+) -> None:
+    """Say whether a promotion owes the gate's admin-read ``contexts`` stage.
+
+    Due when the batch (the three-dot diff of ``--at`` over ``--main-ref``)
+    changes anything the stage judges settings against: a workflow, the gate
+    script, the required-check, ruleset or environment judgments, or the configs
+    they read (:data:`fedcourtsai.contexts_due.CONTEXTS_SENSITIVE`). Advisory and
+    never failing: it prints the verdict and exits 0, and exits 1 only when git
+    cannot read the diff. Reads git alone, so the caller fetches ``--main-ref``
+    first.
+    """
+    try:
+        due = contexts_due.contexts_due(contexts_due.batch_paths(Path.cwd(), at, main_ref))
+    except promotion_record.PromotionRecordError as exc:
+        typer.echo(f"::error::contexts-due: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(json.dumps(due) if as_json else contexts_due.verdict_line(due))
+
+
 @app.command("digest-census")
 def digest_census_cmd(
     at: Annotated[str, typer.Option("--at", help="The commit whose tree is counted.")],
@@ -19285,6 +19312,13 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
     registry_ok: Annotated[
         _TriState, typer.Option("--registry-ok", help="Did the registry stage pass at the head?")
     ] = _TriState.UNKNOWN,
+    cut_requested: Annotated[
+        bool,
+        typer.Option(
+            "--cut-requested",
+            help="The tick is a dispatch of promotion-prep, the only tick that may cut.",
+        ),
+    ] = False,
     now: Annotated[
         str | None, typer.Option("--now", help="ISO time the tick reads as now (default: now).")
     ] = None,
@@ -19295,7 +19329,8 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
     """Decide one tick of the promotion train.
 
     Prints a `TrainStep` (`action`, `reason`, and the `pr`, `ref`, `sha` or
-    `branch` it acts on): cut a candidate, dispatch its integration gate, mark
+    `branch` it acts on): cut a candidate (only under `--cut-requested`),
+    dispatch its integration gate, mark
     it ready, re-fire its promotion-gate check, merge it, wait, or report. Every
     file or fact left out or unreadable is unknown, and an unknown never leads
     to an act. Reads no corpus and calls no API.
@@ -19336,6 +19371,7 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
         main_ahead_paths=main_ahead,
         last_promotion_synced=_tri(last_promotion_synced),
         recent_dispatches=_read_json_list(recent_dispatches_file, "workflow_runs"),
+        cut_requested=cut_requested,
         pull=_read_json_object(pull_file),
         freshness_ok=_tri(freshness_ok),
         staging_differs_from_main=_tri(staging_differs),
@@ -20193,6 +20229,43 @@ def assert_website_environment_cmd(
     if problems:
         raise typer.Exit(code=1)
     typer.echo("the website environment admits main alone and holds only its key and tag id")
+
+
+@app.command("assert-corpus-write-environment")
+def assert_corpus_write_environment_cmd(
+    environment_file: Annotated[
+        Path,
+        typer.Option(help="`GET /repos/{repo}/environments/corpus-write`; absent means unread."),
+    ],
+    branch_policies_file: Annotated[
+        Path, typer.Option(help="Its `deployment-branch-policies`; absent means unread.")
+    ],
+    secrets_file: Annotated[
+        Path, typer.Option(help="Its `secrets` listing (admin read); absent means unread.")
+    ],
+    variables_file: Annotated[
+        Path, typer.Option(help="Its `variables` listing (admin read); absent means unread.")
+    ],
+) -> None:
+    """Check the `corpus-write` environment still keeps the read-write role on `main`.
+
+    Requires the environment to exist, its deployment branches to be a custom
+    policy of exactly `main`, and it to hold no secret or variable outside the
+    names the corpus writer jobs read and every one of them but the optional
+    CourtListener rate caps. Names each problem and exits non-zero if there is
+    any; an unread or truncated listing is a problem.
+    """
+    problems = environment_checks.corpus_write_problems(
+        _read_document(environment_file),
+        _read_document(branch_policies_file),
+        _read_document(secrets_file),
+        _read_document(variables_file),
+    )
+    for problem in problems:
+        typer.echo(f"::error::corpus-write environment: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo("the corpus-write environment admits main alone and holds only the writers' names")
 
 
 @app.command("finalize-produced")

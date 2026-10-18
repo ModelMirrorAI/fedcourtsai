@@ -1,9 +1,9 @@
 name: promote
 
 # Maintainer-dispatched pre-flight for promoting `staging` itself by hand. The
-# usual path is the promotion train (`promotion-prep`), which cuts a frozen
-# `promote/<date>` candidate, gates it and merges it on the maintainer's
-# approval with no dispatch from anyone; this workflow is the diagnostic for
+# usual path is the promotion train (`promotion-prep`): the maintainer
+# dispatches it to cut a frozen `promote/<date>` candidate, and it gates the
+# candidate and merges it on the maintainer's approval; this workflow is the diagnostic for
 # the staging head and the manual route around the train. Idempotent and
 # level-triggered: dispatch it, read the step summary, do what it says,
 # dispatch again — until every gate is green, at which point the summary hands
@@ -181,7 +181,7 @@ jobs:
                 echo "## Promotion gates green at \`${sha}\`"
               fi
               echo
-              echo "The promotion train promotes frozen \`promote/<date>\` candidates on its own (\`gh pr list --base main --search head:promote/\`). To promote this staging head by hand instead — the train stands aside while a staging→main PR is open — open one; required checks run under your identity:"
+              echo "The promotion train promotes frozen \`promote/<date>\` candidates: dispatch it to cut one at staging's tip (\`gh workflow run promotion-prep.yml --ref main\`), and it carries the candidate to the merge on your approval (\`gh pr list --base main --search head:promote/\`). To promote this staging head by hand instead — the train stands aside while a staging→main PR is open — open one; required checks run under your identity:"
               echo
               echo '```'
               echo "gh pr create --base main --head staging --title \"chore: promote staging to main\" --body \"Promotion batch; gates green at ${sha}.\""

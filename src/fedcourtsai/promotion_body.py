@@ -22,6 +22,8 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel
 
+from .contexts_due import split_due
+
 BEGIN = "<!-- promotion-prep:begin -->"
 END = "<!-- promotion-prep:end -->"
 
@@ -85,6 +87,10 @@ class Batch(BaseModel):
     # admin escape hatch), whose change no feature PR's note covers.
     unmapped_commits: list[str] = []
     gate: list[GateCheck] = []
+    # The paths that make this batch owe the gate's admin-read `contexts`
+    # stage (`fedcourts contexts-due --json`); `None` when the job did not read
+    # them. Advisory: it never counts as a gate check that is not yet clean.
+    contexts_due: list[str] | None = None
     owed_fills: list[str] = []
     # The promotion's head ref: `staging` for a hand-opened promotion, or the
     # promotion train's frozen `promote/<date>` candidate, whose head is
@@ -216,6 +222,36 @@ def _gate_lines(batch: Batch) -> list[str]:
     return lines
 
 
+def _contexts_line(batch: Batch) -> list[str]:
+    """Whether the batch owes the admin-read `contexts` stage, which no CI token can run.
+
+    The stage reads `main`'s own workflows, so a workflow change is checked
+    after the merge; everything else it reads from the checkout, before.
+    """
+    if batch.contexts_due is None:
+        return []
+    if not batch.contexts_due:
+        return ["- contexts (admin read, run by hand): **not due** — nothing it judges changed"]
+    before, after = split_due(batch.contexts_due)
+    named = _named(batch.contexts_due)
+    lines = [f"- contexts (admin read, run by hand): **due** — the batch changes {named}."]
+    if before:
+        lines.append(
+            "  Run `scripts/promotion-gate.sh contexts` with an admin-read token before merging."
+        )
+    if after:
+        lines.append(
+            "  It reads `main`'s workflows, so for the workflow changes run"
+            " `scripts/promotion-gate.sh contexts` again once this merges."
+        )
+    return lines
+
+
+def _named(paths: list[str]) -> str:
+    named = ", ".join(f"`{path}`" for path in paths[:5])
+    return named + (f" (+{len(paths) - 5} more)" if len(paths) > 5 else "")
+
+
 def _next_step(batch: Batch) -> list[str]:
     """What the maintainer does next, in the order that keeps evidence valid.
 
@@ -278,7 +314,8 @@ def _train_next_step(batch: Batch) -> list[str]:
         "the required checks and the registry gate hold at this head and no "
         "predict/evaluate/back-test round is in flight. Merging it yourself instead is "
         "fine. To stop it, request changes or close it: a closed candidate is not re-cut "
-        "at the same staging tip, and the next one is cut once staging moves.",
+        "at the same staging tip, and the next one is cut when the train is dispatched "
+        "after staging moves.",
     ]
 
 
@@ -294,6 +331,7 @@ def _header(batch: Batch, *, drafted_at: str) -> list[str]:
             "",
             f"**Gate status** (`{batch.head_ref}` at `{batch.staging_sha[:9]}`):",
             *_gate_lines(batch),
+            *_contexts_line(batch),
             "",
             *_train_next_step(batch),
         ]
@@ -305,6 +343,7 @@ def _header(batch: Batch, *, drafted_at: str) -> list[str]:
         "",
         f"**Gate status** (staging `{batch.staging_sha[:9]}`):",
         *_gate_lines(batch),
+        *_contexts_line(batch),
         "",
         *_next_step(batch),
     ]

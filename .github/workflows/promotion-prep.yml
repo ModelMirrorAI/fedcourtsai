@@ -1,14 +1,19 @@
 name: promotion-prep
 
 # The promotion train: the mechanical half of every staging→main promotion,
-# done hourly, one step per tick, from a FROZEN release branch, so `staging`
-# keeps taking merges and syncs while the maintainer takes hours or days to
-# read a batch. The tested decision is `fedcourts promotion-train-step`
+# one step per tick, from a FROZEN release branch, so `staging` keeps taking
+# merges and syncs while the maintainer takes hours or days to read a batch.
+# The maintainer starts each batch by dispatching this workflow (`gh workflow
+# run promotion-prep.yml --ref main`): only a dispatched tick cuts, so a batch
+# closes when the maintainer says so, and the hourly ticks carry the candidate
+# from there. The tested decision is `fedcourts promotion-train-step`
 # (src/fedcourtsai/promotion_train.py, whose docstring carries the state
 # table); this workflow reads what it needs, asks it, and routes on the answer:
 #
-#   cut           — create `promote/<UTC date>[-N]` at staging's tip and open a
-#                   draft PR from it into `main`, the batch in its body;
+#   cut           — on a dispatched tick only: create `promote/<UTC date>[-N]`
+#                   at staging's tip and open a draft PR from it into `main`,
+#                   the batch in its body (a scheduled tick reports a batch
+#                   ready to cut and waits);
 #   dispatch_gate — dispatch integration-test `scenario=gate` at that branch
 #                   (`offline-gate` under the `promote:skip-engine-smoke`
 #                   label), only while no dispatched integration run of any
@@ -64,11 +69,16 @@ on:
     # Hourly, so the steps chain within about an hour each, on a minute no
     # other schedule uses.
     - cron: "26 * * * *"
+  # The maintainer's cut request; with a candidate open, it advances it as a
+  # scheduled tick would.
   workflow_dispatch:
 
 permissions: {}
 
 # One tick at a time: a tick's dispatch or merge lands before the next reads.
+# GitHub keeps one pending run per group, so a dispatch queued behind a running
+# tick is cancelled if the schedule queues after it; a cancelled dispatch cut
+# nothing and is sent again.
 concurrency:
   group: promotion-prep
   cancel-in-progress: false
@@ -158,12 +168,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
           git fetch --no-tags -q origin main staging
           main_sha=$(git rev-parse origin/main)
           staging_sha=$(git rev-parse origin/staging)
           args=(--repo "$REPO" --staging-sha "$staging_sha")
+          # Only a dispatched tick may cut; the run gate has already refused a
+          # dispatch by anyone config/dispatchers.json does not name.
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            args+=(--cut-requested)
+          fi
           # Both sides against their merge-base. Main's side may hold only the
           # writer lanes' paths for a cut (the decision checks which); staging's
           # side is what a candidate would carry — the tree, not the commit
@@ -285,6 +301,11 @@ jobs:
             # when it is what the merge is waiting on.
             { gate_line freshness "$f" fresh.log; gate_line registry "$r" registry.log; } > gate.ndjson
           fi
+          # Whether the batch owes the admin-read contexts stage, read at the
+          # commit the body describes: advisory, so a read that fails leaves
+          # the body silent on it rather than red.
+          uv run fedcourts contexts-due --at "$target_sha" --main-ref origin/main --json \
+            > contexts-due.json 2> contexts-due.log || { cat contexts-due.log; rm -f contexts-due.json; }
           printf '%s\n' "${args[@]}" > step-args.txt
           {
             echo "main_sha=${main_sha}"
@@ -371,12 +392,13 @@ jobs:
           if [ "$ACTION" = refire_gate ]; then
             status="${status} (${now})"
           fi
+          [ -f contexts-due.json ] || echo null > contexts-due.json
           jq -n --arg staging "$TARGET_SHA" --arg main "$MAIN_SHA" --arg ref "$head_ref" \
             --arg status "$status" \
             --slurpfile prs prs.ndjson --slurpfile gate gate.ndjson --rawfile fills fills.txt \
-            --rawfile unmapped unmapped.txt \
+            --rawfile unmapped unmapped.txt --slurpfile contexts contexts-due.json \
             '{staging_sha: $staging, main_sha: $main, prs: $prs, gate: $gate,
-              head_ref: $ref, train_status: $status,
+              contexts_due: $contexts[0], head_ref: $ref, train_status: $status,
               unmapped_commits: ($unmapped | split("\n") | map(select(length > 0))),
               owed_fills: ($fills | split("\n") | map(select(length > 0)))}' > batch.json
           if [ "$ACTION" = cut ]; then
