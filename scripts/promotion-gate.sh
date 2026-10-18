@@ -467,10 +467,10 @@ contexts() {
   fi
 
   # The staging environment's mirror of the same failure mode: the staging
-  # read-write role's trust names `environment: staging` — deliberately, so
-  # staging rehearses production's provenance model — which makes that
-  # environment's deployment-branch policy the one thing keeping the only
-  # write-capable role outside `prod` off arbitrary branches. Unconditional,
+  # read-write role's trust names `environment: staging` — deliberately, the
+  # environment every staging reader binds (docs/security.md) — which makes
+  # that environment's deployment-branch policy the one thing keeping the only
+  # write-capable role outside `corpus-write` off arbitrary branches. Unconditional,
   # unlike the review-environment check above: the trust exists from the
   # moment the role is provisioned on the AWS side, before any workflow that
   # binds it reaches main, and the policy predates the role (the integration
@@ -613,6 +613,38 @@ contexts() {
     echo "contexts: the website environment admits main alone and holds only the Buttondown key and the tag id"
   else
     echo "::error::contexts: fix the website environment before promoting — its branch policy is what keeps the Buttondown key on main (docs/security.md)"
+    fail=1
+  fi
+
+  # The corpus-write environment, unconditionally, on the corpus-check
+  # check's reasoning: the production read-write role's trust is to name
+  # `environment:corpus-write` alone — an IAM statement this stage cannot
+  # read, so it checks only the environment — and from the moment the trust
+  # names it, an environment that is missing or open
+  # to any branch hands that role to whatever branch workflow binds it — and
+  # GitHub auto-creates a referenced environment with no branch policy.
+  # Required: the environment exists, its branch policy admits `main` alone,
+  # and it holds no secret or variable outside the names the writer jobs read.
+  # The decision is tested Python (tests/test_environment_checks.py).
+  local cw_dir="${workdir}/corpus-write-environment" cw_base
+  cw_base="repos/${REPO}/environments/corpus-write"
+  mkdir -p "$cw_dir"
+  gh api "$cw_base" >"${cw_dir}/environment.json" 2>/dev/null \
+    || rm -f "${cw_dir}/environment.json"
+  gh api "${cw_base}/deployment-branch-policies?per_page=100" \
+    >"${cw_dir}/branch-policies.json" 2>/dev/null || rm -f "${cw_dir}/branch-policies.json"
+  gh api "${cw_base}/secrets?per_page=100" >"${cw_dir}/secrets.json" 2>/dev/null \
+    || rm -f "${cw_dir}/secrets.json"
+  gh api "${cw_base}/variables?per_page=30" >"${cw_dir}/variables.json" 2>/dev/null \
+    || rm -f "${cw_dir}/variables.json"
+  if uv run fedcourts assert-corpus-write-environment \
+    --environment-file "${cw_dir}/environment.json" \
+    --branch-policies-file "${cw_dir}/branch-policies.json" \
+    --secrets-file "${cw_dir}/secrets.json" \
+    --variables-file "${cw_dir}/variables.json"; then
+    echo "contexts: the corpus-write environment admits main alone and holds only the writers' names"
+  else
+    echo "::error::contexts: fix the corpus-write environment before promoting — the production read-write role's trust is to name it (docs/security.md)"
     fail=1
   fi
 }

@@ -97,11 +97,13 @@ OUTSIDE_REACHABLE_TRIGGERS = frozenset(
 UNPRIVILEGED_PULL_REQUEST_WORKFLOWS = ("ci.yml", "codeql.yml", "lint-actions.yml")
 
 # The environments whose deployment-branch policy pins the ref a job may run
-# from: `prod` to `main`, `staging` to the staging branch (docs/security.md).
+# from: `prod` and `corpus-write` to `main`, `staging` to the staging branch
+# (docs/security.md). `corpus-write` is the corpus writers' alone, and which
+# jobs bind it is pinned in tests/test_workflow_corpus_write.py.
 # Binding *some* environment is not the property — GitHub auto-creates a
 # referenced environment unprotected, so `environment: dev` would gate nothing —
 # which is why the sweep below is a membership test rather than a truthiness one.
-BRANCH_POLICIED_ENVIRONMENTS = frozenset({"prod", "staging"})
+BRANCH_POLICIED_ENVIRONMENTS = frozenset({"prod", "corpus-write", "staging"})
 
 # The two admitted expression forms for a privileged job's environment, each
 # pinned by its exact text so a change has to come back through this file; the

@@ -12,6 +12,8 @@ from typing import Any
 
 import yaml
 
+from fedcourtsai import environment_checks as ec
+
 WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
 
 
@@ -64,12 +66,17 @@ def test_no_pull_request_target_anywhere() -> None:
 
 
 def test_prod_environment_jobs_are_unreachable_on_pull_request() -> None:
-    """Any job that declares `environment: prod` can read the prod secrets only
-    from a `main` ref (deployment-branch policy). Such a workflow must therefore not
-    be reachable on `pull_request`, where the ref is a fork/PR ref."""
+    """Any job that declares `environment: prod` (or `corpus-write`, the corpus
+    writers') can read that environment's secrets only from a `main` ref
+    (deployment-branch policy). Such a workflow must therefore not be reachable
+    on `pull_request`, where the ref is a fork/PR ref."""
     for name in _all_workflows():
         wf = _load(name)
-        prod_jobs = [j for j, job in wf["jobs"].items() if _env_name(job) == "prod"]
+        prod_jobs = [
+            j
+            for j, job in wf["jobs"].items()
+            if _env_name(job) in ("prod", ec.CORPUS_WRITE_ENVIRONMENT)
+        ]
         if prod_jobs:
             assert not _reachable_on_pull_request(wf), (
                 f"{name} triggers on pull_request yet has prod-environment job(s) "

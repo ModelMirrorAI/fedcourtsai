@@ -380,7 +380,8 @@ jobs:
 
   # The corpus passes: every pass that pulls the blob, mutates it and pushes.
   # Structured like run-seed's writer job without the walk — same App token,
-  # same read-write role, same `prod` environment, same pointer-commit shape.
+  # same read-write role, same `corpus-write` environment, same pointer-commit
+  # shape.
   repair:
     needs: [authorize, validate]
     # Named as an allow-list, never as "everything but the re-grade": this job
@@ -419,7 +420,7 @@ jobs:
     # only — the OCR slice deadline is derived from that 45-minute step cap,
     # so it moves with it.
     timeout-minutes: 72
-    environment: prod
+    environment: corpus-write
     # This environment's corpus estate as one base URL (see run-pull): the
     # index remote and the per-case content store are fixed segments beneath
     # it, and the store's address is the corpus-split mode. Job-wide, because
@@ -2673,10 +2674,10 @@ jobs:
   # back. It fetches nothing: the served records are the plan's, re-checked
   # whole first. The App token is minted only after the push.
   #
-  # Every step here can still request an OIDC token for either role `prod` is
-  # trusted by — the job needs `id-token: write` for its own read-write
-  # session, and the runner hands the request pair to every step. What stands
-  # between the plan and that is the plan's validation: the job parses no
+  # Every step here can still request an OIDC token for either corpus role
+  # `corpus-write` is trusted by — the job needs `id-token: write` for its own
+  # read-write session, and the runner hands the request pair to every step.
+  # What stands between the plan and that is the plan's validation: the job parses no
   # fetched PDF and runs the same JSON mapping the live channel's own writers
   # run.
   #
@@ -2703,7 +2704,7 @@ jobs:
     runs-on: ubuntu-24.04
     # Setup, the corpus pull, the land step's 30 minutes and the commit.
     timeout-minutes: 50
-    environment: prod
+    environment: corpus-write
     permissions:
       contents: read
       id-token: write # the read-write role for the fresh pull, the ingest and the push
@@ -2891,9 +2892,12 @@ jobs:
   # nothing and parses only snapshots already in the access-gated store, and
   # those snapshots may not leave the private estate as a public run artifact,
   # so no parse could be handed to a credential-free job anyway. Its posture,
-  # plainly: the job holds `id-token: write` under `prod`, and the runner hands
-  # every step the OIDC request pair, so every step here can mint a token for
-  # either corpus role `prod` is trusted by. What the job blanks — and its
+  # plainly: the job holds `id-token: write` under `corpus-write` — on a dry
+  # run too, the one job serving both modes, which is why the read-only role's
+  # trust is to name `corpus-write` too — and the
+  # runner hands every step the OIDC request pair, so every step here can mint
+  # a token for either corpus role `corpus-write` is trusted by. What the job
+  # blanks — and its
   # commit step asserts — is the AWS session's variables on the step holding
   # the App token, which a step's `env:` does override.
   #
@@ -2914,7 +2918,7 @@ jobs:
     runs-on: ubuntu-24.04
     # The pass step's 25-minute cap plus setup, the corpus pull and the commit.
     timeout-minutes: 45
-    environment: prod
+    environment: corpus-write
     permissions:
       contents: read
       id-token: write # the read-only role for the pull and the read; on an apply, the read-write role for the write
@@ -3070,10 +3074,10 @@ jobs:
   # are the plan's, re-validated whole first. The App token is minted only
   # after the push.
   #
-  # Every step here can still request an OIDC token for either role `prod` is
-  # trusted by — the job needs `id-token: write` for its own read-write
-  # session, and the runner hands the request pair to every step. What stands
-  # between the parse and that is the job boundary: the plan is the only thing
+  # Every step here can still request an OIDC token for either corpus role
+  # `corpus-write` is trusted by — the job needs `id-token: write` for its own
+  # read-write session, and the runner hands the request pair to every step.
+  # What stands between the parse and that is the job boundary: the plan is the only thing
   # that crosses, and it is checked against the reader's own invariants before
   # a row is inserted.
   #
@@ -3094,7 +3098,7 @@ jobs:
     # Setup, the corpus pull (about a gigabyte), the insert step's 25 minutes
     # (a local insert plus the blob push) and the commit.
     timeout-minutes: 50
-    environment: prod
+    environment: corpus-write
     permissions:
       contents: read
       id-token: write # the read-write role for the fresh pull and the push

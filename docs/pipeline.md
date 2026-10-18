@@ -21,7 +21,9 @@ GitHub to anyone without repository write, and by the run gate to any write
 holder `config/dispatchers.json` does not name; and every privileged job binds a
 deployment environment whose branch policy pins the ref it may run from (`prod`
 to `main`, `staging` to `staging` and the promotion train's `promote/*`
-candidates, `corpus-check` and `corpus-check-auto` to `main`) — a job naming one
+candidates, `corpus-write` — the corpus writer jobs' alone, the one environment
+the production read-write role trusts — and `corpus-check` and
+`corpus-check-auto` to `main`) — a job naming one
 as a literal is refused at
 the deployment gate from any other ref before a step runs, and the three
 branch-resolving workflows (`integration-test`, `run-analytics`, `summarize`) resolve an
