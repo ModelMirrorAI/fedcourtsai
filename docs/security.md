@@ -864,12 +864,14 @@ trust second.** Once the read-only role's trust names
 and GitHub auto-creates a referenced environment with no reviewer and no
 branch policy, so until the environment exists, protected, any write holder
 can push a branch whose own workflow binds it and names the role. The
-promotion gate's `contexts` stage checks the environment unconditionally on
-every promotion (`fedcourtsai.environment_checks`, resolving the approver's
-user id at run time): it exists, its required reviewers are exactly the
-approver — no other user, no team — its
-branch policy admits exactly `main`, it holds no secret, and its variables are
-among the three above. The lane's plan job reads the environment too, with its
+promotion gate's `contexts` stage checks the environment
+(`fedcourtsai.environment_checks`, resolving the approver's user id at run
+time): it exists, its required reviewers are exactly the approver — no other
+user, no team — its branch policy admits exactly `main`, it holds no secret,
+and its variables are among the three above. The stage runs by hand with an
+admin-read token: after any settings change, and on any promotion its
+`contexts-due` verdict marks *due* (*Promotion* in
+[pipeline.md](pipeline.md)). The lane's plan job reads the environment too, with its
 `actions: read` grant, and plans nothing while the reviewer or the policy is
 missing; it cannot see secrets or variables, so the gate is the check that
 holds.
@@ -908,9 +910,11 @@ approval. Configure it with:
 `run-auto` job**: create the environment so, then add
 `repo:<owner>/<repo>:environment:corpus-check-auto` to the read-only role's
 trust (*S3 / the private stores* below). The promotion gate's `contexts`
-stage checks it unconditionally on every promotion (`fedcourtsai.environment_checks`): it
+stage checks it whenever it runs (`fedcourtsai.environment_checks`): it
 exists, its branch policy admits exactly `main`, it holds no secret, and its
-variables are among the three — so a promotion fails until it is provisioned.
+variables are among the three — so the stage fails until it is provisioned.
+The promotion carrying the `run-auto` job changes a workflow, so its
+`contexts-due` verdict marks it *due*.
 The plan job reads its existence and branch policy on every poll, and while
 either is missing routes every request to the approval.
 
@@ -964,8 +968,8 @@ environment with the policy and names above and add
 `corpus-write`; then, once a writer window has succeeded under it, remove
 `environment:prod` from the read-write role's trust. Until that last step a
 `prod` job can still mint a token the read-write role accepts. The
-promotion gate's `contexts` stage checks the environment unconditionally on
-every promotion (`fedcourts assert-corpus-write-environment`): it exists,
+promotion gate's `contexts` stage checks the environment whenever it runs
+(`fedcourts assert-corpus-write-environment`): it exists,
 its branch policy admits exactly `main`, it holds every name above but the
 optional rate caps and nothing outside them, and no listing it reads is a
 truncated page. The gate cannot read the trust statements,
@@ -1415,7 +1419,8 @@ Configure it with:
   from their own branch, so long as the key lives nowhere else: a workflow's
   secret falls back to a repository or organization secret of the same name,
   which no branch policy guards. The promotion gate's maintainer-run,
-  admin-read `contexts` stage checks it unconditionally, together with the
+  admin-read `contexts` stage checks it whenever it runs, whether or not a
+workflow references it yet, together with the
   contents below (`fedcourts assert-website-environment`): exactly `main`,
   exactly the one secret and the one variable, nothing else (anything added
   here is handed to the same job), and no repository or organization secret
@@ -2137,8 +2142,8 @@ the repoint. Read step 5's two ordering notes before doing either.
    promotion gate's **admin-read `contexts` stage**, which the maintainer runs
    with their own token, verifies the environment's deployment-branch policy
    names `staging` — the same shape as its `review`-environment reviewer
-   check, but **unconditional**, where that one waits until main's workflows
-   reference the environment. The trust exists from the moment the role is
+   check, but **regardless of references**, where that one waits until main's
+   workflows reference the environment. The trust exists from the moment the role is
    provisioned on the AWS side, before any workflow that binds it reaches main,
    and the branch policy predates the role (the integration runs need it too),
    so there is no state in which checking it early is wrong — and an arming key

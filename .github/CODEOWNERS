@@ -54,7 +54,9 @@
 # The environment checks the same stage runs — corpus-check, which the lane's
 # plan job also reads before it plans anything, and website.
 /src/fedcourtsai/environment_checks.py @modelmirror
+/src/fedcourtsai/contexts_due.py @modelmirror
 /tests/test_environment_checks.py @modelmirror
+/tests/test_contexts_due.py @modelmirror
 /src/fedcourtsai/collect.py @modelmirror
 # The unattended merge: what the dev App's approval bypass lands on `main`
 # without a human, and when it gives up.

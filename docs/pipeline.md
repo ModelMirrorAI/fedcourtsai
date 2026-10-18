@@ -667,8 +667,8 @@ removes the block once answered; to re-run an unchanged head, push a commit.
 A comment that cannot be posted (a locked conversation) leaves its head to be
 planned again every poll. The environment and the read-only
 role's trust are provisioned once, the environment first
-([security.md](security.md)); the promotion gate's `contexts` stage checks the
-environment on every promotion.
+([security.md](security.md)); the promotion gate's maintainer-run `contexts`
+stage checks the environment (*Promotion: staging → main*).
 
 ## `staging-corpus-refresh` — the staging corpus
 
@@ -1781,7 +1781,26 @@ The mechanics:
   the PR's head ref (`staging` or the candidate's `promote/<date>`; the script
   refuses any other name).
   Re-run that check right before merging — quiescence is point-in-time (the
-  train re-fires it by a body edit when it alone stands red).
+  train re-fires it by a body edit when it alone stands red). `all` then
+  prints whether the batch owes the admin-read `contexts` stage, an advisory
+  verdict that never fails it (next).
+- **When a promotion owes the admin-read `contexts` stage.** `contexts`
+  (*Adding a required status check*, below) needs an admin-read token no CI
+  job holds, so it runs by hand rather than on every promotion. What it guards
+  drifts when a setting is changed by hand — run it after any settings change
+  — or when a batch changes what the settings are judged against: a workflow
+  (the required jobs, and every environment a job names, which GitHub creates
+  unprotected), the gate script, `required_checks.py`, `ruleset_checks.py`,
+  `environment_checks.py`, or the corpus-check approver it checks against
+  (`config/corpus-check.yaml` and `corpus_check.py`, which parses it).
+  `promotion-gate.sh all` ends with a `contexts-due` verdict naming any such
+  path (`fedcourts contexts-due`), and the promotion PR's generated block
+  repeats it as *due* or *not due*. It never fails the gate. Most batches
+  touch a workflow, so most come out *due*. On *due*, run
+  `scripts/promotion-gate.sh contexts` with your own token — before merging
+  for what it reads from the checkout, and again once the promotion merges
+  for workflow changes, since it reads `main`'s own workflows; the verdict
+  says which applies.
 - **The engine-smoke skip, and how far it reaches.** Waiving the six
   token-spending engine runs costs every piece of evidence that real engines
   still run at the sha being promoted: that a cell completes in the production
@@ -1957,8 +1976,9 @@ The full path of a change, operator's view:
    quiescence, provenance and freshness. The body already lists the batch's
    **stated effect checks** — what should be true once it is live and the
    command that shows it — gathered from the feature PRs' handover notes
-   (AGENTS.md asks each for one), and names any PR that left none; write the
-   missing ones, and any narrative, outside the generated block. On a hand
+   (AGENTS.md asks each for one), and names any PR that left none, and says
+   whether the batch owes the admin-read `contexts` stage and when to run it;
+   write the missing checks, and any narrative, outside the generated block. On a hand
    promotion, edit the body once after the integration run is green to
    re-fire `promotion-gate`, re-run the check right before merging, and merge
    with a **merge commit**; the train does both for its candidates. The

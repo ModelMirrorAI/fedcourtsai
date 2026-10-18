@@ -285,6 +285,11 @@ jobs:
             # when it is what the merge is waiting on.
             { gate_line freshness "$f" fresh.log; gate_line registry "$r" registry.log; } > gate.ndjson
           fi
+          # Whether the batch owes the admin-read contexts stage, read at the
+          # commit the body describes: advisory, so a read that fails leaves
+          # the body silent on it rather than red.
+          uv run fedcourts contexts-due --at "$target_sha" --main-ref origin/main --json \
+            > contexts-due.json 2> contexts-due.log || { cat contexts-due.log; rm -f contexts-due.json; }
           printf '%s\n' "${args[@]}" > step-args.txt
           {
             echo "main_sha=${main_sha}"
@@ -371,12 +376,13 @@ jobs:
           if [ "$ACTION" = refire_gate ]; then
             status="${status} (${now})"
           fi
+          [ -f contexts-due.json ] || echo null > contexts-due.json
           jq -n --arg staging "$TARGET_SHA" --arg main "$MAIN_SHA" --arg ref "$head_ref" \
             --arg status "$status" \
             --slurpfile prs prs.ndjson --slurpfile gate gate.ndjson --rawfile fills fills.txt \
-            --rawfile unmapped unmapped.txt \
+            --rawfile unmapped unmapped.txt --slurpfile contexts contexts-due.json \
             '{staging_sha: $staging, main_sha: $main, prs: $prs, gate: $gate,
-              head_ref: $ref, train_status: $status,
+              contexts_due: $contexts[0], head_ref: $ref, train_status: $status,
               unmapped_commits: ($unmapped | split("\n") | map(select(length > 0))),
               owed_fills: ($fills | split("\n") | map(select(length > 0)))}' > batch.json
           if [ "$ACTION" = cut ]; then
