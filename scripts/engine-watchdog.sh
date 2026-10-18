@@ -336,7 +336,7 @@ signalable() {
   done
   cmd="$(cmdline_of "$pid")"
   [ -n "$cmd" ] || return 1
-  printf '%s' "$cmd" | grep -Eq -- "$infra_match" && return 1
+  grep -Eq -- "$infra_match" <<<"$cmd" && return 1
   return 0
 }
 
