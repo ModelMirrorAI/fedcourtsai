@@ -368,7 +368,12 @@ snapshot in the Court's own shape, `context.json`, and the documents manifest
 with one text file per listed document, each fetched from supremecourt.gov. A
 symlink removes the case rather than being followed, and anything else under
 the stage root is removed. A removed case is reported skipped and planned again
-by the next run.
+by the next run. The same check withholds any document the contact scrub left
+a contact-shaped match on: provisioning stages such a document unchanged and
+records the match count as its manifest row's `contact_residuals`, and a
+non-zero count removes the document's text and its row while the rest of the
+case crosses. The rule keys on that count rather than on `contact_scrubbed:
+false`, which every represented docket's documents also read.
 
 **The written summaries are a public artifact for a week.** The
 `case-summaries` artifact carries the generated files, after the jail and the

@@ -68,7 +68,7 @@ from .schemas import (
     SummaryPlan,
     SummaryPlanCase,
 )
-from .serialize import write_text
+from .serialize import write_raw_json, write_text
 
 #: The summarizer's system prompt, relative to the repository root.
 PROMPT_PATH = Path(".github/prompts/summarize.md")
@@ -432,7 +432,42 @@ def prune_stage(plan: SummaryPlan, stage_root: Path) -> list[tuple[str, str]]:
             if reason:
                 _remove(case_dir)
                 removed.append((label, reason))
+                continue
+            removed.extend(
+                (f"{label}/{kind}", reason) for kind, reason in _withhold_residuals(case_dir)
+            )
     return removed
+
+
+def _withhold_residuals(case_dir: Path) -> list[tuple[str, str]]:
+    """Remove each staged document the contact scrub left a contact-shaped match on.
+
+    Provisioning stages such a document unchanged and records what the scrub's
+    residual detector still found as the manifest row's ``contact_residuals``.
+    The rule keys on that count, not on ``contact_scrubbed: false``, which is
+    also what every represented docket's documents read. A row whose count is
+    not a whole number is withheld too, since nothing then says it is clean.
+    Each withheld document's text file and manifest row go together, so the
+    manifest still lists exactly the files staged, and the case crosses with
+    the rest of its record. Returns ``(kind, reason)`` for each.
+    """
+    manifest = case_dir / "record/documents/documents.json"
+    if not manifest.is_file():
+        return []
+    entries = json.loads(manifest.read_text())
+    kept: list[Any] = []
+    withheld: list[tuple[str, str]] = []
+    for entry in entries:
+        count = entry.get("contact_residuals", 0)
+        if isinstance(count, int) and not isinstance(count, bool) and count == 0:
+            kept.append(entry)
+            continue
+        kind = entry["kind"]
+        (case_dir / f"record/documents/{kind}.txt").unlink(missing_ok=True)
+        withheld.append((kind, f"document withheld: {count!r} contact residual(s)"))
+    if withheld:
+        write_raw_json(manifest, kept)
+    return withheld
 
 
 def _stage_problem(case_dir: Path, case: SummaryPlanCase) -> str:

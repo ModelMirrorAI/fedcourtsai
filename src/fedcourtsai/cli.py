@@ -14376,7 +14376,9 @@ def summary_stage_check_cmd(
     documents manifest with one text file per listed supremecourt.gov document —
     and removes everything else under the stage root. Each removal is printed as
     a ``::warning::``; the case is then reported skipped by ``summarize`` and
-    planned again by the next run.
+    planned again by the next run. A kept case's document the contact scrub left
+    a residual on (``contact_residuals`` above zero) is withheld alone, with its
+    manifest row, and printed the same way.
     """
     plan = SummaryPlan.model_validate_json(plan_file.read_text())
     removed = summaries.prune_stage(plan, staged)
