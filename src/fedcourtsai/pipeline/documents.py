@@ -2173,9 +2173,11 @@ number. The opening-only shapes and the residual detector read this much.
 # targets are the addresses people sign filings with, and a wider pattern buys
 # nothing but false positives over legal prose. Every run is bounded at the
 # RFC limits (a 64-character local part, 63-character labels) and the domain at
-# eight labels: unbounded, a long run of address characters with an `@` and no
-# domain behind it costs time quadratic in its length, and one garbled filing
-# at the document cap then stalls its cell's provisioning for half a minute.
+# nine labels before the top-level one: unbounded, a long run of address
+# characters with an `@` and no domain behind it costs time quadratic in its
+# length, and one garbled filing at the document cap then stalls its cell's
+# provisioning for half a minute. A string past those bounds is not an address
+# anyone signs with, and this shape leaves it.
 _EMAIL_RE = re.compile(
     r"\b[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
     r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?){0,8}\.[A-Za-z]{2,63}\b"
@@ -2373,11 +2375,23 @@ _STREET_CAPITAL_SUFFIXES = "|".join(
 _STREET_CONNECTORS = "(?:de|del|la|las|los|el|du|des|da|van|von|der)"
 
 # The Ohio State Reports cite as a volume, `Ohio St.`, an optional series and a
-# page (`123 Ohio St. 3d 456`, `98 Ohio St.2d 12`), which is a street address's
-# shape to the letter. A page of one to four digits after it is what tells the
-# citation from an address, whose line goes on to a unit, a city or a ZIP code;
-# the final name token is never read as `Ohio` where one follows.
-_OHIO_REPORTER = r"(?!(?i:Ohio[ \t]+St\.(?:[ \t]*[23]d)?[ \t]+\d{1,4}(?!\d)))"
+# page (`123 Ohio St. 3d 456`, `98 Ohio St.2d 12`, `1 Ohio St. 3 (1852)`), and
+# the Ohio State Law Journal as `75 Ohio St. L.J. 123`, which is a street
+# address's shape to the letter. With a series or the journal's `L.J.`, a page
+# of one to four digits standing as a word of its own and not followed by a
+# capitalized word reads as the citation; an address line goes on to a
+# lettered unit (`4B`) or a word (`3d Floor`). Without one, the page must be
+# followed by a pin cite or a parenthesis (`1 Ohio St. 3, 5`, `1 Ohio St. 3
+# (1852)`), since a bare number there is as often an address's suite
+# (`350 Ohio St. 200`). The final name token is never read as `Ohio` where
+# such a citation follows.
+_OHIO_SERIES = r"[ \t]*(?:[23]d|L\.[ \t]?J\.)"
+_OHIO_REPORTER = (
+    r"(?!(?i:Ohio[ \t]+St\.)(?:"
+    rf"{_OHIO_SERIES}[ \t]+\d{{1,4}}(?![\w-])(?![ \t]+[A-Z][a-z])"
+    r"|[ \t]+\d{1,4}(?=[ \t]*\(|,[ \t]*\d)"
+    r"))"
+)
 
 
 def _street_pattern(suffixes: str) -> re.Pattern[str]:
