@@ -38,6 +38,7 @@ INVALID_STREAM = {
 #   invalid-produce  the same, after writing the judgment artifact too
 #   permanent      a non-zero exit whose stderr names a context-length fault
 #   quota          a non-zero exit with gemini's terminal-quota wording
+#   stderr-object  a non-zero exit leaving a stack and the error object on stderr
 # Every turn appends one record to the telemetry log, as gemini-cli's local
 # exporter does (it opens the file for append).
 STUB_GEMINI = r"""#!/usr/bin/env bash
@@ -64,6 +65,10 @@ case "$turn" in
     mkdir -p "$STUB_OUT"; echo '{"flags": []}' > "$STUB_OUT/flags.json"
     echo "$invalid" ;;
   permanent) echo "API error: request exceeds the context length" >&2; exit 1 ;;
+  stderr-object)
+    echo "    at async GeminiChat.makeApiCallAndProcessStream (chunk.js:321564:28)" >&2
+    echo "$STUB_STDERR_OBJECT" >&2
+    exit 1 ;;
   quota)
     echo "TerminalQuotaError: You have exhausted your daily quota on this model. 429" >&2
     exit 1 ;;
@@ -77,6 +82,25 @@ TELEMETRY_RECORD = (
     + '"input_token_count": 100, "output_token_count": 10, "attempt": %s}\\n}\\n'
 )
 INVALID_RESULT = json.dumps({"session_id": "s", "response": "", "error": INVALID_STREAM})
+# A failed exit's error object as gemini-cli leaves it, on stderr after the
+# stack, with a credential-shaped value the annotation must not carry.
+STDERR_OBJECT = json.dumps(
+    {
+        "session_id": "s",
+        "error": {
+            "type": "Error",
+            "message": "exception TypeError: fetch failed sending request "
+            + "key="
+            + "AIza"
+            + "Sy"
+            + "0" * 33,
+            "code": 1,
+        },
+    },
+    indent=2,
+)
+# The fault as the step's annotation names it: the result's error, type and message.
+INVALID_FAULT = f"{INVALID_STREAM['type']}: {INVALID_STREAM['message']}"
 
 # `uv run fedcourts <args>` -> the real CLI from this environment.
 CLI = 'import sys; from fedcourtsai.cli import app; sys.argv[0] = "fedcourts"; app()'
@@ -143,6 +167,7 @@ def _run(
         "STUB_TELEMETRY": str(tmp_path / ".gemini" / "telemetry.log"),
         "STUB_TELEMETRY_RECORD": TELEMETRY_RECORD,
         "STUB_INVALID_RESULT": INVALID_RESULT,
+        "STUB_STDERR_OBJECT": STDERR_OBJECT,
         # No waiting between attempts unless a test asks for it.
         "GEMINI_RETRY_BACKOFF_S": "0",
         **(knobs or {}),
@@ -179,7 +204,8 @@ def test_an_invalid_stream_is_retried_from_a_clean_output_root(tmp_path: Path) -
     assert sorted(p.name for p in root.iterdir()) == ["prediction.json"]
     warnings = _warnings(result)
     assert len(warnings) == 2
-    assert all("ended transient (INVALID_STREAM); retrying" in w for w in warnings)
+    assert all("ended transient; retrying" in w for w in warnings)
+    assert all(w.endswith(f"; engine said: {INVALID_FAULT}") for w in warnings)
     assert f"predict {PREDICTOR} {COURT}/{DOCKET} {EVENT}" in warnings[0]
     # The telemetry log is left in place, so the usage and retrieval captures
     # read all three turns — the failed ones spent real tokens.
@@ -196,7 +222,8 @@ def test_the_attempts_are_capped(tmp_path: Path) -> None:
     # The last turn's exit status is the step's — a zero, as gemini gave it.
     assert result.returncode == 0
     (last,) = [w for w in _warnings(result) if "not retried" in w]
-    assert "attempt 3/3 ended transient (INVALID_STREAM)" in last
+    assert "attempt 3/3 ended transient; not retried" in last
+    assert last.endswith(f"; engine said: {INVALID_FAULT}")
     assert "all 3 attempts are spent" in last
     # The last turn's leavings are not reset: no retry follows to need it,
     # and the tail reads the cell as it stands.
@@ -204,17 +231,30 @@ def test_the_attempts_are_capped(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("turn", "verdict"),
-    [("permanent", "permanent"), ("quota", "terminal_quota")],
+    ("turn", "verdict", "fault"),
+    [
+        ("permanent", "permanent", "API error: request exceeds the context length"),
+        (
+            "quota",
+            "terminal_quota",
+            "TerminalQuotaError: You have exhausted your daily quota on this model. 429",
+        ),
+    ],
 )
-def test_a_fault_that_cannot_clear_is_not_retried(tmp_path: Path, turn: str, verdict: str) -> None:
+def test_a_fault_that_cannot_clear_is_not_retried(
+    tmp_path: Path, turn: str, verdict: str, fault: str
+) -> None:
     result, _ = _run(tmp_path, [turn, "ok"])
     assert _attempts(tmp_path) == 1
     assert result.returncode == 1, "the step's exit status is the engine's"
     # The engine's stderr reaches the job log, not only the classifier's capture.
     assert "exhausted your daily quota" in result.stderr or "context length" in result.stderr
     (warning,) = _warnings(result)
-    assert f"attempt 1/3 ended {verdict}; not retried: the fault is not a transient one" in warning
+    assert (
+        f"attempt 1/3 ended {verdict}; not retried: the fault is not a transient one"
+        + f"; engine said: {fault}"
+        in warning
+    )
 
 
 def test_no_retry_starts_without_enough_of_the_deadline_left(tmp_path: Path) -> None:
@@ -307,3 +347,32 @@ def test_a_malformed_knob_fails_before_the_engine_starts(tmp_path: Path, knob: s
     result, _ = _run(tmp_path, ["ok"], knobs={knob: "3x"})
     assert result.returncode == 1
     assert not (tmp_path / "count").exists(), "the engine ran under a knob read as zero"
+
+
+def test_the_annotation_names_a_fault_left_on_stderr(tmp_path: Path) -> None:
+    """A failed exit's error object is read off stderr, screened, and named."""
+    # A dropped model call is transient: the second turn runs, and both the
+    # retry's annotation and the last attempt's name the fault.
+    result, _ = _run(tmp_path, ["stderr-object", "stderr-object", "stderr-object"])
+    assert _attempts(tmp_path) == 3
+    warnings = _warnings(result)
+    assert len(warnings) == 3
+    assert "ended transient; retrying" in warnings[0]
+    assert "attempt 3/3 ended transient; not retried: all 3 attempts are spent" in warnings[-1]
+    for warning in warnings:
+        assert warning.endswith(
+            "; engine said: Error: exception TypeError: fetch failed sending request "
+            + "key redacted:google-key"
+        )
+        assert "AIza" not in warning
+
+
+def test_a_fault_the_harness_cannot_read_leaves_the_annotation_bare(tmp_path: Path) -> None:
+    """The fault line is a nicety: its command failing changes no retry."""
+    result, _ = _run(
+        tmp_path, ["invalid", "ok"], knobs={"STUB_FAIL_COMMAND": "engine-attempt-fault"}
+    )
+    assert _attempts(tmp_path) == 2
+    assert result.returncode == 0
+    (warning,) = _warnings(result)
+    assert warning.endswith(" ended transient; retrying from a clean output root in 0s")

@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73272491",
+  "gaps": [
+    "No provisioned opposition; respondent's arguments cannot be assessed directly.",
+    "Petition appendix is truncated.",
+    "General official-source web retrieval attempts returned no usable content."
+  ],
+  "helpful": [
+    "Frozen salience version, band, and distribution count prevent an incorrect federal-petitioner anchor.",
+    "Provisioned petition includes the relevant lower-court analysis.",
+    "JSON reached-rate fields allow exact prior-Term pooling.",
+    "CourtListener snippet search verifies a general precedent without querying the target case."
+  ],
+  "notes": "The default uv cache was read-only; pointing the cache to /tmp allowed the path command to run. No live corpus access was needed and no case outcome was retrieved.",
+  "role": "predictor",
+  "run_id": "20261017T142059Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file reads",
+    "committed statpack and jq pooling",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web.run (no usable content)",
+    "local schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

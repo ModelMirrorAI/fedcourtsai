@@ -24,6 +24,7 @@ from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, S
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
+from enum import StrEnum
 from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated, Any, Literal, NoReturn, cast, get_args
@@ -77,6 +78,7 @@ from . import (
 )
 from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
 from .agent_flags import CellCoordinates, coordinates_from_path, normalise_flags
+from .agent_tooling import normalise_tooling
 from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
     relabel_application_baseline_events,
@@ -359,6 +361,7 @@ from .pipeline.runner import (
     EngineUnavailable,
     available_backends,
     classify_engine_attempt,
+    engine_attempt_fault,
 )
 from .pipeline.salience import (
     SALIENCE_VERSION,
@@ -374,6 +377,19 @@ from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
 from .planning_rates import price_cells
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .promotion_body import Batch, batch_prs, render, same_body, splice
+from .promotion_train import (
+    CONFIG_FILENAME as PROMOTION_TRAIN_CONFIG,
+)
+from .promotion_train import (
+    Approval,
+    Observed,
+    TrainConfig,
+    TrainConfigError,
+    approval_state,
+    find_candidate,
+    load_train_config,
+)
+from .promotion_train import decide as promotion_train_decide
 from .public_update import (
     build_public_update,
     last_complete_week,
@@ -396,6 +412,7 @@ from .release_sensitivity import (
     render_table,
 )
 from .required_checks import produced_contexts
+from .review_hold import SEAMS as REVIEW_HOLD_SEAMS
 from .review_hold import decide_from_files as decide_hold_from_files
 from .review_hold import render_summary as render_hold_summary
 from .ruleset_checks import Expected as RulesetExpected
@@ -2858,10 +2875,11 @@ def enrich_opinions_cmd(
     hold is waiting on — a committed merits outcome recording a judgment that
     publishes an opinion (not a DIG or an equally divided affirmance),
     resolved within the hold's `OPINION_HOLD_DAYS` (14) days — so a body is
-    fetched within hours of the latch and retried each live window until it
-    lands or the hold releases the case. Everything else stands: eligibility,
-    the order, the cursor and `--max-cases`. It names no case, so it combines
-    with `--case` only as a contradiction, and is refused with it.
+    fetched within hours of the latch and retried each full live window (four
+    of the day's twelve) until it lands or the hold releases the case.
+    Everything else stands: eligibility, the order, the cursor and
+    `--max-cases`. It names no case, so it combines with `--case` only as a
+    contradiction, and is refused with it.
 
     Dry-run by default (the requests are spent either way — the dry run is how
     the spend is inspected, and it moves no cursor); run where the corpus is
@@ -8023,16 +8041,15 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         # Before the tripwire below, so it appends to a file that parses, and
         # before `validate`, so an advisory note can never take the cell's output
         # with it. A re-grade is a correction over committed cells and leaves
-        # their flags as committed.
-        _normalise_cell_flags(
-            event_paths,
-            CellCoordinates(
-                case_id=ids.case_id(court, docket),
-                run_id=run_id,
-                role=UsageRole(role),
-                actor_id=actor,
-            ),
+        # their flags and tooling reports as committed.
+        coordinates = CellCoordinates(
+            case_id=ids.case_id(court, docket),
+            run_id=run_id,
+            role=UsageRole(role),
+            actor_id=actor,
         )
+        _normalise_cell_flags(event_paths, coordinates)
+        _normalise_cell_tooling(event_paths, coordinates)
 
     if role == "predictor":
         targets = [event_paths.prediction(actor, run_id)]
@@ -8398,6 +8415,41 @@ def _normalise_cell_flags(event_paths: EventPaths, where: CellCoordinates) -> No
         err=True,
     )
     write_json(flags_path, normalised.flags)
+
+
+def _normalise_cell_tooling(event_paths: EventPaths, where: CellCoordinates) -> None:
+    """Rewrite a cell's ``tooling.json`` into the schema's shape where that is honest.
+
+    The cell's self-report on its tooling is advisory and never graded, so a
+    report the agent mis-shaped — an invented key, a list written as text — must
+    not fail ``validate`` and discard the prediction or gradings beside it. The
+    coercion (:func:`fedcourtsai.agent_tooling.normalise_tooling`) records what
+    it changed in a ``[harness]`` line on the report's ``notes``. It leaves a
+    file whose ``used_corpus_query`` is not a yes or no as written, since the
+    ``collect`` job reads that field as the cell's own word and no value could
+    be supplied for it; ``validate`` then decides, as it does for a file that
+    already validates. ``validate`` stays strict; this only runs before it.
+    """
+    tooling_path = (
+        event_paths.prediction_tooling(where.actor_id, where.run_id)
+        if where.role == UsageRole.predictor
+        else event_paths.evaluation_tooling(where.actor_id, where.run_id)
+    )
+    if not tooling_path.is_file():
+        return
+    try:
+        text = tooling_path.read_bytes().decode("utf-8", errors="replace")
+    except OSError:
+        return
+    normalised = normalise_tooling(text, where)
+    if normalised.feedback is None:
+        return
+    typer.echo(
+        f"::warning::stamp: {where.actor_id} {_one_line(where.case_id)} tooling.json did not "
+        + "validate; normalised it (a [harness] line in its notes records what changed).",
+        err=True,
+    )
+    write_json(tooling_path, normalised.feedback)
 
 
 def _flag_unread_snapshot(
@@ -16808,10 +16860,10 @@ def _spend_gate_or_empty(stage: str) -> SpendVerdict:
 
     Disabled at the code default (a ceiling of ``0``), in which case this is
     silent and the ledger is never read; the shipped ``config/tracking.yaml``
-    arms it ($2,500 over a trailing 30 days). See :mod:`fedcourtsai.spend` for
-    what the ceiling can and cannot promise — chiefly that the ledger lags by
-    however long a collect PR takes to merge, so it is a floor on spend rather
-    than a live figure.
+    arms it (its `spend` section sets the ceiling and the trailing window). See
+    :mod:`fedcourtsai.spend` for what the ceiling can and cannot promise —
+    chiefly that the ledger lags by however long a collect PR takes to merge, so
+    it is a floor on spend rather than a live figure.
     """
     settings = get_settings()
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
@@ -18876,16 +18928,30 @@ def promotion_body_cmd(
 def hold_decision_cmd(
     plan_file: Annotated[
         Path,
-        typer.Option("--plan-file", help="The round's `predict-plan` JSON document."),
+        typer.Option(
+            "--plan-file",
+            help="The round's plan document: `predict-plan`, `evaluate-plan` or `summarize-plan`.",
+        ),
     ],
+    seam: Annotated[
+        str,
+        typer.Option(
+            "--seam",
+            help=(
+                "The lane the round belongs to: predict, evaluate or summarize. It picks "
+                "how the plan is priced and whether a drain is considered."
+            ),
+        ),
+    ] = "predict",
     matrix_file: Annotated[
         Path | None,
         typer.Option(
             "--matrix-file",
             help=(
-                "The `predict-matrix` document the round minted. Auto-release needs "
-                "it to hold exactly the plan's would-mint cells, and prices it too; "
-                "omitted or unreadable keeps the hold."
+                "The `predict-matrix` / `evaluate-matrix` document the round minted. "
+                "Auto-release needs it to hold exactly the plan's would-mint cells, and "
+                "prices it too; omitted or unreadable keeps the hold. A summarize round "
+                "has no matrix and ignores it."
             ),
         ),
     ] = None,
@@ -18894,8 +18960,8 @@ def hold_decision_cmd(
         typer.Option(
             "--deployments-released",
             help=(
-                "`review-auto` deployments in the trailing 24 hours. Omit when it "
-                "could not be read: an unknown count keeps the review hold."
+                "`review-auto` deployments in the trailing 24 hours, every lane's. Omit "
+                "when it could not be read: an unknown count keeps the review hold."
             ),
         ),
     ] = None,
@@ -18918,19 +18984,28 @@ def hold_decision_cmd(
         ),
     ] = None,
 ) -> None:
-    """Decide whether a predict round skips the review hold, and whether to chain another.
+    """Decide whether a round skips the review hold, and whether a predict round chains another.
 
-    Reads the round's plan and minted matrix and `config/review-hold.yaml`'s
-    caps, and prints a `HoldDecision`: `auto_release` (the matrix holds exactly
-    the plan's cells, their price is within the per-round cap, and the rounds
-    auto-released in the last 24 hours, the larger of the deployment count and
-    the auto-released commits on `main`, are under the daily cap) and
-    `drain_more` (a cap stopped the round short of the backlog, so another round
-    is owed as soon as this one's output lands). Fails closed: a disabled cap, an
-    unreadable count, a missing matrix or a plan with no estimate keeps the hold.
-    Spends nothing and reads no corpus.
+    Reads the round's plan (and, for predict and evaluate, its minted matrix),
+    `config/review-hold.yaml`'s caps, `config/tracking.yaml`'s spend backstop and
+    the committed spend ledger, and prints a `HoldDecision`: `auto_release` (the
+    round's price is within the per-round cap; the rounds auto-released in the
+    last 24 hours across the lanes, the larger of the deployment count and the
+    auto-released commits on `main`, are under the daily cap; and measured
+    trailing spend plus the in-flight bound plus this round's price is within
+    the trailing budget) and `drain_more` (predict only: a cap stopped the round
+    short of the backlog, so another round is owed as soon as this one's output
+    lands). Fails closed: a disabled knob, an unreadable count or ledger, a
+    missing matrix or a plan with no estimate keeps the hold. Spends nothing and
+    reads no corpus.
     """
     settings = get_settings()
+    if seam not in REVIEW_HOLD_SEAMS:
+        typer.echo(
+            f"hold-decision: --seam must be one of {', '.join(REVIEW_HOLD_SEAMS)}, not {seam!r}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     try:
         plan = json.loads(plan_file.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -18945,6 +19020,8 @@ def hold_decision_cmd(
     decision = decide_hold_from_files(
         plan,
         settings.config_root,
+        settings.data_root,
+        seam=seam,
         deployments_released=deployments_released,
         main_subjects_file=main_subjects_file,
         matrix_file=matrix_file,
@@ -19000,6 +19077,16 @@ def chain_step_cmd(
             help="The open PRs against `main` (REST list). Omitted stands the chain down.",
         ),
     ] = None,
+    promotion_reviews_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--promotion-reviews-file",
+            help=(
+                "Each ready promotion train candidate's full review list, as a JSON object "
+                "keyed by PR number. A candidate missing from it counts as approved."
+            ),
+        ),
+    ] = None,
     collect_prs_file: Annotated[
         Path | None,
         typer.Option(
@@ -19013,8 +19100,10 @@ def chain_step_cmd(
     """Decide one step of a dispatch-chain job: dispatch, wait, or stop.
 
     Prints a `ChainStep` (`action`, `reason`). The chain stands down while a
-    ready promotion PR is open, or when the open PRs could not be read; in drain
-    mode it dispatches only once this round's collect PR has merged.
+    promotion is about to merge — a ready `staging` PR, or a ready promotion
+    train candidate approved at its head — or when the open PRs could not be
+    read; in drain mode it dispatches only once this round's collect PR has
+    merged.
     """
 
     def _read_list(path: Path | None) -> list[Any] | None:
@@ -19026,15 +19115,266 @@ def chain_step_cmd(
             return None
         return loaded if isinstance(loaded, list) else None
 
+    reviews: dict[int, list[Any]] | None = None
+    raw_reviews = _read_json_object(promotion_reviews_file)
+    if raw_reviews is not None:
+        reviews = {
+            int(key): value
+            for key, value in raw_reviews.items()
+            if key.isdigit() and isinstance(value, list)
+        }
+    try:
+        train_config: TrainConfig | None = load_train_config(
+            get_settings().config_root / PROMOTION_TRAIN_CONFIG
+        )
+    except TrainConfigError:
+        train_config = None
     step = chain_step(
         mode,
         repo=repo,
         promotion_pulls=_read_list(promotion_prs_file),
+        promotion_reviews=reviews,
+        train_config=train_config,
         collect_pulls=_read_list(collect_prs_file),
         attempt=attempt,
         max_attempts=max_attempts,
     )
     typer.echo(step.model_dump_json())
+
+
+class _TriState(StrEnum):
+    """A fact the caller read: ``yes``, ``no``, or ``unknown`` when the read failed."""
+
+    YES = "yes"
+    NO = "no"
+    UNKNOWN = "unknown"
+
+
+def _tri(value: _TriState) -> bool | None:
+    return None if value is _TriState.UNKNOWN else value is _TriState.YES
+
+
+def _read_json_list(path: Path | None, key: str | None = None) -> list[Any] | None:
+    """A JSON list from ``path`` (or the list under ``key``); ``None`` when unreadable."""
+    if path is None:
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if key is not None:
+        loaded = loaded.get(key) if isinstance(loaded, dict) else None
+    return loaded if isinstance(loaded, list) else None
+
+
+def _read_json_object(path: Path | None) -> dict[str, Any] | None:
+    """A JSON object from ``path``; ``None`` when absent or unreadable."""
+    if path is None:
+        return None
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return loaded if isinstance(loaded, dict) else None
+
+
+def _train_config(config: Path | None) -> TrainConfig:
+    path = config if config is not None else get_settings().config_root / PROMOTION_TRAIN_CONFIG
+    try:
+        return load_train_config(path)
+    except TrainConfigError as exc:
+        typer.echo(f"::error::promotion train: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+
+
+@app.command("promotion-train-candidate")
+def promotion_train_candidate_cmd(
+    repo: Annotated[str, typer.Option(help="The `owner/name` the train promotes in.")],
+    open_prs_file: Annotated[
+        Path, typer.Option("--open-prs-file", help="The open PRs into `main` (REST list).")
+    ],
+) -> None:
+    """Name the one open promotion candidate the train would act on.
+
+    Prints `{"number", "ref", "sha"}` for exactly one open same-repo PR into
+    `main` from a `promote/<date>` branch, and `{}` otherwise — no promotion
+    open, a hand-opened `staging` PR, a `promote/` head the train does not cut,
+    more than one candidate, or an unreadable file. The caller reads the
+    candidate's runs, reviews and checks only when one is named.
+    """
+    pulls = _read_json_list(open_prs_file)
+    candidate, _ = find_candidate(pulls or [], repo=repo)
+    if candidate is None:
+        typer.echo("{}")
+        return
+    typer.echo(json.dumps({"number": candidate.number, "ref": candidate.ref, "sha": candidate.sha}))
+
+
+@app.command("promotion-train-step")
+def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to reads
+    repo: Annotated[str, typer.Option(help="The `owner/name` the train promotes in.")],
+    open_prs_file: Annotated[
+        Path | None,
+        typer.Option("--open-prs-file", help="The open PRs into `main` (REST list)."),
+    ] = None,
+    branches_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--branches-file",
+            help="The existing `promote/*` branches, one `<name> <head SHA>` a line.",
+        ),
+    ] = None,
+    staging_sha: Annotated[
+        str | None, typer.Option("--staging-sha", help="The staging tip that was read.")
+    ] = None,
+    main_ahead_paths_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--main-ahead-paths-file",
+            help="The paths main changed since its merge-base with staging, one a line.",
+        ),
+    ] = None,
+    staging_differs: Annotated[
+        _TriState,
+        typer.Option(
+            "--staging-differs", help="Did staging change anything since that merge-base?"
+        ),
+    ] = _TriState.UNKNOWN,
+    last_promotion_synced: Annotated[
+        _TriState,
+        typer.Option(
+            "--last-promotion-synced",
+            help="Does staging hold main's last promotion merge (yes when main has none)?",
+        ),
+    ] = _TriState.UNKNOWN,
+    recent_dispatches_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--recent-dispatches-file",
+            help="integration-test dispatches of the current UTC day (REST runs document).",
+        ),
+    ] = None,
+    pull_file: Annotated[
+        Path | None,
+        typer.Option("--pull-file", help="The candidate PR (`GET pulls/{n}`, for mergeable)."),
+    ] = None,
+    freshness_ok: Annotated[
+        _TriState,
+        typer.Option("--freshness-ok", help="Did the freshness stage pass at the head and ref?"),
+    ] = _TriState.UNKNOWN,
+    head_on_staging: Annotated[
+        _TriState,
+        typer.Option(
+            "--head-on-staging", help="Is the candidate's head on staging's first-parent chain?"
+        ),
+    ] = _TriState.UNKNOWN,
+    runs_file: Annotated[
+        Path | None,
+        typer.Option("--runs-file", help="integration-test runs at the head (REST document)."),
+    ] = None,
+    reviews_file: Annotated[
+        Path | None, typer.Option("--reviews-file", help="The candidate's reviews (REST list).")
+    ] = None,
+    check_runs_file: Annotated[
+        Path | None,
+        typer.Option("--check-runs-file", help="Check runs at the head (REST document)."),
+    ] = None,
+    quiescent: Annotated[
+        _TriState, typer.Option("--quiescent", help="Did the quiesce stage pass just now?")
+    ] = _TriState.UNKNOWN,
+    registry_ok: Annotated[
+        _TriState, typer.Option("--registry-ok", help="Did the registry stage pass at the head?")
+    ] = _TriState.UNKNOWN,
+    now: Annotated[
+        str | None, typer.Option("--now", help="ISO time the tick reads as now (default: now).")
+    ] = None,
+    config: Annotated[
+        Path | None, typer.Option("--config", help="The train's config (default: its own path).")
+    ] = None,
+) -> None:
+    """Decide one tick of the promotion train.
+
+    Prints a `TrainStep` (`action`, `reason`, and the `pr`, `ref`, `sha` or
+    `branch` it acts on): cut a candidate, dispatch its integration gate, mark
+    it ready, re-fire its promotion-gate check, merge it, wait, or report. Every
+    file or fact left out or unreadable is unknown, and an unknown never leads
+    to an act. Reads no corpus and calls no API.
+    """
+    train_config = _train_config(config)
+    try:
+        at = datetime.fromisoformat(now) if now else datetime.now(UTC)
+    except ValueError as exc:
+        typer.echo(f"promotion-train-step: --now {now!r} is not an ISO time", err=True)
+        raise typer.Exit(code=1) from exc
+    branches: list[tuple[str, str]] | None = None
+    if branches_file is not None:
+        try:
+            pairs = [
+                line.split()
+                for line in branches_file.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            branches = [(p[0], p[1]) for p in pairs] if all(len(p) == 2 for p in pairs) else None
+        except OSError:
+            branches = None
+    main_ahead: list[str] | None = None
+    if main_ahead_paths_file is not None:
+        try:
+            main_ahead = [
+                line
+                for line in main_ahead_paths_file.read_text(encoding="utf-8").splitlines()
+                if line
+            ]
+        except OSError:
+            main_ahead = None
+    observed = Observed(
+        repo=repo,
+        now=at.astimezone(UTC),
+        open_pulls=_read_json_list(open_prs_file),
+        branches=branches,
+        staging_sha=staging_sha,
+        main_ahead_paths=main_ahead,
+        last_promotion_synced=_tri(last_promotion_synced),
+        recent_dispatches=_read_json_list(recent_dispatches_file, "workflow_runs"),
+        pull=_read_json_object(pull_file),
+        freshness_ok=_tri(freshness_ok),
+        staging_differs_from_main=_tri(staging_differs),
+        head_on_staging=_tri(head_on_staging),
+        runs=_read_json_list(runs_file, "workflow_runs"),
+        reviews=_read_json_list(reviews_file),
+        check_runs=_read_json_list(check_runs_file, "check_runs"),
+        quiescent=_tri(quiescent),
+        registry_ok=_tri(registry_ok),
+    )
+    typer.echo(promotion_train_decide(observed, train_config).model_dump_json())
+
+
+@app.command("promotion-train-approval")
+def promotion_train_approval_cmd(
+    reviews_file: Annotated[
+        Path, typer.Option("--reviews-file", help="The candidate's reviews (REST list).")
+    ],
+    head_sha: Annotated[str, typer.Option("--head-sha", help="The head the merge is pinned to.")],
+    config: Annotated[
+        Path | None, typer.Option("--config", help="The train's config (default: its own path).")
+    ] = None,
+) -> None:
+    """Exit 0 only when a listed approver approved exactly `--head-sha`.
+
+    The train's merge step asks this immediately before its merge call, on
+    reviews it has just re-read: the dev App bypasses `main`'s approval rule, so
+    this check is what binds the merge to the maintainer's decision. Any change
+    request since, an approval at another head, or an unreadable file exits 1.
+    """
+    train_config = _train_config(config)
+    reviews = _read_json_list(reviews_file)
+    if reviews is None:
+        typer.echo("::error::promotion train: the reviews could not be read", err=True)
+        raise typer.Exit(code=1)
+    state, reason, _ = approval_state(reviews, sha=head_sha, config=train_config)
+    typer.echo(reason)
+    if state is not Approval.APPROVED:
+        raise typer.Exit(code=1)
 
 
 @app.command("evaluate-plan")
@@ -19345,6 +19685,20 @@ def corpus_check_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
             help="One `<sha>.json` per candidate head: `GET /repos/{repo}/commits/{sha}`.",
         ),
     ] = None,
+    auto_environment_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--auto-environment-file",
+            help="`GET /repos/{repo}/environments/corpus-check-auto`; absent means unread.",
+        ),
+    ] = None,
+    auto_branch_policies_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--auto-branch-policies-file",
+            help="That environment's `deployment-branch-policies`; absent means unread.",
+        ),
+    ] = None,
     github_output: Annotated[
         Path | None,
         typer.Option("--github-output", help="Append the plan's job outputs to this file."),
@@ -19362,11 +19716,18 @@ def corpus_check_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
     Plans nothing while the `corpus-check` environment lacks its sole required
     reviewer (`config/corpus-check.yaml`'s `approver`) or its policy admitting
     `main` alone — the read-only role trusts that environment, so its
-    protection is the gate (`fedcourtsai.environment_checks`). Otherwise the
-    oldest candidate whose head SHA carries no result comment from the
-    workflow's own bot (`github-actions[bot]`; the same marker from anyone else
-    does not count). Prints the plan as JSON, appends `found`, `pr`, `sha`,
-    `author`, `command` and `refusal` to `--github-output`, and the approver's
+    protection is the gate (`fedcourtsai.environment_checks`). An `at: main`
+    request whose `uv run fedcourts` subcommand is on the auto allowlist
+    (`config/corpus-check.yaml`'s `auto_subcommands`) is routed to run at
+    `main` without approval, while the `corpus-check-auto` environment
+    (`--auto-environment-file`, `--auto-branch-policies-file`; absent is unread
+    and routes every request to the approval) admits `main` alone. Then the
+    oldest unanswered auto-eligible request, else the oldest held one whose head
+    SHA carries no result comment from the workflow's own bot
+    (`github-actions[bot]`; the same marker from anyone else does not count) —
+    an auto request is answered by a result for its head SHA and command.
+    Prints the plan as JSON, appends `found`, `pr`, `sha`, `author`, `command`,
+    `refusal`, `auto` and `held_reason` to `--github-output`, and the approver's
     summary — PR, SHA, PR author, the head commit's author, committer and
     signature, the fenced command and a comparison pinned to the SHA — to
     `--summary-file`. A candidate whose comments file is missing exits 1 rather
@@ -19378,7 +19739,19 @@ def corpus_check_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
         _read_document(branch_policies_file),
         approver_login=config.approver,
     )
+    allowlist, allowlist_problem = config.auto_allowlist()
+    if allowlist_problem is not None:
+        typer.echo(f"::warning::corpus-check-plan: {allowlist_problem}", err=True)
+    auto_problems = environment_checks.auto_protection_problems(
+        _read_document(auto_environment_file), _read_document(auto_branch_policies_file)
+    )
     requests, passed = _corpus_check_candidates(prs_file, repo, "corpus-check-plan")
+    requests = corpus_check.route_requests(
+        requests,
+        allowlist=allowlist,
+        allowlist_problem=allowlist_problem,
+        environment_problems=auto_problems,
+    )
     chosen = None
     commit = None
     if problems:
@@ -19411,7 +19784,7 @@ def corpus_check_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
 
 
 @app.command("corpus-check-exec")
-def corpus_check_exec_cmd(
+def corpus_check_exec_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     command: Annotated[str, typer.Option(help="The planned command, re-validated here.")],
     user: Annotated[
         str, typer.Option(help="The unprivileged account the install and the check run as.")
@@ -19448,8 +19821,15 @@ def corpus_check_exec_cmd(
             help="Append `phase`, `exit_code`, `timed_out` and `summary_b64` to this file.",
         ),
     ] = None,
+    stdout_summary_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--stdout-summary-file",
+            help="Send the check's stdout here and report it as the summary (an auto check).",
+        ),
+    ] = None,
 ) -> None:
-    """Install a planned PR head and run its corpus check as an unprivileged account.
+    """Install a planned tree and run its corpus check as an unprivileged account.
 
     Re-validates the command against the two accepted forms, then runs, as
     `--user` in `--workdir` through `sudo -u` with no shell: an empty
@@ -19459,7 +19839,11 @@ def corpus_check_exec_cmd(
     `FEDCOURTS_CORPUS_ROOT` and `CHECK_SUMMARY` alone; output goes to
     `--output-file`, and every process the account owns is killed after each
     phase. The summary is read back as the account, the job's credential
-    values and the corpus address redacted, clamped to 50,000 bytes. Prints
+    values and the corpus address redacted, clamped to 50,000 bytes. With
+    `--stdout-summary-file` — the auto path, whose tree is `main`'s and whose
+    command is an allowlisted subcommand that prints its figure — the check's
+    stdout goes to that runner-owned file and is the summary instead, its
+    stderr to `--output-file`. Prints
     only sizes and exit codes: the job log is public. Exits 0 whatever the
     check's own exit code; a command outside the grammar exits 1 unrun, and a
     process of the account's that survives the kill passes exits 1.
@@ -19469,6 +19853,19 @@ def corpus_check_exec_cmd(
     except corpus_check.CommandRefused as exc:
         typer.echo(f"corpus-check-exec: refused: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+    if stdout_summary_file is not None:
+        # The auto path posts stdout unread, so it re-checks the allowlist here
+        # rather than trusting the plan's routing alone.
+        allowlist, allowlist_problem = _corpus_check_config("corpus-check-exec").auto_allowlist()
+        reason = corpus_check.auto_ineligibility(
+            command,
+            allowlist=allowlist,
+            allowlist_problem=allowlist_problem,
+            environment_problems=(),
+        )
+        if reason is not None:
+            typer.echo(f"corpus-check-exec: refused: {reason}", err=True)
+            raise typer.Exit(code=1)
     if not workdir.is_absolute() or not corpus_root.is_absolute():
         typer.echo("corpus-check-exec: --workdir and --corpus-root must be absolute", err=True)
         raise typer.Exit(code=1)
@@ -19499,34 +19896,60 @@ def corpus_check_exec_cmd(
             check_timeout_seconds=timeout_seconds,
             output_path=output_file,
             kill_user=user,
+            check_stdout_path=stdout_summary_file,
         )
-        # The check owns the summary file, so reading it back may block or
-        # fail (a FIFO, say); that reads as no summary, never as a failed run
-        # that hides the outcome the check reached.
-        try:
-            read = subprocess.run(
-                wrap(
-                    [
-                        "/usr/bin/head",
-                        "-c",
-                        str(corpus_check.SUMMARY_READ_BYTES),
-                        "--",
-                        corpus_check.SUMMARY_FILENAME,
-                    ]
-                ),
-                env=sudo_env,
-                cwd="/",
-                check=False,
-                capture_output=True,
-                timeout=60,
-            )
-            read_back = read.stdout if read.returncode == 0 else b""
-        except subprocess.SubprocessError:
-            read_back = b""
+        if stdout_summary_file is not None:
+            read_back = _read_head(stdout_summary_file, corpus_check.SUMMARY_READ_BYTES)
+        else:
+            read_back = _read_summary_as(wrap, sudo_env)
         corpus_check.kill_account(user)
     except corpus_check.ProcessesSurvived as exc:
         typer.echo(f"::error::corpus-check-exec: {exc}; failing the run", err=True)
         raise typer.Exit(code=1) from exc
+    _finish_corpus_check_exec(phase, read_back, github_output)
+
+
+def _read_head(path: Path, limit: int) -> bytes:
+    """Up to ``limit`` bytes of a runner-owned file; an unreadable one is empty."""
+    try:
+        with path.open("rb") as handle:
+            return handle.read(limit)
+    except OSError:
+        return b""
+
+
+def _read_summary_as(wrap: Callable[[list[str]], list[str]], sudo_env: dict[str, str]) -> bytes:
+    """The check's summary file, read back as the check's own account.
+
+    The check owns the file, so reading it back may block or fail (a FIFO,
+    say); that reads as no summary, never as a failed run that hides the
+    outcome the check reached.
+    """
+    try:
+        read = subprocess.run(
+            wrap(
+                [
+                    "/usr/bin/head",
+                    "-c",
+                    str(corpus_check.SUMMARY_READ_BYTES),
+                    "--",
+                    corpus_check.SUMMARY_FILENAME,
+                ]
+            ),
+            env=sudo_env,
+            cwd="/",
+            check=False,
+            capture_output=True,
+            timeout=60,
+        )
+        return read.stdout if read.returncode == 0 else b""
+    except subprocess.SubprocessError:
+        return b""
+
+
+def _finish_corpus_check_exec(
+    phase: corpus_check.PhaseResult, read_back: bytes, github_output: Path | None
+) -> None:
     secrets = [os.environ[name] for name in corpus_check.REDACTED_ENV if os.environ.get(name)]
     summary, clamped = corpus_check.summary_text(read_back, redact=secrets)
     result = phase.result
@@ -19565,6 +19988,18 @@ def corpus_check_comment_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
         str, typer.Option(envvar="CHECK_VINTAGE_B64", help="The corpus vintage, base64.")
     ] = "",
     run_url: Annotated[str, typer.Option(envvar="RUN_URL", help="This run's URL.")] = "",
+    auto: Annotated[
+        str, typer.Option(envvar="CHECK_AUTO", help="The plan's route: `true` for an auto run.")
+    ] = "",
+    code_sha: Annotated[
+        str, typer.Option(envvar="CODE_SHA", help="The `main` commit an auto run's code was.")
+    ] = "",
+    held_reason: Annotated[
+        str,
+        typer.Option(
+            envvar="CHECK_HELD_REASON", help="Why an `at: main` request was held, if it was."
+        ),
+    ] = "",
 ) -> None:
     """Render the one result comment a corpus check posts on its PR.
 
@@ -19572,8 +20007,10 @@ def corpus_check_comment_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
     after PR code ran — so each is decoded defensively, fenced with a fence
     longer than any backtick run inside it, has its mentions broken, and the
     whole is clamped under GitHub's 65,536-character comment limit. The first
-    line is the hidden marker naming the SHA, which is what tells a later plan
-    this head is answered. Prints the comment; posts nothing.
+    line is the hidden marker naming the SHA — and for an auto run the
+    command's digest — which is what tells a later plan this request is
+    answered. An auto run's comment says it ran at `main@<code sha>`, not at
+    the PR head. Prints the comment; posts nothing.
     """
     try:
         rendered = corpus_check.render_comment(
@@ -19588,6 +20025,9 @@ def corpus_check_comment_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
                 vintage_b64=vintage_b64,
                 run_url=run_url,
                 phase=phase,
+                auto=auto,
+                code_sha=code_sha,
+                held_reason=held_reason,
             )
         )
     except ValueError as exc:
@@ -19656,6 +20096,50 @@ def assert_corpus_check_environment_cmd(
     typer.echo(
         "the corpus-check environment holds its reviewer, its main-only policy "
         + "and nothing but the read-only role's variables"
+    )
+
+
+@app.command("assert-corpus-check-auto-environment")
+def assert_corpus_check_auto_environment_cmd(
+    environment_file: Annotated[
+        Path,
+        typer.Option(
+            help="`GET /repos/{repo}/environments/corpus-check-auto`; absent means unread."
+        ),
+    ],
+    branch_policies_file: Annotated[
+        Path, typer.Option(help="Its `deployment-branch-policies`; absent means unread.")
+    ],
+    secrets_file: Annotated[
+        Path, typer.Option(help="Its `secrets` listing (admin read); absent means unread.")
+    ],
+    variables_file: Annotated[
+        Path, typer.Option(help="Its `variables` listing (admin read); absent means unread.")
+    ],
+) -> None:
+    """Check the `corpus-check-auto` environment still confines the read-only role to `main`.
+
+    The read-only role's trust names it and it has no required reviewer, so
+    its branch policy is its one control: it must exist, its deployment
+    branches be a custom policy of exactly `main`, and it hold no secret and no
+    variable but the read-only role, the region and the corpus base URL.
+    Reviewers are not checked — one added is the stop for the unapproved path.
+    Names each problem and exits non-zero if there is any; an unread listing is
+    a problem.
+    """
+    problems = environment_checks.auto_environment_problems(
+        _read_document(environment_file),
+        _read_document(branch_policies_file),
+        _read_document(secrets_file),
+        _read_document(variables_file),
+    )
+    for problem in problems:
+        typer.echo(f"::error::corpus-check-auto environment: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo(
+        "the corpus-check-auto environment admits main alone "
+        + "and holds nothing but the read-only role's variables"
     )
 
 
@@ -19805,6 +20289,35 @@ def engine_attempt_class_cmd(
 
     verdict = classify_engine_attempt(exit_code, _read(stdout_file), _read(stderr_file))
     typer.echo(verdict.value)
+
+
+@app.command("engine-attempt-fault")
+def engine_attempt_fault_cmd(
+    stdout_file: Annotated[
+        Path, typer.Option(help="The invocation's captured stdout (its JSON result).")
+    ],
+    stderr_file: Annotated[Path, typer.Option(help="The invocation's captured stderr.")],
+) -> None:
+    """Print one screened line naming the fault a failed engine attempt reported.
+
+    The cells' gemini step (``scripts/gemini-cell.sh``) puts it in the annotation
+    beside the attempt's verdict, so the fault reads from the run's check
+    annotations without the job log. The text is
+    :func:`fedcourtsai.pipeline.runner.engine_attempt_fault`'s: the result's
+    error, else the error object on stderr, else stderr's last non-frame line,
+    with credential-shaped runs replaced and the line cut short. Prints nothing
+    when there is none; a capture file that cannot be read counts as empty.
+    """
+
+    def _read(path: Path) -> str:
+        try:
+            return path.read_text(errors="replace")
+        except OSError:
+            return ""
+
+    fault = engine_attempt_fault(_read(stdout_file), _read(stderr_file))
+    if fault:
+        typer.echo(fault)
 
 
 @app.command("cell-output-snapshot")

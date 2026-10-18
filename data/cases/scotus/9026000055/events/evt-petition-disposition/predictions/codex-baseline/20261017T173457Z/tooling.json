@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000055",
+  "gaps": [
+    "No provisioned questions presented, petition, opposition, or lower-court opinion",
+    "General-rules web attempts returned empty responses",
+    "The default uv cache location was read-only"
+  ],
+  "helpful": [
+    "Frozen mode, band, and distribution count in context.json",
+    "Exact reached-risk-set denominators in the committed statpack JSON"
+  ],
+  "notes": "Used a writable temporary uv cache for CLI checks. The prediction uses the supplied docket chronology and prior-Term aggregate anchor, without case-specific external retrieval. No legal-content inference was made from the paper-only filing notation.",
+  "role": "predictor",
+  "run_id": "20261017T173457Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell input reads",
+    "fedcourts paths",
+    "jq aggregate arithmetic",
+    "web search/open/find attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

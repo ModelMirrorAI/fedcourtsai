@@ -17,7 +17,9 @@ name: run-pull
 #   `enrich-opinions --awaiting-grading` pass fetches the opinion body of a
 #   merits case decided within the evaluate lane's opinion-hold window (a few
 #   CourtListener requests a case, capped per window), the only step in this
-#   job that holds the CourtListener token.
+#   job that holds the CourtListener token. It runs on four of the twelve
+#   live windows a day (the `47 4,10,16,22` cron and every dispatch), never on
+#   the eight live-only ones, so the live cadence never multiplies that spend.
 # - `enrich` (dispatch mode=enrich-opinions only, never scheduled): walks
 #   granted SCOTUS rows to their published opinion cluster and lands the
 #   reporter citations and the opinion body (`fedcourts enrich-opinions`,
@@ -26,7 +28,7 @@ name: run-pull
 #   pull windows draw on) and keeps retrying opinion-less grants (GVR/DIG
 #   residue) — rotated stalest-first behind the never-attempted, so the cap
 #   reaches fresh candidates every run — and an operator sizes and times each
-#   run deliberately, in a dead zone between pull windows.
+#   run deliberately, in a quiet slot clear of the scheduled windows.
 #
 # The historical Term walker (the backfill of past Terms) lives in its own
 # workflow, run-seed.yml, so its schedule is independent of these forward
@@ -34,11 +36,21 @@ name: run-pull
 # serializes with these forward writers. See run-seed.yml for that job.
 #
 # Each scheduled run fires exactly one of the two (the cron minute is the mode
-# switch), so the shared corpus-write lock serializes writers. The live and pull
-# windows interleave every ~3h; a run-seed window sits in a dead zone between
-# them and frees the lock before forward work needs it. Note GitHub keeps only
-# the latest *pending* run per concurrency group: a queued scheduled window
-# superseded by the next one just picks up where its rotation left off.
+# switch), so the shared corpus-write lock serializes writers. Live windows open
+# every two hours on the even hour (:47), pull windows at :17 on four of the odd
+# hours, half an hour after a live window opens: a live window typically
+# commits within ~20 minutes, so the pull usually finds the lock free and
+# otherwise waits out the remainder. Each run-seed window (:31 past 02/08/14/20)
+# shares its hour with a live window, and the two serialize on the lock in
+# whichever order they fire — the second waits rather than being evicted,
+# because the next scheduled writer is two hours out and even both at their job
+# caps (55 + 40 minutes) clear by then. The one exception is a pile-up: if the
+# preceding pull (or the live window before it) ran near its cap so the seed
+# window is itself still queued when the live window fires, the live run
+# supersedes it — the walk resumes next window, and the 02:31 window's daily
+# sweeps the next day. Note GitHub keeps only the latest *pending* run per
+# concurrency group: a queued scheduled window superseded by the next one just
+# picks up where its rotation left off.
 # Spreading the refresh over several windows lifts daily throughput toward the
 # CourtListener tier's daily ceiling while each window stays under the hourly one.
 # Deterministic (no agent): re-fetches tracked dockets
@@ -72,11 +84,17 @@ on:
     # job selector: `17 *` crons run `pull` and `47 *` run `live`. (The
     # historical walker's `31` windows live in run-seed.yml.)
     - cron: "17 1,7,13,19 * * *"
-    # Four live windows/day, interleaved between the pull windows so the
-    # corpus writers rarely even queue on the shared lock. Budget-free
-    # (supremecourt.gov), so cadence is a freshness/politeness choice — the
-    # conference watchlist will retune it around the cert calendar.
+    # Twelve live windows/day, one every two hours on the even hour, so a
+    # distribution, relist, order or new filing reaches the corpus (and the
+    # predict queue) within about two hours. Two cron entries, one cadence: the
+    # poll itself is budget-free (supremecourt.gov), so its cadence is a
+    # freshness/politeness choice — the per-cycle caps in tracking.yaml's
+    # `live:` section are sized for twelve cycles a day — but the job's
+    # awaiting-grading enrichment step spends CourtListener budget, so it runs
+    # only on the first entry's four windows (its step `if:` names that exact
+    # string). Both entries start `47 `, which is what selects the `live` job.
     - cron: "47 4,10,16,22 * * *"
+    - cron: "47 0,2,6,8,12,14,18,20 * * *"
   workflow_dispatch:
     inputs:
       mode:
@@ -189,7 +207,7 @@ jobs:
     steps:
       # No authorization gate here, and none is missing: this workflow carries
       # no trigger an outside actor can reach. A `schedule` fires only from the
-      # DEFAULT branch, so it can run only what a maintainer-merged promotion
+      # DEFAULT branch, so it can run only what a maintainer-approved promotion
       # put on `main`; a `workflow_dispatch` is gated by GitHub on repository
       # write; and this job binds `corpus-write`, whose deployment branches are
       # restricted to `main`, so a dispatch from any other ref is refused before
@@ -618,7 +636,14 @@ jobs:
       # rather than masking on `not-ingested`. The poll above has just latched
       # today's judgments and written their outcomes into the working tree, which
       # is the ledger the scope reads; a case whose body is not upstream yet is
-      # retried every live window until it lands or the hold releases it.
+      # retried every full live window until it lands or the hold releases it.
+      #
+      # Full windows only: the `47 4,10,16,22` cron and every dispatch run it;
+      # the eight live-only windows (`47 0,2,6,8,12,14,18,20`) skip it, so the
+      # step spends CourtListener budget four times a day however often the
+      # poll runs. The gate names the exact schedule string — a `startsWith`
+      # on the minute would admit every live window — and a shape test pins it
+      # to a cron this file declares.
       #
       # Bounded and failure-tolerant, because nothing about the live pull may
       # depend on it: `--max-cases 8` caps a window at ~32 CourtListener
@@ -638,6 +663,7 @@ jobs:
       # step-scoped: no other step in this job holds it.
       - name: Enrich newly decided merits cases with their opinion
         id: enrich-awaiting
+        if: github.event_name != 'schedule' || github.event.schedule == '47 4,10,16,22 * * *'
         continue-on-error: true
         timeout-minutes: 6
         env:
@@ -661,7 +687,7 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$status" -ne 0 ]; then
-            echo "::warning::the awaiting-grading opinion enrichment failed (exit ${status}); the live pull carries on, and the next live window retries"
+            echo "::warning::the awaiting-grading opinion enrichment failed (exit ${status}); the live pull carries on, and the next full live window retries"
           fi
           exit "$status"
 
@@ -835,8 +861,12 @@ jobs:
     # latest pending run per concurrency group, so a scheduled pull/live
     # window entering `corpus-write` behind this dispatch cancels it — and a
     # one-shot dispatch, unlike a rotation, does not "pick up where it left
-    # off"; nothing alarms. Dispatching in a dead zone between the pull
-    # windows avoids ever queuing.
+    # off"; nothing alarms. Dispatch when the lock is free and well clear of
+    # the next scheduled writer: a live window opens every even hour at :47
+    # and usually commits within ~20 minutes, so the odd hours outside the
+    # pull windows (03, 05, 09, 11, 15, 17, 21, 23 from about :15) are the
+    # quiet slots, and keeping off a pull window's hour keeps this pass's
+    # CourtListener spend from stacking onto the pull's within one hour.
     if: >-
       ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'enrich-opinions'
       && needs.authorize.result == 'success'
@@ -970,9 +1000,10 @@ jobs:
   # it derives its own backlog from committed state, and it waits on the review
   # hold unless its own plan auto-releases. `run-predict`'s schedule stays as
   # the backstop for a change the relevance read misses and for a dispatch that
-  # never arrives. No round is dispatched while a promotion PR is ready
-  # (`fedcourts chain-step`): the promotion gate's quiescence check would fail
-  # on it.
+  # never arrives. No round is dispatched while a promotion is about to merge
+  # — a ready `staging` PR, or a ready promotion train candidate approved at
+  # its head (`fedcourts chain-step`): the promotion gate's quiescence check
+  # would fail on it.
   #
   # This job runs no corpus code and holds no corpus role. Its one token is the
   # dispatch App's, scoped to `actions: write` and PR read, so the writer jobs
@@ -1020,10 +1051,28 @@ jobs:
           set -euo pipefail
           # A read only (a GET with the query in the URL). A failed read drops
           # the file, which `chain-step` reads as unknown and stands down on.
-          gh api "repos/${REPO}/pulls?state=open&base=main&per_page=100" > promotion-prs.json \
-            || rm -f promotion-prs.json
+          if gh api --paginate --slurp "repos/${REPO}/pulls?state=open&base=main&per_page=100" \
+            > promotion-prs.pages && jq 'add // []' promotion-prs.pages > promotion-prs.json; then
+            # A ready promotion train candidate stands the chain down only once it is
+            # approved at its head, which its whole review list says. A failed read
+            # leaves the candidate out of the file, and `chain-step` stands the chain
+            # down for a candidate it has no reviews for.
+            echo '{}' > promotion-reviews.json
+            for n in $(jq -r --arg repo "$REPO" '.[] | select(.draft == false
+                and .head.repo.full_name == $repo and (.head.ref | startswith("promote/")))
+                | .number' promotion-prs.json); do
+              if gh api --paginate --slurp "repos/${REPO}/pulls/${n}/reviews?per_page=100" > reviews.pages; then
+                jq --arg n "$n" --slurpfile r reviews.pages '. + {($n): ($r[0] | add // [])}' \
+                  promotion-reviews.json > reviews.next
+                mv reviews.next promotion-reviews.json
+              fi
+            done
+          else
+            rm -f promotion-prs.json promotion-reviews.json
+          fi
           args=(--mode pull --repo "$REPO")
           [ -f promotion-prs.json ] && args+=(--promotion-prs-file promotion-prs.json)
+          [ -f promotion-reviews.json ] && args+=(--promotion-reviews-file promotion-reviews.json)
           step=$(uv run fedcourts chain-step "${args[@]}")
           reason=$(jq -r '.reason' <<<"$step")
           if [ "$(jq -r '.action' <<<"$step")" = "dispatch" ]; then

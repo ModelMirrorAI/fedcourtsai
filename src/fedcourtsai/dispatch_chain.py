@@ -13,11 +13,17 @@ answer and the rule is testable without the Actions API.
   records are where a newly opened moment or a new forecastable event shows,
   and they are what the predict backlog is derived from. A change the proxy
   misses is still picked up by the scheduled rounds.
-- **No chained round starts while a promotion is ready** (:func:`chain_step`).
-  The promotion gate's quiescence check fails on any queued, running or
-  waiting predict round, so a chain running beside a ready promotion PR would
-  keep the promotion from ever settling. The chain stands down until that PR
-  merges or returns to draft; the schedule covers the gap.
+- **No chained round starts while a promotion is about to merge**
+  (:func:`chain_step`). The promotion gate's quiescence check fails on any
+  queued, running or waiting predict round, so a chain running beside a
+  promotion that is waiting to merge would keep it from ever settling. For a
+  hand-opened `staging` promotion that moment is the PR being ready for
+  review; for a promotion train candidate (`promote/`), which is marked ready
+  as soon as its integration gate is green and may then wait days for review,
+  it is the candidate being ready *and* approved at its head by a listed
+  approver (an unread review list counts as approved, so the chain stands
+  down rather than guessing). The chain stands down until that PR merges,
+  returns to draft or loses its approval; the schedule covers the gap.
 - **A drained round waits for its own collect PR** before dispatching the
   next: the next round's already-predicted gate reads committed state, so an
   earlier dispatch would plan a narrower round. A draft, a closed PR, or no PR
@@ -31,6 +37,8 @@ from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel
+
+from .promotion_train import Approval, TrainConfig, approval_state
 
 #: Changed-path statuses (``git diff --name-status``) that add or change a record.
 _ADDS_OR_CHANGES = frozenset({"A", "M", "R", "C"})
@@ -122,12 +130,23 @@ class ChainStep(BaseModel):
     reason: str
 
 
-def ready_promotion(pulls: Iterable[Mapping[str, Any]], *, repo: str) -> int | None:
-    """The number of an open, ready, same-repo `staging` → `main` PR, if any.
+def ready_promotion(
+    pulls: Iterable[Mapping[str, Any]],
+    *,
+    repo: str,
+    reviews: Mapping[int, Sequence[Mapping[str, Any]]] | None = None,
+    train_config: TrainConfig | None = None,
+) -> int | None:
+    """The number of an open same-repo promotion PR into `main` about to merge, if any.
 
-    ``pulls`` is the REST list of open PRs against `main`. A draft promotion does
-    not count: drafts stand open routinely while a batch assembles, and the
-    quiescence check binds only once the PR is ready.
+    ``pulls`` is the REST list of open PRs against `main`. A draft never counts.
+    A ready `staging`-headed PR (a hand-opened promotion) counts. A ready
+    promotion train candidate (`promote/`) counts once a listed approver has
+    approved exactly its head with nothing requested since — the train merges
+    only then, and the candidate may wait ready for days before it. ``reviews``
+    maps a candidate's number to its full review list; a candidate missing
+    from it, or no ``train_config``, counts as approved, since an unread
+    approval must stand the chain down rather than let it run under a merge.
     """
 
     def _mapping(value: object) -> Mapping[str, Any]:
@@ -141,11 +160,24 @@ def ready_promotion(pulls: Iterable[Mapping[str, Any]], *, repo: str) -> int | N
             pull.get("state") == "open"
             and pull.get("draft") is False
             and base.get("ref") == "main"
-            and head.get("ref") == "staging"
             and head_repo.get("full_name") == repo
         ):
+            ref = str(head.get("ref") or "")
             number = pull.get("number")
-            return number if isinstance(number, int) else 0
+            if ref == "staging":
+                return number if isinstance(number, int) else 0
+            if not ref.startswith("promote/"):
+                continue
+            if not isinstance(number, int):
+                return 0
+            pull_reviews = None if reviews is None else reviews.get(number)
+            if pull_reviews is None or train_config is None:
+                return number
+            state, _, _ = approval_state(
+                pull_reviews, sha=str(head.get("sha") or ""), config=train_config
+            )
+            if state is Approval.APPROVED:
+                return number
     return None
 
 
@@ -168,6 +200,8 @@ def chain_step(  # noqa: PLR0911 - one return per outcome, each named
     *,
     repo: str,
     promotion_pulls: Sequence[Mapping[str, Any]] | None,
+    promotion_reviews: Mapping[int, Sequence[Mapping[str, Any]]] | None = None,
+    train_config: TrainConfig | None = None,
     collect_pulls: Sequence[Mapping[str, Any]] | None = None,
     attempt: int = 1,
     max_attempts: int = 40,
@@ -176,21 +210,26 @@ def chain_step(  # noqa: PLR0911 - one return per outcome, each named
 
     ``promotion_pulls`` is the open PRs against `main` (``None`` when the read
     failed, which stands the chain down: a dispatch that could stall a
-    promotion is not worth the guess). ``collect_pulls`` is the drain mode's
-    read of this round's collect PR, newest first, ``None`` when unreadable.
+    promotion is not worth the guess). ``promotion_reviews`` and
+    ``train_config`` decide whether a ready train candidate is approved
+    (:func:`ready_promotion`). ``collect_pulls`` is the drain mode's read of
+    this round's collect PR, newest first, ``None`` when unreadable.
     """
     if promotion_pulls is None:
         return ChainStep(
             action=ChainAction.STOP,
             reason="the open promotion PRs could not be read, so the chain stands down",
         )
-    number = ready_promotion(promotion_pulls, repo=repo)
+    number = ready_promotion(
+        promotion_pulls, repo=repo, reviews=promotion_reviews, train_config=train_config
+    )
     if number is not None:
         return ChainStep(
             action=ChainAction.STOP,
             reason=(
-                f"promotion PR #{number} is ready, so the chain stands down until it "
-                "merges or returns to draft; the schedule picks the backlog up"
+                f"promotion PR #{number} is ready to merge, so the chain stands down until "
+                "it merges, returns to draft or loses its approval; the schedule picks the "
+                "backlog up"
             ),
         )
     if mode is ChainMode.PULL:

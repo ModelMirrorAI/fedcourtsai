@@ -158,7 +158,7 @@ standing sweep on the walker instead.
 | Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           | REST API (opinion clusters) | the stored corpus itself, and for the two fetching passes the filings and dockets they name (supremecourt.gov) |
 | Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications, granted dockets to judgment: discovery, watchlist, outcomes | granted dockets → published opinion: reporter citations and opinion body | repair what no channel corrects: re-derive, relabel, normalize, remove |
 | Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        | shares the CourtListener budget, bounded per dispatch | ~0 API; each apply bounded by a blast-radius count, or by a slice where the cost is runner minutes |
-| Cadence   | **daily** (4 dead-zone windows)         | **daily** (4 windows)             | **daily** (4 windows)           | **dispatch only** (never scheduled) | **dispatch only** (never scheduled) |
+| Cadence   | **daily** (4 windows)                   | **daily** (4 windows)             | **daily** (12 windows, every 2h) | **dispatch only** (never scheduled) | **dispatch only** (never scheduled) |
 | Handoffs  | none — lands already-resolved history   | predict issues                    | predict issues                  | none — enriches rows already ingested | none |
 
 They share an **ingestion core** (`fedcourtsai.pipeline.ingest`: a
@@ -276,17 +276,19 @@ nothing in the system removes one. The control is the explicit `Deny` on every
 delete in the read-write role ([security.md](security.md)); the shape of
 `fedcourtsai.corpus_remote`'s transport mirrors it, offering upload, download,
 and existence checks and no list or delete primitive to call. So the prefix
-only grows. The scale: the blob is ~1.1 GB and the writers hold twelve
-scheduled windows a day (`run-pull`'s two cron entries, four pull windows and
-four live, plus `run-seed`'s four historical ones), with dispatched runs on top
-and several pushes possible inside one window — in practice the
-committed pointer moves a median of **13 times a day**, on the order of 14 GB a
-day of new objects. That is a floor on the accretion, not a count of it: a push
+only grows. The scale: the blob is ~1.1 GB and the writers hold twenty
+scheduled windows a day (`run-pull`'s four pull windows and twelve live ones,
+plus `run-seed`'s four historical ones), with dispatched runs on top
+and several pushes possible inside one window. A measurement taken over
+four live windows a day put the committed pointer's moves at a median of
+**13 a day**, on the order of 14 GB a day of new objects. Each live window
+commits a pointer, so at twelve live windows the estimate is ~21 moves and
+~24 GB a day until a re-measurement at the current cadence replaces it. Either figure is a floor on the accretion, not a count of it: a push
 whose pointer commit never lands still leaves its object behind.
 
-Those figures are measurements, and they age. The push rates were read off the
-pointer's own history on **2026-08-28** (621 revisions since 2026-07-13);
-re-measure them from `git log --follow --format=%cI -- corpus/corpus.db.ref` on
+Those figures are measurements and an estimate, and they age. The push rates
+were read off the pointer's own history on **2026-08-28** (621 revisions since
+2026-07-13), over four live windows a day; re-measure them from `git log --follow --format=%cI -- corpus/corpus.db.ref` on
 `main`, and the blob size from `fedcourts corpus-info` after a pull. The
 lifecycle rule below is sized against them, so a figure that has moved is a
 reason to re-read that sizing.
@@ -304,8 +306,9 @@ unresolvable, which is the one thing the corpus is committed against.
 
 Cost is therefore managed by **storage class, not deletion**. Keeping every
 version is the one cost line with no asymptote: the Standard-resident window is a
-constant, but the Glacier IR tail grows with the archive — at today's blob size,
-a couple of dollars a month more for each further month of history. A bucket
+constant, but the Glacier IR tail grows with the archive — at today's blob size
+and push rate, about three dollars a month more for each further month of
+history. A bucket
 lifecycle rule transitions objects under the index prefix to **S3 Glacier Instant
 Retrieval** 30 days after creation:
 
@@ -367,8 +370,8 @@ is under two hours and the longest is 47 (1.6 h and 47.4 h on the same
 fortnight is noncurrent with near-certainty; a
 tighter threshold would already be safe. Thirty is chosen because the
 difference is a *constant, not a growth term*: the threshold fixes how much of
-the prefix stays in Standard — thirty days of accretion, ~430 GB at 13 pushes a
-day of a ~1.1 GB blob — while everything older transitions under either choice. A fixed extra fortnight of
+the prefix stays in Standard — thirty days of accretion, ~430 GB at the measured
+13 pushes a day of a ~1.1 GB blob and ~700 GB at the estimated 21 — while everything older transitions under either choice. A fixed extra fortnight of
 Standard storage is
 what buys a month of headroom for an unusual writer pause (an expired
 credential, an upstream outage, a deliberate freeze) to be noticed and resolved
@@ -425,7 +428,10 @@ cell's tooling, scanned by `run-ops` into a tooling digest, and read per run by
 `collect` for its `used_corpus_query` line alone, which is the self-reported
 side of the run PR's prior-availability note — the field asks whether the cell
 *used* the CLI, and the note weighs that against what capture saw rather than
-reading it as a verdict on the corpus; advisory, never gating.
+reading it as a verdict on the corpus; advisory, never gating. A mis-shaped
+report is normalised by the stamp too, short of supplying a `used_corpus_query`
+the cell did not answer or reading a file that is not a JSON object (*`tooling.json`* in
+[predicted-artifacts.md](predicted-artifacts.md)).
 `retrieval_log.json` is the harness-captured tool-call transcript the
 evaluators' leakage grading reads.
 
@@ -809,12 +815,15 @@ merits outcome records a judgment that publishes an opinion (not a DIG or an
 equally divided affirmance) and resolved fewer than
 `OPINION_HOLD_DAYS` (14) days ago — exactly the cases `run-evaluate`'s opinion
 hold is holding or about to hold ([pipeline.md](pipeline.md#the-evaluate-queue-is-level-triggered-too)) — and
-everything else stands: eligibility, the order, the cursor, the cap. So a
+everything else stands: eligibility, the order, the cursor, the cap. The step
+runs on the four full live windows a day (the `47 4,10,16,22` cron, and every
+`mode=live` dispatch) and is skipped on the eight live-only ones, so the live
+cadence does not multiply its spend. So a
 body upstream already carries usually lands before the next daily evaluate tick,
-one upstream has not published yet is retried every live window, and a case the
+one upstream has not published yet is retried every full live window, and a case the
 hold has released is never walked from there again. Its spend is bounded the
 same way the dispatch's is, at a fraction of the size: at most 32 requests a
-window (eight cases at four), only on a day with that many decisions still
+full window (eight cases at four), 128 a day, only on a day with that many decisions still
 missing a body, against the ≈360 a day the pull windows commit. It runs on the
 same per-process governor and tier knobs as the pull job, in the live job's own
 slot on the `corpus-write` lock, so it never stacks onto a pull window's spend.
@@ -822,7 +831,7 @@ The step is failure-tolerant by construction — `continue-on-error`, an inner
 SIGINT timeout that unwinds an open transaction, and `corpus-push` settling (or
 refusing) any hot journal a harder kill left before it publishes — so nothing
 about the live pull depends on it, and the live summary carries the step's
-outcome as a row on every window. The dispatched **enrich** job stays the lane
+outcome as a row on every window (`skipped` on a live-only one). The dispatched **enrich** job stays the lane
 for the standing backlog.
 
 `--case <court>/<docket>` (repeatable) narrows the walk to named cases, and it
@@ -1122,8 +1131,9 @@ or network.
 
 ## Historical — the Term walker
 
-- **Trigger:** the `run-seed` workflow's cron windows (four dead-zone slots a
-  day, or manual dispatch). Nothing an outside actor can file fires it: a
+- **Trigger:** the `run-seed` workflow's cron windows (four slots a day, each
+  sharing its hour with a live window it serializes with on the lock, or
+  manual dispatch). Nothing an outside actor can file fires it: a
   `schedule` runs only from the default branch and a dispatch needs repository
   write. It shares run-pull's `corpus-write` lock, so it still serializes with
   the forward writers despite the separate schedule.
@@ -1921,9 +1931,10 @@ interim-docket series back to OT2017, and it runs one Term per dispatch.
 
 **An apply moves a scored anchor.** Its plan crosses from the parse job to
 the writer under the PII carve-out in [data-sources.md](data-sources.md)
-(*PII stance*). The statpack's interim section counts every application row
-and pools the parsed substantive ones into the interim base rate that interim
-cells anchor to and are scored against. A stub row counts as `unparsed`, so an
+(*PII stance*). The statpack's interim section counts every application
+number once (a number stored under two case ids counts one row, as
+`corpus.duplicate_application_case_ids` picks it) and pools the parsed substantive ones into the interim base rate that
+interim cells anchor to and are scored against. A stub row counts as `unparsed`, so an
 apply moves the Term's rows into the pool and moves the rate for every
 application Term whose lookback reaches it.
 
@@ -1937,8 +1948,11 @@ Term joins that set in the same change that appends its own freeze-record
 entry, with a projection read off its dry run. Its dry run needs no
 registration, since reading moves nothing.
 
-**Dispatching.** Dispatch on `main`, in a dead zone between the scheduled
-windows (`run-pull` at `:17` and `:47`, `run-seed` at `:31`). A *queued* repair
+**Dispatching.** Dispatch on `main`, in a quiet slot between the scheduled
+windows: `run-pull`'s live windows open at `:47` every even hour and usually
+commit within ~20 minutes, its pull windows at `:17` past 01/07/13/19 and
+`run-seed` at `:31` past 02/08/14/20, so from about `:15` past 03, 05, 09, 11,
+15, 17, 21 and 23 the lock is usually free until the next `:47`. A *queued* repair
 run can be silently evicted — GitHub keeps only the latest pending run per
 concurrency group, so a scheduled window entering `corpus-write` behind the
 dispatch cancels it, and a one-shot dispatch does not pick up where it left off.

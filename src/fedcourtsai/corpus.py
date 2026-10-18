@@ -2504,6 +2504,62 @@ def scotus_application_term_year(docket_number: str) -> int | None:
     return 1900 + two_digit if two_digit >= 30 else 2000 + two_digit
 
 
+def _survivor_order(case_id: str, observed: bool) -> tuple[bool, int, int, str]:
+    """Sort key putting an observed row first, then the lowest numeric docket id."""
+    tail = case_id.rsplit("/", 1)[-1]
+    if tail.isdigit():
+        return (not observed, 0, int(tail), case_id)
+    return (not observed, 1, 0, case_id)
+
+
+def duplicate_application_case_ids(conn: ReadConnection) -> frozenset[str]:
+    """The SCOTUS application rows a count or rate reads past: one number, one row.
+
+    The corpus can hold one interim application number under more than one
+    ``case_id`` (two upstream docket ids for the same number, each written as
+    its own row), so a reader that counts rows counts that application twice.
+    Every reader whose figure is a count or rate over application numbers (the
+    statpack's interim section, and with it the interim base rate; the interim
+    reading census that replicates it) skips the ids this returns, so each
+    number counts once.
+
+    The key is the numeric ``(term, serial)`` pair the strict ``YYAnnn`` parse
+    yields, annotation stripped and case folded (``24A09`` and ``24a9`` are one
+    number) — the parse :func:`scotus_application_term_year` already reads, so a
+    row this skips is one the interim section would otherwise have counted.
+
+    The **survivor** of each group is chosen in two steps. A row the live channel
+    has observed — application-parsed (``application_kind`` set) or live-polled
+    (``last_live_polled`` set) — is preferred over one it has not, so a
+    CourtListener stub can never displace the parsed row of the same number and
+    take its ask and disposition out of the count. Among the rows left, the
+    lowest numeric docket id wins, the rule the identity join
+    (:func:`scotus_case_id_by_docket_number`) applies when two rows match one
+    number and the one :mod:`fedcourtsai.dedupe` keeps. Where every row agrees,
+    which survives moves no count; the dedupe census
+    (``scripts/checks/application_duplicates.py``) lists each group's differing
+    fields. Read-only: a row is skipped, never altered, and a corpus merge of
+    the groups would leave this returning an empty set.
+    """
+    groups: dict[tuple[int, int], list[tuple[str, bool]]] = {}
+    for record in conn.execute(
+        "SELECT case_id, docket_number, "
+        "(application_kind IS NOT NULL OR last_live_polled IS NOT NULL) AS observed "
+        "FROM cases WHERE court = 'scotus' AND docket_number LIKE '%A%'"
+    ):
+        key = parse_scotus_application_number(
+            strip_docket_annotation(str(record["docket_number"] or ""))
+        )
+        if key is not None:
+            groups.setdefault(key, []).append((str(record["case_id"]), bool(record["observed"])))
+    return frozenset(
+        case_id
+        for members in groups.values()
+        if len(members) > 1
+        for case_id, _ in sorted(members, key=lambda member: _survivor_order(*member))[1:]
+    )
+
+
 def is_modern_cert(row: CorpusRow) -> bool:
     """Whether a SCOTUS docket is a modern discretionary-cert petition, by form.
 

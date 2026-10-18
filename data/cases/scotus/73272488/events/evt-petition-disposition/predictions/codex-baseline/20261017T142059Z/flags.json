@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73272488",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The October 10 snapshot records the United States' opposition submitted October 9, 2026, but the provisioned document manifest contains only the petition and questions presented. Opposition content was unavailable and not inferred. The petition is marked truncated, although its main argument and relevant lower-court opinion passages are present. The forecast discounts the one-sided advocacy record.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261017T142059Z",
+  "schema_version": "1.0"
+}

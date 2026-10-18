@@ -1,0 +1,7 @@
+P(grant) = 0.001.
+
+The case is currently at the arrival moment. For a private petitioner in the `baseline` salience band, the historical bracketed "reached" rate over prior Terms is roughly 4-5%. However, I adjust this baseline down aggressively to near zero based on the specific facts of this case.
+
+The petition presents insurmountable vehicle problems. The petitioner is attempting to appeal directly from the Arizona state courts (which dismissed his appeal for lack of jurisdiction) prior to sentencing. This interlocutory posture means there is likely no "final judgment" from the highest state court under 28 U.S.C. 1257. Furthermore, the first Question Presented asks the Supreme Court to declare that the petitioner may file a federal habeas petition under 28 U.S.C. 2241 based on a double jeopardy claim. A direct cert petition from a state court is an improper mechanism to obtain an advisory opinion on the availability of federal habeas relief. 
+
+Given these structural and procedural defects, the petition is virtually certain to be denied outright at its first conference. No relists or CVSG are expected, and the likelihood of any Justice dissenting from the denial is exceptionally low. The `big_case_score` is set to 0.1, reflecting the obscure and technically flawed nature of the petition.

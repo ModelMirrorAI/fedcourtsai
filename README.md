@@ -40,12 +40,12 @@ requests.
 
 | Trigger        | Workflow        | Does                                                                 | Engine |
 |----------------|-----------------|----------------------------------------------------------------------|--------|
-| Schedule + dispatch (`mode`) | `run-pull`      | Two scheduled forward writer jobs: targeted CourtListener enrichment, and the **supremecourt.gov live poll** (discovers pending petitions, tracks conference distribution, records outcomes, provisions filed-document text, and fetches the opinion of a just-decided merits case) — plus a third, **dispatch-only** job that enriches the cert-granted backlog with its opinion text | Script |
-| Schedule       | `run-seed`      | The **historical Term walker** (supremecourt.gov, budget-free) backfilling past Terms for base rates and back-testing — four dead-zone windows a day, sharing the corpus-write lock. Its trailing sweeps converge the corpus toward what a window can reach on its own; each is idempotent and non-blocking | Script |
+| Schedule + dispatch (`mode`) | `run-pull`      | Two scheduled forward writer jobs: targeted CourtListener enrichment, and the **supremecourt.gov live poll** (every two hours: discovers pending petitions, tracks conference distribution, records outcomes, provisions filed-document text, and fetches the opinion of a just-decided merits case) — plus a third, **dispatch-only** job that enriches the cert-granted backlog with its opinion text | Script |
+| Schedule       | `run-seed`      | The **historical Term walker** (supremecourt.gov, budget-free) backfilling past Terms for base rates and back-testing — four windows a day, sharing the corpus-write lock with run-pull's writers. Its trailing sweeps converge the corpus toward what a window can reach on its own; each is idempotent and non-blocking | Script |
 | Dispatch only  | `run-repair`    | The **corpus-maintenance bench**: seventeen dispatch-gated passes that rewrite stored corpus fields, back-fill corpus rows, remove ledger records, re-freeze frozen signal blocks, re-grade committed cells, or stamp vote records onto committed outcomes — one pass per dispatch, dry-run by default, and an apply only once a maintainer has read that dry run's ledger. Never scheduled; shares the corpus-write lock | Script |
 | Schedule ×2 + dispatch | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out), over the cases the predict backlog still owes a forecast | Claude Code + Codex + Gemini |
 | Schedule + dispatch | `run-evaluate`  | Score past predictions against realized outcomes, over the gradings the evaluate backlog still owes — fan-out is one cell per evaluator, and each judge grades **every** predictor for its event | Claude Code + Codex + Gemini |
-| Schedule + dispatch (`limit`) | `summarize`     | Write a **plain-language summary** of each predicted case whose record changed — what happened, what the Court is being asked, where it stands — for site readers; one tool-less model call per case (a second when a rejected response is retried), every run behind the manual `review` release, landed as a reviewed PR ([`docs/case-summaries.md`](docs/case-summaries.md)) | Messages API (no agent) |
+| Schedule + dispatch (`limit`) | `summarize`     | Write a **plain-language summary** of each predicted case whose record changed — what happened, what the Court is being asked, where it stands — for site readers; one tool-less model call per case (a second when a rejected response is retried), every run behind the `review` release or auto-released within the trailing spend budget, landed as a reviewed PR ([`docs/case-summaries.md`](docs/case-summaries.md)) | Messages API (no agent) |
 | Biweekly schedule + dispatch | `run-backtest`  | Cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR. The schedule asks under pinned parameters and waits on the manual `review` release — a replay spends tokens, so no run spends without a human. A second dispatch mode replays the **deterministic salience gate** over past Terms instead — offline, token-free, into `metrics/salience-replay.json` | Claude Code + Codex + Gemini (replay); salience-gate replay is script-only |
 
 Plus `run-ops` (a read-only daily operations report, plus two issues the maintainer
@@ -59,8 +59,9 @@ tool-usage roll-up, the metrics refresh, the daily big-case board, and the
 qp-topic labeler (the only one that runs an agent) — both schedule/dispatch
 only. A development lane, `corpus-check`, runs the check a pull request's
 description declares at the PR's head against the corpus, read-only, once the
-maintainer approves it, and posts the result to the PR
-([`docs/corpus-check.md`](docs/corpus-check.md)). The cascade runs
+maintainer approves it — or, for an allowlisted read-only query the PR asks to
+run at `main`'s own commit, without the approval, since no PR code runs — and
+posts the result to the PR ([`docs/corpus-check.md`](docs/corpus-check.md)). The cascade runs
 pull/live → corpus → `run-predict`, which on each scheduled wake derives its own
 fan-out from the predict backlog — the arrival-cohort picks, conference
 distributions, and changed open cases the committed record does not yet
@@ -77,8 +78,8 @@ workflow mechanics and the cascade diagram:
 job bound to the `review` deployment environment, whose required reviewers gate
 it. No cell runs and no tokens are spent until a reviewer releases the
 deployment: an explicit, audit-logged step on every run that has cells to
-spend on — unless a predict round's own plan is within the auto-release caps
-in `config/review-hold.yaml`, which are off until a maintainer sets them
+spend on — unless the round's own plan is within the auto-release caps and
+trailing spend budget in `config/review-hold.yaml`
 ([`docs/pipeline.md`](docs/pipeline.md)).
 
 ### Why this shape

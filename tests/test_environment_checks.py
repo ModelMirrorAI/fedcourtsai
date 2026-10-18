@@ -1,7 +1,8 @@
-"""The `corpus-check` environment's gate (``fedcourtsai.environment_checks``).
+"""The gated environments' checks (``fedcourtsai.environment_checks``).
 
-The read-only role trusts this environment, so a missing reviewer, an open
-branch policy or a stray secret hands that role out. The promotion gate's
+The read-only role trusts `corpus-check` and `corpus-check-auto`, so a missing
+reviewer (on the first), an open branch policy or a stray secret hands that
+role out. The promotion gate's
 `contexts` stage and the lane's plan job both decide on these predicates.
 """
 
@@ -377,6 +378,111 @@ def test_unrelated_repository_secrets_pass_and_unread_ones_fail() -> None:
         "repository secrets were unread" in p for p in ec.shadow_secret_problems(None, other)
     )
     assert any("organization" in p for p in ec.shadow_secret_problems(other, None))
+
+
+# The `corpus-check-auto` environment: the read-only role, unapproved, for an
+# allowlisted subcommand at `main`'s own commit. Its branch policy is its one
+# control.
+
+
+def _auto(**overrides: Any) -> list[str]:
+    values: dict[str, Any] = {
+        "environment": _environment(reviewers=[]),
+        "branch_policies": MAIN_ONLY,
+        "secrets": NO_SECRETS,
+        "variables": ROLE_VARIABLES,
+    }
+    values.update(overrides)
+    return ec.auto_environment_problems(
+        values["environment"], values["branch_policies"], values["secrets"], values["variables"]
+    )
+
+
+def test_the_configured_auto_environment_passes() -> None:
+    assert _auto() == []
+    # A reviewer is the stop for the unapproved path, never a promotion blocker.
+    assert _auto(environment=_environment()) == []
+    assert ec.auto_protection_problems(_environment(reviewers=[]), MAIN_ONLY) == []
+
+
+@pytest.mark.parametrize(
+    ("overrides", "fragment"),
+    [
+        ({"environment": None}, "`corpus-check-auto` environment does not exist"),
+        ({"environment": _environment(reviewers=[], custom=False)}, "custom branch policy"),
+        (
+            {"environment": _environment(reviewers=[], protected_branches=True)},
+            "custom branch policy",
+        ),
+        ({"branch_policies": None}, "branch policies were unread"),
+        (
+            {"branch_policies": {"branch_policies": [{"name": "*", "type": "branch"}]}},
+            "admits: *",
+        ),
+        ({"branch_policies": {"branch_policies": [{"name": "main", "type": "tag"}]}}, "exactly"),
+        ({"secrets": None}, "secrets were unread"),
+        ({"secrets": {"secrets": [{"name": "TOKEN"}]}}, "1 secret(s)"),
+        ({"variables": None}, "variables were unread"),
+        (
+            {"variables": {"variables": [*ROLE_VARIABLE_ITEMS, {"name": "AWS_ROLE_TO_ASSUME"}]}},
+            "AWS_ROLE_TO_ASSUME",
+        ),
+    ],
+)
+def test_each_auto_weakening_is_named(overrides: dict[str, Any], fragment: str) -> None:
+    problems = _auto(**overrides)
+    assert any(fragment in problem for problem in problems), problems
+
+
+def test_the_plan_routes_to_the_approval_without_the_auto_policy() -> None:
+    """The plan's lighter read: no environment, or no `main`-only policy, is a
+    problem, and every request then waits on the approval (test_corpus_check)."""
+    assert ec.auto_protection_problems(None, MAIN_ONLY)
+    assert ec.auto_protection_problems(_environment(reviewers=[]), None)
+    assert ec.auto_protection_problems(_environment(reviewers=[], custom=False), MAIN_ONLY)
+
+
+def test_the_auto_gate_cli_reads_the_four_listings(tmp_path: Path) -> None:
+    files = {
+        "environment": _environment(reviewers=[]),
+        "branch-policies": MAIN_ONLY,
+        "secrets": NO_SECRETS,
+        "variables": ROLE_VARIABLES,
+    }
+    for name, document in files.items():
+        (tmp_path / f"{name}.json").write_text(json.dumps(document))
+    args = [
+        "assert-corpus-check-auto-environment",
+        "--environment-file",
+        str(tmp_path / "environment.json"),
+        "--branch-policies-file",
+        str(tmp_path / "branch-policies.json"),
+        "--secrets-file",
+        str(tmp_path / "secrets.json"),
+        "--variables-file",
+        str(tmp_path / "variables.json"),
+    ]
+    runner = CliRunner()
+    passed = runner.invoke(app, args)
+    assert passed.exit_code == 0, passed.output
+    (tmp_path / "branch-policies.json").unlink()
+    assert runner.invoke(app, args).exit_code == 1
+
+
+def test_the_promotion_gate_checks_the_auto_environment_unconditionally() -> None:
+    """The trust names `environment:corpus-check-auto` from the moment the
+    maintainer adds it, and an environment that does not exist is one any
+    branch's workflow creates unprotected — so the gate requires it, outside
+    any `grep` of main's workflows, and fails the stage."""
+    script = (Path(__file__).resolve().parent.parent / "scripts" / "promotion-gate.sh").read_text()
+    contexts = script[script.index("\ncontexts() {") : script.index("\nregistry() {")]
+    start = contexts.index('cca_base="repos/${REPO}/environments/corpus-check-auto"')
+    tail = contexts[start : contexts.index("The website environment")]
+    for listing in ("deployment-branch-policies", "secrets", "variables"):
+        assert listing in tail
+    assert "uv run fedcourts assert-corpus-check-auto-environment" in tail
+    assert "fail=1" in tail
+    assert "grep -rq" not in tail
 
 
 # The `corpus-write` environment: the one the production read-write role trusts.

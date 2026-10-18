@@ -89,7 +89,11 @@ def test_the_key_reaches_only_the_two_generate_steps_that_need_it() -> None:
 
 def test_every_spending_job_waits_on_the_review_hold() -> None:
     jobs = _jobs()
-    assert jobs["approval"]["environment"] == "review"
+    # `review`, or the reviewer-less `review-auto` when the plan job's
+    # `hold-decision` auto-released the run (pinned in test_workflow_auth_gate).
+    assert jobs["approval"]["environment"] == (
+        "${{ needs.plan.outputs.auto_release == 'true' && 'review-auto' || 'review' }}"
+    )
     assert jobs["approval"]["permissions"] == {}
     assert not any("uses" in step for step in jobs["approval"]["steps"])
     # stage reads the corpus for the planned cases, generate spends: both sit

@@ -2328,8 +2328,12 @@ class AgentToolingFeedback(_Strict):
     PR's prior-availability note (the field asks whether the cell *used* the CLI,
     which that note weighs against what capture saw rather than treating as a
     verdict on the corpus). It is the agent's own account —
-    subjective, advisory, and never a gate. The token stays comment-only: the file is
-    written locally and the trusted ``collect`` job commits it with the cell's output.
+    subjective, advisory, and never a gate. The stamp normalises a mis-shaped report
+    before ``validate`` (:func:`fedcourtsai.agent_tooling.normalise_tooling`), short
+    of supplying a ``used_corpus_query`` the cell did not answer or reading a file
+    that is not a JSON object. The token stays comment-only: the
+    file is written locally and the trusted ``collect`` job commits it with the cell's
+    output.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -8475,9 +8479,12 @@ class _StatPackInterimCounts(_Strict):
 
     Raw counts throughout: the live channel polls every application it discovers
     (no denial sampling, so every row stands only for itself) and nothing here is
-    reweighted. This slice's own ``substantive_grant_rate`` stays **descriptive**
-    — it describes the accumulated cohort and, at the pack level, contains every
-    Term including a scored case's own. The *scored* interim baseline is built
+    reweighted. The unit is the application number, not the corpus row: a
+    number stored under two case ids counts once
+    (:func:`fedcourtsai.corpus.duplicate_application_case_ids`). This slice's
+    own ``substantive_grant_rate`` stays **descriptive** — it describes the
+    accumulated cohort and, at the pack level, contains every Term including a
+    scored case's own. The *scored* interim baseline is built
     from the per-Term entries instead
     (:func:`fedcourtsai.pipeline.base_rates.interim_base_rate`): pooled over
     Terms strictly before the case's, and only where the pooled sample clears the
@@ -8500,7 +8507,9 @@ class _StatPackInterimCounts(_Strict):
         default=0,
         ge=0,
         description="Application dockets (strict `YYAnnn` form — the live channel's "
-        "addressable population) in this slice",
+        "addressable population) in this slice, each number counted once: a number "
+        "the corpus stores under two case ids counts one row only (see "
+        "`duplicate_rows`), here and in every count below",
     )
     extension: int = Field(
         default=0,
@@ -8572,6 +8581,23 @@ class _StatPackInterimCounts(_Strict):
         description="Substantive applications whose docket records at least one "
         "amicus brief — a stakes proxy, flagged here rather than summed",
     )
+    duplicate_rows: int | None = Field(
+        default=None,
+        ge=0,
+        description="Corpus rows left out of every count here because another row "
+        "carries the same application number (`corpus.duplicate_application_case_ids`: "
+        "one row per number, an observed row before a stub, then the lowest docket "
+        "id). Absent from a pack built before the one-row-per-number rule, which "
+        "counted rows, so absent reads as unknown, never as zero",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_unset_duplicate_rows(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``duplicate_rows`` while unset, so a pack built before it reads as before."""
+        payload = handler(self)
+        if isinstance(payload, dict) and self.duplicate_rows is None:
+            payload.pop("duplicate_rows", None)
+        return payload
 
 
 class StatPackInterimTerm(_StatPackInterimCounts):

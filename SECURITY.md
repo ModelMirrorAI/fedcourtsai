@@ -285,10 +285,13 @@ runbook, [docs/security.md](docs/security.md).
   happens to it. Every role's OIDC trust is to be scoped to named environments
   of this repo — the production read-write role to `corpus-write`, the read-only
   role to `prod`, `corpus-write`, `staging` (which is what lets the
-  pre-promotion integration runs read the corpus) and `corpus-check` (the PR
-  corpus-check lane, under the trigger surface below), the staging read-write
-  role to `staging` — and each of those environments restricts deployments to
-  one branch, so a PR-branch job cannot assume any of them. In production the
+  pre-promotion integration runs read the corpus), `corpus-check` and
+  `corpus-check-auto` (the PR corpus-check lane's approved and unapproved
+  paths, under the trigger surface below), the staging read-write role to
+  `staging` — and each of those environments restricts deployments to its own
+  branches (`staging` also admits the promotion train's `promote/*`
+  candidates: commits already on `staging`, created only by the dev App and
+  never moved), so a PR-branch job cannot assume any of them. In production the
   split is identity once the read-write role's trust names `corpus-write`
   alone — a maintainer IAM step the promotion gate cannot read; until it is
   done the role still names `prod` too (*`corpus-write` holds the production read-write role* in
@@ -303,7 +306,8 @@ runbook, [docs/security.md](docs/security.md).
   are not split from it the way the fetching passes are. In staging it stays provenance: any `staging`-bound job could ask for
   the staging write role, which writes only the disposable staging pair, and
   what stops the wrong job asking is review of the code the branch policy
-  admits. No
+  admits — so a wrongly-writing change fails visibly against the disposable
+  staging pair before promotion instead of succeeding first in production. No
   committed file carries credentials or the bucket URL — each job (and
   operator) supplies the corpus address out of band — a base URL, one per
   environment, from which both stores' addresses derive (`fedcourtsai.paths`),
@@ -337,7 +341,8 @@ runbook, [docs/security.md](docs/security.md).
   supremecourt.gov content. The model call carries no tools, so the model reaches
   nothing but the record it is sent. The key is the bound environment's
   Anthropic key, held in this lane by the generate job alone and shared with the
-  cells' spend limit, so every run spends only behind the `review` hold.
+  cells' spend limit, so every run spends only behind the `review` hold or
+  the budgeted auto-release that routes a small round past it.
   `tests/test_workflow_summarize.py` pins the split; the lane's contract is
   [docs/case-summaries.md](docs/case-summaries.md).
 - **One scoped exception: developer corpus access.** Three developer flows,
@@ -376,11 +381,12 @@ runbook, [docs/security.md](docs/security.md).
   one at all. Every privileged lane enters one of two ways, and three platform
   facts cover both. A `schedule`
   fires only from the **default branch**, so a cron can run only what a
-  maintainer-merged promotion put on `main`. A `workflow_dispatch` is gated by
+  maintainer-approved promotion put on `main`. A `workflow_dispatch` is gated by
   GitHub on repository **write**. And every privileged job binds a deployment
   environment whose branch policy pins the ref it may run from — `prod` to
-  `main`, `staging` to `staging` (below), `corpus-write`, `corpus-check` and
-  `website` to `main` — so a
+  `main`, `staging` to `staging` and the promotion train's `promote/*`
+  candidates (below), `corpus-write`, `corpus-check`,
+  `corpus-check-auto` and `website` to `main` — so a
   dispatch from any other ref
   holds no role, no secret, no agent: a job naming an environment as a literal
   is refused at the deployment-branch gate before a step runs, and the three
@@ -419,16 +425,23 @@ runbook, [docs/security.md](docs/security.md).
   stays in the run history; `promote` and `run-ops` stay ungated because they
   bind no environment and name no secret; and repository-level secrets, which
   a job reaches without an environment, are assumed absent (`docs/security.md`
-  keeps every secret on an environment). Two jobs dispatch a lane
-  themselves — `run-pull`'s `chain-predict` and `run-predict`'s `chain`, each
-  starting an input-less `run-predict` on `main` with the **dispatch App**,
-  whose token holds Actions write (and PR read) and nothing else and whose key
-  only `main`'s code can mint, and which the allow-list admits for
-  `run-predict` alone. A dispatch from it enters through the same gates as a
-  maintainer's and reaches the same code; the round it starts still waits
-  on the review hold unless its own plan is within the auto-release caps. The
-  pull window chains only on a forecast-relevant change, and neither job
-  dispatches while a promotion PR is ready.
+  keeps every secret on an environment). Three jobs dispatch a lane
+  themselves with the **dispatch App**, whose token holds Actions write (and
+  PR read) and nothing else and whose key only `main`'s code can mint:
+  `run-pull`'s `chain-predict` and `run-predict`'s `chain`, each starting an
+  input-less `run-predict` on `main`, and the promotion train's
+  `dispatch-gate`, starting the side-effect-free `integration-test` `gate`
+  suite at a frozen `promote/` candidate, once per head. The allow-list admits
+  the App for those two workflows alone. A dispatch from it enters through the
+  same gates as a maintainer's and reaches the same code; the round it starts
+  still waits on the review hold unless its own plan is within the
+  auto-release caps and budget. The train's suite has no review hold: it
+  spends staging's engine keys unattended — about one paid suite per
+  candidate, outside the auto-release budget — bounded by the train's own
+  daily cap (`max_gate_dispatches_per_day` in the code-owned
+  `config/promotion-train.yaml`) and by never re-dispatching at a head. The
+  pull window chains only on a forecast-relevant change, and neither chain job
+  dispatches while a promotion is about to merge.
   Three workflows *do* take an outside-reachable trigger — `ci.yml`,
   `lint-actions.yml` and `codeql.yml` on `pull_request`, which any fork
   contributor fires — and they are the shape that makes the rule readable rather
@@ -473,7 +486,26 @@ runbook, [docs/security.md](docs/security.md).
   `environment:corpus-check`, which holds that role, its region and the
   corpus address and no other credential. And the **cache rule** below. What
   stays open is network egress, the read-only session for the rest of its
-  hour, and the kernel itself. Like every workflow that binds an environment,
+  hour, and the kernel itself.
+  The lane's invariant is precise: **no PR-supplied code runs with the corpus
+  credential without the maintainer's approval.** One kind of request skips
+  the approval because it supplies no code: a block that asks for `main`'s
+  code (`at: main`) and names a `uv run fedcourts` subcommand on the
+  maintainer-owned auto allowlist (`config/corpus-check.yaml`: read-only
+  queries that print counts and identifiers, each one's full option surface
+  pinned by the maintainer-owned `tests/test_corpus_check_auto_surface.py`, and
+  the allowlist re-checked by the job itself before it runs) runs in a
+  separate job binding
+  the reviewer-less `corpus-check-auto` environment, whose tree is the run's
+  own commit of `main` — the PR head is never checked out or fetched, and the
+  parsed command line is all the job takes from the PR. That environment's
+  `main`-only branch policy is its control: the plan routes nothing to it
+  while the policy is missing, the promotion gate refuses a promotion until it
+  holds the policy and nothing but the read-only role's three variables, and
+  the read-only role is the only role, and its trust the only OIDC exchange,
+  that may accept `environment:corpus-check-auto`. Every other request — any
+  PR-head code, any `scripts/checks/` script, any unlisted subcommand, any
+  doubt about the allowlist or the environment — waits on the approval. Like every workflow that binds an environment,
   the lane opens with the run gate: the schedule passes it, and a dispatch or
   re-run proceeds only for a human `config/dispatchers.json` names — a re-run
   of the check also needs a fresh approval. The requester list (`config/corpus-check.yaml`) is maintainer-owned,
@@ -485,23 +517,28 @@ runbook, [docs/security.md](docs/security.md).
   directory for a reachable trigger, pins the five privileged lanes to those
   two, and requires every job that mints a token, assumes a role, or runs an
   agent — directly or through a composite that does — to bind one of the
-  branch-policied environments, `corpus-check` admitted for its own workflow
-  alone — so a workflow added later inherits the boundary. Behind all of it the `review` hold remains the
+  branch-policied environments, `corpus-check` and `corpus-check-auto`
+  admitted for their own workflow alone — so a workflow added later inherits
+  the boundary. Behind all of it the `review` hold remains the
   thing between a plan and any spend, on every round alike — save one bounded
-  carve-out: a predict round whose own plan is within the auto-release caps
-  (`config/review-hold.yaml`; 0, so off, unless a maintainer sets them) binds
-  the reviewer-less `review-auto` instead. The caps bound **estimated** spend
-  (the planning rates over the round's own minted matrix); actual spend can
-  exceed the estimate, since retries spend and the rates price some engines
-  low. The `spend` backstop stands behind both, but it is **ex post**: it reads
-  the collected ledger, so it lags the rounds it bounds and stops the next
-  round, never the current one. The caps, the planning rates and the decision
-  code are maintainer-owned (`.github/CODEOWNERS`). The daily cap counts the
-  larger of two records, the `review-auto` deployments and the auto-released
-  collect commits on `main`. A write holder, which includes the agent account
-  interactive sessions act as, can prune the deployment list or edit
-  an unmerged collect PR, so each record alone is tamperable; `main`'s history
-  is not, once a round's commit has landed.
+  carve-out: a predict, evaluate or summarize round whose own plan is within
+  the auto-release caps and budget (`config/review-hold.yaml`; any knob at 0
+  turns it off) binds the reviewer-less `review-auto` instead. The back-test
+  has no such carve-out. The per-round and daily caps bound **estimated**
+  spend (the planning rates over the round's own minted matrix, or a summary
+  plan's upper estimate); actual spend can exceed the estimate, since retries
+  spend and the rates price some engines low. The trailing budget projects
+  measured spend from the committed ledger, plus an in-flight allowance, plus
+  the round's estimate, and must sit below the `spend` backstop's ceiling or
+  every round holds. Both read the collected ledger, so both are **ex post**
+  in what they measure: they lag the rounds they bound, and the backstop stops
+  the next round, never the current one. The knobs, the planning rates and the
+  decision code are maintainer-owned (`.github/CODEOWNERS`). The daily cap
+  counts the larger of two records, the `review-auto` deployments and the
+  auto-released commits on `main`, across the three lanes. A write holder,
+  which includes the agent account interactive sessions act as, can prune the
+  deployment list or edit an unmerged collect PR, so each record alone is
+  tamperable; `main`'s history is not, once a round's commit has landed.
   The claude/codex agent steps on `run-predict` / `run-evaluate` allow exactly
   two bot logins through their own actor checks (the claude action's
   `allowed_bots`, the codex action's `allow-bot-users`), pinned to the data
@@ -513,12 +550,13 @@ runbook, [docs/security.md](docs/security.md).
   `tests/test_workflow_agent_bot.py` locks the pin in. It grants nothing a
   round could not already do: the round is running because a cron or a
   write-gated dispatch started it, and it spends only if a reviewer releases
-  the hold or its plan is within the auto-release caps. The allowance also
+  the hold or its plan is within the auto-release caps and budget. The allowance also
   names the dispatch App's login, since a chained predict round runs as that
   App; `run-evaluate` and the action-path smoke carry the same pair because the
   cells' invocation surface is held in lockstep. The App's token holds
   `actions: write`, which could start any workflow; the two chain jobs that
-  mint it start nothing but `run-predict`, pinned by
+  mint it start nothing but `run-predict`, and the train's job nothing but
+  `integration-test` `scenario=gate` at a candidate, pinned by
   `tests/test_workflow_dispatch_chain.py`. The gemini steps and `run-backtest` set no such
   allowance.
 - **Branch protection and the deployment boundary.** `main` requires a PR
@@ -536,10 +574,16 @@ runbook, [docs/security.md](docs/security.md).
   production run; still bound by the checks), for the data App, and for any pull request an
   admin merges (how the maintainer's own lands, since GitHub does not let an
   author approve their own). So a promotion — opened by the dev App — merges
-  on the maintainer's approval of its head or through a recorded bypass: the
-  admin role's, or a dev App token with contents write, whose jobs merge
-  nothing but their own lane's PR, run no agent, and change only by an
-  approved promotion.
+  on the maintainer's approval of its head: the promotion train executes that
+  decision with the dev App's recorded bypass, merging a frozen candidate only
+  after re-reading that an approver `config/promotion-train.yaml` names
+  approved exactly its head with nothing requested since, pinned to that head
+  and still bound by the required checks. Otherwise it merges through a
+  recorded bypass: the admin role's, or a dev App token with contents write,
+  whose jobs merge nothing but their own lane's PR (or the approved candidate),
+  run no agent, and change only by an approved promotion. The candidates live under
+  `promote/**`, which two branch rulesets let only the dev App create and
+  nobody but the admin role move or delete.
   Code and config reach `main` only as a gated
   promotion batch from `staging` — except the `promotion-record` writer's
   one-parent record commit, jailed byte-equal to its plan, touching only
@@ -572,7 +616,8 @@ runbook, [docs/security.md](docs/security.md).
   with copies of the few names the corpus writer jobs read; only those jobs
   bind it, and the promotion gate's admin-read stage refuses while it admits
   anything but `main` or holds a name they do not read. Another environment,
-  `staging`, is restricted to the `staging` branch and holds the read-only
+  `staging`, is restricted to the `staging` branch and the `promote/*`
+  promotion candidates and holds the read-only
   role, its own engine keys for the pre-promotion integration runs, the
   staging read-write role. A `website` environment, restricted to `main`,
   holds one third-party key, the email list's Buttondown key, for the one job
@@ -586,9 +631,11 @@ runbook, [docs/security.md](docs/security.md).
   run-backtest and summarize all bind it; one environment serves every spend
   hold rather than each minting its own. What each hold covers differs by what
   the trigger already gates: the two fan-outs and summarize put every run
-  behind it, scheduled or dispatched — except a predict round auto-released
-  within the auto-release caps, which binds the reviewer-less `review-auto`,
-  whose deployments are one of the daily cap's two counts — while run-backtest
+  behind it, scheduled or dispatched — except a round auto-released within
+  the auto-release caps and budget, which binds the reviewer-less
+  `review-auto`, whose deployments are one of the shared daily cap's two
+  counts (a summarize staging rehearsal never does: `review-auto` admits
+  `main` alone) — while run-backtest
   holds its **scheduled** fortnight and lets a `workflow_dispatch` through, since
   a dispatch is a human choosing the parameters and its `engine` input defaults
   to the free offline stub. The promotion gate's

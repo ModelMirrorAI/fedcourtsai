@@ -1,6 +1,6 @@
 """The repository rulesets the review record and the tag record rest on.
 
-Four controls live in GitHub settings rather than in this repository, so a
+Five controls live in GitHub settings rather than in this repository, so a
 promotion can silently outlive one of them being edited away:
 
 - ``main: require approval`` — one approving review from a named team before
@@ -14,6 +14,11 @@ promotion can silently outlive one of them being edited away:
 - A tag ruleset blocking update and deletion of the three record namespaces.
 - A tag ruleset restricting their creation, so no identity but the writer (or
   the maintainer) can plant a name ahead of it.
+- Two branch rulesets over ``refs/heads/promote/**``, the promotion train's
+  candidates: creation by the dev App alone, and a freeze — no update, force
+  push or deletion — that no App bypasses. A candidate's integration evidence
+  and approval are bound to its head SHA, and the staging environment admits
+  ``promote/*``, so a candidate anyone could create or move would carry both.
 
 :func:`ruleset_problems` reads the full ruleset documents (what
 ``GET /repos/{owner}/{repo}/rulesets/{id}`` returns, which needs repository
@@ -39,6 +44,9 @@ RECORD_TAG_NAMESPACES = ("promotion", "prereg", "results")
 RECORD_CREATION_RULESET = "tags: restrict record creation"
 OTHER_CREATION_RULESET = "tags: restrict creation"
 TAG_PROTECT_RULESET = "tags: protect record"
+PROMOTE_CREATION_RULESET = "promote: restrict creation"
+PROMOTE_FREEZE_RULESET = "promote: freeze"
+PROMOTE_BRANCH_PATTERN = "refs/heads/promote/**"
 # GitHub's built-in repository admin role, as rulesets name it.
 ADMIN_ROLE_ID = 5
 _ALL_FILES = frozenset({"*", "**", "**/*"})
@@ -271,10 +279,55 @@ def _tag_problems(rulesets: Sequence[Mapping[str, Any]], expected: Expected) -> 
     return problems
 
 
+def _covers_promote_branches(ruleset: Mapping[str, Any]) -> bool:
+    """Whether a branch ruleset applies to every ``refs/heads/promote/`` branch.
+
+    The include must be ``refs/heads/promote/**`` or ``~ALL`` (a single-segment
+    ``promote/*`` would leave ``promote/a/b`` open), and no exclude at all.
+    """
+    if ruleset.get("target") != "branch":
+        return False
+    include = set(_ref_patterns(ruleset, "include"))
+    return bool(include & {PROMOTE_BRANCH_PATTERN, "~ALL"}) and not _ref_patterns(
+        ruleset, "exclude"
+    )
+
+
+def _promote_problems(rulesets: Sequence[Mapping[str, Any]], expected: Expected) -> list[str]:
+    """The promotion train's candidate branches: created by the dev App alone,
+    then frozen — never updated, force-pushed or deleted by anyone but the
+    admin role. The integration evidence, the approval and the staging
+    environment's admission of ``promote/*`` all rest on that."""
+    covering = [r for r in rulesets if _active(r) and _covers_promote_branches(r)]
+    admin = ("RepositoryRole", ADMIN_ROLE_ID)
+    problems: list[str] = []
+    for ruleset in covering:
+        freezes = any(_rules(ruleset, t) for t in ("update", "deletion", "non_fast_forward"))
+        # A ruleset whose bypass would let the dev App move or delete a
+        # candidate is a finding whatever it is named: the App may create one.
+        allowed: dict[tuple[str, int], frozenset[str]] = {admin: frozenset({"always"})}
+        if not freezes:
+            allowed[("Integration", expected.dev_app_id)] = frozenset({"always"})
+        problems += _bypass_problems(ruleset, allowed, required=expected.require_bypass_lists)
+    for rule_type, what in (
+        ("creation", "created by any write holder"),
+        ("update", "moved after it is cut"),
+        ("deletion", "deleted"),
+        ("non_fast_forward", "force-pushed"),
+    ):
+        if not any(_rules(r, rule_type) for r in covering):
+            problems.append(
+                f"no active branch ruleset restricts {rule_type} of promote/**: "
+                + f"a promotion candidate can be {what}"
+            )
+    return problems
+
+
 def ruleset_problems(rulesets: Sequence[Mapping[str, Any]], expected: Expected) -> list[str]:
     """Every way the live rulesets fall short of the documented controls."""
     return [
         *_main_approval_problems(rulesets, expected),
         *_staging_problems(rulesets, expected),
         *_tag_problems(rulesets, expected),
+        *_promote_problems(rulesets, expected),
     ]

@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73272488",
+  "run_id": "20261017T142059Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["statpack.md", "courtlistener-mcp search"],
+  "helpful": ["Provisioned petition text with the court of appeals opinion appended"],
+  "gaps": ["The brief in opposition submitted 2026-10-09 was not provisioned", "No name/docket-number lookup in fedcourts query for companion petitions (e.g. Tovar, No. 25-6344)", "CourtListener docket search did not surface the SCOTUS companion docket"],
+  "notes": "The sal-v4 band reads 'baseline' despite a response request and two amicus briefs; the band appears not to reflect a call for response."
+}

@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/73277388",
+  "run_id": "20261017T142059Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "other", "severity": "info", "event_id": "evt-petition-disposition",
+     "message": "Decisive forward signal: the companion petition No. 25-34 (Continental Finance v. Johnson, the same Fourth Circuit Maryland separate-consideration rule) was dismissed by joint Rule 46.1 stipulation on 2026-05-05, the same week this case's BIO deadline was extended to 2026-10-30 with petitioner's consent. The forecast weights a possible settlement dismissal at about 30%."}
+  ]
+}

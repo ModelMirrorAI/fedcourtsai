@@ -1,47 +1,74 @@
 name: promotion-prep
 
-# Keeps a draft staging→main promotion PR in step with `staging`, so the
-# mechanical half of a promotion is done before the maintainer looks: the batch
-# listed, each feature PR's effect-check handover note gathered, the gate's
-# state read, and the freeze-record placeholders the merge will owe named. The
-# maintainer's half is unchanged, in this order — mark the PR ready (which stops
-# `sync-staging` moving the head), run the integration gate at that head, merge
-# with a merge commit, tag it.
+# The promotion train: the mechanical half of every staging→main promotion,
+# done hourly, one step per tick, from a FROZEN release branch, so `staging`
+# keeps taking merges and syncs while the maintainer takes hours or days to
+# read a batch. The tested decision is `fedcourts promotion-train-step`
+# (src/fedcourtsai/promotion_train.py, whose docstring carries the state
+# table); this workflow reads what it needs, asks it, and routes on the answer:
 #
-# It writes one thing: the draft PR and its body. It merges nothing, dispatches
-# nothing and moves no branch. It never edits a PR that is not a draft — once
-# the maintainer marks the promotion ready, its body is theirs. The block it
-# writes sits between two markers (`fedcourts promotion-body`), so prose the
-# maintainer adds to the draft outside them survives every refresh.
+#   cut           — create `promote/<UTC date>[-N]` at staging's tip and open a
+#                   draft PR from it into `main`, the batch in its body;
+#   dispatch_gate — dispatch integration-test `scenario=gate` at that branch
+#                   (`offline-gate` under the `promote:skip-engine-smoke`
+#                   label), only while no dispatched integration run of any
+#                   title sits at the head, and within a daily cap (the
+#                   dispatch App);
+#   mark_ready    — the gate is green: mark the PR ready, request the
+#                   approvers' review, refresh the body (which re-fires ci.yml's
+#                   `promotion-gate`);
+#   refire_gate   — approved, quiescent and clean, but `promotion-gate` red or
+#                   missing: refresh the body to re-fire it;
+#   merge         — the configured approver approved exactly this head, nothing
+#                   requested since, every required check green, the registry
+#                   clean and no fan-out in flight: merge with a merge commit,
+#                   pinned to the head (the dev App);
+#   wait / report — refresh the generated block if its content moved.
 #
-# The PR is opened with the dev App's token rather than this workflow's own:
-# a PR a workflow opens with its GITHUB_TOKEN triggers no `pull_request`
-# workflows, so its required checks would never report. The dev App bypasses
-# no required check on `main`, so the PR merges through the same required
-# checks as a hand-opened one, `promotion-gate` among them; and since the
-# author is the App, the maintainer can give the approval `main` requires.
-# `sync-staging` defers to a promotion PR only once it is ready for review, so
-# a standing draft does not hold `staging` behind `main`.
+# The maintainer's approval of the frozen head is the merge decision; the train
+# executes it. A branch that never moves is what makes that safe: the gate run,
+# the required checks and the approval are all bound to one SHA, and the
+# `promote:` rulesets let only the dev App create a candidate and nobody move
+# it (docs/security.md). The maintainer may still merge by hand at any point.
+#
+# Cost: one paid `gate` suite per candidate (three engine-smoke cells and three
+# boot probes). A failed or cancelled gate is reported in the body and never
+# re-dispatched; a maintainer re-run (`gh run rerun <id> --failed`) turns it
+# green in place, and closing the PR stops the train at that tip.
+#
+# Three jobs after the run gate, each holding only what its step needs:
+#   plan          — no environment, the ambient token's reads: decides, and
+#                   renders the PR body, holding no write credential;
+#   write         — `prod`, the dev App token (contents + pull-requests write),
+#                   minted after a fresh re-check of the merge's preconditions;
+#   dispatch-gate — `prod`, the dispatch App token (actions write) and nothing
+#                   else, behind the repository-level DISPATCH_CHAIN_ENABLED
+#                   switch like the other chain jobs.
+# `prod` admits `main` alone, so only promoted code can mint either App's token;
+# a dispatch from any other ref plans and stops there.
+#
+# The candidate PR is opened with the dev App's token rather than this
+# workflow's own: a PR a workflow opens with its GITHUB_TOKEN triggers no
+# `pull_request` workflows, so its required checks would never report. The dev
+# App bypasses no required check on `main`, only `main: require approval` for
+# pull requests — which is why the train checks the approval itself, from the
+# reviews re-read immediately before its merge call.
 #
 # Its own workflow rather than a step of `promote`: `promote` is the
 # maintainer's read-only pre-flight and is pinned to stay that way
-# (tests/test_workflow_promote.py), while this lane holds a write token. Nor a
-# job on `sync-staging`, though it shares that lane's trigger class, environment
-# and App: `sync-staging` writes a PR that auto-merges into `staging`, while
-# this one writes a draft that never merges on its own, a lower risk class
-# kept in its own permission scope (pull-requests write, no contents write).
-# The daily offset after `sync-staging`'s window stands in for ordering; a run
-# that reads mid-sync names the open sync PR in the block and is corrected at
-# the next refresh.
+# (tests/test_workflow_promote.py), while this lane holds write tokens. Nor a
+# job on `sync-staging`: that lane writes a PR into `staging`, this one into
+# `main`, on a different cadence.
 on:
   schedule:
-    # Daily, after `sync-staging`'s 03:13 window has had time to land its PR,
-    # and on a minute no other schedule uses.
-    - cron: "9 5 * * *"
+    # Hourly, so the steps chain within about an hour each, on a minute no
+    # other schedule uses.
+    - cron: "26 * * * *"
   workflow_dispatch:
 
 permissions: {}
 
+# One tick at a time: a tick's dispatch or merge lands before the next reads.
 concurrency:
   group: promotion-prep
   cancel-in-progress: false
@@ -83,24 +110,35 @@ jobs:
           --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
           --github-output "$GITHUB_OUTPUT"
 
-  prep:
+  plan:
     needs: [authorize]
     if: >-
       ${{ needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-24.04
-    # A few dozen API reads, the gate script and one PR write.
-    timeout-minutes: 15
-    # The dev App's credentials live on `prod`, which admits `main` only, so
-    # only maintainer-promoted code can mint them.
-    environment: prod
+    # A few dozen API reads, the gate script's stages and one render.
+    timeout-minutes: 20
     permissions:
       contents: read
-      # promotion-gate.sh's quiescence and freshness stages read run history.
+      # promotion-gate.sh's quiescence and freshness stages, and the
+      # candidate's integration runs.
       actions: read
-      # Map staging's commits back to the PRs that merged them.
+      # The open PRs, the candidate's reviews, and the PRs that merged
+      # staging's commits.
       pull-requests: read
+      # The required checks at the candidate's head.
+      checks: read
+    outputs:
+      action: ${{ steps.step.outputs.action }}
+      pr: ${{ steps.step.outputs.pr }}
+      ref: ${{ steps.step.outputs.ref }}
+      sha: ${{ steps.step.outputs.sha }}
+      branch: ${{ steps.step.outputs.branch }}
+      reviewers: ${{ steps.step.outputs.reviewers }}
+      scenario: ${{ steps.step.outputs.scenario }}
+      write: ${{ steps.render.outputs.write }}
+      body: ${{ steps.render.outputs.body }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -110,12 +148,13 @@ jobs:
         with:
           restore-cache: "false"
 
-      # Read-only: what `staging` carries over `main`, which PR brought each
-      # commit, what the gate says at staging's head, and which freeze-record
-      # placeholders the batch adds. First-parent only, so each commit is one
-      # squash or merge into `staging` and maps to the PR that made it.
-      - name: Read the batch and the gate
-        id: batch
+      # Every read the decision takes. A failed read leaves its file absent or
+      # its fact `unknown`, which the decision turns into a wait, never an act.
+      # Every list is read whole (`--paginate --slurp`, then flattened): a list
+      # cut at its first page could hide a change request, a run at the head or
+      # a promotion PR.
+      - name: Read staging, the candidate and the gate
+        id: read
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -124,121 +163,499 @@ jobs:
           git fetch --no-tags -q origin main staging
           main_sha=$(git rev-parse origin/main)
           staging_sha=$(git rev-parse origin/staging)
-          ahead=$(git rev-list --count origin/main..origin/staging)
-          if [ "$ahead" -eq 0 ]; then
-            echo "has_batch=false" >> "$GITHUB_OUTPUT"
-            echo "## promotion-prep: staging carries nothing over main; no promotion to draft." >> "$GITHUB_STEP_SUMMARY"
+          args=(--repo "$REPO" --staging-sha "$staging_sha")
+          # Both sides against their merge-base. Main's side may hold only the
+          # writer lanes' paths for a cut (the decision checks which); staging's
+          # side is what a candidate would carry — the tree, not the commit
+          # count, since a sync merge alone puts staging a commit ahead while
+          # carrying nothing to promote.
+          base=$(git merge-base origin/main origin/staging)
+          git diff --name-only "$base" origin/main > main-ahead.txt
+          args+=(--main-ahead-paths-file main-ahead.txt)
+          if git diff --quiet "$base" origin/staging; then
+            args+=(--staging-differs no)
+          else
+            args+=(--staging-differs yes)
+          fi
+          # The whole of a paginated list endpoint as one JSON array (or the
+          # whole of `key`'s array for a wrapped one), or a failed read.
+          read_list() {
+            local url=$1 out=$2 key=${3:-}
+            gh api --paginate --slurp "$url" > "${out}.pages" || return 1
+            if [ -n "$key" ]; then
+              # A page without the key is a malformed read, never an empty list.
+              jq --arg k "$key" '{($k): (map(.[$k] // error("a page lacks \($k)")) | add // [])}' \
+                "${out}.pages" > "$out"
+            else
+              jq 'add // []' "${out}.pages" > "$out"
+            fi
+          }
+          if read_list "repos/${REPO}/pulls?state=open&base=main&per_page=100" open.json; then
+            args+=(--open-prs-file open.json)
+          else
+            rm -f open.json
+          fi
+          # The last promotion merge on main's first-parent chain: the newest
+          # merge whose second parent is on staging's first-parent chain. A cut
+          # waits until staging holds it, i.e. until the post-promotion sync.
+          git rev-list --first-parent origin/staging > staging-chain.txt
+          synced=yes
+          for merge in $(git rev-list --first-parent --merges --max-count=400 origin/main); do
+            second=$(git rev-parse "${merge}^2")
+            if grep -Fqx "$second" staging-chain.txt; then
+              git merge-base --is-ancestor "$merge" origin/staging || synced=no
+              break
+            fi
+          done
+          args+=(--last-promotion-synced "$synced")
+          # The train's own dispatches today, against its daily cap.
+          day=$(date -u +%Y-%m-%d)
+          if read_list "repos/${REPO}/actions/workflows/integration-test.yml/runs?event=workflow_dispatch&created=%3E%3D${day}&per_page=100" \
+            dispatches.json workflow_runs; then
+            args+=(--recent-dispatches-file dispatches.json)
+          fi
+          if gh api --paginate "repos/${REPO}/git/matching-refs/heads/promote/" \
+            --jq '.[] | "\(.ref | sub("^refs/heads/"; "")) \(.object.sha)"' > branches.txt; then
+            args+=(--branches-file branches.txt)
+          fi
+          candidate='{}'
+          if [ -f open.json ]; then
+            candidate=$(uv run fedcourts promotion-train-candidate --repo "$REPO" --open-prs-file open.json)
+          fi
+          number=$(jq -r '.number // empty' <<<"$candidate")
+          ref=$(jq -r '.ref // empty' <<<"$candidate")
+          sha=$(jq -r '.sha // empty' <<<"$candidate")
+          labels=''
+          if [ -n "$number" ]; then
+            labels=$(jq -r --argjson n "$number" '.[] | select(.number == $n) | .labels[]?.name' open.json)
+          fi
+          # Under the waiver label the freshness read is the narrowed one the
+          # required check makes, so the train and the check agree on evidence.
+          skip=''
+          if grep -Fqx 'promote:skip-engine-smoke' <<<"$labels"; then
+            skip=1
+          fi
+          target_sha="$staging_sha"
+          target_ref=staging
+          : > gate.ndjson
+          if [ -n "$number" ]; then
+            target_sha="$sha"
+            target_ref="$ref"
+            if scripts/promotion-gate.sh provenance "$sha" "$ref" > provenance.log 2>&1; then
+              args+=(--head-on-staging yes)
+            else
+              args+=(--head-on-staging no)
+            fi
+            if gh api "repos/${REPO}/pulls/${number}" > pull.json; then
+              args+=(--pull-file pull.json)
+            fi
+            if read_list "repos/${REPO}/actions/workflows/integration-test.yml/runs?head_sha=${sha}&per_page=100" \
+              runs.json workflow_runs; then
+              args+=(--runs-file runs.json)
+            fi
+            if read_list "repos/${REPO}/pulls/${number}/reviews?per_page=100" reviews.json; then
+              args+=(--reviews-file reviews.json)
+            fi
+            # `filter=all`: every run of every check, re-runs included, so the
+            # decision can count promotion-gate failures since the approval.
+            if read_list "repos/${REPO}/commits/${sha}/check-runs?filter=all&per_page=100" \
+              checks.json check_runs; then
+              args+=(--check-runs-file checks.json)
+            fi
+            # Read live, now: the merge waits on these, not on what the
+            # required check saw when it last ran.
+            if scripts/promotion-gate.sh quiesce > quiesce.log 2>&1; then q=true; else q=false; fi
+            if scripts/promotion-gate.sh registry "$sha" > registry.log 2>&1; then r=true; else r=false; fi
+            if PROMOTION_SKIP_SMOKE="$skip" scripts/promotion-gate.sh freshness "$sha" "$ref" \
+              > fresh.log 2>&1; then f=true; else f=false; fi
+            args+=(--quiescent "$([ "$q" = true ] && echo yes || echo no)")
+            args+=(--registry-ok "$([ "$r" = true ] && echo yes || echo no)")
+            args+=(--freshness-ok "$([ "$f" = true ] && echo yes || echo no)")
+            gate_line() {
+              # The stage's verdict and its first error lines, without the
+              # workflow-command prefix the script prints for annotations.
+              local name=$1 ok=$2 log=$3
+              jq -nc --arg name "$name" --argjson ok "$ok" \
+                --arg detail "$(grep -E '::error::' "$log" | sed 's/^::error:://' | head -n 3 | paste -sd ';' -)" \
+                '{name: $name, ok: $ok, detail: $detail}'
+            }
+            # The body lists freshness and the registry, not quiescence:
+            # quiescence flips with every predict round and each body edit
+            # re-runs CI on the candidate. The train's status line names it
+            # when it is what the merge is waiting on.
+            { gate_line freshness "$f" fresh.log; gate_line registry "$r" registry.log; } > gate.ndjson
+          fi
+          printf '%s\n' "${args[@]}" > step-args.txt
+          {
+            echo "main_sha=${main_sha}"
+            echo "target_sha=${target_sha}"
+            echo "target_ref=${target_ref}"
+            echo "number=${number}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Decide the step
+        id: step
+        env:
+          CHAIN_ENABLED: ${{ vars.DISPATCH_CHAIN_ENABLED }}
+        run: |
+          set -euo pipefail
+          mapfile -t args < step-args.txt
+          uv run fedcourts promotion-train-step "${args[@]}" > step.json
+          action=$(jq -r '.action' step.json)
+          reason=$(jq -r '.reason' step.json)
+          if [ "$action" = dispatch_gate ] && [ "$CHAIN_ENABLED" != true ]; then
+            ref=$(jq -r '.ref' step.json)
+            scenario=$(jq -r '.scenario' step.json)
+            reason="the integration gate is owed at this head, and the dispatch chain is off: dispatch it with \`gh workflow run integration-test.yml --ref ${ref} -f scenario=${scenario}\`"
+          fi
+          {
+            echo "action=${action}"
+            echo "pr=$(jq -r '.pr // empty' step.json)"
+            echo "ref=$(jq -r '.ref // empty' step.json)"
+            echo "sha=$(jq -r '.sha // empty' step.json)"
+            echo "branch=$(jq -r '.branch // empty' step.json)"
+            echo "reviewers=$(jq -r '.reviewers | join(",")' step.json)"
+            echo "scenario=$(jq -r '.scenario // empty' step.json)"
+          } >> "$GITHUB_OUTPUT"
+          printf '%s' "$reason" > reason.txt
+          echo "## promotion train: ${action} — ${reason}" >> "$GITHUB_STEP_SUMMARY"
+
+      # The batch the candidate carries (main..its head, first-parent, so each
+      # commit is one squash or merge into staging and maps to its PR), its
+      # handover notes and the freeze-record placeholders it adds, rendered
+      # into the generated block of the body. Rendered here, holding no write
+      # credential; the write job only sends it.
+      - name: Render the candidate's body
+        id: render
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ACTION: ${{ steps.step.outputs.action }}
+          BRANCH: ${{ steps.step.outputs.branch }}
+          MAIN_SHA: ${{ steps.read.outputs.main_sha }}
+          TARGET_SHA: ${{ steps.read.outputs.target_sha }}
+          TARGET_REF: ${{ steps.read.outputs.target_ref }}
+          NUMBER: ${{ steps.read.outputs.number }}
+        run: |
+          set -euo pipefail
+          write=false
+          if [ "$ACTION" = cut ]; then
+            head_ref="$BRANCH"
+          elif [ -n "$NUMBER" ]; then
+            head_ref="$TARGET_REF"
+          else
+            echo "write=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           : > prs.ndjson
           : > unmapped.txt
-          for sha in $(git rev-list --first-parent origin/main..origin/staging); do
-            if ! found=$(gh api "repos/${REPO}/commits/${sha}/pulls" \
+          for commit in $(git rev-list --first-parent "origin/main..${TARGET_SHA}"); do
+            if ! found=$(gh api "repos/${REPO}/commits/${commit}/pulls" \
               --jq '.[] | select(.base.ref == "staging" and .merged_at != null) | {number, title, body: (.body // "")}'); then
-              echo "::warning::could not read the PR that merged ${sha}; the batch list may be short"
+              echo "::warning::could not read the PR that merged ${commit}; the batch list may be short"
               continue
             fi
             if [ -z "$found" ]; then
-              # A direct push to `staging` (the admin escape hatch) has no PR,
-              # so no handover note covers it; the block lists it.
-              echo "::warning::${sha} reached staging with no merged PR"
-              echo "$sha" >> unmapped.txt
+              echo "$commit" >> unmapped.txt
               continue
             fi
             printf '%s\n' "$found" >> prs.ndjson
           done
-          # A main→staging sync PR already open is armed to auto-merge, and
-          # marking the promotion ready does not stop it; the block names it.
-          gh pr list --repo "$REPO" --base staging --head main --state open \
-            --json number,isCrossRepository \
-            --jq '[.[] | select(.isCrossRepository | not) | .number]' > open_syncs.json
-          gate_line() {
-            # The stage's verdict and its first error lines, without the
-            # workflow-command prefix the script prints for annotations.
-            local name=$1 ok=$2 log=$3
-            jq -n --arg name "$name" --argjson ok "$ok" \
-              --arg detail "$(grep -E '::error::' "$log" | sed 's/^::error:://' | head -n 3 | paste -sd ';' -)" \
-              '{name: $name, ok: $ok, detail: $detail}'
-          }
-          if scripts/promotion-gate.sh quiesce > quiesce.log 2>&1; then q=true; else q=false; fi
-          if scripts/promotion-gate.sh freshness "$staging_sha" > fresh.log 2>&1; then f=true; else f=false; fi
-          { gate_line quiescence "$q" quiesce.log; gate_line freshness "$f" fresh.log; } > gate.ndjson
-          git diff origin/main origin/staging -- docs/freeze-record.md > freeze.diff
+          git diff "origin/main...${TARGET_SHA}" -- docs/freeze-record.md > freeze.diff
           { grep -E '^\+' freeze.diff || true; } | { grep -oE '<FILL:[^>]*>' || true; } \
             | sort -u > fills.txt
-          jq -n --arg staging "$staging_sha" --arg main "$main_sha" \
+          now=$(date -u +%Y-%m-%dT%H:%MZ)
+          status=$(cat reason.txt)
+          # A re-fire must change the body, or the edit that re-runs the check
+          # would be skipped as a no-op: stamp it.
+          if [ "$ACTION" = refire_gate ]; then
+            status="${status} (${now})"
+          fi
+          jq -n --arg staging "$TARGET_SHA" --arg main "$MAIN_SHA" --arg ref "$head_ref" \
+            --arg status "$status" \
             --slurpfile prs prs.ndjson --slurpfile gate gate.ndjson --rawfile fills fills.txt \
-            --slurpfile syncs open_syncs.json --rawfile unmapped unmapped.txt \
+            --rawfile unmapped unmapped.txt \
             '{staging_sha: $staging, main_sha: $main, prs: $prs, gate: $gate,
-              open_sync_prs: $syncs[0],
+              head_ref: $ref, train_status: $status,
               unmapped_commits: ($unmapped | split("\n") | map(select(length > 0))),
               owed_fills: ($fills | split("\n") | map(select(length > 0)))}' > batch.json
-          echo "has_batch=true" >> "$GITHUB_OUTPUT"
-          echo "## promotion-prep: staging is ${ahead} first-parent commit(s) ahead of main" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$ACTION" = cut ]; then
+            uv run fedcourts promotion-body --batch-file batch.json --drafted-at "$now" > body.md
+            write=true
+          else
+            jq -r --argjson n "$NUMBER" '.[] | select(.number == $n) | .body // ""' open.json > existing.md
+            code=0
+            uv run fedcourts promotion-body --batch-file batch.json --drafted-at "$now" \
+              --existing-body-file existing.md --exit-unchanged > body.md || code=$?
+            case "$code" in
+              0) write=true ;;
+              3) cp existing.md body.md ;;
+              *) exit "$code" ;;
+            esac
+            if [ "$ACTION" = mark_ready ] && ! grep -Fq '<!-- promotion-train:marked-ready -->' body.md; then
+              printf '\n\n%s\n' '<!-- promotion-train:marked-ready -->' >> body.md
+            fi
+            case "$ACTION" in
+              mark_ready | refire_gate | merge) write=true ;;
+            esac
+          fi
+          delimiter="body_$(openssl rand -hex 16)"
+          {
+            echo "write=${write}"
+            echo "body<<${delimiter}"
+            cat body.md
+            echo
+            echo "${delimiter}"
+          } >> "$GITHUB_OUTPUT"
+
+  # The train's PR and branch writes, on the dev App token. It acts only on the
+  # plan's outputs, each re-validated here, and re-reads the merge's
+  # preconditions itself before minting anything: the dev App bypasses `main`'s
+  # approval rule, so the approval check below is what binds the merge to the
+  # maintainer.
+  write:
+    needs: [authorize, plan]
+    if: >-
+      ${{ needs.plan.outputs.write == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # The dev App's credentials live on `prod`, which admits `main` only, so
+    # only maintainer-promoted code can mint them.
+    environment: prod
+    permissions:
+      contents: read
+      # The merge re-check's live quiescence read.
+      actions: read
+      # The merge re-check's PR and review reads, on the ambient token.
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history and tags: the merge re-check runs the registry stage,
+          # which reads origin/main's ledger and registry and the prereg/ tags.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Validate the plan's outputs
+        env:
+          ACTION: ${{ needs.plan.outputs.action }}
+          PR: ${{ needs.plan.outputs.pr }}
+          REF: ${{ needs.plan.outputs.ref }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          BRANCH: ${{ needs.plan.outputs.branch }}
+          REVIEWERS: ${{ needs.plan.outputs.reviewers }}
+        run: |
+          set -euo pipefail
+          name='^promote/[0-9]{4}-[0-9]{2}-[0-9]{2}(-([2-9]|[1-9][0-9]+))?$'
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::not a commit SHA: ${SHA}"; exit 1; }
+          case "$ACTION" in
+            cut)
+              [[ "$BRANCH" =~ $name ]] || { echo "::error::not a candidate name: ${BRANCH}"; exit 1; }
+              ;;
+            dispatch_gate | mark_ready | refire_gate | merge | wait | report)
+              [[ "$PR" =~ ^[1-9][0-9]*$ ]] || { echo "::error::not a PR number: ${PR}"; exit 1; }
+              [[ "$REF" =~ $name ]] || { echo "::error::not a candidate name: ${REF}"; exit 1; }
+              ;;
+            *)
+              echo "::error::unknown action ${ACTION}"
+              exit 1
+              ;;
+          esac
+          [[ "$REVIEWERS" =~ ^[A-Za-z0-9,-]*$ ]] || { echo "::error::reviewers: ${REVIEWERS}"; exit 1; }
+
+      # Re-read, minutes after the plan, everything the merge rests on: the PR is
+      # still open, ready, same-repo into main, at exactly the planned head; a
+      # listed approver approved exactly that head with nothing requested since,
+      # read from every page of the reviews; no fan-out is in flight; and the
+      # registry gate still passes against main as it is now. Any doubt —
+      # a failed or short read included — skips the merge; the next tick plans
+      # again.
+      - name: Re-check the merge
+        id: recheck
+        if: ${{ needs.plan.outputs.action == 'merge' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.plan.outputs.pr }}
+          REF: ${{ needs.plan.outputs.ref }}
+          SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${REPO}/pulls/${PR}" > pull.json
+          now=$(jq -r '[.state, (.draft | tostring), .head.sha, .head.ref, .base.ref, (.head.repo.full_name // "")] | join("|")' pull.json)
+          if [ "$now" != "open|false|${SHA}|${REF}|main|${REPO}" ]; then
+            echo "::warning::PR #${PR} changed since the plan (${now}); not merging this tick"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! gh api --paginate --slurp "repos/${REPO}/pulls/${PR}/reviews?per_page=100" \
+            > reviews.pages || ! jq 'add // []' reviews.pages > reviews.json; then
+            echo "::warning::PR #${PR}'s reviews could not be read whole; not merging this tick"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! uv run fedcourts promotion-train-approval --reviews-file reviews.json --head-sha "$SHA"; then
+            echo "::warning::PR #${PR} is no longer approved at ${SHA}; not merging this tick"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! scripts/promotion-gate.sh quiesce; then
+            echo "::warning::a fan-out started since the plan; not merging this tick"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! git fetch --no-tags -q origin main; then
+            echo "::warning::could not fetch main for the registry re-check; not merging this tick"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! scripts/promotion-gate.sh registry "$SHA"; then
+            echo "::warning::the registry gate refuses ${SHA} against main now; not merging this tick"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ok=true" >> "$GITHUB_OUTPUT"
 
       - name: Mint the dev App token
-        if: ${{ steps.batch.outputs.has_batch == 'true' }}
         id: app-token
+        if: ${{ needs.plan.outputs.action != 'merge' || steps.recheck.outputs.ok == 'true' }}
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.DEV_APP_CLIENT_ID }}
           private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          # Create the candidate branch, and merge the candidate.
+          permission-contents: write
+          # Open, ready, edit and request review on the candidate PR.
           permission-pull-requests: write
-          # Read only: `gh pr create` resolves the head and base refs, and a
-          # token with no contents scope cannot read them on a private repo.
-          permission-contents: read
 
-      # Open the draft, or refresh the generated block of the open one. A
-      # promotion PR that is already ready for review is the maintainer's, and
-      # is left exactly as it is.
-      - name: Open or refresh the draft promotion PR
-        if: ${{ steps.batch.outputs.has_batch == 'true' }}
+      - name: Act
+        if: ${{ steps.app-token.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
+          ACTION: ${{ needs.plan.outputs.action }}
+          PR: ${{ needs.plan.outputs.pr }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          BRANCH: ${{ needs.plan.outputs.branch }}
+          REVIEWERS: ${{ needs.plan.outputs.reviewers }}
+          BODY: ${{ needs.plan.outputs.body }}
         run: |
           set -euo pipefail
-          drafted_at=$(date -u +%Y-%m-%dT%H:%MZ)
-          # Same-repo only: `--head staging` also matches a fork's branch of
-          # that name, whose PR this job must neither write into nor mistake
-          # for the promotion.
-          open=$(gh pr list --repo "$REPO" --base main --head staging --state open \
-            --json number,isDraft,body,isCrossRepository \
-            --jq '[.[] | select(.isCrossRepository | not)][0] // empty')
-          if [ -z "$open" ]; then
-            uv run fedcourts promotion-body --batch-file batch.json --drafted-at "$drafted_at" > body.md
-            gh pr create --repo "$REPO" --base main --head staging --draft \
-              --title "promote: staging → main ($(date -u +%Y-%m-%d)) — draft" --body-file body.md
-            echo "Opened a draft promotion PR." >> "$GITHUB_STEP_SUMMARY"
+          printf '%s\n' "$BODY" > body.md
+          case "$ACTION" in
+            cut)
+              # Creating the ref fails if the name is taken; the next tick
+              # picks the next free suffix. The branch is never moved again.
+              gh api -X POST "repos/${REPO}/git/refs" \
+                -f ref="refs/heads/${BRANCH}" -f sha="$SHA" > /dev/null
+              gh pr create --repo "$REPO" --base main --head "$BRANCH" --draft \
+                --title "promote: staging → main (${BRANCH#promote/}) — ${SHA:0:9}" \
+                --body-file body.md
+              echo "Cut ${BRANCH} at ${SHA} and opened its draft promotion PR." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            mark_ready)
+              gh pr ready "$PR" --repo "$REPO"
+              # The body edit after `ready` is what re-runs `promotion-gate`
+              # (ci.yml triggers on `edited`, not on `ready_for_review`).
+              gh pr edit "$PR" --repo "$REPO" --body-file body.md
+              if [ -n "$REVIEWERS" ]; then
+                gh pr edit "$PR" --repo "$REPO" --add-reviewer "$REVIEWERS" \
+                  || echo "::warning::could not request review from ${REVIEWERS} on #${PR}"
+              fi
+              echo "Marked #${PR} ready for review." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            merge)
+              # A merge commit, never a squash (staging and main share
+              # history), pinned to the approved head: a head that moved makes
+              # the platform refuse it. The platform still enforces `main`'s
+              # required checks; the dev App bypasses only the approval rule.
+              gh api -X PUT "repos/${REPO}/pulls/${PR}/merge" \
+                -f merge_method=merge -f sha="$SHA" --jq '.sha' > merged.txt
+              echo "Merged #${PR} at ${SHA} as $(cat merged.txt)." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *)
+              gh pr edit "$PR" --repo "$REPO" --body-file body.md
+              echo "Refreshed #${PR}'s body (${ACTION})." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+          esac
+
+  # The integration gate at a candidate's head, on the dispatch App's token —
+  # the only job here that holds it, and it holds nothing else. Once per head:
+  # the plan dispatches only where no dispatched integration run of any title
+  # exists at the head, and this job re-reads that, and the branch's tip, right
+  # before it dispatches. The guard reads no title on purpose: titles come from
+  # the candidate's own workflow file, and a guard keyed on one would read a
+  # renamed title as "no run yet" and pay for the suite again every tick.
+  dispatch-gate:
+    needs: [authorize, plan]
+    if: >-
+      ${{ (needs.plan.outputs.action == 'dispatch_gate' && vars.DISPATCH_CHAIN_ENABLED == 'true')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: prod
+    # The branch-tip read rides the ambient token; everything else the
+    # dispatch token.
+    permissions:
+      contents: read
+    steps:
+      - name: Check the candidate still sits at the planned head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REF: ${{ needs.plan.outputs.ref }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          SCENARIO: ${{ needs.plan.outputs.scenario }}
+        run: |
+          set -euo pipefail
+          name='^promote/[0-9]{4}-[0-9]{2}-[0-9]{2}(-([2-9]|[1-9][0-9]+))?$'
+          [[ "$REF" =~ $name ]] || { echo "::error::not a candidate name: ${REF}"; exit 1; }
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::not a commit SHA: ${SHA}"; exit 1; }
+          case "$SCENARIO" in
+            gate | offline-gate) ;;
+            *) echo "::error::not a gate suite: ${SCENARIO}"; exit 1 ;;
+          esac
+          tip=$(gh api "repos/${REPO}/git/ref/heads/${REF}" --jq '.object.sha')
+          if [ "$tip" != "$SHA" ]; then
+            echo "::error::${REF} is at ${tip}, not the planned ${SHA}: a candidate never moves, so nothing is dispatched"
+            exit 1
+          fi
+
+      - name: Mint the dispatch token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.DISPATCH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DISPATCH_APP_PRIVATE_KEY }}
+          permission-actions: write
+
+      - name: Dispatch the integration gate unless one exists at the head
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          REF: ${{ needs.plan.outputs.ref }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          SCENARIO: ${{ needs.plan.outputs.scenario }}
+        run: |
+          set -euo pipefail
+          # Any dispatched run at this head and ref, whatever its title, stops
+          # the dispatch; so does a list longer than the page read.
+          existing=$(gh api "repos/${REPO}/actions/workflows/integration-test.yml/runs?head_sha=${SHA}&per_page=100" \
+            --jq "if .total_count > (.workflow_runs | length) then 1 else ([.workflow_runs[] | select(.head_branch == \"${REF}\" and .event == \"workflow_dispatch\")] | length) end")
+          if [ "$existing" != 0 ]; then
+            echo "## An integration run already exists at ${REF} (${SHA}); nothing dispatched." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          number=$(jq -r '.number' <<<"$open")
-          if [ "$(jq -r '.isDraft' <<<"$open")" != "true" ]; then
-            echo "Promotion PR #${number} is ready for review; left untouched." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          jq -r '.body // ""' <<<"$open" > existing.md
-          # Exit 3 means only the drafted-at stamp would change: every body
-          # edit re-fires ci.yml (`edited`), so an unchanged batch writes nothing.
-          status=0
-          uv run fedcourts promotion-body --batch-file batch.json --drafted-at "$drafted_at" \
-            --existing-body-file existing.md --exit-unchanged > body.md || status=$?
-          if [ "$status" -eq 3 ]; then
-            echo "Draft promotion PR #${number} is current." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          [ "$status" -eq 0 ] || exit "$status"
-          # Re-read just before writing: the render above takes a while, and a
-          # maintainer who marked the PR ready or edited its body meanwhile now
-          # owns it. Skip rather than overwrite.
-          now=$(gh pr view "$number" --repo "$REPO" --json isDraft,body)
-          if [ "$(jq -r '.isDraft' <<<"$now")" != "true" ] \
-            || [ "$(jq -r '.body // ""' <<<"$now")" != "$(cat existing.md)" ]; then
-            echo "Promotion PR #${number} changed while this run rendered; left untouched." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          gh pr edit "$number" --repo "$REPO" --body-file body.md
-          echo "Refreshed draft promotion PR #${number}." >> "$GITHUB_STEP_SUMMARY"
+          gh workflow run integration-test.yml --repo "$REPO" --ref "$REF" -f scenario="$SCENARIO"
+          echo "## Dispatched integration-test scenario=${SCENARIO} at ${REF} (${SHA})." >> "$GITHUB_STEP_SUMMARY"
 
   # The run gate's verdict on the run as a whole. A refused partial re-run
   # skips every job it re-runs, which alone would leave the earlier attempt's
@@ -247,7 +664,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, prep]
+    needs: [authorize, plan, write, dispatch-gate]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5

@@ -633,10 +633,10 @@ def evaluate_backlog(
 #: resolved-but-unrecorded as still pending, and a forward cell on that case is
 #: a mislabeled backtest.
 #:
-#: Seven days: the live windows poll four times a day on a stalest-first
-#: rotation, so a case this lane cares about is normally seen within a day or
-#: two (median 1 on the shipped corpus) and a week is several rotations of
-#: slack rather than a tight bound. The hold is never terminal — it clears the
+#: Seven days: the live windows poll every two hours on a stalest-first
+#: rotation that sweeps the polled watchlist about once a day, so a case this
+#: lane cares about is normally seen within a day and a week is several
+#: rotations of slack rather than a tight bound. The hold is never terminal — it clears the
 #: moment the rotation reaches the case — so the cost of it being slightly too
 #: tight is a cycle's delay, while the cost of it being too loose is a cell
 #: minted on a stale record.

@@ -1,0 +1,11 @@
+# Forecast
+
+The Court will most likely deny the petition after receiving the requested response and completing another conference distribution. P(any grant), including a GVR or summary reversal, is 20%.
+
+The baseline shows one distribution, on June 2, 2026, for the June 18 conference, followed by a June 15 request for a response. It shows no subsequent distribution and no CVSG. I predict at least one further distribution with 96% probability. The modal path is one additional distribution after briefing, followed by denial; a second additional distribution is a plausible alternative. This is a forecast of the recorded distribution increment, not a claim that the Court has already substantively relisted the petition. The requested response interrupted the initial conference schedule.
+
+I predict no CVSG: its probability is 0.3%. The United States is already the respondent and has been asked to respond; that request is not a call for the Solicitor General's views as a nonparty. Assuming briefing finishes near the last recorded October 13 response deadline, I expect disposition between November 2026 and January 2027. Further briefing extensions would move that window; I do not assume a response has actually been filed.
+
+If the Court grants review, it will most likely take the petition's single question concerning whether Libretti should be overruled, focused on whether the Fifth and Sixth Amendments require jury findings beyond a reasonable doubt for criminal forfeiture. I expect plenary briefing and argument rather than immediate relief: P(summary disposition in the cert order | grant) is 4%. Overruling the precedent expressly followed below is not a routine error correction, and the supplied record identifies no intervening controlling decision that supplies a straightforward GVR instruction.
+
+On the denial path, I predict no separate writing: P(a noted dissent or statement respecting denial | denial) is 18%. If one appears, Justice Gorsuch is the most plausible author given the jury-finding concerns reflected in authorities cited by the petition, with Justice Sotomayor a plausible participant. These names are contextual forecasts, not individual cert-vote predictions. A denial would leave the judgment below intact without deciding that Libretti is constitutionally correct.

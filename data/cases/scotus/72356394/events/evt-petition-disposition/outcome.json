@@ -16,7 +16,57 @@
     "distribution_parse": "dist-v2"
   },
   "source": null,
-  "vote_provenance": null,
+  "vote_provenance": {
+    "complete": false,
+    "documents": [
+      "https://www.supremecourt.gov/orders/courtorders/101025zr_l6gn.pdf"
+    ],
+    "grammars": [
+      {
+        "grammar": "scotus-order-notations",
+        "version": 3
+      }
+    ],
+    "participating": 9,
+    "source": "supremecourt-orders"
+  },
   "votes": [],
-  "writing_roles": null
+  "writing_roles": [
+    {
+      "justice": "Thomas",
+      "writing": "none"
+    },
+    {
+      "justice": "Roberts",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "writing": "none"
+    },
+    {
+      "justice": "Sotomayor",
+      "writing": "none"
+    },
+    {
+      "justice": "Kagan",
+      "writing": "none"
+    },
+    {
+      "justice": "Gorsuch",
+      "writing": "none"
+    },
+    {
+      "justice": "Kavanaugh",
+      "writing": "none"
+    },
+    {
+      "justice": "Barrett",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "writing": "none"
+    }
+  ]
 }

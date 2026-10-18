@@ -1,0 +1,5 @@
+- CourtListener search for `ca11` opinion `Stanley Kappell Watson v. Shenekka Bradsher` (read chunks 0 and 1 of opinion 11113773)
+- `cat metrics/statpack.md | grep -A 30 "Modern discretionary-cert petitions by disposition"`
+- `cat metrics/statpack.md | grep -A 20 "Cert petitions by relist count"`
+- `cat metrics/statpack.md | grep -A 20 "by CVSG status"`
+- Google Web Search for `"523(a)(6)" "circuit split" OR "justification" OR "Kawaauhau v. Geiger"`

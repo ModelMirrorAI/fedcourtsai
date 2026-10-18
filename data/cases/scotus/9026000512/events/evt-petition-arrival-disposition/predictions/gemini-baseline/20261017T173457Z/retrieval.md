@@ -1,0 +1,3 @@
+- CourtListener MCP Search for case number `"2 CA-CR 2025-0161"` and party name `"Saeed"`. Both returned 0 results.
+- `fedcourts query` for `"28 U.S.C. 2241"`, but failed due to invalid arguments.
+- Read `metrics/statpack.md` to check baseline rates for `private` petitioner in `baseline` band at `arrival` moment.

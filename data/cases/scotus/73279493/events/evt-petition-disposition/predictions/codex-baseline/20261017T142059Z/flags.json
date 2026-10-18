@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279493",
+  "run_id": "20261017T142059Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The forward snapshot named 2026-10-10.json ends with a February 2, 2026 response request due March 4, 2026; no response or later distribution is shown, and no opposition text is provisioned. This is a trajectory completeness/freshness concern, not a discovered disposition. The forecast uses only the supplied pre-disposition state and does not treat elapsed calendar time as a hold signal. No current docket or outcome was retrieved."
+    }
+  ]
+}
