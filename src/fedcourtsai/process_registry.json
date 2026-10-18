@@ -293,16 +293,16 @@
     },
     {
       "name": "scrub-scanned-caption-residuals",
-      "merge": null,
-      "at": null,
+      "merge": "dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c",
+      "at": "2026-10-18T01:06:13Z",
       "predictors": null,
       "reach": "self-represented dockets",
       "gradual": false
     },
     {
       "name": "interim-pool-one-row-per-number",
-      "merge": null,
-      "at": null,
+      "merge": "dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c",
+      "at": "2026-10-18T01:06:13Z",
       "predictors": null,
       "reach": "all",
       "gradual": true

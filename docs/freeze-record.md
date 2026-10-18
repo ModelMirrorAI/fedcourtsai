@@ -10506,7 +10506,7 @@ freeze commit is recorded here.
     Nathan under No. 26-257 is still owed, as the 2026-10-14 entry records.
 
   **Where it landed.** Merged to `staging` as `<FILL: staging merge commit>`
-  and carried to `main` by the promotion tagged `<FILL: promotion tag>`
+  and carried to `main` by the promotion tagged `promotion/2026-10-18`
   (merge commit `<FILL: promotion merge commit>`, merged `<FILL: merge date>`).
 
   The runnable effect check once it is live:
@@ -10681,8 +10681,8 @@ freeze commit is recorded here.
   describe, `contact_residuals`, beside the three the re-bless already owes
   (`docs/live-sources.md`).
 
-  Carried to `main` by <FILL: promotion tag> (merge commit
-  <FILL: merge hash>, merged <FILL: merged-at>).
+  Carried to `main` by promotion/2026-10-18 (merge commit
+  dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c, merged 2026-10-18T01:06:13Z).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py tests/test_cli_provision.py -k
@@ -10881,8 +10881,8 @@ freeze commit is recorded here.
     rule a duplicate no longer raises `applications`, so the detector is
     OT2023's `duplicate_rows`, which reads 0 at this blob.
 
-  Carried to `main` by <FILL: promotion tag> (merge commit
-  <FILL: merge hash>, merged <FILL: merged-at>). The first statpack refreshed
+  Carried to `main` by promotion/2026-10-18 (merge commit
+  dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c, merged 2026-10-18T01:06:13Z). The first statpack refreshed
   after it, at commit <FILL: refresh commit>, reads the OT2026 pool as
   <FILL: OT2026-cell pool> and the OT2025 pool as
   <FILL: OT2025-cell pool>.
