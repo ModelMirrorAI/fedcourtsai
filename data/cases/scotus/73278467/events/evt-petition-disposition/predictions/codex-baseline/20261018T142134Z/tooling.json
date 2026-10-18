@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73278467",
+  "gaps": [
+    "Web retrieval attempts returned no usable content; CourtListener supplied the general precedent instead.",
+    "The committed pack does not publish a conditioned rate for SG recommendations of GVR."
+  ],
+  "helpful": [
+    "Provisioned SG invited brief materially distinguished GVR from plenary review.",
+    "Opposition, reply, and retained appellate opinion allowed cross-checking the vehicle objection.",
+    "Version-matched statpack JSON enabled exact prior-Term risk-set pooling."
+  ],
+  "notes": "Used the provisioned forward record without fetching this case's current docket. Redirecting uv's cache to temporary storage resolved the initial read-only-cache error. Appendix truncation was explicit and did not remove the preservation passage used.",
+  "role": "predictor",
+  "run_id": "20261018T142134Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned documents",
+    "committed statpack",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
