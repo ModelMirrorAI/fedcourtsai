@@ -14385,7 +14385,11 @@ def summary_stage_check_cmd(
     for what, reason in removed:
         typer.echo(f"::warning::removed {what} from the staged records: {reason}")
     kept = sum(1 for p in (staged / "cases").glob("*/*") if p.is_dir())
-    line = f"stage check: {kept} staged case record(s) kept, {len(removed)} removed"
+    withheld = sum(1 for _, reason in removed if reason.startswith(summaries.DOCUMENT_WITHHELD))
+    line = (
+        f"stage check: {kept} staged case record(s) kept, {len(removed) - withheld} removed, "
+        f"{withheld} document(s) withheld"
+    )
     typer.echo(line)
     if summary is not None:
         with summary.open("a", encoding="utf-8") as fh:

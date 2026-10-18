@@ -439,6 +439,13 @@ def prune_stage(plan: SummaryPlan, stage_root: Path) -> list[tuple[str, str]]:
     return removed
 
 
+DOCUMENT_WITHHELD = "document withheld"
+"""The reason :func:`prune_stage` gives a document it withholds from a kept case."""
+
+# A document kind as provisioning names its text file: a lower-case stem.
+_STAGED_KIND = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
 def _withhold_residuals(case_dir: Path) -> list[tuple[str, str]]:
     """Remove each staged document the contact scrub left a contact-shaped match on.
 
@@ -446,7 +453,8 @@ def _withhold_residuals(case_dir: Path) -> list[tuple[str, str]]:
     residual detector still found as the manifest row's ``contact_residuals``.
     The rule keys on that count, not on ``contact_scrubbed: false``, which is
     also what every represented docket's documents read. A row whose count is
-    not a whole number is withheld too, since nothing then says it is clean.
+    missing or not a whole number is withheld too, since nothing then says it
+    is clean.
     Each withheld document's text file and manifest row go together, so the
     manifest still lists exactly the files staged, and the case crosses with
     the rest of its record. Returns ``(kind, reason)`` for each.
@@ -458,13 +466,13 @@ def _withhold_residuals(case_dir: Path) -> list[tuple[str, str]]:
     kept: list[Any] = []
     withheld: list[tuple[str, str]] = []
     for entry in entries:
-        count = entry.get("contact_residuals", 0)
+        count = entry.get("contact_residuals")
         if isinstance(count, int) and not isinstance(count, bool) and count == 0:
             kept.append(entry)
             continue
         kind = entry["kind"]
         (case_dir / f"record/documents/{kind}.txt").unlink(missing_ok=True)
-        withheld.append((kind, f"document withheld: {count!r} contact residual(s)"))
+        withheld.append((kind, f"{DOCUMENT_WITHHELD}: {count!r} contact residual(s)"))
     if withheld:
         write_raw_json(manifest, kept)
     return withheld
@@ -525,12 +533,22 @@ def _staged_documents(case_dir: Path) -> tuple[set[str], str]:
     allowed = {manifest}
     for entry in entries:
         kind = entry.get("kind") if isinstance(entry, dict) else None
-        if not isinstance(kind, str):
-            return set(), "documents manifest entry has no kind"
-        if not all(_is_court_url(url) for url in str(entry.get("url", "")).split("|")):
-            return set(), f"document {kind!r} was not fetched from supremecourt.gov"
+        problem = _entry_problem(entry, kind)
+        if problem:
+            return set(), problem
         allowed.add(f"record/documents/{kind}.txt")
     return allowed, ""
+
+
+def _entry_problem(entry: Any, kind: object) -> str:
+    """Why one manifest row may not cross: no kind, a kind that is not a file stem, or off-host."""
+    if not isinstance(kind, str):
+        return "documents manifest entry has no kind"
+    if not _STAGED_KIND.match(kind):
+        return f"documents manifest entry has a malformed kind {kind!r}"
+    if not all(_is_court_url(url) for url in str(entry.get("url", "")).split("|")):
+        return f"document {kind!r} was not fetched from supremecourt.gov"
+    return ""
 
 
 def _is_court_url(url: str) -> bool:

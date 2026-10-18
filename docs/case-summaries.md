@@ -373,7 +373,10 @@ a contact-shaped match on: provisioning stages such a document unchanged and
 records the match count as its manifest row's `contact_residuals`, and a
 non-zero count removes the document's text and its row while the rest of the
 case crosses. The rule keys on that count rather than on `contact_scrubbed:
-false`, which every represented docket's documents also read.
+false`, which every represented docket's documents also read, and a row with
+no count is withheld too. The summary is then written from the rest of the
+record under the plan's digest, which covers the withheld document, so the
+case is not planned again until its record changes.
 
 **The written summaries are a public artifact for a week.** The
 `case-summaries` artifact carries the generated files, after the jail and the
