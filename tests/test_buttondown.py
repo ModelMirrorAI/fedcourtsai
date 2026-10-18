@@ -308,3 +308,34 @@ def test_cli_needs_exactly_one_of_tag_or_tag_id(tmp_path: Path) -> None:
     for args in ([], ["--tag", "weekly-scotus", "--tag-id", TAG_ID], ["--tag-id", " "]):
         result = runner.invoke(app, ["post-public-update", "--week", "2026-W41", *args], env=env)
         assert result.exit_code == 2, args
+
+
+def test_a_refusal_carries_buttondowns_reason_bounded_to_one_line() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(
+                422,
+                json={"code": "invalid_filters", "detail": "tag\nnot found " + "x" * 600},
+            )
+        if request.url.path == "/v1/tags":
+            return httpx.Response(200, json={"results": [], "count": 0})
+        return httpx.Response(200, json={"results": [], "count": 0})
+
+    with _client(refuse) as client, pytest.raises(ButtondownError) as caught:
+        post_draft(client, subject=SUBJECT, body="Body.", tag_id_value=TAG_ID, sleep=_no_sleep)
+    message = str(caught.value)
+    assert message.startswith("creating the draft returned 422: invalid_filters — tag not found")
+    assert "\n" not in message
+    assert len(message) < 400
+    assert "test-key" not in message
+
+
+def test_a_refusal_without_a_json_body_reports_the_status_alone() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(422, text="<html>nope</html>")
+        return httpx.Response(200, json={"results": [], "count": 0})
+
+    with _client(refuse) as client, pytest.raises(ButtondownError) as caught:
+        post_draft(client, subject=SUBJECT, body="Body.", tag_id_value=TAG_ID, sleep=_no_sleep)
+    assert str(caught.value) == "creating the draft returned 422"
