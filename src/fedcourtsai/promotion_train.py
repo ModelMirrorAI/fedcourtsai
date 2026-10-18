@@ -63,7 +63,8 @@ schedule carries a candidate from there to the merge and, with none open,
 reports whether one is ready to cut. A dispatch whose cut cannot happen — a
 candidate already open, the last promotion not yet synced, nothing to promote —
 does what a scheduled tick would and names the reason; the request is not
-remembered, so it is dispatched again once the reason has cleared.
+remembered, so it is dispatched again once the reason has cleared. A re-run of
+a dispatched run is a dispatch too, and cuts at staging's tip as it is then.
 """
 
 from __future__ import annotations
@@ -85,7 +86,7 @@ from .promotion_body import BEGIN, END, READY_MARKER
 CONFIG_FILENAME = "promotion-train.yaml"
 
 #: The dispatch that asks the train to cut: the batch closes when the
-#: maintainer says so, not whenever staging moves.
+#: maintainer says so.
 CUT_COMMAND = "gh workflow run promotion-prep.yml --ref main"
 
 #: Every candidate branch lives under this prefix.
@@ -650,7 +651,8 @@ def _cut_step(observed: Observed) -> TrainStep:  # noqa: PLR0911 - one return pe
                 reason=(
                     f"{name} already sits at staging {sha[:9]} with no open PR (closed "
                     "unmerged, or its PR never opened); the next candidate waits for "
-                    "staging to move — reopen its PR, or open one from it, to retry this tip"
+                    "staging to move and a dispatch — reopen its PR, or open one from it, "
+                    "to retry this tip"
                 ),
             )
     if not observed.cut_requested:

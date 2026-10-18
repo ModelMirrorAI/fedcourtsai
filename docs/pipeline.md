@@ -1746,9 +1746,9 @@ The mechanics:
   candidate waits for review. Only a hand-opened `staging` → `main` PR, once
   ready for review, defers the sync, since there the head *is* `staging`.
   After a promotion merges, `main` holds a merge commit `staging` lacks; the
-  next sync brings it over, and the train cuts the next candidate (on a
-  dispatch) only once it has — when `main` holds nothing staging lacks beyond the writer lanes'
-  own commits (`data/`, `metrics/`, the corpus pointer), which arrive every
+  next sync brings it over, and a dispatch of the train cuts the next
+  candidate only once it has — when `main` holds nothing staging lacks beyond
+  the writer lanes' own commits (`data/`, `metrics/`, the corpus pointer), which arrive every
   few hours and never ride staging. **Ordering:** `schedule` and
   `workflow_dispatch` both read the file from `main`, and the `prod`
   environment is `main`-only, so an edit to `sync-staging` takes effect only
@@ -1841,8 +1841,8 @@ The mechanics:
   in its log, and the check annotates the PR and writes what was traded away
   into its run summary — so a batch that merged without real-engine evidence
   is legible as such from the promotion's own record.
-- **The promotion train.** `promotion-prep` runs hourly (:26, and on
-  dispatch) and takes one step per tick, decided by the tested `fedcourts
+- **The promotion train.** `promotion-prep` runs on the maintainer's
+  dispatch, which alone cuts, and hourly (:26), and takes one step per tick, decided by the tested `fedcourts
   promotion-train-step` (`src/fedcourtsai/promotion_train.py`), from a
   **frozen candidate** rather than from `staging` itself: a branch
   `promote/<UTC date>` (`-2`, `-3` … when the date is taken) cut at staging's
@@ -1856,7 +1856,11 @@ The mechanics:
   dispatch whose cut cannot happen yet — a candidate already open, the last
   promotion not yet synced, nothing to promote — takes the step a scheduled
   tick would and names the reason; the request is not remembered, so dispatch
-  again once it clears. The steps, at most one per tick:
+  again once it clears. A re-run of a dispatched run is a dispatch too, and
+  cuts at staging's tip as it is then. GitHub keeps one pending run per
+  concurrency group, so a dispatch queued behind a running tick is cancelled
+  if the schedule queues after it: a dispatch that shows as cancelled cut
+  nothing, and is sent again. The steps, at most one per tick:
 
   | step | when | does |
   | --- | --- | --- |
@@ -1878,10 +1882,10 @@ The mechanics:
   still fine (merge commit). Requesting changes stops it at that head;
   returning the PR to draft after the train marked it ready parks it there;
   closing it stops it at that staging tip — the branch is never deleted, so a
-  branch already at the tip means the tip was cut, and the next candidate
-  waits for staging to move and a dispatch (reopen the PR, or open one from
-  the branch, to put it back on the train). A hand-opened `staging` → `main` PR makes the
-  train stand aside until it merges or closes; so do two candidates at once
+  branch already at the tip means the tip was cut (reopen the PR, or open one
+  from the branch, to put it back on the train), and the next candidate waits
+  for staging to move and a dispatch. A hand-opened `staging` → `main` PR
+  makes the train stand aside until it merges or closes; so do two candidates at once
   or a `promote/` PR whose name the train would not have cut.
 
   **Cost.** One paid `gate` suite per candidate — three engine-smoke cells

@@ -194,6 +194,22 @@ def test_a_dispatch_that_cannot_cut_names_why_not_the_dispatch(
     assert CUT_COMMAND not in step.reason
 
 
+def test_a_scheduled_tick_that_could_not_cut_anyway_names_that_not_the_dispatch() -> None:
+    """A batch that is not ready gives its reason, not the dispatch hint: a
+    dispatch then would not cut either."""
+    step = decide(_no_candidate(cut_requested=False, last_promotion_synced=False), CONFIG)
+    assert step.action is TrainAction.WAIT
+    assert "sync" in step.reason
+    assert CUT_COMMAND not in step.reason
+
+
+@pytest.mark.reads_docs
+def test_the_docs_name_the_cut_command_the_train_names() -> None:
+    assert CUT_COMMAND in (ROOT / "docs" / "pipeline.md").read_text()
+    header = (ROOT / ".github" / "workflows" / "promotion-prep.yml").read_text()
+    assert " ".join(CUT_COMMAND.split()) in " ".join(header.replace("#", " ").split())
+
+
 def test_a_dispatch_with_a_candidate_open_advances_it_and_cuts_nothing() -> None:
     step = decide(replace(_draft(), cut_requested=True), CONFIG)
     assert step.action is TrainAction.DISPATCH_GATE

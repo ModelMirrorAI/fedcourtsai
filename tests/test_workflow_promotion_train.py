@@ -66,7 +66,9 @@ def test_only_a_dispatched_tick_asks_for_a_cut() -> None:
     assert read["env"]["EVENT_NAME"] == "${{ github.event_name }}"
     run = read["run"]
     assert run.count("--cut-requested") == 1
-    assert 'if [ "$EVENT_NAME" = workflow_dispatch ]; then\n  args+=(--cut-requested)\nfi' in run
+    assert re.search(
+        r'if \[ "\$EVENT_NAME" = workflow_dispatch \]; then\s+args\+=\(--cut-requested\)\s+fi', run
+    )
 
 
 def test_the_plan_job_holds_no_write_credential() -> None:
