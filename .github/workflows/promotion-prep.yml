@@ -3,12 +3,17 @@ name: promotion-prep
 # The promotion train: the mechanical half of every staging→main promotion,
 # done hourly, one step per tick, from a FROZEN release branch, so `staging`
 # keeps taking merges and syncs while the maintainer takes hours or days to
-# read a batch. The tested decision is `fedcourts promotion-train-step`
+# read a batch. The maintainer starts each batch by dispatching this workflow
+# (`gh workflow run promotion-prep.yml --ref main`): only a dispatched tick
+# cuts, so a batch closes when the maintainer says so rather than whenever
+# staging moves; the schedule carries the candidate from there. The tested decision is `fedcourts promotion-train-step`
 # (src/fedcourtsai/promotion_train.py, whose docstring carries the state
 # table); this workflow reads what it needs, asks it, and routes on the answer:
 #
-#   cut           — create `promote/<UTC date>[-N]` at staging's tip and open a
-#                   draft PR from it into `main`, the batch in its body;
+#   cut           — on a dispatched tick only: create `promote/<UTC date>[-N]`
+#                   at staging's tip and open a draft PR from it into `main`,
+#                   the batch in its body (a scheduled tick reports a batch
+#                   ready to cut and waits);
 #   dispatch_gate — dispatch integration-test `scenario=gate` at that branch
 #                   (`offline-gate` under the `promote:skip-engine-smoke`
 #                   label), only while no dispatched integration run of any
@@ -64,6 +69,8 @@ on:
     # Hourly, so the steps chain within about an hour each, on a minute no
     # other schedule uses.
     - cron: "26 * * * *"
+  # The maintainer's cut request; with a candidate open, it advances it as a
+  # scheduled tick would.
   workflow_dispatch:
 
 permissions: {}
@@ -158,12 +165,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
           git fetch --no-tags -q origin main staging
           main_sha=$(git rev-parse origin/main)
           staging_sha=$(git rev-parse origin/staging)
           args=(--repo "$REPO" --staging-sha "$staging_sha")
+          # Only a dispatched tick may cut; the run gate has already refused a
+          # dispatch by anyone config/dispatchers.json does not name.
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            args+=(--cut-requested)
+          fi
           # Both sides against their merge-base. Main's side may hold only the
           # writer lanes' paths for a cut (the decision checks which); staging's
           # side is what a candidate would carry — the tree, not the commit

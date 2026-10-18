@@ -53,7 +53,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `staging-corpus-refresh` | manual dispatch (dry-run by default) | script (no agent)    |
 | `promote`        | manual dispatch                     | script (no agent)    |
 | `sync-staging`   | daily schedule + manual dispatch    | script (no agent)    |
-| `promotion-prep` (the promotion train) | hourly schedule (:26) + manual dispatch | script (no agent); its `gate` dispatch runs integration-test's paid suite once per candidate |
+| `promotion-prep` (the promotion train) | manual dispatch (the only trigger that cuts a candidate) + hourly schedule (:26), which carries an open candidate to the merge | script (no agent); its `gate` dispatch runs integration-test's paid suite once per candidate |
 
 † Two gates hold it, both pinned by `tests/test_workflow_auth_gate.py`. The
 **trigger** is one: the test sweeps the whole workflow directory for any trigger
@@ -1746,8 +1746,8 @@ The mechanics:
   candidate waits for review. Only a hand-opened `staging` → `main` PR, once
   ready for review, defers the sync, since there the head *is* `staging`.
   After a promotion merges, `main` holds a merge commit `staging` lacks; the
-  next sync brings it over, and the train cuts the next candidate only once
-  it has — when `main` holds nothing staging lacks beyond the writer lanes'
+  next sync brings it over, and the train cuts the next candidate (on a
+  dispatch) only once it has — when `main` holds nothing staging lacks beyond the writer lanes'
   own commits (`data/`, `metrics/`, the corpus pointer), which arrive every
   few hours and never ride staging. **Ordering:** `schedule` and
   `workflow_dispatch` both read the file from `main`, and the `prod`
@@ -1849,11 +1849,18 @@ The mechanics:
   tip and never moved again, with a PR from it into `main`. Staging keeps
   taking merges and syncs while the maintainer reads the batch, and neither the
   integration evidence nor the approval — both bound to one SHA — is
-  invalidated by them. The steps, at most one per tick:
+  invalidated by them. **Only a dispatch cuts**: the maintainer closes a batch
+  by running `gh workflow run promotion-prep.yml --ref main`, and the schedule
+  carries the candidate from there. With none open, a scheduled tick reports
+  in its run summary whether a batch is ready to cut and cuts nothing. A
+  dispatch whose cut cannot happen yet — a candidate already open, the last
+  promotion not yet synced, nothing to promote — takes the step a scheduled
+  tick would and names the reason; the request is not remembered, so dispatch
+  again once it clears. The steps, at most one per tick:
 
   | step | when | does |
   | --- | --- | --- |
-  | cut | no promotion PR open; staging holds `main`'s last promotion merge, and since their merge-base `main` changed nothing outside the writer lanes' paths (`data/`, `metrics/`, the corpus pointer) — so staging is synced with every promotion and its record — while staging changed something; no `promote/` branch already sits at staging's tip | create the branch at the tip (dev App) and open a **draft** PR into `main`, the batch in its body |
+  | cut | the tick is a dispatch; no promotion PR open; staging holds `main`'s last promotion merge, and since their merge-base `main` changed nothing outside the writer lanes' paths (`data/`, `metrics/`, the corpus pointer) — so staging is synced with every promotion and its record — while staging changed something; no `promote/` branch already sits at staging's tip | create the branch at the tip (dev App) and open a **draft** PR into `main`, the batch in its body |
   | dispatch the gate | no dispatched integration run of any title at the head and ref yet (queued, running or concluded), the registry gate passes, and the train is under its daily dispatch cap | `integration-test` `scenario=gate` at the branch — `offline-gate` under the `promote:skip-engine-smoke` label — (dispatch App), **once per head** |
   | mark ready | green evidence at the head: the `gate` run succeeded (under the label, an `offline-gate` run), or the promotion gate's freshness stage passes there — per-scenario runs a maintainer dispatched count | mark the PR ready, request the approvers' review, refresh the body — the edit re-fires `promotion-gate` |
   | re-fire | approved, quiescent, registry clean, freshness passing, every other required check green, `promotion-gate` red or missing — at most three times after the approval, then report | refresh the body, which re-runs `promotion-gate` |
@@ -1872,8 +1879,8 @@ The mechanics:
   returning the PR to draft after the train marked it ready parks it there;
   closing it stops it at that staging tip — the branch is never deleted, so a
   branch already at the tip means the tip was cut, and the next candidate
-  waits for staging to move (reopen the PR, or open one from the branch, to
-  put it back on the train). A hand-opened `staging` → `main` PR makes the
+  waits for staging to move and a dispatch (reopen the PR, or open one from
+  the branch, to put it back on the train). A hand-opened `staging` → `main` PR makes the
   train stand aside until it merges or closes; so do two candidates at once
   or a `promote/` PR whose name the train would not have cut.
 
@@ -1906,10 +1913,13 @@ The full path of a change, operator's view:
 1. Branch off `staging`, work, run the relevant gate stages and reviewers,
    open the PR against `staging`; review and merge. The change is now staged
    but **not live** — production jobs execute from `main`.
-2. Nothing to dispatch: within an hour of the next sync, the promotion train
-   cuts a `promote/<date>` candidate at staging's tip, opens its draft PR,
-   dispatches the integration `gate` at it, and, once that is green, marks it
-   ready and requests your review. Leave `docket` empty on any dispatch of
+2. When the batch is what you want to promote, dispatch the train: `gh
+   workflow run promotion-prep.yml --ref main`. That tick cuts a
+   `promote/<date>` candidate at staging's tip and opens its draft PR; the
+   hourly ticks then dispatch the integration `gate` at it and, once that is
+   green, mark it ready and request your review. After a promotion, dispatch
+   once the sync has landed — before then the dispatch reports that it waits
+   for the sync and cuts nothing. Leave `docket` empty on any dispatch of
    your own: the run-time case resolver self-resolves on the seeded staging
    slice as it does on production (the staging-corpus runbook in
    [security.md](security.md) says which cases the slice holds).

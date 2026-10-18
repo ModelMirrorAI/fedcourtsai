@@ -19312,6 +19312,13 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
     registry_ok: Annotated[
         _TriState, typer.Option("--registry-ok", help="Did the registry stage pass at the head?")
     ] = _TriState.UNKNOWN,
+    cut_requested: Annotated[
+        bool,
+        typer.Option(
+            "--cut-requested",
+            help="The tick is a dispatch of promotion-prep, the only tick that may cut.",
+        ),
+    ] = False,
     now: Annotated[
         str | None, typer.Option("--now", help="ISO time the tick reads as now (default: now).")
     ] = None,
@@ -19322,7 +19329,8 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
     """Decide one tick of the promotion train.
 
     Prints a `TrainStep` (`action`, `reason`, and the `pr`, `ref`, `sha` or
-    `branch` it acts on): cut a candidate, dispatch its integration gate, mark
+    `branch` it acts on): cut a candidate (only under `--cut-requested`),
+    dispatch its integration gate, mark
     it ready, re-fire its promotion-gate check, merge it, wait, or report. Every
     file or fact left out or unreadable is unknown, and an unknown never leads
     to an act. Reads no corpus and calls no API.
@@ -19363,6 +19371,7 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
         main_ahead_paths=main_ahead,
         last_promotion_synced=_tri(last_promotion_synced),
         recent_dispatches=_read_json_list(recent_dispatches_file, "workflow_runs"),
+        cut_requested=cut_requested,
         pull=_read_json_object(pull_file),
         freshness_ok=_tri(freshness_ok),
         staging_differs_from_main=_tri(staging_differs),
