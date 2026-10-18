@@ -314,7 +314,8 @@ def _train_next_step(batch: Batch) -> list[str]:
         "the required checks and the registry gate hold at this head and no "
         "predict/evaluate/back-test round is in flight. Merging it yourself instead is "
         "fine. To stop it, request changes or close it: a closed candidate is not re-cut "
-        "at the same staging tip, and the next one is cut once staging moves.",
+        "at the same staging tip, and the next one is cut when the train is dispatched "
+        "after staging moves.",
     ]
 
 

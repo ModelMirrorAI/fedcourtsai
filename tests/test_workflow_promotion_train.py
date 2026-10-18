@@ -58,6 +58,19 @@ def test_the_train_ticks_hourly_on_a_minute_of_its_own() -> None:
     assert minute not in taken
 
 
+def test_only_a_dispatched_tick_asks_for_a_cut() -> None:
+    """The maintainer closes a batch by dispatching; a scheduled tick never
+    passes the request, so it cannot cut."""
+    assert "workflow_dispatch" in _workflow()[True]
+    (read,) = [s for s in _job("plan")["steps"] if s.get("id") == "read"]
+    assert read["env"]["EVENT_NAME"] == "${{ github.event_name }}"
+    run = read["run"]
+    assert run.count("--cut-requested") == 1
+    assert re.search(
+        r'if \[ "\$EVENT_NAME" = workflow_dispatch \]; then\s+args\+=\(--cut-requested\)\s+fi', run
+    )
+
+
 def test_the_plan_job_holds_no_write_credential() -> None:
     job = _job("plan")
     assert "environment" not in job

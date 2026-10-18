@@ -1,9 +1,10 @@
 """The promotion train: one decision per tick about the staging→main promotion.
 
-`promotion-prep` runs hourly and asks this module what to do next. The answer
-is a single :class:`TrainStep`, derived only from what the workflow read — the
-open PRs into `main`, the existing `promote/*` branches and their heads,
-staging's relation to `main`, the train's own paid dispatches today, and, for
+`promotion-prep` runs hourly, and on a maintainer's dispatch, and asks this
+module what to do next. The answer is a single :class:`TrainStep`, derived only
+from what the workflow read — whether the tick is that dispatch, the open PRs
+into `main`, the existing `promote/*` branches and their heads, staging's
+relation to `main`, the train's own paid dispatches today, and, for
 the one open candidate, its PR, integration runs, reviews, check runs and the
 gate stages read live — so the rule is testable without the Actions API and
 the workflow only routes on the answer.
@@ -18,12 +19,13 @@ one SHA — is invalidated by them. The steps:
 ====================  ================================================  =========================
 action                when                                              does
 ====================  ================================================  =========================
-``cut``               no open promotion PR; `main` changed nothing      create the branch at the
-                      since its merge-base with staging outside the     staging tip read, open a
-                      writer lanes and staging holds `main`'s last      draft PR into `main`
-                      promotion merge (staging is synced); staging
-                      changed something since that merge-base; no
-                      ``promote/`` branch already sits at that tip
+``cut``               the tick is a dispatch; no open promotion PR;     create the branch at the
+                      `main` changed nothing since its merge-base with  staging tip read, open a
+                      staging outside the writer lanes and staging      draft PR into `main`
+                      holds `main`'s last promotion merge (staging is
+                      synced); staging changed something since that
+                      merge-base; no ``promote/`` branch already sits
+                      at that tip
 ``dispatch_gate``     no dispatched integration-test run of any kind    dispatch integration-test
                       at the head and ref, the registry gate passes,    ``gate`` (``offline-gate``
                       and today's paid-dispatch cap is not reached      under the waiver label)
@@ -55,6 +57,14 @@ closed unmerged is not re-cut, and the next one waits for staging to move
 (reopening the PR, or opening one from the branch, puts it back on the train).
 A hand-opened ``staging`` → `main` PR makes the train stand aside, so there is
 one promotion in flight at a time.
+
+Only a dispatch cuts. The maintainer decides when a batch closes; the hourly
+schedule carries a candidate from there to the merge and, with none open,
+reports whether one is ready to cut. A dispatch whose cut cannot happen — a
+candidate already open, the last promotion not yet synced, nothing to promote —
+does what a scheduled tick would and names the reason; the request is not
+remembered, so it is dispatched again once the reason has cleared. A re-run of
+a dispatched run is a dispatch too, and cuts at staging's tip as it is then.
 """
 
 from __future__ import annotations
@@ -74,6 +84,10 @@ from .promotion_body import BEGIN, END, READY_MARKER
 
 #: The train's configuration file, under the config root (``config/``).
 CONFIG_FILENAME = "promotion-train.yaml"
+
+#: The dispatch that asks the train to cut: the batch closes when the
+#: maintainer says so.
+CUT_COMMAND = "gh workflow run promotion-prep.yml --ref main"
 
 #: Every candidate branch lives under this prefix.
 BRANCH_PREFIX = "promote/"
@@ -250,6 +264,10 @@ class Observed:
     last_promotion_synced: bool | None = None
     #: integration-test dispatches of the current UTC day (REST runs list).
     recent_dispatches: Sequence[Mapping[str, Any]] | None = None
+    #: Whether this tick is a maintainer's dispatch of `promotion-prep`: the
+    #: only tick that may cut. A scheduled tick advances an open candidate and
+    #: reports a batch ready to cut, never cuts one.
+    cut_requested: bool = False
     # The candidate's own reads; unused when no candidate is open.
     head_on_staging: bool | None = None
     #: The candidate PR as `GET pulls/{n}` returns it (for ``mergeable``).
@@ -633,9 +651,19 @@ def _cut_step(observed: Observed) -> TrainStep:  # noqa: PLR0911 - one return pe
                 reason=(
                     f"{name} already sits at staging {sha[:9]} with no open PR (closed "
                     "unmerged, or its PR never opened); the next candidate waits for "
-                    "staging to move — reopen its PR, or open one from it, to retry this tip"
+                    "staging to move and a dispatch — reopen its PR, or open one from it, "
+                    "to retry this tip"
                 ),
             )
+    if not observed.cut_requested:
+        return TrainStep(
+            action=TrainAction.WAIT,
+            reason=(
+                f"staging {sha[:9]} carries a batch over main, ready to cut; a candidate "
+                "is cut only when promotion-prep is dispatched: "
+                f"`{CUT_COMMAND}`"
+            ),
+        )
     branch = next_branch_name(observed.now, (name for name, _ in observed.branches))
     return TrainStep(
         action=TrainAction.CUT,

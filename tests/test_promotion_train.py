@@ -15,6 +15,7 @@ from typer.testing import CliRunner
 from fedcourtsai.cli import app
 from fedcourtsai.promotion_body import BEGIN, END, READY_MARKER
 from fedcourtsai.promotion_train import (
+    CUT_COMMAND,
     GATE_TITLE,
     OFFLINE_GATE_TITLE,
     REFIRE_CAP,
@@ -129,6 +130,7 @@ def _no_candidate(**overrides: Any) -> Observed:
         main_ahead_paths=["data/cases/x/event.yaml", "metrics/big-cases.json"],
         staging_differs_from_main=True,
         last_promotion_synced=True,
+        cut_requested=True,
     )
     return replace(observed, **overrides)
 
@@ -159,6 +161,60 @@ def test_with_nothing_open_the_train_cuts_at_the_staging_tip() -> None:
     assert step.action is TrainAction.CUT
     assert step.branch == "promote/2026-10-17"
     assert step.sha == STAGING
+
+
+def test_a_scheduled_tick_reports_a_batch_ready_to_cut_and_cuts_nothing() -> None:
+    """The maintainer closes a batch by dispatching the train; the schedule
+    only says one is ready, naming the dispatch."""
+    step = decide(_no_candidate(cut_requested=False), CONFIG)
+    assert step.action is TrainAction.WAIT
+    assert step.branch is None
+    assert "ready to cut" in step.reason
+    assert CUT_COMMAND in step.reason
+    assert CUT_COMMAND == "gh workflow run promotion-prep.yml --ref main"
+
+
+@pytest.mark.parametrize(
+    ("overrides", "said"),
+    [
+        ({"last_promotion_synced": False}, "sync"),
+        ({"staging_differs_from_main": False}, "nothing to cut"),
+        ({"branches": [("promote/2026-10-16", STAGING)]}, "already sits at staging"),
+        ({"main_ahead_paths": ["docs/freeze-record.md"]}, "sync"),
+    ],
+)
+def test_a_dispatch_that_cannot_cut_names_why_not_the_dispatch(
+    overrides: dict[str, Any], said: str
+) -> None:
+    """A dispatched tick whose cut cannot happen gives the scheduled tick's
+    reason, not a request to dispatch: the dispatch is what just happened."""
+    step = decide(_no_candidate(**overrides), CONFIG)
+    assert step.action is TrainAction.WAIT
+    assert said in step.reason
+    assert CUT_COMMAND not in step.reason
+
+
+def test_a_scheduled_tick_that_could_not_cut_anyway_names_that_not_the_dispatch() -> None:
+    """A batch that is not ready gives its reason, not the dispatch hint: a
+    dispatch then would not cut either."""
+    step = decide(_no_candidate(cut_requested=False, last_promotion_synced=False), CONFIG)
+    assert step.action is TrainAction.WAIT
+    assert "sync" in step.reason
+    assert CUT_COMMAND not in step.reason
+
+
+@pytest.mark.reads_docs
+def test_the_docs_name_the_cut_command_the_train_names() -> None:
+    assert CUT_COMMAND in (ROOT / "docs" / "pipeline.md").read_text()
+    header = (ROOT / ".github" / "workflows" / "promotion-prep.yml").read_text()
+    assert " ".join(CUT_COMMAND.split()) in " ".join(header.replace("#", " ").split())
+
+
+def test_a_dispatch_with_a_candidate_open_advances_it_and_cuts_nothing() -> None:
+    step = decide(replace(_draft(), cut_requested=True), CONFIG)
+    assert step.action is TrainAction.DISPATCH_GATE
+    assert step.pr == 50
+    assert step.branch is None
 
 
 def test_a_taken_date_gets_the_next_free_suffix() -> None:
@@ -724,12 +780,44 @@ def test_the_step_command_cuts_with_the_date_it_is_told(tmp_path: Path) -> None:
             "yes",
             "--now",
             "2026-11-02T03:26:00+00:00",
+            "--cut-requested",
         ],
     )
     assert result.exit_code == 0, result.output
     step = json.loads(result.output)
     assert step["action"] == "cut"
     assert step["branch"] == "promote/2026-11-02-2"
+
+
+def test_the_step_command_cuts_nothing_without_the_request(tmp_path: Path) -> None:
+    ahead = tmp_path / "ahead.txt"
+    ahead.write_text("data/cases/x.json\n")
+    branches = tmp_path / "branches.txt"
+    branches.write_text("")
+    result = CliRunner().invoke(
+        app,
+        [
+            "promotion-train-step",
+            "--repo",
+            REPO,
+            "--open-prs-file",
+            _write(tmp_path / "open.json", []),
+            "--branches-file",
+            str(branches),
+            "--staging-sha",
+            STAGING,
+            "--main-ahead-paths-file",
+            str(ahead),
+            "--last-promotion-synced",
+            "yes",
+            "--staging-differs",
+            "yes",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    step = json.loads(result.output)
+    assert step["action"] == "wait"
+    assert "ready to cut" in step["reason"]
 
 
 def test_a_malformed_branches_file_is_unknown(tmp_path: Path) -> None:
