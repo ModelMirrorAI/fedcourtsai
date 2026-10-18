@@ -57,9 +57,11 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   promotion candidate's `promote/<date>` branch, once per head. Its client id is the
   `DISPATCH_APP_CLIENT_ID` variable and its private key the
   `DISPATCH_APP_PRIVATE_KEY` secret, both on `prod`; it must be named
-  `fedcourtsai-dispatch`, because `run-predict`'s agent steps allow its bot
-  login (`fedcourtsai-dispatch[bot]`) past their actor checks — a chained
-  round's actor. It is its own App rather
+  `fedcourtsai-dispatch`, because the agent steps of `run-predict`,
+  `run-evaluate` and `integration-test` allow its bot login
+  (`fedcourtsai-dispatch[bot]`) past their actor checks — a chained round's
+  actor, and the train's gate suite's — and `config/dispatchers.json` names it
+  as the one bot the run gate admits. It is its own App rather
   than a scope added to the dev App because the dev App's key sits in jobs that
   run agent cells' collect step and open PRs; a dispatch-capable token there
   would let any of those jobs start any workflow. It is an App rather than
@@ -90,7 +92,7 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
 | `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
-| `run-seed` | data | contents (walker steps; the order-vote sweep's writer); none at all on the order-vote sweep's projection and parse jobs; ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
+| `run-seed` | data | contents (walker steps; the order-vote and OCR sweeps' writers); none at all on either sweep's projection and parse jobs; ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
 | `promotion-record` (write job only) | data | contents | on a staging→main promotion merge only (a no-secret, read-only `classify` job decides that first): push the annotated `promotion/` and `prereg/` tags and the one-parent record commit that fills the placeholders the merge added and stamps its pending registrations. The job runs up to three attempts. In each, the plan, the tags, the apply, the commit, the jail and a validation of the jailed SHA run holding no write credential; only then is a token minted, and only that attempt's push and revoke steps read it, the push refusing one that is not the data App's. The push never re-plans: where `main` advanced it records the rejection, the attempt's token is revoked, and the next attempt prepares again from a fresh fetch holding no credential, running `write.sh` from the newly fetched main tip — the same trust the data App already places in main. Every token still live after the last attempt is revoked before the job ends, and the check that main holds no pending registration runs in the report job, so no repo code runs in the write job while a write token is live. The step split is a least-exposure ordering within one job, not a credential boundary: the planner's code is main's own reviewed code, and a hostile planner would need a job boundary to be contained. A tag push never replaces one, the commit is pushed with a lease on the base it was jailed against, and every push blanks any ambient header and runs no hook. The failure issue and the PR comment ride the ambient token in a separate job |
 | `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record and opinion-record jobs); none at all on the selector-validation, `handoff-projection` and `handoff-parse` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Four of the passes that fetch and parse the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`) run as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill and opinion-record writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for every role its environment is trusted by — both corpus roles under `corpus-write` (the corpus, application back-fill, decision-record and opinion-record jobs), and under `prod` (`handoff-projection`) the read-only role, alone once the read-write role's trust is narrowed to `corpus-write` (*`corpus-write` holds the production read-write role* below) — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
 | `run-predict`, `run-evaluate` (`collect` job only) | dev | contents, pull-requests | the cell jobs name no App credential: a Claude cell's action gets the job's own token, capped at `contents: read` by the cell job's permissions, and the codex and gemini cells get none. The workflow commits, and `collect` merges its run PR once the required checks pass with a second workflow token minted for that step alone. The engine watchdog that brackets every engine step holds no token: it reports only on the runner, through the cell's own tail |
@@ -100,7 +102,7 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR, from a job that runs no agent and takes only the measured labels file and the measured block from `qp-topic-label`, as a one-day artifact handed off once the gate has passed. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
 | `promotion-prep` (`write` job only — the promotion train) | dev | contents, pull-requests | create a `promote/<date>` candidate branch at staging's tip (the one ref write; never an update, force push or deletion), open its draft PR into `main`, mark it ready, request the approvers' review, refresh the generated block of its body — and **merge it**, with a merge commit pinned to the head, using the dev App's `main: require approval` bypass. The merge runs only after the job re-reads, on the ambient token before minting, that the PR is open, ready and unchanged at the planned head, that an approver in `config/promotion-train.yaml` approved exactly that head with no change requested since, from every page of the reviews (`fedcourts promotion-train-approval`; a short or failed read is not approved), that no fan-out is in flight, and that the registry gate still passes; `main: require PR`'s required checks still bind the merge. The `plan` job before it decides and renders holding no write credential and no environment |
-| `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read (`chain` only) | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
+| `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. Both read the open PRs into `main` and their reviews first, standing down while a promotion is about to merge, and `chain` also reads its round's collect PR. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
 | `promotion-prep` (`dispatch-gate` job) | dispatch | actions write | start `integration-test` `scenario=gate` (`offline-gate` under the `promote:skip-engine-smoke` label) at a promotion candidate's `promote/<date>` branch, only while no dispatched integration run of any title sits at that head and ref: one paid suite per candidate, never re-dispatched by the train, and at most `max_gate_dispatches_per_day` (`config/promotion-train.yaml`) a UTC day across candidates. The run resolves the `staging` environment, spends staging's engine keys with no review hold, and is side-effect free like every integration run |
 | `corpus-check` (post job only) | none — the job's own token | pull-requests write | the one result comment on the PR the plan picked, its body's sha256 recorded in the job's run summary — since any workflow's comment-capable token posts as the same bot, that digest is what marks the lane's result. The ambient token, not an App's: the comment must start nothing, and the job runs no PR code, binds no environment and holds no `id-token`. The `run` job, which runs the PR's code, holds `contents: read` and `id-token` only, and runs that code as an account that can reach neither; `run-auto`, which runs `main`'s, holds the same |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
@@ -112,17 +114,19 @@ the App level the union of what its workflows mint:
   Pull-requests scope from it: the deterministic writers' issue writes must
   trigger nothing and so ride the ambient `GITHUB_TOKEN`. Dropping both grants
   at the App level is a safe tightening.)
-- **dev App**: Contents, Issues, and Pull requests — all *read and write*, and
-  **no Workflows permission** — a requirement, not a tightening: with it, a
+- **dev App**: Contents and Pull requests — both *read and write* (no
+  workflow mints an Issues scope from it: the collect jobs post to the
+  agent-feedback issue on the ambient token, so dropping an Issues grant at
+  the App level is a safe tightening), and **no Workflows permission** — a requirement, not a tightening: with it, a
   dev App token could create or update a ref carrying a workflow file, and
   the promotion train's `promote/` candidates, which the App creates and the
   `staging` environment admits, would put that workflow's push-run in reach
   of staging's role and keys. Verify it in the App's settings when setting up
   the train, and again whenever the App's permissions change; no workflow
   mints a Workflows scope from it.
-- **dispatch App**: Actions — *read and write*, and Pull requests — *read* (the
-  `chain` job waits on its round's collect PR before it dispatches). Nothing
-  else.
+- **dispatch App**: Actions — *read and write*, and Pull requests — *read*
+  (both chain jobs read the open promotion PRs and their reviews before they
+  dispatch, and `chain` also waits on its round's collect PR). Nothing else.
 - **staging App**: none needed — no workflow mints from it.
 
 After changing an App permission, **re-approve the installation** on the repo — a
@@ -785,11 +789,13 @@ them declares an environment, and every job outside `integration-test`,
 `run-analytics` and `summarize` declares `prod` — those three resolve the
 environment from the dispatching ref instead (the branch-resolution paragraph
 below; `summarize`'s publish job, which runs on `main` only, is the literal
-`prod`), which is what makes their staging dispatches rehearsals — with five
+`prod`), which is what makes their staging dispatches rehearsals — with seven
 deliberate exceptions, by environment: the two holds below,
 `corpus-check`'s `run` and `run-auto` jobs, which bind `corpus-check` and
-`corpus-check-auto` (the paragraphs after them), and the corpus writer jobs,
-which bind `corpus-write` (the paragraph after those). The `approval` jobs of run-predict,
+`corpus-check-auto` (the paragraphs after them), the corpus writer jobs,
+which bind `corpus-write` (the paragraph after those), `post-public-update`'s
+`post` job, which binds `website` (*The `website` environment*), and
+`staging-corpus-refresh`'s `refresh` job, which binds `staging`. The `approval` jobs of run-predict,
 run-evaluate, run-backtest and summarize declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables and no role, and its deployment branches
@@ -1022,7 +1028,8 @@ the ~8 known shapes) would pass. Relatedly, never put anything sensitive in a
 `GEMINI_CLI_*` variable: that prefix is an unconditional bypass of both screens.
 
 **Deployment branches are restricted to `main`** — on `prod`,
-`corpus-write`, `corpus-check` and `corpus-check-auto` (and to `staging` and
+`corpus-write`, `corpus-check`, `corpus-check-auto`, `review-auto` and
+`website` (and to `staging` and
 the promotion train's `promote/*` candidates on the `staging` environment,
 whose policy is load-bearing twice over: the
 read-only role's trust names it, and so does the one write-capable role
