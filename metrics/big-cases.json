@@ -1,10 +1,10 @@
 {
-  "cases": 303,
+  "cases": 304,
   "cases_out_of_scope": 0,
   "cases_without_score": 2,
   "coverage": [
     {
-      "cases": 271,
+      "cases": 272,
       "n": 3
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 907,
+  "current_reads": 910,
   "declared_no_view": 18,
   "frozen_process": {
     "digests": [
@@ -32064,6 +32064,122 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Reguli",
+      "caption": "Connie L. Reguli, et al. v. Tracy Hetzel, et al.",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000501",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A fact-bound \u00a71983 malicious-prosecution/immunity dispute between private plaintiffs and local Tennessee officials; the Heien/Chiaverini and Buckley questions have some doctrinal reach, but as framed they are case-specific error correction.",
+          "big_case_score": 0.12,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261016T142604Z"
+        },
+        {
+          "big_case_rationale": "Limits on civil liability for allegedly knowing prosecution of noncriminal conduct could affect police, prosecutors, and child-welfare officials nationally, but this petition presents a fact-specific Tennessee dispute with several independent immunity grounds.",
+          "big_case_score": 0.42,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261016T142604Z"
+        },
+        {
+          "big_case_rationale": "Routine error-correction petition by a private individual raising fact-specific Fourth Amendment and immunity issues with no significant national importance.",
+          "big_case_score": 0.0,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261016T142604Z"
+        }
+      ],
+      "docket_id": 9026000501,
+      "docket_number": "26-501",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-501.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A fact-bound \u00a71983 malicious-prosecution/immunity dispute between private plaintiffs and local Tennessee officials; the Heien/Chiaverini and Buckley questions have some doctrinal reach, but as framed they are case-specific error correction.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000501/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261016T142604Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000501/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261016T142604Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.02,
+              "run_id": "20261016T142604Z"
+            },
+            {
+              "big_case_rationale": "Limits on civil liability for allegedly knowing prosecution of noncriminal conduct could affect police, prosecutors, and child-welfare officials nationally, but this petition presents a fact-specific Tennessee dispute with several independent immunity grounds.",
+              "big_case_score": 0.42,
+              "cell_path": "data/cases/scotus/9026000501/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261016T142604Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000501/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261016T142604Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.025,
+              "run_id": "20261016T142604Z"
+            },
+            {
+              "big_case_rationale": "Routine error-correction petition by a private individual raising fact-specific Fourth Amendment and immunity issues with no significant national importance.",
+              "big_case_score": 0.0,
+              "cell_path": "data/cases/scotus/9026000501/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261016T142604Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000501/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261016T142604Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261016T142604Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Connie L. Reguli, et al. v. Tracy Hetzel, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.18,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-10-15",
+      "n": 3,
+      "other_party": "Hetzel",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Reguli's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Reguli's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.42,
+      "score_min": 0.0,
+      "score_range": 0.42,
+      "short_caption": "Reguli v. Hetzel",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Redding",
       "caption": "Stephanie M. Redding v. Markwayne Mullin, Secretary of Homeland Security",
       "caption_event_id": "evt-petition-disposition",
@@ -38801,5 +38917,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.2",
-  "scored_reads": 875
+  "scored_reads": 878
 }

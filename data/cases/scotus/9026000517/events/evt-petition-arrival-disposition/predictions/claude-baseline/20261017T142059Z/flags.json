@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9026000517",
+  "run_id": "20261017T142059Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "info", "event_id": "evt-petition-arrival-disposition",
+     "message": "Snapshot's only proceedings entry is dated Nov 07 2024 (petition filed) although the case was docketed 2026-10-16 with a response due 2026-11-16; the entry date may be a mis-parse or a long-delayed docketing. No petition documents were provisioned."}
+  ]
+}

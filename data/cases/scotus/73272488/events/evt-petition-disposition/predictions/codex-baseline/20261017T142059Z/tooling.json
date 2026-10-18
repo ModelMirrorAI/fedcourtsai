@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73272488",
+  "gaps": [
+    "The submitted opposition was not provisioned as text.",
+    "The generic web requests returned no usable content.",
+    "The statpack did not expose a top-level build timestamp."
+  ],
+  "helpful": [
+    "The petition appendix independently exposed the lower court's acknowledgment of the circuit disagreement and possible vehicle problems.",
+    "Exact statpack risk-set fields allowed pooling the matching band over all displayed prior Terms.",
+    "The frozen distribution count distinguished a likely redistribution after requested briefing from a substantive relist."
+  ],
+  "notes": "No CourtListener or remote-corpus retrieval was needed. A writable temporary package cache resolved the initial CLI cache-permission error. Only the six contract-named files in this cell's output directory were written.",
+  "role": "predictor",
+  "run_id": "20261017T142059Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local file reads",
+    "fedcourts paths",
+    "statpack pooling",
+    "web.run (two unsuccessful generic-rules lookups)",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

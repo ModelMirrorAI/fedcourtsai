@@ -1,0 +1,5 @@
+Distributed once so far, followed by a Call For Response on February 2, 2026. Expect at least one further distribution once the respondent's brief in opposition is filed, given the Court's affirmative interest. A CVSG is unlikely because the dispute is a private intentional tort (false imprisonment), which lacks the direct federal administrative or sovereign interest that usually prompts a CVSG in bankruptcy cases. 
+
+If granted, the Court would likely take QP 1 as written to resolve the entrenched circuit split over whether the "willful" prong of 11 U.S.C. § 523(a)(6) requires a subjective intent to cause legal injury or merely a deliberate act causing harm, clarifying the role of justification. 
+
+A summary disposition is highly unlikely, as the circuit split requires plenary review to resolve definitively. Should the Court deny the petition, expect no separate writing (dissent from denial), as the denial would likely turn on the messy vehicle (the general jury verdict) rather than disagreement over the importance of the legal issue.

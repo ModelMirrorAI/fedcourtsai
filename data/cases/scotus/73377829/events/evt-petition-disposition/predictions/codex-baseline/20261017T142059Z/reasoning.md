@@ -1,0 +1,37 @@
+# Rationale for the probabilities
+
+## Evidence and information boundary
+
+This is a forward cert-stage prediction for docket 25-1303, based on the provisioned `2026-10-10.json` snapshot, `context.json`, the event definition, `documents.json`, the questions-presented extraction, and relevant portions of the petition and its bound lower-court opinion. The event has no explicit stage or moment; the petition-disposition contract supplies the cert interpretation. I have not retrieved this petition's disposition, later docket history, other predictions, or evaluation artifacts, and I do not know its outcome.
+
+The frozen context supplies `baseline`, salience version `sal-v4`, Term 2025, and one distribution. The petitioner is a private individual; federal respondents do not make this a federal-petitioner case. The snapshot shows a requested response after an initial waiver, a motion for leave to file an amici brief, and three response extensions. The June response request is affirmative attention, not a CVSG or proof of four votes to grant. The extensions are scheduling events, not merits endorsements.
+
+The document manifest identifies a nonempty petition fetched July 17, 2026, with truncation, and a nonempty questions-presented extraction. I read the petition's substantive argument and relevant sections of Appendix A, including the appellate court's treatment of the abandoned EDR hearing and the unpreserved Title VII challenge. I did not treat the incomplete appendix as a complete record. No brief in opposition is provisioned. October 13 was the last response deadline in the snapshot, but it falls after that snapshot and before this prediction; I have not assumed whether a response actually arrived. The missing opposing submission limits confidence in the petition's framing and in timing. A generic web search and an attempted official-rules PDF open returned no usable content, so no external legal source informed the forecast.
+
+## Base-rate anchor
+
+I used the committed `metrics/statpack.md` sal-v4 table and `metrics/statpack.json`, not a live corpus query. Pooling every rendered Term strictly before this case's Term 2025 gives Terms 2017–2024. For the baseline band's bracketed reached population, the JSON's weighted denominators total 11,580 and the corresponding grant-family numerators total 593: 593 / 11,580 = 5.1209%. These are the committed pack's estimates, not an independently refreshed corpus measurement. No corpus freshness beyond the supplied snapshot and the committed pack is asserted.
+
+The modern-cert section's approximately 2.79% grant-family rate is a broader population check, not the selected paid/private anchor. I did not use the baseline band's much lower terminal rate, which would condition on the petition never advancing. I also read the paid-segment relist and CVSG cuts: the terminal relist-0 bucket is about 1.7% grant-family, relist-1 about 13.3%, relist-2 about 40.6%, and CVSG about 34.8%. These pooled terminal buckets describe selection and trajectory; they are neither forward increment hazards nor substitutes for the strictly-prior band anchor.
+
+## Why 7%, rather than the anchor or a large grant probability
+
+The response request after waiver is the strongest upward adjustment. It means the petition attracted enough interest to require an adversarial submission. The challenge also concerns a recurring institutional problem rather than only private damages: safeguards for federal judicial employees and the adequacy of the judiciary's own dispute-resolution system. The petition's account of reforms, its requested amici participation, and the published appellate decision make it more substantial than a typical low-signal petition.
+
+The decisive downward adjustments are vehicle quality and the breadth of the requested legal rule:
+
+- The bound appellate opinion expressly declined to reach the constitutional challenge to Title VII's exclusion of judicial employees because it was first raised on appeal from final judgment and no exceptional circumstances justified considering it. That is a concrete preservation obstacle, not a prediction about how respondents might argue. See petition Appendix A, pages 44a–45a.
+- The due-process holding depends heavily on the remedies available under Chapter X, petitioner's decision not to complete that hearing process, and findings about whether she reasonably believed effective remedies were unavailable. The appellate court reviewed factual findings for clear error and rejected that account. Those features complicate using this case to decide a broad structural constitutional question. See Appendix A, pages 11a–18a.
+- The petition emphasizes national importance and shortcomings of EDR, but I did not identify a developed, square conflict between appellate holdings on the questions presented. References to different employment practices and administrative decisions are not by themselves a conflict requiring Supreme Court resolution.
+- The petition itself acknowledges that Congress declined to extend the Congressional Accountability Act's coverage to the judiciary. Its reliance on the reporting requirement and Judicial Conference policy to require Title VII-equivalent protections therefore calls for a substantial interpretive step, not correction of an obvious failure to apply an express coverage provision. See petition pages 31–32.
+- The published judgment was unanimous among an externally designated panel. This does not settle whether the procedures are constitutional, but it weakens a simple inference that the challenged circuit merely adjudicated its own conduct without outside judicial participation. See Appendix A, page 2a.
+
+Taken together, I modestly raise the 5.12% anchor to 7%. The requested response and institutional importance support more than a routine-denial prior, while the preservation issue, fact-intensive merits, and lack of a demonstrated square split prevent an aggressive increase. The adjustments are qualitative judgments, not fitted likelihood ratios. A compelling opposing brief could lower the number; a persuasive demonstration that the preserved due-process issue cleanly presents a broader legal conflict could raise it.
+
+## Other claims and significance
+
+The 95% additional-distribution probability follows the specific interrupted briefing sequence, not the ordinary hazard from a completed first conference. It is consistent with a low grant probability: redistribution after receiving an ordered response can precede a routine denial. The 0.5% CVSG probability reflects the Solicitor General's existing party representation. Neither number comes from a published increment baseline.
+
+The 10% summary-route probability is conditional on a grant; its unconditional contribution to the grant forecast is 0.7 percentage points. The record supplies no obvious intervening-authority vehicle. The 8% denial-writing probability is likewise conditional on denial and balances substantial institutional concern against an unattractive vehicle. These are judgmental forecasts, not empirically measured frequencies.
+
+The 0.65 significance score measures the consequences of resolving the questions, not the chance of review. A ruling could shape remedies and procedural independence across the federal judicial workforce and affect public confidence in judicial accountability. The affected class is narrower than the general workforce, and this record may support only a limited ruling, keeping the score below the highest-stakes cases.

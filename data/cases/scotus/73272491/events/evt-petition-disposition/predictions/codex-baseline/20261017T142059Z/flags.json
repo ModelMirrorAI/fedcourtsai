@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73272491",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "Input limitation, not a blocking provisioning failure: documents.json marks the petition truncated and supplies no BIO. The October 10 snapshot shows a requested response due October 13 but none filed; I did not infer that the deadline was met or retrieve later target-case developments. The argument and relevant appellate appendix excerpt are available, so the forecast proceeds, with uncertainty about the government's vehicle and merits objections.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261017T142059Z",
+  "schema_version": "1.0"
+}
