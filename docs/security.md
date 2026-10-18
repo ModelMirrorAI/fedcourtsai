@@ -321,7 +321,8 @@ published.
 
 The three `main` rulesets are split so each rule's bypass is correct (a ruleset's
 bypass list applies to the whole ruleset); further rulesets protect the
-`staging` and `ops-metrics` branches. Three target tags rather than
+`staging`, `ops-metrics` and `promote/**` branches, and refuse the creation of
+any other casing of `main` and `staging`. Three target tags rather than
 branches. `tags: protect record` blocks update and deletion on the three
 record namespaces (`prereg/**`, `promotion/**`, `results/**`) with an empty
 bypass list, so even an admin must edit the ruleset before a record tag can
@@ -520,7 +521,12 @@ pre-registration record's commit ids.
   by hand, on that approval or through the admin bypass.
 - **`promote: restrict creation`** and **`promote: freeze`** — two branch
   rulesets over `refs/heads/promote/**`, the promotion train's candidates
-  (the pattern must be `**`: `promote/*` would leave `promote/a/b` open).
+  (the pattern must be `**`: `promote/*` would leave `promote/a/b` open), and
+  over `refs/heads/[Pp][Rr][Oo][Mm][Oo][Tt][Ee]/**` beside it. Ruleset
+  patterns match case-sensitively — a non-admin push of `Promote/x` passes a
+  ruleset over `promote/**` alone and is refused by the bracket pattern — so
+  the second include covers every casing of the prefix, whatever the
+  environment's `promote/*` branch policy makes of one.
   `promote: restrict creation` restricts creation, **bypass: the dev App and
   the repository admin role, both Always** — a ref creation is not a pull
   request — so only the train (or the maintainer) can cut one. `promote:
@@ -537,7 +543,9 @@ pre-registration record's commit ids.
   staging's first-parent chain, and the train acts on nothing else. The
   `contexts` stage checks both rulesets (`ruleset_checks.py`): some active
   ruleset covering every candidate restricts each of the four rules, and a
-  covering ruleset that freezes admits no App bypass. The freeze also refuses
+  covering ruleset that freezes admits no App bypass. It reads the
+  `refs/heads/promote/**` include alone, not the bracket include; the
+  `Promote/x` push below is what confirms that one. The freeze also refuses
   the repository's *Automatically delete head branches* setting on a merged
   candidate, which is intended: the branches are the train's record of which
   staging tips were cut.
@@ -548,11 +556,14 @@ pre-registration record's commit ids.
   branches. The other order opens a window: without `promote: restrict
   creation`, any write holder — the agent account included — could push a
   `promote/x` branch carrying its own `on: push` workflow, and that push-run
-  would bind the `staging` environment. Whether GitHub's environment branch
-  policy `promote/*` and the ruleset pattern `refs/heads/promote/**` agree on
-  case (a `Promote/x` branch) is not documented; confirm it on the first setup
-  by trying to create `Promote/x` as a non-admin and to bind `staging` from it,
-  and record the result here.
+  would bind the `staging` environment. Confirm the rulesets by pushing
+  `promote/x` and `Promote/x` from a non-admin account: both must be
+  refused. **The ruleset form adds `refs/heads/` itself**: type `promote/**`
+  into *Target branches*, not `refs/heads/promote/**`, which is stored as
+  `refs/heads/refs/heads/promote/**` and covers no branch. The `contexts`
+  stage reads the stored include and fails on that, with one
+  `no active branch ruleset restricts … of promote/**` error per unrestricted
+  rule.
 - **`main: protect history`** — blocks force-pushes and branch deletion. **No
   bypass — neither App.** This is what guarantees the committed *history* of
   the predictions, outcomes, and evaluations under `data/` cannot be rewritten
@@ -627,6 +638,19 @@ pre-registration record's commit ids.
   chain is one the train reports and never dispatches at, marks ready or
   merges, and one the required `promotion-gate` check fails on its
   `provenance` stage, so such a ref never reaches `main`.
+- **`case variants: restrict creation`** — restricts creation of
+  `refs/heads/[Mm][Aa][Ii][Nn]` and `refs/heads/[Ss][Tt][Aa][Gg][Ii][Nn][Gg]`,
+  **bypass: the repository admin role only**. Every environment that admits
+  `main` or `staging` by name (`prod`, `corpus-write`, `corpus-check`,
+  `corpus-check-auto`, `review`, `review-auto`, `website`, `staging`) does so through a branch policy,
+  and whether a policy matches case-insensitively is not documented; refusing every
+  other casing of those names at creation makes the question moot, so no
+  write holder can push a `Main` or `Staging` branch carrying its own
+  workflow. The rule fires only on creation, so the existing `main` and
+  `staging` branches are untouched; both are kept from deletion by their
+  history rulesets (`main: protect history`, `staging: protect history`). The `contexts` stage does not check this ruleset;
+  confirm it by pushing `Staging` from a non-admin account, which must be
+  refused.
 - **`ops-metrics: protect history`** — the same force-push and deletion block on the
   orphan `ops-metrics` branch, where `run-ops` appends its JSON snapshots and the
   corpus-writer path (`run-pull`, `run-seed` and `run-repair`, via the `publish-corpus-verdict`
