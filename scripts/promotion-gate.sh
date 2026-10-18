@@ -53,6 +53,16 @@
 #       administration read, which `GITHUB_TOKEN` cannot hold at all — hence
 #       not part of `promotion-gate.sh all`, and the maintainer's to run.
 #
+#   scripts/promotion-gate.sh contexts-due <sha>
+#       Whether this batch owes the `contexts` stage above: due when it changes
+#       anything that stage judges settings against — a workflow, this script,
+#       the required-check, ruleset or environment judgments, or the configs
+#       they read (`fedcourts contexts-due`, src/fedcourtsai/contexts_due.py).
+#       It prints the verdict and never fails the gate: `contexts` needs an
+#       admin-read token no CI job holds, so the verdict tells the maintainer
+#       which promotions to run it for, and a setting changed by hand needs it
+#       with no batch at all. Reads git alone; the caller fetches main first.
+#
 #   scripts/promotion-gate.sh registry <sha>
 #       Step 0 of a process move, checked on every batch: the process registry
 #       at <sha> must exist, load, and be stampable by the merge that carries
@@ -76,7 +86,8 @@
 #       git alone; the caller fetches staging first.
 #
 #   scripts/promotion-gate.sh all <sha> [<head-ref>]
-#       The quiesce, provenance, freshness and registry stages, in order.
+#       The quiesce, provenance, freshness and registry stages, in order, then
+#       the contexts-due verdict, which reports and never fails.
 #
 # quiesce and freshness need `gh` with Actions read (GH_TOKEN in CI); contexts
 # additionally needs repository administration read (see above); registry
@@ -669,6 +680,18 @@ registry() {
   fi
 }
 
+contexts_due() {
+  local sha="$1"
+  if ! git rev-parse --verify -q "origin/main^{commit}" >/dev/null; then
+    echo "::warning::contexts-due: origin/main is not fetched, so whether this batch owes the contexts stage was not read"
+    return
+  fi
+  # Advisory: a failed read is a warning, never a gate failure.
+  if ! uv run fedcourts contexts-due --at "$sha" --main-ref origin/main; then
+    echo "::warning::contexts-due: the batch's paths could not be read; run the contexts stage if unsure"
+  fi
+}
+
 case "${1:-}" in
   quiesce)
     quiesce
@@ -684,6 +707,9 @@ case "${1:-}" in
   contexts)
     contexts "${@:2}"
     ;;
+  contexts-due)
+    contexts_due "${2:?usage: promotion-gate.sh contexts-due <sha>}"
+    ;;
   registry)
     registry "${2:?usage: promotion-gate.sh registry <sha>}"
     ;;
@@ -693,9 +719,10 @@ case "${1:-}" in
     provenance "${2:?usage: promotion-gate.sh all <sha> [<head-ref>]}" "$ref"
     freshness "$2" "$ref"
     registry "$2"
+    contexts_due "$2"
     ;;
   *)
-    echo "usage: scripts/promotion-gate.sh {quiesce|freshness <sha> [<head-ref>]|provenance <sha> [<head-ref>]|contexts [candidate...]|registry <sha>|all <sha> [<head-ref>]}" >&2
+    echo "usage: scripts/promotion-gate.sh {quiesce|freshness <sha> [<head-ref>]|provenance <sha> [<head-ref>]|contexts [candidate...]|contexts-due <sha>|registry <sha>|all <sha> [<head-ref>]}" >&2
     exit 2
     ;;
 esac

@@ -141,6 +141,23 @@ def test_a_clean_gate_says_to_merge_with_a_merge_commit() -> None:
     assert "scenario=gate" not in block
 
 
+def test_the_contexts_verdict_is_shown_and_never_blocks() -> None:
+    """Due names what makes it so; a clean gate still says merge; unread says nothing."""
+    clean = [GateCheck(name="quiescence", ok=True), GateCheck(name="freshness", ok=True)]
+    due = render(
+        _batch(gate=clean, contexts_due=[f".github/workflows/w{i}.yml" for i in range(6)]),
+        drafted_at="t",
+    )
+    assert "contexts (admin read, run by hand): **due**" in due
+    assert "`.github/workflows/w0.yml`" in due and "(+1 more)" in due
+    assert "scripts/promotion-gate.sh contexts" in due
+    assert "merge with a **merge commit**" in due
+    not_due = render(_batch(gate=clean, contexts_due=[]), drafted_at="t")
+    assert "contexts (admin read, run by hand): **not due**" in not_due
+    unread = render(_batch(gate=clean), drafted_at="t")
+    assert "contexts (admin read" not in unread
+
+
 # --- splicing into an edited body --------------------------------------------
 
 

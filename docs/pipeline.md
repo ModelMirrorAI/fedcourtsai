@@ -1782,6 +1782,19 @@ The mechanics:
   refuses any other name).
   Re-run that check right before merging — quiescence is point-in-time (the
   train re-fires it by a body edit when it alone stands red).
+- **When a promotion owes the admin-read `contexts` stage.** `contexts`
+  (*Adding a required status check*, below) needs an admin-read token no CI
+  job holds, so it runs by hand rather than on every promotion. What it guards
+  drifts when a setting is changed by hand — run it after any settings change
+  — or when a batch changes what the settings are judged against: a workflow
+  (the required jobs, and every environment a job names, which GitHub creates
+  unprotected), the gate script, `required_checks.py`, `ruleset_checks.py`,
+  `environment_checks.py`, or the `config/corpus-check.yaml` and
+  `config/review-hold.yaml` they read. `promotion-gate.sh all` ends with a
+  `contexts-due` verdict naming any such path (`fedcourts contexts-due`), and
+  the promotion PR's generated block repeats it as *due* or *not due*. It
+  never fails the gate; on *due*, run `scripts/promotion-gate.sh contexts`
+  with your own token before merging.
 - **The engine-smoke skip, and how far it reaches.** Waiving the six
   token-spending engine runs costs every piece of evidence that real engines
   still run at the sha being promoted: that a cell completes in the production

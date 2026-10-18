@@ -864,9 +864,10 @@ trust second.** Once the read-only role's trust names
 and GitHub auto-creates a referenced environment with no reviewer and no
 branch policy, so until the environment exists, protected, any write holder
 can push a branch whose own workflow binds it and names the role. The
-promotion gate's `contexts` stage checks the environment unconditionally on
-every promotion (`fedcourtsai.environment_checks`, resolving the approver's
-user id at run time): it exists, its required reviewers are exactly the
+promotion gate's `contexts` stage checks the environment every time it runs
+(`fedcourtsai.environment_checks`, resolving the approver's user id at run
+time); it runs by hand with an admin-read token, after any settings change and
+on any promotion its `contexts-due` verdict marks *due*: it exists, its required reviewers are exactly the
 approver — no other user, no team — its
 branch policy admits exactly `main`, it holds no secret, and its variables are
 among the three above. The lane's plan job reads the environment too, with its

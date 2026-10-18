@@ -71,6 +71,8 @@
 # jail deciding what a promotion merge may stamp and push to `main`.
 /src/fedcourtsai/process_registry.json @modelmirror
 /src/fedcourtsai/registry_gate.py @modelmirror
+/src/fedcourtsai/contexts_due.py @modelmirror
+/tests/test_contexts_due.py @modelmirror
 /src/fedcourtsai/promotion_record.py @modelmirror
 /src/fedcourtsai/process_registration.py @modelmirror
 /tests/test_registry_gate.py @modelmirror

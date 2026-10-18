@@ -159,11 +159,13 @@ def test_the_contexts_stage_stays_out_of_the_automated_gates() -> None:
     """`contexts` reads a ruleset, which needs admin-level access; ci.yml's
     promotion-gate job holds only contents/actions/issues read. Wiring it into
     `all` — or into either automated call site — would turn a 403 on an advisory
-    fact into a blocked promotion, so it stays the maintainer's to run."""
+    fact into a blocked promotion, so it stays the maintainer's to run. The
+    `contexts_due` verdict is not this stage: it reads git alone, needs no
+    token, and is in `all` on purpose, to say which promotions owe it."""
     script = GATE_SCRIPT.read_text()
     assert "contexts)" in script, "the stage exists"
     all_stage = script.split("  all)", 1)[1].split(";;", 1)[0]
-    assert "contexts" not in all_stage
+    assert not re.search(r"(?<![\w-])contexts(?![\w-])", all_stage)
     for workflow in ("promote.yml", "ci.yml"):
         assert "promotion-gate.sh contexts" not in (WORKFLOWS / workflow).read_text()
 

@@ -85,6 +85,10 @@ class Batch(BaseModel):
     # admin escape hatch), whose change no feature PR's note covers.
     unmapped_commits: list[str] = []
     gate: list[GateCheck] = []
+    # The paths that make this batch owe the gate's admin-read `contexts`
+    # stage (`fedcourts contexts-due --json`); `None` when the job did not read
+    # them. Advisory: it never counts as a gate check that is not yet clean.
+    contexts_due: list[str] | None = None
     owed_fills: list[str] = []
     # The promotion's head ref: `staging` for a hand-opened promotion, or the
     # promotion train's frozen `promote/<date>` candidate, whose head is
@@ -216,6 +220,20 @@ def _gate_lines(batch: Batch) -> list[str]:
     return lines
 
 
+def _contexts_line(batch: Batch) -> list[str]:
+    """Whether the batch owes the admin-read `contexts` stage, which no CI token can run."""
+    if batch.contexts_due is None:
+        return []
+    if not batch.contexts_due:
+        return ["- contexts (admin read, run by hand): **not due** — nothing it judges changed"]
+    named = ", ".join(f"`{path}`" for path in batch.contexts_due[:5])
+    more = f" (+{len(batch.contexts_due) - 5} more)" if len(batch.contexts_due) > 5 else ""
+    return [
+        f"- contexts (admin read, run by hand): **due** — the batch changes {named}{more}.",
+        "  Run `scripts/promotion-gate.sh contexts` with an admin-read token before merging.",
+    ]
+
+
 def _next_step(batch: Batch) -> list[str]:
     """What the maintainer does next, in the order that keeps evidence valid.
 
@@ -294,6 +312,8 @@ def _header(batch: Batch, *, drafted_at: str) -> list[str]:
             "",
             f"**Gate status** (`{batch.head_ref}` at `{batch.staging_sha[:9]}`):",
             *_gate_lines(batch),
+            *_contexts_line(batch),
+            *_contexts_line(batch),
             "",
             *_train_next_step(batch),
         ]
@@ -305,6 +325,7 @@ def _header(batch: Batch, *, drafted_at: str) -> list[str]:
         "",
         f"**Gate status** (staging `{batch.staging_sha[:9]}`):",
         *_gate_lines(batch),
+        *_contexts_line(batch),
         "",
         *_next_step(batch),
     ]

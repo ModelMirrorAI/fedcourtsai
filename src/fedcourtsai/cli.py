@@ -50,6 +50,7 @@ from . import (
     blinding,
     casestore,
     cleanup,
+    contexts_due,
     corpus,
     corpus_check,
     corpus_index,
@@ -9856,6 +9857,32 @@ def registry_gate_cmd(
     if result.problems:
         raise typer.Exit(code=1)
     typer.echo(f"registry: {result.pending} pending, step 0 clean")
+
+
+@app.command("contexts-due")
+def contexts_due_cmd(
+    at: Annotated[str, typer.Option("--at", help="The batch's head: the commit to promote.")],
+    main_ref: Annotated[str, typer.Option("--main-ref", help="The ref the batch merges into.")],
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Print the due paths as a JSON list instead.")
+    ] = False,
+) -> None:
+    """Say whether a promotion owes the gate's admin-read ``contexts`` stage.
+
+    Due when the batch (the three-dot diff of ``--at`` over ``--main-ref``)
+    changes anything the stage judges settings against: a workflow, the gate
+    script, the required-check, ruleset or environment judgments, or the configs
+    they read (:data:`fedcourtsai.contexts_due.CONTEXTS_SENSITIVE`). Advisory and
+    never failing: it prints the verdict and exits 0, and exits 1 only when git
+    cannot read the diff. Reads git alone, so the caller fetches ``--main-ref``
+    first.
+    """
+    try:
+        due = contexts_due.contexts_due(contexts_due.batch_paths(Path.cwd(), at, main_ref))
+    except promotion_record.PromotionRecordError as exc:
+        typer.echo(f"::error::contexts-due: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(json.dumps(due) if as_json else contexts_due.verdict_line(due))
 
 
 @app.command("digest-census")

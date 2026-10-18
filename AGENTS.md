@@ -124,8 +124,10 @@ non-interactive** container. Two consequences shape everything you do:
   `scripts/ci_lane.py`, `tests/test_ci_lane.py`, `tests/lane_guard.py` and its
   registration in `tests/conftest.py`, and the ruleset and environment checks
   its admin-read stage runs, `src/fedcourtsai/ruleset_checks.py`,
-  `src/fedcourtsai/environment_checks.py` and their tests; and the process registry the gate's
-  Step 0 reads and a promotion merge stamps: `src/fedcourtsai/process_registry.json`,
+  `src/fedcourtsai/environment_checks.py`, with the verdict on when that stage
+  is due, `src/fedcourtsai/contexts_due.py`, and their tests; and the process
+  registry the gate's Step 0 reads and a promotion merge stamps:
+  `src/fedcourtsai/process_registry.json`,
   `src/fedcourtsai/registry_gate.py`, `src/fedcourtsai/promotion_record.py`,
   `src/fedcourtsai/process_registration.py` and their tests — a registration
   is a pre-registration, and the promotion record is what a bypass writer may
