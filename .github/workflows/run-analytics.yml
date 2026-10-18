@@ -1299,7 +1299,7 @@ jobs:
           # role-ARN/web-identity pair alike). The OIDC pair is checked too:
           # granting this job `id-token: write` would let the agent mint its own
           # web identity and assume the role with no AWS_* variable in sight.
-          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+          if env | grep -E '^AWS_' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
             echo "::error::AWS credential variables leaked into the job env"
             exit 1
           fi

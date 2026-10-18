@@ -535,24 +535,25 @@ spend:
   # (~1.7x the Term's average, clear of the heaviest month's build-up — whose
   # carve-out band is uncapped by construction — and of the lagging ledger)
   # and within days of a runaway burst, a mis-set capacity knob minting whole
-  # cohorts in single runs. It does NOT clear a sustained regression to a
-  # non-binding capacity cap ($2.0-2.7K per 30 days) — that trips the backstop
-  # on a rate. The derivation is the two measured figures above: the ~1.7x
+  # cohorts in single runs. At the derived figure it does NOT clear a
+  # sustained regression to a non-binding capacity cap ($2.0-2.7K per 30
+  # days) — that trips the backstop on a rate. The derivation is the two measured figures above: the ~1.7x
   # headroom over the Term's average and that $2.0-2.7K sustained-regression
   # band. What a breach then COSTS — a deferred forward cell re-minting as a
   # non-claimable retrospective cell once the outcome lands, and committed
   # re-forecast and re-grade campaigns drawing on this same ceiling — is in
   # `src/fedcourtsai/spend.py`.
   #
-  # The derivation above gives $2,500. The value below is that figure raised
-  # while a long conference's forecast and grading campaign sits inside the
-  # window: the campaign's own cells (~$930 over its three predict days, then
-  # daily grading) hold the trailing sum above $2,500 until they age out, and
-  # a breach would defer the cohort's last gradings and every new forward cell
-  # with it. At this value the backstop still stops a runaway burst but no
-  # longer trips on the sustained-regression band, so it returns to $2,500
-  # once the campaign's spend has left the window.
-  ceiling_usd: 4000.0
+  # The derivation above gives $2,500. The value below is that figure plus
+  # $500 of headroom: a long conference's forecast and grading campaign
+  # (~$930 over its three predict days, then daily grading) lifts the trailing
+  # sum toward $2,500 while it sits in the window, and a breach would defer
+  # the cohort's last gradings and every new forward cell with it. The price
+  # is the sustained-regression band: at $3,000 the backstop still stops a
+  # runaway burst within days but no longer trips on a $2.0-2.7K regression;
+  # through one, only the auto-release budget below it
+  # (config/review-hold.yaml) stops rounds running unattended.
+  ceiling_usd: 3000.0
   # The window the ceiling applies over, days. Sized to approximate the billing
   # period being protected, not a run (trailing, so it never aligns exactly
   # with a calendar cycle). NOTE the measurement lags: a cell's usage.json
