@@ -1,0 +1,8 @@
+- Queried CourtListener MCP server: `search` for `docket_number` "26-517" in `scotus` (0 results)
+- Queried CourtListener MCP server: `search` for `docket_number` "24-20354" in `ca5` (0 results)
+- Queried CourtListener MCP server: `search` for `case_name` "Alejandro Evaristo Perez" in `d` (1 result: C.D. Cal. case from 2021)
+- Queried CourtListener MCP server: `search` for `case_name` "Alejandro Evaristo Perez" in `o` (0 results)
+- Queried CourtListener MCP server: `search` for `case_name` "Perez v. Disney" in `d` (5 results, including S.D. Texas case 4:21-cv-00765 terminated 2024-08-01)
+- Queried CourtListener MCP server: `search` for `case_name` "Perez v. Disney" in `ca5` in `d` (0 results)
+- Read provisioned snapshot `2026-10-17.json` and context `context.json`.
+- Read metrics from `metrics/statpack.md`.

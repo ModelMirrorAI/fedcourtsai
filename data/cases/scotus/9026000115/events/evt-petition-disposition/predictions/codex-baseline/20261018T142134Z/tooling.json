@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000115",
+  "gaps": [
+    "General web requests returned no usable source text in this session."
+  ],
+  "helpful": [
+    "Petition appendix exposes the lower court's reasoning and procedural vehicle problems.",
+    "Frozen context distinguishes the current distribution count from a terminal relist bucket.",
+    "Statpack JSON permits exact pooling of the prior-Term reached-band anchor."
+  ],
+  "notes": "No case-outcome retrieval or live corpus query. The initial CLI cache error was resolved using a writable temporary cache. No BIO was supplied, consistently with the docket's response waiver.",
+  "role": "predictor",
+  "run_id": "20261018T142134Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Local provisioned-file reads",
+    "Committed statpack and local pooling calculation",
+    "fedcourts paths",
+    "Web search/open/find attempts"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

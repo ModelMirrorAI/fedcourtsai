@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000119",
+  "gaps": [
+    "No opposition text was provisioned.",
+    "General official-rule web attempts returned no usable content."
+  ],
+  "helpful": [
+    "Petition appendices exposed factual findings and procedural obstacles absent from the QP.",
+    "Matching sal-v4 risk-set denominators allowed exact prior-Term pooling.",
+    "CourtListener provided targeted context from an older precedent without seeking the target outcome."
+  ],
+  "notes": "The default uv cache was unwritable; a temporary cache and the existing environment allowed the path command to run. No live corpus lookup was needed. Increment probabilities are subjective; terminal signal buckets are not forward hazards.",
+  "role": "predictor",
+  "run_id": "20261018T142134Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned record reads",
+    "committed statpack",
+    "fedcourts paths",
+    "CourtListener search",
+    "CourtListener search_document",
+    "web retrieval attempts",
+    "read-only base-rate review"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
