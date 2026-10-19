@@ -65,7 +65,7 @@ from .. import corpus, ids
 from ..config import LiveConfig, PredictScope, SalienceConfig
 from ..matrix import event_has_predictions, last_predicted_dates, predicted_case_ids
 from ..registry import enabled_predictors
-from ..store import event_has_claimable_prediction, forecastable_events
+from ..store import event_has_claimable_prediction, forecastable_events, petition_distributed
 from ..supremecourt import (
     IFP_SERIAL_BASE,
     SupremeCourtClient,
@@ -134,10 +134,18 @@ class LiveResult:
     resolved: list[str]
     unrecorded_events: list[str]
     unrecorded_reason: str | None = None
-    # The conference this petition is distributed for after this poll.
-    # The caller compares it against the pre-poll value: a transition (fresh
-    # distribution or a relist's new date) is the predict trigger.
+    # The conference this docket is distributed for after this poll — its
+    # membership, read off any paper's distribution, so an ancillary motion's
+    # sets it too. The caller compares it against the pre-poll value.
     distributed: date | None = None
+    # The petition's own distributions after this poll (the ``dist-v2``
+    # trajectory count), and whether there is at least one
+    # (:func:`fedcourtsai.store.petition_distributed`). A transition is the
+    # predict trigger only once the petition itself is distributed, and a
+    # rise in the count is one even when the conference is unchanged — the
+    # petition distributed for the conference an ancillary motion already named.
+    distribution_count: int | None = None
+    petition_distributed: bool = False
     # A human-readable reason the fresh docket already reads as decided even
     # though resolution recorded no outcome (a SCOTUS terminal order the cert
     # resolver does not match — e.g. a Rule 39.8 dismissal), or None. Keeps such
@@ -312,6 +320,8 @@ def ingest_live_payload(
         unrecorded_events=[r.event_id for r in resolution.unrecorded],
         unrecorded_reason=resolution.unrecorded[0].reason if resolution.unrecorded else None,
         distributed=row.distributed_for_conference,
+        distribution_count=row.distribution_count,
+        petition_distributed=petition_distributed(row),
         # Form-keyed decided-guard: the cert scan on a cert docket, the
         # high-recall interim disposal scan on an application — the interim
         # resolver's vocabulary is exact-match, so a disposal it misses must
@@ -601,7 +611,7 @@ def discover_live(  # noqa: PLR0913 - soft-budget deadline + injected clock over
             ingested = ingest_live_payload(
                 corpus_db_path, data_root, payload, docket_id, today=today, form=form
             )
-            if ingested.distributed is not None and (
+            if ingested.petition_distributed and (
                 not gated or _in_predict_scope(corpus_db_path, ingested.case_id)
             ):
                 # Frontier catch-up on an already-distributed petition that the
@@ -786,12 +796,7 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
             )
             continue
         result = ingest_live_payload(corpus_db_path, data_root, payload, docket_id, today=today)
-        # The transition test: `row` is the pre-poll corpus row, so a fresh
-        # distribution (None -> date) and a relist (date -> new date) both
-        # trigger; an unchanged membership does not, however else the docket moved.
-        transitioned = (
-            result.distributed is not None and result.distributed != row.distributed_for_conference
-        )
+        transitioned = _distribution_transition(row, result)
         # The queue decision is made here so provisioning follows it: a
         # transition on a petition the salience latch defers spends neither
         # document fetches nor corpus blob. The latch read is the pre-pass
@@ -801,12 +806,13 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
             not gated or _in_predict_scope(corpus_db_path, result.case_id)
         )
         # A relist is a transition where `row` (the pre-poll state) already
-        # carried a distribution — as opposed to a petition's first ever
-        # distribution — so the cooldown never touches a case's first
+        # carried a petition distribution — as opposed to a petition's first
+        # ever distribution, which an ancillary paper's earlier one does not
+        # make a relist — so the cooldown never touches a case's first
         # prediction, only a repeat. The anchor is the pre-poll state on both
         # sides: `row.predict_queued_at` is the stamp as of before this poll,
         # and `minted` was read before the loop.
-        relisted = transitioned and row.distributed_for_conference is not None
+        relisted = transitioned and petition_distributed(row)
         last_mint = _last_predict_mint(row, minted.get(result.case_id))
         relist_suppressed = (
             queue_predict
@@ -995,6 +1001,24 @@ def poll_applications(  # noqa: PLR0913 - soft-budget deadline + injected clock 
             today=today,
         )
     return queues
+
+
+def _distribution_transition(row: corpus.CorpusRow, result: LiveResult) -> bool:
+    """Whether this poll moved the petition onto a conference: the predict trigger.
+
+    ``row`` is the pre-poll corpus row. The petition must be distributed in its
+    own right after the poll (an ancillary motion's distribution moves the
+    membership column but opens no distribution moment), and then a fresh
+    membership (None -> date), a relist's new date, or a rise in the petition's
+    own distribution count each trigger; the count catches the petition
+    distributed for the conference an ancillary paper already named, which
+    leaves the membership unchanged. Nothing else the docket did triggers.
+    """
+    if not result.petition_distributed:
+        return False
+    return result.distributed != row.distributed_for_conference or (
+        (result.distribution_count or 0) > (row.distribution_count or 0)
+    )
 
 
 def _decided_reason(result: LiveResult) -> str | None:
@@ -1537,15 +1561,15 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
         discovery.failed.extend(grace.failed)
     queues = PullQueues()
     for onboarded in discovery.onboarded:
-        # A brand-new row has no prior membership, so "distributed at all" is
-        # the transition test for the discovery path.
+        # A brand-new row has no prior distribution, so "the petition is
+        # distributed at all" is the transition test for the discovery path.
         _route_result(
             queues,
             corpus_db_path,
             data_root,
             onboarded,
             gated=gated,
-            queue_predict=onboarded.distributed is not None,
+            queue_predict=onboarded.petition_distributed,
             today=today,
         )
 

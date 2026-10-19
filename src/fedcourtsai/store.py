@@ -16,7 +16,7 @@ from datetime import UTC, date, datetime, timedelta
 from functools import cache, partial
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, Protocol
 
 from pydantic import BaseModel
 
@@ -206,6 +206,34 @@ def forecastable_events(
         return forecastable_event_ids(conn, court_id, docket_id, today=today)
 
 
+class DistributionColumns(Protocol):
+    """The two distribution columns, on a stored row or an ingestion row alike."""
+
+    @property
+    def distribution_count(self) -> int | None: ...
+
+    @property
+    def distributed_for_conference(self) -> date | None: ...
+
+
+def petition_distributed(row: DistributionColumns) -> bool:
+    """Whether the petition **itself** has been distributed for a conference.
+
+    The distribution moment opens at the petition's own first distribution, so
+    this reads the trajectory count, which ingest takes under the entry-initial
+    parse (``dist-v2``, :data:`~fedcourtsai.pipeline.cert_signals.DISTRIBUTION_PARSES`)
+    that leaves out an ancillary paper's distribution ("Motion (26M8)
+    DISTRIBUTED for Conference of …"). The ``distributed_for_conference``
+    column cannot answer it: it is the docket's conference *membership*, read
+    off any paper's distribution, so a sealing motion or a motion for leave
+    filed under a linked M-docket sets it before the petition is distributed
+    at all. The column stands in only where no count was ever derived.
+    """
+    if row.distribution_count is not None:
+        return row.distribution_count > 0
+    return row.distributed_for_conference is not None
+
+
 def _premature_distribution_cell(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:
     """Whether this is a SCOTUS distribution-moment cell with no distribution yet.
 
@@ -224,11 +252,13 @@ def _premature_distribution_cell(event: corpus.CorpusEvent, row: corpus.CorpusRo
     distributions — refusing it here would refuse the very cohort the moment
     exists for. An undeclared petition-kind event keeps the kind reading,
     which on a SCOTUS cert docket names the same distribution baseline.
+    "Distributed" is the petition's own distribution
+    (:func:`petition_distributed`), never an ancillary paper's.
     Non-SCOTUS rows have no distribution concept and are never premature.
     """
     if row is None or row.court != "scotus":
         return False
-    if row.distributed_for_conference is not None or row.distribution_count:
+    if petition_distributed(row):
         return False
     spec = moments.spec_for(event.event_id)
     if spec is not None:

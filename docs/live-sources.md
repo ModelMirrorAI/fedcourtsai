@@ -158,7 +158,13 @@ it bites only when a tier is starving the rest and the priority tiers govern
 otherwise.
 
 **Predict fires on the distribution transition** — a fresh distribution or a relist's new date — the cert-calendar analogue of
-`pull.predict_on_change_only`, for petitions the salience gate admits (a
+`pull.predict_on_change_only`, for petitions the salience gate admits. The
+transition is the **petition's own**: an ancillary paper's distribution (a
+sealing motion or a motion for leave under its own M-number, "Motion (26M8)
+DISTRIBUTED for Conference of …") moves the conference-membership column but
+opens no distribution moment, and the petition's own first distribution
+triggers even when it names the conference that paper already did
+(`store.petition_distributed`, read off the `dist-v2` count below). (A
 deferred petition's transition only keeps it on the watchlist; the cycle-end
 selection sweep queues what a later selection latches; a relist inside its
 requeue cooldown is suppressed instead — see
