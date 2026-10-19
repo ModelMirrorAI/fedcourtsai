@@ -83,7 +83,7 @@ on:
           - decision-record
           - opinion-record
       repair_mode:
-        description: "dry-run prints the pass's ledger and writes nothing for the pass itself; apply writes and pushes; prerequisites apply either way — see docs/data-pipeline.md, Maintenance passes."
+        description: "dry-run prints the pass's ledger and writes nothing off the runner (its prerequisites apply to the runner's copy only); apply runs the prerequisites and the pass and pushes — see docs/data-pipeline.md, Maintenance passes."
         required: false
         default: dry-run
         type: choice
@@ -379,9 +379,10 @@ jobs:
           echo "repair=${REPAIR} mode=${REPAIR_MODE} accepted; the step of record re-checks every refusal above."
 
   # The corpus passes: every pass that pulls the blob, mutates it and pushes.
-  # Structured like run-seed's writer job without the walk — same App token,
-  # same read-write role, same `corpus-write` environment, same pointer-commit
-  # shape.
+  # Structured like run-seed's writer job without the walk — on an apply, the
+  # same App token, read-write role, `corpus-write` environment and
+  # pointer-commit shape; a dry run keeps the environment and holds the
+  # read-only role alone (see the permissions below).
   repair:
     needs: [authorize, validate]
     # Named as an allow-list, never as "everything but the re-grade": this job
@@ -394,8 +395,8 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    # Join the repo-wide corpus-writer lock: one writer at a time across
-    # run-pull, run-seed and this bench. cancel-in-progress:false so a
+    # An apply joins the repo-wide corpus-writer lock: one writer at a time
+    # across run-pull, run-seed and this bench. cancel-in-progress:false so a
     # dispatch queues behind a running window rather than cancelling it.
     #
     # A job the `if:` will skip is given a unique throwaway group instead, the
@@ -404,14 +405,22 @@ jobs:
     # the group's single pending slot and evict an in-flight writer — or this
     # run's own real pass — before ever being skipped. The condition is the
     # `if:` above, repeated because no context available here can hold it once.
+    #
+    # A dry run takes the throwaway group too: it pushes nothing, so it has no
+    # pointer to race, and holding `corpus-write` for a read would queue the
+    # scheduled writer windows behind it — GitHub keeps one pending run per
+    # group, so a second arrival would evict a production window. Its pull may
+    # overlap a writer's push; the blob is content-addressed, so it reads one
+    # consistent version either way.
     concurrency:
-      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","amicus-rederive"]'), inputs.repair) && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","amicus-rederive"]'), inputs.repair) && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-24.04
     # Headroom over the longest chain of capped steps a dispatch can run, which
     # is the OCR recovery's: the dedupe prerequisite (10m), its own binary
-    # install (5m), the fresh credential pair (the assume-role's own 120s
-    # bound) and the pass (45m), leaving the setup, the corpus pull and the
+    # install (5m), the fresh credentials (the assume-role's own 120s bound;
+    # an apply's App token and read-write session, a dry run's read-only
+    # session) and the pass (45m), leaving the setup, the corpus pull and the
     # trailing verdict inside the remainder. A hit here cancels the run,
     # which no failure handling absorbs. Every pass but the OCR one still runs
     # entirely inside the opening credentials' 1h lives; the OCR pass alone
@@ -434,22 +443,31 @@ jobs:
       # all: the content-store mirror and `corpus-push` (`remote_writes` in
       # fedcourtsai/config.py). Set by the corpus writer jobs alone, on their
       # own `env:`; any other job's corpus writes stay local whatever
-      # credential it holds (tests/test_workflow_corpus_write.py).
-      FEDCOURTS_REMOTE_WRITES: "true"
+      # credential it holds (tests/test_workflow_corpus_write.py). On for an
+      # apply only: a dry run applies the dedupe prerequisite to this runner's
+      # copy, and with the switch off those writes stay on the runner.
+      FEDCOURTS_REMOTE_WRITES: ${{ inputs.repair_mode == 'apply' && 'true' || '' }}
     # The ambient GITHUB_TOKEN reads only: the checkout uses it, which is what
     # `contents: read` is for. Every WRITE — the corpus push and every gh call —
     # runs on the App token instead, so the ambient one carries no write at all.
+    #
+    # The two modes carry different risk, so they hold different credentials.
+    # An apply holds the lock above, the read-write role and the App token. A
+    # dry run holds the read-only role alone: it mints no token, takes no lock,
+    # and writes only to this runner's copy of the corpus, which is what the
+    # maintainer reads before deciding to apply.
     permissions:
       contents: read
-      id-token: write # assume the AWS role for the corpus S3 remote (read-write)
+      id-token: write # assume the AWS role for the corpus S3 remote (read-only on a dry run)
     steps:
-      # One token up front: on every pass but the OCR recovery the whole run
-      # stays inside its 1h life. The OCR pass and anything after it can end
+      # An apply mints one token up front: on every pass but the OCR recovery
+      # the whole run stays inside its 1h life. The OCR pass and anything after it can end
       # past that hour, so a fresh token is minted just before that step and
       # the trailing verdict rides whichever mint is newest. Scoped to
       # contents:write only (the corpus pushes) — progress goes to the Actions
       # step summary, not an issue, so no issues:write is needed.
       - name: Mint app token
+        if: ${{ inputs.repair_mode == 'apply' }}
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
@@ -469,7 +487,8 @@ jobs:
         # stale base, so the corpus blob it pulls and mutates is built on an
         # obsolete pointer and the final commit cannot rebase onto the advanced
         # tip (an unmergeable corpus/corpus.db.ref conflict). Reset to the live tip
-        # first, under the lock, so we always mutate the latest committed corpus.
+        # first (under the lock, on an apply), so we always mutate the latest
+        # committed corpus.
         # The repo is public, so this read-only fetch needs no credentials.
         run: |
           set -euo pipefail
@@ -481,6 +500,7 @@ jobs:
           restore-cache: "false"
 
       - name: Configure git identity
+        if: ${{ inputs.repair_mode == 'apply' }}
         uses: ./.github/actions/configure-git-identity
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -492,6 +512,7 @@ jobs:
       # pass but the OCR recovery, which re-assumes the role just before its
       # own step runs.
       - name: Configure AWS credentials (corpus S3 remote, read-write)
+        if: ${{ inputs.repair_mode == 'apply' }}
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
@@ -503,6 +524,20 @@ jobs:
           # the action does not clear its timer on the error path, so ANY failing
           # assume-role now burns the full 120s and ends on "Action timed out"
           # rather than its own message; the real cause is earlier in the log.
+          action-timeout-s: 120
+
+      # A dry run reads the index and the content store and writes nothing
+      # remote, so it takes the read-only role, for the same 1h session. Every
+      # condition here is the apply's negation, so exactly one of the two
+      # credential steps runs on any dispatch.
+      - name: Configure AWS credentials (corpus S3 remote, read-only)
+        if: ${{ inputs.repair_mode != 'apply' }}
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 3600 # 1h
+          # Bounded for the read-write step's reason.
           action-timeout-s: 120
 
       - name: Pull the current corpus from the remote
@@ -538,23 +573,28 @@ jobs:
       # property — the implicit `success()` already skips them — and it states
       # the prerequisite where a reader of one pass will see it.
       #
-      # It runs in `dry-run` dispatches too, and its apply is a write a dry-run
-      # dispatch performs. That is deliberate: the ledger a maintainer reads
-      # off a dry run is what they then apply on, so it has to describe the
-      # same deduped population the apply will act on. The scope reconcile
-      # below is the other one, on the pass that needs it.
+      # It runs in `dry-run` dispatches too, and applies there — to this
+      # runner's copy only. The ledger a maintainer reads off a dry run is
+      # what they then apply on, so the pass must read the same deduped
+      # population the apply will act on; a dry run gets that by merging
+      # locally and stopping before the push, with the remote-writes switch
+      # off and the read-only role, so nothing it merges leaves the runner.
+      # Its ledger moves stay uncommitted on a dry run, so a later pass's
+      # fast-forward to a tip that touched a moved path refuses and the dry
+      # run fails closed; re-dispatch it.
+      # The scope reconcile below does the same, on the pass that needs it.
       - name: Dedupe live-minted duplicate rows
         id: dedupe-live-rows
         timeout-minutes: 10
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to dedupe.
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping dedupe"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
           # The merge reads committed `data/` as a refusal guard (a twin whose
           # events carry committed cell output must not merge), so it needs the
           # remote tip, not this checkout's — a collect PR merging output under
@@ -568,6 +608,11 @@ jobs:
           # outlive the step log the way each pass's does.
           uv run fedcourts dedupe-live-rows 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           uv run fedcourts dedupe-live-rows --apply
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run: dedupe applied to this runner's copy only; nothing pushed."
+            exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
           # Blob before pointer commit, as everywhere.
           uv run fedcourts corpus-push
           # The merge writes both halves: the re-keyed rows into the corpus and
@@ -598,14 +643,19 @@ jobs:
         timeout-minutes: 10
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
         run: |
           set -euo pipefail
           # No committed pointer means no corpus — nothing to reconcile.
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping scope reconcile"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
           uv run fedcourts reconcile-scope --apply
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run: scope latch applied to this runner's copy only; nothing pushed."
+            exit 0
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
           # Blob before pointer commit, as everywhere.
           uv run fedcourts corpus-push
           git add corpus/corpus.db.ref
@@ -653,7 +703,9 @@ jobs:
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping unlatch-overselected"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
           # Dry-run first, into the summary: the cleared-id ledger is the
           # reading the apply is decided on, and it must outlive the step log.
           uv run fedcourts unlatch-overselected 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
@@ -702,7 +754,9 @@ jobs:
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping questions-presented backfill"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
           # Dry-run first, into the summary: the reason-class ledger is the
           # triage record, and it must outlive the step log either way.
           uv run fedcourts backfill-questions-presented 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
@@ -787,7 +841,9 @@ jobs:
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping the distribution re-derivation"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
           # One pass, whichever mode: the command's plan IS its write set, so an
           # apply prints the same report a dry run would and a separate dry run
           # ahead of it would only repeat a full-population read over the
@@ -862,7 +918,9 @@ jobs:
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping the docket-marking convergence"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
           # Dry-run first, into the summary: the per-row ledger — each old and
           # new spelling, and which rows already share a normalized identity —
           # is the reading the apply's bound comes from, and it must outlive
@@ -939,7 +997,9 @@ jobs:
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping the response-signal backfill"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
           # Dry-run first, into the summary: the fill ledger — each row with the
           # dates it gains, beside the counts of rows read with nothing to fill,
           # with no stored snapshot, and whose snapshot discloses no proceedings
@@ -1014,9 +1074,10 @@ jobs:
       # step means the pass starts each grant's clock at zero, so its 45-minute
       # cap fits with room to spare; every other pass keeps the opening pair.
       # Conditions mirror the pass step's own, so the grants are refreshed
-      # exactly when they will be used.
+      # exactly when they will be used; a dry run re-mints only the read-only
+      # role, since it holds no App token and no write grant to refresh.
       - name: Mint app token (OCR pass)
-        if: ${{ inputs.repair == 'ocr-recovery' && steps.dedupe-live-rows.outcome == 'success' }}
+        if: ${{ inputs.repair == 'ocr-recovery' && inputs.repair_mode == 'apply' && steps.dedupe-live-rows.outcome == 'success' }}
         id: app-token-ocr
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
@@ -1025,10 +1086,20 @@ jobs:
           permission-contents: write
 
       - name: Configure AWS credentials (corpus S3 remote, read-write, OCR pass)
-        if: ${{ inputs.repair == 'ocr-recovery' && steps.dedupe-live-rows.outcome == 'success' }}
+        if: ${{ inputs.repair == 'ocr-recovery' && inputs.repair_mode == 'apply' && steps.dedupe-live-rows.outcome == 'success' }}
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 3600 # 1h
+          # See the opening credentials step for what this bound buys and costs.
+          action-timeout-s: 120
+
+      - name: Configure AWS credentials (corpus S3 remote, read-only, OCR pass)
+        if: ${{ inputs.repair == 'ocr-recovery' && inputs.repair_mode != 'apply' && steps.dedupe-live-rows.outcome == 'success' }}
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           role-duration-seconds: 3600 # 1h
           # See the opening credentials step for what this bound buys and costs.
@@ -1104,7 +1175,9 @@ jobs:
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping the OCR recovery"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
           # The dry run IS the reading, and on an apply there is nothing for a
           # preceding one to add: this pass's own ledger states the class it
           # found before it wrote, so the receipt the other passes get from a
@@ -1324,7 +1397,9 @@ jobs:
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping the document backfill"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
           # The dry run spends one paced docket GET per candidate — running
           # `select_documents` over a freshly served payload is the whole
           # diagnostic, and it is what separates a case with a link waiting for
@@ -1561,7 +1636,9 @@ jobs:
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping the arrival-stamp backfill"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
           # Dry-run first, into the summary: this pass's ledger is the reading
           # the apply's bound comes from, and it must outlive the step log. Four
           # things a maintainer weighs there beyond the count.
@@ -1711,7 +1788,9 @@ jobs:
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping the merits-phantom removal"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
           # The pass reads committed ledger artifacts out of `data/` and
           # deletes beside them, and this checkout is only as fresh as the
           # sync — read the remote tip first so the skip guards see every
@@ -1854,7 +1933,9 @@ jobs:
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping disposition convergence"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
           # The sweep reads committed ledger artifacts out of `data/` and
           # rewrites beside them, so it needs the remote tip, not this
           # checkout's — the scored-cell holdback is keyed on grades that
@@ -1940,7 +2021,9 @@ jobs:
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping the outcome pass"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
           # The pass reads committed ledger artifacts out of `data/` — which
           # moments already carry an outcome, which carry a prediction — and
           # writes beside them, so it needs the remote tip, not this checkout's.
@@ -2035,7 +2118,9 @@ jobs:
           if [ ! -f corpus/corpus.db.ref ]; then
             echo "no corpus pointer yet; skipping the amicus re-derivation"; exit 0
           fi
-          gh auth setup-git # persist-credentials is false on checkout
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
           # The re-freeze reads committed `outcome.json` out of `data/` and
           # rewrites beside them, so it needs the remote tip, not this checkout's
           # — an interim outcome minted by a collect PR since the last sync must
@@ -2113,8 +2198,12 @@ jobs:
       # as describing the runner's blob, not the committed corpus. Closing it
       # means gating this step on every pass's outcome, which is a wider change
       # than this one.
+      #
+      # Apply only. A dry run holds no App token to publish with, and its blob
+      # carries the dedupe it applied locally and never pushed, so a verdict
+      # over it would describe a corpus nobody committed.
       - name: Produce + publish the corpus validation verdict
-        if: ${{ !cancelled() && steps.corpus-pull.outcome == 'success' }}
+        if: ${{ !cancelled() && inputs.repair_mode == 'apply' && steps.corpus-pull.outcome == 'success' }}
         continue-on-error: true
         uses: ./.github/actions/publish-corpus-verdict
         with:

@@ -836,14 +836,14 @@ those three are run-seed's whole dispatch surface; the maintenance passes live
 on **run-repair**.
 
 **run-repair** is the maintainer's repair bench — `workflow_dispatch` only, no
-schedule, one pass per dispatch, dry-run by default, and
+schedule, one pass per dispatch, dry-run by default, and on an apply
 joined to the same `corpus-write` lock so a pass can never interleave with a
 window's corpus push. It carries a generic selector: `repair` names the pass,
 `repair_mode` is `dry-run` or `apply`, `repair_bound` carries the blast-radius
 count, `repair_target` the pass's named subject, and `repair_options` its closed
-vocabulary of switches. `dry-run` means the selected pass writes nothing — the
-prerequisites each pass is gated on still apply, so a dry-run dispatch can move
-the corpus pointer by a convergence a scheduled window would have made anyway.
+vocabulary of switches. `dry-run` writes nothing off the runner: the
+prerequisites each pass is gated on apply to the runner's copy alone, under the
+read-only role, with no App token and no lock.
 [data-pipeline.md](data-pipeline.md#maintenance-passes) is the contract — what
 each pass accepts, every refusal, the `dedupe-live-rows` prerequisite each
 pass in the corpus job is gated on, and the dispatch commands.
