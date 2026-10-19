@@ -4884,6 +4884,83 @@ class SetAsideEventsRegistry(_Strict):
     events: list[SetAsideEvent] = Field(description="The listed events, in the order declared")
 
 
+#: A release slug: lower-case words joined by single hyphens, so it is a URL path
+#: segment as written.
+RELEASE_SLUG_PATTERN: Final = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
+#: A DOI as the release documents cite it (``10.<registrant>/<suffix>``), never a URL.
+DOI_PATTERN: Final = r"^10\.[0-9]{4,9}/[^\s]+$"
+#: A repository path to a release document: relative, Markdown, under ``docs/``.
+RELEASE_DOC_PATTERN: Final = r"^docs/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\.md$"
+
+
+class ReleaseEntry(_Strict):
+    """One results release in the release manifest (``docs/releases.json``).
+
+    The fedcourts.ai site reads the manifest from ``main`` and each release's
+    documents from the release's own tag, so the list can grow while every
+    published page stays fixed to its tagged text. An entry whose tag does not
+    exist yet is shown there as upcoming.
+    """
+
+    slug: str = Field(
+        pattern=RELEASE_SLUG_PATTERN,
+        description="The release's URL path segment on the site (`/results/<slug>`)",
+    )
+    label: str = Field(min_length=1, description='The release\'s short name, e.g. "Release 1"')
+    tag: str = Field(
+        pattern=r"^results/[A-Za-z0-9._-]+$",
+        description="The git tag the release is published from, in the `results/` namespace",
+    )
+    published: date = Field(description="The release's publication date")
+    covers: str = Field(
+        min_length=1, description="One line, for a lay reader, on what the release covers"
+    )
+    summary: str = Field(
+        pattern=RELEASE_DOC_PATTERN,
+        description="Repository path of the release's public summary, read at `tag`",
+    )
+    audit: str = Field(
+        pattern=RELEASE_DOC_PATTERN,
+        description="Repository path of the release's audit write-up, read at `tag`",
+    )
+    data_doi: str | None = Field(
+        default=None,
+        pattern=DOI_PATTERN,
+        description="The DOI of the release's Zenodo dataset record; null until reserved",
+    )
+    code_doi: str | None = Field(
+        default=None,
+        pattern=DOI_PATTERN,
+        description="The DOI the release cites for the code that produced it (the "
+        "software record on Zenodo, beside the tag that pins the exact code); null "
+        "until one exists",
+    )
+
+
+class ReleaseManifest(_Strict):
+    """``docs/releases.json`` — every results release, newest first.
+
+    Committed beside the releases it describes and promoted with them, so
+    publishing a release needs no change to the site that lists it.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    releases: list[ReleaseEntry] = Field(description="The releases, newest first")
+
+    @model_validator(mode="after")
+    def _releases_cohere(self) -> ReleaseManifest:
+        """One page per slug, one entry per tag, newest first."""
+        for field in ("slug", "tag"):
+            values = [getattr(entry, field) for entry in self.releases]
+            repeated = sorted({v for v in values if values.count(v) > 1})
+            if repeated:
+                raise ValueError(f"release {field} listed more than once: {', '.join(repeated)}")
+        dates = [entry.published for entry in self.releases]
+        if dates != sorted(dates, reverse=True):
+            raise ValueError("releases must be listed newest first by `published`")
+        return self
+
+
 class SetAsideRecord(_Strict):
     """The cells a board's build set aside from its default figures, and why.
 
@@ -11889,4 +11966,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "process_registry": ProcessRegistry,
     "voided_events": VoidedEventsRegistry,
     "set_aside_events": SetAsideEventsRegistry,
+    "release_manifest": ReleaseManifest,
 }
