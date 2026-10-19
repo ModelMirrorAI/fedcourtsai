@@ -1596,7 +1596,7 @@ def test_a_row_carries_its_upcoming_conference_from_the_committed_schedule(
     )
     rows = {row.case_id: row for row in _board(tmp_path).rows}
     assert rows["scotus/1"].scheduled == BigCaseScheduled(
-        kind="conference", date=date(2026, 10, 30), as_of=date(2026, 10, 19)
+        kind="conference", date=date(2026, 10, 30)
     )
     assert rows["scotus/2"].scheduled is None
 

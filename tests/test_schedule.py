@@ -121,15 +121,20 @@ def test_cli_schedule_writes_and_a_skipped_build_leaves_the_committed_file(
 ) -> None:
     data_root, _ = _seed(
         tmp_path,
-        [_row("scotus/2", distributed_for_conference=date(2999, 1, 1))],
-        public=["scotus/2"],
+        [
+            _row("scotus/2", distributed_for_conference=date(2026, 10, 30)),
+            _row("scotus/3", distributed_for_conference=date(2026, 10, 16)),
+        ],
+        public=["scotus/2", "scotus/3"],
     )
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
-    result = CliRunner().invoke(cli_module.app, ["schedule"])
+    result = CliRunner().invoke(cli_module.app, ["schedule", "--today", _AS_OF.isoformat()])
     assert result.exit_code == 0, result.output
     written = read_model(schedule_path(data_root), Schedule)
-    assert [entry.next_conference for entry in written.entries] == [date(2999, 1, 1)]
+    assert written.as_of == _AS_OF
+    assert [entry.next_conference for entry in written.entries] == [date(2026, 10, 30), None]
+    assert not list(schedule_path(data_root).parent.glob("*.tmp"))
 
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "absent"))
     result = CliRunner().invoke(cli_module.app, ["schedule"])
@@ -192,6 +197,28 @@ def test_a_schedule_failure_never_fails_the_live_cycle(
     assert result.exit_code == 0, result.output
     assert (tmp_path / "p.json").exists()
     assert not schedule_path(tmp_path / "data").exists()
+
+
+def test_a_write_that_fails_partway_leaves_the_committed_schedule(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    data_root, db = _seed(
+        tmp_path,
+        [_row("scotus/2", distributed_for_conference=date(2026, 10, 30))],
+        public=["scotus/2"],
+    )
+    committed = Schedule(as_of=date(2026, 10, 1))
+    write_json(schedule_path(data_root), committed)
+
+    def _truncating(path: Path, model: Any) -> None:
+        path.write_text('{"schema_version"')
+        raise OSError("disk full")
+
+    monkeypatch.setattr(cli_module, "write_json", _truncating)
+    with pytest.raises(OSError, match="disk full"):
+        cli_module._write_schedule(data_root, db, schedule_path(data_root), as_of=_AS_OF)
+    assert read_model(schedule_path(data_root), Schedule) == committed
+    assert not list(schedule_path(data_root).parent.glob("*.tmp"))
 
 
 #: The modules that build what a predict or evaluate cell is handed. A scheduled

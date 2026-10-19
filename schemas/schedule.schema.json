@@ -2,7 +2,7 @@
   "$defs": {
     "ScheduleEntry": {
       "additionalProperties": false,
-      "description": "One pending, already-public docket's next scheduled conference.\n\nA row exists for every docket on the public set whose corpus row is\nunresolved and carries a conference it was distributed for. The date is\npublished as `next_conference` only while it is still ahead of the\nschedule's `as_of`; once it has passed and the docket has not moved, the\nrow keeps the date it was distributed for and says why it is no longer a\nscheduled date, so a past conference is never shown as upcoming.",
+      "description": "One pending, already-public docket's next scheduled conference.\n\nA row exists for every docket on the public set whose corpus row is\nunresolved and carries a conference it was distributed for. The date is\npublished as `next_conference` only while it falls on or after the\nschedule's `as_of`; once it has passed and the docket has not moved, the\nrow keeps the date it was distributed for and says why it is no longer a\nscheduled date, so a past conference is never shown as upcoming.",
       "properties": {
         "case_id": {
           "description": "``<court>/<docket>`` of an already-public case",

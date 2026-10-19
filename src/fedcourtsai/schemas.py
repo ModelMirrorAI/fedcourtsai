@@ -7741,7 +7741,7 @@ class ScheduleEntry(_Strict):
 
     A row exists for every docket on the public set whose corpus row is
     unresolved and carries a conference it was distributed for. The date is
-    published as `next_conference` only while it is still ahead of the
+    published as `next_conference` only while it falls on or after the
     schedule's `as_of`; once it has passed and the docket has not moved, the
     row keeps the date it was distributed for and says why it is no longer a
     scheduled date, so a past conference is never shown as upcoming.
@@ -9536,7 +9536,7 @@ class BigCaseCurrentRead(_Strict):
 
 
 # `BigCaseScheduled` names a field `date`, which would shadow the type inside its
-# own class body; its annotations spell the type through this alias instead.
+# own class body; its annotation spells the type through this alias instead.
 _Day = date
 
 
@@ -9546,9 +9546,8 @@ class BigCaseScheduled(_Strict):
     kind: Literal["conference"] = Field(
         description="What is scheduled: `conference`, the conference the docket is distributed for"
     )
-    date: _Day = Field(description="The scheduled day, on or after `as_of`")
-    as_of: _Day = Field(
-        description="The schedule's `as_of`: the day the date was last confirmed ahead. A "
+    date: _Day = Field(
+        description="The scheduled day, on or after the day the schedule was last built. A "
         "reader rendering later drops a date that has since passed rather than show it "
         "as upcoming"
     )
@@ -9655,7 +9654,8 @@ class BigCaseRow(_Strict):
         default=None,
         description="The case's next scheduled date, joined from the committed "
         "`data/schedule/schedule.json` by the `schedule_rule` provenance string; None where "
-        "the schedule carries no upcoming date for the case. Display-only",
+        "the schedule carries no upcoming date for the case. Carries no `as_of`, so the "
+        "board moves only when a case's date does. Display-only",
     )
     status: Literal["pending", "partly_resolved", "resolved"] = Field(
         description="Resolution state across **all** the case's predicted events, derived "
@@ -9783,8 +9783,7 @@ class BigCaseProvenance(_Strict):
     )
     schedule_rule: str | None = Field(
         default=None,
-        description="Where `scheduled` comes from and when it is null; None on a board "
-        "built before the field existed",
+        description="Where `scheduled` comes from and when it is null",
     )
     process_label: str = Field(
         description="The process label in force when the board was built — what a "

@@ -3314,8 +3314,9 @@ _BIG_CASE_SCHEDULE_RULE = (
     "the live poll writes from the conference each pending public docket's newest "
     "'DISTRIBUTED for Conference of ...' entry names. It is null where the case is not on "
     "the schedule (decided, never distributed, or not read by the live channel) and where "
-    "the conference had already passed on the schedule's `as_of`. `as_of` travels with the "
-    "date: a reader rendering after a later day drops a date that has since passed. A "
+    "the conference had already passed on the day the schedule was built. The row carries no "
+    "build day, so the board moves only when a case's date does; a reader rendering on a "
+    "later day drops a date that has since passed rather than show it as upcoming. A "
     "schedule moves on every relist, so the field is display-only and never a ledger record: "
     "nothing predicts, evaluates or scores on it, and no cell is provisioned with it."
 )
@@ -3653,7 +3654,7 @@ def _committed_schedule(data_root: Path) -> dict[str, BigCaseScheduled]:
 
     Only the rows the schedule itself still holds upcoming: a row whose
     conference had passed when the schedule was written carries no date, and
-    joins as none. Absent until the live poll first writes it, and an unreadable
+    joins as none. Absent when no live poll has written it, and an unreadable
     file degrades the same way, loudly: a display field is not worth the board.
     """
     path = schedule_path(data_root)
@@ -3668,12 +3669,8 @@ def _committed_schedule(data_root: Path) -> dict[str, BigCaseScheduled]:
             file=sys.stderr,
         )
         return {}
-    if committed.as_of is None:
-        return {}
     return {
-        entry.case_id: BigCaseScheduled(
-            kind="conference", date=entry.next_conference, as_of=committed.as_of
-        )
+        entry.case_id: BigCaseScheduled(kind="conference", date=entry.next_conference)
         for entry in committed.entries
         if entry.next_conference is not None
     }
@@ -3949,8 +3946,9 @@ def build_big_case_board(
     Ledger-only: it reads ``data/`` and nothing else — the predictions, the
     committed qp-topic labels for the docket numbers a CourtListener id does not
     carry, every committed event definition's caption for the cross-petition
-    test, and the committed schedule for each row's next conference — with no corpus, no network, no credentials, no clock, so it runs
-    anywhere a checkout exists and reruns over
+    test, and the committed schedule for each row's next conference — with no
+    corpus, no network, no credentials, no clock, so it runs anywhere a
+    checkout exists and reruns over
     an unchanged ledger reproduce the artifact byte for byte. That is also why it
     stamps no time and no commit: the board's vintage is the commit that wrote
     it.

@@ -263,7 +263,7 @@
             }
           ],
           "default": null,
-          "description": "Where `scheduled` comes from and when it is null; None on a board built before the field existed",
+          "description": "Where `scheduled` comes from and when it is null",
           "title": "Schedule Rule"
         },
         "short_caption_rule": {
@@ -639,7 +639,7 @@
             }
           ],
           "default": null,
-          "description": "The case's next scheduled date, joined from the committed `data/schedule/schedule.json` by the `schedule_rule` provenance string; None where the schedule carries no upcoming date for the case. Display-only"
+          "description": "The case's next scheduled date, joined from the committed `data/schedule/schedule.json` by the `schedule_rule` provenance string; None where the schedule carries no upcoming date for the case. Carries no `as_of`, so the board moves only when a case's date does. Display-only"
         },
         "score_max": {
           "description": "Highest current read on the case's current moment",
@@ -704,14 +704,8 @@
       "additionalProperties": false,
       "description": "The next date the Court has set for a case, as the committed schedule carries it.",
       "properties": {
-        "as_of": {
-          "description": "The schedule's `as_of`: the day the date was last confirmed ahead. A reader rendering later drops a date that has since passed rather than show it as upcoming",
-          "format": "date",
-          "title": "As Of",
-          "type": "string"
-        },
         "date": {
-          "description": "The scheduled day, on or after `as_of`",
+          "description": "The scheduled day, on or after the day the schedule was last built. A reader rendering later drops a date that has since passed rather than show it as upcoming",
           "format": "date",
           "title": "Date",
           "type": "string"
@@ -725,8 +719,7 @@
       },
       "required": [
         "kind",
-        "date",
-        "as_of"
+        "date"
       ],
       "title": "BigCaseScheduled",
       "type": "object"

@@ -415,7 +415,9 @@ queues behind the production run of the same mode. The modes:
 
   It is the **one PR lane here that merges unattended**, and the argument is about the
   artifact rather than the cadence. The board is a byte-stable pure function of
-  the committed ledger, so a day that changed nothing opens nothing; a day that
+  the committed ledger and the committed schedule (whose rows carry no build
+  day, so it moves only when a case's conference does), so a day that changed
+  nothing opens nothing; a day that
   changed something re-rolls committed cells by a tested command that the PR's
   own required checks rerun; and the diff is bounded to the board's two files by
   the required `paths` check, which runs the tested `assert-board-paths` jail on
@@ -1348,7 +1350,9 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │    unrecorded outcome, surfaced per-case on the
                                  │    window's step summary
                                  ├─ route the predict queue (as above)
-                                 └─ derive the evaluate backlog (as above)
+                                 ├─ derive the evaluate backlog (as above)
+                                 └─ rebuild data/schedule/schedule.json
+                                      (display only; a failure warns)
    daily ×2 → run-predict → plan (derive the predict backlog from committed state,
                                  │       build the matrix, render the plan report)
                                  → approval (the review hold: required

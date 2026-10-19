@@ -323,7 +323,9 @@ models in `fedcourtsai.schemas` (exported to `schemas/*.schema.json`).
 Alongside the per-case tree, two repo-level roll-ups are regenerated
 deterministically and committed for review: `metrics/` and `data/scope/scope.json`
 (the published prediction-scope decision for the already-public case set) —
-plus the `data/qp-topics/` artifacts, which are not roll-ups at all
+plus `data/schedule/schedule.json`, the live poll's display file of each
+pending public docket's next conference (rewritten each live window, not a
+reviewed roll-up), and the `data/qp-topics/` artifacts, which are not roll-ups at all
 (`docs/qp-topic.md`): `qp-topic-reference.json`, the hand-labeled topic
 reference set, authored as a judgment and changed only in its own reviewed diff;
 and — once a labeling run has produced one — `qp-topics.json`, the

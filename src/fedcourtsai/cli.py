@@ -5093,6 +5093,10 @@ def schedule_cmd(
         Path | None,
         typer.Option(help="JSON output path (default: <data_root>/schedule/schedule.json)."),
     ] = None,
+    today: Annotated[
+        str | None,
+        typer.Option(help="Judge passed conferences against this ISO date (default: UTC today)."),
+    ] = None,
 ) -> None:
     """Publish each pending public docket's next conference for the site timeline.
 
@@ -5106,18 +5110,29 @@ def schedule_cmd(
     """
     settings = get_settings()
     destination = out if out is not None else schedule.schedule_path(settings.data_root)
-    _write_schedule(settings.data_root, corpus.corpus_db_path(settings.corpus_root), destination)
-
-
-def _write_schedule(data_root: Path, db_path: Path, destination: Path) -> None:
-    """Build the schedule against today's UTC date and write it, unless skipped."""
-    built = schedule.build_schedule(
-        data_root=data_root, corpus_db_path=db_path, as_of=datetime.now(UTC).date()
+    as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
+    _write_schedule(
+        settings.data_root, corpus.corpus_db_path(settings.corpus_root), destination, as_of=as_of
     )
+
+
+def _write_schedule(data_root: Path, db_path: Path, destination: Path, *, as_of: date) -> None:
+    """Build the schedule against ``as_of`` and swap it in whole, unless skipped.
+
+    Written beside the destination and renamed over it, so a write that fails
+    partway leaves the committed file as it was rather than a truncated one the
+    window's data commit would carry.
+    """
+    built = schedule.build_schedule(data_root=data_root, corpus_db_path=db_path, as_of=as_of)
     if built.skipped:
         typer.echo(f"schedule: skipped (no corpus at {db_path}); {destination} left as is")
         return
-    write_json(destination, built)
+    staged = destination.with_name(destination.name + ".tmp")
+    try:
+        write_json(staged, built)
+        staged.replace(destination)
+    finally:
+        staged.unlink(missing_ok=True)
     upcoming = sum(1 for entry in built.entries if entry.next_conference is not None)
     typer.echo(
         f"schedule: {len(built.entries)} distributed public docket(s), {upcoming} with an "
@@ -15809,7 +15824,8 @@ def live_poll(
     (daily-debounced), ground truth for the rest. Resolution is detected from
     the proceedings text, so a decided petition or application lands
     ``outcome.json`` deterministically. Writes the same three queue files
-    as ``pull-all``.
+    as ``pull-all``, then rebuilds ``data/schedule/schedule.json`` from the
+    refreshed corpus (warning, never failing, if that build breaks).
     """
     settings = get_settings()
     live_cfg = load_live_config(settings.config_root)
@@ -15856,7 +15872,9 @@ def live_poll(
     # commit. Display data, so a failure here costs the site one cycle's dates
     # and never the poll's facts or queues.
     try:
-        _write_schedule(settings.data_root, db, schedule.schedule_path(settings.data_root))
+        _write_schedule(
+            settings.data_root, db, schedule.schedule_path(settings.data_root), as_of=today
+        )
     except Exception as exc:  # any failure degrades to a warning
         typer.echo(f"schedule: warning: not written ({type(exc).__name__}: {exc})", err=True)
     discovery_failed = f" ({len(discovery.failed)} stream error(s))" if discovery.failed else ""
