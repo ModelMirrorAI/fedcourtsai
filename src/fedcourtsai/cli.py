@@ -5832,9 +5832,23 @@ def corpus_push() -> None:
 
     Refuses to run while the out-of-band pointer override is set: a writer
     owns the *committed* pointer, and an environment that overrides reads is
-    not reading the pair it would be publishing to.
+    not reading the pair it would be publishing to. Refuses, too, inside an
+    Actions job whose workflow did not enable remote writes: only the corpus
+    writer jobs publish, and under the corpus split a job without the switch
+    has withheld every content-store payload its rows point at, so the blob it
+    would publish describes objects that were never stored. Like the mirror's
+    gate, that refusal is a guard against accidents; the role a job holds is
+    what authorizes a publish.
     """
     settings = get_settings()
+    if casestore.in_actions_job() and not settings.remote_writes:
+        typer.echo(
+            "corpus-push refuses to run in an Actions job that does not enable "
+            "remote writes: only the corpus writer jobs publish the corpus, and "
+            "they set the switch in their workflow.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     if settings.corpus_pointer is not None:
         typer.echo(
             "corpus-push refuses to run while the out-of-band corpus pointer "

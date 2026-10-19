@@ -181,6 +181,55 @@ def test_the_detector_sees_the_writer_jobs() -> None:
     )
 
 
+# The switch that lets a job write the remote corpus estate at all
+# (`Settings.remote_writes`): the content-store mirror and `corpus-push`.
+REMOTE_WRITES = "FEDCOURTS_REMOTE_WRITES"
+
+
+def sets_remote_writes(job: dict[Any, Any]) -> bool:
+    """Whether the job's own ``env:`` names the remote-writes switch."""
+    return REMOTE_WRITES in (job.get("env") or {})
+
+
+def test_exactly_the_writer_jobs_enable_remote_writes() -> None:
+    """The switch is what a non-writer job's corpus writes meet before its
+    role does, so it is set where permissions are reviewed: on each writer
+    job's own ``env:``, as the literal ``"true"`` rather than an expression a
+    dispatch could turn off or on, by every job that assumes the read-write
+    role and by no other. A job-level setting keeps it off every other job."""
+    enabled = {(name, job_name) for name, job_name, job, _ in _jobs() if sets_remote_writes(job)}
+    assert enabled == KNOWN_WRITER_JOBS, (
+        f"`{REMOTE_WRITES}` must be set by exactly the corpus writer jobs: "
+        + f"{sorted(enabled ^ KNOWN_WRITER_JOBS)}"
+    )
+    not_literal = {
+        f"{name}:{job_name}": job["env"][REMOTE_WRITES]
+        for name, job_name, job, _ in _jobs()
+        if sets_remote_writes(job) and job["env"][REMOTE_WRITES] != "true"
+    }
+    assert not not_literal, f'`{REMOTE_WRITES}` must be the literal "true": {not_literal}'
+
+
+def test_the_switch_is_named_nowhere_but_a_writer_jobs_own_env() -> None:
+    """Not in a workflow-wide ``env:``, which every job in it inherits, not in
+    a container's, a service's or a step's, and not in a composite action,
+    which any job could call."""
+    stray = [
+        f"{name}:{job_name}"
+        for name, job_name, job, workflow in _jobs()
+        if REMOTE_WRITES in yaml.safe_dump(workflow.get("env") or {})
+        or REMOTE_WRITES in yaml.safe_dump(job.get("container") or {})
+        or REMOTE_WRITES in yaml.safe_dump(job.get("services") or {})
+        or any(REMOTE_WRITES in yaml.safe_dump(step) for step in _steps(job))
+    ]
+    stray += [
+        str(path.relative_to(ROOT))
+        for path in sorted((ROOT / ".github" / "actions").rglob("*.y*ml"))
+        if REMOTE_WRITES in path.read_text()
+    ]
+    assert not stray, f"`{REMOTE_WRITES}` named outside a writer job's own env: {stray}"
+
+
 def test_the_rules_refuse_every_way_the_environment_leaks() -> None:
     """The shapes the rules exist for, on synthetic jobs, so a change to the
     detector that stopped seeing one fails here rather than passing everywhere."""
