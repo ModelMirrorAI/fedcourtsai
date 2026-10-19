@@ -21,7 +21,13 @@ lower-court-history recital or a motion opens with "Notice of appeal ..." /
 dismiss the writ as improvidently granted) and names the judgment only
 mid-sentence, so it must stay unmatched — while the canonical GVR order, whose
 disposition sentence follows the cert recital ("Petition GRANTED.  Judgment
-VACATED ..."), still parses. A false negative costs one unparsed row in a
+VACATED ..."), still parses. The subject may also be the lower-court ruling
+certiorari ran to ("The en banc order of the United States Court of Appeals
+... is vacated", "Determination of ... REVERSED"), and a summary disposition
+may follow its grant recital after a comma or "and" ("Petition for certiorari
+GRANTED, judgment REVERSED."). A consolidated entry that disposes of several
+dockets clause by clause is read for the docket's own clause
+(:func:`match_judgment`). A false negative costs one unparsed row in a
 descriptive count; a false positive would fabricate a merits ground truth — so
 the parser is deliberately conservative.
 
@@ -85,11 +91,88 @@ from .prefetch import prefetch_by_case
 # ..."), and no sentence of either opens with the noun.
 _SENTENCE_START = r"(?:^|(?<=[.!?])\s+)"
 
+# A summary disposition can share one sentence with the grant it rides on:
+# "Petition for certiorari GRANTED, judgment REVERSED." / "Petition GRANTED and
+# judgment REVERSED." The noun then follows a comma or "and", never a sentence
+# break, so the entry's own opening grant recital is the second anchor. It is
+# entry-start and petition-subject on purpose: a motion granted in the same
+# breath ("Motion ... GRANTED, judgment ...") opens on its filing noun and stays
+# unmatched, and so does a rehearing petition, which is filed after the case is
+# over and is not the petition the grant issued on.
+_GRANT_RECITAL = (
+    r"^(?:the\s+)?petition(?!s?\s+for\s+rehearing\b)s?\b[^.]{0,80}?\bgranted\s*(?:,|\s+and)\s+"
+)
+
+# A consolidated entry can label a companion's disposition by opening its
+# sentence on the companion's number: "No. 25-567, adjudged to be affirmed.",
+# "No. 25-406, judgment REVERSED and case REMANDED." The citation then stands
+# where the sentence break would, and the clause reading
+# (:func:`match_judgment`) attributes the disposition to the cited docket.
+_CITATION_LEAD = (
+    _SENTENCE_START + r"nos?\.\s*\d{2}-\d+(?:\s*(?:,\s*(?:and\s+)?|and\s+|&\s*)\d{2}-\d+)*,\s+"
+)
+
 # The disposition sentence opens with its noun; every judgment shape requires
 # it. "The judgment(s) ..." and the older "Adjudged to be ..." recital are the
 # two merits spellings; the DIG order opens on the writ (or, rarely, the case /
 # appeal) instead, so it carries its own anchor below.
-_JUDGMENT_NOUN = _SENTENCE_START + r"(?:the\s+)?(?:judgments?|adjudged(?:\s+to\s+be)?)\b"
+_JUDGMENT_NOUN = (
+    r"(?:" + _SENTENCE_START + "|" + _GRANT_RECITAL + "|" + _CITATION_LEAD + r")"
+    r"(?:the\s+)?(?:judgments?|adjudged(?:\s+to\s+be)?)\b"
+)
+
+# Where certiorari ran to a ruling short of a final judgment — a preliminary
+# injunction, an en banc order, a qualified-immunity determination — the Court
+# disposes of that ruling by name: "The en banc order of the United States Court
+# of Appeals ... is vacated", "The December 29, 2020 order of the United States
+# District Court ... is reversed", "February 13, 2018 order VACATED, November 9,
+# 2017 order AFFIRMED IN PART, ...", "Determination of United States Court of
+# Appeals ... that Rivas-Villegas is not entitled to qualified immunity
+# REVERSED."
+#
+# The Court also writes "The order ... is vacated" about its *own* orders ("The
+# order heretofore entered by The Chief Justice is vacated.", "The order of
+# October 2, 2023 consolidating the cases is vacated.", "The order setting the
+# case for argument is vacated."), so a bare "order" is never a subject. It is
+# admitted only where the sentence identifies it as the lower court's ruling, by
+# an allow-list: the en banc order; an order dated in front of the noun, the way
+# the Court names a lower court's ruling (a date *after* "order of" is how it
+# names its own); or an order or determination "of" a named court other than
+# this one ("of the United States Court of Appeals ...", "of the District Court
+# ...", "of the Supreme Court of Ohio").
+_MONTH = (
+    r"(?:january|february|march|april|may|june|july|august|september|october"
+    r"|november|december)"
+)
+_OF_A_LOWER_COURT = (
+    r"\s+of\s+(?!(?:the\s+|this\s+)?court\b)(?:the\s+)?(?:united\s+states\s+)?"
+    r"(?:court\s+of\s+(?:criminal\s+)?appeals|district\s+court|(?:[a-z]+\s+){1,4}?court)\b"
+)
+_RULING_NOUN = (
+    _SENTENCE_START
+    + r"(?:the\s+)?(?:en\s+banc\s+orders?\b|"
+    + _MONTH
+    + r"\s+\d{1,2},\s+\d{4}\s+orders?\b|(?:orders?|determination)"
+    + _OF_A_LOWER_COURT
+    + r")"
+)
+
+# The ruling subject's gap to its verb may not cross what marks an order as
+# interlocutory or as the Court's own — "granting", "staying", "denying" ("The
+# January 13, 2021 order of the Court of Appeals granting a stay is vacated."
+# disposes of a stay, never of the judgment below), "heretofore", "entered by".
+# The judgment subject carries no such veto: "The judgment of the Court of
+# Appeals denying habeas relief is reversed." is a merits reversal.
+_RULING_GAP = r"(?:(?!\b(?:granting|staying|denying|heretofore|entered\s+by)\b).){0,120}?"
+
+# The Clerk's entry for an application's own disposition ("Application (20A134)
+# granted by the Court.  ... The January 13, 2021 order of the Court of Appeals
+# granting a stay is vacated.") disposes of interim relief on the application,
+# so its sentences never name a merits ruling: the ruling subject is not read in
+# an entry opening on it. The judgment subject is, since a merits judgment can
+# follow an application's disposal in one entry ("Application (22A444) DENIED AS
+# MOOT.  Judgment REVERSED and case REMANDED.").
+_APPLICATION_ENTRY_RE = re.compile(r"^application\s*\(", re.IGNORECASE)
 
 # Checked before the plain single-verb shape, which "affirmed" would otherwise
 # swallow: an affirmance by an equally divided Court is its own (non-merits)
@@ -103,23 +186,31 @@ _EQUALLY_DIVIDED_RE = re.compile(
 # part" / "reversed in part, affirmed in part"); a vacatur-in-part reads onto
 # the same mixed member — the enum carries one mixed value, and either verb
 # disturbs the judgment below identically. Checked before the single-verb
-# shape, whose first verb would otherwise decide alone.
-_IN_PART_RE = re.compile(
-    _JUDGMENT_NOUN
-    + r".{0,80}?(?:\baffirmed\s+in\s+part\b.{0,80}?\b(?:reversed|vacated)\s+in\s+part\b"
-    + r"|\b(?:reversed|vacated)\s+in\s+part\b.{0,80}?\baffirmed\s+in\s+part\b)",
+# shape, whose first verb would otherwise decide alone. Each shape below is
+# compiled twice, with and without the ruling subject (see
+# `_APPLICATION_ENTRY_RE`).
+_IN_PART_TAIL = (
+    r".{0,80}?(?:\baffirmed\s+in\s+part\b.{0,80}?\b(?:reversed|vacated)\s+in\s+part\b"
+    + r"|\b(?:reversed|vacated)\s+in\s+part\b.{0,80}?\baffirmed\s+in\s+part\b)"
+)
+_IN_PART_RE = re.compile(_JUDGMENT_NOUN + _IN_PART_TAIL, re.IGNORECASE | re.DOTALL)
+_IN_PART_RULING_RE = re.compile(
+    r"(?:" + _JUDGMENT_NOUN + "|" + _RULING_NOUN + r")" + _IN_PART_TAIL,
     re.IGNORECASE | re.DOTALL,
 )
 
-# The plain merits verbs. The noun-verb gap is 80 — wide enough for the prose
-# form to name the lower court between the noun and the verb ("Judgment of the
-# United States Court of Appeals for the Ninth Circuit REVERSED ..."), the same
-# width the resolver's vacate-and-remand rule uses for the same reason; a
-# "... and case REMANDED" suffix rides after the match and needs no handling
-# (a GVR's "Judgment VACATED and case REMANDED for further consideration in
-# light of ..." reads as vacated).
-_SINGLE_RE = re.compile(
-    _JUDGMENT_NOUN + r".{0,80}?\b(affirmed|reversed|vacated)\b",
+# The plain merits verbs. The judgment subject's gap to its verb is 120, wide
+# enough for the prose form to name the lower court and its own docket numbers
+# between them ("The judgment of the United States Court of Appeals for the
+# District of Columbia Circuit in Nos. 19-5094 and 19-5096 is vacated"); the
+# ruling subject's is the same width under `_RULING_GAP`'s veto. A "... and case
+# REMANDED" suffix rides after the match and needs no handling (a GVR's
+# "Judgment VACATED and case REMANDED for further consideration in light of
+# ..." reads as vacated).
+_VERB = r"\b(affirmed|reversed|vacated)\b"
+_SINGLE_RE = re.compile(_JUDGMENT_NOUN + r".{0,120}?" + _VERB, re.IGNORECASE | re.DOTALL)
+_SINGLE_RULING_RE = re.compile(
+    r"(?:" + _JUDGMENT_NOUN + r".{0,120}?|" + _RULING_NOUN + _RULING_GAP + r")" + _VERB,
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -145,8 +236,8 @@ _DIG_RE = re.compile(
 # stricter than the disposition shapes' `_SENTENCE_START`: the Clerk enters a
 # termination as its own one-sentence entry, so the strictness costs nothing on
 # those shapes and a second-sentence spelling would read as a false negative,
-# the cheap direction here. `_GRANT_VACATED_RE` is the one exception, and it
-# says why in place.
+# the cheap direction here. `_GRANT_VACATED_RE` and the in-order Rule 46 decree
+# (`_decree_rule_46_shape`) are the exceptions, and each says why in place.
 #
 # The subject noun is what carries the *stage*, the same cut `_DIG_RE` makes.
 # Once certiorari has issued the Clerk writes about the case or the writ
@@ -175,6 +266,30 @@ _AS_MOOT_TAIL = r".{0,40}?\bdismissed\b.{0,20}?\bas\s+moot\b"
 def _entry_shape(subject: str, tail: str) -> re.Pattern[str]:
     """One termination shape: the subject noun at the entry start, then its tail."""
     return re.compile("^" + subject + tail, re.IGNORECASE | re.DOTALL)
+
+
+# The Court's own Rule 46 decree can ride inside a longer order rather than as
+# the Clerk's one-sentence entry: "In light of the Government's representations,
+# the motions for leave to intervene are denied, and the petitions in Nos.
+# 20-429, 20-454, and 20-539 are dismissed pursuant to Rule 46.1." So the subject
+# may open the entry, a sentence, or a clause after a comma or semicolon — and
+# what carries the narrowness the entry anchor gives the other shapes is the
+# **operative verb**: "is/are dismissed pursuant to (or under) Rule 46". The
+# parties' stipulation ("Joint stipulation to dismiss the cases ... pursuant to
+# Rule 46.1 filed.") and a motion asking for the dismissal open on their filing
+# nouns and never say "are dismissed"; a dissent from the dismissal ("would ...
+# deny the stipulations to dismiss the petitions") does not either. The gap
+# keeps the subject and the verb in one clause, while letting a "No." / "Nos."
+# citation's period through.
+def _decree_rule_46_shape(subject: str) -> re.Pattern[str]:
+    """The in-order Rule 46 decree for one subject noun."""
+    return re.compile(
+        r"(?:^|(?<=[.;,])\s+(?:and\s+)?)"
+        + subject
+        + r"(?:[^.;]|\bnos?\.){0,80}?\b(?:is|are)\s+(?:hereby\s+)?dismissed\s+"
+        + r"(?:pursuant\s+to|under)\s+rule\s*46\b",
+        re.IGNORECASE,
+    )
 
 
 # Abatement: a party died and the Court dismissed on that ground. The order is
@@ -306,6 +421,18 @@ _TERMINATION_SHAPES: tuple[_TerminationShape, ...] = (
         petition_subject=True,
     ),
     _TerminationShape(
+        _decree_rule_46_shape(_POST_GRANT_SUBJECT),
+        _DISMISSAL_VETOES,
+        MeritsTermination.voluntary_dismissal,
+        petition_subject=False,
+    ),
+    _TerminationShape(
+        _decree_rule_46_shape(_PETITION_SUBJECT),
+        _DISMISSAL_VETOES,
+        MeritsTermination.voluntary_dismissal,
+        petition_subject=True,
+    ),
+    _TerminationShape(
         _entry_shape(_POST_GRANT_SUBJECT, _AS_MOOT_TAIL),
         _DISMISSAL_VETOES,
         MeritsTermination.dismissed_moot,
@@ -387,29 +514,121 @@ _DISTURBED: frozenset[Judgment] = frozenset(
 )
 
 
-def match_judgment(text: str) -> Judgment | None:
-    """Parse one docket-entry description onto the merits-judgment vocabulary.
+# A consolidated judgment entry states each docket's disposition in its own
+# clause, and each docket's copy of the entry carries every clause: "Judgment
+# AFFIRMED (as to No. 22-23); Judgment REVERSED and case REMANDED (as to No.
+# 22-331).", "Judgment REVERSED and case REMANDED. No. 25-567, adjudged to be
+# affirmed." The clauses are the entry's sentences and semicolon-separated
+# parts. A period ends a clause except after the abbreviations a disposition
+# entry carries — "No." / "Nos.", a single initial ("U. S.", "C. J.", "J.",
+# "v."), "JJ.", "Inc.", "Co.", "Corp.", "St." An abbreviation outside that list
+# splits a sentence early; the cost is bounded, because a clause that splits a
+# judgment noun from its verb matches nothing, and an entry with no matching
+# clause is read whole.
+_CLAUSE_BREAK_RE = re.compile(
+    r"(?<!\bno\.)(?<!\bnos\.)(?<!\b[a-z]\.)(?<!\bjj\.)(?<!\binc\.)(?<!\bco\.)"
+    r"(?<!\bcorp\.)(?<!\bst\.)(?<=[.;])\s+",
+    re.IGNORECASE,
+)
 
-    Deterministic and conservative: a shape matches only where a sentence opens
-    with the disposition's own noun, so recitals and motions return ``None``
-    and a shape this parser does not know stays an unparsed gap rather than a
-    guess.
-    The specific shapes (equally divided, in-part) are checked before the
-    general single-verb one, whose first verb would otherwise decide.
+# A docket-number citation — "No. 25-567", "Nos. 19-5094 and 19-5096", "Nos.
+# 20-429, 20-454, and 20-539" — and the numbers inside it, every one of a list.
+_CITATION_RE = re.compile(
+    r"\bnos?\.\s*(\d{2}-\d+(?:\s*(?:,\s*(?:and\s+)?|and\s+|&\s*)\d{2}-\d+)*)",
+    re.IGNORECASE,
+)
+_DOCKET_NUMBER_RE = re.compile(r"\d{2}-\d+")
+
+
+def _cited_numbers(text: str) -> set[str]:
+    """Every docket number ``text`` cites, each of a listed citation included."""
+    return {
+        number
+        for citation in _CITATION_RE.findall(text)
+        for number in _DOCKET_NUMBER_RE.findall(citation)
+    }
+
+
+def _own_number(docket_number: str | None) -> str | None:
+    """The docket's own number, out of however the caller spells it.
+
+    A capital-case marking or a payload's raw ``CaseNumber`` included.
     """
-    entry = text.strip()
+    own = _DOCKET_NUMBER_RE.search(docket_number or "")
+    return own.group(0) if own else None
+
+
+def _match_clause(entry: str, *, ruling: bool = True) -> Judgment | None:
+    """The disposition one stretch of entry text states, specific shapes first.
+
+    ``ruling`` admits the lower-court ruling subject beside the judgment noun;
+    an application's own disposition entry reads without it.
+    """
     if _EQUALLY_DIVIDED_RE.search(entry):
         return Judgment.equally_divided
-    if _IN_PART_RE.search(entry):
+    if (_IN_PART_RULING_RE if ruling else _IN_PART_RE).search(entry):
         return Judgment.affirmed_in_part
-    if match := _SINGLE_RE.search(entry):
+    if match := (_SINGLE_RULING_RE if ruling else _SINGLE_RE).search(entry):
         return Judgment(match.group(1).lower())
     if _DIG_RE.search(entry):
         return Judgment.dig
     return None
 
 
-def match_merits_termination(text: str, *, cert_granted: bool) -> MeritsTermination | None:
+def match_judgment(text: str, *, docket_number: str | None = None) -> Judgment | None:
+    """Parse one docket-entry description onto the merits-judgment vocabulary.
+
+    Deterministic and conservative: a shape matches only where a sentence opens
+    with the disposition's own subject (the judgment, or the lower-court order
+    or determination certiorari ran to), or where the judgment follows the
+    grant recital the entry opens on, so recitals and motions return ``None``
+    and a shape this parser does not know stays an unparsed gap rather than a
+    guess.
+    The specific shapes (equally divided, in-part) are checked before the
+    general single-verb one, whose first verb would otherwise decide.
+
+    ``docket_number`` is the docket the entry was read from. Where the entry is
+    a consolidated judgment that disposes of several dockets clause by clause,
+    the docket's own disposition is the one to read, not the entry's first
+    verb: the first matching clause that names the docket's own number wins;
+    failing that, the first matching clause that names no docket number at all
+    (the docket's own disposition is the unlabelled one, its companions'
+    the labelled ones); failing both — every clause names some other number,
+    which is how a single docket's entry cites the lower court's own case
+    numbers — the whole entry is read as one. An entry that cites no docket
+    number is read whole from the start, so a disposition split across a
+    semicolon ("AFFIRMED IN PART; REVERSED IN PART") keeps its mixed reading.
+    Without ``docket_number`` the clause reading still prefers an unlabelled
+    clause.
+
+    In an application's own disposition entry ("Application (20A134) granted
+    by the Court. ...") the lower-court ruling subject is not read: such an
+    entry disposes of interim relief, and its sentences name stays and
+    injunctions, not merits rulings. The judgment noun is still read there.
+    """
+    entry = text.strip()
+    ruling = not _APPLICATION_ENTRY_RE.match(entry)
+    if not _CITATION_RE.search(entry):
+        return _match_clause(entry, ruling=ruling)
+    own_number = _own_number(docket_number)
+    unlabelled: Judgment | None = None
+    for clause in _CLAUSE_BREAK_RE.split(entry):
+        judgment = _match_clause(clause, ruling=ruling)
+        if judgment is None:
+            continue
+        cited = _cited_numbers(clause)
+        if own_number is not None and own_number in cited:
+            return judgment
+        if not cited and unlabelled is None:
+            unlabelled = judgment
+    if unlabelled is not None:
+        return unlabelled
+    return _match_clause(entry, ruling=ruling)
+
+
+def match_merits_termination(
+    text: str, *, cert_granted: bool, docket_number: str | None = None
+) -> MeritsTermination | None:
     """Parse one docket-entry description onto the merits-*termination* vocabulary.
 
     The complement of :func:`match_judgment`, for the entries that end a merits
@@ -428,13 +647,26 @@ def match_merits_termination(text: str, *, cert_granted: bool) -> MeritsTerminat
     lives, so it is threaded rather than assumed either way; the shapes whose
     subject is the case or the writ carry their own stage and are admitted
     regardless.
+
+    ``docket_number`` is the docket the entry was read from. An order carried on
+    a consolidated docket can name the dockets it dismisses ("the petitions in
+    Nos. 20-429, 20-454, and 20-539 are dismissed"), and can dismiss a companion
+    while this docket goes on, so a match whose own text cites docket numbers
+    ends this docket's proceeding only where its own number is among them. A
+    match that cites none, or a call that names no docket, is read as the
+    docket's own.
     """
     entry = text.strip()
+    own_number = _own_number(docket_number)
     for shape in _TERMINATION_SHAPES:
         if shape.petition_subject and not cert_granted:
             continue
-        if shape.pattern.search(entry) and not any(veto.search(entry) for veto in shape.vetoes):
-            return shape.termination
+        if any(veto.search(entry) for veto in shape.vetoes):
+            continue
+        for match in shape.pattern.finditer(entry):
+            cited = _cited_numbers(match.group(0))
+            if not cited or own_number is None or own_number in cited:
+                return shape.termination
     return None
 
 
@@ -549,22 +781,36 @@ class JudgmentEntry(NamedTuple):
     text: str
 
 
-def last_judgment_entry_text(payload: Mapping[str, Any]) -> JudgmentEntry | None:
+def _payload_docket_number(payload: Mapping[str, Any]) -> str | None:
+    """The docket number a stored payload carries for itself, in either shape."""
+    # `or`, not a key test: an empty or null number is no number, and reading it
+    # as one would scope a consolidated entry to nothing.
+    raw = payload.get("CaseNumber") or payload.get("docket_number")
+    return str(raw) if raw else None
+
+
+def last_judgment_entry_text(
+    payload: Mapping[str, Any], *, docket_number: str | None = None
+) -> JudgmentEntry | None:
     """:func:`last_judgment_entry`, keeping the entry's own text beside the parse.
 
     The decision record reads *how* the case was decided (a signed opinion, a
     per curiam) off the same entry the judgment was parsed from, so it takes the
-    text from here rather than re-scanning for it.
+    text from here rather than re-scanning for it. ``docket_number`` is as
+    :func:`last_judgment_entry` takes it.
     """
+    own = docket_number or _payload_docket_number(payload)
     found: JudgmentEntry | None = None
     for text, raw in proceedings_entries(payload):
-        judgment = match_judgment(text)
+        judgment = match_judgment(text, docket_number=own)
         if judgment is not None:
             found = JudgmentEntry(judgment, entry_date(raw), text)
     return found
 
 
-def last_judgment_entry(payload: Mapping[str, Any]) -> tuple[Judgment, date | None] | None:
+def last_judgment_entry(
+    payload: Mapping[str, Any], *, docket_number: str | None = None
+) -> tuple[Judgment, date | None] | None:
     """The last judgment-shaped entry in a stored docket payload, with its date.
 
     Reads either payload shape through
@@ -574,13 +820,19 @@ def last_judgment_entry(payload: Mapping[str, Any]) -> tuple[Judgment, date | No
     the entry's own docket date under the strict
     :func:`~fedcourtsai.pipeline.cert_signals.entry_date` parse — ``None`` for
     an undated or partially dated entry, never a guess.
+
+    ``docket_number`` names the docket the payload belongs to, so a consolidated
+    judgment entry is read for this docket's own clause
+    (:func:`match_judgment`). Omitted, it is the number the payload carries for
+    itself (the live ``CaseNumber``, the REST ``docket_number``); a payload
+    carrying neither reads without one.
     """
-    found = last_judgment_entry_text(payload)
+    found = last_judgment_entry_text(payload, docket_number=docket_number)
     return None if found is None else (found.judgment, found.decided)
 
 
 def last_merits_termination(
-    payload: Mapping[str, Any], *, cert_granted: bool
+    payload: Mapping[str, Any], *, cert_granted: bool, docket_number: str | None = None
 ) -> MeritsTermination | None:
     """The last termination-shaped entry in a stored docket payload, or ``None``.
 
@@ -593,11 +845,13 @@ def last_merits_termination(
     from. ``cert_granted`` is the docket-level fact
     :func:`match_merits_termination` gates its petition-subject shapes on,
     passed straight through — it is a property of the docket, so every entry in
-    one payload is read under the same value.
+    one payload is read under the same value. ``docket_number`` is as
+    :func:`last_judgment_entry` takes it, defaulting the same way.
     """
+    own = docket_number or _payload_docket_number(payload)
     found: MeritsTermination | None = None
     for text, _ in proceedings_entries(payload):
-        termination = match_merits_termination(text, cert_granted=cert_granted)
+        termination = match_merits_termination(text, cert_granted=cert_granted, docket_number=own)
         if termination is not None:
             found = termination
     return found
@@ -692,7 +946,10 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
     (:func:`last_merits_termination`) before it is written off as ``no_match``:
     a match stamps ``merits_terminated`` through
     :func:`fedcourtsai.corpus.set_merits_termination`, resolving the row's
-    pendency without asserting a disposition it does not have. A stored
+    pendency without asserting a disposition it does not have. The reverse
+    holds too: a row carrying a termination whose snapshot now parses a
+    judgment is written, and the write clears the termination, because a read
+    disposition supersedes the no-disposition record. A stored
     judgment the pass can no longer re-derive is never cleared but is counted
     (``stale``), so a parser tightening that retracts a reading stays visible
     instead of silently persisting in the statpack. Dry-run unless ``apply``.
@@ -728,7 +985,7 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
                 if row.merits_judgment is not None:
                     stale += 1
                 continue
-            entry = last_judgment_entry(found[1])
+            entry = last_judgment_entry(found[1], docket_number=row.docket_number)
             if entry is None:
                 if row.merits_judgment is not None:
                     # A row that already carries a judgment this pass can no
@@ -750,7 +1007,9 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
                 # read off the row rather than assumed, so a widening of that
                 # population cannot silently promote a petition-stage dismissal.
                 termination = last_merits_termination(
-                    found[1], cert_granted=row.date_cert_granted is not None
+                    found[1],
+                    cert_granted=row.date_cert_granted is not None,
+                    docket_number=row.docket_number,
                 )
                 if termination is None:
                     no_match += 1
@@ -763,7 +1022,11 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
             judgment, decided = entry
             parsed += 1
             judgments[judgment.value] += 1
-            if row.merits_judgment == judgment.value and row.merits_decided == decided:
+            if (
+                row.merits_judgment == judgment.value
+                and row.merits_decided == decided
+                and row.merits_terminated is None
+            ):
                 unchanged += 1
                 continue
             updates.append((row.case_id, judgment, decided))

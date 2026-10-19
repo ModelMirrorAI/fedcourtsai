@@ -1023,7 +1023,7 @@ def map_live_docket(
             # vacatur is the cert-stage disposition, not a judgment on the
             # merits, and this column is read as the latter — including on the
             # agent-facing retrieval surface.
-            merits = last_judgment_entry({"docket_entries": entries})
+            merits = last_judgment_entry({"docket_entries": entries}, docket_number=docket_number)
             # The merits stage's second forecast moment, latched on the same
             # poll and from the same payload — the docket says when both sides'
             # arguments reached the record, and nothing else does.

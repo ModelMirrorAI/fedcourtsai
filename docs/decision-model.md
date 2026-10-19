@@ -427,11 +427,16 @@ whichever shape it carries, and they divide in two: a proceeding that ended
 before anyone reached the merits — a post-grant Rule 46 dismissal, a dismissal
 as moot, an abatement on the petitioner's death, a grant the Court vacated —
 has no judgment to place; a bare mandate notation
-has one the corpus never captured. Folding either kind into the vocabulary as a
-seventh value would score it as undisturbed — asserting for the first that the
-decision below survived a merits ruling no one made, and for the second that it
-survived a ruling whose direction the record does not state. A **vacated
-grant** is the one shape whose termination settles less than it looks: it
+has one the corpus never captured. A termination of either kind leaves the
+bucket once a judgment parses on its docket: the write of a parsed judgment
+(the backfill's, or the live poll's) clears the termination in the same write,
+one-way, and the row then meets the pool's admission like any other parse, gap
+guard included. The mandate notation is the kind this reaches in practice.
+Folding either kind into the vocabulary as a seventh value would score it as
+undisturbed — asserting for the first that the decision below survived a
+merits ruling no one made, and for the second that it survived a ruling whose
+direction the record does not state. A **vacated grant** is the one shape whose
+termination settles less than it looks: it
 returns the case to the cert stage, so the row's cert `disposition` still names
 an order the Court withdrew, and the row keeps counting as a grant in the
 cert-side rates. The merits half is right — nothing was decided, nothing enters

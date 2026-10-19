@@ -1782,7 +1782,11 @@ the petitioner's death, a grant the Court vacated — has **no
 disposition to record**, while a bare mandate
 notation marks a case that *was* decided on a docket whose disposition entry
 the corpus never captured, which is a coverage failure of the same family as
-the two residues above. Neither is folded into the judgment vocabulary,
+the two residues above. A termination of either kind leaves the residue once a
+judgment parses on its docket: the write of a parsed judgment (the backfill's,
+or the live poll's) clears the termination in the same write, one-way, and the
+row then meets the pool's admission like any other parse, gap guard included.
+Neither is folded into the judgment vocabulary,
 because a seventh value would be scored as an undisturbed judgment, asserting
 in the first case that the decision below survived a merits ruling nobody
 made, and in the second that it survived a ruling whose direction is simply
