@@ -26,8 +26,8 @@ Model spend is `events × cost per event`, and two dials set it:
   runs rather than the `P + 3P` a per-(predictor, evaluator) grading would cost:
   adding a predictor buys one more prediction run and makes each of the three
   grading runs a little larger. So `P` raises the cost *per event*, by an amount
-  that depends on which model is added: prediction runs span roughly $0.58 to
-  $3.04 across the current three.
+  that depends on which model is added: prediction runs spanned roughly $0.58 to
+  $3.04 across the three as last measured.
 
 At today's `P = 3` with three evaluators, one fully predicted and evaluated
 event costs roughly **$10**. The claude pair's share of that is priced rather
@@ -37,7 +37,21 @@ prediction (251 runs) and $1.16 a grading run (118 runs) — on the assumption
 that Opus spends the same tokens, which the first round's `fedcourts
 usage-summary` replaces with a measurement. The other four figures are
 measured means: about $3.04 and $0.58 a prediction and $2.90 and $0.73 a
-grading run for codex and gemini. The evaluator count holds at 3 as `P` grows.
+grading run for codex and gemini, measured on `gpt-6-astra` and
+`gemini-3.1-pro-preview`. The codex and gemini engine defaults are
+`gpt-6.1-sol` and `gemini-4-argon`. Priced over the token counts of every
+committed codex and gemini cell on those earlier models (296 and 153 codex,
+522 and 174 gemini, on `main` at 2026-10-18), codex comes to about
+$0.44 a prediction and $0.42 a grading run, and gemini to about $0.46 and
+$0.55 at Argon's introductory rate ($2 / $10, $0.10 cached), or $0.92 and
+$1.11 from 2026-12-01, when that rate doubles. That puts a fully predicted and evaluated event near $4.50,
+or $5.50 from December, but it is a projection that assumes each new model
+spends the same tokens, and it carries the claude pair at its priced figure:
+the first measured Opus 5.5 rounds on `main` (44 predictions at about $0.62,
+29 grading runs at about $0.64) come in near half of it, a small sample that
+would put the event nearer $3.10. The $10 figure and everything below that scales from
+it stay on the measured basis until the first rounds on the new models are
+measured. The evaluator count holds at 3 as `P` grows.
 Per-run token usage and cost are recorded on the ledger (`usage.json`, rolled
 up by `fedcourts usage-summary`), so the rates can be re-anchored from
 measurement rather than assumed. Re-anchoring is a deliberate edit to the pinned
@@ -79,8 +93,9 @@ case-summary round skips the maintainer's release only while measured spend
 over the trailing 30 days (the committed `usage.json` ledger plus each
 committed summary's recorded usage), plus an allowance for rounds released in
 the last day, plus the round's own estimate, stays within
-`auto_release_budget_usd` in `config/review-hold.yaml`, set to this monthly
-figure; past it, every round waits for a human release. The `spend` backstop
+`auto_release_budget_usd` in `config/review-hold.yaml`, set $500 above this
+monthly figure so a campaign's spend still in the window does not hold every
+routine round; past it, every round waits for a human release. The `spend` backstop
 in `config/tracking.yaml` sits above the budget and stops minting outright
 ([pipeline.md](pipeline.md), *Auto-release*).
 

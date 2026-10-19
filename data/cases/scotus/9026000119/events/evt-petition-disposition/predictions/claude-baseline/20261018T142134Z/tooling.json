@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000119",
+  "run_id": "20261018T142134Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "mcp__courtlistener__search"],
+  "helpful": ["sal-v4 band table with bracketed reached rates"],
+  "gaps": ["The pooled multi-Term reached rate per band must be computed by hand; publishing it directly would help.", "Related ('Vide') dockets are not provisioned or resolvable via CourtListener search."],
+  "notes": "The petition's QP section extracted cleanly. There is no BIO because the respondent waived."
+}

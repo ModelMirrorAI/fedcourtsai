@@ -68,7 +68,7 @@ from .schemas import (
     SummaryPlan,
     SummaryPlanCase,
 )
-from .serialize import write_text
+from .serialize import load_yaml, write_text
 
 #: The summarizer's system prompt, relative to the repository root.
 PROMPT_PATH = Path(".github/prompts/summarize.md")
@@ -841,7 +841,7 @@ def parse_summary(text: str) -> tuple[CaseSummaryFrontMatter, str]:
     if match is None:
         raise SummaryFormatError("no YAML front matter block")
     try:
-        front = CaseSummaryFrontMatter.model_validate(yaml.safe_load(match.group(1)))
+        front = CaseSummaryFrontMatter.model_validate(load_yaml(match.group(1)))
     except (yaml.YAMLError, ValidationError) as exc:
         raise SummaryFormatError(f"front matter: {exc}") from exc
     return front, text[match.end() :]
@@ -858,10 +858,12 @@ def summary_file_problems(file: Path, root: Path) -> list[str] | None:
     that band gates what the harness accepts from the model, and a committed
     summary is judged on shape.
     """
-    try:
-        parts = file.relative_to(root).parts
-    except ValueError:  # pragma: no cover - callers pass paths under root
+    # Lexical, as `Path.relative_to` is, minus its walk of `file.parents`: the
+    # ledger scan calls this once per file in the tree.
+    base = len(root.parts)
+    if file.parts[:base] != root.parts:  # pragma: no cover - callers pass paths under root
         return None
+    parts = file.parts[base:]
     if len(parts) < 5 or parts[0] != "cases" or parts[3] != "summaries":
         return None
     name = _SUMMARY_NAME.match(parts[4]) if len(parts) == 5 else None

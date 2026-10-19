@@ -116,49 +116,92 @@ def test_proc_v8_predictor_digests_never_leave_the_registry_without_a_close() ->
             f"{digest}: revoking proc-v8 needs its own dated freeze-record entry"
         )
         if digest not in process_version.FROZEN_PROCESS_DIGESTS:
-            assert window.closes is not None, (
+            assert window.closes is not None or digest in _closing_digests(), (
                 f"{digest} is no longer blessed but its proc-v8 window is still open"
             )
 
 
-def test_proc_v9_closes_claude_and_carries_codex_and_gemini_forward() -> None:
-    """proc-v9's registry shape, as the freeze record's proc-v9 entry registers it.
+def _closing_digests() -> set[str]:
+    """Digests whose window's close is pending in the registry.
 
-    proc-v9 re-blesses claude-baseline alone on the predictor half. So the live
-    codex-baseline and gemini-baseline digests must still be proc-v8's bytes —
-    a predictor-prompt or engine-default edit that moved them would silently
-    break the one unbroken window this label promises them — and their proc-v8
-    windows stay open. claude-baseline's proc-v8 window closes at the proc-v9
-    instant and its new digest's window opens there, labelled proc-v9.
+    A pending close reads as open in ``COUNTING_WINDOWS`` until the carrying
+    merge stamps it, so the registry rows are what say a successor closes it.
     """
-    claude_v8, codex_v8, gemini_v8 = PROC_V8_PREDICTOR_DIGESTS
-    since = process_version.FROZEN_SINCE
-    assert since is not None
-    live = {
+    return {
+        w.digest
+        for w in process_version._REGISTRY.windows
+        if w.closes is not None and w.closes.at is None
+    }
+
+
+def _label_since(label: str) -> datetime | None:
+    (entry,) = [entry for entry in process_version._REGISTRY.labels if entry.label == label]
+    return entry.since.at
+
+
+def _live_predictor_digests() -> dict[str, str]:
+    return {
         entry.id: process_version.digest_for_actor(REPO, CONFIG, "predictor", entry.id)
         for entry in enabled_predictors(CONFIG / "predictors.yaml")
     }
-    assert live["codex-baseline"] == codex_v8
-    assert live["gemini-baseline"] == gemini_v8
-    assert live["claude-baseline"] != claude_v8
-    by_digest = {w.digest: w for w in process_version.COUNTING_WINDOWS}
+
+
+def test_proc_v9_closed_claude_and_carried_codex_and_gemini_forward() -> None:
+    """proc-v9's registry shape, as the freeze record's proc-v9 entry registers it.
+
+    proc-v9 re-blessed claude-baseline alone on the predictor half: its proc-v8
+    window closes at the proc-v9 instant and its new digest's window opens
+    there, labelled proc-v9. The codex-baseline and gemini-baseline proc-v8
+    windows ran through it unbroken, so neither closes at that instant.
+    """
+    claude_v8, codex_v8, gemini_v8 = PROC_V8_PREDICTOR_DIGESTS
+    v9 = _label_since("proc-v9")
+    assert v9 is not None
+    rows = {w.digest: w for w in process_version._REGISTRY.windows if w.label == "proc-v8"}
+    claude_close = rows[claude_v8].closes
+    assert claude_close is not None and claude_close.at == v9
     for carried in (codex_v8, gemini_v8):
-        window = by_digest[carried]
-        assert (window.label, window.opens, window.closes) == ("proc-v8", PROC_V8_INSTANT, None)
-        # Carried forward byte-identical: proc-v8's audited bless moment, verbatim.
-        assert process_version.FROZEN_PROCESS_DIGESTS[carried] == PROC_V8_INSTANT
-    assert by_digest[claude_v8].closes == since
-    successor = by_digest[live["claude-baseline"]]
-    assert (successor.label, successor.opens, successor.closes) == ("proc-v9", since, None)
-    assert len(process_version.COUNTING_WINDOWS) == 4
+        close = rows[carried].closes
+        assert close is None or close.at != v9
+    (successor,) = [w for w in process_version._REGISTRY.windows if w.label == "proc-v9"]
+    assert successor.predictor_id == "claude-baseline" and successor.opens.at == v9
+
+
+def test_proc_v10_closes_codex_and_gemini_and_carries_claude_forward() -> None:
+    """proc-v10's registry shape, as the freeze record's proc-v10 entry registers it.
+
+    proc-v10 re-blesses codex-baseline and gemini-baseline on the predictor half,
+    their engines' default models having moved. So their proc-v8 windows close
+    at the proc-v10 instant and a proc-v10 window opens there for each live
+    digest. claude-baseline's live digest must still be the one its proc-v9
+    window blesses — a predictor-prompt edit that moved it would silently break
+    the unbroken window this label promises it — and that window stays open.
+    Pending rows compare by their null instants until the merge stamps them.
+    """
+    _, codex_v8, gemini_v8 = PROC_V8_PREDICTOR_DIGESTS
+    v10 = _label_since("proc-v10")
+    live = _live_predictor_digests()
+    rows = process_version._REGISTRY.windows
+    by_label = {(w.label, w.predictor_id): w for w in rows}
+    for predictor, closed in (("codex-baseline", codex_v8), ("gemini-baseline", gemini_v8)):
+        assert by_label[("proc-v8", predictor)].digest == closed
+        close = by_label[("proc-v8", predictor)].closes
+        assert close is not None and close.at == v10
+        opened = by_label[("proc-v10", predictor)]
+        assert opened.digest == live[predictor] != closed
+        assert opened.opens.at == v10 and opened.closes is None
+    claude = by_label[("proc-v9", "claude-baseline")]
+    assert claude.digest == live["claude-baseline"] and claude.closes is None
+    assert len(rows) == 6
 
 
 def test_the_counting_registry_is_well_formed() -> None:
     """Windows are aware, ordered, non-overlapping per digest, and predictor-only.
 
     Every window the current label opened opens at ``FROZEN_SINCE``; no window
-    opens after it; an open window's digest is still blessed; and every
-    enabled predictor's live digest has an open window, so today's fleet counts.
+    opens after it; an open window's digest is still blessed, or its close is
+    pending; and every enabled predictor's live digest has an open window, or
+    one pending its opening, so today's fleet counts once its label is carried.
     """
     windows = process_version.COUNTING_WINDOWS
     since = process_version.FROZEN_SINCE
@@ -174,7 +217,11 @@ def test_the_counting_registry_is_well_formed() -> None:
         if window.label == process_version.CURRENT_PROCESS_LABEL:
             assert window.opens == since
         if window.closes is None and window.revoked_at is None:
-            assert window.digest in process_version.FROZEN_PROCESS_DIGESTS
+            # A window whose successor's close is pending still reads open.
+            assert (
+                window.digest in process_version.FROZEN_PROCESS_DIGESTS
+                or window.digest in _closing_digests()
+            )
     by_digest: dict[str, list[CountingWindow]] = {}
     for window in windows:
         by_digest.setdefault(window.digest, []).append(window)
@@ -192,8 +239,11 @@ def test_the_counting_registry_is_well_formed() -> None:
     if windows:
         for entry in enabled_predictors(CONFIG / "predictors.yaml"):
             digest = process_version.digest_for_actor(REPO, CONFIG, "predictor", entry.id)
+            # A window whose opening is pending is registered but not yet built.
             assert any(
                 w.digest == digest and w.closes is None and w.revoked_at is None for w in windows
+            ) or any(
+                w.digest == digest and w.opens.at is None for w in process_version._REGISTRY.windows
             ), f"{entry.id}: its live digest has no open counting window"
 
 

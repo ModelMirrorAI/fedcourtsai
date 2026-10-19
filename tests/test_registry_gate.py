@@ -1,7 +1,7 @@
 """The promotion gate's Step 0, on a synthetic history.
 
 ``main`` holds the committed registry (the merge-stamping rule declared) and a
-ledger; ``staging`` registers ``proc-v10`` over a moved claude-baseline digest.
+ledger; ``staging`` registers the next label over a moved claude-baseline digest.
 Each refusal is built by bending one fact of that history — a pending digest
 already in main's ledger, an unregistered live digest, a predecessor window
 left open, a ``prereg/`` tag already minted, a repeated boundary, a pending row
@@ -15,7 +15,6 @@ from __future__ import annotations
 import copy
 import json
 import os
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -44,17 +43,19 @@ from tests.test_promotion_record import (
     PENDING,
     UNDECLARED,
     _artifact,
+    _at,
     _commit,
     _git,
     _init,
+    _iso,
     _live_fleet,
     _registered,
     _write,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-MAIN_AT = datetime(2026, 10, 12, tzinfo=UTC)
-STAGING_AT = datetime(2026, 10, 12, 12, tzinfo=UTC)
+MAIN_AT = _at(12)
+STAGING_AT = _at(24)
 RECORD = "# Freeze record\n"
 #: Main's record once the merge-stamping rule is declared, as DECLARED names it.
 DECLARED_RECORD = f"{RECORD}\n- **{DECLARATION_HEADING}, {DECLARED_ON}.** Declared.\n"
@@ -68,7 +69,7 @@ def _history(
     main_digest: str = "sha256:" + "c" * 64,
     main_record: str = DECLARED_RECORD,
 ) -> tuple[Path, str]:
-    """``main`` with ``main_registry`` and one prediction; ``staging`` registering proc-v10."""
+    """``main`` with ``main_registry`` and one prediction; ``staging`` registering a label."""
     repo = _init(tmp_path)
     if main_registry is not None:
         _write(repo, REGISTRY_PATH, dump_registry(main_registry))
@@ -78,7 +79,7 @@ def _history(
     _git(repo, "switch", "-q", "-c", "staging")
     _write(repo, REGISTRY_PATH, dump_registry(staging_registry or _registered()))
     _write(repo, FREEZE_RECORD_PATH, main_record + "- staging\n")
-    return repo, _commit(repo, "register proc-v10", STAGING_AT)
+    return repo, _commit(repo, f"register {NEW_LABEL}", STAGING_AT)
 
 
 def _problems(repo: Path, at: str, actors: list[LiveActor] | None = None) -> list[str]:
@@ -89,7 +90,7 @@ def test_a_clean_registration_passes_and_counts_its_pending_rows(tmp_path: Path)
     repo, at = _history(tmp_path)
     result = registry_gate(repo, at, "main", _live_fleet())
     assert result.problems == []
-    # proc-v10's counting instant, its one new blessing, the window it opens and
+    # The new label's counting instant, its one new blessing, the window it opens and
     # the claude-baseline window it closes.
     assert result.pending == 4
 
@@ -138,7 +139,7 @@ def test_a_revoked_earlier_window_leaves_one_open(tmp_path: Path) -> None:
     for window in registry["windows"]:
         if window["closes"] == PENDING:
             window["closes"] = None
-            window["revoked_at"] = "2026-10-12T06:00:00Z"
+            window["revoked_at"] = _iso(_at(18))
     repo, at = _history(tmp_path, staging_registry=registry)
     assert not any("open windows" in p for p in _problems(repo, at))
 

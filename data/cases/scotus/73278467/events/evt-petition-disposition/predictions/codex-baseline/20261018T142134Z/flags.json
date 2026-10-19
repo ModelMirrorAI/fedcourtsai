@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73278467",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned September 25, 2026 SG invited brief is decisive: it recommends GVR in light of B.P.J. and Skrmetti and opposes plenary review. Its account of intervening decisions is pre-snapshot context concerning other cases, not this petition's outcome; no disposition of this petition was sought or encountered.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261018T142134Z",
+  "schema_version": "1.0"
+}

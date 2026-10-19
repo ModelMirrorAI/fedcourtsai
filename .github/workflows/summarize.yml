@@ -475,7 +475,7 @@ jobs:
       - name: Assert no cloud credential in this job
         run: |
           set -euo pipefail
-          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+          if env | grep -E '^AWS_' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
             echo "::error::AWS credential variables leaked into the job env"
             exit 1
           fi

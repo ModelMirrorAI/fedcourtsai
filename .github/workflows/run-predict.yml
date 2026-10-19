@@ -939,7 +939,7 @@ jobs:
           # Any AWS_* variable except the region names is treated as
           # credential-conferring (static keys, session tokens, and the
           # role-ARN/web-identity pair alike).
-          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+          if env | grep -E '^AWS_' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
             echo "::error::AWS credential variables leaked into the job env"
             exit 1
           fi
