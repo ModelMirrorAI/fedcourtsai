@@ -11127,3 +11127,92 @@ freeze commit is recorded here.
   - **The blinding scrub gains two terms.** `gpt-6.1-sol` and
     `gemini-4-argon` join the rate table, so the evaluate cell's identity
     scrub masks them. Only prose naming those models is affected.
+
+- **The contact scrub leaves an Ohio State Reports citation alone, and its
+  email shape is bounded at the address limits; recorded 2026-10-18.** A
+  **conditioning** entry in the *what the pipeline provisions* class, under
+  unchanged digests: no prompt byte and no registry field the digests read
+  moves, and `uv run fedcourts process-digest --all` at this commit prints
+  what it prints at its parent on `staging`: `proc-v10` (registered pending
+  in the entry above) and the six digests `605201bd…` (claude-baseline),
+  `7ab92dd4…` (codex-baseline), `bee46e92…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `a8610eec…` (codex-judge) and `6a88d3dc…` (gemini-judge).
+
+  **What changes**, on the staged copy alone
+  (`pipeline.documents.scrub_contact_details` and the residual detector).
+  - **A citation is no longer withheld as an address.** The shape pass and the
+    residual detector read `Ohio St.` as the reporter in two spellings. With a
+    `2d`/`3d` series or the Ohio State Law Journal's `L.J.`, a page of one to
+    four digits standing as a word, not followed by a capitalized word
+    (`123 Ohio St. 3d 456`, `75 Ohio St. L.J. 123`). Without a series, a page
+    followed by a pin cite or a parenthesis (`1 Ohio St. 3, 5`,
+    `1 Ohio St. 3 (1852)`). On a self-represented docket the shape pass
+    withheld these, and where one opened a line on a document's opening or
+    closing the detector counted it, so the row read `contact_scrubbed:
+    false`. An Ohio Street address is withheld as before, with a label
+    (`12 W Ohio St. Apt 4`), a lettered unit (`350 Ohio St. 4B`), a word after
+    its number (`1200 W Ohio St. 3d Floor`) or a bare suite (`350 Ohio St.
+    200`). A first-series citation with neither a pin cite nor a parenthesis
+    (`1 Ohio St. 3` closing a sentence) is still withheld.
+  - **The plain email shape bounds every run**: a local part of at most 64
+    characters, labels of at most 63, at most nine labels before a top-level
+    label of at most 63. A long run of address characters with a sign and no
+    domain behind it took time quadratic in its length (about 29 s at the
+    150,000-character document cap) and now scans in linear time. A string
+    past those bounds is no longer withheld by this shape: a local part of
+    more than 64 characters with no `.`, `-` or `%` inside it (which the
+    residual detector still counts, so the row reads `false`), or a domain of
+    more than ten labels (which it does not). Neither is an address the
+    addressing RFCs admit.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut: the pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after.
+  - **The registry row** is `scrub-ohio-reporter-citation`: every predictor,
+    reach `self-represented dockets`, not gradual, since provisioning reads the
+    stored documents and the next cell provisioned on an affected docket reads
+    the change. It is registered **pending** in the change's own PR
+    (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration. Its `merge` and `at` stay null until the promotion merge
+    that carries it to `main` stamps them (`promotion-record`); until then it
+    is left out of `process_version.HARNESS_BOUNDARIES`, so no cell has a side
+    of it, and a board built meanwhile names it under
+    `frozen_process.pending`.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`; a cell with no `pipeline_sha` is on
+    neither side, and its number is listed.
+  - **The counting windows it falls inside** depend on the carrying
+    promotion. Claude-baseline's `proc-v9` window in either case, since
+    `proc-v10` carries it forward unbroken. For codex-baseline and
+    gemini-baseline, their `proc-v8` windows if this boundary is stamped
+    before `proc-v10`'s instant, and their `proc-v10` windows if it is
+    stamped at or after it; carried by the same promotion, both are stamped
+    at that merge's instant, and every cell on either side of the boundary
+    is then also on the same side of the window edge.
+  - **Evaluate cells are dated by this entry, not partitioned**: the boundary
+    registry splits predictor cells only, and an evaluate cell provisioned
+    after the carrying merge reads the wider text under the same evaluator
+    digests.
+  - **Exposure is an upper bound and is not sized.** Whether a docket reads as
+    self-represented, and whether its documents cite the Ohio reports, lives
+    only in the corpus, and no census of either was run for this entry.
+
+  **What a post-change cell reads.** On an affected docket, a superset of the
+  pre-change text: the citations the scrub had replaced with its placeholder,
+  and in the contrived cases above an over-long address string. A
+  `documents.json` row whose only residual was such a citation reads
+  `contact_scrubbed: true` with a lower `contact_residuals` where it read
+  `false`. Predict cells, evaluate cells and the case-summary lane's
+  `summary-stage` read the same from the carrying promotion on; cells already
+  run and summaries already written stay as they are. No skill movement is
+  predicted, and a movement in either direction across this boundary may not
+  be read as a model effect. No base rate re-prices, no membership rule moves,
+  no scored figure moves, and nothing is written to the corpus.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_documents.py -k "ohio or linear_time or not_a_contact or
+  mailing_address"` is green, and `uv run fedcourts process-digest --all`
+  prints the same label and six digests at the carrying merge as at its
+  first parent.
