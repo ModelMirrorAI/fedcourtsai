@@ -391,7 +391,7 @@ docs/               design & operations references (see Documentation below)
 
 ## Documentation
 
-- [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) (the pending-case track's design) · [Data sources, terms & PII](docs/data-sources.md) (the same sources' terms posture, not their design) · [Corpus store & row schema](corpus/README.md)
+- [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) (the pending-case track's design) · [Document provisioning](docs/document-provisioning.md) (which filings reach a cell, and how coverage is measured) · [Data sources, terms & PII](docs/data-sources.md) (the same sources' terms posture, not their design) · [Corpus store & row schema](corpus/README.md)
 - [Pipeline & triggers](docs/pipeline.md) · [CLI reference](docs/cli.md)
 - [Predicted artifacts](docs/predicted-artifacts.md) (what one prediction consists of, with examples)
 - [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md) · [Freeze record](docs/freeze-record.md)

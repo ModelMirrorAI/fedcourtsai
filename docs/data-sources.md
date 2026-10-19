@@ -736,9 +736,10 @@ material**:
   above inventories (the case-summary lane's contact-scrubbed staged record,
   run-analytics' questions-presented extracts). The only PII that can reach
   public git is whatever a piece of reasoning quotes from a public docket while
-  explaining a prediction. The only places a self-represented filer's contact
-  detail travels unscrubbed are the transient run artifacts in the two
-  carve-outs below, which hold no stored copy and never reach git.
+  explaining a prediction. Apart from what the contact scrubs miss (named at
+  the end of the second carve-out), the only places a self-represented
+  filer's contact detail travels unscrubbed are the transient run artifacts
+  in the two carve-outs below, which hold no stored copy and never reach git.
 - **One carve-out: the application back-fill's plan artifact** (maintainer
   decision, 2026-10-01). Every byte it admits is the Court's own public docket
   record, served openly at supremecourt.gov, and none of it comes from our
@@ -760,13 +761,14 @@ material**:
     kind, dates, a counsel *count*), never a served block's text.
   - *Unchanged:* the corpus and the content store stay access-gated; the
     contact scrubs below still withhold these details from every cell, model
-    provider and summary; nothing under this carve-out reaches `data/`.
+    provider and summary, within what they reach; nothing under this
+    carve-out reaches `data/`.
   - *Not a precedent:* any other pass whose plan would carry a stored or
     private record still crosses a public-only projection. A new use of this
     carve-out is its own decision, recorded in this section.
-- **A proposed second carve-out: the OCR sweep's plan artifact** (awaiting
-  the maintainer's decision). Merging the sweep's run-seed jobs is that
-  decision. Every byte it would admit is a
+- **A second carve-out: the OCR sweep's plan artifact** (maintainer
+  decision, 2026-10-17, by promoting the sweep's run-seed jobs). Every byte it
+  admits is a
   filing the Court serves openly at supremecourt.gov, read off its page
   images, and none of it comes from our private stores.
   - *What:* for each item of one window's worklist that the parse could read,
@@ -793,14 +795,17 @@ material**:
     trade is the maintainer's to make, and is not made here.
   - *Unchanged:* the corpus and the content store stay access-gated, and
     nothing under this carve-out reaches `data/`. The contact scrubs below
-    run over recovered text as over any other stored text, with one
-    **open residual**: OCR output does not always lay contact details out
-    in the shapes the scrub matches: on one scanned filing (scotus/9026000314)
-    OCR-formatted contact details survived a scrub that reported
-    `contact_scrubbed: true`. This sweep makes OCR text the ordinary input for
-    a scanned filing, so until that is fixed a self-represented filer's
-    scanned filing can reach a cell, its model provider, or a summary with
-    contact details in it.
+    run over recovered text as over any other stored text, and OCR output does
+    not always lay contact details out in the shapes the scrub withholds. Where
+    the shape pass ran, a residual detector re-reads the scrubbed document's
+    opening and closing; a document it still finds a contact shape in is
+    recorded as **not** scrubbed (`contact_residuals` in the cell's manifest)
+    and left out of the case-summary lane's staged record, but it is still
+    staged to the cell, and so reaches its model provider, as scrubbed. What
+    the detector does not read (a document's middle, or any document a
+    value-only scrub ran over) is not checked at all
+    ([live-sources.md](live-sources.md), the contact-detail scrub;
+    [case-summaries.md](case-summaries.md)).
 - **A filing made in person is scrubbed before a cell reads it.** Where the
   provisioned snapshot serves a counsel block on either party side — petitioner
   or respondent — naming nobody but the party to write to — no attorney, the

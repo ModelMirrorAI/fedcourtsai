@@ -1283,7 +1283,7 @@ or network.
   case id, kind, Court URL and page count, and nothing else. `ocr-sweep-parse`
   holds no credential, installs the two OCR binaries, re-fetches and reads each
   item under a slice deadline, and writes the plan: the text it read. That
-  text would cross under a proposed carve-out in
+  text crosses under the OCR sweep's carve-out in
   [data-sources.md](data-sources.md) (*PII stance*). The writer, `ocr-sweep`,
   waits for the walk and downloads the plan and the projection's worklist by
   artifact id. It refuses the plan whole above the cap, off its shape, naming
