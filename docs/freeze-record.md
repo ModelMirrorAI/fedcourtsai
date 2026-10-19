@@ -11216,6 +11216,125 @@ freeze commit is recorded here.
   mailing_address"` is green, and `uv run fedcourts process-digest --all`
   prints the same label and six digests at the carrying merge as at its
   first parent.
+- **An interim reserve slot frees when its occupant's stored docket reads as
+  disposed; recorded 2026-10-19.** A **membership-rule** entry under unchanged
+  digests: no value, digest or `salience_version` moves, but which pending
+  applications the interim reserve funds can. The reserve is applied by
+  `pipeline.salience.plan_cohorts` under every scorer, so it is not part of
+  what a salience version names.
+
+  **What moved.** A latched, still-unresolved application held its reserve slot
+  until the resolver recorded a disposition. From the carrying merge, the
+  selection pass also reads each occupant's newest stored snapshot, and an
+  occupant on which `pipeline.outcome.interim_disposal_signal` fires keeps its
+  latch but stops counting against `salience.interim_reserve_slots`. That is
+  the scan the forward queue's decided-guard already reads, so the slot it
+  frees was funding no cell. The gate replay reads no snapshots and passes no
+  release, so it does not reproduce a live fill in which a release fired.
+  `reconcile-salience-selection` now lists every occupant with its filing
+  date, the snapshot read, whether it holds a slot, and whether the read
+  failed. A released occupant stays latched and unresolved, so every live
+  cycle (twelve a day) reads its snapshot again until a pull records the
+  disposition: one content-store read per occupant per cycle.
+
+  **Why it is a boundary.** A freed slot goes to the next application on the
+  escalation ladder, and the slots in use lower the current conference's cert
+  rank fill one-for-one, so the change can move which applications and which
+  cert petitions are selected from the carrying merge on. It moves no cell
+  already minted and re-derives nothing committed.
+
+  **What it frees today.** Nothing. Read ranged against the index pointer
+  `79e92043b8dbe9c0…` (latest pull 2026-10-19), the reserve holds 5 of 5
+  slots: `scotus/73279700` (25A622, filed 2025-11-25, newest snapshot
+  2026-10-06), 9526000163 (26A163), 9526000416, 9526000458 and 9526000499.
+  The scan fires on none of them. 25A622 and 26A163 each carry a single stored
+  entry, the application's submission, so no reading of the stored docket can
+  free them; a slot held that way needs a pull that records the disposition,
+  or a rule this entry does not make.
+
+  The runnable effect check once it is live: where the corpus is pulled,
+  `uv run fedcourts reconcile-salience-selection` (a dry run) prints an
+  `interim reserve:` line and one line per occupant, each saying whether it
+  holds a slot, and every occupant it reports released is one whose stored
+  docket the forward queue's decided-guard also reads as disposed.
+
+- **A distribution-moment cell is minted only on the petition's own
+  distribution, never on an ancillary paper's; recorded 2026-10-19.** A
+  **membership-rule** entry: it changes which cells are minted from the
+  carrying merge on, under unchanged digests, and moves no value a minted
+  cell reads.
+
+  **What changes.** "The petition is distributed" is one predicate,
+  `store.petition_distributed`: the row's `distribution_count`, which ingest
+  takes under the entry-initial parse `dist-v2`, is above zero; the
+  `distributed_for_conference` column stands in only where no count was ever
+  derived (a row never live-parsed, and every application row). Four readers
+  take it: the fan-out's premature-cell refusal
+  (`store._premature_distribution_cell`), the re-predict rule
+  (`pipeline.pull._reopenable_moment`), the live channel's predict trigger
+  (`pipeline.live._distribution_transition`) and its relist test. The
+  re-predict rule's distribution limb registered above refuses a
+  cert/distribution event "unless it carries a `distributed_for_conference`
+  still ahead"; from the carrying merge it also refuses one whose petition is
+  not distributed in its own right, so a conference named only by an
+  ancillary paper's distribution (a sealing motion, a motion for leave under
+  a linked M-number) no longer satisfies it. The live trigger is a rise in the
+  petition's own count where the pre-poll row carries one, so a petition
+  distributed for the conference an ancillary paper already named still
+  triggers, and an ancillary paper distributed for another conference after
+  the petition triggers nothing and is not read as a relist.
+
+  **What it resolves.** The declared divergence of the unversioned cohort key
+  in the `dist-v2` entry above — rows sitting in the conference cohort an
+  ancillary paper was distributed for while carrying a zero count — no longer
+  reaches minting: such a row earns no distribution-moment cell until its own
+  distribution lands. The key itself is unchanged.
+
+  **What it does not change, disclosed.**
+  - **Cohort selection** (`pipeline.salience`, the cohort pass) still groups
+    pending rows by `distributed_for_conference`, so an ancillary-only row can
+    be latched `salience_selected` in that conference's cohort and then have
+    no cell minted. Its selection spends a cohort slot and no model budget.
+  - **Arrival freshness** (`pipeline.outcome`'s arrival mint and the
+    salience arrival sweep) still refuses a row whose
+    `distributed_for_conference` is set, so an ancillary-only row is neither
+    an arrival nor a distribution cell until its own distribution lands. That
+    rule is registered with the arrival moment and is not moved here.
+  - **The parse.** A distribution the clerk enters entry-initially for an
+    ancillary paper reads as the petition's under `dist-v2` and is out of this
+    predicate's reach, as it is out of the count's.
+
+  **Committed cells keep counting.** No cell is voided, set aside or
+  re-minted by this entry, and no harness boundary is registered: the change
+  decides who is minted, not what a minted cell reads. Census at this commit
+  against the production blob under `origin/main`'s pointer (sha256
+  `79e92043…`, latest pull 2026-10-19), reading each case's latest live
+  snapshot (stored 2026-10-14 for the cases named): of 1077 committed
+  `evt-petition-disposition` predict cells on 238 SCOTUS cases, **6 cells on
+  2 cases** (`scotus/9026000013`, run `20260820T181919Z`; `scotus/9026000455`,
+  run `20261006T142731Z`; three predictors each) were minted when the docket
+  carried a distribution by its run day but no petition distribution under
+  `dist-v2`. Their scope (`process_version.window_of` on each stamp): the
+  three `scotus/9026000013` cells are stamped `proc-v3`, the declared-shakedown
+  cohort, so they are alpha and in no frozen-scope figure. The three
+  `scotus/9026000455` cells are stamped `proc-v8` inside each predictor's
+  `proc-v8` counting window, so they are **frozen scope**; the event has no
+  committed outcome at this vintage, so no graded figure holds them yet, and
+  they are not on the set-aside list, so they enter the frozen figures when it
+  resolves. Whether they sit in Release 1's registered cohort was not checked
+  here. `scotus/9026000461` and `scotus/9026000462` are not among them:
+  their stored dockets carry an entry-initial distribution before their run,
+  which is the parse limit above. 3 pending SCOTUS rows carry a membership
+  column with a zero count at this vintage (`scotus/9026000455`,
+  `scotus/9026000492`, `scotus/9026005823`); no SCOTUS row carries a
+  membership column with a null count, so the trigger's fallback reaches no
+  stored row.
+
+  The runnable effect check once it is live: `uv run pytest tests/test_store.py
+  tests/test_live.py -k "ancillary or only_its_motion or motions_is_not or
+  only_a_motion or petition_distributed"` is green, and `uv run fedcourts
+  predict-plan` lists no `evt-petition-disposition` for a pending SCOTUS row
+  whose `distribution_count` is 0.
 
 - **The interim reserve holds one slot per application number; recorded
   2026-10-19.** A **membership-rule** entry under unchanged digests: no value,
@@ -11226,8 +11345,9 @@ freeze commit is recorded here.
 
   **What moved.** `pipeline.salience.plan_cohorts` keys a reserve slot on the
   application number, the unit the interim base rate counts, rather than on
-  the corpus row. A number latched under any of its rows holds one slot, and
-  none of its other rows contends while it does. An unlatched number contends
+  the corpus row. A number latched under any of its rows holds one slot (none
+  once its occupant is released as disposed), and none of its other rows
+  contends while it is latched. An unlatched number contends
   through the row `corpus.duplicate_application_case_ids` keeps: the rows that
   call skips are still scored and are never picked. The slot is keyed on the
   number rather than on today's survivor because the survivor can move, from

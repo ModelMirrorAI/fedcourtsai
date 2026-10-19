@@ -1154,7 +1154,8 @@ petition's transition fetches nothing, and its documents are provisioned by the
 sweep — when it is latched, or when cohort completion admits it.
 
 **The relist requeue cooldown.** A **relist** — a distribution transition on a
-petition already distributed before, as opposed to its first distribution — inside
+petition already distributed before in its own right (an ancillary paper's
+earlier distribution does not count), as opposed to its first distribution — inside
 `salience.relist_requeue_cooldown_days` (default 1) of the case's last
 prediction is treated as administrative churn rather than a
 materially different posture, and is not requeued: the divert is surfaced on
@@ -1187,6 +1188,9 @@ petitions to the state its docket disclosed at a chosen cutoff
 — petition **arrival**, the **first distribution**, or the **last
 pre-resolution distribution** — and runs the same selection core the live pass
 runs (`plan_cohorts`) over the projection, into `metrics/salience-replay.json`.
+The replay reads no stored snapshots and passes the core no reserve release,
+so where the live pass freed an interim reserve slot because the occupant's
+stored docket read as disposed, the replay does not reproduce that fill.
 
 The projection layer (`fedcourtsai.pipeline.asof`) is the honesty mechanism:
 time-invariant identity (docket number, fee class, originating court, sampling
@@ -1708,8 +1712,8 @@ features do not exist here, so each selection pass fills up to
 **escalation-ladder order** — requested response first, then the amicus
 count, `case_id` for determinism. A slot is an application **number's**, the
 unit the interim base rate counts: a number the corpus stores under two case
-ids holds at most one slot. Latched under any of its rows, it holds one and
-its other rows do not contend; unlatched, it contends through the row
+ids holds at most one slot. Latched under any of its rows, it holds one (none
+once released as disposed, below) and its other rows do not contend; unlatched, it contends through the row
 `corpus.duplicate_application_case_ids` keeps, and the rows that call skips
 are scored but never picked. Moment minting and the predict queue do not read
 the skip set, so a number already latched under two rows stays funded twice.
@@ -1724,12 +1728,18 @@ by which the rotation reached more recently, and any change in how the
 proceedings text is read reaches the pending cohort one poll at a time rather
 than all at once. A selected application occupies its slot until
 it resolves (the sticky latch never de-selects), so the reserve bounds
-*concurrent* live interim predictions and a slot frees only on resolution —
-where "resolves"
-means the machine-matched resolution the accumulation rule below requires, so
-an application decided in language the vocabulary misses pins its slot until a
-maintainer resolves the residue;
-it is visible as the application rotation's long-unresolved tail. The slots in
+*concurrent* live interim predictions. A slot frees on the machine-matched
+resolution the accumulation rule below requires, or earlier, when the
+occupant's newest stored snapshot already reads as an interim disposal
+(`outcome.interim_disposal_signal`, the high-recall scan the forward queue's
+decided-guard reads). The resolver's vocabulary is exact-match, so an
+application decided in language it misses stays unresolved; its outcome is
+legible in the snapshot, no forward cell will be minted for it, and it keeps
+its latch but not its slot. An application whose stored docket shows no
+disposal at all — an upstream docket that never updated, or a disposition the
+corpus has not yet pulled — still holds its slot until a pull records one;
+`reconcile-salience-selection` lists every occupant with its filing date and
+the snapshot read, so a slot held for months is visible. The slots in
 use lower the cert **rank-fill limit** one-for-one in the **latest
 conference cohort of the pass** — never a carve-out — so the reserve is defined
 inside `N`. Whether it *spends* inside `N` depends on the cohort: a lowered

@@ -9859,6 +9859,39 @@ class DecisionDateConvergenceResult(_Strict):
     )
 
 
+class ReserveOccupant(_Strict):
+    """One latched, still-pending application the interim reserve weighed.
+
+    ``holds_slot`` is False when the application's newest stored snapshot
+    already reads as an interim disposal
+    (:func:`fedcourtsai.pipeline.outcome.interim_disposal_signal`): the row is
+    still unresolved in the corpus, but the pass no longer counts it against
+    ``interim_reserve_slots``. ``date_filed`` dates the occupancy, so a slot held
+    for months is visible in the ledger.
+    """
+
+    case_id: str
+    docket_number: str = ""
+    date_filed: date | None = None
+    snapshot_date: date | None = Field(
+        default=None, description="The newest stored snapshot read; None when none is stored"
+    )
+    holds_slot: bool = Field(
+        default=True,
+        description=(
+            "False when the stored snapshot already reads as an interim disposal, "
+            "which frees the slot while the row awaits a resolver"
+        ),
+    )
+    snapshot_read_failed: bool = Field(
+        default=False,
+        description=(
+            "True when the snapshot read raised, as distinct from no snapshot being "
+            "stored; the occupant then holds its slot"
+        ),
+    )
+
+
 class SalienceSelectionResult(_Strict):
     """``reconcile-salience-selection`` result: what the salience pass scored and picked.
 
@@ -9887,6 +9920,13 @@ class SalienceSelectionResult(_Strict):
         description="Cases newly latched selected (the one-way latch never removes)",
     )
     sample_selected: list[str] = Field(default_factory=list)
+    reserve_occupants: list[ReserveOccupant] = Field(
+        default_factory=list,
+        description=(
+            "Every latched, still-pending application the interim reserve weighed, "
+            "with whether it still holds a slot"
+        ),
+    )
 
 
 class CaptionCensusClass(_Strict):
@@ -11541,6 +11581,19 @@ class SummaryPlanCase(_Strict):
         return self
 
 
+class SummaryWithdrawal(_Strict):
+    """One committed summary a summary run withdraws: written before the petition
+    the docket number now holds was docketed, so it describes another petition."""
+
+    case_id: str
+    path: str = Field(description="The summary file's repository-relative path")
+    snapshot: date = Field(description="The snapshot day the summary was written from")
+    docketed: date = Field(
+        description="The docketed date the case's newest record carries, which the "
+        + "summary's snapshot day precedes"
+    )
+
+
 class SummaryPlan(_Strict):
     """``fedcourts summarize-plan`` output — what a summary run would write and cost.
 
@@ -11566,6 +11619,12 @@ class SummaryPlan(_Strict):
     )
     deferred: int = Field(ge=0, description="Cases owed a summary that the limit held back")
     cases: list[SummaryPlanCase]
+    withdrawn: list[SummaryWithdrawal] = Field(
+        default_factory=list,
+        description="Committed summaries of another petition than the docket number now "
+        + "holds (a re-docketed number), which the run's review PR deletes; free, so "
+        + "never deferred by the limit",
+    )
     estimated_cost_usd_low: float = Field(ge=0)
     estimated_cost_usd_high: float = Field(ge=0)
 
