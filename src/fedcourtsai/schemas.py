@@ -4931,9 +4931,9 @@ class ReleaseEntry(_Strict):
     code_doi: str | None = Field(
         default=None,
         pattern=DOI_PATTERN,
-        description="The DOI the release cites for the code that produced it (the "
-        "software record on Zenodo, beside the tag that pins the exact code); null "
-        "until one exists",
+        description="The concept DOI of the project's Zenodo software record, which "
+        "resolves to its newest archived version; the release cites it beside its tag, "
+        "which pins the exact code. Null until the record exists",
     )
 
 
@@ -4949,8 +4949,18 @@ class ReleaseManifest(_Strict):
 
     @model_validator(mode="after")
     def _releases_cohere(self) -> ReleaseManifest:
-        """One page per slug, one entry per tag, newest first."""
-        for field in ("slug", "tag"):
+        """One page per slug, one entry per tag and label, tags named for slugs, newest first.
+
+        The site builds ``/results/<slug>`` and reads that page's documents at
+        ``tag``, so a tag that is not ``results/<slug>`` would put one release's
+        text under another's address.
+        """
+        for entry in self.releases:
+            if entry.tag != f"results/{entry.slug}":
+                raise ValueError(
+                    f"release {entry.slug}: tag {entry.tag} is not results/{entry.slug}"
+                )
+        for field in ("slug", "tag", "label"):
             values = [getattr(entry, field) for entry in self.releases]
             repeated = sorted({v for v in values if values.count(v) > 1})
             if repeated:

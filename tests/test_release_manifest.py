@@ -55,18 +55,27 @@ def test_slug_must_be_url_safe(slug: str) -> None:
         _manifest(_entry(slug=slug))
 
 
-@pytest.mark.parametrize("field", ["slug", "tag"])
-def test_slug_and_tag_are_unique(field: str) -> None:
-    first = _entry(published="2027-01-10", slug="b", tag="results/b")
+@pytest.mark.parametrize("field", ["slug", "label"])
+def test_slug_and_label_are_unique(field: str) -> None:
+    first = _entry(published="2027-01-10", slug="b", tag="results/b", label="Release 2")
     second = _entry(slug="a", tag="results/a")
     second[field] = first[field]
+    if field == "slug":
+        second["tag"] = first["tag"]
     with pytest.raises(ValidationError, match=f"release {field} listed more than once"):
         _manifest(first, second)
 
 
+def test_tag_must_name_the_slug() -> None:
+    with pytest.raises(ValidationError, match="tag results/ot2026-merits is not results/"):
+        _manifest(_entry(tag="results/ot2026-merits"))
+
+
 def test_releases_are_newest_first() -> None:
     older = _entry()
-    newer = _entry(slug="ot2026-merits", tag="results/ot2026-merits", published="2027-07-01")
+    newer = _entry(
+        slug="ot2026-merits", tag="results/ot2026-merits", published="2027-07-01", label="Release 2"
+    )
     assert [r.slug for r in _manifest(newer, older).releases] == ["ot2026-merits", older["slug"]]
     with pytest.raises(ValidationError, match="newest first"):
         _manifest(older, newer)
@@ -75,7 +84,7 @@ def test_releases_are_newest_first() -> None:
 @pytest.mark.parametrize(
     ("field", "value"),
     [
-        ("tag", "prereg/proc-v8"),
+        ("tag", "prereg/ot2026-longconf"),
         ("summary", "../outside.md"),
         ("summary", "/docs/summary.md"),
         ("audit", "docs/audit.txt"),

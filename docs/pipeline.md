@@ -2116,8 +2116,9 @@ The manifest is a reviewed file like the documents it lists, not data: it rides
 entry goes in **the release's own pull request**, beside its filled documents,
 and is promoted with them before the tag is pushed; the tag then sits on a
 commit whose manifest already names it. `ReleaseManifest` in
-`fedcourtsai.schemas` holds its rules — URL-safe, unique slugs; unique tags in
-the `results/` namespace; newest first; Markdown paths under `docs/`; DOIs
+`fedcourtsai.schemas` holds its rules — URL-safe, unique slugs; each tag
+`results/<slug>`, so a page's address and the tag its text is read at name the
+same release; unique labels; newest first; Markdown paths under `docs/`; DOIs
 written bare — and `tests/test_release_manifest.py` checks the committed file
 against them, and that each entry's summary and audit write-up exist at its tag
 where the checkout has the tag, or in the working tree where it does not (CI's

@@ -21,7 +21,7 @@
             }
           ],
           "default": null,
-          "description": "The DOI the release cites for the code that produced it (the software record on Zenodo, beside the tag that pins the exact code); null until one exists",
+          "description": "The concept DOI of the project's Zenodo software record, which resolves to its newest archived version; the release cites it beside its tag, which pins the exact code. Null until the record exists",
           "title": "Code Doi"
         },
         "covers": {
