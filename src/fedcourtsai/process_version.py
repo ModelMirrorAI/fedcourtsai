@@ -95,7 +95,7 @@ from .schemas import (
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
-CURRENT_PROCESS_LABEL = "proc-v9"
+CURRENT_PROCESS_LABEL = "proc-v10"
 
 #: The committed frozen-process registry the freeze constants below are built
 #: from: the labels and their counting instants, the digests the current label
@@ -249,22 +249,32 @@ def harness_stamps_cert_anchor(label: str | None) -> bool:
 # digest, never the label, so a process that drifted under an unchanged label
 # is not silently blessed.
 #
-# proc-v9 blesses four digests newly and carries two forward:
+# proc-v9 blessed four digests newly and carried two forward:
 #
-# - claude-baseline's predictor digest is new: the claude engine's default
+# - claude-baseline's predictor digest was new: the claude engine's default
 #   model (`pricing.DEFAULT_MODELS`, a digest input) is claude-opus-5-5. This
-#   is the predictor-half re-bless, so it closes the proc-v8 claude-baseline
-#   window and opens a proc-v9 one (COUNTING_WINDOWS).
-# - the three evaluator digests are new: the evaluate prompt's stakes-read
+#   was the predictor-half re-bless, so it closed the proc-v8 claude-baseline
+#   window and opened a proc-v9 one (COUNTING_WINDOWS).
+# - the three evaluator digests were new: the evaluate prompt's stakes-read
 #   instruction says the predictors' `big_case_score` is in view and asks for
 #   a read that does not anchor on it, its `qp-topics` leakage rule reads a
 #   search that excludes the path as not touching it, and a frozen-band cert
-#   cell's anchor is left to the stamp; claude-judge also takes the claude
+#   cell's anchor is left to the stamp; claude-judge also took the claude
 #   default model. An evaluator digest records and never partitions, so this
-#   half closes and opens no window.
-# - codex-baseline's and gemini-baseline's predictor digests are byte-identical
-#   to proc-v8's. They keep proc-v8's bless moment verbatim and their proc-v8
-#   windows stay open and unbroken (a test asserts the bytes did not move).
+#   half closed and opened no window.
+# - codex-baseline's and gemini-baseline's predictor digests were
+#   byte-identical to proc-v8's, so they kept proc-v8's bless moment and
+#   their proc-v8 windows stayed open.
+#
+# proc-v10 blesses four digests newly and carries two forward:
+#
+# - the codex and gemini pairs' four digests are new: their engines' default
+#   models are gpt-6.1-sol and gemini-4-argon. The predictor half closes the
+#   proc-v8 codex-baseline and gemini-baseline windows and opens a proc-v10
+#   window for each new digest.
+# - claude-baseline's and claude-judge's digests are byte-identical to
+#   proc-v9's: no prompt byte moves in this label. claude-baseline's proc-v9
+#   window stays open and unbroken.
 #
 # Each digest maps to **the instant it was blessed**: the merge time of the
 # promotion that carried its registration to `main`, the moment its bytes
@@ -404,9 +414,10 @@ FROZEN_SINCE: datetime | None = counting_instant(_REGISTRY)
 # proc-v8 opened one window per predictor digest at its counting instant,
 # `2026-09-16T00:26:04Z` (a test pins that none of the three leaves this
 # registry without a closing instant). proc-v9 closes claude-baseline's at
-# FROZEN_SINCE and opens a proc-v9 window for the new claude-baseline digest
-# there; codex-baseline's and gemini-baseline's stay open, still labelled
-# proc-v8.
+# its instant and opens a proc-v9 window for the new claude-baseline digest
+# there. proc-v10 closes codex-baseline's and gemini-baseline's proc-v8
+# windows at its instant and opens a proc-v10 window for each new digest;
+# claude-baseline's proc-v9 window stays open.
 #
 # A **pending** edge reads in the safe direction until its carrying merge
 # stamps it: a window whose opening is pending is not a window yet, so its
