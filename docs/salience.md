@@ -1154,7 +1154,8 @@ petition's transition fetches nothing, and its documents are provisioned by the
 sweep — when it is latched, or when cohort completion admits it.
 
 **The relist requeue cooldown.** A **relist** — a distribution transition on a
-petition already distributed before, as opposed to its first distribution — inside
+petition already distributed before in its own right (an ancillary paper's
+earlier distribution does not count), as opposed to its first distribution — inside
 `salience.relist_requeue_cooldown_days` (default 1) of the case's last
 prediction is treated as administrative churn rather than a
 materially different posture, and is not requeued: the divert is surfaced on
