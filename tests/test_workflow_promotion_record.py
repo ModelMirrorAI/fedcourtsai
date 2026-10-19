@@ -29,7 +29,7 @@ import pytest
 import yaml
 
 from fedcourtsai.promotion_record import FREEZE_RECORD_PATH, REGISTRY_PATH, tag_message
-from tests.test_promotion_record import MERGED_AT, _promote
+from tests.test_promotion_record import MERGED_AT, MERGED_DAY, NEW_LABEL, _promote
 from tests.workflow_gate import own_condition, own_needs
 
 #: The identity every helper git call commits and tags under. A CI runner has
@@ -418,11 +418,11 @@ def test_the_writer_records_a_promotion_end_to_end(tmp_path: Path) -> None:
     assert head == outputs["head"]
     assert _git(remote, "rev-list", "--parents", "-n", "1", head).split() == [head, merge]
     # The tag names the merge, annotated, carrying the plan's message.
-    assert _git(remote, "rev-parse", "promotion/2026-10-13^{commit}") == merge
+    assert _git(remote, "rev-parse", f"promotion/{MERGED_DAY}^{{commit}}") == merge
     plan_file = Path(env["RUNNER_TEMP"]) / "promotion-record" / "plan.json"
     plan = json.loads(plan_file.read_text(encoding="utf-8"))
-    assert tag_message(remote, "promotion/2026-10-13") == plan["promotion_tag"]["message"]
-    assert _git(remote, "rev-parse", "prereg/proc-v10^{commit}") == merge
+    assert tag_message(remote, f"promotion/{MERGED_DAY}") == plan["promotion_tag"]["message"]
+    assert _git(remote, "rev-parse", f"prereg/{NEW_LABEL}^{{commit}}") == merge
     # The fills and stamps landed: the merge's SHA and committer time on main.
     record = _git(remote, "show", f"main:{FREEZE_RECORD_PATH}")
     when = MERGED_AT.strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -440,7 +440,7 @@ def test_a_second_run_adopts_the_tags_and_commits_nothing(tmp_path: Path) -> Non
     # The record commit already landed, so the merge's placeholders and pending
     # rows are gone from main's tip: the re-plan stamps nothing and fills nothing.
     assert again.returncode == 0, again.stderr + again.stdout
-    assert "adopting promotion/2026-10-13" in again.stdout
+    assert f"adopting promotion/{MERGED_DAY}" in again.stdout
     assert _validate(work, env)["head"] == ""
     assert _git(remote, "rev-parse", "main") == head
 
@@ -518,10 +518,10 @@ def test_validate_refuses_a_record_commit_off_the_base(tmp_path: Path) -> None:
 def test_a_date_another_commit_holds_takes_the_next_suffix(tmp_path: Path) -> None:
     work, remote, merge, env = _setup(tmp_path)
     # The canonical name was already taken by another commit before the writer ran.
-    _git(remote, "tag", "-a", "promotion/2026-10-13", "-m", "earlier", "staging")
+    _git(remote, "tag", "-a", f"promotion/{MERGED_DAY}", "-m", "earlier", "staging")
     _prepare_and_push(work, env, merge)
-    assert _git(remote, "rev-parse", "promotion/2026-10-13-2^{commit}") == merge
-    assert _git(remote, "rev-parse", "promotion/2026-10-13^{commit}") != merge
+    assert _git(remote, "rev-parse", f"promotion/{MERGED_DAY}-2^{{commit}}") == merge
+    assert _git(remote, "rev-parse", f"promotion/{MERGED_DAY}^{{commit}}") != merge
 
 
 def test_a_tag_planted_between_prepare_and_push_is_refused_not_replaced(tmp_path: Path) -> None:
@@ -529,12 +529,12 @@ def test_a_tag_planted_between_prepare_and_push_is_refused_not_replaced(tmp_path
     assert _run(work, env, "prepare", merge).returncode == 0
     outputs = _validate(work, env)
     planted = _git(remote, "rev-parse", "staging")
-    _git(remote, "tag", "-a", "promotion/2026-10-13", "-m", "planted", planted)
+    _git(remote, "tag", "-a", f"promotion/{MERGED_DAY}", "-m", "planted", planted)
     pushed = _push(work, env, outputs)
     assert pushed.returncode not in (0, 3)
     assert "already exists" in pushed.stderr + pushed.stdout
     # The remote tag is untouched and the record commit never pushed.
-    assert _git(remote, "rev-parse", "promotion/2026-10-13^{commit}") == planted
+    assert _git(remote, "rev-parse", f"promotion/{MERGED_DAY}^{{commit}}") == planted
     assert _git(remote, "rev-parse", "main") == merge
 
 

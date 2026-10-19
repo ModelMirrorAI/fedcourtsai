@@ -18064,11 +18064,15 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "purposes. "
         + "The ~+20% level gap to the 410-cell pre-freeze ledger is an UPPER "
         + "BOUND on any level effect, not a measurement of one.",
-        "The codex row is PRE-CUTOVER and projects LOW: it was measured on "
-        + "gpt-5.6-sol ($5/$30 per MTok) while that engine's default is now "
-        + "gpt-6-astra ($10/$50). On the new default a fully-tournamented case "
-        + "prices nearer $16.7-17.8 than the $14.97 these rates sum to, and "
-        + "only the first measured post-cutover run re-anchors the row.",
+        "The codex and gemini rows are PRE-CUTOVER. The codex row projects "
+        + "HIGH: it was measured on gpt-5.6-sol ($5/$30 per MTok) while that "
+        + "engine's default is now gpt-6.1-sol ($2/$10), roughly a third of "
+        + "the cost at equal token counts. The gemini row was measured on "
+        + "gemini-3.1-pro-preview ($2/$12); gemini-4-argon lists at $2/$10 "
+        + "until 2026-12-01, when the row projects HIGH by about a fifth, and "
+        + "$4/$20 after, when it projects LOW by about a third. Both are "
+        + "list-price projections, and only the first measured post-cutover "
+        + "runs re-anchor the rows.",
     ],
     "evaluate": [
         "An ASSUMPTION, not a measurement: these rates scale a pre-freeze "

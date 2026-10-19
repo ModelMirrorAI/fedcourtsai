@@ -16,7 +16,68 @@
     "distribution_parse": "dist-v2"
   },
   "source": null,
-  "vote_provenance": null,
-  "votes": [],
-  "writing_roles": null
+  "vote_provenance": {
+    "complete": false,
+    "documents": [
+      "https://www.supremecourt.gov/opinions/25pdf/25-29_1qe4.pdf",
+      "https://www.supremecourt.gov/orders/courtorders/032326zor_7mio.pdf"
+    ],
+    "grammars": [
+      {
+        "grammar": "scotus-order-notations",
+        "version": 3
+      },
+      {
+        "grammar": "scotus-writing-headers",
+        "version": 3
+      }
+    ],
+    "participating": 9,
+    "source": "supremecourt-orders"
+  },
+  "votes": [
+    {
+      "justice": "Sotomayor",
+      "vote": "grant",
+      "writing": "dissent"
+    }
+  ],
+  "writing_roles": [
+    {
+      "justice": "Thomas",
+      "writing": "none"
+    },
+    {
+      "justice": "Roberts",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "writing": "none"
+    },
+    {
+      "justice": "Sotomayor",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "writing": "none"
+    },
+    {
+      "justice": "Gorsuch",
+      "writing": "none"
+    },
+    {
+      "justice": "Kavanaugh",
+      "writing": "none"
+    },
+    {
+      "justice": "Barrett",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "writing": "none"
+    }
+  ]
 }

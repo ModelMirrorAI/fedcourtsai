@@ -1310,7 +1310,7 @@ jobs:
       - name: Assert no credential reaches the parse
         run: |
           set -euo pipefail
-          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+          if env | grep -E '^AWS_' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
             echo "::error::AWS credential variables reached the parse job"
             exit 1
           fi
@@ -1650,7 +1650,7 @@ jobs:
       - name: Assert no credential reaches the parse
         run: |
           set -euo pipefail
-          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+          if env | grep -E '^AWS_' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
             echo "::error::AWS credential variables reached the parse job"
             exit 1
           fi
@@ -1873,7 +1873,7 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
-          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+          if env | grep -E '^AWS_' | grep -E '=.+' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
             echo "::error::AWS credential variables reached the OCR sweep commit"
             exit 1
           fi

@@ -1,14 +1,14 @@
 {
-  "cases": 304,
+  "cases": 308,
   "cases_out_of_scope": 0,
-  "cases_without_score": 2,
+  "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 272,
+      "cases": 274,
       "n": 3
     },
     {
-      "cases": 30,
+      "cases": 32,
       "n": 2
     },
     {
@@ -16,8 +16,8 @@
       "n": 1
     }
   ],
-  "current_reads": 910,
-  "declared_no_view": 18,
+  "current_reads": 922,
+  "declared_no_view": 20,
   "frozen_process": {
     "digests": [
       "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
@@ -64,7 +64,7 @@
     ]
   },
   "median_adjacent_gap": 0.0033,
-  "median_score_range": 0.21,
+  "median_score_range": 0.2,
   "missing_reads": 14,
   "predictors": [
     "claude-baseline",
@@ -7327,46 +7327,46 @@
           "event_id": "evt-petition-disposition",
           "reads": [
             {
-              "big_case_rationale": "Nationally salient question \u2014 the constitutional standard for housing and searching transgender detainees in sex-segregated facilities \u2014 with a 23-state amicus bloc and direct implications for parallel litigation over federal prison policy.",
-              "big_case_score": 0.72,
-              "cell_path": "data/cases/scotus/73278467/events/evt-petition-disposition/predictions/claude-baseline/20260715T121117Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/claude-baseline/20260715T121117Z",
-              "confidence": 0.55,
-              "granted": 0,
+              "big_case_rationale": "Equal-protection standard for sex-based prison policies as applied to transgender inmates plus a cross-gender strip-search rule; nationally salient (23 States amici, SG participation) but post-Skrmetti/B.P.J. the doctrinal stakes are partly settled.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73278467/events/evt-petition-disposition/predictions/claude-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/claude-baseline/20261018T142134Z",
+              "confidence": 0.7,
+              "granted": 1,
               "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
+              "mode": "forward",
+              "predicted_disposition": "gvr",
               "predictor_id": "claude-baseline",
-              "probability": 0.4,
-              "run_id": "20260715T121117Z"
+              "probability": 0.84,
+              "run_id": "20261018T142134Z"
             },
             {
-              "big_case_rationale": "The case could set nationwide constitutional rules for sex-based prison housing and searches involving transgender detainees.",
-              "big_case_score": 0.84,
-              "cell_path": "data/cases/scotus/73278467/events/evt-petition-disposition/predictions/codex-baseline/20260715T121117Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/codex-baseline/20260715T121117Z",
-              "confidence": 0.66,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.38,
-              "run_id": "20260715T121117Z"
-            },
-            {
-              "big_case_rationale": "Major circuit split over the level of equal protection scrutiny applicable to sex-based or gender-identity classifications in prisons post-Skrmetti and Bostock.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/73278467/events/evt-petition-disposition/predictions/gemini-baseline/20260715T121117Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/gemini-baseline/20260715T121117Z",
+              "big_case_rationale": "The questions implicate transgender detainees' equal protection, bodily privacy, and jail administration nationwide. Their potential significance is substantial even though a narrow remand, rather than a plenary ruling establishing new rules, is the likeliest disposition.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/73278467/events/evt-petition-disposition/predictions/codex-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/codex-baseline/20261018T142134Z",
               "confidence": null,
               "granted": 1,
               "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "granted",
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.9,
+              "run_id": "20261018T142134Z"
+            },
+            {
+              "big_case_rationale": "The case touches on highly salient issues involving trans-identifying individuals in prisons, though a likely GVR limits its independent legal impact.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/73278467/events/evt-petition-disposition/predictions/gemini-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/gemini-baseline/20261018T142134Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
               "predictor_id": "gemini-baseline",
-              "probability": 0.75,
-              "run_id": "20260715T121117Z"
+              "probability": 0.95,
+              "run_id": "20261018T142134Z"
             }
           ],
           "resolved_at": null,
@@ -7561,122 +7561,6 @@
       "score_min": 0.72,
       "score_range": 0.08,
       "short_caption": "Saadeh v. New Jersey State Bar Association",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Caryn Devins Strickland",
-      "caption": "Caryn Devins Strickland v. Nancy L. Moritz, Judge, In Her Official Capacity as Chair of the Judicial Conference Committee on Judicial Resources, et al.",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/73377829",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "High-profile #MeToo-in-the-judiciary challenge to the federal courts' own EDR system, with congressional and press attention; a grant would put the judiciary's self-regulation of workplace harassment on trial at the Supreme Court.",
-          "big_case_score": 0.6,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260718T000130Z"
-        },
-        {
-          "big_case_rationale": "A merits ruling could reshape workplace protections and institutional accountability for more than 30,000 federal judiciary employees.",
-          "big_case_score": 0.78,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260718T000130Z"
-        },
-        {
-          "big_case_rationale": "Challenges the constitutionality of the federal judiciary's internal EDR plan, presenting a highly watched institutional issue.",
-          "big_case_score": 0.85,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260718T000130Z"
-        }
-      ],
-      "docket_id": 73377829,
-      "docket_number": "25-1303",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1303.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "High-profile #MeToo-in-the-judiciary challenge to the federal courts' own EDR system, with congressional and press attention; a grant would put the judiciary's self-regulation of workplace harassment on trial at the Supreme Court.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73377829/events/evt-petition-disposition/predictions/claude-baseline/20260718T000130Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73377829/events/evt-petition-disposition/predictions/claude-baseline/20260718T000130Z",
-              "confidence": 0.65,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.07,
-              "run_id": "20260718T000130Z"
-            },
-            {
-              "big_case_rationale": "A merits ruling could reshape workplace protections and institutional accountability for more than 30,000 federal judiciary employees.",
-              "big_case_score": 0.78,
-              "cell_path": "data/cases/scotus/73377829/events/evt-petition-disposition/predictions/codex-baseline/20260718T000130Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73377829/events/evt-petition-disposition/predictions/codex-baseline/20260718T000130Z",
-              "confidence": 0.78,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.16,
-              "run_id": "20260718T000130Z"
-            },
-            {
-              "big_case_rationale": "Challenges the constitutionality of the federal judiciary's internal EDR plan, presenting a highly watched institutional issue.",
-              "big_case_score": 0.85,
-              "cell_path": "data/cases/scotus/73377829/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73377829/events/evt-petition-disposition/predictions/gemini-baseline/20260718T000130Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.18,
-              "run_id": "20260718T000130Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Caryn Devins Strickland v. Nancy L. Moritz, Judge, In Her Official Capacity as Chair of the Judicial Conference Committee on Judicial Resources, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.7433,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-05-21",
-      "n": 3,
-      "other_party": "Moritz",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Caryn Devins Strickland's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Caryn Devins Strickland's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.85,
-      "score_min": 0.6,
-      "score_range": 0.25,
-      "short_caption": "Caryn Devins Strickland v. Moritz",
       "status": "pending"
     },
     {
@@ -11230,122 +11114,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Mizrahi",
-      "caption": "Martin Mizrahi v. United States",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/73272491",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Asks the Court to overrule Libretti and extend Apprendi/Southern Union to criminal forfeiture \u2014 a doctrinal shift touching thousands of federal forfeitures (~$2.5B/yr) \u2014 but a technical criminal-procedure question, not a headline case.",
-          "big_case_score": 0.55,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260717T180352Z"
-        },
-        {
-          "big_case_rationale": "The petition could reshape jury-trial protections for criminal forfeitures imposed in thousands of federal cases, but the issue remains a specialized sentencing question.",
-          "big_case_score": 0.58,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260717T214313Z"
-        },
-        {
-          "big_case_rationale": "Whether Apprendi's Sixth Amendment jury-trial right applies to criminal forfeiture is a major structural question affecting federal practice.",
-          "big_case_score": 0.85,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260717T180352Z"
-        }
-      ],
-      "docket_id": 73272491,
-      "docket_number": "25-1238",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1238.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Asks the Court to overrule Libretti and extend Apprendi/Southern Union to criminal forfeiture \u2014 a doctrinal shift touching thousands of federal forfeitures (~$2.5B/yr) \u2014 but a technical criminal-procedure question, not a headline case.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/73272491/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73272491/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.25,
-              "run_id": "20260717T180352Z"
-            },
-            {
-              "big_case_rationale": "The petition could reshape jury-trial protections for criminal forfeitures imposed in thousands of federal cases, but the issue remains a specialized sentencing question.",
-              "big_case_score": 0.58,
-              "cell_path": "data/cases/scotus/73272491/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73272491/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
-              "confidence": 0.68,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.18,
-              "run_id": "20260717T214313Z"
-            },
-            {
-              "big_case_rationale": "Whether Apprendi's Sixth Amendment jury-trial right applies to criminal forfeiture is a major structural question affecting federal practice.",
-              "big_case_score": 0.85,
-              "cell_path": "data/cases/scotus/73272491/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73272491/events/evt-petition-disposition/predictions/gemini-baseline/20260717T180352Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.4,
-              "run_id": "20260717T180352Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Martin Mizrahi v. United States"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.66,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-04-30",
-      "n": 3,
-      "other_party": "United States",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Mizrahi's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Mizrahi's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.85,
-      "score_min": 0.55,
-      "score_range": 0.3,
-      "short_caption": "Mizrahi v. United States",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "D. A.",
       "caption": "D. A., a Minor, By and Through his Mother, B. A., et al. v. Tri County Area Schools, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -14201,6 +13969,122 @@
       "status": "pending"
     },
     {
+      "asking_declined": null,
+      "asking_party": "Caryn Devins Strickland",
+      "caption": "Caryn Devins Strickland v. Nancy L. Moritz, Judge, In Her Official Capacity as Chair of the Judicial Conference Committee on Judicial Resources, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73377829",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A constitutional challenge to the federal judiciary's internal employment-dispute system for its ~30,000 employees: institutionally sensitive and watched by court-reform advocates, but fact-bound to one employee's post-trial record and with no circuit split.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "The petition concerns nationwide constitutional safeguards and remedies for federal judicial employees facing workplace discrimination, with substantial implications for judicial accountability. Its institutional significance exceeds its grant prospects; factual and preservation barriers constrain this vehicle.",
+          "big_case_score": 0.65,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "Direct constitutional challenge to the federal judiciary's own Employment Dispute Resolution plan regarding sexual harassment, drawing high-profile amici.",
+          "big_case_score": 0.85,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261017T173457Z"
+        }
+      ],
+      "docket_id": 73377829,
+      "docket_number": "25-1303",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1303.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A constitutional challenge to the federal judiciary's internal employment-dispute system for its ~30,000 employees: institutionally sensitive and watched by court-reform advocates, but fact-bound to one employee's post-trial record and with no circuit split.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73377829/events/evt-petition-disposition/predictions/claude-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73377829/events/evt-petition-disposition/predictions/claude-baseline/20261017T142059Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.06,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "The petition concerns nationwide constitutional safeguards and remedies for federal judicial employees facing workplace discrimination, with substantial implications for judicial accountability. Its institutional significance exceeds its grant prospects; factual and preservation barriers constrain this vehicle.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/73377829/events/evt-petition-disposition/predictions/codex-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73377829/events/evt-petition-disposition/predictions/codex-baseline/20261017T142059Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.07,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "Direct constitutional challenge to the federal judiciary's own Employment Dispute Resolution plan regarding sexual harassment, drawing high-profile amici.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/73377829/events/evt-petition-disposition/predictions/gemini-baseline/20261017T173457Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73377829/events/evt-petition-disposition/predictions/gemini-baseline/20261017T173457Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.15,
+              "run_id": "20261017T173457Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Caryn Devins Strickland v. Nancy L. Moritz, Judge, In Her Official Capacity as Chair of the Judicial Conference Committee on Judicial Resources, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6167,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-05-21",
+      "n": 3,
+      "other_party": "Moritz",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Caryn Devins Strickland's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Caryn Devins Strickland's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.85,
+      "score_min": 0.35,
+      "score_range": 0.5,
+      "short_caption": "Caryn Devins Strickland v. Moritz",
+      "status": "pending"
+    },
+    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "Breanna Renteria, et al. v. New Mexico Office of the Superintendent of Insurance, et al.",
@@ -15702,6 +15586,122 @@
       "score_range": 0.45,
       "short_caption": "Wisconsin Voter Alliance v. Millis",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Mizrahi",
+      "caption": "Martin Mizrahi v. United States",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73272491",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Overruling Libretti would extend Apprendi to every federal criminal forfeiture order \u2014 broad practical reach across white-collar and drug sentencing, though a narrow doctrinal question.",
+          "big_case_score": 0.45,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "Reconsidering the constitutional jury-finding rule for criminal forfeiture could change federal sentencing practice nationally. The stakes extend beyond this defendant's monetary judgment, although the issue is specialized rather than a broad political controversy.",
+          "big_case_score": 0.62,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": null,
+          "big_case_score": 0.65,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        }
+      ],
+      "docket_id": 73272491,
+      "docket_number": "25-1238",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1238.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Overruling Libretti would extend Apprendi to every federal criminal forfeiture order \u2014 broad practical reach across white-collar and drug sentencing, though a narrow doctrinal question.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/73272491/events/evt-petition-disposition/predictions/claude-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73272491/events/evt-petition-disposition/predictions/claude-baseline/20261017T142059Z",
+              "confidence": 0.7,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.08,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "Reconsidering the constitutional jury-finding rule for criminal forfeiture could change federal sentencing practice nationally. The stakes extend beyond this defendant's monetary judgment, although the issue is specialized rather than a broad political controversy.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/73272491/events/evt-petition-disposition/predictions/codex-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73272491/events/evt-petition-disposition/predictions/codex-baseline/20261017T142059Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.2,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/73272491/events/evt-petition-disposition/predictions/gemini-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73272491/events/evt-petition-disposition/predictions/gemini-baseline/20261017T142059Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.25,
+              "run_id": "20261017T142059Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Martin Mizrahi v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.5733,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-04-30",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Mizrahi's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Mizrahi's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.65,
+      "score_min": 0.45,
+      "score_range": 0.2,
+      "short_caption": "Mizrahi v. United States",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -20778,6 +20778,122 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Genesis Financial Solutions",
+      "caption": "Genesis Financial Solutions, Inc. v. Steve Ford, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73277388",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "FAA preemption of a state arbitration-only consideration rule touches every Maryland consumer-credit arbitration clause and the Kindred/Concepcion equal-treatment line, but it is one state's doctrine on an unpublished per curiam.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "The FAA question could affect arbitration clauses across consumer-credit and other standard-form contracts, but concerns a specialized contract-formation rule rather than a broad constitutional dispute.",
+          "big_case_score": 0.48,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "Clear 5-1 circuit split on a major federal statute (FAA) regarding arbitration clauses, supported by a prominent amicus.",
+          "big_case_score": 0.6,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261017T173457Z"
+        }
+      ],
+      "docket_id": 73277388,
+      "docket_number": "25-311",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-311.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "FAA preemption of a state arbitration-only consideration rule touches every Maryland consumer-credit arbitration clause and the Kindred/Concepcion equal-treatment line, but it is one state's doctrine on an unpublished per curiam.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73277388/events/evt-petition-disposition/predictions/claude-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277388/events/evt-petition-disposition/predictions/claude-baseline/20261017T142059Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.07,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "The FAA question could affect arbitration clauses across consumer-credit and other standard-form contracts, but concerns a specialized contract-formation rule rather than a broad constitutional dispute.",
+              "big_case_score": 0.48,
+              "cell_path": "data/cases/scotus/73277388/events/evt-petition-disposition/predictions/codex-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277388/events/evt-petition-disposition/predictions/codex-baseline/20261017T142059Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.22,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "Clear 5-1 circuit split on a major federal statute (FAA) regarding arbitration clauses, supported by a prominent amicus.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73277388/events/evt-petition-disposition/predictions/gemini-baseline/20261017T173457Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277388/events/evt-petition-disposition/predictions/gemini-baseline/20261017T173457Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.45,
+              "run_id": "20261017T173457Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Genesis Financial Solutions, Inc. v. Steve Ford, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4767,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2025-09-17",
+      "n": 3,
+      "other_party": "Ford",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Genesis Financial Solutions' case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Genesis Financial Solutions' petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.6,
+      "score_min": 0.35,
+      "score_range": 0.25,
+      "short_caption": "Genesis Financial Solutions v. Ford",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Aldridge",
       "caption": "Jerry Aldridge, et al. v. Regions Bank",
       "caption_event_id": "evt-order-cvsg-disposition",
@@ -22139,122 +22255,6 @@
       "score_min": 0.35,
       "score_range": 0.22,
       "short_caption": null,
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Abrams",
-      "caption": "James P. Abrams v. United States",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/73272488",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A pure procedural question (Rule 29 preservation / standard of review) with real consequences for federal criminal trial practice in every circuit, but technical and low-salience to the general public.",
-          "big_case_score": 0.35,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260717T180352Z"
-        },
-        {
-          "big_case_rationale": "The case could set a nationwide preservation rule for sufficiency challenges in federal criminal trials, though the issue is procedural and unlikely to command broad public attention.",
-          "big_case_score": 0.56,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260717T214313Z"
-        },
-        {
-          "big_case_rationale": "Important and entrenched circuit split on federal criminal procedure, but technical in nature.",
-          "big_case_score": 0.4,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260717T200105Z"
-        }
-      ],
-      "docket_id": 73272488,
-      "docket_number": "25-1236",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1236.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A pure procedural question (Rule 29 preservation / standard of review) with real consequences for federal criminal trial practice in every circuit, but technical and low-salience to the general public.",
-              "big_case_score": 0.35,
-              "cell_path": "data/cases/scotus/73272488/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73272488/events/evt-petition-disposition/predictions/claude-baseline/20260717T180352Z",
-              "confidence": 0.55,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.55,
-              "run_id": "20260717T180352Z"
-            },
-            {
-              "big_case_rationale": "The case could set a nationwide preservation rule for sufficiency challenges in federal criminal trials, though the issue is procedural and unlikely to command broad public attention.",
-              "big_case_score": 0.56,
-              "cell_path": "data/cases/scotus/73272488/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73272488/events/evt-petition-disposition/predictions/codex-baseline/20260717T214313Z",
-              "confidence": 0.62,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.41,
-              "run_id": "20260717T214313Z"
-            },
-            {
-              "big_case_rationale": "Important and entrenched circuit split on federal criminal procedure, but technical in nature.",
-              "big_case_score": 0.4,
-              "cell_path": "data/cases/scotus/73272488/events/evt-petition-disposition/predictions/gemini-baseline/20260717T200105Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73272488/events/evt-petition-disposition/predictions/gemini-baseline/20260717T200105Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.75,
-              "run_id": "20260717T200105Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "James P. Abrams v. United States"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.4367,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-04-30",
-      "n": 3,
-      "other_party": "United States",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Abrams' case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Abrams' petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.56,
-      "score_min": 0.35,
-      "score_range": 0.21,
-      "short_caption": "Abrams v. United States",
       "status": "pending"
     },
     {
@@ -23647,6 +23647,122 @@
       "score_min": 0.3,
       "score_range": 0.34,
       "short_caption": "City of North Las Vegas v. Jones",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Abrams",
+      "caption": "James P. Abrams v. United States",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73272488",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Recurring federal criminal-procedure preservation question affecting appellate review in many trials; doctrinally important to practitioners but low public salience.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "The preservation rule affects sufficiency appeals throughout federal criminal practice and could resolve a substantial circuit disagreement. Its reach is national, but the question is procedural and does not directly decide substantive criminal liability or a major public-policy program.",
+          "big_case_score": 0.46,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "Involves criminal procedure and appellate review standards, significant for practitioners but not necessarily broad public impact.",
+          "big_case_score": 0.4,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261017T173457Z"
+        }
+      ],
+      "docket_id": 73272488,
+      "docket_number": "25-1236",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1236.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Recurring federal criminal-procedure preservation question affecting appellate review in many trials; doctrinally important to practitioners but low public salience.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73272488/events/evt-petition-disposition/predictions/claude-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73272488/events/evt-petition-disposition/predictions/claude-baseline/20261017T142059Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.3,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "The preservation rule affects sufficiency appeals throughout federal criminal practice and could resolve a substantial circuit disagreement. Its reach is national, but the question is procedural and does not directly decide substantive criminal liability or a major public-policy program.",
+              "big_case_score": 0.46,
+              "cell_path": "data/cases/scotus/73272488/events/evt-petition-disposition/predictions/codex-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73272488/events/evt-petition-disposition/predictions/codex-baseline/20261017T142059Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "Involves criminal procedure and appellate review standards, significant for practitioners but not necessarily broad public impact.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/73272488/events/evt-petition-disposition/predictions/gemini-baseline/20261017T173457Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73272488/events/evt-petition-disposition/predictions/gemini-baseline/20261017T173457Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.15,
+              "run_id": "20261017T173457Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "James P. Abrams v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4033,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-04-30",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Abrams' case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Abrams' petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.46,
+      "score_min": 0.35,
+      "score_range": 0.11,
+      "short_caption": "Abrams v. United States",
       "status": "pending"
     },
     {
@@ -28700,122 +28816,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Guam",
-      "caption": "Guam v. Richard Y. Ybanez, et al.",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000119",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Court-ordered disqualification of an entire elected prosecutor's office resonates nationally (echoes of recent high-profile DA disqualifications), but a decision here would likely be narrow and territory-inflected.",
-          "big_case_score": 0.3,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "A ruling could affect public-prosecutor disqualification beyond Guam, but the dispute is procedurally and factually narrow.",
-          "big_case_score": 0.44,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "Procedural/ethics issue regarding disqualification of a territorial AG's office, primarily of local concern.",
-          "big_case_score": 0.1,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        }
-      ],
-      "docket_id": 9026000119,
-      "docket_number": "26-119",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-119.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Court-ordered disqualification of an entire elected prosecutor's office resonates nationally (echoes of recent high-profile DA disqualifications), but a decision here would likely be narrow and territory-inflected.",
-              "big_case_score": 0.3,
-              "cell_path": "data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.06,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "A ruling could affect public-prosecutor disqualification beyond Guam, but the dispute is procedurally and factually narrow.",
-              "big_case_score": 0.44,
-              "cell_path": "data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.76,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.025,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "Procedural/ethics issue regarding disqualification of a territorial AG's office, primarily of local concern.",
-              "big_case_score": 0.1,
-              "cell_path": "data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.03,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Guam v. Richard Y. Ybanez, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.28,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-07-27",
-      "n": 3,
-      "other_party": "Ybanez",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Guam's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Guam's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.44,
-      "score_min": 0.1,
-      "score_range": 0.34,
-      "short_caption": "Guam v. Ybanez",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Swift Transportation of Arizona",
       "caption": "Swift Transportation of Arizona, LLC v. Francis J. Mathew, Judge, First Judicial District Court of New Mexico, Santa Fe County, et al.",
       "caption_event_id": "evt-motion-disposition",
@@ -29304,122 +29304,6 @@
       "score_range": 0.3,
       "short_caption": "Webb v. Trombley",
       "status": "resolved"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Stanley Kappell Watson",
-      "caption": "Stanley Kappell Watson v. Shenekka Bradsher, et al.",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/73279493",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A merits ruling on the \u00a7 523(a)(6) willful-and-malicious standard would govern dischargeability of intentional-tort debts nationwide \u2014 significant for the bankruptcy bar, but technical and low-salience for the general public.",
-          "big_case_score": 0.3,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260716T073449Z"
-        },
-        {
-          "big_case_rationale": "The case could clarify a nationwide bankruptcy-discharge standard, but it arises from a small private dispute and presents limited public or institutional stakes.",
-          "big_case_score": 0.32,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260716T073449Z"
-        },
-        {
-          "big_case_rationale": "A technical bankruptcy dispute over the definition of 'willful and malicious injury' under 11 U.S.C. 523(a)(6); important for bankruptcy practitioners but lacking broader public or constitutional significance.",
-          "big_case_score": 0.15,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260716T073449Z"
-        }
-      ],
-      "docket_id": 73279493,
-      "docket_number": "25-651",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-651.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A merits ruling on the \u00a7 523(a)(6) willful-and-malicious standard would govern dischargeability of intentional-tort debts nationwide \u2014 significant for the bankruptcy bar, but technical and low-salience for the general public.",
-              "big_case_score": 0.3,
-              "cell_path": "data/cases/scotus/73279493/events/evt-petition-disposition/predictions/claude-baseline/20260716T073449Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279493/events/evt-petition-disposition/predictions/claude-baseline/20260716T073449Z",
-              "confidence": 0.6,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.08,
-              "run_id": "20260716T073449Z"
-            },
-            {
-              "big_case_rationale": "The case could clarify a nationwide bankruptcy-discharge standard, but it arises from a small private dispute and presents limited public or institutional stakes.",
-              "big_case_score": 0.32,
-              "cell_path": "data/cases/scotus/73279493/events/evt-petition-disposition/predictions/codex-baseline/20260716T073449Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279493/events/evt-petition-disposition/predictions/codex-baseline/20260716T073449Z",
-              "confidence": 0.83,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.09,
-              "run_id": "20260716T073449Z"
-            },
-            {
-              "big_case_rationale": "A technical bankruptcy dispute over the definition of 'willful and malicious injury' under 11 U.S.C. 523(a)(6); important for bankruptcy practitioners but lacking broader public or constitutional significance.",
-              "big_case_score": 0.15,
-              "cell_path": "data/cases/scotus/73279493/events/evt-petition-disposition/predictions/gemini-baseline/20260716T073449Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279493/events/evt-petition-disposition/predictions/gemini-baseline/20260716T073449Z",
-              "confidence": 0.8,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.15,
-              "run_id": "20260716T073449Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Stanley Kappell Watson v. Shenekka Bradsher, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.2567,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2025-12-04",
-      "n": 3,
-      "other_party": "Bradsher",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Stanley Kappell Watson's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Stanley Kappell Watson's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.32,
-      "score_min": 0.15,
-      "score_range": 0.17,
-      "short_caption": "Stanley Kappell Watson v. Bradsher",
-      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -30000,6 +29884,122 @@
       "score_range": 0.19,
       "short_caption": "Jason Tywann Bell v. Gilley",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Stanley Kappell Watson",
+      "caption": "Stanley Kappell Watson v. Shenekka Bradsher, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73279493",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A recurring Bankruptcy Code discharge question with a real (if partly stale) circuit divergence, but a private tort-judgment dispute with modest national salience.",
+          "big_case_score": 0.22,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "The proposed rule could affect dischargeability of intentional-tort debts nationwide, but this is a specialized bankruptcy question arising from an individual false-imprisonment judgment rather than a broad institutional or constitutional dispute.",
+          "big_case_score": 0.28,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "Raises a clean circuit split on the \u00a7 523(a)(6) 'willful and malicious injury' bankruptcy discharge exception, important to practitioners but lacking broader public salience.",
+          "big_case_score": 0.2,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261017T173457Z"
+        }
+      ],
+      "docket_id": 73279493,
+      "docket_number": "25-651",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-651.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring Bankruptcy Code discharge question with a real (if partly stale) circuit divergence, but a private tort-judgment dispute with modest national salience.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/73279493/events/evt-petition-disposition/predictions/claude-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279493/events/evt-petition-disposition/predictions/claude-baseline/20261017T142059Z",
+              "confidence": 0.85,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.06,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "The proposed rule could affect dischargeability of intentional-tort debts nationwide, but this is a specialized bankruptcy question arising from an individual false-imprisonment judgment rather than a broad institutional or constitutional dispute.",
+              "big_case_score": 0.28,
+              "cell_path": "data/cases/scotus/73279493/events/evt-petition-disposition/predictions/codex-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279493/events/evt-petition-disposition/predictions/codex-baseline/20261017T142059Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.08,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "Raises a clean circuit split on the \u00a7 523(a)(6) 'willful and malicious injury' bankruptcy discharge exception, important to practitioners but lacking broader public salience.",
+              "big_case_score": 0.2,
+              "cell_path": "data/cases/scotus/73279493/events/evt-petition-disposition/predictions/gemini-baseline/20261017T173457Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279493/events/evt-petition-disposition/predictions/gemini-baseline/20261017T173457Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.12,
+              "run_id": "20261017T173457Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Stanley Kappell Watson v. Shenekka Bradsher, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.2333,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2025-12-04",
+      "n": 3,
+      "other_party": "Bradsher",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Stanley Kappell Watson's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Stanley Kappell Watson's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.28,
+      "score_min": 0.2,
+      "score_range": 0.08,
+      "short_caption": "Stanley Kappell Watson v. Bradsher",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -30865,6 +30865,172 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Guam",
+      "caption": "Guam v. Richard Y. Ybanez, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000119",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Territorial prosecutorial-disqualification dispute of real local political salience in Guam, but narrow, fact-bound, and of little national doctrinal reach.",
+          "big_case_score": 0.15,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261018T142134Z"
+        },
+        {
+          "big_case_rationale": "Office-wide prosecutor disqualification affects Guam's public-corruption enforcement and could implicate other sovereign prosecutors, but this record is dominated by local ethics rules, ineffective screening, and appellate procedure.",
+          "big_case_score": 0.4,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261018T142134Z"
+        },
+        {
+          "big_case_rationale": "Involves territorial separation of powers and prosecutor disqualification, but lacks national importance or a strong federal question.",
+          "big_case_score": 0.1,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261018T142134Z"
+        }
+      ],
+      "docket_id": 9026000119,
+      "docket_number": "26-119",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-119.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Court-ordered disqualification of an entire elected prosecutor's office resonates nationally (echoes of recent high-profile DA disqualifications), but a decision here would likely be narrow and territory-inflected.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.06,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "A ruling could affect public-prosecutor disqualification beyond Guam, but the dispute is procedurally and factually narrow.",
+              "big_case_score": 0.44,
+              "cell_path": "data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260816T111104Z",
+              "confidence": 0.76,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.025,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "Procedural/ethics issue regarding disqualification of a territorial AG's office, primarily of local concern.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000119/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.03,
+              "run_id": "20260816T111104Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Guam v. Richard Y. Ybanez, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Territorial prosecutorial-disqualification dispute of real local political salience in Guam, but narrow, fact-bound, and of little national doctrinal reach.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000119/events/evt-petition-disposition/predictions/claude-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000119/events/evt-petition-disposition/predictions/claude-baseline/20261018T142134Z",
+              "confidence": 0.85,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.04,
+              "run_id": "20261018T142134Z"
+            },
+            {
+              "big_case_rationale": "Office-wide prosecutor disqualification affects Guam's public-corruption enforcement and could implicate other sovereign prosecutors, but this record is dominated by local ethics rules, ineffective screening, and appellate procedure.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/9026000119/events/evt-petition-disposition/predictions/codex-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000119/events/evt-petition-disposition/predictions/codex-baseline/20261018T142134Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.08,
+              "run_id": "20261018T142134Z"
+            },
+            {
+              "big_case_rationale": "Involves territorial separation of powers and prosecutor disqualification, but lacks national importance or a strong federal question.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9026000119/events/evt-petition-disposition/predictions/gemini-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000119/events/evt-petition-disposition/predictions/gemini-baseline/20261018T142134Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261018T142134Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Guam v. Richard Y. Ybanez, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.2167,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-27",
+      "n": 3,
+      "other_party": "Ybanez",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Guam's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Guam's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.4,
+      "score_min": 0.1,
+      "score_range": 0.3,
+      "short_caption": "Guam v. Ybanez",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Nwosu",
       "caption": "Blessing Nwosu v. 1600 West Loop South, L.L.C., et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -30978,6 +31144,161 @@
       "score_range": 0.3,
       "short_caption": "Nwosu v. 1600 West Loop South",
       "status": "resolved"
+    },
+    {
+      "asking_declined": "short_form",
+      "asking_party": null,
+      "caption": "Cara Elizabeth Liberto Dodson v. The Lutheran Village at Millers Grant, Inc.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000115",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Fact-bound application of Groff v. DeJoy to one employee's COVID-19 vaccine accommodation claim, decided below by unpublished per curiam; narrow stakes beyond the parties.",
+          "big_case_score": 0.08,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261018T142134Z"
+        },
+        {
+          "big_case_rationale": "A decision on the proof needed for health-and-safety undue hardship under Title VII could affect religious accommodations across healthcare employers, although this petition has substantial case-specific evidentiary and scheduling complications.",
+          "big_case_score": 0.44,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261018T142134Z"
+        },
+        {
+          "big_case_rationale": "A routine Title VII religious accommodation and discovery dispute; fact-bound and vehicle issues.",
+          "big_case_score": 0.1,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261018T142134Z"
+        }
+      ],
+      "docket_id": 9026000115,
+      "docket_number": "26-115",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-115.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fact-bound private employment dispute over a single employee's COVID-19 vaccine religious accommodation, affirmed below in an unreasoned unpublished per curiam; no legal question of general significance is squarely presented.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9026000115/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000115/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
+              "confidence": 0.7,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.015,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "A decision could clarify Groff's treatment of health-and-safety burdens, but this COVID-era dispute and its discovery issue are highly fact-bound.",
+              "big_case_score": 0.36,
+              "cell_path": "data/cases/scotus/9026000115/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000115/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260816T111104Z",
+              "confidence": 0.91,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.004,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "COVID-19 vaccine mandate religious accommodation claim, but highly fact-bound posture (summary judgment, Rule 56(d)).",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000115/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000115/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20260816T111104Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Cara Elizabeth Liberto Dodson v. The Lutheran Village at Millers Grant, Inc."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fact-bound application of Groff v. DeJoy to one employee's COVID-19 vaccine accommodation claim, decided below by unpublished per curiam; narrow stakes beyond the parties.",
+              "big_case_score": 0.08,
+              "cell_path": "data/cases/scotus/9026000115/events/evt-petition-disposition/predictions/claude-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000115/events/evt-petition-disposition/predictions/claude-baseline/20261018T142134Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261018T142134Z"
+            },
+            {
+              "big_case_rationale": "A decision on the proof needed for health-and-safety undue hardship under Title VII could affect religious accommodations across healthcare employers, although this petition has substantial case-specific evidentiary and scheduling complications.",
+              "big_case_score": 0.44,
+              "cell_path": "data/cases/scotus/9026000115/events/evt-petition-disposition/predictions/codex-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000115/events/evt-petition-disposition/predictions/codex-baseline/20261018T142134Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.025,
+              "run_id": "20261018T142134Z"
+            },
+            {
+              "big_case_rationale": "A routine Title VII religious accommodation and discovery dispute; fact-bound and vehicle issues.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9026000115/events/evt-petition-disposition/predictions/gemini-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000115/events/evt-petition-disposition/predictions/gemini-baseline/20261018T142134Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.005,
+              "run_id": "20261018T142134Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Cara Elizabeth Liberto Dodson v. The Lutheran Village at Millers Grant, Inc."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.2067,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-24",
+      "n": 3,
+      "other_party": null,
+      "outcome_lines": null,
+      "score_max": 0.44,
+      "score_min": 0.08,
+      "score_range": 0.36,
+      "short_caption": null,
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -31094,111 +31415,6 @@
       "score_range": 0.44,
       "short_caption": "Bart Xavier Pestarino v. Danielle Tetrault Pestarino",
       "status": "resolved"
-    },
-    {
-      "asking_declined": "short_form",
-      "asking_party": null,
-      "caption": "Cara Elizabeth Liberto Dodson v. The Lutheran Village at Millers Grant, Inc.",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000115",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Fact-bound private employment dispute over a single employee's COVID-19 vaccine religious accommodation, affirmed below in an unreasoned unpublished per curiam; no legal question of general significance is squarely presented.",
-          "big_case_score": 0.1,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "A decision could clarify Groff's treatment of health-and-safety burdens, but this COVID-era dispute and its discovery issue are highly fact-bound.",
-          "big_case_score": 0.36,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "COVID-19 vaccine mandate religious accommodation claim, but highly fact-bound posture (summary judgment, Rule 56(d)).",
-          "big_case_score": 0.15,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        }
-      ],
-      "docket_id": 9026000115,
-      "docket_number": "26-115",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-115.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Fact-bound private employment dispute over a single employee's COVID-19 vaccine religious accommodation, affirmed below in an unreasoned unpublished per curiam; no legal question of general significance is squarely presented.",
-              "big_case_score": 0.1,
-              "cell_path": "data/cases/scotus/9026000115/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000115/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
-              "confidence": 0.7,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.015,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "A decision could clarify Groff's treatment of health-and-safety burdens, but this COVID-era dispute and its discovery issue are highly fact-bound.",
-              "big_case_score": 0.36,
-              "cell_path": "data/cases/scotus/9026000115/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000115/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.91,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.004,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "COVID-19 vaccine mandate religious accommodation claim, but highly fact-bound posture (summary judgment, Rule 56(d)).",
-              "big_case_score": 0.15,
-              "cell_path": "data/cases/scotus/9026000115/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000115/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.01,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Cara Elizabeth Liberto Dodson v. The Lutheran Village at Millers Grant, Inc."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.2033,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-07-24",
-      "n": 3,
-      "other_party": null,
-      "outcome_lines": null,
-      "score_max": 0.36,
-      "score_min": 0.1,
-      "score_range": 0.26,
-      "short_caption": null,
-      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -33556,6 +33772,122 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Saeed",
+      "caption": "Muhammad Saeed v. Arizona",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000512",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A single state defendant's request to extend Abney-style interlocutory double-jeopardy review to a post-verdict, pre-sentence window; narrow procedural question with no split alleged and little reach beyond the parties.",
+          "big_case_score": 0.08,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "A ruling could affect the timing of constitutional double-jeopardy challenges by state defendants, but this petition presents a narrow post-verdict, presentence setting with substantial finality and vehicle obstacles rather than a demonstrated nationwide conflict.",
+          "big_case_score": 0.26,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "An obscure state criminal case with procedural and jurisdictional flaws; unlikely to draw national attention.",
+          "big_case_score": 0.1,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261017T173457Z"
+        }
+      ],
+      "docket_id": 9026000512,
+      "docket_number": "26-512",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-512.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A single state defendant's request to extend Abney-style interlocutory double-jeopardy review to a post-verdict, pre-sentence window; narrow procedural question with no split alleged and little reach beyond the parties.",
+              "big_case_score": 0.08,
+              "cell_path": "data/cases/scotus/9026000512/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000512/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261017T142059Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.005,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "A ruling could affect the timing of constitutional double-jeopardy challenges by state defendants, but this petition presents a narrow post-verdict, presentence setting with substantial finality and vehicle obstacles rather than a demonstrated nationwide conflict.",
+              "big_case_score": 0.26,
+              "cell_path": "data/cases/scotus/9026000512/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000512/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261017T142059Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.008,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "An obscure state criminal case with procedural and jurisdictional flaws; unlikely to draw national attention.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9026000512/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261017T173457Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000512/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261017T173457Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.001,
+              "run_id": "20261017T173457Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Muhammad Saeed v. Arizona"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1467,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-10-16",
+      "n": 3,
+      "other_party": "Arizona",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Saeed's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Saeed's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.26,
+      "score_min": 0.08,
+      "score_range": 0.18,
+      "short_caption": "Saeed v. Arizona",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Stevens-Reynolds",
       "caption": "Diana Stevens-Reynolds v. Wilshire Insurance Company, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -35896,6 +36228,122 @@
       "score_range": 0.21,
       "short_caption": "John Paul Gomez v. Ryan",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Sohilbhai Shaukatali Momin",
+      "caption": "Sohilbhai Shaukatali Momin v. Todd Blanche, Attorney General",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000055",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Paid individual immigration petition for review from CA5 against the Attorney General; nothing on the docket suggests stakes beyond the petitioner.",
+          "big_case_score": 0.08,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261017T173457Z"
+        },
+        {
+          "big_case_rationale": "The provisioned record contains no questions presented, petition, opposition text, or lower-court opinion; the caption and briefing chronology alone cannot establish the scope or significance of the issues.",
+          "big_case_score": null,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261017T173457Z"
+        },
+        {
+          "big_case_rationale": "An ordinary immigration petition for review from the Fifth Circuit.",
+          "big_case_score": 0.1,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261017T173457Z"
+        }
+      ],
+      "docket_id": 9026000055,
+      "docket_number": "26-55",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-55.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Paid individual immigration petition for review from CA5 against the Attorney General; nothing on the docket suggests stakes beyond the petitioner.",
+              "big_case_score": 0.08,
+              "cell_path": "data/cases/scotus/9026000055/events/evt-petition-disposition/predictions/claude-baseline/20261017T173457Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000055/events/evt-petition-disposition/predictions/claude-baseline/20261017T173457Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.03,
+              "run_id": "20261017T173457Z"
+            },
+            {
+              "big_case_rationale": "The provisioned record contains no questions presented, petition, opposition text, or lower-court opinion; the caption and briefing chronology alone cannot establish the scope or significance of the issues.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9026000055/events/evt-petition-disposition/predictions/codex-baseline/20261017T173457Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000055/events/evt-petition-disposition/predictions/codex-baseline/20261017T173457Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.05,
+              "run_id": "20261017T173457Z"
+            },
+            {
+              "big_case_rationale": "An ordinary immigration petition for review from the Fifth Circuit.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9026000055/events/evt-petition-disposition/predictions/gemini-baseline/20261017T173457Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000055/events/evt-petition-disposition/predictions/gemini-baseline/20261017T173457Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.015,
+              "run_id": "20261017T173457Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Sohilbhai Shaukatali Momin v. Todd Blanche, Attorney General"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.09,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-13",
+      "n": 2,
+      "other_party": "Blanche",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Sohilbhai Shaukatali Momin's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Sohilbhai Shaukatali Momin's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.1,
+      "score_min": 0.08,
+      "score_range": 0.02,
+      "short_caption": "Sohilbhai Shaukatali Momin v. Blanche",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -38242,6 +38690,122 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Alejandro Evaristo Perez",
+      "caption": "Alejandro Evaristo Perez v. Disney Corporation, et al.",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000517",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se private suit against Disney from an unexplained Fifth Circuit judgment; no sign of an issue reaching beyond the parties.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "No petition, questions presented, or lower-court opinion is available in the provisioned record; the party names alone do not establish the stakes or breadth of the dispute.",
+          "big_case_score": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261017T142059Z"
+        },
+        {
+          "big_case_rationale": "A pro se petition by a private individual against a large corporation, raising no apparent issues of national importance.",
+          "big_case_score": 0.01,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261018T142134Z"
+        }
+      ],
+      "docket_id": 9026000517,
+      "docket_number": "26-517",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-517.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se private suit against Disney from an unexplained Fifth Circuit judgment; no sign of an issue reaching beyond the parties.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000517/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000517/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261017T142059Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "No petition, questions presented, or lower-court opinion is available in the provisioned record; the party names alone do not establish the stakes or breadth of the dispute.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9026000517/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261017T142059Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000517/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261017T142059Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.025,
+              "run_id": "20261017T142059Z"
+            },
+            {
+              "big_case_rationale": "A pro se petition by a private individual against a large corporation, raising no apparent issues of national importance.",
+              "big_case_score": 0.01,
+              "cell_path": "data/cases/scotus/9026000517/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000517/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261018T142134Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.001,
+              "run_id": "20261018T142134Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Alejandro Evaristo Perez v. Disney Corporation, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.02,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-10-16",
+      "n": 2,
+      "other_party": "Disney",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Alejandro Evaristo Perez's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Alejandro Evaristo Perez's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.03,
+      "score_min": 0.01,
+      "score_range": 0.02,
+      "short_caption": "Alejandro Evaristo Perez v. Disney",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Gilmore",
       "caption": "Bridget Gilmore v. Walmart, Incorporated",
       "caption_event_id": "evt-motion-disposition",
@@ -38917,5 +39481,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.2",
-  "scored_reads": 878
+  "scored_reads": 888
 }

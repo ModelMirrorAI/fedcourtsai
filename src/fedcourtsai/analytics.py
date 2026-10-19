@@ -107,7 +107,7 @@ from .schemas import (
     StatPackTermVersionSegments,
     TimingStats,
 )
-from .serialize import read_model
+from .serialize import load_yaml, read_model
 from .short_caption import AGENCY_ACRONYMS, MAX_ORGANISATION_WORDS, MAX_PERSON_WORDS, short_caption
 from .store import LedgerPrediction
 from .supremecourt import (
@@ -3667,17 +3667,17 @@ def _committed_caption_index(data_root: Path) -> _CaptionIndex:
 
     The whole ledger rather than the board's own cases, because the other half of
     a cross-petition pair need not have been predicted. Parsed with the C loader
-    where the platform has one: the scan is every event definition in the tree.
+    (:func:`fedcourtsai.serialize.load_yaml`): the scan is every event definition
+    in the tree.
     """
     cases_by_heads: dict[tuple[str, str], set[str]] = defaultdict(set)
     dates_by_case: dict[str, set[date]] = defaultdict(set)
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
         return _CaptionIndex(cases_by_heads={}, dates_by_case={})
-    loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
     for path in sorted(cases_dir.glob("scotus/*/events/*/event.yaml")):
         try:
-            raw = yaml.load(path.read_text(), Loader=loader)
+            raw = load_yaml(path.read_text())
         except (yaml.YAMLError, OSError, ValueError) as exc:
             # A display field is not worth the daily board: an unreadable definition
             # drops out of the cross-petition test, loudly, and nothing else.

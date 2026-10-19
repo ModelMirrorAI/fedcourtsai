@@ -3827,6 +3827,11 @@ def test_an_unstamped_entry_lists_only_the_boundaries_inside_its_span() -> None:
 _V8_JUDGE = "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13"
 _V9_JUDGE = "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12"
 _V8_PEER = "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1"
+# Every label that blessed the newer judge digest, proc-v9 and each label since
+# that carried it forward, in the string order the readings list them. A panel
+# reading pairing it with a proc-v8 digest names the union.
+_V9_JUDGE_LABELS = sorted(process_version.EVALUATE_BLESSING_LABELS[_V9_JUDGE])
+_V8_V9_PANEL_LABELS = sorted({"proc-v8", *_V9_JUDGE_LABELS})
 
 
 def _judge_stamp(digest: str, label: str = "proc-v9") -> ProcessVersion:
@@ -3884,7 +3889,7 @@ def test_mean_reasoning_quality_is_read_per_judge_rubric() -> None:
         for r in stratum.reasoning_quality_rubrics
     ]
     assert readings == [
-        ("judge", _V9_JUDGE, ["proc-v9"], 2, pytest.approx(0.9)),
+        ("judge", _V9_JUDGE, _V9_JUDGE_LABELS, 2, pytest.approx(0.9)),
         ("judge", _V8_JUDGE, ["proc-v8"], 1, 0.4),
         ("other", "sha256:never-blessed", [], 1, 0.6),
     ]
@@ -3922,7 +3927,7 @@ def test_signature_readings_read_maximal_panels_and_set_mixed_points_aside() -> 
         for reading in readings
     ]
     assert shaped == [
-        ([("a", _V9_JUDGE, 2), ("b", _V8_PEER, 3)], ["proc-v8", "proc-v9"], 3),
+        ([("a", _V9_JUDGE, 2), ("b", _V8_PEER, 3)], _V8_V9_PANEL_LABELS, 3),
         ([("a", _V8_JUDGE, 3), ("b", _V8_PEER, 3)], ["proc-v8"], 4),
     ]
     assert readings[1].rank_agreement == kendall_tau_b(
@@ -4003,7 +4008,7 @@ def test_a_digest_move_splits_the_panel_readings_and_sets_a_straddling_case_asid
         ([r.digest for r in reading.signature], reading.labels, reading.cases)
         for reading in board.by_signature
     ] == [
-        ([_V9_JUDGE, _V8_PEER], ["proc-v8", "proc-v9"], 2),
+        ([_V9_JUDGE, _V8_PEER], _V8_V9_PANEL_LABELS, 2),
         ([_V8_JUDGE, _V8_PEER], ["proc-v8"], 3),
     ]
     agreement = evaluator_agreement(data_root, frozen_only=False)
