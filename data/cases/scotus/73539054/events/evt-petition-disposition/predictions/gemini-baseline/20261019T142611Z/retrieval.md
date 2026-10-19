@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. I used standard `grep` commands to extract text from the provided `brief-in-opposition.txt` and `petition.txt`.

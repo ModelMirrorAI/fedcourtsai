@@ -1,0 +1,5 @@
+Distributed once so far; expect no further relists before a decision on the petition. This case closely follows the Court's recent decision in *FCC v. AT&T, Inc.* (2026), and acts as a clean-up denial. There will be no CVSG because the federal government is already a party, and the Solicitor General has filed a Brief in Opposition. 
+
+If granted, the Court would most likely issue a summary GVR in light of *AT&T* rather than granting plenary review, as the petition's primary request is a remand. The Court would likely leave the substantive statutory questions (QPs 2 and 3) behind, as the courts of appeals are in agreement. 
+
+Should it deny, expect no separate writing. The Court just recently denied a rehearing and remand request on the exact same theory by a co-defendant carrier, making a dissent from denial highly unlikely here.

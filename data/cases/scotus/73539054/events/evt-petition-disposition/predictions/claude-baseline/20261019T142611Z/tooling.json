@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73539054",
+  "run_id": "20261019T142611Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot", "provisioned documents (QP, BIO, cert reply)", "metrics/statpack.md"],
+  "helpful": ["Full-text BIO from the Solicitor General made the GVR posture and Verizon rehearing denial clear"],
+  "gaps": ["A list of petitions held for / GVR'd after a lead decision (here FCC v. AT&T) would directly inform GVR odds"],
+  "notes": "Skipped CourtListener/corpus retrieval; the provisioned filings were sufficient for a first-conference cert call."
+}
