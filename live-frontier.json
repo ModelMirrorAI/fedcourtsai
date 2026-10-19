@@ -106,18 +106,18 @@
     },
     {
       "conference": "2026-10-16",
-      "petitions": 97
+      "petitions": 24
     },
     {
       "conference": "2026-11-06",
       "petitions": 172
     }
   ],
-  "documents_provisioned": 136,
+  "documents_provisioned": 124,
   "generated_on": "2026-10-19",
   "next_conference": "2026-11-06",
   "next_conference_petitions": 172,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 465
+  "watchlist": 392
 }
