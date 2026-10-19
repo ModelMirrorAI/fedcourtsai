@@ -227,7 +227,9 @@ def petition_distributed(row: DistributionColumns) -> bool:
     column cannot answer it: it is the docket's conference *membership*, read
     off any paper's distribution, so a sealing motion or a motion for leave
     filed under a linked M-docket sets it before the petition is distributed
-    at all. The column stands in only where no count was ever derived.
+    at all. The column stands in only where no count was ever derived: a row
+    never live-parsed, and every application row, whose count is always
+    ``None`` (an application has no conference trajectory).
     """
     if row.distribution_count is not None:
         return row.distribution_count > 0

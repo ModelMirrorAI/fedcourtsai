@@ -140,10 +140,9 @@ class LiveResult:
     distributed: date | None = None
     # The petition's own distributions after this poll (the ``dist-v2``
     # trajectory count), and whether there is at least one
-    # (:func:`fedcourtsai.store.petition_distributed`). A transition is the
-    # predict trigger only once the petition itself is distributed, and a
-    # rise in the count is one even when the conference is unchanged — the
-    # petition distributed for the conference an ancillary motion already named.
+    # (:func:`fedcourtsai.store.petition_distributed`). The predict trigger is
+    # a rise in that count (:func:`_distribution_transition`), never a move of
+    # the membership alone.
     distribution_count: int | None = None
     petition_distributed: bool = False
     # A human-readable reason the fresh docket already reads as decided even
@@ -1007,18 +1006,23 @@ def _distribution_transition(row: corpus.CorpusRow, result: LiveResult) -> bool:
     """Whether this poll moved the petition onto a conference: the predict trigger.
 
     ``row`` is the pre-poll corpus row. The petition must be distributed in its
-    own right after the poll (an ancillary motion's distribution moves the
-    membership column but opens no distribution moment), and then a fresh
-    membership (None -> date), a relist's new date, or a rise in the petition's
-    own distribution count each trigger; the count catches the petition
-    distributed for the conference an ancillary paper already named, which
-    leaves the membership unchanged. Nothing else the docket did triggers.
+    own right after the poll: an ancillary paper's distribution moves the
+    membership column but opens no distribution moment. Where both sides carry
+    the petition's own count (the ``dist-v2`` trajectory), a rise in it is the
+    transition and nothing else is: a first distribution, a relist, or a
+    reschedule to a new date each add a distinct conference, a petition
+    distributed for the conference an ancillary paper already named still
+    rises, and an ancillary paper distributed for another conference after
+    the petition moves the membership without moving the count. Where the
+    pre-poll row carries no count (a row never live-parsed), the membership
+    column is the only evidence of a prior conference, so a new date on it is
+    the transition.
     """
     if not result.petition_distributed:
         return False
-    return result.distributed != row.distributed_for_conference or (
-        (result.distribution_count or 0) > (row.distribution_count or 0)
-    )
+    if row.distribution_count is not None and result.distribution_count is not None:
+        return result.distribution_count > row.distribution_count
+    return result.distributed != row.distributed_for_conference
 
 
 def _decided_reason(result: LiveResult) -> str | None:

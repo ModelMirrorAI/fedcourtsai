@@ -162,9 +162,12 @@ otherwise.
 transition is the **petition's own**: an ancillary paper's distribution (a
 sealing motion or a motion for leave under its own M-number, "Motion (26M8)
 DISTRIBUTED for Conference of …") moves the conference-membership column but
-opens no distribution moment, and the petition's own first distribution
-triggers even when it names the conference that paper already did
-(`store.petition_distributed`, read off the `dist-v2` count below). (A
+opens no distribution moment. The trigger is a rise in the petition's own
+`dist-v2` count below (`store.petition_distributed`), so the petition's first
+distribution triggers even when it names the conference that paper already
+did, and a paper distributed for another conference after the petition does
+not trigger; only a row never live-parsed, with no count to compare, falls
+back to a new date on the membership column. (A
 deferred petition's transition only keeps it on the watchlist; the cycle-end
 selection sweep queues what a later selection latches; a relist inside its
 requeue cooldown is suppressed instead — see
