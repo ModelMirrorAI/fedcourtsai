@@ -296,3 +296,133 @@ def reset_output_root(snapshot: OutputSnapshot) -> list[str]:
                 path.unlink()
                 removed.append(relative)
     return sorted(removed)
+
+
+# --- the judge-level pair, where the judge put it -------------------------------
+#
+# An evaluate cell owes one `retrieval.md` and one `tooling.json` keyed by
+# evaluator x run, a level above the per-candidate directories it grades into.
+# A judge that writes the pair into each candidate's directory instead leaves
+# the cell's own copy missing — where the collect roll-ups, the corpus-use
+# cross-check and the retrieval audits read it — and nothing downstream refuses
+# the shape: each stray file sits inside the cell's own lane, so the path jail
+# admits it and the schema has nothing to say about it.
+
+
+class JudgeFileOutcome(StrEnum):
+    """What :func:`settle_judge_level_outputs` found for one judge-level file."""
+
+    #: At the judge level, with no differing copy left under a candidate.
+    in_place = "in-place"
+    #: Found only under candidates, every copy the same; moved to the judge level.
+    relocated = "relocated"
+    #: Under candidates but not all the same, so no copy is the cell's; left as written.
+    ambiguous = "ambiguous"
+    #: At the judge level, and a candidate holds a copy that differs from it; left as written.
+    stray = "stray"
+    #: Nowhere: neither at the judge level nor under any candidate.
+    missing = "missing"
+
+
+@dataclass(frozen=True)
+class JudgeFileSettlement:
+    """One judge-level file's outcome, and how many candidate copies it touched."""
+
+    name: str
+    outcome: JudgeFileOutcome
+    #: Candidate-depth copies removed, the relocated one included.
+    removed: int
+    #: Candidate-depth copies left where the judge wrote them.
+    left: int
+
+
+def _regular_file(path: Path) -> bool:
+    return path.is_file() and not path.is_symlink()
+
+
+def _same_content(a: Path, b: Path) -> bool:
+    """Whether two copies say the same thing, ignoring layout a writer varies.
+
+    Byte-equal is the same. Otherwise JSON is compared parsed, so a re-indent
+    or a trailing newline does not split two copies of one report; anything
+    else is compared with surrounding whitespace dropped.
+    """
+    left, right = a.read_bytes(), b.read_bytes()
+    if left == right:
+        return True
+    left_text = left.decode("utf-8", errors="replace")
+    right_text = right.decode("utf-8", errors="replace")
+    if a.suffix == ".json":
+        try:
+            # Re-serialised rather than compared as objects, so ``true`` and
+            # ``1`` (or ``1`` and ``1.0``) stay different answers.
+            return json.dumps(json.loads(left_text), sort_keys=True) == json.dumps(
+                json.loads(right_text), sort_keys=True
+            )
+        except ValueError:
+            pass
+    return left_text.strip() == right_text.strip()
+
+
+def settle_judge_level_outputs(
+    events: EventPaths, *, evaluator: str, run_id: str
+) -> list[JudgeFileSettlement]:
+    """Put an evaluate cell's judge-level pair where the contract keys it.
+
+    For each of ``retrieval.md`` and ``tooling.json``: a file found only at
+    candidate depth (``evaluations/<evaluator>/<predictor>/<run>/``) whose copies
+    all say the same thing (:func:`_same_content`) is moved to the judge level
+    and its other copies removed; a candidate copy that matches a judge-level
+    file already there is removed as a duplicate. Copies that disagree are left
+    exactly as written — no one of them is the cell's own account, and choosing
+    would put words in the judge's mouth — and reported, as is a file found
+    nowhere. Symlinks are never followed or moved.
+
+    Runs after un-aliasing, so the candidate directories carry predictor ids and
+    the copies' aliases are already resolved. Only this run's directories are
+    read, never an earlier committed run's. A cell with no ``evaluation.json``
+    for the run produced nothing to settle and returns an empty list, so a
+    failed cell is not also reported as missing its pair. Idempotent: a second
+    call over a settled cell reports each file ``in-place``.
+    """
+    evaluator_dir = events.evaluator_dir(evaluator)
+    if not any(evaluator_dir.glob(f"*/{run_id}/evaluation.json")):
+        return []
+    candidates = sorted(
+        path
+        for path in evaluator_dir.glob(f"*/{run_id}")
+        # Reached without a link, and not the judge level's own directory.
+        if path.is_dir()
+        and not path.is_symlink()
+        and not path.parent.is_symlink()
+        and path.resolve().parent.parent == evaluator_dir.resolve()
+        and path.parent.name != run_id
+    )
+    settled: list[JudgeFileSettlement] = []
+    for target in (
+        events.evaluation_retrieval(evaluator, run_id),
+        events.evaluation_tooling(evaluator, run_id),
+    ):
+        copies = [c / target.name for c in candidates if _regular_file(c / target.name)]
+        if os.path.lexists(target):
+            duplicates = [c for c in copies if _regular_file(target) and _same_content(c, target)]
+            for copy in duplicates:
+                copy.unlink()
+            left = len(copies) - len(duplicates)
+            outcome = JudgeFileOutcome.stray if left else JudgeFileOutcome.in_place
+            settled.append(JudgeFileSettlement(target.name, outcome, len(duplicates), left))
+        elif not copies:
+            settled.append(JudgeFileSettlement(target.name, JudgeFileOutcome.missing, 0, 0))
+        elif all(_same_content(copy, copies[0]) for copy in copies[1:]):
+            target.parent.mkdir(parents=True, exist_ok=True)
+            copies[0].rename(target)
+            for copy in copies[1:]:
+                copy.unlink()
+            settled.append(
+                JudgeFileSettlement(target.name, JudgeFileOutcome.relocated, len(copies), 0)
+            )
+        else:
+            settled.append(
+                JudgeFileSettlement(target.name, JudgeFileOutcome.ambiguous, 0, len(copies))
+            )
+    return settled

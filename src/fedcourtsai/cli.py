@@ -174,12 +174,15 @@ from .disposition_convergence import converge_disposition_labels
 from .docket_marking_migration import normalize_docket_markings
 from .finalize import (
     FinalizeRole,
+    JudgeFileOutcome,
+    JudgeFileSettlement,
     OutputSnapshot,
     agent_produced_output,
     blinded_candidates,
     cell_output_root,
     required_outputs,
     reset_output_root,
+    settle_judge_level_outputs,
     snapshot_output_root,
 )
 from .fixture import build_fixture_corpus
@@ -7912,6 +7915,13 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     reads the engine's own log rather than the agent's word. Runs as a post-agent
     step, before ``validate``.
 
+    Before stamping it tidies the cell's own reports: on ``--role evaluator`` it
+    moves a judge-level ``retrieval.md`` / ``tooling.json`` the judge copied into
+    each candidate's directory up to where the contract keys it
+    (:func:`fedcourtsai.finalize.settle_judge_level_outputs`), then normalises
+    ``flags.json`` and ``tooling.json``, then notes in ``flags.json`` any part of
+    the pair it moved, found nowhere, or found beside a differing candidate copy.
+
     The digest is resolved from the working tree (:func:`process_version.digest_for_actor`):
     the actor's prompt-template bytes plus its resolved registry config. A missing
     artifact is a clean no-op (a no-output cell has nothing to stamp and is already
@@ -8064,8 +8074,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             role=UsageRole(role),
             actor_id=actor,
         )
-        _normalise_cell_flags(event_paths, coordinates)
-        _normalise_cell_tooling(event_paths, coordinates)
+        _tidy_cell_self_reports(event_paths, coordinates, event)
 
     if role == "predictor":
         targets = [event_paths.prediction(actor, run_id)]
@@ -8595,6 +8604,127 @@ def _flag_unread_snapshot(
         ):
             return
         flags = existing.model_copy(update={"flags": [*existing.flags, flag]})
+    write_json(flags_path, flags)
+
+
+def _tidy_cell_self_reports(event_paths: EventPaths, where: CellCoordinates, event_id: str) -> None:
+    """Settle, normalise and annotate a cell's own reports before it is stamped.
+
+    The judge-level pair is settled first, so a report moved up from a
+    candidate directory is normalised where it now sits; its notes land after
+    the flags are normalised, so they append to a file that parses.
+    """
+    settled: list[JudgeFileSettlement] = []
+    if where.role == UsageRole.evaluator:
+        settled = settle_judge_level_outputs(
+            event_paths, evaluator=where.actor_id, run_id=where.run_id
+        )
+    _normalise_cell_flags(event_paths, where)
+    _normalise_cell_tooling(event_paths, where)
+    _flag_judge_level_outputs(event_paths, where, event_id, settled)
+
+
+_JUDGE_PAIR_PREFIX = "Harness check: the judge-level"
+
+
+def _judge_pair_note(item: JudgeFileSettlement, where: str) -> tuple[FlagSeverity, str] | None:
+    """The severity and wording of one judge-level file's note, or None for none."""
+    lead = f"{_JUDGE_PAIR_PREFIX} {item.name}"
+    if item.outcome is JudgeFileOutcome.relocated:
+        return FlagSeverity.info, (
+            f"{lead} was written into {item.removed} candidate director(ies) instead of "
+            f"{where}. Every copy said the same thing, so the harness moved one there and "
+            "removed the rest."
+        )
+    if item.outcome is JudgeFileOutcome.ambiguous:
+        return FlagSeverity.warning, (
+            f"{lead} was written into {item.left} candidate director(ies) instead of "
+            f"{where}, and the copies differ, so none was moved: this cell has no "
+            f"judge-level {item.name}, and the copies stay where the judge wrote them."
+        )
+    if item.outcome is JudgeFileOutcome.stray:
+        return FlagSeverity.warning, (
+            f"{lead} is in {where}, and {item.left} candidate director(ies) also hold a "
+            f"{item.name} that differs from it; those copies are left as the judge wrote them."
+        )
+    if item.outcome is JudgeFileOutcome.missing:
+        return FlagSeverity.warning, (
+            f"{lead} is missing: this cell wrote no {item.name} in {where} or under any "
+            "candidate, and the contract asks for one every run."
+        )
+    return None
+
+
+def _flag_judge_level_outputs(
+    event_paths: EventPaths,
+    where: CellCoordinates,
+    event_id: str,
+    settled: list[JudgeFileSettlement],
+) -> None:
+    """Leave a note in the cell's ``flags.json`` for each judge-level file not in place.
+
+    :func:`fedcourtsai.finalize.settle_judge_level_outputs` has already moved
+    what it could; this says what it did and what it could not, in the channel
+    the collect job rolls into the run PR and the agent-feedback issue, because
+    a judge that misfiles its pair is a prompt-contract miss a maintainer
+    should see even where the harness repaired it. A relocation is ``info``
+    (the cell's record is whole); a missing pair or copies the harness would
+    not choose between is a ``warning``, since the cell's own retrieval
+    account or tooling answer is then absent where its readers look.
+
+    Appended to the cell's own file where there is one, as the snapshot
+    tripwire's note is, and skipped where that file does not parse. A note
+    already present word for word is not added again, so a re-stamp does not
+    grow the list. The run log gets a count, never a candidate directory's
+    name, since those names are the agent's to choose.
+    """
+    location = f"evaluations/{where.actor_id}/{where.run_id}/"
+    notes: list[AgentFlag] = []
+    for item in settled:
+        note = _judge_pair_note(item, location)
+        if note is None:
+            continue
+        severity, message = note
+        typer.echo(
+            f"::warning::stamp: {where.actor_id} {_one_line(where.case_id)} judge-level "
+            + f"{item.name}: {item.outcome.value} ({item.removed} candidate cop(ies) removed, "
+            + f"{item.left} left).",
+            err=True,
+        )
+        notes.append(
+            AgentFlag(
+                category=FlagCategory.other,
+                severity=severity,
+                message=message,
+                event_id=event_id,
+                source=FlagSource.harness,
+            )
+        )
+    if not notes:
+        return
+    flags_path = event_paths.evaluation_flags(where.actor_id, where.run_id)
+    flags = AgentFlags(
+        case_id=where.case_id,
+        run_id=where.run_id,
+        role=UsageRole.evaluator,
+        actor_id=where.actor_id,
+        flags=notes,
+    )
+    if flags_path.is_file():
+        try:
+            existing = AgentFlags.model_validate_json(flags_path.read_text())
+        except (OSError, ValueError):
+            typer.echo(
+                f"::warning::stamp: {flags_path} does not parse, so the judge-level file "
+                + "notes survive only in this log; the cell's flags are left as written.",
+                err=True,
+            )
+            return
+        known = {item.message for item in existing.flags}
+        fresh = [note for note in notes if note.message not in known]
+        if not fresh:
+            return
+        flags = existing.model_copy(update={"flags": [*existing.flags, *fresh]})
     write_json(flags_path, flags)
 
 
