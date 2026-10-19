@@ -24,10 +24,10 @@ name: sync-staging
 # exactly the case where a task earns its own surface rather than eroding a
 # property another workflow was built to have.
 #
-# What it does NOT do: land the merge itself. The PR goes through the staging
-# ruleset like any other — `gate` and `paths` must pass — so the sync is gated,
-# not bypassed. A conflicting merge simply fails to auto-merge and sits open as
-# the signal; nobody has to be told, because the PR is the notification.
+# What it does NOT do: land the merge past the ruleset. The PR goes through the
+# staging ruleset like any other — `gate` and `paths` must pass — so the sync is
+# gated, not bypassed. A PR on which neither auto-merge nor a direct merge takes
+# (a conflict, say) turns the run red, and the open PR is where it is resolved.
 
 on:
   schedule:
@@ -131,6 +131,41 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+
+          # Arm auto-merge (merge commit) on PR $1, or merge it outright when
+          # GitHub already counts it mergeable; sets `outcome` and returns 0
+          # once either took. GraphQL rather than `gh pr merge --auto`: on a PR
+          # whose required checks are queued but not yet reported, `gh` reads
+          # it as mergeable and calls `mergePullRequest` instead of arming, and
+          # the ruleset refuses that merge. The mutation arms regardless of
+          # `gh`'s mergeability read, and answers an error only for a PR GitHub
+          # calls clean (or one that conflicts), which the direct merge then
+          # tries.
+          arm_or_merge() {
+            local info id state armed
+            info=$(gh pr view "$1" --repo "$REPO" --json id,state,autoMergeRequest \
+              --jq '[.id, .state, ((.autoMergeRequest != null) | tostring)] | join("|")') \
+              || return 1
+            IFS='|' read -r id state armed <<<"$info"
+            if [ "$state" = MERGED ]; then outcome=merged; return 0; fi
+            if [ "$armed" = true ]; then outcome=armed; return 0; fi
+            # shellcheck disable=SC2016 # `$id` is a GraphQL variable
+            if gh api graphql -f id="$id" -f query='
+              mutation($id: ID!) {
+                enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: MERGE}) {
+                  clientMutationId
+                }
+              }' >/dev/null; then
+              outcome=armed
+              return 0
+            fi
+            if gh pr merge "$1" --repo "$REPO" --merge; then
+              outcome=merged
+              return 0
+            fi
+            return 1
+          }
+
           git fetch --no-tags -q origin main staging
 
           # Already synced: the common case on any day main saw no writer
@@ -169,7 +204,13 @@ jobs:
             # gate is red or auto-merge never armed, and staging is drifting. Silent
             # success here would hide that until `promote` complained. Re-arm on the
             # way past, since an unarmed PR is the likeliest cause.
-            gh pr merge "$existing" --repo "$REPO" --auto --merge || true
+            outcome=""
+            arm_or_merge "$existing" || true
+            if [ "$outcome" = merged ]; then
+              echo "sync PR #${existing} merged directly (merge commit)."
+              echo "Sync PR [#${existing}](https://github.com/${REPO}/pull/${existing}) merged directly (merge commit)." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
             echo "::warning::sync PR #${existing} is still open (staging is ${behind} commit(s) behind main); its gate may be red or the merge may conflict"
             {
               echo "### Sync PR already open"
@@ -196,8 +237,8 @@ jobs:
             '' \
             '**Merge with a merge commit, never a squash** — the promotion gate asserts that' \
             'main is an ancestor of staging, and a squash would rewrite the merged history' \
-            'and break that. Auto-merge is armed to do exactly that once `gate` and `paths`' \
-            'pass; if it never fires, this merge conflicts and needs resolving here.')
+            'and break that. This workflow arms auto-merge (or merges directly once `gate`' \
+            'and `paths` pass); if this PR stays open, the merge conflicts and needs resolving here.')
 
           # `gh pr create` prints the PR URL and has no --json, so the number
           # comes from a follow-up list rather than from parsing that output.
@@ -213,27 +254,51 @@ jobs:
           # Merge commit, never squash: the promotion gate asserts main is an
           # ancestor of staging, which a squash would break by rewriting the
           # merged history into a new single commit.
-          # `--auto` errors when the PR is *already* mergeable, which happens
-          # here more often than usual: the head sha is main's own, so it may
-          # already carry a green `gate` check from the push-to-main run. That
-          # check covered main's own last commit (in that commit's CI lane —
-          # for a data commit, without lint, types or the full suite), not
-          # this PR's merged tree, and the fallback below merges on it: the
-          # PR's own `gate` run then follows the merge rather than gating it.
-          # That is adequate only because the content is already-gated main
-          # history (docs/security.md). Fall back to merging outright — the
-          # ruleset is enforced server-side, so an unsatisfied check refuses
-          # the merge rather than letting it through.
-          gh pr merge "$num" --repo "$REPO" --auto --merge \
-            || gh pr merge "$num" --repo "$REPO" --merge \
-            || echo "::warning::sync PR #${num} opened but neither auto-merge nor a direct merge took; resolve it there"
+          #
+          # Seconds after `gh pr create` the PR's own checks are often queued
+          # but not yet registered: GitHub then calls the PR clean, so arming
+          # is refused, and the ruleset counts the queued checks, so the direct
+          # merge is refused too. Retry for a bounded few minutes, by which
+          # time the checks have registered and arming takes. The head sha is
+          # main's own, so it may instead already carry a green `gate` from the
+          # push-to-main run; then the direct merge takes on that check. It
+          # covered main's own last commit (in that commit's CI lane — for a
+          # data commit, without lint, types or the full suite), not this PR's
+          # merged tree, so the PR's own `gate` run follows the merge rather
+          # than gating it. That is adequate only because the content is
+          # already-gated main history (docs/security.md). The ruleset is
+          # enforced server-side either way: an unsatisfied check refuses the
+          # merge rather than letting it through.
+          outcome=""
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            if arm_or_merge "$num"; then
+              break
+            fi
+            if [ "$attempt" -lt 12 ]; then sleep 20; fi
+          done
           echo "opened sync PR #${num} (staging was ${behind} commit(s) behind)."
+          if [ -z "$outcome" ]; then
+            echo "::error::sync PR #${num} opened but neither auto-merge nor a direct merge took after 12 attempts; resolve it there"
+            {
+              echo "### Sync PR opened, not armed"
+              echo ""
+              echo "[#${num}](https://github.com/${REPO}/pull/${num}) merges **${behind}**"
+              echo "commit(s) of \`main\` into \`staging\`, but neither auto-merge nor a"
+              echo "direct merge took. It sits open until it is merged by hand (merge commit,"
+              echo "never squash) or its conflict is resolved."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
           {
             echo "### Sync PR opened"
             echo ""
             echo "[#${num}](https://github.com/${REPO}/pull/${num}) merges **${behind}**"
-            echo "commit(s) of \`main\` into \`staging\`, with auto-merge armed (merge commit,"
-            echo "never squash). It lands on its own once \`gate\` and \`paths\` pass."
+            if [ "$outcome" = merged ]; then
+              echo "commit(s) of \`main\` into \`staging\`, merged directly (merge commit)."
+            else
+              echo "commit(s) of \`main\` into \`staging\`, with auto-merge armed (merge commit,"
+              echo "never squash). It lands on its own once \`gate\` and \`paths\` pass."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
   # The run gate's verdict on the run as a whole. A refused partial re-run
