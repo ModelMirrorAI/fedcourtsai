@@ -128,6 +128,25 @@ def test_publication_is_fenced_to_main() -> None:
     assert "gh pr merge" not in body and "--auto" not in body, "the refresh PR is reviewed"
 
 
+def test_only_the_publish_job_withdraws_and_its_jail_admits_only_the_plan() -> None:
+    publish = _jobs()["publish"]
+    run = next(
+        step["run"] for step in publish["steps"] if "summary-withdraw" in step.get("run", "")
+    )
+    # The deletions are made before the change set is taken, and the jail that
+    # admits them reads the same plan.
+    assert run.index("summary-withdraw") < run.index("git add -A data")
+    assert run.index("git add -A data") < run.index("summary-paths --strict")
+    jail = run[run.index("summary-paths --strict") :]
+    assert '--plan "$RUNNER_TEMP/plan/summary-plan.json"' in jail.split("> /dev/null")[0]
+    downloads = [s for s in publish["steps"] if "download-artifact" in str(s.get("uses", ""))]
+    assert {s["with"]["name"] for s in downloads} == {"case-summaries", "summary-plan"}
+    # The generate job writes summaries only: its jail admits no deletion.
+    collect = next(s for s in _jobs()["generate"]["steps"] if s.get("id") == "collect")
+    assert "--plan" not in collect["run"]
+    assert "summary-withdraw" not in collect["run"]
+
+
 def test_the_generate_job_gates_its_artifact_on_the_jail_and_the_scan() -> None:
     steps = _jobs()["generate"]["steps"]
     collect = next(step for step in steps if step.get("id") == "collect")

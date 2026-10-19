@@ -14414,6 +14414,14 @@ def summary_paths_cmd(
             "addition or modification of a case summary file.",
         ),
     ] = False,
+    plan_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--plan",
+            help="The plan JSON `summarize-plan` wrote: a deletion of a summary it "
+            "withdraws is admitted rather than refused.",
+        ),
+    ] = None,
 ) -> None:
     """Print the case summary files a change set writes; with --strict, the lane's jail.
 
@@ -14421,15 +14429,47 @@ def summary_paths_cmd(
     summaries/<YYYY-MM-DD>.md`` — so its branch may carry nothing else. Without
     ``--strict`` this is the filter the workflow uses to carry an open refresh
     PR's summaries forward (other paths are ignored); with it, the check that
-    refuses to publish a change set holding anything but summaries.
+    refuses to publish a change set holding anything but summaries. With
+    ``--plan``, the one deletion the lane makes, a summary that plan withdraws,
+    passes too; it is not printed.
     """
+    withdrawn: set[str] = set()
+    if plan_file is not None:
+        plan = SummaryPlan.model_validate_json(plan_file.read_text())
+        withdrawn = {row.path for row in plan.withdrawn}
     changes = [(c.status, c.path) for c in parse_name_status(name_status_file.read_text())]
-    writes, violations = summaries.summary_changes(changes)
+    writes, violations = summaries.summary_changes(changes, withdrawn)
     if strict and violations:
         for violation in violations:
             typer.echo(f"::error::not a case summary write: {violation}", err=True)
         raise typer.Exit(code=1)
     for path in writes:
+        typer.echo(path)
+
+
+@app.command("summary-withdraw")
+def summary_withdraw_cmd(
+    plan_file: Annotated[
+        Path, typer.Option("--plan", help="The plan JSON `summarize-plan` wrote.")
+    ],
+) -> None:
+    """Delete the committed summaries a summary plan withdraws; print each path removed.
+
+    A summary written before the docketed date of the petition its docket
+    number now holds describes another petition (a re-docketed number), and
+    ``summarize-plan`` lists it under ``withdrawn``. The publish job runs this
+    on its checkout so the review PR carries the deletion, which
+    ``summary-paths --strict --plan`` then admits. A file already gone is
+    skipped.
+    """
+    settings = get_settings()
+    plan = SummaryPlan.model_validate_json(plan_file.read_text())
+    try:
+        removed = summaries.withdraw_summaries(settings.data_root, plan)
+    except ValueError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    for path in removed:
         typer.echo(path)
 
 

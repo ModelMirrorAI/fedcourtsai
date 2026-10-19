@@ -11541,6 +11541,19 @@ class SummaryPlanCase(_Strict):
         return self
 
 
+class SummaryWithdrawal(_Strict):
+    """One committed summary a summary run withdraws: written before the petition
+    the docket number now holds was docketed, so it describes another petition."""
+
+    case_id: str
+    path: str = Field(description="The summary file's repository-relative path")
+    snapshot: date = Field(description="The snapshot day the summary was written from")
+    docketed: date = Field(
+        description="The docketed date the case's newest record carries, which the "
+        + "summary's snapshot day precedes"
+    )
+
+
 class SummaryPlan(_Strict):
     """``fedcourts summarize-plan`` output — what a summary run would write and cost.
 
@@ -11566,6 +11579,12 @@ class SummaryPlan(_Strict):
     )
     deferred: int = Field(ge=0, description="Cases owed a summary that the limit held back")
     cases: list[SummaryPlanCase]
+    withdrawn: list[SummaryWithdrawal] = Field(
+        default_factory=list,
+        description="Committed summaries of another petition than the docket number now "
+        + "holds (a re-docketed number), which the run's review PR deletes; free, so "
+        + "never deferred by the limit",
+    )
     estimated_cost_usd_low: float = Field(ge=0)
     estimated_cost_usd_high: float = Field(ge=0)
 
