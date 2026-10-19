@@ -1411,6 +1411,7 @@ def reconcile_salience_selection_cmd(
             f"  {occupant.case_id} {occupant.docket_number} filed {occupant.date_filed} "
             f"snapshot {occupant.snapshot_date} "
             f"{'holds a slot' if occupant.holds_slot else 'released: snapshot reads disposed'}"
+            f"{' (snapshot read failed)' if occupant.snapshot_read_failed else ''}"
         )
     typer.echo(result.model_dump_json())
 

@@ -62,6 +62,7 @@ re-band a prediction already written.
 from __future__ import annotations
 
 import hashlib
+import logging
 import sqlite3
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
@@ -85,6 +86,8 @@ from ..schemas import (
     Stage,
 )
 from . import caption, cert_signals, moments
+
+logger = logging.getLogger(__name__)
 
 # The **active** salience-function version: the one the live selection pass scores
 # and stamps with. A refit is a NEW version registered alongside, never an
@@ -1040,14 +1043,23 @@ def _reserve_occupant(conn: sqlite3.Connection, row: corpus.CorpusRow) -> Reserv
     the same signal as decided, so no cell will be minted for the slot to fund.
     A row with no stored snapshot, or whose read fails, holds its slot — the
     rule before the release existed — so a content-store outage can only leave
-    the reserve as full as it was, never fail the pass.
+    the reserve as full as it was, never fail the pass. A failed read is logged
+    as a warning and marked ``snapshot_read_failed``, so the ledger tells it
+    apart from an occupant with nothing stored.
     """
     from . import outcome  # noqa: PLC0415 - outcome<-moments<-... keeps this deferred
 
+    read_failed = False
     try:
         snapshot = corpus.latest_snapshot(conn, row.case_id)
-    except Exception:  # an unreadable store must not cost the live window its push
+    except Exception as exc:  # an unreadable store must not cost the live window its push
         snapshot = None
+        read_failed = True
+        logger.warning(
+            "salience reserve: snapshot read for %s failed (%s); it holds its slot",
+            row.case_id,
+            type(exc).__name__,
+        )
     disposed = snapshot is not None and outcome.interim_disposal_signal(snapshot[1]) is not None
     return ReserveOccupant(
         case_id=row.case_id,
@@ -1055,6 +1067,7 @@ def _reserve_occupant(conn: sqlite3.Connection, row: corpus.CorpusRow) -> Reserv
         date_filed=row.date_filed,
         snapshot_date=snapshot[0] if snapshot is not None else None,
         holds_slot=not disposed,
+        snapshot_read_failed=read_failed,
     )
 
 

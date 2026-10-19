@@ -9796,6 +9796,13 @@ class ReserveOccupant(_Strict):
             "which frees the slot while the row awaits a resolver"
         ),
     )
+    snapshot_read_failed: bool = Field(
+        default=False,
+        description=(
+            "True when the snapshot read raised, as distinct from no snapshot being "
+            "stored; the occupant then holds its slot"
+        ),
+    )
 
 
 class SalienceSelectionResult(_Strict):

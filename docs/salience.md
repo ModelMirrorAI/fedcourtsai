@@ -1187,6 +1187,9 @@ petitions to the state its docket disclosed at a chosen cutoff
 — petition **arrival**, the **first distribution**, or the **last
 pre-resolution distribution** — and runs the same selection core the live pass
 runs (`plan_cohorts`) over the projection, into `metrics/salience-replay.json`.
+The replay reads no stored snapshots and passes the core no reserve release,
+so where the live pass freed an interim reserve slot because the occupant's
+stored docket read as disposed, the replay does not reproduce that fill.
 
 The projection layer (`fedcourtsai.pipeline.asof`) is the honesty mechanism:
 time-invariant identity (docket number, fee class, originating court, sampling

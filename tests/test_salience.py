@@ -1030,9 +1030,9 @@ def test_reserve_occupant_without_a_disposal_holds_its_slot(
     with corpus.connect(db) as conn:
         result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=False)
     assert result.newly_selected == 0
-    assert [(o.case_id, o.holds_slot) for o in result.reserve_occupants] == [
-        ("scotus/9525000001", True)
-    ]
+    assert [
+        (o.case_id, o.holds_slot, o.snapshot_read_failed) for o in result.reserve_occupants
+    ] == [("scotus/9525000001", True, False)]
 
 
 def test_reserve_occupant_holds_its_slot_when_the_snapshot_read_fails(
@@ -1057,7 +1057,9 @@ def test_reserve_occupant_holds_its_slot_when_the_snapshot_read_fails(
             conn, _data_root(tmp_path), SalienceConfig(interim_reserve_slots=1), apply=False
         )
     assert result.newly_selected == 0
-    assert [(o.holds_slot, o.snapshot_date) for o in result.reserve_occupants] == [(True, None)]
+    assert [
+        (o.holds_slot, o.snapshot_date, o.snapshot_read_failed) for o in result.reserve_occupants
+    ] == [(True, None, True)]
 
 
 def test_plan_cohorts_frees_only_the_occupants_it_releases() -> None:

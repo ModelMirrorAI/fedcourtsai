@@ -11230,9 +11230,13 @@ freeze commit is recorded here.
   occupant on which `pipeline.outcome.interim_disposal_signal` fires keeps its
   latch but stops counting against `salience.interim_reserve_slots`. That is
   the scan the forward queue's decided-guard already reads, so the slot it
-  frees was funding no cell. The gate replay reads no snapshots and is
-  unchanged. `reconcile-salience-selection` now lists every occupant with its
-  filing date, the snapshot read, and whether it holds a slot.
+  frees was funding no cell. The gate replay reads no snapshots and passes no
+  release, so it does not reproduce a live fill in which a release fired.
+  `reconcile-salience-selection` now lists every occupant with its filing
+  date, the snapshot read, whether it holds a slot, and whether the read
+  failed. A released occupant stays latched and unresolved, so every live
+  cycle (twelve a day) reads its snapshot again until a pull records the
+  disposition: one content-store read per occupant per cycle.
 
   **Why it is a boundary.** A freed slot goes to the next application on the
   escalation ladder, and the slots in use lower the current conference's cert
