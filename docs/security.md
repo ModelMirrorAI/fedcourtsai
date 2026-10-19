@@ -94,7 +94,7 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
 | `run-seed` | data | contents (walker steps; the order-vote and OCR sweeps' writers); none at all on either sweep's projection and parse jobs; ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
 | `promotion-record` (write job only) | data | contents | on a staging→main promotion merge only (a no-secret, read-only `classify` job decides that first): push the annotated `promotion/` and `prereg/` tags and the one-parent record commit that fills the placeholders the merge added and stamps its pending registrations. The job runs up to three attempts. In each, the plan, the tags, the apply, the commit, the jail and a validation of the jailed SHA run holding no write credential; only then is a token minted, and only that attempt's push and revoke steps read it, the push refusing one that is not the data App's. The push never re-plans: where `main` advanced it records the rejection, the attempt's token is revoked, and the next attempt prepares again from a fresh fetch holding no credential, running `write.sh` from the newly fetched main tip — the same trust the data App already places in main. Every token still live after the last attempt is revoked before the job ends, and the check that main holds no pending registration runs in the report job, so no repo code runs in the write job while a write token is live. The step split is a least-exposure ordering within one job, not a credential boundary: the planner's code is main's own reviewed code, and a hostile planner would need a job boundary to be contained. A tag push never replaces one, the commit is pushed with a lease on the base it was jailed against, and every push blanks any ambient header and runs no hook. The failure issue and the PR comment ride the ambient token in a separate job |
-| `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record and opinion-record jobs); none at all on the selector-validation, `handoff-projection` and `handoff-parse` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Four of the passes that fetch and parse the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`) run as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill and opinion-record writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for every role its environment is trusted by — both corpus roles under `corpus-write` (the corpus, application back-fill, decision-record and opinion-record jobs), and under `prod` (`handoff-projection`) the read-only role, alone once the read-write role's trust is narrowed to `corpus-write` (*`corpus-write` holds the production read-write role* below) — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
+| `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record and opinion-record jobs); none at all on the selector-validation, `handoff-projection` and `handoff-parse` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Four of the passes that fetch and parse the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`) run as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill and opinion-record writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for every role its environment is trusted by — both corpus roles under `corpus-write` (the corpus, application back-fill, decision-record and opinion-record jobs), and under `prod` (`handoff-projection`) the read-only role alone, since the read-write role's trust names `corpus-write` only (*`corpus-write` holds the production read-write role* below) — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
 | `run-predict`, `run-evaluate` (`collect` job only) | dev | contents, pull-requests | the cell jobs name no App credential: a Claude cell's action gets the job's own token, capped at `contents: read` by the cell job's permissions, and the codex and gemini cells get none. The workflow commits, and `collect` merges its run PR once the required checks pass with a second workflow token minted for that step alone. The engine watchdog that brackets every engine step holds no token: it reports only on the runner, through the cell's own tail |
 | `run-backtest` (publish job only) | dev | contents, pull-requests | open the reviewed back-test PR. The replay job holds no App credential: it hands the arm's one report to the publish job as a one-day artifact, and the publish job, which runs no engine and assumes no role, checks that the hand-off holds that file alone, that the tree differs from the commit there alone, and scans the change and the PR prose for secrets, all before it mints. The `cadence` guard holds no App token either, only an ambient `actions: read` over this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
@@ -955,8 +955,8 @@ writers alone.** Every job that assumes the read-write role binds it —
 `decision-record` and `opinion-record` jobs — and no other job may:
 `tests/test_workflow_corpus_write.py` holds every job naming the read-write
 role to the literal `corpus-write`, and refuses the environment to every
-other job, an agent job above all. The design requires the read-write
-role's trust to name `environment:corpus-write` and nothing else, so a job
+other job, an agent job above all. The read-write role's trust names
+`environment:corpus-write` and nothing else, so a job
 binding `prod` — every agent cell among them, each holding
 `id-token: write` — mints a token no role that writes a production store
 accepts. (The environment shares its name with the writers' `corpus-write`
@@ -990,14 +990,15 @@ passes are (*S3 / the private stores* below). Configure it with:
   token and the corpus base URL then live on both `prod` and `corpus-write`,
   so a rotation or a move updates both.
 
-**Provision in this order: protect the environment and widen the trust
-first, move the jobs second, narrow the trust last.** Create the
+**Re-provisioning keeps this order: protect the environment and widen the
+trust first, move the jobs second, narrow the trust last.** Create the
 environment with the policy and names above and add
-`environment:corpus-write` to both corpus roles' trusts, keeping
-`environment:prod` on the read-write role; promote the workflows that bind
-`corpus-write`; then, once a writer window has succeeded under it, remove
-`environment:prod` from the read-write role's trust. Until that last step a
-`prod` job can still mint a token the read-write role accepts. The
+`environment:corpus-write` to both corpus roles' trusts, keeping the old
+subject on the read-write role; promote the workflows that bind
+`corpus-write`; then, once a writer window has succeeded under it, remove the
+old subject from the read-write role's trust. Narrowing first fails every
+writer window; narrowing never leaves a `prod` job able to mint a token the
+read-write role accepts. The
 promotion gate's `contexts` stage checks the environment whenever it runs
 (`fedcourts assert-corpus-write-environment`): it exists,
 its branch policy admits exactly `main`, it holds every name above but the
@@ -1619,11 +1620,10 @@ Actions job's writes to the corpus file reach the store* in
 Every role's OIDC trust is scoped to named environments of this repo
 (`...:sub` like `repo:<owner>/<repo>:environment:corpus-write`), so only a job
 binding one of those environments can assume it. The production read-write
-role is to name `corpus-write` alone, the environment only the corpus writer
-jobs bind — a maintainer IAM step the gate cannot read, and until its last
-part is done the role still names `prod` too (*`corpus-write` holds the production read-write role*
-above, which gives the order) — so that no job that runs an agent can mint
-a token it accepts; the read-only role names `prod`, `corpus-write` (the
+role names `corpus-write` alone, the environment only the corpus writer
+jobs bind — an IAM statement the gate cannot read, which the maintainer keeps
+(*`corpus-write` holds the production read-write role* above) — so no job
+that runs an agent can mint a token it accepts; the read-only role names `prod`, `corpus-write` (the
 decision-record job's pull), `staging`, which is
 what lets the integration scenarios — and `run-analytics`'s staging
 rehearsals, whose environments resolve from the dispatching branch on the
@@ -2056,8 +2056,8 @@ PDFs inside the corpus job: `ocr-recovery` and `document-backfill` are not
 split. And in every job that holds `id-token: write` — the projection,
 the two corpus writers, the decision-record and corpus jobs — every step can
 mint a token for every role its environment is trusted by — under `prod`
-(the projection) the read-only role, alone once the read-write role's trust
-is narrowed to `corpus-write` (*`corpus-write` holds the production read-write role*), and both
+(the projection) the read-only role alone, since the read-write role's trust
+names `corpus-write` only (*`corpus-write` holds the production read-write role*), and both
 corpus roles under `corpus-write` (the rest): the runner injects the OIDC
 request pair into each step after the step's own `env:`, so blanking it there
 is a no-op, and only a job without the permission is out of its reach. A
@@ -2091,8 +2091,8 @@ shape the split-mode production system has, seeded by
 
 **What does not change.** Production keeps its single-writer discipline
 untouched: the production read-write role's trust names no staging
-environment and no new job assumes it (its narrowing to `corpus-write` alone
-is the maintainer IAM step in *`corpus-write` holds the production read-write role*). **The guarantee is IAM** — the staging role's policy is
+environment and no new job assumes it (it names `corpus-write` alone,
+per *`corpus-write` holds the production read-write role*). **The guarantee is IAM** — the staging role's policy is
 read-only on the production stores, so nothing in this lane can reach the
 production write path whatever it is pointed at. The seeder's own rail, which
 refuses a destination that *is, or is inside*, either store of its **pinned
