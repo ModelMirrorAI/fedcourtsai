@@ -5,9 +5,10 @@ ledger; ``staging`` registers the next label over a moved claude-baseline digest
 Each refusal is built by bending one fact of that history — a pending digest
 already in main's ledger, an unregistered live digest, a predecessor window
 left open, a ``prereg/`` tag already minted, a repeated boundary, a pending row
-already on main, a registry that does not load — and the clean history is the
-control. The live digests are read from a tree's own config and prompts, so
-the end-to-end check runs the command against a history carrying them.
+already on main, a row main stamped edited or dropped, a registry that does
+not load — and the clean history is the control. The live digests are read
+from a tree's own config and prompts, so the end-to-end check runs the command
+against a history carrying them.
 """
 
 from __future__ import annotations
@@ -29,11 +30,13 @@ from fedcourtsai.promotion_record import (
     FREEZE_RECORD_PATH,
     REGISTRY_PATH,
     PromotionRecordError,
+    Stamp,
     dump_registry,
     labels_new_to,
+    stamp_registry,
 )
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
-from fedcourtsai.registry_gate import live_actors_at, registry_gate
+from fedcourtsai.registry_gate import _Stamped, live_actors_at, registry_gate
 from tests.test_promotion_record import (
     COMMITTED,
     DECLARED,
@@ -239,6 +242,266 @@ def test_a_batch_carrying_two_new_labels_is_refused(tmp_path: Path) -> None:
     repo, at = _history(tmp_path, main_registry=main)
     problems = _problems(repo, at)
     assert any("2 labels new to main" in p and "one label per promotion" in p for p in problems)
+
+
+# --- what main stamped stays as it is ----------------------------------------
+
+
+def _stamped_boundary(registry: dict[str, Any]) -> dict[str, Any]:
+    return next(b for b in registry["harness_boundaries"] if b["merge"] is not None)
+
+
+def test_a_batch_that_unstamps_a_boundary_is_refused(tmp_path: Path) -> None:
+    """Back to pending, the next merge would stamp it again at its own instant."""
+    registry = _registered()
+    boundary = _stamped_boundary(registry)
+    boundary["merge"] = boundary["at"] = None
+    repo, at = _history(tmp_path, staging_registry=registry)
+    problems = _problems(repo, at)
+    assert any(
+        f"boundary {boundary['name']} is stamped on main" in p and "at, merge" in p
+        for p in problems
+    ), problems
+
+
+def test_a_batch_that_edits_a_stamped_boundary_is_refused(tmp_path: Path) -> None:
+    registry = _registered()
+    boundary = _stamped_boundary(registry)
+    boundary["reach"] = "granted dockets" if boundary["reach"] != "granted dockets" else "all"
+    repo, at = _history(tmp_path, staging_registry=registry)
+    problems = _problems(repo, at)
+    assert any(
+        f"boundary {boundary['name']} is stamped on main" in p and "its reach" in p
+        for p in problems
+    ), problems
+
+
+def test_a_batch_that_moves_a_stamped_bless_moment_is_refused(tmp_path: Path) -> None:
+    registry = _registered()
+    judge = next(b for b in registry["blessings"] if b["role"] == "evaluator")
+    judge["blessed"] = {**judge["blessed"], "at": _iso(_at(6))}
+    repo, at = _history(tmp_path, staging_registry=registry)
+    problems = _problems(repo, at)
+    assert any(
+        f"blessing {judge['digest']} is stamped on main" in p and "its blessed" in p
+        for p in problems
+    ), problems
+
+
+def test_a_batch_that_reopens_a_stamped_close_is_refused(tmp_path: Path) -> None:
+    """A close put back to pending would be stamped again, later, at the next merge."""
+    registry = _registered()
+    window = next(w for w in registry["windows"] if (w["closes"] or {}).get("merge"))
+    window["closes"] = dict(PENDING)
+    repo, at = _history(tmp_path, staging_registry=registry)
+    problems = _problems(repo, at)
+    assert any(
+        f"window {window['label']} {window['digest']} is stamped on main" in p and "its closes" in p
+        for p in problems
+    ), problems
+
+
+def _closed_window(registry: dict[str, Any]) -> dict[str, Any]:
+    return next(w for w in registry["windows"] if (w["closes"] or {}).get("merge"))
+
+
+def _open_window(registry: dict[str, Any], predictor: str = "codex-baseline") -> dict[str, Any]:
+    return next(
+        w
+        for w in registry["windows"]
+        if w["predictor_id"] == predictor and w["closes"] is None and w["opens"]["merge"]
+    )
+
+
+def _refusals(tmp_path: Path, registry: dict[str, Any], *fragments: str) -> list[str]:
+    repo, at = _history(tmp_path, staging_registry=registry)
+    problems = _problems(repo, at)
+    return [p for p in problems if all(fragment in p for fragment in fragments)]
+
+
+def test_a_batch_may_revoke_a_closed_window_after_its_head(tmp_path: Path) -> None:
+    registry = _registered()
+    _closed_window(registry)["revoked_at"] = _iso(_at(30))
+    repo, at = _history(tmp_path, staging_registry=registry)
+    assert not any("stamped on main" in p for p in _problems(repo, at))
+
+
+def test_a_revocation_of_an_open_window_is_refused(tmp_path: Path) -> None:
+    """Revoked while open, its digest stays blessed and re-mints under the defect."""
+    registry = _registered()
+    window = _open_window(registry)
+    window["revoked_at"] = _iso(_at(30))
+    assert _refusals(
+        tmp_path, registry, f"window {window['label']} {window['digest']}", "revoked_at"
+    )
+
+
+def test_a_revocation_dated_before_the_head_is_refused(tmp_path: Path) -> None:
+    """Before the head is before the carrying merge: it would count successor cells already made."""
+    registry = _registered()
+    window = _closed_window(registry)
+    window["revoked_at"] = _iso(_at(18))
+    assert _refusals(
+        tmp_path, registry, f"window {window['label']} {window['digest']}", "revoked_at"
+    )
+
+
+def test_a_pending_close_on_a_live_predictors_window_is_refused(tmp_path: Path) -> None:
+    registry = _registered()
+    window = _open_window(registry)
+    window["closes"] = dict(PENDING)
+    assert _refusals(tmp_path, registry, f"window {window['label']} {window['digest']}", "closes")
+
+
+def test_a_forged_close_on_a_stamped_window_is_refused(tmp_path: Path) -> None:
+    """A stamped close no merge wrote: the loader refuses it first, so it is all Step 0 reports."""
+    registry = _registered()
+    window = _open_window(registry)
+    window["closes"] = {"at": _iso(_at(20)), "merge": "e" * 40, "source": "merge"}
+    assert _refusals(tmp_path, registry, "does not load", window["digest"])
+
+
+def test_a_batch_that_drops_a_stamped_window_is_refused(tmp_path: Path) -> None:
+    registry = _registered()
+    window = _closed_window(registry)
+    registry["windows"].remove(window)
+    assert _refusals(tmp_path, registry, f"window {window['label']} {window['digest']}", "drops it")
+
+
+def test_a_batch_that_drops_a_live_blessing_is_refused(tmp_path: Path) -> None:
+    registry = _registered()
+    blessing = next(b for b in registry["blessings"] if b["actor_id"] == "codex-baseline")
+    registry["blessings"].remove(blessing)
+    assert _refusals(tmp_path, registry, f"blessing {blessing['digest']}", "drops it")
+
+
+def test_a_batch_that_reorders_stamped_boundaries_is_refused(tmp_path: Path) -> None:
+    """Two rows of one merge, swapped: every field holds, the published order does not."""
+    registry = _registered()
+    rows = registry["harness_boundaries"]
+    first = next(
+        n
+        for n in range(len(rows) - 1)
+        if rows[n]["merge"] and rows[n]["merge"] == rows[n + 1]["merge"]
+    )
+    rows[first], rows[first + 1] = rows[first + 1], rows[first]
+    assert _refusals(tmp_path, registry, "reorders the harness_boundaries")
+
+
+def test_a_new_row_ahead_of_the_stamped_ones_is_refused(tmp_path: Path) -> None:
+    """Every stamped row keeps its place, but the published order still moves."""
+    registry = register_boundary(
+        _registered(), "a-boundary", predictors=None, reach="all", gradual=False
+    )
+    rows = registry["harness_boundaries"]
+    rows.insert(0, rows.pop())
+    assert _refusals(tmp_path, registry, "places a-boundary ahead of", "harness_boundaries")
+
+
+def test_a_criss_cross_history_must_match_every_base() -> None:
+    """One base holds the boundary pending, the other stamped: holding it pending
+    is a revert the merge would carry, though it matches one base."""
+    main = copy.deepcopy(DECLARED)
+    stamped = _stamped_boundary(main)
+    cut = copy.deepcopy(main)
+    _stamped_boundary(cut).update(merge=None, at=None)
+    batch = copy.deepcopy(cut)
+    checked = _Stamped(
+        main=main,
+        bases=[cut, main],
+        batch=batch,
+        live=frozenset(),
+        live_predictors=frozenset(),
+        head_time=_at(24),
+    )
+    assert any(f"boundary {stamped['name']} is stamped on main" in p for p in checked.problems())
+    assert not _Stamped(
+        main=main,
+        bases=[cut],
+        batch=batch,
+        live=frozenset(),
+        live_predictors=frozenset(),
+        head_time=_at(24),
+    ).problems()
+
+
+def test_an_evaluator_blessing_off_the_fleet_may_go(tmp_path: Path) -> None:
+    registry = _registered()
+    judge = next(b for b in registry["blessings"] if b["role"] == "evaluator")
+    registry["blessings"].remove(judge)
+    fleet = [a for a in _live_fleet() if a.digest != judge["digest"]]
+    repo, at = _history(tmp_path, staging_registry=registry)
+    assert not any("stamped on main" in p for p in _problems(repo, at, fleet))
+
+
+def test_a_batch_that_moves_the_declaration_is_refused(tmp_path: Path) -> None:
+    registry = _registered()
+    registry["merge_stamping_declared"] = "2026-10-13"
+    assert _refusals(tmp_path, registry, "main declares merge-stamped instants on")
+
+
+def test_a_label_main_holds_appended_to_a_blessing_is_refused(tmp_path: Path) -> None:
+    """Appending an older label renames a published per-rubric reading."""
+    registry = _registered()
+    known = [entry["label"] for entry in DECLARED["labels"]]
+    digest, labels = next(
+        (d, ls) for d, ls in registry["evaluate_blessing_labels"].items() if known[-1] not in ls
+    )
+    registry["evaluate_blessing_labels"][digest] = [*labels, known[-1]]
+    assert _refusals(tmp_path, registry, f"evaluator digest {digest}", "append-only")
+
+
+def test_a_batch_that_drops_a_blessing_label_is_refused(tmp_path: Path) -> None:
+    registry = _registered()
+    digest, labels = next((d, ls) for d, ls in registry["evaluate_blessing_labels"].items() if ls)
+    registry["evaluate_blessing_labels"][digest] = labels[1:]
+    repo, at = _history(tmp_path, staging_registry=registry)
+    assert any(
+        f"evaluator digest {digest}" in p and "append-only" in p for p in _problems(repo, at)
+    )
+
+
+def test_a_batch_may_append_a_blessing_label(tmp_path: Path) -> None:
+    registry = _registered()
+    digest = next(iter(registry["evaluate_blessing_labels"]))
+    registry["evaluate_blessing_labels"][digest].append(NEW_LABEL)
+    repo, at = _history(tmp_path, staging_registry=registry)
+    assert not any("append-only" in p for p in _problems(repo, at))
+
+
+def _stamped_after_the_cut(tmp_path: Path, edit: Any) -> tuple[Path, str]:
+    """``main`` stamps a boundary after ``staging`` branched, before any sync carries it back."""
+    carried = register_boundary(DECLARED, "carried", predictors=None, reach="all", gradual=False)
+    repo, _ = _history(tmp_path, main_registry=carried, staging_registry=carried)
+    _git(repo, "switch", "-q", "main")
+    _write(
+        repo,
+        REGISTRY_PATH,
+        dump_registry(stamp_registry(carried, [Stamp("boundary", "carried")], "f" * 40, _at(30))),
+    )
+    _commit(repo, "promotion record", _at(30))
+    _git(repo, "switch", "-q", "staging")
+    batch = copy.deepcopy(carried)
+    edit(batch)
+    _write(repo, REGISTRY_PATH, dump_registry(batch))
+    _write(repo, FREEZE_RECORD_PATH, DECLARED_RECORD + "- the batch\n")
+    return repo, _commit(repo, "batch", _at(36))
+
+
+def test_a_stamp_not_yet_synced_back_passes(tmp_path: Path) -> None:
+    """The batch reads the row pending, as the merge base had it: the merge keeps main's stamp."""
+    repo, at = _stamped_after_the_cut(tmp_path, lambda batch: None)
+    assert not any("stamped on main" in p for p in _problems(repo, at))
+
+
+def test_an_edit_to_a_row_main_stamped_since_the_cut_is_refused(tmp_path: Path) -> None:
+    def edit(batch: dict[str, Any]) -> None:
+        batch["harness_boundaries"][-1]["reach"] = "granted dockets"
+
+    repo, at = _stamped_after_the_cut(tmp_path, edit)
+    assert any(
+        "boundary carried is stamped on main" in p and "its reach" in p for p in _problems(repo, at)
+    )
 
 
 def test_an_empty_registry_file_bootstraps_nothing() -> None:

@@ -1771,7 +1771,11 @@ The mechanics:
   digest at the head must be registered; each predictor keeps at most one
   open window, a pending close counting as a close; the batch carries at most
   one label new to `main`, with no `prereg/` tag yet; no boundary name may
-  repeat; and nothing may already sit pending on `main` — `fedcourts
+  repeat; nothing may already sit pending on `main`; and no row `main` has
+  stamped may change, go or move, nor any evaluator digest's blessing labels
+  lose `main`'s prefix, save a pending close on a window no live predictor
+  computes, a blessing that left the fleet, and a revocation of a closed
+  window dated at or after the head — `fedcourts
   registry-gate`, read from git alone, so both call sites check out full
   history with tags).
   The `promote` dispatch runs
