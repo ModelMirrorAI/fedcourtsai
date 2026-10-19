@@ -83,6 +83,7 @@ from ..schemas import (
     SalienceUnlatchResult,
     Stage,
 )
+from ..supremecourt import parse_scotus_application_number
 from . import caption, cert_signals, moments
 
 # The **active** salience-function version: the one the live selection pass scores
@@ -869,6 +870,14 @@ def _select_cohort(
     return selected
 
 
+def _application_key(row: corpus.CorpusRow) -> tuple[int, int] | str:
+    """The application number a row carries, or its ``case_id`` where none parses."""
+    number = parse_scotus_application_number(
+        corpus.strip_docket_annotation(row.docket_number or "")
+    )
+    return number if number is not None else row.case_id
+
+
 def _interim_ladder_key(row: corpus.CorpusRow) -> tuple[int, int, str]:
     """Reserve pick order: furthest up the escalation ladder first.
 
@@ -898,6 +907,7 @@ def plan_cohorts(
     *,
     version: SalienceScorer | None = None,
     select_arrivals: bool | None = None,
+    application_twins: frozenset[str] = frozenset(),
 ) -> tuple[dict[str, float], list[str], int, int]:
     """Score ``rows`` and pick each conference cohort's selected slice.
 
@@ -929,6 +939,18 @@ def plan_cohorts(
     yet measured at the shipped capacity (``docs/salience.md``, *The interim
     docket*). An unfilled
     reserve lowers nothing.
+
+    A slot belongs to an application **number**, the unit the interim base
+    rate counts, not to a corpus row: a number the corpus stores under more
+    than one ``case_id`` holds one slot through whichever row carries the
+    latch, and none of its other rows contends while it does. Unlatched, it
+    contends through its survivor alone — ``application_twins`` names the
+    other rows (:func:`fedcourtsai.corpus.duplicate_application_case_ids`),
+    which are scored and never picked — so where the survivor is resolved or
+    out of scope and a twin is pending, the number does not contend at all.
+    The survivor can move (an unobserved stub becomes the survivor once it is
+    first polled), which is why a held slot is keyed on the number and not on
+    the row that survives today.
     """
     active = version if version is not None else scorer()
     # `select_arrivals` narrows (never widens) the version's own arrival
@@ -991,11 +1013,23 @@ def plan_cohorts(
             arrivals.append(row.case_id)
 
     # The interim reserve: still-pending occupants hold their slots (sticky
-    # latch), new picks fill the remainder in ladder order.
-    occupants = [row for row in applications if row.salience_selected]
+    # latch), new picks fill the remainder in ladder order. The slot is the
+    # number's: a number latched under any of its rows holds one slot, and
+    # none of its rows contends again.
+    occupants = list(
+        {_application_key(row): row for row in applications if row.salience_selected}.values()
+    )
+    held = {_application_key(row) for row in occupants}
     open_slots = max(0, config.interim_reserve_slots - len(occupants))
     contenders = sorted(
-        (row for row in applications if not row.salience_selected), key=_interim_ladder_key
+        (
+            row
+            for row in applications
+            if not row.salience_selected
+            and row.case_id not in application_twins
+            and _application_key(row) not in held
+        ),
+        key=_interim_ladder_key,
     )
     reserve_picks = [row.case_id for row in contenders[:open_slots]]
     reserve_in_use = len(occupants) + len(reserve_picks)
@@ -1024,7 +1058,8 @@ def _selection_plan(
     The pure planning half of the pass: the live corpus scan with the Tier-0
     eligibility filter applied (which admits cert petitions and substantive
     applications), delegating scoring, cohort selection, and the interim
-    reserve to :func:`plan_cohorts`.
+    reserve to :func:`plan_cohorts`, whose reserve slot is an application
+    number's.
     """
     return plan_cohorts(
         (
@@ -1034,6 +1069,7 @@ def _selection_plan(
             if corpus.out_of_scope_reason_full(conn, row) is None
         ),
         config,
+        application_twins=corpus.duplicate_application_case_ids(conn),
     )
 
 

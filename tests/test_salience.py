@@ -964,6 +964,47 @@ def test_reserve_slots_are_occupied_until_resolution(tmp_path: Path) -> None:
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002"}
 
 
+def test_a_twice_stored_application_number_takes_one_reserve_slot(tmp_path: Path) -> None:
+    # One pending number under two case ids: the second row (the higher docket
+    # id) takes no slot, though its signal would rank it first; and once one
+    # of the number's rows is latched, the number holds one slot and its other
+    # row does not contend, so the number holds one slot at most.
+    rows = [
+        _application("scotus/9525000001", "25A1"),
+        _application("scotus/9525000009", "25A1", requested=True),
+        _application("scotus/9525000002", "25A2"),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(interim_reserve_slots=2)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002"}
+
+    held = [
+        _application("scotus/9525000009", "25A1", selected=True),
+        _application("scotus/9525000001", "25A1"),
+        _application("scotus/9525000002", "25A2"),
+    ]
+    db = _seed(tmp_path / "held", held)
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+    assert result.newly_selected == 1
+    assert _selected_ids(db) == {"scotus/9525000002", "scotus/9525000009"}
+
+    # Latched under both rows already: the number stays funded twice (the latch
+    # never clears) but holds one slot, so the second slot still goes to 25A2.
+    both = [
+        _application("scotus/9525000009", "25A1", selected=True),
+        _application("scotus/9525000001", "25A1", selected=True),
+        _application("scotus/9525000002", "25A2"),
+    ]
+    db = _seed(tmp_path / "both", both)
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+    assert result.newly_selected == 1
+    assert "scotus/9525000002" in _selected_ids(db)
+
+
 def test_reserve_displaces_only_the_current_conference(tmp_path: Path) -> None:
     # The application is live in the cycle whose conference the pass is
     # filling — the latest cohort — so an earlier conference's fill is intact.
