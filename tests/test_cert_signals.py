@@ -19,10 +19,17 @@ from fedcourtsai.pipeline.cert_signals import (
     dissent_from_denial,
     match_disposition_signal,
     mootness_disposition,
+    refused_exit_sentence,
     refused_grant_sentence,
     snapshot_distribution_count,
 )
-from fedcourtsai.pipeline.ingest import _live_distribution_count, _live_resolution
+from fedcourtsai.pipeline.ingest import (
+    _live_distribution_count,
+    _live_resolution,
+    from_live_record,
+    map_live_docket,
+    to_corpus_row,
+)
 from fedcourtsai.schemas import Disposition
 
 # --- dispositions the resolver must read -----------------------------------------
@@ -1093,3 +1100,207 @@ def test_a_grant_whose_entry_carries_no_full_date_is_unlocatable() -> None:
 
 def test_a_payload_with_no_proceedings_names_no_grant() -> None:
     assert cert_grant_date({}) is None
+
+
+# --- the cert noun's spellings, and the exits that decide nothing --------------
+
+# The stay order pending certiorari, ending in the clerk's termination clause.
+_STAY_PENDING_CERT = (
+    "The application for stay presented to Justice Gorsuch and by him referred to the "
+    + "Court is granted pending the timely filing and disposition of a petition for a "
+    + "writ of certiorari. Should the petition for a writ of certiorari be denied, this "
+    + "stay shall terminate automatically. In the event the petition for a writ of "
+    + "certiorari is granted, the stay shall terminate upon the sending down of the "
+    + "judgment of this Court."
+)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Petitions GRANTED.",
+        "The petitions for writs of certiorari are GRANTED.",
+        "The applications are also treated as petitions for a writ of certiorari before "
+        + "judgment (25-1083, 25-1084), and the petitions are GRANTED.",
+        "The petition for certiorari is GRANTED.",
+    ],
+)
+def test_plural_and_short_cert_nouns_read_the_grant(text: str) -> None:
+    matched = match_disposition_signal(text)
+    assert matched is not None and matched[0] == Disposition.granted
+
+
+def test_plural_denial_reads_and_a_rehearing_denial_still_does_not() -> None:
+    assert match_disposition_signal("The petitions for writs of certiorari are DENIED.") is not None
+    assert match_disposition_signal("The petitions for rehearing are denied.") is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Petition for writ of certiorari dismissed under Rule 46 only as to petitioner "
+        + "Burlington Resources Oil & Gas Company.",
+        "Motion to dismiss under Rule 46.2 GRANTED.  The petition for a writ of certiorari "
+        + "is dismissed only with respect to the judgment of the Court of Appeals in "
+        + "Image Processing Technologies LLC v. Samsung.",
+        "Petition DENIED as to Question 2 presented by the petition.",
+    ],
+)
+def test_a_partial_exit_is_not_the_petitions_disposition(text: str) -> None:
+    assert match_disposition_signal(text) is None
+    assert refused_exit_sentence(text) is not None
+
+
+def test_a_grant_limited_to_one_question_reads_as_the_grant() -> None:
+    matched = match_disposition_signal(
+        "Petition GRANTED limited to Question 1 presented by the petition. "
+        + "Petition DENIED as to Question 2 presented by the petition."
+    )
+    assert matched is not None and matched[0] == Disposition.granted
+
+
+def test_whole_exits_still_read() -> None:
+    for text, label in [
+        ("Petition Dismissed - Rule 46.", Disposition.dismissed),
+        ("Petition dismissed as moot.", Disposition.dismissed),
+        ("Petition DENIED.", Disposition.denied),
+        # A dissent's own scope is a different sentence from the order.
+        (
+            "Petition DENIED. Justice Thomas, dissenting as to the second question.",
+            Disposition.denied,
+        ),
+    ]:
+        matched = match_disposition_signal(text)
+        assert matched is not None and matched[0] == label, text
+        assert refused_exit_sentence(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        _STAY_PENDING_CERT,
+        "Application granted. Should both petitions for writs of certiorari be denied, this "
+        + "stay shall terminate automatically. In the event either petition for a writ of "
+        + "certiorari is granted, the stay shall terminate upon the issuance of the mandate.",
+        "The stay shall remain in effect pending disposition of the petition, and if the "
+        + "petition is denied the stay shall terminate.",
+    ],
+)
+def test_a_stay_orders_termination_conditional_decides_nothing(text: str) -> None:
+    # Neither verb in the clause is an order on the petition: the denial half
+    # dated a denial to the stay order, and the grant half a grant.
+    assert match_disposition_signal(text) is None
+    assert refused_exit_sentence(text) is not None
+
+
+def test_a_stay_treated_as_a_petition_and_granted_still_reads_beside_the_conditional() -> None:
+    matched = match_disposition_signal(
+        "The application for stay is treated as a petition for a writ of certiorari; doing "
+        + "so, the petition is granted (case No. 24-1246). Should the petition for a writ of "
+        + "certiorari be denied, this stay shall terminate automatically."
+    )
+    assert matched is not None and matched[0] == Disposition.granted
+
+
+def _docket(*entries: tuple[str, str]) -> dict[str, object]:
+    return {
+        "CaseNumber": "24-813",
+        "ProceedingsandOrder": [{"Date": d, "Text": t} for d, t in entries],
+    }
+
+
+def test_a_partial_dismissal_before_the_grant_leaves_the_docket_granted() -> None:
+    """Docket level: the first-match scan steps past the scoped exit to the grant."""
+    payload = _docket(
+        (
+            "Jun 02 2025",
+            "Petition for writ of certiorari dismissed under Rule 46 only as to petitioner "
+            + "Burlington Resources Oil & Gas Company.",
+        ),
+        ("Jun 16 2025", "Petition GRANTED."),
+        ("Jan 12 2026", "Argued. For petitioners: Paul D. Clement."),
+        ("Apr 17 2026", "Judgment VACATED and case REMANDED."),
+    )
+    row = to_corpus_row(from_live_record(map_live_docket(payload, 72_132_548, form="cert")))
+
+    assert row.disposition == Disposition.granted
+    assert row.date_cert_granted == date(2025, 6, 16)
+    # A grant leaves the termination undated, so the row stays in the merits rotation.
+    assert row.date_decided is None
+    assert row.merits_judgment == "vacated"
+    assert row.merits_decided == date(2026, 4, 17)
+
+
+def test_a_plural_cbj_grant_latches_the_grant_and_the_merits_pair() -> None:
+    payload = _docket(
+        (
+            "Mar 16 2026",
+            "Consideration of the application for stay (25A952) is deferred. The "
+            + "applications are also treated as petitions for a writ of certiorari before "
+            + "judgment (25-1083, 25-1084), and the petitions are GRANTED. The cases are "
+            + "consolidated.",
+        ),
+        ("Jun 25 2026", "Judgment REVERSED and case REMANDED."),
+    )
+    row = to_corpus_row(from_live_record(map_live_docket(payload, 73_265_897, form="cert")))
+
+    assert row.disposition == Disposition.granted
+    assert row.date_cert_granted == date(2026, 3, 16)
+    assert row.merits_judgment == "reversed"
+
+
+def test_a_stay_conditional_no_longer_dates_a_denial() -> None:
+    entries = [
+        {"description": _STAY_PENDING_CERT, "date_filed": "2018-08-29"},
+        {"description": "Petition GRANTED.", "date_filed": "2019-01-11"},
+    ]
+    disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
+
+    assert disposition == "granted"
+    assert cert_granted == date(2019, 1, 11)
+    assert cert_denied is None and terminated is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "The stay shall terminate automatically if the petition for a writ of certiorari "
+        + "is denied.",
+        "The order shall terminate in the event the petition for a writ of certiorari is "
+        + "denied.",
+        "The stay shall remain in effect unless the petition for a writ of certiorari is "
+        + "denied.",
+    ],
+)
+def test_a_trailing_conditional_on_the_petition_decides_nothing(text: str) -> None:
+    assert match_disposition_signal(text) is None
+    assert refused_exit_sentence(text) is not None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Petition dismissed as to the petitioner pursuant to Rule 46.",
+        "Petition for a writ of certiorari dismissed as to the respondent under Rule 46.1.",
+    ],
+)
+def test_a_bare_party_scope_is_a_whole_exit(text: str) -> None:
+    # The role alone is how a one-party docket's whole exit is written.
+    matched = match_disposition_signal(text)
+    assert matched is not None and matched[0] == Disposition.dismissed
+    assert refused_exit_sentence(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Petition for writ of certiorari dismissed under Rule 46 only as to petitioner "
+        + "Burlington Resources Oil & Gas Company.",
+        "Petition for writ of certiorari dismissed under Rule 46 as to petitioner "
+        + "Constantin Cheese.",
+        "Petition DENIED as to Question 2 presented by the petition.",
+    ],
+)
+def test_a_marked_or_named_party_scope_and_a_question_scope_are_partial(text: str) -> None:
+    assert match_disposition_signal(text) is None
+    assert refused_exit_sentence(text) is not None

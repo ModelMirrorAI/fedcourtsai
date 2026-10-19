@@ -1065,13 +1065,18 @@ what it widens is the removal set the apply's bound already sizes.
 
 `disposition-convergence` converges stored disposition labels onto the current
 classifier, writing `outcome.json` under `data/` alongside the pointer in the
-step's one commit. Its ledger names **which of its two arms** each relabel came
+step's one commit. Its ledger names **which of its three arms** each relabel came
 from, and the reading a maintainer owes them differs: `gvr` sharpens a label
 whose grant binary does not move, while `disowned-grant` withdraws a grant the
 classifier no longer reads at all — moving `actual_granted` 1 → 0 and re-dating
-the resolution — so that count is the one that shifts realized grant rates and
-every figure keyed on a resolution date (`docs/cli.md` carries each arm's
-warrant). By default it converges the population carrying **no committed predict
+the resolution — and `restored-grant` restores one a refused exit hid (a stay
+order's termination conditional, a Rule 46 dismissal "only as to" one party),
+moving it 0 → 1 and re-dating the resolution to the grant. Those two counts are
+the ones that shift realized grant rates and every figure keyed on a resolution
+date (`docs/cli.md` carries each arm's warrant). `restored-grant` admits only
+outcomes whose corpus row already records the grant, so its dockets are
+re-read first — by the live poll, or by `run-seed`'s `refresh_dockets` for a
+row no rotation revisits — and the convergence dry run follows. By default it converges the population carrying **no committed predict
 or evaluate output**: rewriting the label under a cell that has already been
 graded would move what a published standing was computed from while the standing
 sat still, so any event whose directory holds agent output is reported in the
@@ -1083,7 +1088,7 @@ much as in `apply`, unlike the bare bound, because what the number states there
 is a decision to take on a re-grade backlog rather than a write bound. The two
 readings are different: the plain dry-run's held-back lines size the *decision to
 widen* (they are candidates the sweep never parsed, so most will not be
-relabeled — only a candidate one of the two arms claims writes), while the bound
+relabeled — only a candidate one of the arms claims writes), while the bound
 an `apply` is checked against is the widened dry-run's own relabel count, which
 spans the scored and unscored confirmations together. On `apply` the step still
 runs the dry-run into the step summary first, as a receipt of what the rewrite
