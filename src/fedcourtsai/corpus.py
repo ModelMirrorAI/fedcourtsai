@@ -596,8 +596,10 @@ class CorpusRow(BaseModel):
         "a disposition of the judgment below — a `MeritsTermination` value "
         "stored as text (blob-tolerant like `merits_judgment`). Written only by "
         "the offline backfill pass, and only where no judgment shape matched "
-        "anywhere in the snapshot, so it never competes with a parsed "
-        "disposition. Deliberately a separate column rather than a seventh "
+        "anywhere in the snapshot; cleared by any write of a parsed judgment "
+        "(the backfill's or the live poll's), so it never sits beside a parsed "
+        "disposition. The clear is one-way: a later retraction of the parse "
+        "does not restore it. Deliberately a separate column rather than a seventh "
         "`Judgment`: it resolves the row's *pendency* — the forward-forecast "
         "and provisioning gates refuse a terminated row exactly as they refuse "
         "a latched one — while asserting nothing about the judgment below, so "
@@ -1939,7 +1941,9 @@ def _update_clause(column: str) -> str:
     ``merits_*`` pair latches as a pair — a writer with no parse (NULL
     judgment) keeps both stored values, a fresh parse takes both, so the live
     channel's ingest-time parse and the offline backfill converge on the same
-    columns without either wiping the other. ``predict_eligible``
+    columns without either wiping the other, while ``merits_terminated`` is
+    kept unless the incoming row carries a parsed judgment, which clears it
+    (one-way). ``predict_eligible``
     deliberately takes the incoming value: it is a derived mirror of the court
     predicate, so a re-ingest self-heals a stale value rather than latching it.
     """
@@ -2059,7 +2063,6 @@ def _update_clause(column: str) -> str:
         "salience_selected",
         "predict_queued_at",
         "evaluate_queued_at",
-        "merits_terminated",
     ):
         # Owned elsewhere, so an ingestion upsert keeps the stored value: the
         # scope reconcile owns `predict_excluded` (not an ingestion fact, not
@@ -2068,12 +2071,22 @@ def _update_clause(column: str) -> str:
         # `salience_selected` latch), and the queue routing owns the
         # `*_queued_at` stamps — clearing one on re-ingest would let a
         # deriver's daily-retry debounce re-queue a case every cycle its
-        # rotation poll touches it. `merits_terminated` joins them because it is
-        # a snapshot-sweep reading rather than a channel fact: no ingestion
-        # writer ever has one to assert, so letting the upsert carry its NULL
-        # through would clear the sweep's finding on the next poll.
+        # rotation poll touches it.
         return f"{column}=cases.{column}"
-    if column in ("merits_judgment", "merits_decided"):
+    if column == "merits_terminated":
+        # A snapshot-sweep reading rather than a channel fact: no ingestion
+        # writer ever has one to assert, so an upsert keeps the stored value —
+        # letting it carry its NULL through would clear the sweep's finding on
+        # the next poll. With one exception, keyed like the merits pair below:
+        # an upsert carrying a parsed judgment clears it, because the two
+        # columns never describe one row together and a read disposition
+        # supersedes the no-disposition record (`set_merits_judgment` does the
+        # same). The clear is one-way: an upsert that later carries no judgment
+        # restores nothing.
+        clause = (
+            f"{column}=CASE WHEN excluded.merits_judgment IS NULL THEN cases.{column} ELSE NULL END"
+        )
+    elif column in ("merits_judgment", "merits_decided"):
         # The merits pair moves as a PAIR, keyed on the incoming judgment: two
         # writers stamp it through the shared parser (the live poll at ingest
         # for a granted docket, and the offline backfill via
@@ -3436,12 +3449,24 @@ def set_merits_judgment(
     the stored value — see :func:`_update_clause`): the judgment is parsed from
     a stored snapshot's disposition entry, not supplied by a channel. Overwrites
     forward — a re-run with a corrected parser self-heals a stored reading —
-    and never clears: the pass simply does not call this for a case whose
-    snapshot no longer matches.
+    and never clears the pair: the pass simply does not call this for a case
+    whose snapshot no longer matches.
+
+    It does clear ``merits_terminated``, as the ingestion upsert does on a
+    parsed judgment (:func:`_update_clause`). The two columns never describe
+    one row together: a termination says the proceeding ended with no
+    disposition to read, so a disposition read from the same docket
+    supersedes it — the mandate notation (``judgment-issued``) a docket's
+    unparsed disposition entry left as its only readable word is the usual
+    case — and leaving it would keep the row out of every reader that counts a
+    terminated row apart. The clear is one-way: a parse later retracted leaves
+    the judgment in place (the pass never clears a pair) and restores no
+    termination.
     """
     with conn:
         conn.execute(
-            "UPDATE cases SET merits_judgment = ?, merits_decided = ? WHERE case_id = ?",
+            "UPDATE cases SET merits_judgment = ?, merits_decided = ?, "
+            "merits_terminated = NULL WHERE case_id = ?",
             (judgment.value, decided.isoformat() if decided else None, case_id),
         )
 
@@ -3456,8 +3481,9 @@ def set_merits_termination(
     :func:`_update_clause` keeps an ingestion upsert from clearing it. Note what
     it does **not** touch: ``merits_judgment`` stays null, because a termination
     is the record saying the case is over, not what happened to the judgment
-    below. Overwrites forward and never clears, exactly as the judgment writer
-    does.
+    below. Overwrites forward and never clears. The backfill calls it only on a
+    row with no parsed judgment, and a later parsed judgment clears what it
+    wrote (:func:`set_merits_judgment`, :func:`_update_clause`).
     """
     with conn:
         conn.execute(
