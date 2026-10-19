@@ -825,7 +825,9 @@ directory instead has them moved up by `stamp-cell` when every copy agrees, and
 left in place with a warning when they differ; either way a harness note lands
 in the cell's flags (`stamp-cell` in [cli.md](cli.md)). The step settles a cell
 as it is stamped, not the ledger, so some committed gradings hold a copy under
-each predictor and none at the cell level. This is the short version;
+each predictor and none at the cell level; the readers that look at the cell
+level (the run-ops tooling digest and the run PR's corpus-use cross-check) find
+no self-report for those cells. This is the short version;
 `metrics/README.md` is the authority on what any of these numbers may be
 claimed to show.
 
