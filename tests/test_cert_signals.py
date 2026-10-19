@@ -14,6 +14,7 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.cert_signals import (
+    _ENTRY_SIGNALS,
     DISTRIBUTION_PARSES,
     cert_grant_date,
     dissent_from_denial,
@@ -1304,3 +1305,289 @@ def test_a_bare_party_scope_is_a_whole_exit(text: str) -> None:
 def test_a_marked_or_named_party_scope_and_a_question_scope_are_partial(text: str) -> None:
     assert match_disposition_signal(text) is None
     assert refused_exit_sentence(text) is not None
+
+
+# --- mandatory-jurisdiction direct appeals: the plenary-review orders ---------------
+
+
+@pytest.mark.parametrize(
+    ("text", "label"),
+    [
+        ("Probable jurisdiction NOTED.", "probable jurisdiction noted"),
+        (
+            "Probable jurisdiction NOTED. The cases are consolidated, and a total of one "
+            + "hour is allotted for oral argument.",
+            "probable jurisdiction noted",
+        ),
+        (
+            "probable jurisdiction noted and case set for argument in the March argument "
+            + "session.",
+            "probable jurisdiction noted",
+        ),
+        ("Probable jurisdiction is noted.", "probable jurisdiction noted"),
+        (
+            "Probable jurisdiction NOTED limited to Question 1 presented by the statement "
+            + "as to jurisdiction.",
+            "probable jurisdiction noted",
+        ),
+        # Rucho v. Common Cause (18-422), verbatim.
+        (
+            "Further consideration of the question of jurisdiction is POSTPONED to the "
+            + "hearing of the case on the merits.  The case will be set for argument in "
+            + "the March argument session.",
+            "jurisdiction postponed to the merits",
+        ),
+        (
+            "Further consideration of the question of jurisdiction is postponed to the "
+            + "hearing of the case on the merits.",
+            "jurisdiction postponed to the merits",
+        ),
+        (
+            "Further consideration of the question of jurisdiction in this case is postponed "
+            + "to the hearing of the case on the merits.",
+            "jurisdiction postponed to the merits",
+        ),
+        (
+            "Further consideration of the question of the jurisdiction of this Court in this "
+            + "case is postponed to the hearing of the case on the merits.",
+            "jurisdiction postponed to the merits",
+        ),
+        # A three-space gap after the sentence before is still a sentence start.
+        ("Motion DENIED.   Probable jurisdiction NOTED.", "probable jurisdiction noted"),
+        # A compound whose plenary-review order is its own sentence still reads.
+        (
+            "Motion of appellees to dismiss or affirm DENIED.  Probable jurisdiction NOTED.",
+            "probable jurisdiction noted",
+        ),
+    ],
+)
+def test_a_direct_appeals_plenary_review_order_reads_as_granted(text: str, label: str) -> None:
+    matched = match_disposition_signal(text)
+    assert matched is not None
+    assert matched[0] == Disposition.granted
+    assert matched[1] == label
+    # A grant: never an exit, never mootness practice, never a refused read.
+    assert not mootness_disposition(text)
+    assert refused_grant_sentence(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The appeal's opening filing and the papers answering it.
+        "Statement as to jurisdiction filed. (Response due September 3, 2024)",
+        "Statement in response to jurisdictional statement from appellee Michigan "
+        + "Secretary of State filed.",
+        "Motion to dismiss or affirm filed by appellees New York Immigration Coalition, et al.",
+        "Motion of appellees to dismiss the appeal for want of jurisdiction filed.",
+        "Brief opposing motion to affirm from appellants Robert A. Rucho, et al. filed.  "
+        + "(Distributed)",
+        # An order on a motion about the jurisdictional statement (20-366, verbatim).
+        "Appellants\u2019 motion to expedite consideration of the jurisdictional statement is "
+        + "granted in part, and appellees are directed to file a response to the "
+        + "jurisdictional statement on or before 5 p.m. on Wednesday, October 7, 2020.",
+        # "Jurisdiction" in a recital: an amicus's name, and a party urging the noting.
+        "Brief amici curiae of Federal Jurisdiction Scholars filed.  VIDED.",
+        "Brief of appellants in opposition to the motion to dismiss or affirm, urging that "
+        + "probable jurisdiction be noted, filed.",
+        # A conditional on the noting, as a stay pending appeal phrases it.
+        "The application for stay is granted pending the timely filing and disposition of "
+        + "an appeal in this Court. In the event probable jurisdiction is noted, the stay "
+        + "shall terminate upon the sending down of the judgment of this Court.",
+        "The stay shall remain in effect if further consideration of the question of "
+        + "jurisdiction is postponed to the hearing of the case on the merits.",
+        # A postponement of something other than the jurisdictional question.
+        "Consideration of the motion to dismiss is deferred to the hearing of the case on "
+        + "the merits.",
+    ],
+)
+def test_direct_appeal_papers_and_recitals_are_not_a_plenary_review_order(text: str) -> None:
+    assert match_disposition_signal(text) is None, text
+
+
+def test_a_plenary_review_order_inside_a_motion_opening_sentence_is_a_deliberate_miss() -> None:
+    # Start-anchored like the cert-before-judgment grant: the noting conjoined
+    # behind a motion order is not read, and the motion guard would refuse that
+    # sentence regardless. The miss costs a triage parking, never a fabricated
+    # grant.
+    assert (
+        match_disposition_signal(
+            "The motion of appellees to dismiss the appeal is denied, and probable "
+            + "jurisdiction is noted."
+        )
+        is None
+    )
+
+
+def test_summary_affirmance_and_want_of_a_question_are_deliberate_misses() -> None:
+    for text in (
+        "Judgment AFFIRMED.",
+        "The judgment is affirmed.",
+        "The appeal is dismissed for want of a substantial federal question.",
+        "Appeal DISMISSED for want of jurisdiction.",
+    ):
+        assert match_disposition_signal(text) is None, text
+
+
+def _appeal(*entries: tuple[str, str]) -> dict[str, object]:
+    return {
+        "CaseNumber": "18-422",
+        "ProceedingsandOrder": [{"Date": d, "Text": t} for d, t in entries],
+    }
+
+
+# Rucho v. Common Cause (18-422): the postponement, the argument, and the
+# merits vacatur, verbatim from its docket.
+_RUCHO = (
+    ("Oct 01 2018", "Statement as to jurisdiction filed. (Response due November 2, 2018)"),
+    ("Nov 02 2018", "Motion to affirm filed by appellees Common Cause, et al."),
+    (
+        "Jan 04 2019",
+        "Further consideration of the question of jurisdiction is POSTPONED to the hearing "
+        + "of the case on the merits.  The case will be set for argument in the March "
+        + "argument session.",
+    ),
+    (
+        "Mar 26 2019",
+        "Argued. For appellants:  Paul D. Clement, Washington, D. C.  For appellees Common "
+        + "Cause, et al.:  Emmet J. Bondurant, II, Atlanta, Ga.",
+    ),
+    (
+        "Jun 27 2019",
+        "Judgment VACATED and case REMANDED.  Roberts, C. J., delivered the opinion of the "
+        + "Court, in which Thomas, Alito, Gorsuch, and Kavanaugh, JJ., joined.",
+    ),
+    ("Jul 29 2019", "JUDGMENT ISSUED."),
+)
+
+
+def test_a_postponed_jurisdiction_appeal_latches_the_grant_and_the_merits_pair() -> None:
+    """Docket level: the postponement is the grant, the merits vacatur its judgment.
+
+    Without the postponement row the first disposition this docket carries is
+    the merits vacatur, which the bare vacate-and-remand row reads as a GVR —
+    an argued, decided appeal recorded as if no merits proceeding had opened.
+    """
+    row = to_corpus_row(
+        from_live_record(map_live_docket(_appeal(*_RUCHO), 14_833_516, form="cert"))
+    )
+
+    assert row.disposition == Disposition.granted
+    assert row.date_cert_granted == date(2019, 1, 4)
+    assert row.date_cert_denied is None
+    # A grant leaves the termination undated, as a cert grant does.
+    assert row.date_decided is None
+    assert row.merits_judgment == "vacated"
+    assert row.merits_decided == date(2019, 6, 27)
+    assert row.merits_argued == date(2019, 3, 26)
+    assert cert_grant_date(_appeal(*_RUCHO)) == date(2019, 1, 4)
+
+
+def test_a_noted_appeal_awaiting_judgment_is_granted_with_its_merits_open() -> None:
+    """Docket level: the Louisiana v. Callais shape — noted, argued, no judgment yet."""
+    payload = _appeal(
+        ("Aug 01 2024", "Statement as to jurisdiction filed. (Response due September 3, 2024)"),
+        ("Sep 03 2024", "Motion to dismiss or affirm filed by appellees."),
+        (
+            "Nov 04 2024",
+            "Probable jurisdiction NOTED. The cases are consolidated, and a total of one hour "
+            + "is allotted for oral argument.",
+        ),
+        ("Mar 24 2025", "Argued. For appellant Louisiana: the Solicitor General of Louisiana."),
+        ("Jun 27 2025", "This case is restored to the calendar for reargument."),
+    )
+    row = to_corpus_row(from_live_record(map_live_docket(payload, 69_779_623, form="cert")))
+
+    assert row.disposition == Disposition.granted
+    assert row.date_cert_granted == date(2024, 11, 4)
+    assert row.date_decided is None
+    assert row.merits_judgment is None
+    assert row.merits_decided is None
+
+
+def test_an_appeal_with_only_its_jurisdictional_papers_stays_pending() -> None:
+    payload = _appeal(
+        ("Jul 22 2026", "Statement as to jurisdiction filed. (Response due August 24, 2026)"),
+        (
+            "Sep 28 2026",
+            "Waiver of the 14-day waiting period for the distribution of the jurisdictional "
+            + "statement pursuant to Rule 18.7 filed by appellants.",
+        ),
+    )
+    row = to_corpus_row(from_live_record(map_live_docket(payload, 73_400_001, form="cert")))
+
+    assert row.disposition is None
+    assert row.date_cert_granted is None
+    assert cert_grant_date(payload) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A combined order naming dockets may be noting another docket than the
+        # one whose entry carries it, so a docket-numbered noting never reads.
+        "Probable jurisdiction in No. 21-1086 is noted.",
+        "Probable jurisdiction in No. 17-1 is noted. The appeal in No. 17-2 is dismissed "
+        + "for want of jurisdiction.",
+        "Judgment AFFIRMED. Probable jurisdiction NOTED in No. 24-2.",
+        "Probable jurisdiction in No. 21-1086 is noted. The judgment in No. 21-1087 is "
+        + "vacated, and the case is remanded for further consideration.",
+        "Probable jurisdiction NOTED in No. 21-1086. Judgment in No. 21-1087 VACATED and "
+        + "case REMANDED.",
+        "Further consideration of the question of jurisdiction in No. 18-422 is postponed "
+        + "to the hearing of the case on the merits.",
+    ],
+)
+def test_a_docket_numbered_plenary_review_order_is_a_deliberate_miss(text: str) -> None:
+    assert match_disposition_signal(text) is None
+    # Skipped, not refused: it is not a grant any parser stood behind.
+    assert refused_grant_sentence(text) is None
+
+
+def test_a_recital_opening_with_the_noting_is_refused_and_quoted() -> None:
+    text = "Probable jurisdiction noted, per the notice of the Clerk filed."
+    assert match_disposition_signal(text) is None
+    assert refused_grant_sentence(text) == text
+
+
+def test_the_plenary_review_rows_sit_after_every_cert_row() -> None:
+    labels = [label for _pattern, _disposition, label in _ENTRY_SIGNALS]
+    assert labels[-2:] == ["probable jurisdiction noted", "jurisdiction postponed to the merits"]
+    # So a cert order beside the noting in one entry is what reads.
+    matched = match_disposition_signal("Petition DENIED. Probable jurisdiction NOTED.")
+    assert matched is not None and matched[0] == Disposition.denied
+
+
+def test_a_noting_and_a_vacatur_in_one_entry_upgrade_to_a_gvr() -> None:
+    # The GVR upgrade reads any granted row: an order that notes jurisdiction
+    # and vacates and remands in one breath decides in that order, so it is a
+    # GVR and opens no merits proceeding.
+    matched = match_disposition_signal(
+        "Probable jurisdiction NOTED. Judgment VACATED and case REMANDED."
+    )
+    assert matched is not None and matched[0] == Disposition.gvr
+
+
+def test_a_postponed_appeal_dismissed_for_want_of_jurisdiction_stays_granted() -> None:
+    """Docket level: the postponement is the grant; the later dismissal is not read.
+
+    A dismissal for want of jurisdiction after argument ends the merits
+    proceeding, but neither the resolver nor the merits-judgment parser reads
+    it, so the row records the grant and no merits judgment — a merits-stage
+    residual for triage, never a second disposition.
+    """
+    payload = _appeal(
+        (
+            "Jan 04 2019",
+            "Further consideration of the question of jurisdiction is POSTPONED to the "
+            + "hearing of the case on the merits.",
+        ),
+        ("Mar 26 2019", "Argued. For appellants: counsel."),
+        ("Jun 27 2019", "Appeal DISMISSED for want of jurisdiction."),
+    )
+    row = to_corpus_row(from_live_record(map_live_docket(payload, 14_833_599, form="cert")))
+
+    assert row.disposition == Disposition.granted
+    assert row.date_cert_granted == date(2019, 1, 4)
+    assert row.date_decided is None
+    assert row.merits_judgment is None

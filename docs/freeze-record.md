@@ -11804,3 +11804,175 @@ freeze commit is recorded here.
   relabel, and `jq '.terms[] | select(.term == 2024) | .grants'
   metrics/statpack.json` reads 118 at the next statpack refresh, or a value
   that differs only by rows landed since.
+
+- **The cert resolver reads a direct appeal's plenary-review order as a grant;
+  recorded 2026-10-19.** A **scoring-baseline** entry and a **conditioning**
+  one through the same numbers, in the class of the cert-exit-guard entry
+  above. It moves the realized cert record of mandatory-jurisdiction direct
+  appeals: the corpus rows the statpack's grant counts, per-band segment pools,
+  summary-route baseline and merits section are built from. The segment pools
+  are what a cert cell is provisioned with and what its `segment_base_rate` is
+  stamped from, so the same change moves a cell's input. It moves no digest: no
+  prompt template, neither agent config and not
+  `src/fedcourtsai/process_version.py` changes, and `uv run fedcourts
+  process-digest --all` prints `proc-v10` and the same six digests before and
+  after the change. It registers one harness boundary, below. The carrying
+  merge writes nothing to the corpus or the ledger.
+
+  **The pattern change** (`src/fedcourtsai/pipeline/cert_signals.py`). Two
+  rows join the resolver's grant family, both reading `granted`:
+  - "Probable jurisdiction NOTED." — with or without the copula, a limiting
+    clause, or the argument-setting tail;
+  - "Further consideration of the question of jurisdiction is POSTPONED to
+    the hearing of the case on the merits.", with or without "in this case" or
+    "of this Court" after "jurisdiction". Grant-side under the `Disposition`
+    convention, because the postponement sets the appeal for the same full
+    briefing and argument the noting does and the Court decides its
+    jurisdiction with the merits, so the merits proceeding opens behind it.
+
+  Both read only where the phrase opens its sentence and the sentence names no
+  docket number. The first rule keeps a stay order's "In the event probable
+  jurisdiction is noted" and a party paper urging the noting from reading. The
+  second keeps a combined order ("Probable jurisdiction in No. 17-1 is noted.
+  The appeal in No. 17-2 is dismissed …") from recording a grant on the docket
+  whose entry merely carries another docket's noting; a single-docket noting
+  that names a number is therefore a deliberate miss. The existing non-order
+  and motion guards run on every match. Deliberate misses besides: a noting
+  conjoined behind a motion order in one sentence ("The motion … is denied,
+  and probable jurisdiction is noted."), summary affirmance, and dismissal for
+  want of a substantial federal question. A noting and a vacate-and-remand in
+  one entry read as `gvr`, as every grant row's GVR upgrade does.
+
+  A docket whose first disposition is the noting or postponement latches the
+  merits pair as a cert grant does: `date_cert_granted` is that order's date,
+  the termination stays undated, and the later judgment fills
+  `merits_judgment` / `merits_decided`. A postponed appeal the Court later
+  dismisses for want of jurisdiction ("Appeal DISMISSED for want of
+  jurisdiction.") reads `granted` on the postponement with no merits judgment:
+  the merits-judgment parser does not read that dismissal, so it is a
+  merits-stage residual for triage, never a second cert disposition.
+
+  **The census.** It was read at blob
+  `0e888d60bbf1bffcaa4f7311f436ff42a70bed93e78a121ffd53476a68288a93`
+  (`freshness: latest pull 2026-10-19, latest snapshot 2026-07-13`, read ranged
+  under that pointer, each docket's latest live snapshot from the content
+  store) against the ledger at `origin/main` `a57c586a9`. It covers the 21,230
+  cert-form rows with a stored live snapshot (of 21,353 live-polled). Both new
+  rows need the word "jurisdiction", which 41 of those snapshots carry. Those
+  41 were re-parsed with `ingest.map_live_docket` with and without the two
+  rows, and 3 change reading, all `gvr` → `granted`:
+  - 18-422 (*Rucho v. Common Cause*) and 18-726 (*Lamone v. Benisek*):
+    granted 2019-01-04 (the postponement), argued 2019-03-26, merits
+    `vacated` 2019-06-27;
+  - 20-366 (*Trump v. New York*): granted 2020-10-16 (the postponement),
+    argued 2020-11-30, merits `vacated` 2020-12-18.
+
+  Each was stored as a `gvr` dated to its merits judgment, because the merits
+  vacatur was the first entry the resolver read. No live snapshot carries a
+  "probable jurisdiction noted" entry: the direct appeals that do (*Louisiana
+  v. Callais*, 24-109, among them) hold no snapshot at all.
+
+  **What it moves, once those 3 rows are re-read.**
+  - **The per-band cert pools: nothing.** `gvr` and `granted` are both in the
+    grant family the statpack's `est_grant*rate` figures count, so the 3 flips
+    move no per-Term grant count and no per-band `risk_set` anchor.
+  - **The summary-route baseline falls.** It counts `gvr` in its numerator
+    over the paid grant family, and the 3 rows leave the numerator: docket
+    Term 2026 0.3540 → 0.3506, docket Term 2025 0.3538 → 0.3501.
+  - **The merits section and its baseline.** The statpack's merits section
+    gains 3 `granted` rows carrying 3 `vacated` judgments, so `disturbed_rate`
+    moves 0.6981 → 0.6998 (377/540 → 380/543 on the committed pack). Each
+    row's `date_cert_granted` moves from its merits date to its postponement
+    date, which shortens OT2018's and OT2020's filing-to-grant days by those
+    rows.
+  - **The ledger.** The three dockets each hold a committed
+    `evt-petition-disposition` outcome at `a57c586a9` reading `gvr` with
+    `actual_granted` 1, resolved on the merits date. No committed predict or
+    evaluate output sits under any of them. No `converge-disposition-labels`
+    arm relabels `gvr` to `granted`, so those three keep their label and date.
+    The binary they carry is already right. This is reported, not rewritten.
+
+  These are the committed pack's figures with the 3 rows' stored reading
+  replaced by the branch parser's; the exact after-values are the next
+  statpack refresh's, which can differ by rows landed since.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** A
+  scoring-baseline change that is also a conditioning one joins the boundary
+  registry through its conditioning half, as the cert-exit-guard entry above
+  did.
+  - **The registry row.** The boundary is
+    `direct-appeal-plenary-review-grant`. It applies to every predictor and is
+    **gradual**, because the input a cell reads moves at the statpack refresh
+    that follows a re-read of the affected rows, not at the merge. Its reach is
+    `all`. It is registered **pending** in this change's own PR (`fedcourts
+    register-boundary`), under the 2026-10-14 merge-stamping declaration. Its
+    `merge` and `at` stay null until the promotion merge that carries it to
+    `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge. The
+    after-side `n` is an upper bound on exposure, as for every gradual
+    boundary, and the anchoring side is read from the cell's provisioning run
+    id against the refresh commit's time.
+
+  **Timing.** The carrying merge changes the parser only. A row takes the new
+  reading when it is next ingested — a live poll, a historical walk, or a
+  `refresh_dockets` re-serve — and the pools and baselines move at the first
+  statpack refresh on `main` after that. The 3 census rows carry a disposition
+  and no open merits event, so no rotation revisits them; they move only when
+  re-served. The resolver assumes nothing about the order rows are polled in,
+  so the never-polled backlog (#2581) inherits the reading whenever it is
+  reached and this change does not block that work. The committed
+  `metrics/docket.md` still carries the old direct-appeal caveat (its
+  "Summary reversals are not broken out" bullet) until the next `fedcourts
+  docket` run regenerates it from `analytics.py`.
+
+  **Release 1 disclosure.** The tagged release (`results/ot2026-longconf`)
+  reads its own tag and does not move. Its per-band cert anchors are untouched
+  by the census. Its summary-route anchor ran slightly high, because these 3
+  plenary appeals sat in its numerator as `gvr`.
+
+  **The one-off refresh is held.** The direct appeals the corpus holds hollow
+  would enter the pools on the grant side only while summary affirmance and
+  dismissal for want of a substantial federal question stay resolver misses,
+  so onboarding them now would bias the pools upward. The bound that motivates
+  the hold: if all 23 district-origin dockets below joined as grants, the
+  docket Term 2025 pools would move state 22.70% → ~27.0%, federal 72.93% →
+  ~76.0% and high 34.97% → ~36.6%. So the `run-seed` refresh waits until the
+  denied/dismissed side lands, and direct appeals then enter the pools on both
+  sides at once. The candidate list, recorded here for that dispatch, is 44
+  dockets = 41 + 3:
+  - **41 hollow dockets**: every paid-stream OT2017–OT2024 cert-form docket
+    number whose corpus rows have never been live-polled and that has no
+    live-polled row under another `case_id`. None holds a disposition. 23 of
+    the 41 name a federal district court as `originating_court`, which on a
+    Term-form docket marks a direct appeal or a petition before judgment. The
+    other 18 are rows the historical walker left hollow; a re-serve resolves
+    them under the resolver's existing rows, independent of this change.
+  - **3 census flips**, re-served so their rows take the new reading.
+
+  `24-109 24-110 22-807 21-1086 17-586 17-626 17-333 18-281 17-1364 18-422
+  18-726 20-366 24-111 17-680 17-780 17-1339 17-1368 18-290 18-433 18-1134
+  20-1279 21-12 22-92 22-136 22-492 23-969 17-1003 17-1660 18-443 19-1209
+  20-201 20-298 20-391 20-524 21-582 21-583 21-587 21-633 22-350 23-624
+  24-969 24-999 24-1030 24-1888`. A served record with no machine-readable
+  disposition is skipped by that path and by the historical walker, which is
+  why the direct appeals stayed hollow while the resolver missed the noting.
+
+  **Ledger events from that refresh.** A re-serve records an outcome only where
+  the petition event is still open, and mints the open merits event only where
+  it records a merits-opening grant whose judgment has not latched, whose
+  proceeding is not terminated, whose grant is not stale, and which is in
+  predict scope (`outcome._merits_mint_verdict`). So the 3 census flips mint
+  none (their petition events are resolved), a decided appeal mints none (its
+  judgment latches on the same read), and only a noted appeal still awaiting
+  judgment can mint one.
+
+  The runnable effect check, after that `run-seed` refresh lands: where the
+  corpus is pulled (`uv run fedcourts corpus-pull`),
+  `sqlite3 corpus/corpus.db "SELECT disposition, date_cert_granted, case_name
+  FROM cases WHERE case_id = 'scotus/69779623'"` prints `granted`, the date of
+  24-109's "Probable jurisdiction NOTED" entry, and a non-empty case name; and
+  the same query on `scotus/14833516` (18-422) prints `granted|2019-01-04|…`.
+  Before it, at the carrying merge: `uv run pytest tests/test_cert_signals.py
+  -k "plenary or direct_appeal or postponed or noted_appeal or docket_numbered"`
+  is green, and `uv run fedcourts process-digest --all` prints the same label
+  and six digests as at its first parent.

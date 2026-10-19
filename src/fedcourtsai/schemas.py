@@ -67,12 +67,15 @@ class Disposition(StrEnum):
     residual, and — where the docket itself shows that the entry a ``granted``
     was read off no longer parses as a grant at all — that entry, which dates
     the parse gap and so needs no calendar. On mandatory-jurisdiction direct
-    appeals the resolver latches only the vacatur-remand form (now ``gvr``); the
-    other direct-appeal forms (probable jurisdiction noted, summary affirmance,
-    dismissal for want of a substantial federal question) are deliberate resolver
-    misses that reach maintainer triage, where the convention is: grant-side for
-    probable jurisdiction, the denied/dismissed side for summary affirmance and
-    want-of-a-question.
+    appeals the convention is grant-side for plenary review, and the
+    denied/dismissed side for summary affirmance and dismissal for want of a
+    substantial federal question. The resolver reads the grant side: the
+    vacatur-remand form as ``gvr``, and probable jurisdiction noted — or further
+    consideration of jurisdiction postponed to the hearing on the merits, which
+    sets the appeal for the same briefing and argument — as ``granted``, which
+    opens the merits proceeding a cert grant does. Summary affirmance and
+    want-of-a-question are deliberate resolver misses that reach maintainer
+    triage.
     """
 
     granted = "granted"
