@@ -16,7 +16,13 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from fedcourtsai import process_version
-from fedcourtsai.cli import _FLAG_MESSAGE_LIMIT, _TRIPWIRE_PREFIX, _names_a_snapshot, app
+from fedcourtsai.cli import (
+    _CELL_ACCESS_PREFIX,
+    _FLAG_MESSAGE_LIMIT,
+    _TRIPWIRE_PREFIX,
+    _names_a_snapshot,
+    app,
+)
 from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
@@ -48,6 +54,8 @@ from fedcourtsai.schemas import (
     Prediction,
     PredictionContext,
     ResolutionSignals,
+    RetrievalCall,
+    RetrievalLog,
     Stage,
     StatPack,
     StatPackInterim,
@@ -3745,3 +3753,56 @@ def test_stamp_warns_where_the_judges_copies_disagree(_data_root: Path) -> None:
     assert retrieval[0].severity == FlagSeverity.warning
     assert "the copies differ, so none was moved" in retrieval[0].message
     assert not event_paths.evaluation_retrieval("gemini-judge", "RID").exists()
+
+
+def _seed_cell_log(data_root: Path, docket: int, *queries: str) -> EventPaths:
+    """A predictor cell beside a retrieval log of shell calls running ``queries``."""
+    seed_prediction(data_root, "scotus", docket, "evt-y", run_id="RID")
+    event_paths = CasePaths(data_root, "scotus", docket).event("evt-y")
+    write_json(
+        event_paths.prediction_retrieval_log("claude-baseline", "RID"),
+        RetrievalLog(
+            case_id=f"scotus/{docket}",
+            run_id="RID",
+            role=UsageRole.predictor,
+            actor_id="claude-baseline",
+            engine=Engine.claude_code,
+            calls=[RetrievalCall(tool="Bash", query=query) for query in queries],
+        ),
+    )
+    return event_paths
+
+
+def test_stamp_notes_a_predict_cell_that_named_the_oracle(_data_root: Path) -> None:
+    """The audit's only witness reaches the flags channel, once per kind, and a
+    re-stamp does not add it again."""
+    event_paths = _seed_cell_log(
+        _data_root,
+        11,
+        "git restore data/qp-topics/qp-topic-reference.json",
+        "ls data/cases/scotus/*/events/*/predictions/codex-baseline/*/prediction.json",
+        "cat data/qp-topics/qp-topic-reference.json",
+    )
+    for _ in range(2):
+        result = _stamp("predictor", "claude-baseline", 11, "evt-y", "RID")
+        assert result.exit_code == 0, result.output
+    flags = read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+    notes = [flag for flag in flags.flags if flag.message.startswith(_CELL_ACCESS_PREFIX)]
+    assert [(note.source, note.severity) for note in notes] == [
+        (FlagSource.harness, FlagSeverity.warning)
+    ] * 2
+    assert "data/qp-topics/" in notes[0].message and "2 call(s)" in notes[0].message
+    assert "codex-baseline" in notes[1].message
+    assert "left the cell's lane" in result.output
+
+
+def test_stamp_leaves_a_predict_cell_in_its_lane_without_a_note(_data_root: Path) -> None:
+    event_paths = _seed_cell_log(
+        _data_root,
+        12,
+        "find data -name AGENTS.md -not -path 'data/qp-topics/*'",
+        "cat data/cases/scotus/12/events/evt-y/predictions/claude-baseline/RID/prediction.json",
+    )
+    result = _stamp("predictor", "claude-baseline", 12, "evt-y", "RID")
+    assert result.exit_code == 0, result.output
+    assert not event_paths.prediction_flags("claude-baseline", "RID").exists()

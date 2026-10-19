@@ -469,8 +469,24 @@ strict. A `--regrade` leaves flags as committed.
 
 Each flag also carries a `source`: `agent` (the default) or `harness`, for the
 notes a harness step writes into the same file (the stamp's unread-snapshot
-tripwire, the normalisation note). It is a triage label the roll-up filters
-and counts on, not an authentication, since the file is the agent's own.
+tripwire, the normalisation note, the lane audit below). It is a triage label
+the roll-up filters and counts on, not an authentication, since the file is the
+agent's own.
+
+The **lane audit** is one of those notes. On a predict cell the stamp reads the
+cell's `retrieval_log.json` (`fedcourtsai.cell_access`) and adds one `warning`
+per kind of logged call that left the cell's lane: a call naming
+`data/qp-topics/`, the cert-outcome oracle removed from the agent's tree; a
+call naming a committed `predictions/` or `evaluations/` path other than the
+cell's own run directory (another predictor's output, an earlier run, or a glob
+over them); and a file tool or shell redirection writing under `data/` or a
+case `record/` outside that directory. A path named only to exclude it
+(`-not -path`, `grep -v`, `--exclude`, a `!` glob or an `:(exclude)` pathspec)
+does not count, nor does a search, a fetch, an MCP call or a subagent's prompt.
+The log records that a call *named* a path, not what it returned, and it sees
+only the captured query slice: a path past the capture cut, a relative path
+after a `cd`, or a path reached through a variable is missed. Read the note as
+a pointer to the transcript, not as a finding of a read.
 
 The roll-up groups flags by case, event, source and theme. The theme is the
 tracked theme a flag's message matches in `src/fedcourtsai/flag_themes.json`

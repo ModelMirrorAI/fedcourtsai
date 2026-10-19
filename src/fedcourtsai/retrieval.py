@@ -126,6 +126,9 @@ _QUERY_CAP = 500
 _REDACT_WINDOW = 16 * 1024
 # Keys that carry the query-ish part of a tool's params, most specific first.
 _QUERY_KEYS = ("q", "query", "search", "citation", "prompt", "command", "url", "endpoint")
+# The keys a file tool names its target with, led with when a call's params are
+# serialized whole.
+_PATH_KEYS = ("file_path", "path", "dir_path", "absolute_path", "notebook_path")
 # The keys ahead of ``prompt`` in that order: a call carrying one keeps it, even
 # where a ``url`` and a ``prompt`` sit beside it.
 _OUTRANKS_PROMPT = _QUERY_KEYS[: _QUERY_KEYS.index("prompt")]
@@ -253,8 +256,13 @@ def _query_candidate(params: Any) -> str | None:
             value = params.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
+        # A file tool's target leads, so the slice cut keeps the path a long
+        # `content` would otherwise push past it — the path is what an audit of
+        # the cell's writes reads (fedcourtsai.cell_access).
+        ordered = {key: params[key] for key in _PATH_KEYS if key in params}
+        ordered.update(sorted((key, value) for key, value in params.items() if key not in ordered))
         try:
-            return json.dumps(params, sort_keys=True, default=str)
+            return json.dumps(ordered, default=str)
         except (TypeError, ValueError):
             return None
     return None
