@@ -530,6 +530,24 @@ def test_the_backtest_replay_brackets_its_cells_with_the_big_case_board_removal(
     assert "continue-on-error" not in steps[restore]
 
 
+def test_the_backtest_replay_brackets_its_cells_with_the_update_history_removal() -> None:
+    """The weekly update history names decided events beside their outcome
+    words, so it leaves the replay's tree with the board, unconditionally, and
+    comes back with it from the commit before the salience-gate arm."""
+    steps = _load("run-backtest.yml")["jobs"]["backtest"]["steps"]
+    runs = [str(step.get("run") or "") for step in steps]
+    staged = archive_path(Path("metrics"), "2026-W42").parent.as_posix()
+    fences = [i for i, run in enumerate(runs) if run.strip() == f"rm -rf {staged}"]
+    assert len(fences) == 1, f"expected exactly one bare removal of {staged}, found {fences}"
+    remove = fences[0]
+    assert "if" not in steps[remove]
+    cells = next(i for i, run in enumerate(runs) if '--work-dir "$work_dir"' in run)
+    restore = next(i for i, run in enumerate(runs) if f"git checkout HEAD -- {staged}" in run)
+    assert remove < cells < restore
+    assert f"git status --porcelain -- {staged})" in runs[restore]
+    assert steps[restore].get("if") == "${{ !cancelled() }}"
+
+
 def test_the_backtest_publish_job_checks_the_report_before_it_mints() -> None:
     """The publish job holds the dev App token, whose bypass covers `main`'s
     approval rule, and reads bytes a replay cell could have written. So every
@@ -4233,7 +4251,7 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
 def test_every_run_analytics_cron_is_claimed_by_exactly_one_job() -> None:
     """A `schedule` gate is fail-open on any cron it does not name.
 
-    `run-analytics` carries two crons now — the weekly metrics refresh and the
+    `run-analytics` carries several crons — the weekly metrics refresh and the
     daily big-case board — so a job gating on the event class alone would run on
     both, which is how a weekly artifact quietly becomes a daily one. Each
     scheduled job must name its own cron's minute, and every declared cron must
@@ -4357,7 +4375,7 @@ def test_the_update_history_branch_is_spelled_the_same_in_all_three_places() -> 
     assert f"\n            {UPDATES_BRANCH}) jail=updates ;;" in ci
     assert f"github.head_ref == '{UPDATES_BRANCH}'" in ci
     staged = archive_path(Path("metrics"), "2026-W42").parent.as_posix()
-    assert f"git add -A {staged}\n" in analytics_wf
+    assert f"git add -A {staged}; fi\n" in analytics_wf
 
 
 def test_the_big_case_board_job_reaches_nothing_but_the_ledger_and_its_own_pr() -> None:
@@ -4377,6 +4395,20 @@ def test_the_big_case_board_job_reaches_nothing_but_the_ledger_and_its_own_pr() 
     for reach in ("corpus-readonly", "configure-aws-credentials", "role-to-assume", "id-token"):
         assert reach not in dumped, f"the ledger-only board job reaches {reach}"
     assert "uv run fedcourts big-cases" in dumped
+
+
+def test_the_update_history_job_reaches_nothing_but_the_ledger_and_its_own_pr() -> None:
+    """The board's ledger-only contract, held by the weekly update history job
+    too, which also never binds `website`: the Buttondown key stays with the
+    one job that drafts the email."""
+    job = _load("run-analytics.yml")["jobs"]["public-updates"]
+    assert job["permissions"] == {"contents": "read", "checks": "read"}
+    assert "website" not in str(job["environment"])
+    dumped = yaml.safe_dump(job)
+    for reach in ("corpus-readonly", "configure-aws-credentials", "role-to-assume", "id-token"):
+        assert reach not in dumped, f"the ledger-only history job reaches {reach}"
+    assert "uv run fedcourts archive-public-updates" in dumped
+    assert "BUTTONDOWN" not in dumped
 
 
 def _repair_job(job: str) -> dict[str, Any]:

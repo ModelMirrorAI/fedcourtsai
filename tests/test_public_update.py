@@ -448,3 +448,39 @@ def test_archive_cli_reports_what_it_wrote(tmp_path: Path, monkeypatch: pytest.M
     rerun = runner.invoke(app, ["archive-public-updates", "--through", week], env=env)
     assert rerun.exit_code == 0, rerun.output
     assert "0 written, 1 already archived" in rerun.output
+
+
+def test_a_missed_run_catches_up_every_non_empty_week(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data, metrics = tmp_path / "data", tmp_path / "metrics"
+    base = _base()
+    first = _week_of(base.date())
+    monkeypatch.setattr(public_update, "ARCHIVE_FIRST_WEEK", first)
+    _event(data, 631, "Tau v. Upsilon")
+    _forecast(data, 631, at=base, probability=0.6)
+    _event(data, 632, "Phi v. Chi")
+    _forecast(data, 632, at=base + timedelta(days=14), probability=0.3)
+    third = _week_of(base.date() + timedelta(days=14))
+    result = archive_public_updates(data, metrics, third)
+    assert result.written == (first, third)
+    assert len(result.empty) == 1
+
+
+def test_a_caption_line_break_cannot_open_a_block(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    _event(data, 641, "Psi\n# v. Omega\n---")
+    _forecast(data, 641, at=base, probability=0.6)
+    text = render_public_update(build_public_update(data, _week_of(base.date())))
+    assert "\n# v. Omega" not in text
+    assert "\n---\n\n_" not in text.split("## New forecasts this week", 1)[1].split("---")[0]
+
+
+def test_archive_cli_refuses_a_week_still_in_progress(tmp_path: Path) -> None:
+    env = {"FEDCOURTS_DATA_ROOT": str(tmp_path / "data"), "FEDCOURTS_METRICS_ROOT": str(tmp_path)}
+    year, week, _ = datetime.now(UTC).date().isocalendar()
+    current = f"{year}-W{week:02d}"
+    result = runner.invoke(app, ["archive-public-updates", "--through", current], env=env)
+    assert result.exit_code == 2
+    assert "not complete yet" in result.output

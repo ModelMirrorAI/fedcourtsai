@@ -347,8 +347,8 @@ and are committed. Others land here without being gate-checked:
 `cert-backtest.json`, which only a released replay writes, `docket.{json,md}`,
 which is regenerated on demand by `fedcourts docket`, `big-cases.{json,md}`,
 which the daily `big-cases` lane keeps current on its own cadence,
-`updates/<YYYY-Www>.md`, which the weekly `public-updates` lane adds one week at
-a time, and
+`updates/<YYYY-Www>.md`, to which the weekly `public-updates` lane adds each
+missing week, and
 `salience-replay.json`, produced on demand by the free, deterministic
 `fedcourts salience-replay` (locally, or via the `run-backtest` dispatch's
 `replay: salience-gate` mode, landing as a reviewed PR), and
@@ -2701,9 +2701,11 @@ the rendered table) and
   citation is never read as a claim that the figure is zero.
 
 - `updates/<YYYY-Www>.md` — the **weekly public update history**: one file per
-  ISO week the email list was offered, each the `fedcourts public-update`
-  render of that week, written once by `fedcourts archive-public-updates` and
-  never re-rendered. The site renders it as its updates page. It is display
+  ISO week with anything to show, from the email list's first send onward,
+  each the `fedcourts public-update` render of that week, written by
+  `fedcourts archive-public-updates` when a run first finds the week non-empty
+  and never re-rendered once merged, not even for a later void or set-aside.
+  The fedcourts.ai site renders it as its updates page. It is display
   material like the email: it states forecasts and outcomes side by side,
   computes no score, and no metric reads it.
 

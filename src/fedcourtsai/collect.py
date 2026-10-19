@@ -34,7 +34,7 @@ import shutil
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Literal
 
@@ -270,7 +270,16 @@ def assert_board_within_jail(changes: Iterable[PathChange]) -> None:
 UPDATES_BRANCH = "metrics/public-updates"
 
 #: One week's file in the history (``public_update.archive_path``).
-_UPDATE_ARCHIVE = re.compile(r"metrics/updates/\d{4}-W\d{2}\.md")
+_UPDATE_ARCHIVE = re.compile(r"metrics/updates/([0-9]{4}-W[0-9]{2})\.md")
+
+
+def _is_iso_week(week: str) -> bool:
+    year, number = int(week[:4]), int(week[6:])
+    try:
+        date.fromisocalendar(year, number, 1)
+    except ValueError:
+        return False
+    return True
 
 
 def assert_updates_within_jail(changes: Iterable[PathChange]) -> None:
@@ -282,7 +291,8 @@ def assert_updates_within_jail(changes: Iterable[PathChange]) -> None:
     """
     violations: list[str] = []
     for change in changes:
-        if not _UPDATE_ARCHIVE.fullmatch(change.path):
+        match = _UPDATE_ARCHIVE.fullmatch(change.path)
+        if match is None or not _is_iso_week(match.group(1)):
             violations.append(f"{change.path!r} is not a weekly update file")
         elif change.status != "A":
             violations.append(

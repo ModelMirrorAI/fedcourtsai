@@ -11127,16 +11127,25 @@ def archive_public_updates_cmd(
 
     Write-once: a week already there is left alone, and a week with nothing to
     send gets no file. Starts at the first week the email list was sent, so a
-    missed run is caught up on the next one. Always exits 0 on a valid week,
-    printing what it wrote.
+    missed run is caught up on the next one. Exits 2 on a malformed week or one
+    not yet complete, else 0, printing what it wrote.
     """
     settings = get_settings()
-    chosen = through or last_complete_week(datetime.now(UTC))
+    latest = last_complete_week(datetime.now(UTC))
+    chosen = through or latest
     try:
         week_bounds(chosen)
     except ValueError as exc:
         typer.echo(f"archive-public-updates: {exc}", err=True)
         raise typer.Exit(code=2) from exc
+    # A week still in progress would be frozen half-written by the write-once rule.
+    if week_bounds(chosen)[0] > week_bounds(latest)[0]:
+        typer.echo(
+            f"archive-public-updates: {chosen} is not complete yet (the last complete week "
+            f"is {latest}).",
+            err=True,
+        )
+        raise typer.Exit(code=2)
     result = archive_public_updates(settings.data_root, settings.metrics_root, chosen)
     for week in result.written:
         typer.echo(f"archive-public-updates: wrote {week}")

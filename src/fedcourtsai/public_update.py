@@ -74,7 +74,7 @@ _WEEK_RE: Final = re.compile(r"^(\d{4})-W(\d{2})$")
 ARCHIVE_DIR: Final = "updates"
 
 #: The first week the email list was sent an update. The history starts here,
-#: so it never publishes a week no subscriber was offered.
+#: so it never reaches back before the list existed.
 ARCHIVE_FIRST_WEEK: Final = "2026-W42"
 
 _QUESTION: Final[dict[Stage, str]] = {
@@ -247,10 +247,13 @@ def archive_public_updates(data_root: Path, metrics_root: Path, through: str) ->
     """Write each missing week's update from :data:`ARCHIVE_FIRST_WEEK` through ``through``.
 
     A week already in the history is never re-rendered: its file is what the
-    site first published, and a later resolution dated inside that week does
-    not rewrite it. A week with nothing to send gets no file, as it gets no
-    email. A week that was missed (a skipped run) is written on the next pass,
-    rendered from the ledger as it then stands.
+    site first published, so neither a later resolution dated inside that week
+    nor a later void or set-aside rewrites it, and a correction to a published
+    week is a reviewed change, not this pass. A week with nothing to show gets
+    no file, as it gets no email, and is looked at again on every pass: a week
+    missed by a skipped run, or one that was empty and later gains a dated
+    entry, is written when a pass first finds it non-empty, rendered from the
+    ledger as it then stands.
     """
     written: list[str] = []
     present: list[str] = []
@@ -456,8 +459,12 @@ def _outcome_words(stage: Stage | None, outcome: Outcome) -> str:
 
 
 def _escape(text: str) -> str:
-    """Neutralize the Markdown a case caption could otherwise trigger."""
-    return re.sub(r"([\\`*_\[\]<>#|])", r"\\\1", text)
+    """Neutralize the Markdown a case caption could otherwise trigger.
+
+    Whitespace runs, line breaks among them, collapse to one space first, so a
+    caption cannot open a block of its own (a heading, a rule, a list).
+    """
+    return re.sub(r"([\\`*_\[\]<>#|])", r"\\\1", " ".join(text.split()))
 
 
 def _heading(stage: Stage | None, moment: Moment | None) -> str:

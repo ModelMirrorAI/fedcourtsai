@@ -10,10 +10,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 
 from fedcourtsai import retrieval
 from fedcourtsai.agent_flags import FlagTheme
 from fedcourtsai.blinding import neutral_tool_class
+from fedcourtsai.cli import app
 from fedcourtsai.collect import (
     AUTO_RELEASED_MARKER,
     CODE_MODE_PARENT_TOOL,
@@ -306,11 +308,34 @@ def test_update_jail_rejects_a_rewrite_or_deletion_of_a_published_week() -> None
             )
 
 
+def test_update_jail_refuses_a_rename_or_copy_into_the_history() -> None:
+    for line in (
+        "R100\tmetrics/x.md\tmetrics/updates/2026-W42.md",
+        "C100\ta.md\tmetrics/updates/2026-W42.md",
+    ):
+        with pytest.raises(PathJailError, match="the history only adds files"):
+            assert_updates_within_jail(parse_name_status(line + "\n"))
+
+
+def test_assert_update_paths_cli_exits_1_with_an_error_and_0_when_clean(tmp_path: Path) -> None:
+    changes = tmp_path / "changes.txt"
+    changes.write_text("A\tmetrics/updates/2026-W42.md\n")
+    ok = CliRunner().invoke(app, ["assert-update-paths", "--name-status-file", str(changes)])
+    assert ok.exit_code == 0
+    assert "update jail OK" in ok.output
+    changes.write_text("M\tmetrics/updates/2026-W42.md\n")
+    bad = CliRunner().invoke(app, ["assert-update-paths", "--name-status-file", str(changes)])
+    assert bad.exit_code == 1
+    assert "::error::" in bad.output
+
+
 def test_update_jail_rejects_any_other_path() -> None:
     for path in (
         "metrics/updates/notes.md",
         "metrics/updates/2026-W42.md.bak",
         "metrics/updates/nested/2026-W42.md",
+        "metrics/updates/2026-W00.md",
+        "metrics/updates/2027-W53.md",
         "metrics/big-cases.md",
         "src/fedcourtsai/cli.py",
     ):

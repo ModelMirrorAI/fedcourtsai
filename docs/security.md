@@ -38,7 +38,7 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   `run-evaluate`; no job that runs an agent names it), the reviewed-PR openers (`run-backtest`'s publish job,
   `run-analytics`'s metrics-refresh and qp-topic-publish jobs, and
   `summarize`'s publish job),
-  `run-analytics`'s big-cases job (the one PR opener here that merges its own PR unattended),
+  `run-analytics`'s big-cases and public-updates jobs (the two PR openers here that merge their own PRs unattended),
   `sync-staging`, and the promotion train (`promotion-prep`'s `write` job),
   which cuts each frozen `promote/<date>` candidate, opens its PR and merges
   it on the configured approver's approval of exactly its head.
@@ -380,8 +380,8 @@ pre-registration record's commit ids.
     runs — and fails — only on a PR to `main` whose head
     is not a same-repo `staging` or non-feature lane, so a feature PR
     cannot ride around the promotion path by mistake. Those lanes are all
-    reviewed except the big-case board's, which merges unattended behind the `paths`
-    jail below. Rulesets cannot constrain
+    reviewed except the big-case board's and the weekly update history's, which
+    merge unattended behind the `paths` jail below. Rulesets cannot constrain
     a PR's source branch, which is why it is a check rather than a rule. Its
     job definition lives in `main`'s own `ci.yml`, so the context reports on
     every lane into `main`; adding a context like it goes through the *Adding
@@ -671,14 +671,14 @@ pre-registration record's commit ids.
 
 ## Repository merge settings
 
-Settings → General → Pull Requests. Two lanes ask GitHub to merge a PR when the
+Settings → General → Pull Requests. Three lanes ask GitHub to merge a PR when the
 required checks pass — the predict and evaluate `collect` jobs, one PR per run,
-and `run-analytics`'s daily big-case board; these settings are what let that
+`run-analytics`'s daily big-case board and its weekly update history; these settings are what let that
 happen and keep the branch list clean. To reproduce the repo (or use it as a template), set:
 
 | Setting | Value | Why |
 |---------|-------|-----|
-| **Allow auto-merge** | **on** | The `collect` job and the `big-cases` job each run `gh pr merge --auto --squash` before merging the PR themselves, so a PR their own merge gives up on (a slow check, a refusal) still lands the moment the maintainer approves it. With it off that call errors and both degrade gracefully (log a warning and carry on); the jobs' own merge does not depend on it. |
+| **Allow auto-merge** | **on** | The `collect`, `big-cases` and `public-updates` jobs each run `gh pr merge --auto --squash` before merging the PR themselves, so a PR their own merge gives up on (a slow check, a refusal) still lands the moment the maintainer approves it. With it off that call errors and both degrade gracefully (log a warning and carry on); the jobs' own merge does not depend on it. |
 | **Allow squash merging** | **on** | The run PR is squash-merged, so each run lands as one commit. |
 | **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. (It cannot touch `main`: GitHub skips the default branch, and `main: protect history` refuses deletion from anyone.) |
 | **Allow merge commits** | **on** | `sync-staging` merges `main` into `staging` with `--merge`. A squash or rebase would land a commit with no parent link to `main`'s tip, so the promotion gate's ancestry check would fail and the next sync would reopen the same PR forever. |
@@ -1570,6 +1570,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
+| `run-analytics` — public-updates          | none          | adds the committed `data/` ledger's missing weeks to the update history — no corpus, no network, no `id-token`. It binds the branch-resolved environment, never `website`, because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `summarize` — plan, stage                 | read-only     | the case-summary plan (full `corpus-pull`, then each predicted case's newest snapshot and document texts from the content store) and the staging of each planned case's record with `provision-snapshot`, handed to the generate job as a one-day artifact |
 | `summarize` — generate, publish           | none          | generate holds the environment's Anthropic API key, assumes no role, has no `id-token: write`, and asserts both the AWS and the OIDC variables are absent first; publish holds the dev App token on `main` only |
