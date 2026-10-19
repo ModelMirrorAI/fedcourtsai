@@ -2521,7 +2521,8 @@ def duplicate_application_case_ids(conn: ReadConnection) -> frozenset[str]:
     Every reader whose figure is a count or rate over application numbers (the
     statpack's interim section, and with it the interim base rate; the interim
     reading census that replicates it) skips the ids this returns, so each
-    number counts once.
+    number counts once. The salience pass's interim reserve picks past them
+    too, so an unlatched number contends for a slot through one row.
 
     The key is the numeric ``(term, serial)`` pair the strict ``YYAnnn`` parse
     yields, annotation stripped and case folded (``24A09`` and ``24a9`` are one

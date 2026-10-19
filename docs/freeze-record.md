@@ -11417,3 +11417,48 @@ freeze commit is recorded here.
   prints `pre-distribution-mint`, and once the event resolves and the metrics
   refresh runs, `jq '.set_aside.by_reason' metrics/leaderboard.json` carries
   a `pre-distribution-mint` count.
+
+- **The interim reserve holds one slot per application number; recorded
+  2026-10-19.** A **membership-rule** entry under unchanged digests: no value,
+  digest, base rate or `salience_version` moves, but which pending
+  applications the reserve funds can. It supersedes one line of the 2026-10-18
+  entry on the one-row-per-number count, which recorded that the salience
+  interim reserve does not read the skip set.
+
+  **What moved.** `pipeline.salience.plan_cohorts` keys a reserve slot on the
+  application number, the unit the interim base rate counts, rather than on
+  the corpus row. A number latched under any of its rows holds one slot (none
+  once its occupant is released as disposed), and none of its other rows
+  contends while it is latched. An unlatched number contends
+  through the row `corpus.duplicate_application_case_ids` keeps: the rows that
+  call skips are still scored and are never picked. The slot is keyed on the
+  number rather than on today's survivor because the survivor can move, from
+  an unobserved stub to its observed twin, once the stub is first polled.
+
+  **What does not move.**
+  - Moment minting and the predict queue do not read the skip set. A number
+    already latched under two rows stays funded twice, and the reserve counts
+    it once, so live interim predictions can then exceed
+    `interim_reserve_slots` by that number's extra rows. A twin row with a
+    committed prediction is likewise still owed its open moments by cohort
+    completion, outside the reserve.
+  - No cert cohort, carve-out or arrival pick: the change reads application
+    rows only, and the gate replay projects modern cert rows alone.
+  - No harness boundary is registered. The change moves which cases are
+    funded, not any cell's input, so a boundary would split cells that read
+    the same thing on either side of it.
+
+  **Exposure.** None committed, by the count recorded with the 2026-10-18
+  entry on blob `5d4bac58…` (pull 2026-10-17, newest snapshot row
+  2026-07-13): none of the 23 skipped rows carries a committed ledger
+  directory on `main` or `staging`, so no committed cell names one. How many
+  skipped rows are pending, and so could contend, was not re-measured for
+  this entry.
+
+  Carried to `main` by the promotion merge `<FILL: merge sha>`, merged
+  `<FILL: merged-at>`.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_salience.py -k "reserve or twice"` is green, and `uv run fedcourts
+  process-digest --all` prints the same label and digests at the carrying
+  merge as at its first parent.
