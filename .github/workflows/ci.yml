@@ -96,9 +96,11 @@ jobs:
         run: scripts/gate.sh types
       - name: test
         if: steps.lane.outputs.lane != 'data' && steps.lane.outputs.lane != 'docs'
-        # GATE_COV=1 runs pytest under coverage, which the summary step below reads.
+        # GATE_COV=1 runs pytest under coverage, which the summary step below
+        # reads. A PR run skips it: the figure is reported, never gated
+        # on, and measuring it costs every PR push about a tenth of the step.
         env:
-          GATE_COV: "1"
+          GATE_COV: ${{ github.event_name != 'pull_request' && '1' || '0' }}
         run: scripts/gate.sh test
       - name: lane tests
         # In the data and docs lanes the full suite is replaced by the tests
@@ -110,7 +112,9 @@ jobs:
           LANE: ${{ steps.lane.outputs.lane }}
         run: scripts/gate.sh "${LANE}-tests"
       - name: coverage summary
-        if: steps.lane.outputs.lane != 'data' && steps.lane.outputs.lane != 'docs'
+        if: >-
+          github.event_name != 'pull_request' &&
+          steps.lane.outputs.lane != 'data' && steps.lane.outputs.lane != 'docs'
         # Reporting, not gating: surface coverage to maintainers in the run's job
         # summary (no badge, no commit, no upload). Depends on the test step having
         # run with GATE_COV=1 so a .coverage file exists. Needs no permissions —
