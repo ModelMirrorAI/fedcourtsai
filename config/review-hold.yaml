@@ -44,12 +44,13 @@
 # $0.41-$97.25 each (predict) and $1.82-$90.48 (evaluate) by actual spend;
 # full-size campaign rounds cost ~$99-$196.
 #
-# - Budget $2,000: the model-API envelope in docs/budget.md. The backstop's
-#   ceiling is $3,000 (tracking.yaml `spend:`), so the standing room above the
-#   budget is $1,000; nothing auto-releases until the long-conference campaign
-#   rolls out of the window, roughly early November at the current ledger.
-#   The two bases differ: the budget counts summaries and the backstop does
-#   not. The steady state since the campaign runs at ~$1,425 per 30 days on
+# - Budget $2,500: the $2,000 model-API envelope in docs/budget.md plus $500,
+#   so routine rounds keep releasing while a long-conference campaign's spend
+#   sits in the window (the trailing figure was $2,302 on 2026-10-19 and falls
+#   under $2,000 only as that campaign ages out). The backstop's ceiling is
+#   $3,000 (tracking.yaml `spend:`), so the standing room above the budget is
+#   $500. The two bases differ: the budget counts summaries and the backstop
+#   does not. The steady state since the campaign runs at ~$1,425 per 30 days on
 #   the budget's base (cells ~$1,320 + summaries ~$105), extrapolated from 9
 #   days, two of which carry over a third of the cell spend.
 # - Per round $75: releases most steady-state rounds (14 of the 16 since
@@ -68,4 +69,4 @@
 #   practice stops a few hundred dollars short of the budget.
 auto_release_usd_per_round: 75
 auto_release_rounds_per_day: 6
-auto_release_budget_usd: 2000
+auto_release_budget_usd: 2500
