@@ -1375,6 +1375,10 @@ or network.
      is the corpus `opinions` table ([corpus/README.md](../corpus/README.md)),
      built by `backfill-opinion-record` from the Court's opinions, applied on
      run-repair's `opinion-record` pass, and held corpus-side on the same terms.
+     So is the per-Justice vote half for a case the pipeline never forecast:
+     `fedcourts merits-lineups` derives each decision's lineup from those rows
+     and the pass's `opinion_benches` (who sat), read-only and never stored, by
+     the rule the merits vote source stamps forecast outcomes with.
 
      An event pinned to one docket entry is never a claimant of its stage's
      disposition: it resolves on its own filing's terms, so an application
@@ -1603,7 +1607,7 @@ population and apply against another.
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `application-backfill` | `backfill-applications` (split, as above) | `--max-rows` (rows landed, onboarded and enriched together; the dry run's count is an upper bound) | two-digit October Term, **required in both modes** | — |
 | `decision-record` | `backfill-decision-record` | `--max-fills` (rows filled, not the `candidates` denominator) | — | — |
-| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
+| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion rows and bench rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
 the scan runs unless it is a positive integer — blank, zero, negative, decimal
@@ -1785,13 +1789,15 @@ fields parsed from them ([security.md](security.md), *S3 / the private stores*).
   the few public facts the parse needs (versioned models beside each pass, read and written through `src/fedcourtsai/handoff.py`): for the
   vote passes, each population case's docket number; for the application
   back-fill, the Term's highest stored serial and its live-owned serials; for
-  the opinion record, the (Term, listing number) of each document already
-  recorded. It fetches nothing.
+  the opinion record, the (Term, listing number) of each document it already
+  holds whole and of each signed decision it holds without a bench row. It
+  fetches nothing.
 - `handoff-parse` holds **no credential**: no environment, no `id-token`, no
   secret, and a step asserts the AWS and OIDC variables are absent before
   anything is fetched. It fetches and parses, prints the dry-run ledger to the
   run summary, and on an apply writes the plan — the planned vote records, the
-  served docket JSON verbatim, or the opinion rows — as a run artifact. It
+  served docket JSON verbatim, or the opinion rows and bench rows — as a run
+  artifact. It
   restores the uv cache but never saves one.
 - On an apply only, a writer job downloads the plan and treats it as untrusted
   input: every row is re-validated against the reader's own invariants and the
@@ -2093,11 +2099,15 @@ gh workflow run run-repair.yml --ref main \
   -f repair=decision-record -f repair_mode=apply -f repair_bound=<would fill N>
 
 # The opinion record reads OT2020–OT2025 (pinned in the workflow). Its apply
-# fetches every unrecorded document again and runs no dry run first, which
-# would double the pass's traffic to the Court's site. Its bound is the dry
-# run's "would insert N" — opinion rows, not documents. The readings, each
-# refusal's reason included, are in the parse job's step log; the summary carries the
-# per-Term counts. Re-dispatching in `dry-run` after the apply is the control:
+# fetches every document the record does not hold whole again — unrecorded, or a
+# signed decision recorded without its bench row — and runs no dry run first,
+# which would double the pass's traffic to the Court's site. Its bound is the dry
+# run's "would insert N" — opinion rows and bench rows, not documents; a signed
+# decision re-read for its bench counts one bench row, its stored opinion rows
+# none. The readings, each refusal's reason included, are in the parse job's step
+# log; the summary carries the per-Term counts, and on the apply the writer's
+# summary names each re-read whose writings differ from the stored rows (it gets a
+# null bench row). Re-dispatching in `dry-run` after the apply is the control:
 # it must report "would insert 0" (it re-fetches only the refused documents).
 gh workflow run run-repair.yml --ref main \
   -f repair=opinion-record -f repair_mode=dry-run

@@ -261,6 +261,7 @@ from .pipeline import (
     granted_noted,
     historical,
     liveprobe,
+    merits_lineups,
     moments,
     ocr_sweep,
     opinion_lineups,
@@ -4277,6 +4278,71 @@ def decision_census_cmd(
     typer.echo(census.model_dump_json())
 
 
+@app.command("merits-lineups")
+def merits_lineups_cmd(
+    first_term: Annotated[
+        int, typer.Option("--first-term", help="First October Term to report.")
+    ] = 2020,
+    last_term: Annotated[
+        int, typer.Option("--last-term", help="Last October Term to report.")
+    ] = 2025,
+) -> None:
+    """Derive each recorded decision's per-Justice merits votes, read-only, with a per-Term census.
+
+    The corpus-side vote target for decided cases the pipeline never forecast
+    (`pipeline/merits_lineups.py`): every document the per-opinion record
+    (`opinions`) holds, its writings read through the rule the merits vote
+    source stamps with and seated on its `opinion_benches` row. A lineup is the
+    whole bench or none, with its status: `complete`; `per-curiam` (the record
+    names no joiners of the Court's opinion); `unobserved` (no filled bench
+    row: the syllabus lineup was not complete, or the opinion-record pass has
+    not yet read the document for its bench); `unplaced`; `refused`. The
+    census sets each Term's complete lineups against the decision census's
+    plenary decided dockets (`decision-census`'s decided less order-riding), by
+    the docket numbers the listing prints, matched across the range's Terms,
+    and counts the unanimous lineups and the splits, a vote in part on each
+    side kept apart. Writes nothing. Prints one line per Term to stderr and
+    `{"census": ..., "lineups": [...]}` JSON to stdout. Fails loud if the
+    corpus is absent.
+    """
+    if first_term > last_term:
+        typer.echo("merits-lineups: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before deriving merits lineups.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        lineups = merits_lineups.merits_lineups(conn, first_term=first_term, last_term=last_term)
+        census = merits_lineups.lineup_census(
+            conn, lineups, first_term=first_term, last_term=last_term
+        )
+    for term in census.terms:
+        statuses = ", ".join(f"{k} {v}" for k, v in term.statuses.items()) or "-"
+        splits = ", ".join(f"{k} {v}" for k, v in term.splits.items()) or "-"
+        typer.echo(
+            f"OT{term.term}: {term.documents} documents ({statuses}); "
+            f"{term.covered} of {term.plenary_decided} plenary decided dockets covered "
+            f"({term.printed} printed by any document, {term.covered_across_terms} across "
+            f"Terms), {term.unmatched_complete} complete lineup(s) unmatched; "
+            f"{term.unanimous} unanimous; splits: {splits}",
+            err=True,
+        )
+    typer.echo(
+        json.dumps(
+            {
+                "census": census.model_dump(mode="json"),
+                "lineups": [lineup.model_dump(mode="json") for lineup in lineups],
+            }
+        )
+    )
+
+
 @app.command("backfill-opinion-record")
 def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a CLI entrypoint; options map 1:1 to inputs
     first_term: Annotated[
@@ -4297,7 +4363,8 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
         int | None,
         typer.Option(
             "--max-rows",
-            help="Blast-radius bound, required with --apply: refuse to insert more opinion rows.",
+            help="Blast-radius bound, required with --apply: refuse to insert more rows "
+            "(opinion rows plus bench rows, the dry run's 'would insert N').",
         ),
     ] = None,
     throttle: Annotated[
@@ -4333,9 +4400,13 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
 
     Dry run by default, and the dry run opens the corpus read-only: it writes
     nothing anywhere but the optional PDF cache. Fill-only and idempotent — a
-    recorded document is never fetched again and no stored row is changed.
-    ``--apply`` refuses above ``--max-rows``, which counts the opinion rows it
-    would insert; the apply half belongs in run-repair's `opinion-record` pass,
+    complete document is never fetched again and no stored row is changed. Each
+    read signed decision also gets a bench row (`opinion_benches`): who sat,
+    where its syllabus lineup accounts for the whole bench, else null. A signed
+    decision recorded without one is read again to add it, beside rows it
+    leaves untouched.
+    ``--apply`` refuses above ``--max-rows``, which counts the opinion rows and
+    bench rows it would insert; the apply half belongs in run-repair's `opinion-record` pass,
     which on an apply holds the corpus-write credentials. Nothing a predict or
     evaluate cell sees reads the table. Prints the readings of the unrecorded
     listing rows as one JSON array on stdout and a per-Term count on stderr.
@@ -4418,7 +4489,9 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
                         terms=terms,
                         apply=True,
                         max_rows=max_rows,
-                        write=lambda pairs: opinion_record.insert_opinions(conn, pairs),
+                        write=lambda pairs, benches: opinion_record.insert_opinions(
+                            conn, pairs, benches
+                        ),
                     )
             else:
                 with corpus.connect_local_unmigrated(db_path) as ro:
@@ -4433,7 +4506,11 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
             with SupremeCourtClient(throttle_seconds=throttle) as client:
                 fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
                 result = opinion_record.read_opinion_record(
-                    fetcher, terms=terms, recorded=recorded, dockets=dockets
+                    fetcher,
+                    terms=terms,
+                    recorded=recorded,
+                    rebench=opinion_record.projected_rebench(handed),
+                    dockets=dockets,
                 )
         else:
             with SupremeCourtClient(throttle_seconds=throttle) as client:
@@ -4447,7 +4524,9 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
                             dockets=dockets,
                             apply=True,
                             max_rows=max_rows,
-                            write=lambda pairs: opinion_record.insert_opinions(conn, pairs),
+                            write=lambda pairs, benches: opinion_record.insert_opinions(
+                                conn, pairs, benches
+                            ),
                         )
                 else:
                     with corpus.connect_local_unmigrated(db_path) as ro:
@@ -4467,23 +4546,27 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
         counts = {k: sum(1 for r in rows if r.status == k) for k in ("read", "refused", "skipped")}
         opinions = sum(len(r.opinions) for r in rows)
         typer.echo(
-            f"OT{term}: {len(rows)} unrecorded listing rows — {counts['read']} read "
+            f"OT{term}: {len(rows)} listing rows not held whole — {counts['read']} read "
             f"({opinions} opinions), {counts['refused']} refused, {counts['skipped']} skipped",
             err=True,
         )
+    for conflict in result.bench_conflicts:
+        typer.echo(conflict, err=True)
+    total = result.rows + result.benches
     done = (
-        f"inserted {result.inserted} of {result.rows}"
+        f"inserted {result.inserted + result.benches_inserted} of {total}"
         if result.applied
-        else f"would insert {result.rows}"
+        else f"would insert {total}"
     )
     typer.echo(
         f"backfill-opinion-record ({'applied' if result.applied else 'dry-run'}): "
-        f"{done} opinion row(s); {result.already_recorded} listing row(s) already recorded",
+        f"{done} row(s) — {result.rows} opinion row(s), {result.benches} bench row(s); "
+        f"{result.already_recorded} listing row(s) already recorded",
         err=True,
     )
     if result.refused:
         typer.echo(
-            f"backfill-opinion-record: refusing to insert {result.rows} rows "
+            f"backfill-opinion-record: refusing to insert {total} rows "
             f"(--max-rows {max_rows}). Triage the dry run before raising the bound.",
             err=True,
         )
