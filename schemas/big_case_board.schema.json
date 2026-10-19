@@ -253,6 +253,19 @@
           "title": "Reading Rule",
           "type": "string"
         },
+        "schedule_rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where `scheduled` comes from and when it is null; None on a board built before the field existed",
+          "title": "Schedule Rule"
+        },
         "short_caption_rule": {
           "description": "How `short_caption` is derived from `caption`, and when it is null",
           "title": "Short Caption Rule",
@@ -616,6 +629,18 @@
           "description": "One fixed plain-language line per action open at `moment`'s stage, filled with `asking_party` and `other_party`: granted and denied for a petition or an application, reversed, affirmed and vacated for a merits case. Consequences only, never likelihood \u2014 shown beside the forecast, paired by each line's `side`, so a reader can tell whom each action helps. None exactly when `asking_party` is. Display-only",
           "title": "Outcome Lines"
         },
+        "scheduled": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BigCaseScheduled"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The case's next scheduled date, joined from the committed `data/schedule/schedule.json` by the `schedule_rule` provenance string; None where the schedule carries no upcoming date for the case. Display-only"
+        },
         "score_max": {
           "description": "Highest current read on the case's current moment",
           "maximum": 1.0,
@@ -673,6 +698,37 @@
         "score_range"
       ],
       "title": "BigCaseRow",
+      "type": "object"
+    },
+    "BigCaseScheduled": {
+      "additionalProperties": false,
+      "description": "The next date the Court has set for a case, as the committed schedule carries it.",
+      "properties": {
+        "as_of": {
+          "description": "The schedule's `as_of`: the day the date was last confirmed ahead. A reader rendering later drops a date that has since passed rather than show it as upcoming",
+          "format": "date",
+          "title": "As Of",
+          "type": "string"
+        },
+        "date": {
+          "description": "The scheduled day, on or after `as_of`",
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "kind": {
+          "const": "conference",
+          "description": "What is scheduled: `conference`, the conference the docket is distributed for",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "date",
+        "as_of"
+      ],
+      "title": "BigCaseScheduled",
       "type": "object"
     },
     "CountingWindow": {
@@ -951,9 +1007,9 @@
       "type": "integer"
     },
     "schema_version": {
-      "const": "1.2",
-      "default": "1.2",
-      "description": "The artifact's schema version. A reader keys on it: a `1.1` row carries the display fields `short_caption`, `docket_number`, `docket_number_source` and `docket_url`, and a `1.2` row adds `asking_party`, `other_party`, `outcome_lines` and `asking_declined`",
+      "const": "1.3",
+      "default": "1.3",
+      "description": "The artifact's schema version. A reader keys on it: a `1.1` row carries the display fields `short_caption`, `docket_number`, `docket_number_source` and `docket_url`, a `1.2` row adds `asking_party`, `other_party`, `outcome_lines` and `asking_declined`, and a `1.3` row adds `scheduled`",
       "title": "Schema Version",
       "type": "string"
     },

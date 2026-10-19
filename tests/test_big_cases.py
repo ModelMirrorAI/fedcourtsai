@@ -25,9 +25,11 @@ from fedcourtsai.process_version import (
     FROZEN_PROCESS_DIGESTS,
     FROZEN_SINCE,
 )
+from fedcourtsai.schedule import schedule_path
 from fedcourtsai.schemas import (
     BigCaseBoard,
     BigCaseRow,
+    BigCaseScheduled,
     Disposition,
     Engine,
     Evaluation,
@@ -42,6 +44,8 @@ from fedcourtsai.schemas import (
     QpTopicLabels,
     QpTopicPublishedEntry,
     QpTopicShadow,
+    Schedule,
+    ScheduleEntry,
 )
 from fedcourtsai.serialize import write_json, write_yaml
 from fedcourtsai.supremecourt import live_application_id, live_docket_id
@@ -1288,10 +1292,10 @@ def test_without_a_labels_artifact_a_courtlistener_case_has_no_docket_number(
     assert (row.docket_number, row.docket_url) == (None, None)
 
 
-def test_the_board_is_schema_1_2_and_carries_the_display_rules(tmp_path: Path) -> None:
+def test_the_board_is_schema_1_3_and_carries_the_display_rules(tmp_path: Path) -> None:
     _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
     board = _board(tmp_path)
-    assert board.schema_version == "1.2"
+    assert board.schema_version == "1.3"
     assert board.provenance is not None
     assert "consequences only, never likelihood" in board.provenance.asking_rule
     assert "`cross_petition`" in board.provenance.asking_rule
@@ -1568,3 +1572,63 @@ def test_a_row_refuses_asking_fields_that_do_not_travel_together(tmp_path: Path)
     ):
         with pytest.raises(ValueError, match="asking"):
             BigCaseRow.model_validate({**payload, **broken})
+
+
+def _write_schedule(data_root: Path, as_of: date, entries: list[ScheduleEntry]) -> None:
+    write_json(schedule_path(data_root), Schedule(as_of=as_of, entries=entries))
+
+
+def test_a_row_carries_its_upcoming_conference_from_the_committed_schedule(
+    tmp_path: Path,
+) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    _write_read(tmp_path, "scotus/2", "claude-baseline", "r1", big_case_score=0.4)
+    _write_schedule(
+        tmp_path,
+        date(2026, 10, 19),
+        [
+            ScheduleEntry(
+                case_id="scotus/1",
+                next_conference=date(2026, 10, 30),
+                distributed_for_conference=date(2026, 10, 30),
+            )
+        ],
+    )
+    rows = {row.case_id: row for row in _board(tmp_path).rows}
+    assert rows["scotus/1"].scheduled == BigCaseScheduled(
+        kind="conference", date=date(2026, 10, 30), as_of=date(2026, 10, 19)
+    )
+    assert rows["scotus/2"].scheduled is None
+
+
+def test_a_passed_conference_joins_as_no_scheduled_date(tmp_path: Path) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    _write_schedule(
+        tmp_path,
+        date(2026, 10, 19),
+        [
+            ScheduleEntry(
+                case_id="scotus/1",
+                next_conference=None,
+                distributed_for_conference=date(2026, 10, 10),
+                stale_reason="conference_passed",
+            )
+        ],
+    )
+    (row,) = _board(tmp_path).rows
+    assert row.scheduled is None
+
+
+def test_no_schedule_and_an_unreadable_one_both_leave_every_row_unscheduled(
+    tmp_path: Path,
+) -> None:
+    _write_read(tmp_path, "scotus/1", "claude-baseline", "r1", big_case_score=0.5)
+    assert _board(tmp_path).rows[0].scheduled is None
+    path = schedule_path(tmp_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{not json")
+    board = _board(tmp_path)
+    assert board.rows[0].scheduled is None
+    assert board.provenance is not None
+    assert board.provenance.schedule_rule is not None
+    assert "never a ledger record" in board.provenance.schedule_rule

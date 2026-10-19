@@ -7733,6 +7733,79 @@ class ScopeManifest(_Strict):
     )
 
 
+ScheduleStaleReason = Literal["conference_passed"]
+
+
+class ScheduleEntry(_Strict):
+    """One pending, already-public docket's next scheduled conference.
+
+    A row exists for every docket on the public set whose corpus row is
+    unresolved and carries a conference it was distributed for. The date is
+    published as `next_conference` only while it is still ahead of the
+    schedule's `as_of`; once it has passed and the docket has not moved, the
+    row keeps the date it was distributed for and says why it is no longer a
+    scheduled date, so a past conference is never shown as upcoming.
+    """
+
+    case_id: str = Field(description="``<court>/<docket>`` of an already-public case")
+    next_conference: date | None = Field(
+        description="The conference the docket is distributed for, when it falls on or "
+        "after `as_of`; null exactly when `stale_reason` is set"
+    )
+    distributed_for_conference: date = Field(
+        description="The corpus `distributed_for_conference`: the date named by the "
+        "docket's newest 'DISTRIBUTED for Conference of …' entry, as the live channel "
+        "last read it, whether or not it has passed"
+    )
+    stale_reason: ScheduleStaleReason | None = Field(
+        default=None,
+        description="Why the row carries no `next_conference`: `conference_passed` (the "
+        "conference is before `as_of` and the docket shows no newer distribution or a "
+        "decision yet). Null while the date is still ahead",
+    )
+    last_live_polled: date | None = Field(
+        default=None,
+        description="When the live channel last read this docket — the per-case vintage of "
+        "`distributed_for_conference`, which `as_of` is not",
+    )
+
+    @model_validator(mode="after")
+    def _stale_exactly_when_unscheduled(self) -> ScheduleEntry:
+        """A row is either scheduled or says why it is not."""
+        if (self.next_conference is None) == (self.stale_reason is None):
+            raise ValueError("stale_reason is set exactly when next_conference is null")
+        return self
+
+
+class Schedule(_Strict):
+    """``data/schedule/schedule.json`` — the next scheduled conference, public set only.
+
+    Written by the live poll from the corpus it already holds, after each cycle,
+    for the dockets the repository already discloses under ``data/cases``: it is
+    enumerated from that committed tree alone and never from a corpus scan, the
+    same compilation-extent boundary as the scope manifest. Display data for
+    the public site: it is not a prediction-ledger record (a schedule moves on
+    every relist), nothing predicts, evaluates or scores on it, and no cell is
+    provisioned with it. ``skipped`` is set, with no entries, when no corpus was
+    present.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    skipped: bool = Field(
+        default=False, description="True when no corpus was present; nothing was read"
+    )
+    as_of: date | None = Field(
+        default=None,
+        description="The UTC day the schedule was built on, which decides whether a "
+        "conference has passed; null on a skipped build",
+    )
+    entries: list[ScheduleEntry] = Field(
+        default_factory=list,
+        description="One entry per pending public docket with a conference it was "
+        "distributed for, in case_id order",
+    )
+
+
 QpTopicLabel = Literal[
     "administrative-law-and-benefit-programs",
     "business-and-financial-regulation",
@@ -9462,6 +9535,25 @@ class BigCaseCurrentRead(_Strict):
     )
 
 
+# `BigCaseScheduled` names a field `date`, which would shadow the type inside its
+# own class body; its annotations spell the type through this alias instead.
+_Day = date
+
+
+class BigCaseScheduled(_Strict):
+    """The next date the Court has set for a case, as the committed schedule carries it."""
+
+    kind: Literal["conference"] = Field(
+        description="What is scheduled: `conference`, the conference the docket is distributed for"
+    )
+    date: _Day = Field(description="The scheduled day, on or after `as_of`")
+    as_of: _Day = Field(
+        description="The schedule's `as_of`: the day the date was last confirmed ahead. A "
+        "reader rendering later drops a date that has since passed rather than show it "
+        "as upcoming"
+    )
+
+
 class BigCaseRow(_Strict):
     """One case on the board: the panel's current stakes reads and their mean.
 
@@ -9558,6 +9650,12 @@ class BigCaseRow(_Strict):
         "`asking_rule` provenance string (`no_caption`, `not_scotus`, `in_re`, "
         "`not_two_sided`, `docket_labels`, `short_form`, `original_jurisdiction`, "
         "`cross_petition`, `stage`); None exactly when `asking_party` is set",
+    )
+    scheduled: BigCaseScheduled | None = Field(
+        default=None,
+        description="The case's next scheduled date, joined from the committed "
+        "`data/schedule/schedule.json` by the `schedule_rule` provenance string; None where "
+        "the schedule carries no upcoming date for the case. Display-only",
     )
     status: Literal["pending", "partly_resolved", "resolved"] = Field(
         description="Resolution state across **all** the case's predicted events, derived "
@@ -9683,6 +9781,11 @@ class BigCaseProvenance(_Strict):
         description="How `asking_party`, `other_party` and `outcome_lines` are derived, "
         "where each `asking_declined` value comes from, and what the lines cannot see"
     )
+    schedule_rule: str | None = Field(
+        default=None,
+        description="Where `scheduled` comes from and when it is null; None on a board "
+        "built before the field existed",
+    )
     process_label: str = Field(
         description="The process label in force when the board was built — what a "
         "prediction minted today stamps, not a scope filter on the rows (see `version_scope`)"
@@ -9723,12 +9826,13 @@ class BigCaseBoard(_Strict):
     artifact's vintage is the commit that wrote it.
     """
 
-    schema_version: Literal["1.2"] = Field(
-        default="1.2",
+    schema_version: Literal["1.3"] = Field(
+        default="1.3",
         description="The artifact's schema version. A reader keys on it: a `1.1` row "
         "carries the display fields `short_caption`, `docket_number`, "
-        "`docket_number_source` and `docket_url`, and a `1.2` row adds `asking_party`, "
-        "`other_party`, `outcome_lines` and `asking_declined`",
+        "`docket_number_source` and `docket_url`, a `1.2` row adds `asking_party`, "
+        "`other_party`, `outcome_lines` and `asking_declined`, and a `1.3` row adds "
+        "`scheduled`",
     )
     process_scope: Literal["frozen", "all"] = Field(
         default="all",
@@ -12029,6 +12133,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "attempt.json": CellFailure,
     "retrieval_log.json": RetrievalLog,
     "scope.json": ScopeManifest,
+    "schedule.json": Schedule,
     "qp-topic-reference.json": QpTopicReference,
     "qp-topics.json": QpTopicLabels,
 }
@@ -12052,6 +12157,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "corpus_validation": CorpusValidation,
     "corpus_scope_audit": CorpusScopeAudit,
     "scope_manifest": ScopeManifest,
+    "schedule": Schedule,
     "live_frontier": LiveFrontier,
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,

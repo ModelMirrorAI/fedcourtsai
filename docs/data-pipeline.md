@@ -484,6 +484,21 @@ ingested row, never a row itself — so it moves whenever the corpus does, and t
 committed copy is a point-in-time snapshot that nothing schedules or gates (see
 [cli.md](cli.md)).
 
+`data/schedule/schedule.json` is the one committed file the **live poll**
+writes beside the outcomes: after each cycle, `fedcourts live-poll` rebuilds it
+from the corpus it just refreshed, and it rides that window's data commit to
+`main`. It carries each pending public docket's distributed conference
+(`distributed_for_conference`), published as `next_conference` only while the
+date is on or after the schedule's `as_of` and as null with
+`stale_reason: conference_passed` once it has passed, so the public site never
+shows a past conference as upcoming. Like the scope manifest it is enumerated
+from the committed `data/cases` tree alone. It is display data for the site's
+case timeline, joined onto the big-case board as `scheduled`: it is not a
+prediction-ledger record, since a schedule moves on every relist, and no cell
+is provisioned with it. A failed build warns and leaves the committed file as
+it was; it never fails the poll. `fedcourts schedule` rebuilds it by hand from
+a pulled corpus.
+
 ### Credentials and access roles
 
 The corpus remote and the content store are private S3 behind **GitHub OIDC** —

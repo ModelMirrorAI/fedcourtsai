@@ -9,7 +9,7 @@ weight. It is the transparency counterpart of the scope reconcile — the reconc
 repository already discloses.
 
 The one load-bearing invariant: the manifest is enumerated from the committed
-``data/cases`` directory tree **alone** (:func:`_public_case_ids`), never from a
+``data/cases`` directory tree **alone** (:func:`public_case_ids`), never from a
 corpus scan (``iter_rows`` / ``iter_tracked_cases``). The corpus is consulted
 only by exact ``case_id`` lookup for cases already on that public list. So the
 manifest cannot enumerate the broader ingested corpus — the compilation-extent
@@ -27,7 +27,7 @@ from . import corpus
 from .schemas import ScopeManifest, ScopeManifestEntry
 
 
-def _public_case_ids(data_root: Path) -> list[str]:
+def public_case_ids(data_root: Path) -> list[str]:
     """The ``<court>/<docket>`` ids that already have a committed case directory.
 
     Enumerates the git-visible public set only: the numeric docket directories
@@ -55,7 +55,7 @@ def build_scope_manifest(*, data_root: Path, corpus_db_path: Path) -> ScopeManif
     regenerate before a corpus pull. Cases on the public list but missing from
     the corpus are omitted rather than guessed at.
     """
-    case_ids = _public_case_ids(data_root)
+    case_ids = public_case_ids(data_root)
     if not corpus_db_path.exists():
         return ScopeManifest(skipped=True)
 

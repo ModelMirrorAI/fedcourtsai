@@ -71,6 +71,7 @@ from . import (
     registry_gate,
     repo_gate,
     retrieval,
+    schedule,
     scope_manifest,
     secretscan,
     summaries,
@@ -5083,6 +5084,44 @@ def scope_manifest_cmd(
     typer.echo(
         f"scope-manifest: {manifest.cases} public case(s), {manifest.eligible} eligible, "
         f"{manifest.excluded} excluded -> {destination}"
+    )
+
+
+@app.command("schedule")
+def schedule_cmd(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="JSON output path (default: <data_root>/schedule/schedule.json)."),
+    ] = None,
+) -> None:
+    """Publish each pending public docket's next conference for the site timeline.
+
+    Writes ``data/schedule/schedule.json`` — one row per docket with a committed
+    directory under ``data/cases`` whose corpus row is undecided and distributed
+    for a conference, enumerated from the committed tree alone. A conference
+    before today's UTC date is published as null with the reason, never as an
+    upcoming date. The live poll writes the same file after every cycle; this
+    command rebuilds it from a pulled corpus. Leaves a committed file alone when
+    no corpus is present.
+    """
+    settings = get_settings()
+    destination = out if out is not None else schedule.schedule_path(settings.data_root)
+    _write_schedule(settings.data_root, corpus.corpus_db_path(settings.corpus_root), destination)
+
+
+def _write_schedule(data_root: Path, db_path: Path, destination: Path) -> None:
+    """Build the schedule against today's UTC date and write it, unless skipped."""
+    built = schedule.build_schedule(
+        data_root=data_root, corpus_db_path=db_path, as_of=datetime.now(UTC).date()
+    )
+    if built.skipped:
+        typer.echo(f"schedule: skipped (no corpus at {db_path}); {destination} left as is")
+        return
+    write_json(destination, built)
+    upcoming = sum(1 for entry in built.entries if entry.next_conference is not None)
+    typer.echo(
+        f"schedule: {len(built.entries)} distributed public docket(s), {upcoming} with an "
+        f"upcoming conference, as of {built.as_of} -> {destination}"
     )
 
 
@@ -15813,6 +15852,13 @@ def live_poll(
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
     unrecorded_out.write_text(json.dumps(queues.unrecorded) + "\n")
+    # The schedule rides the cycle that moved its dates, into the same data
+    # commit. Display data, so a failure here costs the site one cycle's dates
+    # and never the poll's facts or queues.
+    try:
+        _write_schedule(settings.data_root, db, schedule.schedule_path(settings.data_root))
+    except Exception as exc:  # any failure degrades to a warning
+        typer.echo(f"schedule: warning: not written ({type(exc).__name__}: {exc})", err=True)
     discovery_failed = f" ({len(discovery.failed)} stream error(s))" if discovery.failed else ""
     typer.echo(
         f"Live cycle (OT{probe_term:02d}): onboarded {len(discovery.onboarded)} new petition(s)"
