@@ -137,9 +137,10 @@ jobs:
           # once either took. GraphQL rather than `gh pr merge --auto`: on a PR
           # whose required checks are queued but not yet reported, `gh` reads
           # it as mergeable and calls `mergePullRequest` instead of arming, and
-          # the ruleset refuses that merge. The mutation arms whatever `gh`
-          # thinks, and answers an error only for a PR GitHub calls clean (or
-          # one that conflicts), which the direct merge then tries.
+          # the ruleset refuses that merge. The mutation arms regardless of
+          # `gh`'s mergeability read, and answers an error only for a PR GitHub
+          # calls clean (or one that conflicts), which the direct merge then
+          # tries.
           arm_or_merge() {
             local info id state armed
             info=$(gh pr view "$1" --repo "$REPO" --json id,state,autoMergeRequest \
@@ -203,7 +204,13 @@ jobs:
             # gate is red or auto-merge never armed, and staging is drifting. Silent
             # success here would hide that until `promote` complained. Re-arm on the
             # way past, since an unarmed PR is the likeliest cause.
+            outcome=""
             arm_or_merge "$existing" || true
+            if [ "$outcome" = merged ]; then
+              echo "sync PR #${existing} merged directly (merge commit)."
+              echo "Sync PR [#${existing}](https://github.com/${REPO}/pull/${existing}) merged directly (merge commit)." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
             echo "::warning::sync PR #${existing} is still open (staging is ${behind} commit(s) behind main); its gate may be red or the merge may conflict"
             {
               echo "### Sync PR already open"
@@ -230,8 +237,8 @@ jobs:
             '' \
             '**Merge with a merge commit, never a squash** — the promotion gate asserts that' \
             'main is an ancestor of staging, and a squash would rewrite the merged history' \
-            'and break that. Auto-merge is armed to do exactly that once `gate` and `paths`' \
-            'pass; if it never fires, this merge conflicts and needs resolving here.')
+            'and break that. This workflow arms auto-merge (or merges directly once `gate`' \
+            'and `paths` pass); if this PR stays open, the merge conflicts and needs resolving here.')
 
           # `gh pr create` prints the PR URL and has no --json, so the number
           # comes from a follow-up list rather than from parsing that output.
