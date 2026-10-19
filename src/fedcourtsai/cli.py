@@ -100,6 +100,7 @@ from .backtest import (
     select_backtest_set,
 )
 from .buttondown import API_KEY_ENV, ButtondownError, make_client, post_draft
+from .cell_access import AccessHit, AccessKind, audit_cell_access
 from .cert_backtest import (
     CERT_BACKTEST_SCOPES,
     ReplayOutcome,
@@ -8786,8 +8787,9 @@ def _tidy_cell_self_reports(event_paths: EventPaths, where: CellCoordinates, eve
     """Settle, normalise and annotate a cell's own reports before it is stamped.
 
     The judge-level pair is settled first, so a report moved up from a
-    candidate directory is normalised where it now sits; its notes land after
-    the flags are normalised, so they append to a file that parses.
+    candidate directory is normalised where it now sits; its notes, and a
+    predict cell's lane audit, land after the flags are normalised, so they
+    append to a file that parses.
     """
     settled: list[JudgeFileSettlement] = []
     if where.role == UsageRole.evaluator:
@@ -8797,6 +8799,8 @@ def _tidy_cell_self_reports(event_paths: EventPaths, where: CellCoordinates, eve
     _normalise_cell_flags(event_paths, where)
     _normalise_cell_tooling(event_paths, where)
     _flag_judge_level_outputs(event_paths, where, event_id, settled)
+    if where.role == UsageRole.predictor:
+        _flag_cell_access(event_paths, where, event_id)
 
 
 _JUDGE_PAIR_PREFIX = "Harness check: the judge-level"
@@ -8875,13 +8879,29 @@ def _flag_judge_level_outputs(
                 source=FlagSource.harness,
             )
         )
+    _append_harness_notes(
+        event_paths.evaluation_flags(where.actor_id, where.run_id),
+        where,
+        notes,
+        what="judge-level file notes",
+    )
+
+
+def _append_harness_notes(
+    flags_path: Path, where: CellCoordinates, notes: list[AgentFlag], *, what: str
+) -> None:
+    """Append harness notes to a cell's ``flags.json``, creating it if absent.
+
+    Skipped, with a log line, where the file does not parse: the cell's own
+    flags are left as written. A note already present word for word is not
+    added again, so a re-stamp does not grow the list.
+    """
     if not notes:
         return
-    flags_path = event_paths.evaluation_flags(where.actor_id, where.run_id)
     flags = AgentFlags(
         case_id=where.case_id,
         run_id=where.run_id,
-        role=UsageRole.evaluator,
+        role=where.role,
         actor_id=where.actor_id,
         flags=notes,
     )
@@ -8890,8 +8910,8 @@ def _flag_judge_level_outputs(
             existing = AgentFlags.model_validate_json(flags_path.read_text())
         except (OSError, ValueError):
             typer.echo(
-                f"::warning::stamp: {flags_path} does not parse, so the judge-level file "
-                + "notes survive only in this log; the cell's flags are left as written.",
+                f"::warning::stamp: {flags_path} does not parse, so the {what} "
+                + "survive only in this log; the cell's flags are left as written.",
                 err=True,
             )
             return
@@ -8901,6 +8921,89 @@ def _flag_judge_level_outputs(
             return
         flags = existing.model_copy(update={"flags": [*existing.flags, *fresh]})
     write_json(flags_path, flags)
+
+
+_CELL_ACCESS_PREFIX = "Harness check: this cell's logged tool calls"
+# How many of a kind's paths a note quotes, and how much of each.
+_CELL_ACCESS_EXAMPLES = 3
+_CELL_ACCESS_PATH_CHARS = 120
+
+_CELL_ACCESS_WHAT: dict[AccessKind, str] = {
+    AccessKind.oracle: "named data/qp-topics/, the removed cert-outcome oracle the prompt "
+    + "forbids reading",
+    AccessKind.cell_record: "named a committed predictions/ or evaluations/ path other than "
+    + "this cell's own run directory (another predictor's output, an earlier run, or a "
+    + "glob over them)",
+    AccessKind.write: "wrote under data/ or a case record/ outside this cell's own run "
+    + "directory",
+}
+
+
+def _cell_access_note(kind: AccessKind, hits: list[AccessHit], event_id: str) -> AgentFlag:
+    # Quoted before the cut, so an escape-heavy path cannot outgrow its share
+    # of the message; the whole is clamped to the schema's cap besides.
+    paths = list(dict.fromkeys(ascii(hit.path)[:_CELL_ACCESS_PATH_CHARS] for hit in hits))
+    shown = ", ".join(paths[:_CELL_ACCESS_EXAMPLES])
+    more = (
+        f" and {len(paths) - _CELL_ACCESS_EXAMPLES} more"
+        if len(paths) > _CELL_ACCESS_EXAMPLES
+        else ""
+    )
+    return AgentFlag(
+        category=FlagCategory.other,
+        severity=FlagSeverity.warning,
+        message=(
+            f"{_CELL_ACCESS_PREFIX} {_CELL_ACCESS_WHAT[kind]}: {len(hits)} call(s), "
+            + f"e.g. {shown}{more}. Read from retrieval_log.json, which records that a "
+            + "call named the path, not what it returned; check the transcript before "
+            + "treating it as a read."
+        )[:_FLAG_MESSAGE_LIMIT],
+        event_id=event_id,
+        source=FlagSource.harness,
+    )
+
+
+def _flag_cell_access(event_paths: EventPaths, where: CellCoordinates, event_id: str) -> None:
+    """Note in a predict cell's ``flags.json`` each logged call that left its lane.
+
+    The audit is :func:`fedcourtsai.cell_access.audit_cell_access`, over the
+    ``retrieval_log.json`` the capture step wrote from the engine's own
+    transcript: a call naming the removed oracle, another cell's committed
+    output, or a write outside the cell's run directory. A ``warning``, one per
+    kind, because the log shows a call named a path rather than what it read —
+    a maintainer reads the transcript to tell a read from a mention. A cell
+    with no log, or one that does not parse, is left alone: capture reports its
+    own failures.
+    """
+    log_path = event_paths.prediction_retrieval_log(where.actor_id, where.run_id)
+    try:
+        log = RetrievalLog.model_validate_json(log_path.read_text())
+    except (OSError, ValueError):
+        return
+    hits = audit_cell_access(
+        log.calls,
+        case_id=where.case_id,
+        event_id=event_id,
+        actor_id=where.actor_id,
+        run_id=where.run_id,
+    )
+    notes: list[AgentFlag] = []
+    for kind in AccessKind:
+        of_kind = [hit for hit in hits if hit.kind is kind]
+        if not of_kind:
+            continue
+        typer.echo(
+            f"::warning::stamp: {where.actor_id} {_one_line(where.case_id)}: {len(of_kind)} "
+            + f"logged call(s) of kind {kind.value} left the cell's lane.",
+            err=True,
+        )
+        notes.append(_cell_access_note(kind, of_kind, event_id))
+    _append_harness_notes(
+        event_paths.prediction_flags(where.actor_id, where.run_id),
+        where,
+        notes,
+        what="cell-access notes",
+    )
 
 
 def _warn_on_missing_stakes_read(record: Prediction, actor: str) -> None:

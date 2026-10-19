@@ -115,7 +115,7 @@ from .usage import (
 # redaction window below rather than to this cut. So coverage of what was
 # called never depended on this width, and the narrow cut costs only how much
 # of the surrounding program a reader sees.
-_QUERY_CAP = 500
+QUERY_CAP = 500
 # How much of a params payload is redacted before that slice is cut. A tool
 # call's arguments are unbounded — a file write carries its whole body — and
 # scanning all of it per call is work an agent chooses the size of, so the
@@ -238,7 +238,7 @@ def _query_slice(params: Any) -> str | None:
     candidate = _query_candidate(params)
     if not candidate:
         return None
-    return redact_credentials(candidate[:_REDACT_WINDOW])[:_QUERY_CAP]
+    return redact_credentials(candidate[:_REDACT_WINDOW])[:QUERY_CAP]
 
 
 def _query_candidate(params: Any) -> str | None:
