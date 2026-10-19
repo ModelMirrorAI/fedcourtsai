@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000204",
+  "gaps": [
+    "Web calls returned no usable source content.",
+    "The committed statpack did not expose corpus newest-pull and newest-snapshot timestamps."
+  ],
+  "helpful": [
+    "The opposition and reply exposed the genuine limiting-principle dispute and the expressly abandoned Commerce Clause theory.",
+    "The merits table supplied excluded counts and grant-Term parsed coverage.",
+    "CourtListener opinion snippets verified the two decisive historical analogies without retrieving the target case."
+  ],
+  "notes": "The default uv cache was read-only; a temporary writable cache resolved the CLI issue. No live corpus query was needed. The petition is marked truncated, but its principal merits argument was available. No merits briefs were expected at this grant moment.",
+  "role": "predictor",
+  "run_id": "20261019T170308Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Provisioned snapshot and cert-stage documents",
+    "Committed merits statpack",
+    "CourtListener MCP search and search_document",
+    "web.run (attempted; no usable response)",
+    "fedcourts paths",
+    "Local Python baseline arithmetic and validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

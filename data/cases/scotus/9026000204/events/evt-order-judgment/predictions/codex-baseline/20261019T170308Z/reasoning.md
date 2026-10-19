@@ -1,0 +1,35 @@
+# Rationale for the prediction
+
+## Information set
+
+This is the **forward, merits, grant-moment** cell for *Department of Justice v. McNutt*. I read the provisioned `2026-10-19.json` snapshot, `context.json`, and `event.yaml`. The event opened on October 19, 2026; the date cutoff is October 20, 2026. The snapshot shows the grant and no merits disposition. The supplied `federal` salience band and two conference distributions concern certiorari, not the judgment, and do not anchor this forecast.
+
+I read the questions presented, the petition's legal background and substantive argument (especially pp. 14–20), the opposition's factual account and constitutional argument (especially pp. 10–13), and the cert reply's explanation of the abandoned Commerce Clause theory (pp. 2–4). `documents.json` reports a truncated petition, with extractable text, and untruncated opposition and reply. I did not assume that the entire petition appendix was available or read. No merits briefs or argument transcript were provisioned or consulted; their absence is expected at this moment, not a provisioning failure.
+
+The opinion snippets retrieved were historical precedents only. I did not seek this case's disposition, subsequent history, other predictions, or a contemporary account of its outcome. I do not know its merits outcome. Web calls returned no usable source content, so they furnished no evidence; the two key historical propositions were instead verified through CourtListener. The earlier broad citation search returned an unrelated tax case, which I did not use.
+
+## Quantitative anchor
+
+The grant date puts this case in **grant Term 2026**, so the permitted ten-Term baseline window is **2016–2025**. I used only `metrics/statpack.md`'s merits section and the corresponding `merits.terms` counts in `metrics/statpack.json`, not the cert-band tables. The section publishes numeric excluded counts, making this an admissible merits anchor.
+
+Executed summation of the available rows in that window gives **377 disturbed / 540 parsed = 0.698148**. Those rows cover Terms 2017–2025; there is no rendered 2016 row, and I did not impute one. Parsed coverage is **540 / 590 granted = 91.5%** across the selected rows. The **66 excluded** cert-order judgments are outside those 590, not a subset of them. The pool exceeds the 30-judgment floor. Term 2025 is especially immature: **24 / 51** grants have parsed judgments, so the baseline is partly conditioned on faster-resolving cases. These figures describe the committed pack, not a freshly queried corpus.
+
+Pack provenance: the last commit touching the markdown pack is `ac757d745`, dated **2026-10-19T05:54:06Z**. That is a file-commit timestamp, not a corpus pull stamp. Neither inspected statpack artifact supplies the corpus-wide newest-pull/newest-snapshot vintage, and I did not access the live blob. The case-specific evidence is the provisioned October 19 snapshot; no independent case `last_pulled` was available in that record.
+
+## Why 0.82 rather than 0.70
+
+The government's position has a particularly direct link between an undisputed tax and its enforcement machinery. In the petition, pp. 16–19, the claimed purpose is to make production observable and taxable, not to eliminate spirits production as a social harm. Its surrounding-statutory-context argument ties inspection and premises approval expressly to revenue protection. That distinguishes this case from an assertion of free-standing federal police power. This is my assessment of the parties' competing accounts, not an independently established finding about legislative motive.
+
+Two checked precedents strengthen the upward adjustment. *Dewitt*, 76 U.S. at 44 (CourtListener opinion 88133), distinguishes a ban on an untaxed product from regulations of the taxed articles themselves, specifically discussing distilling. That distinction undercuts the opposition's reliance on the decision as a categorical obstacle. *Felsenheld*, 186 U.S. at 132–33 (CourtListener opinion 95673), allows reasonable categorical rules for handling taxable goods without constitutionally mandatory trivial-impact exceptions. Neither resolves the present residential-location question, but both make the petition's interpretation more persuasive than the Fifth Circuit's revenue-reduction theory. The petition's discussion of *McCulloch* and *Comstock*, pp. 14–15 and 19, supplies the broader necessary-and-proper framework; I did not independently retrieve those opinions.
+
+The strongest contrary argument is substantive, not procedural. The opposition, pp. 10–12, contends that willing home distillers could register and pay the tax, that the location ban excludes them instead, and that the government's theory lacks a limit protecting ordinary home activity. Its historical account also contests whether the legislative record really supports singling out homes. A majority concerned about enumerated-power boundaries could distinguish packaging regulation from suppressing production at a residence. Those arguments keep my probability well below certainty. I do not treat the government petitioner's identity or the grant itself as independent proof of likely reversal.
+
+My internally consistent allocation is: **reversed 0.72; vacated 0.08; affirmed-in-part-reversed-in-part 0.02; affirmed 0.15; DIG 0.025; equally divided affirmance 0.005**. The first three sum to the scored **0.82**. Reversal is preferable to vacatur as the modal label because the core dispute is the legal validity of a federal statute, rather than a missing factfinding step. Ordinary remand accompanying a reversal does not change that label.
+
+## Votes, breadth, and stakes
+
+The 7–2 lineup is a lower-confidence judgment than the binary prediction. I expect a coalition accepting historically grounded tax-administration authority, with Thomas and Gorsuch most receptive to the respondents' enumerated-powers objection. These are forecasts, not reported positions in this litigation. Alito or Barrett joining the objection, or one of the forecast dissenters accepting a carefully bounded holding, would not surprise me. I assume participation by the nine named Justices; the supplied docket records no recusal.
+
+A narrow rationale is more likely than a general expansion of federal regulatory power because it allows the majority to rely on the particular tax, commodity, history, and inspection problem. The government's explicit abandonment of the Commerce Clause theory in the cert reply further favors a bounded taxing-power decision. The two semantic propositions separately commit to that doctrinal basis and that limited breadth.
+
+The **0.64** significance assessment reflects the constitutional reach of the question and the criminal restrictions challenged, while discounting the possibility that the opinion will remain a specialized revenue-administration decision. This is a subjective stakes forecast from the supplied question and briefs, not a measure of grant likelihood or observed news coverage.

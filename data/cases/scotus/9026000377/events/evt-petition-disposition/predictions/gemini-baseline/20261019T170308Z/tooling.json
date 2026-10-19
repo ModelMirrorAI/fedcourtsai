@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000377",
+  "run_id": "20261019T170308Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["mcp_courtlistener_search", "run_shell_command"],
+  "helpful": ["metrics/statpack.md", "mcp_courtlistener_search"],
+  "gaps": ["Free text search in `fedcourts query` (it only supports metadata filters)"],
+  "notes": "The MCP CourtListener search was helpful to supplement the lack of free text search in `fedcourts query`."
+}
