@@ -430,6 +430,12 @@ jobs:
     # response-signal backfill and the OCR recovery) answer empty without it.
     env:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+      # The one switch that lets this job write the remote corpus estate at
+      # all, the content-store mirror and `corpus-push` (`remote_writes` in
+      # fedcourtsai/config.py). Set by the corpus writer jobs alone, on their
+      # own `env:`; any other job's corpus writes stay local whatever
+      # credential it holds (tests/test_workflow_corpus_write.py).
+      FEDCOURTS_REMOTE_WRITES: "true"
     # The ambient GITHUB_TOKEN reads only: the checkout uses it, which is what
     # `contents: read` is for. Every WRITE — the corpus push and every gh call —
     # runs on the App token instead, so the ambient one carries no write at all.
@@ -2705,6 +2711,9 @@ jobs:
     # Setup, the corpus pull, the land step's 30 minutes and the commit.
     timeout-minutes: 50
     environment: corpus-write
+    env:
+      # Lets this job write the remote corpus estate (see the `repair` job).
+      FEDCOURTS_REMOTE_WRITES: "true"
     permissions:
       contents: read
       id-token: write # the read-write role for the fresh pull, the ingest and the push
@@ -2919,6 +2928,9 @@ jobs:
     # The pass step's 25-minute cap plus setup, the corpus pull and the commit.
     timeout-minutes: 45
     environment: corpus-write
+    env:
+      # Lets this job write the remote corpus estate (see the `repair` job).
+      FEDCOURTS_REMOTE_WRITES: "true"
     permissions:
       contents: read
       id-token: write # the read-only role for the pull and the read; on an apply, the read-write role for the write
@@ -3099,6 +3111,9 @@ jobs:
     # (a local insert plus the blob push) and the commit.
     timeout-minutes: 50
     environment: corpus-write
+    env:
+      # Lets this job write the remote corpus estate (see the `repair` job).
+      FEDCOURTS_REMOTE_WRITES: "true"
     permissions:
       contents: read
       id-token: write # the read-write role for the fresh pull and the push

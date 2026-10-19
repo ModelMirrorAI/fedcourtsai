@@ -130,6 +130,17 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("FEDCOURTS_CORPUS_SERVICE_URL"),
     )
+    # Whether this job may write the remote corpus estate at all: the
+    # content-store mirror and `corpus-push`. Set only by the corpus writer
+    # jobs (run-pull, run-seed, run-repair), in the workflow files where their
+    # permissions are reviewed, and a workflow test holds that no other job
+    # sets it. Unset, an Actions job's corpus writes stay local whatever
+    # credential it holds; outside Actions nothing writes the remote anyway
+    # (`casestore.in_actions_job`).
+    remote_writes: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("FEDCOURTS_REMOTE_WRITES"),
+    )
     # The corpus-split mode stated explicitly, overriding the inference in
     # `corpus_split` below. For a dev shell or a test that pins the mode
     # outright — no job wires it, and a workflow test refuses one that does;
@@ -145,6 +156,7 @@ class Settings(BaseSettings):
         "casestore_url",
         "corpus_pointer",
         "corpus_split_flag",
+        "remote_writes",
         mode="before",
     )
     @classmethod

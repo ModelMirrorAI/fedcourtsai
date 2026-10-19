@@ -248,6 +248,13 @@ def ambient_store(monkeypatch: pytest.MonkeyPatch) -> casestore.InMemoryObjectTr
     return store
 
 
+def _as_writer_job(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The context a corpus writer job runs in: the runner's own marker, and the
+    remote-writes switch its workflow sets."""
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("FEDCOURTS_REMOTE_WRITES", "true")
+
+
 def _row(case_id: str = "scotus/9026000001") -> corpus.CorpusRow:
     return corpus.CorpusRow(case_id=case_id, court="scotus", docket_number="26-1")
 
@@ -274,7 +281,7 @@ def test_a_writer_job_write_to_the_configured_corpus_mirrors(
 ) -> None:
     """The writer-job path, unchanged: inside an Actions job, the configured
     corpus file's writes mirror every object they did before."""
-    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    _as_writer_job(monkeypatch)
     db = _configure_corpus_root(monkeypatch, tmp_path / "corpus")
     with corpus.connect(db) as conn:
         corpus.upsert_rows(conn, [_row()])
@@ -295,7 +302,7 @@ def test_a_writer_job_mirrors_through_a_relative_corpus_root(
 ) -> None:
     """The workflows name the corpus root relative to the checkout; the file
     SQLite reports is absolute. Both spellings are the same corpus."""
-    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    _as_writer_job(monkeypatch)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", "corpus")
     with corpus.connect(corpus.corpus_db_path(Path("corpus"))) as conn:
@@ -309,7 +316,7 @@ def test_a_temporary_database_never_mirrors_even_in_a_writer_job(
     ambient_store: casestore.InMemoryObjectTransport,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    _as_writer_job(monkeypatch)
     _configure_corpus_root(monkeypatch, tmp_path / "corpus")
     scratch = tmp_path / "scratch" / "seeded.db"
     with caplog.at_level(logging.WARNING, logger="fedcourtsai.casestore"):
@@ -365,7 +372,7 @@ def test_record_outcomes_attempts_a_store_write_only_in_a_writer_job(
     attempted: list[str] = []
     monkeypatch.setattr(ambient_store, "put", lambda key, body, **_: attempted.append(key))
     if in_actions:
-        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        _as_writer_job(monkeypatch)
     db = _configure_corpus_root(monkeypatch, tmp_path / "corpus")
     _open_event(tmp_path)
     resolution = detect_resolution(
@@ -382,7 +389,7 @@ def test_the_pointer_override_still_withholds_in_a_writer_job(
     monkeypatch: pytest.MonkeyPatch,
     ambient_store: casestore.InMemoryObjectTransport,
 ) -> None:
-    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    _as_writer_job(monkeypatch)
     monkeypatch.setitem(casestore._MIRROR_WITHHELD, "warned", False)
     monkeypatch.setattr(
         casestore, "_mirror_blocked", lambda: True
@@ -437,7 +444,7 @@ def test_a_corpus_writing_command_mirrors_only_as_a_writer_job_on_the_corpus(
     """End to end through the CLI: a command that writes the corpus through the
     write seams (the fixture builder, the one corpus writer that runs offline)."""
     if in_actions:
-        monkeypatch.setenv("GITHUB_ACTIONS", "true")
+        _as_writer_job(monkeypatch)
     _configure_corpus_root(monkeypatch, tmp_path / "corpus")
     argv = ["make-fixture-corpus"]
     if out is not None:
@@ -459,7 +466,7 @@ def test_a_withheld_write_in_a_split_writer_job_is_an_error_every_time(
 ) -> None:
     """Under the split the blob keeps no payloads, so a writer-job write to any
     other database stores them nowhere: said at error level, on every write."""
-    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    _as_writer_job(monkeypatch)
     monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "true")
     _configure_corpus_root(monkeypatch, tmp_path / "corpus")
     with (
@@ -490,3 +497,60 @@ def test_production_code_never_injects_a_live_transport() -> None:
         if match.group(1).strip() not in {"", "None", "transport"}
     ]
     assert injected == []
+
+
+def test_a_non_writer_job_attempts_no_content_store_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    ambient_store: casestore.InMemoryObjectTransport,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A predict, evaluate or analytics job is an Actions job too, and its
+    workflow does not set the switch: even on the configured corpus file, with
+    a store the environment names, it attempts no write. Every ``put`` is
+    recorded rather than refused, for the reason the outcome-sweep test gives."""
+    attempted: list[str] = []
+    monkeypatch.setattr(ambient_store, "put", lambda key, body, **_: attempted.append(key))
+    monkeypatch.setitem(casestore._MIRROR_WITHHELD, "not_enabled", False)
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    db = _configure_corpus_root(monkeypatch, tmp_path / "corpus")
+    with (
+        caplog.at_level(logging.WARNING, logger="fedcourtsai.casestore"),
+        corpus.connect(db) as conn,
+    ):
+        corpus.upsert_rows(conn, [_row()])
+        corpus.upsert_events(conn, [_event()])
+    assert attempted == []
+    assert sum("does not enable remote writes" in r.message for r in caplog.records) == 1
+
+
+def test_a_non_writer_job_under_the_split_says_every_withheld_write_loudly(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    ambient_store: casestore.InMemoryObjectTransport,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "true")
+    db = _configure_corpus_root(monkeypatch, tmp_path / "corpus")
+    with (
+        caplog.at_level(logging.WARNING, logger="fedcourtsai.casestore"),
+        corpus.connect(db) as conn,
+    ):
+        corpus.upsert_rows(conn, [_row()])
+        corpus.upsert_events(conn, [_event()])
+    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert len(errors) == 2
+    assert all("does not enable remote writes" in r.getMessage() for r in errors)
+    assert ambient_store.puts == 0
+
+
+def test_corpus_push_refuses_an_actions_job_without_the_switch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The publish half of the same rule, refused before anything is read."""
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    _configure_corpus_root(monkeypatch, tmp_path / "corpus")
+    result = runner.invoke(app, ["corpus-push"])
+    assert result.exit_code == 1
+    assert "does not enable remote writes" in result.output

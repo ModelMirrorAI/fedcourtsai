@@ -364,7 +364,12 @@ def transport_override(transport: ObjectTransport | None) -> Iterator[None]:
 
 # Mutable one-slot state so each withheld-mirror warning fires once per
 # process rather than once per mirrored object.
-_MIRROR_WITHHELD = {"warned": False, "outside_actions": False, "not_corpus": False}
+_MIRROR_WITHHELD = {
+    "warned": False,
+    "outside_actions": False,
+    "not_enabled": False,
+    "not_corpus": False,
+}
 
 # The variable the GitHub Actions runner sets to ``true`` in every job step.
 _ACTIONS_MARKER = "GITHUB_ACTIONS"
@@ -423,7 +428,13 @@ def _mirror_transport() -> ObjectTransport | None:
        a GitHub Actions job (:func:`in_actions_job`). A dev checkout, a
        codespace or a bare script whose environment names the store reads
        from it freely but never writes to it, whatever credential it holds,
-       so a local run of writer code stays local. Warned once per process.
+       so a local run of writer code stays local. Warned once per process;
+    4. inside a job, an ambient transport writes only where the job's workflow
+       enabled remote writes (``remote_writes``), which only the corpus writer
+       jobs do. A predict, evaluate or analytics job that held a writable
+       credential by mistake still attempts no write. Said at error level
+       under the corpus split, where a withheld payload is stored nowhere, and
+       warned once per process otherwise.
 
     An injected transport (:func:`set_active_transport`) skips gate 3: the code
     chose that store itself, which is what tests and explicit wiring do.
@@ -439,6 +450,20 @@ def _mirror_transport() -> ObjectTransport | None:
             "casestore: mirrors withheld — remote content-store writes run only "
             "inside a GitHub Actions job; this run's corpus writes stay local",
         )
+        return None
+    if _transport_is_ambient() and not get_settings().remote_writes:
+        if get_settings().corpus_split:
+            logger.error(
+                "casestore: mirror withheld — this job's workflow does not enable "
+                "remote writes, so under the corpus split this write's payload is "
+                "stored nowhere"
+            )
+        else:
+            _warn_withheld_once(
+                "not_enabled",
+                "casestore: mirrors withheld — this job's workflow does not enable "
+                "remote writes; its corpus writes stay local",
+            )
         return None
     return transport
 

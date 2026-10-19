@@ -200,6 +200,12 @@ jobs:
     # dispatches a predict round on the new state.
     env:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+      # The one switch that lets this job write the remote corpus estate at
+      # all, the content-store mirror and `corpus-push` (`remote_writes` in
+      # fedcourtsai/config.py). Set by the corpus writer jobs alone, on their
+      # own `env:`; any other job's corpus writes stay local whatever
+      # credential it holds (tests/test_workflow_corpus_write.py).
+      FEDCOURTS_REMOTE_WRITES: "true"
     permissions:
       contents: write
       issues: write # the failure run-log issue (non-triggering, ambient)
@@ -542,6 +548,8 @@ jobs:
     # halves derive from it, and the store's address is the corpus-split mode.
     env:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+      # Lets this job write the remote corpus estate (see the `pull` job).
+      FEDCOURTS_REMOTE_WRITES: "true"
     # The ambient GITHUB_TOKEN carries exactly the non-triggering issue write
     # (the failure run-log issue — the doctrine in docs/security.md: issue
     # writes that must trigger nothing stay off the App token). Checkout and the
@@ -882,6 +890,8 @@ jobs:
     # halves derive from it, and the store's address is the corpus-split mode.
     env:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+      # Lets this job write the remote corpus estate (see the `pull` job).
+      FEDCOURTS_REMOTE_WRITES: "true"
     permissions:
       # The pointer commit rides the App token persisted at checkout, so the
       # ambient GITHUB_TOKEN needs no write at all.

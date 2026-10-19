@@ -230,28 +230,37 @@ live in different stores, split by **kind**:
    act; mirroring is best-effort — a store failure logs, never breaking the
    SQLite write.
 
-   **Only an Actions job's writes to the corpus file reach the store.** An
-   addressed store is the read seam everywhere, but a mirror *write* passes two
-   more gates (`casestore.mirrors_connection`): the process runs inside a GitHub
-   Actions job — the runner sets that marker in every job, so no workflow
+   **Only a writer job's writes to the corpus file reach the store.** An
+   addressed store is the read seam everywhere, but a mirror *write* passes
+   three more gates (`casestore.mirrors_connection`): the process runs inside a
+   GitHub Actions job — the runner sets that marker in every job, so no workflow
    declares it and no dev shell, codespace or bare script carries it unless
-   exported by hand — and the written database is the configured corpus file
-   under the corpus root. Anywhere else writer code runs, its corpus writes stay
+   exported by hand — the job's workflow enabled remote writes, and the written
+   database is the configured corpus file under the corpus root. The switch
+   (`FEDCOURTS_REMOTE_WRITES`, `Settings.remote_writes`) is the control: the
+   corpus writer jobs of run-pull, run-seed and run-repair set it on their own
+   `env:`, and a workflow test holds that exactly the jobs assuming the
+   read-write role set it and nothing else names it. A predict, evaluate or
+   analytics job that ran a corpus write attempts no remote write even with a
+   writable credential, and `corpus-push` refuses to run in an Actions job
+   without the switch, so a writer job that lost it fails rather than
+   publishing a blob whose payloads were withheld. Under the split, each write
+   withheld for want of the switch logs an error, since its payload is then
+   stored nowhere. Anywhere else writer code runs, its corpus writes stay
    local, whatever credential the environment holds: a local dry run of a writer
    pass, or a script seeding a temporary database through the write helpers,
-   attempts no remote write and logs once that it withheld. The marker is a
-   guard against accidents, not a control: anyone can set it, so outside Actions
-   the read-only role remains what refuses a write, and the marker only keeps a
+   attempts no remote write and logs once that it withheld. The runner marker
+   is the fallback, not the control: anyone can set it, so outside Actions the
+   read-only role remains what refuses a write, and the marker only keeps a
    local run from attempting one. Inside a job with the split on, a write
    withheld because its database is not the corpus file logs an error each time,
-   since the blob keeps no payloads and they are then stored nowhere. Inside
-   Actions the credentials narrow writes to the writer jobs: a read-only job
-   that ran a corpus write would attempt the mirror and be refused by its role,
-   the refusal logged and swallowed like any mirror failure. The out-of-band
-   pointer override withholds mirrors too. A transport injected in code
+   since the blob keeps no payloads and they are then stored nowhere. Behind
+   the switch, the credentials still narrow writes to the writer jobs: only
+   they can assume the read-write role. The out-of-band pointer override
+   withholds mirrors too. A transport injected in code
    (`casestore.set_active_transport`, as the tests do) is the code's own choice
-   of store and skips both of those gates (the pointer override still withholds
-   it).
+   of store and skips the marker and switch gates (the pointer override still
+   withholds it).
 
    **The mode is never wired beside the address.** `Settings` still accepts an
    explicit `FEDCOURTS_CORPUS_SPLIT`, which decides in both directions, and a
@@ -975,7 +984,7 @@ locally — a dry run included, since it opens the file through the writer seam
 (the read-only commands never rewrite it); a re-pull, or a ranged read, serves the published
 bytes again. Such a local writer run stays local: outside an Actions job its
 writes never mirror to the content store, whatever credential the shell holds
-(*Only an Actions job's writes to the corpus file reach the store*, above).
+(*Only a writer job's writes to the corpus file reach the store*, above).
 
 Credentials arrive as **user-scoped** Codespaces secrets — never repo-level,
 never committed: the **maintainer** via IAM Identity Center (short-lived SSO
