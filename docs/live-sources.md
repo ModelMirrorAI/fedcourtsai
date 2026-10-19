@@ -254,6 +254,9 @@ run-seed's daily window. Neither column reaches a cell: both are withheld from t
 
 ## Documents: from metadata to content
 
+[document-provisioning.md](document-provisioning.md) maps this section: the
+steps in order, the kinds a cell can be given, and how coverage is measured.
+
 The document PDFs linked from each docket are the step-change in input quality
 — the questions presented and the petition/BIO are the signals cert prediction
 actually turns on. Two rules govern their use:

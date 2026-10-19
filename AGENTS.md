@@ -520,6 +520,7 @@ task-specific instructions: the prompt file named in your run
 | What may I claim from a number? What do the strata mean? (strata, floors, and reading rules all registered; the committed leaderboard and claim-score boards carry each predictor's pooled record, and the leaderboard's judge-dependent figures carry their per-rubric readings) | `metrics/README.md` |
 | What starts each lane, and how do I operate/recover a run? | `docs/pipeline.md` |
 | How does the corpus get filled, stored, and versioned? | `docs/data-pipeline.md`, `corpus/README.md` |
+| Which filings reach a cell's `record/documents/`, and how is that coverage measured? | `docs/document-provisioning.md` (the map), `docs/live-sources.md` (the rules) |
 | On what terms may we use and republish upstream data? | `docs/data-sources.md` |
 | How does the SCOTUS live channel work? | `docs/live-sources.md` |
 | Which command does X, and with which flags? | `docs/cli.md` |

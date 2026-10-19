@@ -823,7 +823,7 @@ reads each item under a slice deadline. `ocr-sweep` waits for the walk,
 downloads the plan and the worklist by artifact id, refuses a plan naming
 anything off the worklist, writes the rest, pushes the blob, and only then
 mints the App token for the pointer commit. The plan carries filing text, so it
-would cross under a proposed carve-out in [data-sources.md](data-sources.md)
+crosses under the OCR sweep's carve-out in [data-sources.md](data-sources.md)
 (*PII stance*). The run's `corpus-write` lock is held until its last job ends,
 which with this sweep is at worst about 115 minutes: the projection (30) and
 parse (50) beside the walk (55), then the writer (30). A window that fires in
