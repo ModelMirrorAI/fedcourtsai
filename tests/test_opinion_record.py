@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import sqlite3
 from datetime import date
 from pathlib import Path
@@ -22,7 +23,7 @@ from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.handoff import HandoffRefused, read_handoff, write_handoff
 from fedcourtsai.pipeline import opinion_record
-from fedcourtsai.pipeline.lineup import Join, Writing, WritingKind
+from fedcourtsai.pipeline.lineup import Join, Writing, WritingKind, lineup_from_writings
 from fedcourtsai.pipeline.opinion_lineups import OpinionFetcher, OpinionListing
 from fedcourtsai.pipeline.opinion_record import (
     OpinionDocumentReading,
@@ -455,7 +456,7 @@ def test_apply_inserts_fill_only_and_a_rerun_fetches_nothing(_corpus: Path) -> N
     fetcher = _Fetcher([_listing("1", "25-1"), _listing("2", "25-2")])
     with corpus.connect(_corpus) as conn:
         dry = build_opinion_record(conn, fetcher, terms=[2025])
-        assert not dry.applied and dry.rows == 4
+        assert not dry.applied and dry.rows == 4 and dry.benches == 2
         assert conn.execute("SELECT COUNT(*) FROM opinions").fetchone()[0] == 0
         assert [r.case_id for r in dry.readings] == ["scotus/1", None]
 
@@ -465,7 +466,7 @@ def test_apply_inserts_fill_only_and_a_rerun_fetches_nothing(_corpus: Path) -> N
             terms=[2025],
             apply=True,
             max_rows=3,
-            write=lambda pairs: insert_opinions(conn, pairs),
+            write=lambda pairs, benches: insert_opinions(conn, pairs, benches),
         )
         assert refused.refused and not refused.applied
         assert conn.execute("SELECT COUNT(*) FROM opinions").fetchone()[0] == 0
@@ -475,10 +476,10 @@ def test_apply_inserts_fill_only_and_a_rerun_fetches_nothing(_corpus: Path) -> N
             fetcher,
             terms=[2025],
             apply=True,
-            max_rows=4,
-            write=lambda pairs: insert_opinions(conn, pairs),
+            max_rows=6,
+            write=lambda pairs, benches: insert_opinions(conn, pairs, benches),
         )
-        assert done.applied and done.rows == 4
+        assert done.applied and done.rows == 4 and done.benches_inserted == 2
         row = conn.execute(
             "SELECT * FROM opinions WHERE listing_number = '1' AND position = 2"
         ).fetchone()
@@ -494,7 +495,7 @@ def test_apply_inserts_fill_only_and_a_rerun_fetches_nothing(_corpus: Path) -> N
             terms=[2025],
             apply=True,
             max_rows=0,
-            write=lambda pairs: insert_opinions(conn, pairs),
+            write=lambda pairs, benches: insert_opinions(conn, pairs, benches),
         )
         assert again.rows == 0 and again.already_recorded == 2 and fetcher.fetched == []
         assert conn.execute("SELECT COUNT(*) FROM opinions").fetchone()[0] == 4
@@ -541,21 +542,25 @@ def test_no_retrieval_row_carries_the_opinion_record() -> None:
 
 
 def test_only_the_record_s_own_modules_touch_the_table() -> None:
-    """No module but the writer, the schema and the CLI names the ``opinions`` table in SQL.
+    """No module but the writer, the schema and the lineup reader names the record's tables in SQL.
 
-    So no retrieval, provisioning, outcome or scoring path — nothing a predict
-    or evaluate cell is shown — can read it without this test changing.
+    The ``opinions`` and ``opinion_benches`` tables. So no retrieval,
+    provisioning, outcome or scoring path — nothing a predict or evaluate cell
+    is shown — can read them without this test changing.
     """
     root = Path(__file__).resolve().parents[1] / "src" / "fedcourtsai"
-    allowed = {"corpus.py", "pipeline/opinion_record.py"}
+    allowed = {"corpus.py", "pipeline/opinion_record.py", "pipeline/merits_lineups.py"}
+    naming = re.compile(r"\b(?:from|into|table|update|exists) opinion(?:s|_benches)\b")
     touching: set[str] = set()
     for path in root.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                text = " ".join(node.value.split()).lower()
-                if any(f"{verb} opinions" in text for verb in ("from", "into", "table", "update")):
-                    touching.add(str(path.relative_to(root)))
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and naming.search(" ".join(node.value.split()).lower())
+            ):
+                touching.add(str(path.relative_to(root)))
     assert touching <= allowed, touching - allowed
 
 
@@ -626,7 +631,7 @@ def test_the_dry_run_leaves_the_blob_byte_identical(
     assert path.read_bytes() == before
     readings = json.loads(result.stdout)
     assert readings[0]["case_id"] == "scotus/1"
-    assert "would insert 2 opinion row(s)" in result.output
+    assert "2 opinion row(s), 1 bench row(s)" in result.output
 
 
 # --- the credential split: projection, plan, apply ------------------------------------
@@ -639,7 +644,10 @@ def _split_plan(db: Path, fetcher: _Fetcher, tmp_path: Path) -> Path:
         write_handoff(projection_file, opinion_record.opinion_record_projection(ro, terms=[2025]))
     projection = read_handoff(projection_file, opinion_record.OpinionRecordProjection)
     recorded = opinion_record.projected_recorded(projection, terms=[2025])
-    dry = opinion_record.read_opinion_record(fetcher, terms=[2025], recorded=recorded)
+    rebench = opinion_record.projected_rebench(projection)
+    dry = opinion_record.read_opinion_record(
+        fetcher, terms=[2025], recorded=recorded, rebench=rebench
+    )
     plan_file = tmp_path / "handoff" / "plan.json"
     write_handoff(plan_file, opinion_record.opinion_record_plan(dry))
     return plan_file
@@ -654,7 +662,7 @@ def _apply(db: Path, plan_file: Path, *, max_rows: int) -> opinion_record.Opinio
             terms=[2025],
             apply=True,
             max_rows=max_rows,
-            write=lambda pairs: insert_opinions(conn, pairs),
+            write=lambda pairs, benches: insert_opinions(conn, pairs, benches),
         )
 
 
@@ -676,8 +684,8 @@ def test_the_split_inserts_what_the_one_process_apply_inserts(
 
     refused = _apply(_corpus, plan_file, max_rows=3)
     assert refused.refused and _rows(_corpus) == []
-    done = _apply(_corpus, plan_file, max_rows=4)
-    assert done.applied and done.inserted == 4
+    done = _apply(_corpus, plan_file, max_rows=6)
+    assert done.applied and done.inserted == 4 and done.benches_inserted == 2
     # The writer resolved the case id from its own corpus.
     assert {r["case_id"] for r in _rows(_corpus)} == {"scotus/1", None}
 
@@ -693,8 +701,8 @@ def test_the_split_inserts_what_the_one_process_apply_inserts(
             _Fetcher(listing),
             terms=[2025],
             apply=True,
-            max_rows=4,
-            write=lambda pairs: insert_opinions(conn, pairs),
+            max_rows=6,
+            write=lambda pairs, benches: insert_opinions(conn, pairs, benches),
         )
     assert _rows(_corpus) == _rows(one)
 
@@ -707,7 +715,7 @@ def test_the_projection_spares_the_parse_every_recorded_document(
     _corpus: Path, tmp_path: Path
 ) -> None:
     listing = [_listing("1", "25-1"), _listing("2", "25-2")]
-    _apply(_corpus, _split_plan(_corpus, _Fetcher(listing[:1]), tmp_path / "a"), max_rows=2)
+    _apply(_corpus, _split_plan(_corpus, _Fetcher(listing[:1]), tmp_path / "a"), max_rows=3)
     fetcher = _Fetcher(listing)
     plan_file = _split_plan(_corpus, fetcher, tmp_path / "b")
     assert fetcher.fetched == [listing[1].url]
@@ -804,13 +812,243 @@ def test_the_command_runs_the_split_end_to_end(
         ["backfill-opinion-record", "--projection", str(projection), "--plan-out", str(plan)],
     )
     assert planned.exit_code == 0, planned.output
-    assert "would insert 2 opinion row(s)" in planned.output
-    applied = _cli(tmp_path, monkeypatch, "--from-plan", str(plan), "--apply", "--max-rows", "2")
+    assert "would insert 3 row(s) — 2 opinion row(s), 1 bench row(s)" in planned.output
+    applied = _cli(tmp_path, monkeypatch, "--from-plan", str(plan), "--apply", "--max-rows", "3")
     assert applied.exit_code == 0, applied.output
-    assert "inserted 2 of 2" in applied.output
+    assert "inserted 3 of 3" in applied.output
     for args in (
         ("--projection", str(projection), "--apply", "--max-rows", "2"),
         ("--from-plan", str(plan), "--projection", str(projection)),
         ("--emit-corpus-projection", str(projection), "--apply", "--max-rows", "2"),
     ):
         assert _cli(tmp_path, monkeypatch, *args).exit_code == 2, args
+
+
+# --- who sat: the bench row ---------------------------------------------------------
+
+
+def _seated(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
+    """The fixture reading, seated on the full bench with Jackson taking no part."""
+    return _reading(entry, data).model_copy(
+        update={"bench": list(BENCH), "took_no_part": ["Jackson"]}
+    )
+
+
+def _benches(db: Path) -> dict[str, tuple[Any, Any]]:
+    with corpus.connect(db) as conn:
+        return {
+            row["listing_number"]: (
+                None if row["bench"] is None else json.loads(row["bench"]),
+                None if row["took_no_part"] is None else json.loads(row["took_no_part"]),
+            )
+            for row in conn.execute("SELECT * FROM opinion_benches")
+        }
+
+
+def _build(db: Path, fetcher: _Fetcher, *, max_rows: int = 100) -> Any:
+    with corpus.connect(db) as conn:
+        return build_opinion_record(
+            conn,
+            fetcher,
+            terms=[2025],
+            apply=True,
+            max_rows=max_rows,
+            write=lambda pairs, benches: insert_opinions(conn, pairs, benches),
+        )
+
+
+def test_participation_is_read_off_a_complete_lineup() -> None:
+    lineup = lineup_from_writings(
+        court="scotus",
+        grammar="test",
+        grammar_version=1,
+        bench=BENCH,
+        writings=[
+            Writing(
+                WritingKind.opinion_of_the_court,
+                "Kagan",
+                tuple(Join(j) for j in BENCH if j not in {"Kagan", "Jackson"}),
+            )
+        ],
+        took_no_part=["Jackson"],
+        quorum=6,
+    )
+    assert lineup.complete
+    assert opinion_record.participation(lineup) == {
+        "bench": list(BENCH),
+        "took_no_part": ["Jackson"],
+    }
+
+
+def test_a_signed_decision_records_who_sat(_corpus: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(opinion_record, "read_document", _seated)
+    done = _build(_corpus, _Fetcher([_listing("1", "25-1")]), max_rows=3)
+    assert done.applied and (done.inserted, done.benches_inserted) == (2, 1)
+    assert _benches(_corpus) == {"1": (list(BENCH), ["Jackson"])}
+
+
+def test_an_unobserved_bench_is_a_null_row_and_still_completes_the_document(
+    _corpus: Path,
+) -> None:
+    fetcher = _Fetcher([_listing("1", "25-1")])
+    _build(_corpus, fetcher)
+    assert _benches(_corpus) == {"1": (None, None)}
+    fetcher.fetched.clear()
+    again = _build(_corpus, fetcher, max_rows=0)
+    assert again.already_recorded == 1 and fetcher.fetched == []
+
+
+def test_a_recorded_signed_decision_is_read_once_more_for_its_bench(
+    _corpus: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(opinion_record, "read_document", _seated)
+    fetcher = _Fetcher([_listing("1", "25-1")])
+    _build(_corpus, fetcher)
+    before = _rows(_corpus)
+    with corpus.connect(_corpus) as conn:  # a record written before the bench table
+        conn.execute("DELETE FROM opinion_benches")
+        conn.commit()
+    fetcher.fetched.clear()
+    refill = _build(_corpus, fetcher, max_rows=1)
+    assert fetcher.fetched == [_listing("1", "25-1").url]
+    assert (refill.rows, refill.benches, refill.benches_inserted) == (0, 1, 1)
+    assert _rows(_corpus) == before
+    assert _benches(_corpus) == {"1": (list(BENCH), ["Jackson"])}
+    fetcher.fetched.clear()
+    _build(_corpus, fetcher, max_rows=0)
+    assert fetcher.fetched == []
+
+
+def test_a_re_read_that_reads_other_writings_records_no_bench(
+    _corpus: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fetcher = _Fetcher([_listing("1", "25-1")])
+    _build(_corpus, fetcher)
+    with corpus.connect(_corpus) as conn:
+        conn.execute("DELETE FROM opinion_benches")
+        conn.commit()
+
+    def other(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
+        reading = _seated(entry, data)
+        dissent = reading.opinions[1].model_copy(update={"joins": []})
+        return reading.model_copy(update={"opinions": [reading.opinions[0], dissent]})
+
+    monkeypatch.setattr(opinion_record, "read_document", other)
+    result = _build(_corpus, fetcher)
+    assert (result.rows, result.benches) == (0, 1) and len(result.bench_conflicts) == 1
+    # A null row: read, and participation not observed for the stored writings.
+    assert _benches(_corpus) == {"1": (None, None)}
+    fetcher.fetched.clear()
+    _build(_corpus, fetcher, max_rows=0)
+    assert fetcher.fetched == []  # so it is not read again
+
+
+def test_a_per_curiam_takes_no_bench_row_and_is_not_read_again(
+    _corpus: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def per_curiam(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
+        lead = OpinionEntry(
+            position=1,
+            kind=WritingKind.per_curiam,
+            author=None,
+            words=10,
+            footnote_words=0,
+            header="PER CURIAM.",
+        )
+        return opinion_record._base(
+            entry,
+            status="read",
+            source_format="slip",
+            lineup="scotus-opinion-headers/1",
+            opinions=[lead],
+        )
+
+    monkeypatch.setattr(opinion_record, "read_document", per_curiam)
+    fetcher = _Fetcher([_listing("1", "25-1")])
+    first = _build(_corpus, fetcher, max_rows=1)
+    assert (first.inserted, first.benches_inserted) == (1, 0)
+    fetcher.fetched.clear()
+    _build(_corpus, fetcher, max_rows=0)
+    assert fetcher.fetched == [] and _benches(_corpus) == {}
+
+
+def test_the_projection_leaves_a_signed_decision_without_a_bench_row_off(
+    _corpus: Path, tmp_path: Path
+) -> None:
+    _build(_corpus, _Fetcher([_listing("1", "25-1")]))
+    with corpus.connect(_corpus) as conn:
+        assert opinion_record.complete_documents(conn) == {(2025, "1")}
+        conn.execute("DELETE FROM opinion_benches")
+        conn.commit()
+        assert recorded_documents(conn) == {(2025, "1")}
+        assert opinion_record.complete_documents(conn) == set()
+        assert opinion_record.opinion_record_projection(conn, terms=[2025]).recorded == []
+
+
+@pytest.mark.parametrize(
+    ("bench", "absent"),
+    [
+        (list(BENCH), None),  # half a bench
+        ([*BENCH, "Mallory"], []),  # off the roster
+        (list(BENCH), ["Alito"]),  # took no part, yet signs the dissent
+        ([*BENCH, "Kagan"], []),  # a Justice twice
+        (list(BENCH[:8]), ["Jackson"]),  # absent from a bench they are not on
+    ],
+)
+def test_a_planned_bench_the_reader_cannot_produce_is_refused(
+    _corpus: Path, tmp_path: Path, bench: list[str], absent: list[str] | None
+) -> None:
+    plan_file = _split_plan(_corpus, _Fetcher([_listing("1", "25-1")]), tmp_path)
+    raw = json.loads(plan_file.read_text())
+    raw["readings"][0]["bench"] = bench
+    raw["readings"][0]["took_no_part"] = absent
+    plan_file.write_text(json.dumps(raw))
+    with pytest.raises(HandoffRefused, match=r"bench|sign"):
+        _apply(_corpus, plan_file, max_rows=10)
+    assert _rows(_corpus) == []
+
+
+def test_the_split_dry_run_counts_only_the_bench_rows_of_a_re_read(
+    _corpus: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(opinion_record, "read_document", _seated)
+    listing = [_listing("1", "25-1"), _listing("2", "25-2")]
+    _build(_corpus, _Fetcher(listing[:1]))
+    with corpus.connect(_corpus) as conn:
+        conn.execute("DELETE FROM opinion_benches")
+        conn.commit()
+        assert opinion_record.rebench_documents(conn) == {(2025, "1")}
+    plan_file = _split_plan(_corpus, _Fetcher(listing), tmp_path)
+    projection = read_handoff(
+        tmp_path / "handoff" / "projection.json", opinion_record.OpinionRecordProjection
+    )
+    rebench = opinion_record.projected_rebench(projection)
+    plan = read_handoff(plan_file, opinion_record.OpinionRecordPlan)
+    dry = opinion_record.read_opinion_record(
+        _Fetcher(listing), terms=[2025], recorded=set(), rebench=rebench
+    )
+    # Document 1's two opinion rows are stored: only its bench row is new.
+    assert (dry.rows, dry.benches) == (2, 2)
+    done = _apply(_corpus, plan_file, max_rows=4)
+    assert done.applied and (done.inserted, done.benches_inserted) == (2, 2)
+    assert len(plan.readings) == 2
+
+
+def test_a_planned_bench_off_the_seat_roster_is_refused(_corpus: Path, tmp_path: Path) -> None:
+    plan_file = _split_plan(_corpus, _Fetcher([_listing("1", "25-1")]), tmp_path)
+    raw = json.loads(plan_file.read_text())
+    raw["readings"][0]["bench"] = [j for j in BENCH if j != "Jackson"] + ["Breyer"]
+    raw["readings"][0]["took_no_part"] = ["Breyer"]
+    plan_file.write_text(json.dumps(raw))
+    with pytest.raises(HandoffRefused, match="seat roster"):
+        _apply(_corpus, plan_file, max_rows=10)
+
+
+def test_an_honest_planned_bench_is_applied(_corpus: Path, tmp_path: Path) -> None:
+    plan_file = _split_plan(_corpus, _Fetcher([_listing("1", "25-1")]), tmp_path)
+    raw = json.loads(plan_file.read_text())
+    raw["readings"][0]["bench"] = list(BENCH)
+    raw["readings"][0]["took_no_part"] = ["Jackson"]
+    plan_file.write_text(json.dumps(raw))
+    done = _apply(_corpus, plan_file, max_rows=3)
+    assert done.applied and _benches(_corpus) == {"1": (list(BENCH), ["Jackson"])}

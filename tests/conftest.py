@@ -83,7 +83,8 @@ def _clear_ambient_corpus_addressing(monkeypatch: pytest.MonkeyPatch) -> None:
     The Actions runner marker goes too: an ambient content store mirrors only
     inside an Actions job (``casestore.in_actions_job``), so without this a
     test's mirroring would differ between CI and a dev shell. A test that
-    exercises the writer-job path sets it itself.
+    exercises the writer-job path sets it itself, and with it the remote-writes
+    switch the writer jobs' workflows set.
     """
     for name in (
         "GITHUB_ACTIONS",
@@ -94,6 +95,7 @@ def _clear_ambient_corpus_addressing(monkeypatch: pytest.MonkeyPatch) -> None:
         "FEDCOURTS_CASESTORE_URL",
         "CASESTORE_URL",
         "FEDCOURTS_CORPUS_SPLIT",
+        "FEDCOURTS_REMOTE_WRITES",
     ):
         monkeypatch.delenv(name, raising=False)
 

@@ -230,28 +230,37 @@ live in different stores, split by **kind**:
    act; mirroring is best-effort — a store failure logs, never breaking the
    SQLite write.
 
-   **Only an Actions job's writes to the corpus file reach the store.** An
-   addressed store is the read seam everywhere, but a mirror *write* passes two
-   more gates (`casestore.mirrors_connection`): the process runs inside a GitHub
-   Actions job — the runner sets that marker in every job, so no workflow
+   **Only a writer job's writes to the corpus file reach the store.** An
+   addressed store is the read seam everywhere, but a mirror *write* passes
+   three more gates (`casestore.mirrors_connection`): the process runs inside a
+   GitHub Actions job — the runner sets that marker in every job, so no workflow
    declares it and no dev shell, codespace or bare script carries it unless
-   exported by hand — and the written database is the configured corpus file
-   under the corpus root. Anywhere else writer code runs, its corpus writes stay
+   exported by hand — the job's workflow enabled remote writes, and the written
+   database is the configured corpus file under the corpus root. The switch
+   (`FEDCOURTS_REMOTE_WRITES`, `Settings.remote_writes`) is how a workflow
+   says which jobs write: the
+   corpus writer jobs of run-pull, run-seed and run-repair set it on their own
+   `env:`, and a workflow test holds that exactly the jobs assuming the
+   read-write role set it and nothing else names it. A predict, evaluate or
+   analytics job that ran a corpus write attempts no remote write even with a
+   writable credential, and `corpus-push` refuses to run in an Actions job
+   without the switch, so a writer job that lost it fails rather than
+   publishing a blob whose payloads were withheld. A job without the switch
+   logs once that it withheld. Anywhere else writer code runs, its corpus writes stay
    local, whatever credential the environment holds: a local dry run of a writer
    pass, or a script seeding a temporary database through the write helpers,
-   attempts no remote write and logs once that it withheld. The marker is a
-   guard against accidents, not a control: anyone can set it, so outside Actions
-   the read-only role remains what refuses a write, and the marker only keeps a
-   local run from attempting one. Inside a job with the split on, a write
-   withheld because its database is not the corpus file logs an error each time,
-   since the blob keeps no payloads and they are then stored nowhere. Inside
-   Actions the credentials narrow writes to the writer jobs: a read-only job
-   that ran a corpus write would attempt the mirror and be refused by its role,
-   the refusal logged and swallowed like any mirror failure. The out-of-band
-   pointer override withholds mirrors too. A transport injected in code
+   attempts no remote write and logs once that it withheld. The marker and the
+   switch are guards against accidents, not authorizations: anything that runs
+   code can set either, so the credentials are what confine writes to the
+   writer jobs — only they can assume the read-write role — and the guards only
+   keep every other run from attempting one. Inside a job with the split on, a
+   write withheld because its database is not the corpus file logs an error
+   each time, since the blob keeps no payloads and they are then stored
+   nowhere. The out-of-band pointer override
+   withholds mirrors too. A transport injected in code
    (`casestore.set_active_transport`, as the tests do) is the code's own choice
-   of store and skips both of those gates (the pointer override still withholds
-   it).
+   of store and skips the marker and switch gates (the pointer override still
+   withholds it).
 
    **The mode is never wired beside the address.** `Settings` still accepts an
    explicit `FEDCOURTS_CORPUS_SPLIT`, which decides in both directions, and a
@@ -483,6 +492,24 @@ docket`) aggregates the whole corpus — it publishes counts and rates over ever
 ingested row, never a row itself — so it moves whenever the corpus does, and the
 committed copy is a point-in-time snapshot that nothing schedules or gates (see
 [cli.md](cli.md)).
+
+`data/schedule/schedule.json` is the one repo-level file the **live poll**
+writes, beside the per-case outcomes and event records: after each cycle, `fedcourts live-poll` rebuilds it
+from the corpus it just refreshed, and it rides that window's data commit to
+`main`. It carries each public docket's distributed conference while the docket is
+undecided at the petition or application stage (a granted petition drops off)
+(`distributed_for_conference`), published as `next_conference` only while the
+date is on or after the schedule's `as_of` and as null with
+`stale_reason: conference_passed` once it has passed, so the public site never
+shows a past conference as upcoming. Like the scope manifest it is enumerated
+from the committed `data/cases` tree alone. It is display data for the site's
+case timeline, joined onto the big-case board as `scheduled`: it is not a
+prediction-ledger record, since a schedule moves on every relist, and no cell
+is provisioned with it. The board row carries the date alone, not the
+schedule's `as_of`, so the daily board moves only when a case's date does. A
+failed build warns and leaves the committed file as it was (the new file is
+written beside it and renamed over it); it never fails the poll. `fedcourts schedule` rebuilds it by hand from
+a pulled corpus.
 
 ### Credentials and access roles
 
@@ -975,7 +1002,7 @@ locally — a dry run included, since it opens the file through the writer seam
 (the read-only commands never rewrite it); a re-pull, or a ranged read, serves the published
 bytes again. Such a local writer run stays local: outside an Actions job its
 writes never mirror to the content store, whatever credential the shell holds
-(*Only an Actions job's writes to the corpus file reach the store*, above).
+(*Only a writer job's writes to the corpus file reach the store*, above).
 
 Credentials arrive as **user-scoped** Codespaces secrets — never repo-level,
 never committed: the **maintainer** via IAM Identity Center (short-lived SSO
@@ -1375,6 +1402,10 @@ or network.
      is the corpus `opinions` table ([corpus/README.md](../corpus/README.md)),
      built by `backfill-opinion-record` from the Court's opinions, applied on
      run-repair's `opinion-record` pass, and held corpus-side on the same terms.
+     So is the per-Justice vote half for a case the pipeline never forecast:
+     `fedcourts merits-lineups` derives each decision's lineup from those rows
+     and the pass's `opinion_benches` (who sat), read-only and never stored, by
+     the rule the merits vote source stamps forecast outcomes with.
 
      An event pinned to one docket entry is never a claimant of its stage's
      disposition: it resolves on its own filing's terms, so an application
@@ -1603,7 +1634,7 @@ population and apply against another.
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `application-backfill` | `backfill-applications` (split, as above) | `--max-rows` (rows landed, onboarded and enriched together; the dry run's count is an upper bound) | two-digit October Term, **required in both modes** | — |
 | `decision-record` | `backfill-decision-record` | `--max-fills` (rows filled, not the `candidates` denominator) | — | — |
-| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
+| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion rows and bench rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
 the scan runs unless it is a positive integer — blank, zero, negative, decimal
@@ -1785,13 +1816,15 @@ fields parsed from them ([security.md](security.md), *S3 / the private stores*).
   the few public facts the parse needs (versioned models beside each pass, read and written through `src/fedcourtsai/handoff.py`): for the
   vote passes, each population case's docket number; for the application
   back-fill, the Term's highest stored serial and its live-owned serials; for
-  the opinion record, the (Term, listing number) of each document already
-  recorded. It fetches nothing.
+  the opinion record, the (Term, listing number) of each document it already
+  holds whole and of each signed decision it holds without a bench row. It
+  fetches nothing.
 - `handoff-parse` holds **no credential**: no environment, no `id-token`, no
   secret, and a step asserts the AWS and OIDC variables are absent before
   anything is fetched. It fetches and parses, prints the dry-run ledger to the
   run summary, and on an apply writes the plan — the planned vote records, the
-  served docket JSON verbatim, or the opinion rows — as a run artifact. It
+  served docket JSON verbatim, or the opinion rows and bench rows — as a run
+  artifact. It
   restores the uv cache but never saves one.
 - On an apply only, a writer job downloads the plan and treats it as untrusted
   input: every row is re-validated against the reader's own invariants and the
@@ -2093,11 +2126,15 @@ gh workflow run run-repair.yml --ref main \
   -f repair=decision-record -f repair_mode=apply -f repair_bound=<would fill N>
 
 # The opinion record reads OT2020–OT2025 (pinned in the workflow). Its apply
-# fetches every unrecorded document again and runs no dry run first, which
-# would double the pass's traffic to the Court's site. Its bound is the dry
-# run's "would insert N" — opinion rows, not documents. The readings, each
-# refusal's reason included, are in the parse job's step log; the summary carries the
-# per-Term counts. Re-dispatching in `dry-run` after the apply is the control:
+# fetches every document the record does not hold whole again — unrecorded, or a
+# signed decision recorded without its bench row — and runs no dry run first,
+# which would double the pass's traffic to the Court's site. Its bound is the dry
+# run's "would insert N" — opinion rows and bench rows, not documents; a signed
+# decision re-read for its bench counts one bench row, its stored opinion rows
+# none. The readings, each refusal's reason included, are in the parse job's step
+# log; the summary carries the per-Term counts, and on the apply the writer's
+# summary names each re-read whose writings differ from the stored rows (it gets a
+# null bench row). Re-dispatching in `dry-run` after the apply is the control:
 # it must report "would insert 0" (it re-fetches only the refused documents).
 gh workflow run run-repair.yml --ref main \
   -f repair=opinion-record -f repair_mode=dry-run

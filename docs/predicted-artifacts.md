@@ -819,9 +819,17 @@ An evaluate cell runs once the event resolves and writes one pair of files per
 predictor it scores, under
 `events/<event_id>/evaluations/<evaluator_id>/<predictor_id>/<run_id>/`, plus
 one `retrieval.md`, one `tooling.json`, and an optional `flags.json` for the
-cell as a whole, a level above at `evaluations/<evaluator_id>/<run_id>/`. This
-is the short version; `metrics/README.md` is the authority on what any of these
-numbers may be claimed to show.
+cell as a whole, a level above at `evaluations/<evaluator_id>/<run_id>/`. A
+judge that copies `retrieval.md` and `tooling.json` into each predictor's
+directory instead has them moved up by `stamp-cell` when every copy agrees, and
+left in place with a warning when they differ; either way a harness note lands
+in the cell's flags (`stamp-cell` in [cli.md](cli.md)). The step settles a cell
+as it is stamped, not the ledger, so some committed gradings hold a copy under
+each predictor and none at the cell level; the readers that look at the cell
+level (the run-ops tooling digest and the run PR's corpus-use cross-check) find
+no self-report for those cells. This is the short version;
+`metrics/README.md` is the authority on what any of these numbers may be
+claimed to show.
 
 The evaluator never sees that layout while it works. It grades **blind**: the
 harness stages each predictor's latest prediction under an opaque alias with its

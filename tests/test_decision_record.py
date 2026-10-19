@@ -26,6 +26,7 @@ from fedcourtsai.pipeline.decision_record import (
     decision_judgment,
     decision_method,
     decision_term,
+    plenary_decided_dockets,
     read_decision_record,
 )
 from fedcourtsai.pipeline.ingest import from_live_record, map_live_docket, to_corpus_row
@@ -603,6 +604,27 @@ def test_the_census_counts_per_term(tmp_path: Path) -> None:
     assert ot25.plenary_dispositions == {"reversed": 1}  # the GVR rode the order
     assert census.pending == 1
     assert census.terminations == {"abated": 1}
+
+
+def test_the_plenary_decided_dockets_are_the_census_s_decided_less_order_riding(
+    tmp_path: Path,
+) -> None:
+    rows = [
+        _row(merits_argued=_ARGUED, merits_judgment="reversed", merits_decided=_DECIDED),
+        _row(
+            case_id="scotus/900500",
+            docket_number="25-500",
+            disposition="gvr",
+            date_cert_granted=date(2026, 6, 8),
+        ),
+        _row(case_id="scotus/900501", docket_number="25-501"),  # pending
+    ]
+    with _seeded(tmp_path, rows) as conn:
+        dockets = plenary_decided_dockets(conn, first_term=2024, last_term=2025)
+        census = decision_census(conn, first_term=2025, last_term=2025)
+    assert dockets[2024] == []
+    assert len(dockets[2025]) == census.terms[0].decided - census.terms[0].order_riding == 1
+    assert dockets[2025] == ["24-482"]
 
 
 def test_the_census_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -325,7 +325,8 @@ for a case the pipeline never forecast. Written only by
 whole or not at all, and a recorded row is never changed. So a new version of
 the counting rule or of a reader reaches stored rows only through a pass built
 to replace them, which does not exist yet; `word_rule` and `lineup` say which
-version each row was read under. The table is read by no `query`
+version each row was read under. Its one reader outside its writer is `fedcourts merits-lineups`,
+which derives each decision's per-Justice votes from it; it is read by no `query`
 retrieval row, provisioning step, outcome, mint or scoring gate, so nothing a
 predict or evaluate cell sees includes it; a test pins which modules may name
 it. It is metadata, not payload, so it stays in the index blob under the
@@ -356,6 +357,33 @@ and the word-counting rule are in [docs/data-sources.md](../docs/data-sources.md
 | `document_url`   | text          | the supremecourt.gov PDF read |
 | `header`         | text          | the opinion's header sentence as printed, normalized (spacing and split words closed up) |
 | `read_at`        | timestamp     | when the row was written |
+
+## Who sat (`opinion_benches`)
+
+At most one row per signed decision the per-opinion record holds, keyed as
+`opinions` is: the bench the syllabus reader seated and the Justices it says took no part.
+It is the one fact a decision's writings do not carry — a Justice who took no
+part signs nothing, and so does one the record has not placed — and the one the
+merits lineups (`fedcourts merits-lineups`, `pipeline/merits_lineups.py`) need
+beside the writings to tell the two apart. Written only by
+`fedcourts backfill-opinion-record`, fill-only, in the transaction that inserts
+the document's opinion rows, or on a later pass for a document recorded without
+one; that row is null unless the re-read writings are the stored ones. The lists
+are read only off a complete syllabus lineup that agrees with the listing, the
+lineup the merits vote source stamps from, and are null otherwise: a null row
+says the document was read and its participation not observed, never that
+nobody was absent. A per curiam takes no row, since its headers do not say who
+sat. Held on the same terms as `opinions`: corpus-side, read by no `query` row,
+provisioning step, outcome, mint or score, and kept in the index blob.
+
+| Column           | Type         | Notes |
+|------------------|--------------|-------|
+| `term`           | integer (PK) | October Term, four-digit |
+| `listing_number` | text (PK)    | the listing row's number: the document |
+| `bench`          | text (JSON)  | roster surnames the reader seated for the decision date; null where participation was not observed |
+| `took_no_part`   | text (JSON)  | the bench members the syllabus says took no part; null with `bench` |
+| `lineup`         | text         | `<reader>/<version>` of the syllabus grammar the bench was read with |
+| `read_at`        | timestamp    | when the row was written |
 
 ## Working with it locally
 

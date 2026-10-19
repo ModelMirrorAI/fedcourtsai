@@ -964,6 +964,47 @@ def test_reserve_slots_are_occupied_until_resolution(tmp_path: Path) -> None:
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002"}
 
 
+def test_a_twice_stored_application_number_takes_one_reserve_slot(tmp_path: Path) -> None:
+    # One pending number under two case ids: the second row (the higher docket
+    # id) takes no slot, though its signal would rank it first; and once one
+    # of the number's rows is latched, the number holds one slot and its other
+    # row does not contend, so the number holds one slot at most.
+    rows = [
+        _application("scotus/9525000001", "25A1"),
+        _application("scotus/9525000009", "25A1", requested=True),
+        _application("scotus/9525000002", "25A2"),
+    ]
+    db = _seed(tmp_path, rows)
+    config = SalienceConfig(interim_reserve_slots=2)
+    with corpus.connect(db) as conn:
+        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002"}
+
+    held = [
+        _application("scotus/9525000009", "25A1", selected=True),
+        _application("scotus/9525000001", "25A1"),
+        _application("scotus/9525000002", "25A2"),
+    ]
+    db = _seed(tmp_path / "held", held)
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+    assert result.newly_selected == 1
+    assert _selected_ids(db) == {"scotus/9525000002", "scotus/9525000009"}
+
+    # Latched under both rows already: the number stays funded twice (the latch
+    # never clears) but holds one slot, so the second slot still goes to 25A2.
+    both = [
+        _application("scotus/9525000009", "25A1", selected=True),
+        _application("scotus/9525000001", "25A1", selected=True),
+        _application("scotus/9525000002", "25A2"),
+    ]
+    db = _seed(tmp_path / "both", both)
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+    assert result.newly_selected == 1
+    assert "scotus/9525000002" in _selected_ids(db)
+
+
 def _store_proceedings(db: Path, case_id: str, *texts: str) -> None:
     """Store one live-shaped snapshot carrying ``texts`` as its proceedings."""
     with corpus.connect(db) as conn:
@@ -1060,6 +1101,23 @@ def test_reserve_occupant_holds_its_slot_when_the_snapshot_read_fails(
     assert [
         (o.holds_slot, o.snapshot_date, o.snapshot_read_failed) for o in result.reserve_occupants
     ] == [(True, None, True)]
+
+
+def test_a_released_occupants_twin_does_not_take_the_freed_slot() -> None:
+    # The twin reads the same disposed number, so the freed slot passes to the
+    # next number rather than back to it.
+    rows = [
+        _application("scotus/9525000009", "25A1", selected=True),
+        _application("scotus/9525000001", "25A1"),
+        _application("scotus/9525000002", "25A2"),
+    ]
+    picks = plan_cohorts(
+        rows,
+        SalienceConfig(interim_reserve_slots=1),
+        released=lambda row: row.case_id == "scotus/9525000009",
+        application_twins=frozenset({"scotus/9525000009"}),
+    )[1]
+    assert picks == ["scotus/9525000002"]
 
 
 def test_plan_cohorts_frees_only_the_occupants_it_releases() -> None:

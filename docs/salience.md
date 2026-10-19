@@ -1710,7 +1710,14 @@ latched its substantive reading. Selection is a **quota, not a ranking**: the tr
 features do not exist here, so each selection pass fills up to
 `salience.interim_reserve_slots` (5) with pending substantive applications in
 **escalation-ladder order** — requested response first, then the amicus
-count, `case_id` for determinism. The referral signal sits on the ladder as
+count, `case_id` for determinism. A slot is an application **number's**, the
+unit the interim base rate counts: a number the corpus stores under two case
+ids holds at most one slot. Latched under any of its rows, it holds one (none
+once released as disposed, below) and its other rows do not contend; unlatched, it contends through the row
+`corpus.duplicate_application_case_ids` keeps, and the rows that call skips
+are scored but never picked. Moment minting and the predict queue do not read
+the skip set, so a number already latched under two rows stays funded twice.
+The referral signal sits on the ladder as
 an observation but not in the pick order: a referral usually arrives *as* the
 disposition entry itself, so it carries no forecast horizon — a slot it
 earned would fund a prediction of an already written order. The pick order is
