@@ -5699,7 +5699,9 @@ def corpus_push() -> None:
     Actions job whose workflow did not enable remote writes: only the corpus
     writer jobs publish, and under the corpus split a job without the switch
     has withheld every content-store payload its rows point at, so the blob it
-    would publish describes objects that were never stored.
+    would publish describes objects that were never stored. Like the mirror's
+    gate, that refusal is a guard against accidents; the role a job holds is
+    what authorizes a publish.
     """
     settings = get_settings()
     if casestore.in_actions_job() and not settings.remote_writes:

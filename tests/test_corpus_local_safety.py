@@ -30,6 +30,7 @@ from typer.testing import CliRunner
 from fedcourtsai import casestore, corpus
 from fedcourtsai.analytics import AnalyticsQuery, run_analytics
 from fedcourtsai.cli import app
+from fedcourtsai.config import get_settings
 from fedcourtsai.pipeline.ingest import from_api_docket
 from fedcourtsai.pipeline.outcome import detect_resolution, record_outcomes
 from fedcourtsai.validate import run_corpus_validation
@@ -524,24 +525,21 @@ def test_a_non_writer_job_attempts_no_content_store_write(
     assert sum("does not enable remote writes" in r.message for r in caplog.records) == 1
 
 
-def test_a_non_writer_job_under_the_split_says_every_withheld_write_loudly(
+@pytest.mark.parametrize("value", ["", "  ", "false", "0"])
+def test_a_blank_or_false_switch_is_off(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     ambient_store: casestore.InMemoryObjectTransport,
-    caplog: pytest.LogCaptureFixture,
+    value: str,
 ) -> None:
+    """A workflow forwarding an unset variable lands here as a blank string: off,
+    never a parse error that fails every command in the job."""
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
-    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "true")
+    monkeypatch.setenv("FEDCOURTS_REMOTE_WRITES", value)
+    assert get_settings().remote_writes is False
     db = _configure_corpus_root(monkeypatch, tmp_path / "corpus")
-    with (
-        caplog.at_level(logging.WARNING, logger="fedcourtsai.casestore"),
-        corpus.connect(db) as conn,
-    ):
+    with corpus.connect(db) as conn:
         corpus.upsert_rows(conn, [_row()])
-        corpus.upsert_events(conn, [_event()])
-    errors = [r for r in caplog.records if r.levelno == logging.ERROR]
-    assert len(errors) == 2
-    assert all("does not enable remote writes" in r.getMessage() for r in errors)
     assert ambient_store.puts == 0
 
 

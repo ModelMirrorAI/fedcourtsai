@@ -192,24 +192,34 @@ def sets_remote_writes(job: dict[Any, Any]) -> bool:
 
 
 def test_exactly_the_writer_jobs_enable_remote_writes() -> None:
-    """The switch is the control a non-writer job's corpus writes meet, so it
-    is set where permissions are reviewed: on each writer job's own ``env:``,
-    by every job that assumes the read-write role and by no other. A job-level
-    setting keeps it off every other job in the workflow."""
+    """The switch is what a non-writer job's corpus writes meet before its
+    role does, so it is set where permissions are reviewed: on each writer
+    job's own ``env:``, as the literal ``"true"`` rather than an expression a
+    dispatch could turn off or on, by every job that assumes the read-write
+    role and by no other. A job-level setting keeps it off every other job."""
     enabled = {(name, job_name) for name, job_name, job, _ in _jobs() if sets_remote_writes(job)}
     assert enabled == KNOWN_WRITER_JOBS, (
         f"`{REMOTE_WRITES}` must be set by exactly the corpus writer jobs: "
         + f"{sorted(enabled ^ KNOWN_WRITER_JOBS)}"
     )
+    not_literal = {
+        f"{name}:{job_name}": job["env"][REMOTE_WRITES]
+        for name, job_name, job, _ in _jobs()
+        if sets_remote_writes(job) and job["env"][REMOTE_WRITES] != "true"
+    }
+    assert not not_literal, f'`{REMOTE_WRITES}` must be the literal "true": {not_literal}'
 
 
 def test_the_switch_is_named_nowhere_but_a_writer_jobs_own_env() -> None:
     """Not in a workflow-wide ``env:``, which every job in it inherits, not in
-    a step's, and not in a composite action, which any job could call."""
+    a container's, a service's or a step's, and not in a composite action,
+    which any job could call."""
     stray = [
         f"{name}:{job_name}"
         for name, job_name, job, workflow in _jobs()
         if REMOTE_WRITES in yaml.safe_dump(workflow.get("env") or {})
+        or REMOTE_WRITES in yaml.safe_dump(job.get("container") or {})
+        or REMOTE_WRITES in yaml.safe_dump(job.get("services") or {})
         or any(REMOTE_WRITES in yaml.safe_dump(step) for step in _steps(job))
     ]
     stray += [

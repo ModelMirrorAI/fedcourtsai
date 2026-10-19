@@ -431,10 +431,12 @@ def _mirror_transport() -> ObjectTransport | None:
        so a local run of writer code stays local. Warned once per process;
     4. inside a job, an ambient transport writes only where the job's workflow
        enabled remote writes (``remote_writes``), which only the corpus writer
-       jobs do. A predict, evaluate or analytics job that held a writable
-       credential by mistake still attempts no write. Said at error level
-       under the corpus split, where a withheld payload is stored nowhere, and
-       warned once per process otherwise.
+       jobs do. A guard against accidents like gate 3, not an authorization —
+       anything that runs code in a job can set it, and the role a job holds is
+       what confines writes — but a predict, evaluate or analytics job that
+       held a writable credential by mistake still attempts no write. Warned
+       once per process: such a job's corpus writes are local by design, and a
+       writer job that lost the switch is refused by ``corpus-push`` instead.
 
     An injected transport (:func:`set_active_transport`) skips gate 3: the code
     chose that store itself, which is what tests and explicit wiring do.
@@ -452,18 +454,11 @@ def _mirror_transport() -> ObjectTransport | None:
         )
         return None
     if _transport_is_ambient() and not get_settings().remote_writes:
-        if get_settings().corpus_split:
-            logger.error(
-                "casestore: mirror withheld — this job's workflow does not enable "
-                "remote writes, so under the corpus split this write's payload is "
-                "stored nowhere"
-            )
-        else:
-            _warn_withheld_once(
-                "not_enabled",
-                "casestore: mirrors withheld — this job's workflow does not enable "
-                "remote writes; its corpus writes stay local",
-            )
+        _warn_withheld_once(
+            "not_enabled",
+            "casestore: mirrors withheld — this job's workflow does not enable "
+            "remote writes; its corpus writes stay local",
+        )
         return None
     return transport
 

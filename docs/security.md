@@ -1608,17 +1608,17 @@ The cloud-session user's runbook (maintainer):
 The code holds the same line without relying on the credential. A corpus
 write mirrors to the content store only inside a GitHub Actions job (a marker
 the runner sets in every job), only in a job whose workflow enables remote
-writes, and only from the configured corpus file. The switch is the control:
-the corpus writer jobs set it on their own `env:`, where their permissions are
-reviewed, a workflow test holds that exactly the jobs assuming the read-write
-role set it, and `corpus-push` refuses an Actions job without it. So a predict,
-evaluate or analytics job that held a writable credential by mistake still
-attempts no store write and publishes no blob, and a writer pass run locally,
-or a script that seeds a temporary database through the corpus write helpers,
-never attempts one even where the environment names production's store. The
-runner marker is the fallback, not the control — anyone can set it — so
-outside Actions the read-only role remains what refuses a write. The role
-scoping above stays the second line inside Actions. The mechanism is *Only a
+writes, and only from the configured corpus file. The corpus writer jobs set
+the switch on their own `env:`, where their permissions are reviewed, a
+workflow test holds that exactly the jobs assuming the read-write role set it,
+and `corpus-push` refuses an Actions job without it. So a predict, evaluate or
+analytics job that held a writable credential by mistake still attempts no
+store write and publishes no blob, and a writer pass run locally, or a script
+that seeds a temporary database through the corpus write helpers, never
+attempts one even where the environment names production's store. The switch
+and the runner marker are guards against accidents, not authorizations:
+anything that can run code in a job can set either, so the role scoping above
+is still what confines writes to the writer jobs, inside Actions and out. The mechanism is *Only a
 writer job's writes to the corpus file reach the store* in
 [data-pipeline.md](data-pipeline.md).
 

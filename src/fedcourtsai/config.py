@@ -134,9 +134,9 @@ class Settings(BaseSettings):
     # content-store mirror and `corpus-push`. Set only by the corpus writer
     # jobs (run-pull, run-seed, run-repair), in the workflow files where their
     # permissions are reviewed, and a workflow test holds that no other job
-    # sets it. Unset, an Actions job's corpus writes stay local whatever
-    # credential it holds; outside Actions nothing writes the remote anyway
-    # (`casestore.in_actions_job`).
+    # sets it. A guard against accidents rather than an authorization (the
+    # role a job holds is that): unset, an Actions job's corpus writes stay
+    # local whatever credential it holds by mistake. Blank reads as off.
     remote_writes: bool = Field(
         default=False,
         validation_alias=AliasChoices("FEDCOURTS_REMOTE_WRITES"),
@@ -150,13 +150,20 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("FEDCOURTS_CORPUS_SPLIT"),
     )
 
+    @field_validator("remote_writes", mode="before")
+    @classmethod
+    def _blank_switch_reads_as_off(cls, value: object) -> object:
+        """A blank switch is off, never a parse error that fails every command."""
+        if isinstance(value, str) and not value.strip():
+            return False
+        return value
+
     @field_validator(
         "corpus_base_url",
         "corpus_remote_url",
         "casestore_url",
         "corpus_pointer",
         "corpus_split_flag",
-        "remote_writes",
         mode="before",
     )
     @classmethod

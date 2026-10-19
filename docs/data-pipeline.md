@@ -237,26 +237,26 @@ live in different stores, split by **kind**:
    declares it and no dev shell, codespace or bare script carries it unless
    exported by hand — the job's workflow enabled remote writes, and the written
    database is the configured corpus file under the corpus root. The switch
-   (`FEDCOURTS_REMOTE_WRITES`, `Settings.remote_writes`) is the control: the
+   (`FEDCOURTS_REMOTE_WRITES`, `Settings.remote_writes`) is how a workflow
+   says which jobs write: the
    corpus writer jobs of run-pull, run-seed and run-repair set it on their own
    `env:`, and a workflow test holds that exactly the jobs assuming the
    read-write role set it and nothing else names it. A predict, evaluate or
    analytics job that ran a corpus write attempts no remote write even with a
    writable credential, and `corpus-push` refuses to run in an Actions job
    without the switch, so a writer job that lost it fails rather than
-   publishing a blob whose payloads were withheld. Under the split, each write
-   withheld for want of the switch logs an error, since its payload is then
-   stored nowhere. Anywhere else writer code runs, its corpus writes stay
+   publishing a blob whose payloads were withheld. A job without the switch
+   logs once that it withheld. Anywhere else writer code runs, its corpus writes stay
    local, whatever credential the environment holds: a local dry run of a writer
    pass, or a script seeding a temporary database through the write helpers,
-   attempts no remote write and logs once that it withheld. The runner marker
-   is the fallback, not the control: anyone can set it, so outside Actions the
-   read-only role remains what refuses a write, and the marker only keeps a
-   local run from attempting one. Inside a job with the split on, a write
-   withheld because its database is not the corpus file logs an error each time,
-   since the blob keeps no payloads and they are then stored nowhere. Behind
-   the switch, the credentials still narrow writes to the writer jobs: only
-   they can assume the read-write role. The out-of-band pointer override
+   attempts no remote write and logs once that it withheld. The marker and the
+   switch are guards against accidents, not authorizations: anything that runs
+   code can set either, so the credentials are what confine writes to the
+   writer jobs — only they can assume the read-write role — and the guards only
+   keep every other run from attempting one. Inside a job with the split on, a
+   write withheld because its database is not the corpus file logs an error
+   each time, since the blob keeps no payloads and they are then stored
+   nowhere. The out-of-band pointer override
    withholds mirrors too. A transport injected in code
    (`casestore.set_active_transport`, as the tests do) is the code's own choice
    of store and skips the marker and switch gates (the pointer override still
