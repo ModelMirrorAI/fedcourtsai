@@ -36,7 +36,7 @@ from fedcourtsai.schemas import (
     ProcessVersion,
 )
 from fedcourtsai.serialize import write_json
-from tests import lane_guard
+from tests import cli_build_cache, lane_guard
 from tests.lane_guard import (
     pytest_collection_modifyitems,
     pytest_collectreport,
@@ -58,6 +58,10 @@ __all__ = [
 # conftest loads — before any test module is collected, so import-time reads
 # are seen too.
 lane_guard.install()
+
+# Every in-process CLI invocation shares one Click command tree per Typer app
+# rather than rebuilding it per call (see tests/cli_build_cache.py).
+cli_build_cache.install()
 
 
 @pytest.fixture(autouse=True)
