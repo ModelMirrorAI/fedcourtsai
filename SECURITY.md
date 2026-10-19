@@ -567,7 +567,7 @@ runbook, [docs/security.md](docs/security.md).
   by identity, since the agent workflows authenticate as a separate **dev
   App** that bypasses no required check. `main: require approval` requires
   one approving review, which only the `maintainers` team can give, and
-  bypasses it for the dev App's pull requests (what lets its two unattended
+  bypasses it for the dev App's pull requests (what lets its three unattended
   lanes land, by the jobs' own merge call — GitHub's auto-merge never
   exercises a bypass, and the call's doing so is unverified until its first
   production run; still bound by the checks), for the data App, and for any pull request an

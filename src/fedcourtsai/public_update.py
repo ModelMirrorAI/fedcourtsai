@@ -43,7 +43,7 @@ from .analytics import DEFAULT_REPO_TREE_URL
 from .integrity import FORWARD, cell_clock, classify_stratum, forward_claim_breach
 from .paths import CasePaths, EventPaths
 from .schemas import Disposition, Judgment, Moment, Outcome, PredictableEvent, Stage
-from .serialize import read_model
+from .serialize import read_model, write_text
 from .short_caption import short_caption
 from .store import (
     LedgerPrediction,
@@ -68,6 +68,14 @@ _REPO_DATA_DIR: Final = Path("data")
 _FORWARD_MODE: Final = "forward"
 
 _WEEK_RE: Final = re.compile(r"^(\d{4})-W(\d{2})$")
+
+#: The site's running history of weekly updates, under the metrics root: one
+#: Markdown file per ISO week, named ``<YYYY-Www>.md`` and written once.
+ARCHIVE_DIR: Final = "updates"
+
+#: The first week the email list was sent an update. The history starts here,
+#: so it never publishes a week no subscriber was offered.
+ARCHIVE_FIRST_WEEK: Final = "2026-W42"
 
 _QUESTION: Final[dict[Stage, str]] = {
     Stage.cert: "Will the Court take the case?",
@@ -206,6 +214,59 @@ def last_complete_week(now: datetime) -> str:
     """The ISO week before the one ``now`` falls in, as ``YYYY-Www``."""
     year, week, _ = (now.astimezone(UTC).date() - timedelta(days=7)).isocalendar()
     return f"{year}-W{week:02d}"
+
+
+def weeks_through(first: str, last: str) -> list[str]:
+    """Every ISO week from ``first`` to ``last`` inclusive, oldest first (empty when reversed)."""
+    monday, _ = week_bounds(first)
+    final, _ = week_bounds(last)
+    weeks: list[str] = []
+    while monday <= final:
+        year, week, _ = monday.isocalendar()
+        weeks.append(f"{year}-W{week:02d}")
+        monday += timedelta(days=7)
+    return weeks
+
+
+def archive_path(metrics_root: Path, week: str) -> Path:
+    """Where ``week``'s update sits in the site's running history."""
+    week_bounds(week)
+    return metrics_root / ARCHIVE_DIR / f"{week}.md"
+
+
+@dataclass(frozen=True)
+class ArchiveResult:
+    """What one archiving pass did, each tuple oldest week first."""
+
+    written: tuple[str, ...]
+    present: tuple[str, ...]
+    empty: tuple[str, ...]
+
+
+def archive_public_updates(data_root: Path, metrics_root: Path, through: str) -> ArchiveResult:
+    """Write each missing week's update from :data:`ARCHIVE_FIRST_WEEK` through ``through``.
+
+    A week already in the history is never re-rendered: its file is what the
+    site first published, and a later resolution dated inside that week does
+    not rewrite it. A week with nothing to send gets no file, as it gets no
+    email. A week that was missed (a skipped run) is written on the next pass,
+    rendered from the ledger as it then stands.
+    """
+    written: list[str] = []
+    present: list[str] = []
+    empty: list[str] = []
+    for week in weeks_through(ARCHIVE_FIRST_WEEK, through):
+        path = archive_path(metrics_root, week)
+        if path.exists():
+            present.append(week)
+            continue
+        update = build_public_update(data_root, week)
+        if update.empty:
+            empty.append(week)
+            continue
+        write_text(path, render_public_update(update))
+        written.append(week)
+    return ArchiveResult(tuple(written), tuple(present), tuple(empty))
 
 
 def build_public_update(data_root: Path, week: str) -> PublicUpdate:

@@ -264,6 +264,34 @@ def assert_board_within_jail(changes: Iterable[PathChange]) -> None:
         raise PathJailError("board jail rejected the change set:\n- " + "\n- ".join(violations))
 
 
+#: The fixed branch the weekly-update history lane publishes on, named here for
+#: the same reason as :data:`BOARD_BRANCH`: the producer's push, the `paths`
+#: jail's selector and `main-base`'s allowlist must agree, and a test asserts it.
+UPDATES_BRANCH = "metrics/public-updates"
+
+#: One week's file in the history (``public_update.archive_path``).
+_UPDATE_ARCHIVE = re.compile(r"metrics/updates/\d{4}-W\d{2}\.md")
+
+
+def assert_updates_within_jail(changes: Iterable[PathChange]) -> None:
+    """Raise :class:`PathJailError` unless every change adds one week's update file.
+
+    The history is write-once, so the lane only ever adds files: a modify or a
+    delete would rewrite what the site already published, and is refused like
+    any path outside ``metrics/updates/``.
+    """
+    violations: list[str] = []
+    for change in changes:
+        if not _UPDATE_ARCHIVE.fullmatch(change.path):
+            violations.append(f"{change.path!r} is not a weekly update file")
+        elif change.status != "A":
+            violations.append(
+                f"{change.path!r} has status {change.status!r}; the history only adds files"
+            )
+    if violations:
+        raise PathJailError("update jail rejected the change set:\n- " + "\n- ".join(violations))
+
+
 @dataclass(frozen=True)
 class UnionReport:
     """What one cell artifact's add-only union onto the branch checkout did.

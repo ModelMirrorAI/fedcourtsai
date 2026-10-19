@@ -137,13 +137,14 @@ jobs:
   paths:
     # Defense-in-depth path jail for every auto-merged PR. A predict/evaluate run
     # branch may only *add* files under data/; the daily big-case-board branch may
-    # only write the board's own two artifacts. Either way a PR that auto-merges
+    # only write the board's own two artifacts; the weekly update-history branch
+    # may only add week files under metrics/updates/. Either way a PR that auto-merges
     # without a human cannot carry a code, workflow, or config change. A no-op
     # that passes for every other branch, so it is safe to make a required status
     # check on all PRs. The data jail also runs producer-side in each collect job;
     # this required check enforces both independently of the workflow that
     # produced the branch. Logic lives in the tested `assert-paths` /
-    # `assert-board-paths` commands; this step only runs git.
+    # `assert-board-paths` / `assert-update-paths` commands; this step only runs git.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -182,11 +183,14 @@ jobs:
           case "${HEAD_REF,,}" in
             predict/run-*|evaluate/run-*) jail=data ;;
             metrics/big-cases) jail=board ;;
+            metrics/public-updates) jail=updates ;;
             *) echo "not an auto-merged branch; path jail not applicable"; exit 0 ;;
           esac
           git diff --name-status "origin/${BASE_REF}...HEAD" > changes.txt
           if [ "$jail" = board ]; then
             uv run fedcourts assert-board-paths --name-status-file changes.txt
+          elif [ "$jail" = updates ]; then
+            uv run fedcourts assert-update-paths --name-status-file changes.txt
           else
             uv run fedcourts assert-paths --name-status-file changes.txt
           fi
@@ -349,9 +353,10 @@ jobs:
     # a staging commit) or a non-feature lane — the collect
     # run branches, the maintainer's cleanup sweep, the metrics-refresh /
     # cert-backtest / salience-replay PRs, the qp-topic labeling run's
-    # labels PR, the case-summary lane's `summaries/refresh` PR, and the
-    # daily big-case board's. All are reviewed except the
-    # board's, which auto-merges behind the `paths` jail above. This job runs (and fails) only on a
+    # labels PR, the case-summary lane's `summaries/refresh` PR, the
+    # daily big-case board's and the weekly update history's. All are reviewed
+    # except the board's and the history's, which auto-merge behind the `paths`
+    # jail above. This job runs (and fails) only on a
     # PR to `main` from any other head; every legitimate PR skips it, and the
     # skipped run satisfies the requirement. It is among `main`'s required
     # contexts (with `gate`, `paths`, `promotion-gate`): a `pull_request` runs
@@ -377,6 +382,7 @@ jobs:
           startsWith(github.head_ref, 'cleanup/') ||
           github.head_ref == 'metrics/refresh' ||
           github.head_ref == 'metrics/big-cases' ||
+          github.head_ref == 'metrics/public-updates' ||
           github.head_ref == 'metrics/cert-backtest' ||
           github.head_ref == 'metrics/salience-replay' ||
           github.head_ref == 'qp-topics/refresh' ||

@@ -117,6 +117,7 @@ from fedcourtsai.collect import (
     BOARD_ARTIFACTS,
     BOARD_BRANCH,
     BOARD_JAIL_PATHS,
+    UPDATES_BRANCH,
     is_agent_context_path,
 )
 from fedcourtsai.config import Settings
@@ -125,6 +126,7 @@ from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest, _cell_env
+from fedcourtsai.public_update import archive_path
 from fedcourtsai.registry import load_mcp_servers, load_predictors, resolve_mcp_servers
 from fedcourtsai.schemas import UsageRole
 from tests.workflow_gate import gated_jobs, own_condition, own_needs
@@ -4191,9 +4193,12 @@ def test_run_analytics_publish_steps_are_fenced_to_the_main_ref() -> None:
         for job_id, job in wf["jobs"].items()
         if any("create-github-app-token" in str(s.get("uses") or "") for s in job["steps"])
     }
-    assert set(publishing_jobs) == {"metrics-refresh", "big-cases", "qp-topic-publish"}, (
-        f"the publishing-job set moved: {sorted(publishing_jobs)}"
-    )
+    assert set(publishing_jobs) == {
+        "metrics-refresh",
+        "big-cases",
+        "public-updates",
+        "qp-topic-publish",
+    }, f"the publishing-job set moved: {sorted(publishing_jobs)}"
     for job_id, steps in publishing_jobs.items():
         publishers = [
             step
@@ -4339,6 +4344,20 @@ def test_the_big_case_board_branch_is_spelled_the_same_in_all_three_places() -> 
         assert f"metrics/{artifact}" in analytics_wf, (
             f"the board job does not stage metrics/{artifact}"
         )
+
+
+def test_the_update_history_branch_is_spelled_the_same_in_all_three_places() -> None:
+    """The board's three-literal argument, for the weekly update history: the
+    producer's push, the `paths` jail's selector and `main-base`'s allowlist all
+    carry `collect.UPDATES_BRANCH`, and the producer stages the directory
+    `public_update.archive_path` writes into."""
+    analytics_wf = (WORKFLOWS / "run-analytics.yml").read_text()
+    ci = (WORKFLOWS / "ci.yml").read_text()
+    assert f"BRANCH: {UPDATES_BRANCH}" in analytics_wf
+    assert f"\n            {UPDATES_BRANCH}) jail=updates ;;" in ci
+    assert f"github.head_ref == '{UPDATES_BRANCH}'" in ci
+    staged = archive_path(Path("metrics"), "2026-W42").parent.as_posix()
+    assert f"git add -A {staged}\n" in analytics_wf
 
 
 def test_the_big_case_board_job_reaches_nothing_but_the_ledger_and_its_own_pr() -> None:
