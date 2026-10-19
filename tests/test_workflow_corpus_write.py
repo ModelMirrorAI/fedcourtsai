@@ -203,10 +203,9 @@ def test_exactly_the_writer_jobs_enable_remote_writes() -> None:
     role does, so it is set where permissions are reviewed: on each writer
     job's own ``env:``, by every job that assumes the read-write role and by no
     other. A job-level setting keeps it off every other job. Its value is the
-    literal ``"true"`` rather than an expression a dispatch could turn on,
-    except on run-repair's corpus job, whose dry run holds the read-only role
-    and keeps its local dedupe on the runner: there it is on for an apply
-    alone, and that one expression is the only one admitted."""
+    literal ``"true"``, except on run-repair's corpus job, whose dry run holds
+    the read-only role and keeps its local dedupe on the runner: there it is
+    one admitted expression whose only on-value is an apply."""
     enabled = {(name, job_name) for name, job_name, job, _ in _jobs() if sets_remote_writes(job)}
     assert enabled == KNOWN_WRITER_JOBS, (
         f"`{REMOTE_WRITES}` must be set by exactly the corpus writer jobs: "
@@ -218,7 +217,10 @@ def test_exactly_the_writer_jobs_enable_remote_writes() -> None:
         if sets_remote_writes(job)
         and job["env"][REMOTE_WRITES] != REMOTE_WRITES_VALUES.get((name, job_name), "true")
     }
-    assert not not_literal, f'`{REMOTE_WRITES}` must be the literal "true": {not_literal}'
+    assert not not_literal, (
+        f'`{REMOTE_WRITES}` must be the literal "true" (or the one value '
+        + f"REMOTE_WRITES_VALUES admits for that job): {not_literal}"
+    )
 
 
 def _repair_job() -> dict[Any, Any]:
@@ -235,9 +237,10 @@ def _repair_step(name: str) -> dict[Any, Any]:
 def test_a_repair_dry_run_holds_the_read_only_role_and_no_write_credential() -> None:
     """A dry run is read before an apply is decided, so it holds what a read
     needs and nothing more: the read-only role, no App token, no git identity,
-    and not the `corpus-write` lock a scheduled writer window queues on. Each
-    write grant is gated on an apply and each read-only grant on its negation,
-    so exactly one role is assumed at the opening and at the OCR re-mint."""
+    and not the `corpus-write` lock a scheduled writer window queues on; nor
+    does it publish a verdict over a blob nobody committed. Each read-only
+    grant's condition is its read-write twin's with the mode test negated, so
+    exactly one role is assumed at the opening and at the OCR re-mint."""
     apply = "inputs.repair_mode == 'apply'"
     for name in (
         "Mint app token",
@@ -248,18 +251,23 @@ def test_a_repair_dry_run_holds_the_read_only_role_and_no_write_credential() -> 
         "Produce + publish the corpus validation verdict",
     ):
         assert apply in _repair_step(name)["if"], name
-    for name in (
-        "Configure AWS credentials (corpus S3 remote, read-only)",
-        "Configure AWS credentials (corpus S3 remote, read-only, OCR pass)",
-    ):
-        step = _repair_step(name)
-        assert "inputs.repair_mode != 'apply'" in step["if"], name
+    for suffix in ("", ", OCR pass"):
+        write = _repair_step(f"Configure AWS credentials (corpus S3 remote, read-write{suffix})")
+        step = _repair_step(f"Configure AWS credentials (corpus S3 remote, read-only{suffix})")
+        assert step["if"] == write["if"].replace(apply, "inputs.repair_mode != 'apply'"), suffix
         assert step["with"]["role-to-assume"] == "${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}"
     group = _repair_job()["concurrency"]["group"]
     assert f"&& {apply} && 'corpus-write' ||" in group
 
 
 APPLY_ONLY = 'if [ "${REPAIR_MODE}" = "apply" ]; then'
+
+
+def _block_end(run: str, start: int) -> int:
+    """The offset of the ``fi`` closing the shell ``if`` that opens at ``start``."""
+    match = re.compile(r"^\s*fi\s*$", re.MULTILINE).search(run, start)
+    assert match is not None
+    return match.start()
 
 
 def test_a_repair_dry_run_pushes_nothing() -> None:
@@ -275,10 +283,12 @@ def test_a_repair_dry_run_pushes_nothing() -> None:
         assert step["env"].get("REPAIR_MODE") == "${{ inputs.repair_mode }}", name
         guard = run.find('if [ "${REPAIR_MODE}" != "apply" ]')
         assert guard != -1, name
-        assert -1 < guard < run.find("corpus-push"), name
+        end = _block_end(run, guard)
+        assert re.search(r"^\s*exit 0\s*$", run[guard:end], re.MULTILINE), name
+        assert end < run.find("uv run fedcourts corpus-push"), name
         for setup in re.finditer("gh auth setup-git", run):
             preceding = run[: setup.start()].rstrip().splitlines()[-1].strip()
-            assert setup.start() > guard or preceding == APPLY_ONLY, name
+            assert setup.start() > end or preceding == APPLY_ONLY, name
 
 
 def test_the_switch_is_named_nowhere_but_a_writer_jobs_own_env() -> None:

@@ -83,7 +83,7 @@ on:
           - decision-record
           - opinion-record
       repair_mode:
-        description: "dry-run prints the pass's ledger and writes nothing for the pass itself; apply writes and pushes; prerequisites apply either way — see docs/data-pipeline.md, Maintenance passes."
+        description: "dry-run prints the pass's ledger and writes nothing off the runner (its prerequisites apply to the runner's copy only); apply runs the prerequisites and the pass and pushes — see docs/data-pipeline.md, Maintenance passes."
         required: false
         default: dry-run
         type: choice
@@ -379,9 +379,10 @@ jobs:
           echo "repair=${REPAIR} mode=${REPAIR_MODE} accepted; the step of record re-checks every refusal above."
 
   # The corpus passes: every pass that pulls the blob, mutates it and pushes.
-  # Structured like run-seed's writer job without the walk — same App token,
-  # same read-write role, same `corpus-write` environment, same pointer-commit
-  # shape.
+  # Structured like run-seed's writer job without the walk — on an apply, the
+  # same App token, read-write role, `corpus-write` environment and
+  # pointer-commit shape; a dry run keeps the environment and holds the
+  # read-only role alone (see the permissions below).
   repair:
     needs: [authorize, validate]
     # Named as an allow-list, never as "everything but the re-grade": this job
@@ -394,8 +395,8 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    # Join the repo-wide corpus-writer lock: one writer at a time across
-    # run-pull, run-seed and this bench. cancel-in-progress:false so a
+    # An apply joins the repo-wide corpus-writer lock: one writer at a time
+    # across run-pull, run-seed and this bench. cancel-in-progress:false so a
     # dispatch queues behind a running window rather than cancelling it.
     #
     # A job the `if:` will skip is given a unique throwaway group instead, the
@@ -408,15 +409,18 @@ jobs:
     # A dry run takes the throwaway group too: it pushes nothing, so it has no
     # pointer to race, and holding `corpus-write` for a read would queue the
     # scheduled writer windows behind it — GitHub keeps one pending run per
-    # group, so a second arrival would evict a production window.
+    # group, so a second arrival would evict a production window. Its pull may
+    # overlap a writer's push; the blob is content-addressed, so it reads one
+    # consistent version either way.
     concurrency:
       group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","amicus-rederive"]'), inputs.repair) && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-24.04
     # Headroom over the longest chain of capped steps a dispatch can run, which
     # is the OCR recovery's: the dedupe prerequisite (10m), its own binary
-    # install (5m), the fresh credential pair (the assume-role's own 120s
-    # bound) and the pass (45m), leaving the setup, the corpus pull and the
+    # install (5m), the fresh credentials (the assume-role's own 120s bound;
+    # an apply's App token and read-write session, a dry run's read-only
+    # session) and the pass (45m), leaving the setup, the corpus pull and the
     # trailing verdict inside the remainder. A hit here cancels the run,
     # which no failure handling absorbs. Every pass but the OCR one still runs
     # entirely inside the opening credentials' 1h lives; the OCR pass alone
@@ -456,8 +460,8 @@ jobs:
       contents: read
       id-token: write # assume the AWS role for the corpus S3 remote (read-only on a dry run)
     steps:
-      # One token up front: on every pass but the OCR recovery the whole run
-      # stays inside its 1h life. The OCR pass and anything after it can end
+      # An apply mints one token up front: on every pass but the OCR recovery
+      # the whole run stays inside its 1h life. The OCR pass and anything after it can end
       # past that hour, so a fresh token is minted just before that step and
       # the trailing verdict rides whichever mint is newest. Scoped to
       # contents:write only (the corpus pushes) — progress goes to the Actions
@@ -483,7 +487,8 @@ jobs:
         # stale base, so the corpus blob it pulls and mutates is built on an
         # obsolete pointer and the final commit cannot rebase onto the advanced
         # tip (an unmergeable corpus/corpus.db.ref conflict). Reset to the live tip
-        # first, under the lock, so we always mutate the latest committed corpus.
+        # first (under the lock, on an apply), so we always mutate the latest
+        # committed corpus.
         # The repo is public, so this read-only fetch needs no credentials.
         run: |
           set -euo pipefail
@@ -574,6 +579,9 @@ jobs:
       # population the apply will act on; a dry run gets that by merging
       # locally and stopping before the push, with the remote-writes switch
       # off and the read-only role, so nothing it merges leaves the runner.
+      # Its ledger moves stay uncommitted on a dry run, so a later pass's
+      # fast-forward to a tip that touched a moved path refuses and the dry
+      # run fails closed; re-dispatch it.
       # The scope reconcile below does the same, on the pass that needs it.
       - name: Dedupe live-minted duplicate rows
         id: dedupe-live-rows

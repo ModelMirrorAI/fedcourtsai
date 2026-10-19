@@ -1772,7 +1772,10 @@ apply to the runner's own copy of the corpus and stop before the push, so the
 pass reads the deduped, in-scope population an apply would, and the merge goes
 nowhere: the dispatch holds the read-only role and no App token, its job leaves
 the remote-writes switch off and takes no `corpus-write` lock, and it publishes
-no validation verdict, since its blob is one nobody committed. An apply runs
+no validation verdict, since its blob is one nobody committed. (The job still
+binds `corpus-write`, so a step could mint the read-write role; the dry run
+narrows what it holds, not what it can reach — *S3 / the private stores* in
+[security.md](security.md).) An apply runs
 the same prerequisites to completion — each pushes the blob and commits a
 pointer to `main` if it found anything — ahead of its pass. Both are idempotent
 convergences the scheduled walker would have made anyway. Under the corpus
