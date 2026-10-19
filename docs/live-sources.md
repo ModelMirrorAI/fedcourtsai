@@ -798,7 +798,8 @@ Both files are gitignored, and no predict or evaluate cell uploads `record/`,
 so what can reach public git from a cell is what its prose quotes, which is the
 exposure [data-sources.md](data-sources.md) already names. The case-summary
 lane's one-day `summary-stage` artifact does carry both staged files, scrubbed
-as above ([case-summaries.md](case-summaries.md)). The scrub narrows what
+as above, less any document the residual detector still reads a match on
+([case-summaries.md](case-summaries.md)). The scrub narrows what
 reaches the ledger; it does not make a filing anonymous, and a cell with
 retrieval rights can reach the same PDF and docket JSON upstream whatever was
 withheld from its copy.

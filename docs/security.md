@@ -1885,7 +1885,9 @@ removes, before the upload, any case whose tree is not exactly what
 provisioning writes — the planned day's Court docket JSON, `context.json`, and
 manifest-listed supremecourt.gov documents (`summary-stage-check`) — so a
 snapshot that changed after the plan never crosses; `summarize` refuses one as
-well. It
+well. The same check withholds any staged document whose manifest row records
+a contact-scrub residual (`contact_residuals` above zero), so a contact detail
+the scrub missed on a filing's opening or closing does not cross either. It
 widens that footing in one way the extract does not: the extract carries one
 section of each petition, while this carries every stored filing of each
 planned case — whole appendices, cert-stage replies, the Solicitor General's

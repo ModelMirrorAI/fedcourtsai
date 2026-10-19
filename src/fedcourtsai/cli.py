@@ -14376,14 +14376,20 @@ def summary_stage_check_cmd(
     documents manifest with one text file per listed supremecourt.gov document —
     and removes everything else under the stage root. Each removal is printed as
     a ``::warning::``; the case is then reported skipped by ``summarize`` and
-    planned again by the next run.
+    planned again by the next run. A kept case's document the contact scrub left
+    a residual on (``contact_residuals`` above zero) is withheld alone, with its
+    manifest row, and printed the same way.
     """
     plan = SummaryPlan.model_validate_json(plan_file.read_text())
     removed = summaries.prune_stage(plan, staged)
     for what, reason in removed:
         typer.echo(f"::warning::removed {what} from the staged records: {reason}")
     kept = sum(1 for p in (staged / "cases").glob("*/*") if p.is_dir())
-    line = f"stage check: {kept} staged case record(s) kept, {len(removed)} removed"
+    withheld = sum(1 for _, reason in removed if reason.startswith(summaries.DOCUMENT_WITHHELD))
+    line = (
+        f"stage check: {kept} staged case record(s) kept, {len(removed) - withheld} removed, "
+        f"{withheld} document(s) withheld"
+    )
     typer.echo(line)
     if summary is not None:
         with summary.open("a", encoding="utf-8") as fh:

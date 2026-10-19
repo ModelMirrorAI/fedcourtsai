@@ -262,6 +262,7 @@ def _stage(stage_root: Path, court: str = "scotus", docket: int = 1) -> None:
                     "url": "https://www.supremecourt.gov/DocketPDF/26/26-1/1/petition.pdf",
                     "entry_date": "Jan 02 2026",
                     "truncated": False,
+                    "contact_residuals": 0,
                 }
             ]
         )
@@ -1049,5 +1050,117 @@ def test_summary_stage_check_command_warns_and_counts(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     assert "::warning::removed scotus/2 from the staged records: not planned" in result.output
-    assert "stage check: 1 staged case record(s) kept, 1 removed" in result.output
-    assert summary.read_text() == "stage check: 1 staged case record(s) kept, 1 removed\n"
+    line = "stage check: 1 staged case record(s) kept, 1 removed, 0 document(s) withheld"
+    assert line in result.output
+    assert summary.read_text() == line + "\n"
+
+
+def _set_residuals(stage_root: Path, rows: list[tuple[str, object]]) -> CasePaths:
+    """Stage one case whose manifest lists ``rows`` as (kind, contact_residuals)."""
+    paths = CasePaths(stage_root, "scotus", 1)
+    entries = []
+    for kind, count in rows:
+        paths.document(kind).write_text(kind.upper())
+        entry: dict[str, object] = {
+            "kind": kind,
+            "url": f"https://www.supremecourt.gov/DocketPDF/26/26-1/1/{kind}.pdf",
+            "contact_scrubbed": count == 0,
+        }
+        if count is not None:
+            entry["contact_residuals"] = count
+        entries.append(entry)
+    paths.documents_manifest.write_text(json.dumps(entries))
+    return paths
+
+
+def test_stage_check_withholds_a_document_the_scrub_left_residuals_on(tmp_path: Path) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    paths = _set_residuals(stage, [("petition", 2), ("brief-in-opposition", 0)])
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+
+    removed = summaries.prune_stage(plan, stage)
+
+    assert removed == [("scotus/1/petition", "document withheld: 2 contact residual(s)")]
+    assert not paths.document("petition").exists()
+    assert paths.document("brief-in-opposition").read_text() == "BRIEF-IN-OPPOSITION"
+    manifest = json.loads(paths.documents_manifest.read_text())
+    assert [entry["kind"] for entry in manifest] == ["brief-in-opposition"]
+    # The case still crosses, and a second check finds nothing more to remove.
+    assert paths.snapshot("2026-09-22").is_file()
+    assert summaries.prune_stage(plan, stage) == []
+
+
+def test_stage_check_keys_on_the_residual_count_not_the_scrubbed_flag(tmp_path: Path) -> None:
+    # A represented docket's documents read `contact_scrubbed: false` with no
+    # residuals; a row with no count at all says nothing is clean.
+    stage = tmp_path / "stage"
+    _stage(stage)
+    paths = _set_residuals(stage, [("petition", 0), ("brief-in-opposition", None)])
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    entries = json.loads(paths.documents_manifest.read_text())
+    entries[0]["contact_scrubbed"] = False
+    paths.documents_manifest.write_text(json.dumps(entries))
+
+    removed = summaries.prune_stage(plan, stage)
+
+    assert [what for what, _ in removed] == ["scotus/1/brief-in-opposition"]
+    assert paths.document("petition").is_file()
+    assert not paths.document("brief-in-opposition").exists()
+
+
+def test_stage_check_removes_a_case_whose_manifest_names_a_path_as_a_kind(
+    tmp_path: Path,
+) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    paths = _set_residuals(stage, [("petition", 3)])
+    entries = json.loads(paths.documents_manifest.read_text())
+    entries[0]["kind"] = "../context"
+    paths.documents_manifest.write_text(json.dumps(entries))
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+
+    removed = summaries.prune_stage(plan, stage)
+
+    assert removed == [("scotus/1", "documents manifest entry has a malformed kind '../context'")]
+    assert not paths.base.exists()
+
+
+def test_summary_stage_check_command_counts_withheld_documents_apart(tmp_path: Path) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    _set_residuals(stage, [("petition", 2)])
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    plan_file = tmp_path / "plan.json"
+    plan_file.write_text(plan.model_dump_json())
+
+    result = CliRunner().invoke(
+        app, ["summary-stage-check", "--plan", str(plan_file), "--staged", str(stage)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (
+        "::warning::removed scotus/1/petition from the staged records: "
+        + "document withheld: 2 contact residual(s)"
+    ) in result.output
+    assert "stage check: 1 staged case record(s) kept, 0 removed, 1 document(s) withheld" in (
+        result.output
+    )
+
+
+@pytest.mark.parametrize("count", ["2", True, 1.5, None])
+def test_stage_check_withholds_a_document_whose_residual_count_is_not_a_count(
+    tmp_path: Path, count: object
+) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    paths = _set_residuals(stage, [("petition", 0)])
+    entries = json.loads(paths.documents_manifest.read_text())
+    entries[0]["contact_residuals"] = count
+    paths.documents_manifest.write_text(json.dumps(entries))
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+
+    removed = summaries.prune_stage(plan, stage)
+
+    assert [what for what, _ in removed] == ["scotus/1/petition"]
+    assert not paths.document("petition").exists()
