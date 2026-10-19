@@ -49,7 +49,9 @@ does and additionally honours `@pytest.mark.xdist_group`, so a test that ever do
 need to run beside its siblings on one worker can say so where it lives instead of
 needing the gate changed underneath it. Coverage is unaffected: under `GATE_COV=1`
 each worker measures its own slice and pytest-cov combines them into the single
-`.coverage` file the CI job's summary step reads. The stage measures through
+`.coverage` file the CI job's summary step reads. CI measures coverage on a push
+to `main` only: the figure is reported in the job summary, never gated on, so a
+PR's test step runs without it. The stage measures through
 Python's `sys.monitoring` (`COVERAGE_CORE=sysmon`) rather than coverage.py's
 default C tracer, which cuts most of coverage's overhead for the same line-coverage
 result. What sysmon cannot do on 3.12 — branch coverage, dynamic contexts,
@@ -85,7 +87,7 @@ checkout runs [`scripts/ci_lane.py`](../scripts/ci_lane.py), which classifies
 the change and names a lane, and the stages that change cannot affect are
 skipped:
 
-| Lane | Every changed path is… | lint, types, test, coverage summary | lane tests | data, schemas |
+| Lane | Every changed path is… | lint, types, test, coverage summary (push only) | lane tests | data, schemas |
 | --- | --- | --- | --- | --- |
 | `data` | under `data/` (but not an agent instruction file), or the corpus pointer `corpus/corpus.db.ref` | skipped | `scripts/gate.sh data-tests` | run |
 | `docs` | `*.md`, `*.png` or `*.svg` under `docs/`; a top-level `*.md` **except** `SECURITY.md` and any agent instruction file; `metrics/README.md`; `corpus/README.md`; or `CITATION.cff` | skipped | `scripts/gate.sh docs-tests` | run |

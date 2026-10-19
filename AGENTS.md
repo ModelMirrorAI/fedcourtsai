@@ -360,8 +360,9 @@ scripts/gate.sh lock       # uv lock --check (the lock matches pyproject); CI
 scripts/gate.sh lint       # ruff format --check + ruff check
 scripts/gate.sh types      # mypy
 scripts/gate.sh test       # pytest, fanned across cores (GATE_COV=1 adds
-                           # coverage, as CI does; GATE_TEST_WORKERS=1 runs it
-                           # serially, which is what debugging wants)
+                           # coverage, as CI does on a push to main;
+                           # GATE_TEST_WORKERS=1 runs it serially, which is
+                           # what debugging wants)
 scripts/gate.sh data       # validate data + corpus-status
 scripts/gate.sh schemas    # export-schemas + schema-drift check (CI fails on drift)
 scripts/gate.sh data-tests # only the tests marked reads_data (CI's data lane)
