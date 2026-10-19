@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 from typing import get_args
 
+import pytest
 import typer
 from typer.testing import CliRunner
 
@@ -109,7 +110,17 @@ def test_enum_typed_options_let_typer_render_the_choices() -> None:
     assert "Engine that ran." in rendered
 
 
-def test_every_command_help_renders() -> None:
+#: Every registered command, read once at collection so each renders as its own
+#: case and the renders spread across the xdist workers.
+COMMAND_NAMES = sorted(getattr(typer.main.get_command(app), "commands", {}))
+
+
+def test_the_command_enumeration_finds_the_cli() -> None:
+    assert len(COMMAND_NAMES) > 20, f"command enumeration looks broken: {COMMAND_NAMES!r}"
+
+
+@pytest.mark.parametrize("name", COMMAND_NAMES)
+def test_every_command_help_renders(name: str) -> None:
     """Every registered command's ``--help`` renders, in-process.
 
     rich parses help text as console markup, so a literal bracket sequence in
@@ -119,11 +130,7 @@ def test_every_command_help_renders() -> None:
     them here means the class fails in the gate rather than in a lane's first
     dispatch.
     """
-    group = typer.main.get_command(app)
-    names = sorted(getattr(group, "commands", {}))
-    assert len(names) > 20, f"command enumeration looks broken: {names!r}"
-    for name in names:
-        result = runner.invoke(app, [name, "--help"], env={"COLUMNS": "200", "NO_COLOR": "1"})
-        assert result.exit_code == 0, (
-            f"`{name} --help` failed to render: {result.exception!r}\n{result.output}"
-        )
+    result = runner.invoke(app, [name, "--help"], env={"COLUMNS": "200", "NO_COLOR": "1"})
+    assert result.exit_code == 0, (
+        f"`{name} --help` failed to render: {result.exception!r}\n{result.output}"
+    )
