@@ -11272,7 +11272,15 @@ freeze commit is recorded here.
   2 cases** (`scotus/9026000013`, run `20260820T181919Z`; `scotus/9026000455`,
   run `20261006T142731Z`; three predictors each) were minted when the docket
   carried a distribution by its run day but no petition distribution under
-  `dist-v2`. `scotus/9026000461` and `scotus/9026000462` are not among them:
+  `dist-v2`. Their scope (`process_version.window_of` on each stamp): the
+  three `scotus/9026000013` cells are stamped `proc-v3`, the declared-shakedown
+  cohort, so they are alpha and in no frozen-scope figure. The three
+  `scotus/9026000455` cells are stamped `proc-v8` inside each predictor's
+  `proc-v8` counting window, so they are **frozen scope**; the event has no
+  committed outcome at this vintage, so no graded figure holds them yet, and
+  they are not on the set-aside list, so they enter the frozen figures when it
+  resolves. Whether they sit in Release 1's registered cohort was not checked
+  here. `scotus/9026000461` and `scotus/9026000462` are not among them:
   their stored dockets carry an entry-initial distribution before their run,
   which is the parse limit above. 3 pending SCOTUS rows carry a membership
   column with a zero count at this vintage (`scotus/9026000455`,
