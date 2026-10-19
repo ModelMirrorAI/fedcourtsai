@@ -13,7 +13,7 @@ import re
 from collections.abc import Sequence
 from datetime import date, datetime, timedelta
 from enum import StrEnum
-from typing import Any, Final, Literal, get_args
+from typing import Annotated, Any, Final, Literal, get_args
 
 from pydantic import (
     BaseModel,
@@ -4843,7 +4843,10 @@ class VoidedEventsRecord(_Strict):
 #: reviewed edit with its own dated freeze-record entry. `increment-run-day` is the
 #: one claim-grain reason: it sets aside a claim inside a cell, never the cell.
 SetAsideReason = Literal[
-    "interim-decision-day", "post-conference-first-forecast", "increment-run-day"
+    "interim-decision-day",
+    "post-conference-first-forecast",
+    "increment-run-day",
+    "pre-distribution-mint",
 ]
 
 
@@ -4872,6 +4875,39 @@ class SetAsideEvent(_Strict):
     declared: date = Field(description="The date of the freeze-record entry that sets it aside")
 
 
+class PreDistributionSetAsideEvent(_Strict):
+    """One cert distribution event set aside because its cells were minted before the petition was.
+
+    The distribution moment's cells forecast from the petition's own
+    distribution for a conference; a cell minted while only an ancillary paper
+    (a sealing motion, a motion for leave under a linked M-number) had been
+    distributed forecast from a moment the petition never reached, so the
+    record cannot show what moment it stands at. Whether the petition was
+    distributed in its own right reads the docket entries, which live in the
+    corpus, so the event is listed rather than computed.
+    """
+
+    case_id: str = Field(pattern=CASE_ID_PATTERN, description="The event's case id")
+    event_id: str = Field(pattern=EVENT_ID_PATTERN, description="The event's id")
+    reason: Literal["pre-distribution-mint"] = Field(
+        description="Why its cells are set aside. `pre-distribution-mint`: the event's "
+        "forward frozen-scope distribution-moment cells were minted when the docket carried "
+        "a distribution by their run day but none of the petition itself "
+        "(`store.petition_distributed` reads false)"
+    )
+    minted_run_id: str = Field(
+        description="The harness run id of the event's forward frozen-scope cells minted "
+        "before the petition was distributed"
+    )
+    declared: date = Field(description="The date of the freeze-record entry that sets it aside")
+
+
+#: One row of the listed set-aside registry, its shape chosen by its reason.
+ListedSetAsideEvent = Annotated[
+    SetAsideEvent | PreDistributionSetAsideEvent, Field(discriminator="reason")
+]
+
+
 class SetAsideEventsRegistry(_Strict):
     """``src/fedcourtsai/set_aside_events.json`` — the listed set-aside events, append-only.
 
@@ -4881,7 +4917,9 @@ class SetAsideEventsRegistry(_Strict):
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
-    events: list[SetAsideEvent] = Field(description="The listed events, in the order declared")
+    events: list[ListedSetAsideEvent] = Field(
+        description="The listed events, in the order declared"
+    )
 
 
 #: A release slug: lower-case words joined by single hyphens, so it is a URL path
