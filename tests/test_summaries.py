@@ -1014,6 +1014,57 @@ def test_summary_withdraw_deletes_the_planned_files_and_the_jail_admits_only_the
     assert clean.stdout.split() == ["data/cases/scotus/2/summaries/2026-10-13.md"]
 
 
+def test_a_summary_written_on_the_docketed_day_is_kept(tmp_path: Path) -> None:
+    # The boundary: a snapshot taken the day the petition was docketed is that
+    # petition's, so only a strictly earlier day withdraws.
+    assert not summaries.is_withdrawn(date(2026, 8, 21), date(2026, 8, 21))
+    assert summaries.is_withdrawn(date(2026, 8, 20), date(2026, 8, 21))
+    digest = summaries.record_digest(REDOCKETED, DOCS)
+    _commit_summary(tmp_path, "scotus/1", "2026-08-21", digest)
+    plan = _plan(tmp_path, {"scotus/1": _record(REDOCKETED)})
+    assert plan.withdrawn == []
+    assert plan.up_to_date == 1
+
+
+def _withdrawal_plan(case_id: str, path: str) -> SummaryPlan:
+    return SummaryPlan.model_validate(
+        {
+            "model": "claude-sonnet-5",
+            "eligible": 1,
+            "up_to_date": 1,
+            "deferred": 0,
+            "cases": [],
+            "withdrawn": [
+                {
+                    "case_id": case_id,
+                    "path": path,
+                    "snapshot": "2026-08-20",
+                    "docketed": "2026-08-21",
+                }
+            ],
+            "estimated_cost_usd_low": 0,
+            "estimated_cost_usd_high": 0,
+        }
+    )
+
+
+@pytest.mark.parametrize("court", ["..", ".", "Scotus", "a b"])
+def test_summary_withdraw_refuses_a_traversing_or_malformed_case_id(
+    tmp_path: Path, court: str
+) -> None:
+    data = tmp_path / "data" / "cases" / "inner"
+    data.mkdir(parents=True)
+    # The file a `../1` row would reach from a data root one level down.
+    outside = tmp_path / "data" / "cases" / "1" / "summaries" / "2026-08-20.md"
+    outside.parent.mkdir(parents=True)
+    outside.write_text("not a summary of this case")
+    path = f"data/cases/{court}/1/summaries/2026-08-20.md"
+    with pytest.raises(ValueError, match="not a case id"):
+        summaries.withdraw_summaries(data, _withdrawal_plan(f"{court}/1", path))
+    assert outside.exists()
+    assert not summaries.is_summary_path(path)
+
+
 def test_summary_withdraw_refuses_a_row_off_its_canonical_path(tmp_path: Path) -> None:
     plan = SummaryPlan.model_validate(
         {

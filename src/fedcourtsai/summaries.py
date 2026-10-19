@@ -304,8 +304,14 @@ def withdraw_summaries(data_root: Path, plan: SummaryPlan) -> list[str]:
     """
     removed: list[str] = []
     for row in plan.withdrawn:
+        if re.fullmatch(ids.CASE_ID_PATTERN, row.case_id) is None:
+            raise ValueError(f"withdrawal row names case {row.case_id!r}, not a case id")
         court_id, docket = row.case_id.split("/", 1)
         docket_id = int(docket)
+        # A court segment of dots alone is a case id's shape but a directory
+        # traversal; the canonical id is one `ids.case_id` builds unchanged.
+        if court_id.strip(".") == "" or ids.case_id(court_id, docket_id) != row.case_id:
+            raise ValueError(f"withdrawal row names case {row.case_id!r}, not a case id")
         day = row.snapshot.isoformat()
         canonical = CasePaths(Path("data"), court_id, docket_id).summary(day).as_posix()
         if row.path != canonical or not is_summary_path(row.path):
@@ -1081,10 +1087,11 @@ def summary_file_problems(file: Path, root: Path) -> list[str] | None:
 # --- the publish jail --------------------------------------------------------------
 
 # A summary file at the one layout `fedcourtsai.paths` puts it at, repo-relative.
-# Matched whole, with a numeric docket segment and a dated name, so nothing else
-# under a case — an event, a record file — can pass as one.
+# Matched whole, with a court segment that opens on a letter or digit (so never
+# `.` or `..`), a numeric docket segment and a dated name, so nothing else under
+# a case — an event, a record file — can pass as one.
 _SUMMARY_PATH = re.compile(
-    r"data/cases/[a-z0-9._-]+/[0-9]+/summaries/[0-9]{4}-[0-9]{2}-[0-9]{2}\.md"
+    r"data/cases/[a-z0-9][a-z0-9._-]*/[0-9]+/summaries/[0-9]{4}-[0-9]{2}-[0-9]{2}\.md"
 )
 
 

@@ -670,6 +670,8 @@ jobs:
             exit 0
           fi
           total=$(wc -l < "$RUNNER_TEMP/changes.txt")
+          # Every deletion is a withdrawal: the jail above refused any deletion
+          # the plan does not withdraw, so this count is right only behind it.
           withdrawn=$(awk -F '\t' '$1 == "D"' "$RUNNER_TEMP/changes.txt" | wc -l)
           # The subject names this Actions run, and an auto-released run marks
           # it, so `main` keeps the round `hold-decision` counts once it merges.
