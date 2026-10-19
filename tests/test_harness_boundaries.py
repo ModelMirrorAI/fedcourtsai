@@ -118,12 +118,13 @@ def test_the_registry_is_well_formed() -> None:
     for boundary in HARNESS_BOUNDARIES:
         if boundary.name in proc_v9:
             assert boundary.predictors == frozenset({"codex-baseline", "gemini-baseline"})
-    # Of the pinned boundaries, the three that reach a docket only through a
+    # Of the pinned boundaries, the four that reach a docket only through a
     # later poll or back-fill are marked gradual.
     assert {b.name for b in HARNESS_BOUNDARIES[:pinned] if b.gradual} == {
         "merits-brief-spellings-consolidated-lead",
         "widened-document-kinds-freshness",
         "merits-brief-partial-support",
+        "interim-pool-one-row-per-number",
     }
 
 

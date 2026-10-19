@@ -11216,6 +11216,48 @@ freeze commit is recorded here.
   mailing_address"` is green, and `uv run fedcourts process-digest --all`
   prints the same label and six digests at the carrying merge as at its
   first parent.
+- **An interim reserve slot frees when its occupant's stored docket reads as
+  disposed; recorded 2026-10-19.** A **membership-rule** entry under unchanged
+  digests: no value, digest or `salience_version` moves, but which pending
+  applications the interim reserve funds can. The reserve is applied by
+  `pipeline.salience.plan_cohorts` under every scorer, so it is not part of
+  what a salience version names.
+
+  **What moved.** A latched, still-unresolved application held its reserve slot
+  until the resolver recorded a disposition. From the carrying merge, the
+  selection pass also reads each occupant's newest stored snapshot, and an
+  occupant on which `pipeline.outcome.interim_disposal_signal` fires keeps its
+  latch but stops counting against `salience.interim_reserve_slots`. That is
+  the scan the forward queue's decided-guard already reads, so the slot it
+  frees was funding no cell. The gate replay reads no snapshots and passes no
+  release, so it does not reproduce a live fill in which a release fired.
+  `reconcile-salience-selection` now lists every occupant with its filing
+  date, the snapshot read, whether it holds a slot, and whether the read
+  failed. A released occupant stays latched and unresolved, so every live
+  cycle (twelve a day) reads its snapshot again until a pull records the
+  disposition: one content-store read per occupant per cycle.
+
+  **Why it is a boundary.** A freed slot goes to the next application on the
+  escalation ladder, and the slots in use lower the current conference's cert
+  rank fill one-for-one, so the change can move which applications and which
+  cert petitions are selected from the carrying merge on. It moves no cell
+  already minted and re-derives nothing committed.
+
+  **What it frees today.** Nothing. Read ranged against the index pointer
+  `79e92043b8dbe9c0…` (latest pull 2026-10-19), the reserve holds 5 of 5
+  slots: `scotus/73279700` (25A622, filed 2025-11-25, newest snapshot
+  2026-10-06), 9526000163 (26A163), 9526000416, 9526000458 and 9526000499.
+  The scan fires on none of them. 25A622 and 26A163 each carry a single stored
+  entry, the application's submission, so no reading of the stored docket can
+  free them; a slot held that way needs a pull that records the disposition,
+  or a rule this entry does not make.
+
+  The runnable effect check once it is live: where the corpus is pulled,
+  `uv run fedcourts reconcile-salience-selection` (a dry run) prints an
+  `interim reserve:` line and one line per occupant, each saying whether it
+  holds a slot, and every occupant it reports released is one whose stored
+  docket the forward queue's decided-guard also reads as disposed.
+
 - **A distribution-moment cell is minted only on the petition's own
   distribution, never on an ancillary paper's; recorded 2026-10-19.** A
   **membership-rule** entry: it changes which cells are minted from the

@@ -13,8 +13,8 @@ name: staging-corpus-refresh
 # classes, and permissions are scoped per job. Its whole permission surface
 # is one file to read: the staging read-write role's trust names the
 # `staging` environment, which every staging reader binds too — unlike
-# production, whose read-write role's trust is to name the writer-only
-# `corpus-write` environment (a maintainer IAM step; docs/security.md), because what staging-head code can write is the disposable,
+# production, whose read-write role's trust names the writer-only
+# `corpus-write` environment (an IAM statement; docs/security.md), because what staging-head code can write is the disposable,
 # re-seedable staging pair, and review of what reaches the branch is the
 # control (docs/security.md) — and this workflow is the one reviewed asker.
 #

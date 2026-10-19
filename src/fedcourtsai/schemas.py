@@ -4884,6 +4884,93 @@ class SetAsideEventsRegistry(_Strict):
     events: list[SetAsideEvent] = Field(description="The listed events, in the order declared")
 
 
+#: A release slug: lower-case words joined by single hyphens, so it is a URL path
+#: segment as written.
+RELEASE_SLUG_PATTERN: Final = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
+#: A DOI as the release documents cite it (``10.<registrant>/<suffix>``), never a URL.
+DOI_PATTERN: Final = r"^10\.[0-9]{4,9}/[^\s]+$"
+#: A repository path to a release document: relative, Markdown, under ``docs/``.
+RELEASE_DOC_PATTERN: Final = r"^docs/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\.md$"
+
+
+class ReleaseEntry(_Strict):
+    """One results release in the release manifest (``docs/releases.json``).
+
+    The fedcourts.ai site reads the manifest from ``main`` and each release's
+    documents from the release's own tag, so the list can grow while every
+    published page stays fixed to its tagged text. An entry whose tag does not
+    exist yet is shown there as upcoming.
+    """
+
+    slug: str = Field(
+        pattern=RELEASE_SLUG_PATTERN,
+        description="The release's URL path segment on the site (`/results/<slug>`)",
+    )
+    label: str = Field(min_length=1, description='The release\'s short name, e.g. "Release 1"')
+    tag: str = Field(
+        pattern=r"^results/[A-Za-z0-9._-]+$",
+        description="The git tag the release is published from, in the `results/` namespace",
+    )
+    published: date = Field(description="The release's publication date")
+    covers: str = Field(
+        min_length=1, description="One line, for a lay reader, on what the release covers"
+    )
+    summary: str = Field(
+        pattern=RELEASE_DOC_PATTERN,
+        description="Repository path of the release's public summary, read at `tag`",
+    )
+    audit: str = Field(
+        pattern=RELEASE_DOC_PATTERN,
+        description="Repository path of the release's audit write-up, read at `tag`",
+    )
+    data_doi: str | None = Field(
+        default=None,
+        pattern=DOI_PATTERN,
+        description="The DOI of the release's Zenodo dataset record; null until reserved",
+    )
+    code_doi: str | None = Field(
+        default=None,
+        pattern=DOI_PATTERN,
+        description="The concept DOI of the project's Zenodo software record, which "
+        "resolves to its newest archived version; the release cites it beside its tag, "
+        "which pins the exact code. Null until the record exists",
+    )
+
+
+class ReleaseManifest(_Strict):
+    """``docs/releases.json`` — every results release, newest first.
+
+    Committed beside the releases it describes and promoted with them, so
+    publishing a release needs no change to the site that lists it.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    releases: list[ReleaseEntry] = Field(description="The releases, newest first")
+
+    @model_validator(mode="after")
+    def _releases_cohere(self) -> ReleaseManifest:
+        """One page per slug, one entry per tag and label, tags named for slugs, newest first.
+
+        The site builds ``/results/<slug>`` and reads that page's documents at
+        ``tag``, so a tag that is not ``results/<slug>`` would put one release's
+        text under another's address.
+        """
+        for entry in self.releases:
+            if entry.tag != f"results/{entry.slug}":
+                raise ValueError(
+                    f"release {entry.slug}: tag {entry.tag} is not results/{entry.slug}"
+                )
+        for field in ("slug", "tag", "label"):
+            values = [getattr(entry, field) for entry in self.releases]
+            repeated = sorted({v for v in values if values.count(v) > 1})
+            if repeated:
+                raise ValueError(f"release {field} listed more than once: {', '.join(repeated)}")
+        dates = [entry.published for entry in self.releases]
+        if dates != sorted(dates, reverse=True):
+            raise ValueError("releases must be listed newest first by `published`")
+        return self
+
+
 class SetAsideRecord(_Strict):
     """The cells a board's build set aside from its default figures, and why.
 
@@ -9772,6 +9859,39 @@ class DecisionDateConvergenceResult(_Strict):
     )
 
 
+class ReserveOccupant(_Strict):
+    """One latched, still-pending application the interim reserve weighed.
+
+    ``holds_slot`` is False when the application's newest stored snapshot
+    already reads as an interim disposal
+    (:func:`fedcourtsai.pipeline.outcome.interim_disposal_signal`): the row is
+    still unresolved in the corpus, but the pass no longer counts it against
+    ``interim_reserve_slots``. ``date_filed`` dates the occupancy, so a slot held
+    for months is visible in the ledger.
+    """
+
+    case_id: str
+    docket_number: str = ""
+    date_filed: date | None = None
+    snapshot_date: date | None = Field(
+        default=None, description="The newest stored snapshot read; None when none is stored"
+    )
+    holds_slot: bool = Field(
+        default=True,
+        description=(
+            "False when the stored snapshot already reads as an interim disposal, "
+            "which frees the slot while the row awaits a resolver"
+        ),
+    )
+    snapshot_read_failed: bool = Field(
+        default=False,
+        description=(
+            "True when the snapshot read raised, as distinct from no snapshot being "
+            "stored; the occupant then holds its slot"
+        ),
+    )
+
+
 class SalienceSelectionResult(_Strict):
     """``reconcile-salience-selection`` result: what the salience pass scored and picked.
 
@@ -9800,6 +9920,13 @@ class SalienceSelectionResult(_Strict):
         description="Cases newly latched selected (the one-way latch never removes)",
     )
     sample_selected: list[str] = Field(default_factory=list)
+    reserve_occupants: list[ReserveOccupant] = Field(
+        default_factory=list,
+        description=(
+            "Every latched, still-pending application the interim reserve weighed, "
+            "with whether it still holds a slot"
+        ),
+    )
 
 
 class CaptionCensusClass(_Strict):
@@ -11454,6 +11581,19 @@ class SummaryPlanCase(_Strict):
         return self
 
 
+class SummaryWithdrawal(_Strict):
+    """One committed summary a summary run withdraws: written before the petition
+    the docket number now holds was docketed, so it describes another petition."""
+
+    case_id: str
+    path: str = Field(description="The summary file's repository-relative path")
+    snapshot: date = Field(description="The snapshot day the summary was written from")
+    docketed: date = Field(
+        description="The docketed date the case's newest record carries, which the "
+        + "summary's snapshot day precedes"
+    )
+
+
 class SummaryPlan(_Strict):
     """``fedcourts summarize-plan`` output — what a summary run would write and cost.
 
@@ -11479,6 +11619,12 @@ class SummaryPlan(_Strict):
     )
     deferred: int = Field(ge=0, description="Cases owed a summary that the limit held back")
     cases: list[SummaryPlanCase]
+    withdrawn: list[SummaryWithdrawal] = Field(
+        default_factory=list,
+        description="Committed summaries of another petition than the docket number now "
+        + "holds (a re-docketed number), which the run's review PR deletes; free, so "
+        + "never deferred by the limit",
+    )
     estimated_cost_usd_low: float = Field(ge=0)
     estimated_cost_usd_high: float = Field(ge=0)
 
@@ -11889,4 +12035,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "process_registry": ProcessRegistry,
     "voided_events": VoidedEventsRegistry,
     "set_aside_events": SetAsideEventsRegistry,
+    "release_manifest": ReleaseManifest,
 }

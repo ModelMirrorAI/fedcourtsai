@@ -899,6 +899,198 @@ def test_summaries_config_defaults_when_the_section_is_absent(tmp_path: Path) ->
     assert load_summaries_config(tmp_path) == SummariesConfig()
 
 
+# --- withdrawal (a re-docketed number) ------------------------------------------------
+
+# The number's current petition, docketed the day after the earlier one was.
+REDOCKETED = {**PAYLOAD, "DocketedDate": "August 21, 2026"}
+
+
+def test_docketed_date_reads_the_court_format() -> None:
+    assert summaries.docketed_date(REDOCKETED) == date(2026, 8, 21)
+    assert summaries.docketed_date({"DocketedDate": "Aug 21, 2026"}) == date(2026, 8, 21)
+    assert summaries.docketed_date({"DocketedDate": "  August  21,  2026 "}) == date(2026, 8, 21)
+    assert summaries.docketed_date({"DocketedDate": ""}) is None
+    assert summaries.docketed_date({"DocketedDate": "soon"}) is None
+    assert summaries.docketed_date(PAYLOAD) is None
+
+
+def test_plan_withdraws_a_summary_written_before_the_current_docketing(tmp_path: Path) -> None:
+    digest = summaries.record_digest(REDOCKETED, DOCS)
+    _commit_summary(tmp_path, "scotus/9026000221", "2026-08-20", "sha256:" + "1" * 64)
+    _commit_summary(tmp_path, "scotus/9026000221", "2026-08-21", "sha256:" + "2" * 64)
+    _commit_summary(tmp_path, "scotus/9026000221", "2026-10-13", digest)
+    plan = _plan(tmp_path, {"scotus/9026000221": _record(REDOCKETED)})
+    # The newest summary is the current petition's and is current: nothing owed.
+    assert plan.cases == []
+    assert plan.up_to_date == 1
+    assert [(w.path, w.snapshot, w.docketed) for w in plan.withdrawn] == [
+        (
+            "data/cases/scotus/9026000221/summaries/2026-08-20.md",
+            date(2026, 8, 20),
+            date(2026, 8, 21),
+        )
+    ]
+    report = summaries.render_plan_report(plan)
+    assert "summaries withdrawn" in report
+    assert "data/cases/scotus/9026000221/summaries/2026-08-20.md" in report
+
+
+def test_a_case_whose_only_summary_is_withdrawn_is_planned_new(tmp_path: Path) -> None:
+    # Even a matching digest does not make another petition's summary current.
+    digest = summaries.record_digest(REDOCKETED, DOCS)
+    _commit_summary(tmp_path, "scotus/1", "2026-08-20", digest)
+    plan = _plan(tmp_path, {"scotus/1": _record(REDOCKETED)})
+    assert [(c.case_id, c.reason) for c in plan.cases] == [("scotus/1", "new")]
+    assert [w.case_id for w in plan.withdrawn] == ["scotus/1"]
+
+
+def test_withdrawals_are_never_deferred_by_the_limit(tmp_path: Path) -> None:
+    _commit_summary(tmp_path, "scotus/1", "2026-08-20", "sha256:" + "1" * 64)
+    records: dict[str, summaries.CaseRecord | None] = {
+        "scotus/1": _record(REDOCKETED),
+        "scotus/2": _record(),
+    }
+    plan = _plan(tmp_path, records, limit=1)
+    assert len(plan.cases) == 1
+    assert [w.case_id for w in plan.withdrawn] == ["scotus/1"]
+
+
+def test_no_docketed_date_withdraws_nothing(tmp_path: Path) -> None:
+    _commit_summary(tmp_path, "scotus/1", "2026-08-20", summaries.record_digest(PAYLOAD, DOCS))
+    plan = _plan(tmp_path, {"scotus/1": _record()})
+    assert plan.withdrawn == []
+    assert plan.cases == []
+
+
+def test_summary_withdraw_deletes_the_planned_files_and_the_jail_admits_only_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    data = tmp_path / "data"
+    stale = _commit_summary(data, "scotus/1", "2026-08-20", "sha256:" + "1" * 64)
+    kept = _commit_summary(data, "scotus/1", "2026-10-13", "sha256:" + "2" * 64)
+    plan = _plan(data, {"scotus/1": _record(REDOCKETED)})
+    plan_file = tmp_path / "plan.json"
+    plan_file.write_text(plan.model_dump_json())
+
+    removed = runner.invoke(app, ["summary-withdraw", "--plan", str(plan_file)])
+    assert removed.exit_code == 0, removed.output
+    assert removed.stdout.split() == ["data/cases/scotus/1/summaries/2026-08-20.md"]
+    assert not stale.exists() and kept.exists()
+    # A re-run finds the file gone and removes nothing.
+    again = runner.invoke(app, ["summary-withdraw", "--plan", str(plan_file)])
+    assert again.exit_code == 0 and again.stdout.split() == []
+
+    changes = tmp_path / "changes.txt"
+    changes.write_text(
+        "D\tdata/cases/scotus/1/summaries/2026-08-20.md\n"
+        + "D\tdata/cases/scotus/1/summaries/2026-10-13.md\n"
+        + "A\tdata/cases/scotus/2/summaries/2026-10-13.md\n"
+    )
+    args = ["summary-paths", "--name-status-file", str(changes), "--strict"]
+    without_plan = runner.invoke(app, args)
+    assert without_plan.output.count("not a case summary write") == 2
+    with_plan = runner.invoke(app, [*args, "--plan", str(plan_file)])
+    assert with_plan.exit_code == 1
+    assert with_plan.output.count("not a case summary write") == 1
+    assert "D data/cases/scotus/1/summaries/2026-10-13.md" in with_plan.output
+    only_planned = tmp_path / "planned.txt"
+    only_planned.write_text(
+        "D\tdata/cases/scotus/1/summaries/2026-08-20.md\n"
+        + "A\tdata/cases/scotus/2/summaries/2026-10-13.md\n"
+    )
+    clean = runner.invoke(
+        app,
+        [
+            "summary-paths",
+            "--name-status-file",
+            str(only_planned),
+            "--strict",
+            "--plan",
+            str(plan_file),
+        ],
+    )
+    assert clean.exit_code == 0, clean.output
+    assert clean.stdout.split() == ["data/cases/scotus/2/summaries/2026-10-13.md"]
+
+
+def test_a_summary_written_on_the_docketed_day_is_kept(tmp_path: Path) -> None:
+    # The boundary: a snapshot taken the day the petition was docketed is that
+    # petition's, so only a strictly earlier day withdraws.
+    assert not summaries.is_withdrawn(date(2026, 8, 21), date(2026, 8, 21))
+    assert summaries.is_withdrawn(date(2026, 8, 20), date(2026, 8, 21))
+    digest = summaries.record_digest(REDOCKETED, DOCS)
+    _commit_summary(tmp_path, "scotus/1", "2026-08-21", digest)
+    plan = _plan(tmp_path, {"scotus/1": _record(REDOCKETED)})
+    assert plan.withdrawn == []
+    assert plan.up_to_date == 1
+
+
+def _withdrawal_plan(case_id: str, path: str) -> SummaryPlan:
+    return SummaryPlan.model_validate(
+        {
+            "model": "claude-sonnet-5",
+            "eligible": 1,
+            "up_to_date": 1,
+            "deferred": 0,
+            "cases": [],
+            "withdrawn": [
+                {
+                    "case_id": case_id,
+                    "path": path,
+                    "snapshot": "2026-08-20",
+                    "docketed": "2026-08-21",
+                }
+            ],
+            "estimated_cost_usd_low": 0,
+            "estimated_cost_usd_high": 0,
+        }
+    )
+
+
+@pytest.mark.parametrize("court", ["..", ".", "Scotus", "a b"])
+def test_summary_withdraw_refuses_a_traversing_or_malformed_case_id(
+    tmp_path: Path, court: str
+) -> None:
+    data = tmp_path / "data" / "cases" / "inner"
+    data.mkdir(parents=True)
+    # The file a `../1` row would reach from a data root one level down.
+    outside = tmp_path / "data" / "cases" / "1" / "summaries" / "2026-08-20.md"
+    outside.parent.mkdir(parents=True)
+    outside.write_text("not a summary of this case")
+    path = f"data/cases/{court}/1/summaries/2026-08-20.md"
+    with pytest.raises(ValueError, match="not a case id"):
+        summaries.withdraw_summaries(data, _withdrawal_plan(f"{court}/1", path))
+    assert outside.exists()
+    assert not summaries.is_summary_path(path)
+
+
+def test_summary_withdraw_refuses_a_row_off_its_canonical_path(tmp_path: Path) -> None:
+    plan = SummaryPlan.model_validate(
+        {
+            "model": "claude-sonnet-5",
+            "eligible": 1,
+            "up_to_date": 1,
+            "deferred": 0,
+            "cases": [],
+            "withdrawn": [
+                {
+                    "case_id": "scotus/1",
+                    "path": "data/cases/scotus/2/summaries/2026-08-20.md",
+                    "snapshot": "2026-08-20",
+                    "docketed": "2026-08-21",
+                }
+            ],
+            "estimated_cost_usd_low": 0,
+            "estimated_cost_usd_high": 0,
+        }
+    )
+    target = _commit_summary(tmp_path, "scotus/1", "2026-08-20", "sha256:" + "1" * 64)
+    with pytest.raises(ValueError, match="not its summary"):
+        summaries.withdraw_summaries(tmp_path, plan)
+    assert target.exists()
+
+
 def test_the_summary_model_is_priced() -> None:
     assert MODEL_RATES["claude-sonnet-5"] == ModelRate(2.0, 10.0)
 

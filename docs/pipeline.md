@@ -1771,7 +1771,11 @@ The mechanics:
   digest at the head must be registered; each predictor keeps at most one
   open window, a pending close counting as a close; the batch carries at most
   one label new to `main`, with no `prereg/` tag yet; no boundary name may
-  repeat; and nothing may already sit pending on `main` — `fedcourts
+  repeat; nothing may already sit pending on `main`; and no row `main` has
+  stamped may change, go or move, nor any evaluator digest's blessing labels
+  lose `main`'s prefix, save a pending close on a window no live predictor
+  computes, a blessing that left the fleet, and a revocation of a closed
+  window dated at or after the head — `fedcourts
   registry-gate`, read from git alone, so both call sites check out full
   history with tags).
   The `promote` dispatch runs
@@ -2098,6 +2102,31 @@ its purpose — and two restrict creation, `promotion/**` and `prereg/**` to the
 data App and the admin role, every other tag to the admin role alone, so no
 other credential can plant a canonical name ahead of the workflow. The
 promotion gate's `contexts` stage checks all three are present and active.
+
+**The release manifest.** `docs/releases.json` lists every results release,
+newest first, one entry per `results/` tag: its `slug` (the site's
+`/results/<slug>` path), `label`, `tag`, `published` date, a one-line `covers`
+description for a lay reader, the repository paths of its public `summary` and
+its `audit` write-up, and the DOIs of its Zenodo dataset record (`data_doi`)
+and of the code it cites (`code_doi`), each null until it exists. fedcourts.ai
+reads the manifest from `main` and each release's summary from that release's
+own tag, so tagging a release is all it takes for the site to publish it, and a
+published page stays fixed to its tagged text while the list grows. An entry
+whose tag does not exist yet is shown there as upcoming, so add one only once
+announcing the release is intended.
+
+The manifest is a reviewed file like the documents it lists, not data: it rides
+`staging` and reaches `main` in a promotion, never by a writer. So a release's
+entry goes in **the release's own pull request**, beside its filled documents,
+and is promoted with them before the tag is pushed; the tag then sits on a
+commit whose manifest already names it. `ReleaseManifest` in
+`fedcourtsai.schemas` holds its rules — URL-safe, unique slugs; each tag
+`results/<slug>`, so a page's address and the tag its text is read at name the
+same release; unique labels; newest first; Markdown paths under `docs/`; DOIs
+written bare — and `tests/test_release_manifest.py` checks the committed file
+against them, and that each entry's summary and audit write-up exist at its tag
+where the checkout has the tag, or in the working tree where it does not (CI's
+shallow checkout fetches no tags).
 
 ### Engine CLI updates
 
