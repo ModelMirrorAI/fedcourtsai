@@ -303,3 +303,27 @@ def test_a_symlinked_copy_is_neither_followed_nor_moved(tmp_path: Path) -> None:
     assert _settle(events)["retrieval.md"].outcome is JudgeFileOutcome.missing
     assert link.is_symlink()
     assert not events.evaluation_retrieval("gemini-judge", "R").exists()
+
+
+def test_a_symlinked_candidate_directory_is_not_read(tmp_path: Path) -> None:
+    """A run directory linked onto another candidate's names the same files twice;
+    reading it would move a copy and then fail to remove its twin."""
+    events = _judge_cell(tmp_path, ("p-b",))
+    (events.evaluation_dir("gemini-judge", "p-b", "R") / "retrieval.md").write_text("Same.\n")
+    linked = events.evaluation_dir("gemini-judge", "p-a", "R")
+    linked.parent.mkdir(parents=True)
+    linked.symlink_to(events.evaluation_dir("gemini-judge", "p-b", "R"))
+    item = _settle(events)["retrieval.md"]
+    assert item == JudgeFileSettlement("retrieval.md", JudgeFileOutcome.relocated, 1, 0)
+    assert events.evaluation_retrieval("gemini-judge", "R").read_text() == "Same.\n"
+
+
+def test_json_copies_that_differ_in_type_are_not_the_same_answer(tmp_path: Path) -> None:
+    events = _judge_cell(tmp_path, ("p-a", "p-b"))
+    (events.evaluation_dir("gemini-judge", "p-a", "R") / "tooling.json").write_text(
+        '{"used_corpus_query": true}'
+    )
+    (events.evaluation_dir("gemini-judge", "p-b", "R") / "tooling.json").write_text(
+        '{"used_corpus_query": 1}'
+    )
+    assert _settle(events)["tooling.json"].outcome is JudgeFileOutcome.ambiguous

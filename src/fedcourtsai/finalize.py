@@ -354,7 +354,11 @@ def _same_content(a: Path, b: Path) -> bool:
     right_text = right.decode("utf-8", errors="replace")
     if a.suffix == ".json":
         try:
-            return bool(json.loads(left_text) == json.loads(right_text))
+            # Re-serialised rather than compared as objects, so ``true`` and
+            # ``1`` (or ``1`` and ``1.0``) stay different answers.
+            return json.dumps(json.loads(left_text), sort_keys=True) == json.dumps(
+                json.loads(right_text), sort_keys=True
+            )
         except ValueError:
             pass
     return left_text.strip() == right_text.strip()
@@ -389,6 +393,8 @@ def settle_judge_level_outputs(
         for path in evaluator_dir.glob(f"*/{run_id}")
         # Reached without a link, and not the judge level's own directory.
         if path.is_dir()
+        and not path.is_symlink()
+        and not path.parent.is_symlink()
         and path.resolve().parent.parent == evaluator_dir.resolve()
         and path.parent.name != run_id
     )

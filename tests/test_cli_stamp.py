@@ -3685,3 +3685,63 @@ def test_a_predictor_stamp_does_not_look_for_a_judge_pair(_data_root: Path) -> N
         .prediction_flags("claude-baseline", "RID")
         .exists()
     )
+
+
+def test_a_relocated_tooling_report_is_normalised_where_it_lands(_data_root: Path) -> None:
+    """Settling runs before normalising: a misshaped report the judge copied into
+    every candidate is moved up first, then coerced there, and the cell validates."""
+    event = "evt-petition-disposition"
+    event_paths = CasePaths(_data_root, "scotus", 8).event(event)
+    report = {
+        "schema_version": "1.0",
+        "case_id": "scotus/8",
+        "run_id": "RID",
+        "role": "evaluator",
+        "actor_id": "gemini-judge",
+        "used_corpus_query": False,
+        "used_base_rates": False,
+        "an_invented_key": "dropped by the normaliser",
+    }
+    for predictor in ("claude-baseline", "codex-baseline"):
+        seed_evaluation(
+            _data_root,
+            "scotus",
+            8,
+            event,
+            evaluator_id="gemini-judge",
+            predictor_id=predictor,
+            run_id="RID",
+        )
+        run_dir = event_paths.evaluation_dir("gemini-judge", predictor, "RID")
+        (run_dir / "tooling.json").write_text(json.dumps(report))
+        (run_dir / "retrieval.md").write_text("The record only.\n")
+    result = _stamp("evaluator", "gemini-judge", 8, event, "RID")
+    assert result.exit_code == 0, result.output
+    landed = read_model(event_paths.evaluation_tooling("gemini-judge", "RID"), AgentToolingFeedback)
+    assert "[harness]" in (landed.notes or "")
+    assert validate_ledger(_data_root).ok
+
+
+def test_stamp_warns_where_the_judges_copies_disagree(_data_root: Path) -> None:
+    event = "evt-petition-disposition"
+    event_paths = CasePaths(_data_root, "scotus", 9).event(event)
+    for predictor in ("claude-baseline", "codex-baseline"):
+        seed_evaluation(
+            _data_root,
+            "scotus",
+            9,
+            event,
+            evaluator_id="gemini-judge",
+            predictor_id=predictor,
+            run_id="RID",
+        )
+        run_dir = event_paths.evaluation_dir("gemini-judge", predictor, "RID")
+        (run_dir / "retrieval.md").write_text(f"What I read for {predictor}.\n")
+    result = _stamp("evaluator", "gemini-judge", 9, event, "RID")
+    assert result.exit_code == 0, result.output
+    flags = read_model(event_paths.evaluation_flags("gemini-judge", "RID"), AgentFlags).flags
+    retrieval = [flag for flag in flags if "retrieval.md" in flag.message]
+    assert len(retrieval) == 1
+    assert retrieval[0].severity == FlagSeverity.warning
+    assert "the copies differ, so none was moved" in retrieval[0].message
+    assert not event_paths.evaluation_retrieval("gemini-judge", "RID").exists()
