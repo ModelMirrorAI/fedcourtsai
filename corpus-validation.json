@@ -34,7 +34,7 @@
     },
     {
       "checked": 3073,
-      "detail": "as of 2026-10-18",
+      "detail": "as of 2026-10-19",
       "failures": 0,
       "name": "snapshot_not_future_dated",
       "passed": true,
@@ -42,7 +42,7 @@
     },
     {
       "checked": 662,
-      "detail": "granted before 2024-10-18 (730 days); 18 resolved by termination (1 abated, 1 dismissed-moot, 1 grant-vacated, 10 judgment-issued, 5 voluntary-dismissal); excepted (terminal off-docket): scotus/72466202, scotus/72466229, scotus/72466705",
+      "detail": "granted before 2024-10-19 (730 days); 18 resolved by termination (1 abated, 1 dismissed-moot, 1 grant-vacated, 10 judgment-issued, 5 voluntary-dismissal); excepted (terminal off-docket): scotus/72466202, scotus/72466229, scotus/72466705",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
       "passed": true,
@@ -50,7 +50,7 @@
     },
     {
       "checked": 2153575,
-      "detail": "0 future-dated, 34 decided-before-filed vs accepted baseline 50 (as of 2026-10-18); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
+      "detail": "0 future-dated, 34 decided-before-filed vs accepted baseline 50 (as of 2026-10-19); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
       "failures": 34,
       "name": "case_dates_ordered",
       "passed": true,
