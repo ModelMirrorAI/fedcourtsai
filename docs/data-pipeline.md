@@ -240,7 +240,8 @@ live in different stores, split by **kind**:
    (`FEDCOURTS_REMOTE_WRITES`, `Settings.remote_writes`) is how a workflow
    says which jobs write: the
    corpus writer jobs of run-pull, run-seed and run-repair set it on their own
-   `env:`, and a workflow test holds that exactly the jobs assuming the
+   `env:` (run-repair's corpus job on an apply alone, since its dry run keeps
+   its local prerequisites on the runner), and a workflow test holds that exactly the jobs assuming the
    read-write role set it and nothing else names it. A predict, evaluate or
    analytics job that ran a corpus write attempts no remote write even with a
    writable credential, and `corpus-push` refuses to run in an Actions job
@@ -1570,7 +1571,7 @@ maintainer's call on this pass.
 **One pass per dispatch, dry-run first.** `repair` is a single choice, so no
 two passes can arm each other, which makes the documented procedure structural
 rather than a convention. The procedure is two dispatches: `repair_mode: dry-run` tees the
-pass's ledger to the run summary and writes nothing, the maintainer reads the
+pass's ledger to the run summary and writes nothing off the runner, the maintainer reads the
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
@@ -1766,15 +1767,21 @@ additionally brings `reconcile-scope --apply`, in both modes and for the same
 reason: the overhang clear recomputes each pending cohort's selection, so it
 must recompute over an in-scope corpus whether or not it goes on to write.
 
-**So `dry-run` means the selected pass writes nothing — not that the dispatch
-writes nothing.** The prerequisites apply either way, and each pushes the blob
-and commits a pointer to `main` if it found anything: one such write on a
-`dry-run` dispatch, two on an `unlatch-overselected` one. Both are idempotent
-convergences the scheduled walker would have made anyway, so a dry run still
-moves the corpus no further than a window does; what it never does is the pass
-the maintainer is deciding about. Unlike their twins on the walker's schedule, both fail **hard** here: a
-failed prerequisite means the dispatched pass cannot be trusted to read the
-right rows, and a green run that quietly did nothing is the worst outcome a
+**A `dry-run` dispatch writes nothing off the runner.** The prerequisites
+apply to the runner's own copy of the corpus and stop before the push, so the
+pass reads the deduped, in-scope population an apply would, and the merge goes
+nowhere: the dispatch holds the read-only role and no App token, its job leaves
+the remote-writes switch off and takes no `corpus-write` lock, and it publishes
+no validation verdict, since its blob is one nobody committed. An apply runs
+the same prerequisites to completion — each pushes the blob and commits a
+pointer to `main` if it found anything — ahead of its pass. Both are idempotent
+convergences the scheduled walker would have made anyway. Under the corpus
+split a dry run's local merge reaches the content store's reads only for the
+rows it re-keys, whose moved payloads are not mirrored, so where the dedupe
+ledger in the summary names a pair, the pass's ledger for that survivor may
+differ from the apply's. Unlike their twins on the walker's schedule, both fail **hard**
+here: a failed prerequisite means the dispatched pass cannot be trusted to read
+the right rows, and a green run that quietly did nothing is the worst outcome a
 repair bench can produce.
 
 

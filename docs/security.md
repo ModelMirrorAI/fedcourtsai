@@ -961,8 +961,8 @@ binding `prod` — every agent cell among them, each holding
 `id-token: write` — mints a token no role that writes a production store
 accepts. (The environment shares its name with the writers' `corpus-write`
 concurrency lock, which is a different thing: the vote writer and re-grade
-jobs take the lock under `prod`, holding no role, and the decision-record
-job's dry run binds the environment without taking the lock.) It removes
+jobs take the lock under `prod`, holding no role, and the corpus and
+decision-record jobs' dry runs bind the environment without taking the lock.) It removes
 *agents* from the write role's reach, not hostile *parsers*: the writer jobs
 parse fetched third-party content while holding the role — the pull and seed
 windows' fetched dockets, and the corpus repair job's `ocr-recovery` and
@@ -1490,7 +1490,7 @@ S3 stores — the corpus remote (the index blob under its content-addressed
 pair the third one writes:
 
 - **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull`, `run-seed`,
-  `run-repair`'s corpus job, `run-repair`'s decision-record job on an apply,
+  `run-repair`'s corpus and decision-record jobs on an apply,
   and `run-repair`'s application back-fill and opinion-record writer jobs,
   which run on an apply only) —
   **append-only**: it grants *enumerated object actions* — get, put, list —
@@ -1518,6 +1518,8 @@ pair the third one writes:
   writes only the small public projection their parse needs, and
   `run-repair`'s decision-record job, whose read-only pull feeds the dry run,
   which writes nothing, and on an apply the blob the write builds on, and
+  `run-repair`'s corpus job on a dry run, which assumes it directly for the
+  pull and the pass's reads and pushes nothing, and
   `corpus-check`'s `run` job, whose pull serves the approved check of one PR
   head, and its `run-auto` job, whose pull serves an allowlisted query run at
   `main`'s own commit. Two operational facts ride this role. Its IAM **maximum
@@ -1548,7 +1550,7 @@ Access mirrors each workflow's role in the pipeline:
 
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
-| `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus job; decision-record job on an apply; application back-fill and opinion-record writers) | read-write | corpus writers (`corpus-push` + content-store mirror); each of these jobs binds `corpus-write`, the one environment the role's trust names |
+| `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus and decision-record jobs on an apply; application back-fill and opinion-record writers) | read-write | corpus writers (`corpus-push` + content-store mirror); each of these jobs binds `corpus-write`, the one environment the role's trust names |
 | `run-predict`, `run-evaluate` — plan jobs  | read-only     | each derives its own backlog — a scan over every open (resolved) event, so it pulls the index rather than reading it in place |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-repair` — `handoff-projection` job | read-only | the credential split's first job, for the vote, application back-fill and opinion-record passes: a full index `corpus-pull`, then the pass's public projection (docket numbers, stored serials, recorded listing keys) as a one-day artifact; it fetches nothing from the Court |
@@ -1556,6 +1558,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-repair` — votes writer | none | on an apply only: re-validates the plan against the ledger and stamps `outcome.json`; no corpus, no role, no `id-token` — the data App token pushes the commit |
 | `run-seed` — `order-votes-projection`, `order-votes-parse`, `order-votes` jobs | read-only, none, none | the order-list vote sweep: the same three-job split as run-repair's `order-votes` pass on the daily window — a projection job with the read-only role (a full index `corpus-pull`, then each population case's docket number), a parse job holding no credential (no environment, no `id-token`, no secret, and the same AWS/OIDC guard), and a writer holding only the data App token, minted after the planned stamps are applied |
 | `run-repair` — application back-fill and opinion-record writers | read-write | on an apply only, under the `corpus-write` lock: a fresh `corpus-pull`, the plan re-validated and applied, `corpus-push`, then the pointer commit — no fetch, no PDF parse |
+| `run-repair` — corpus job | read-only on a dry run, read-write on an apply | a dry run pulls the index, applies the dedupe (and, for the overhang clear, the scope reconcile) to the runner's copy alone and tees the pass's ledger: no App token, no `corpus-write` lock, the remote-writes switch off, no push. An apply holds the lock, the read-write role and the App token for the whole job, re-assumed for the OCR pass |
 | `run-repair` — decision-record job | read-only (pull and dry run), read-write on an apply | the dry run pulls the index and reads each candidate's stored snapshot from the content store; the apply re-assumes the read-write role for the step that fills two index columns and pushes the blob. One job, not the split: it fetches nothing, and the private snapshots it parses may not cross a public artifact |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull). A forward predict cell's provisioning step also fetches its docket's current JSON from the Court (the pre-mint poll), and a post-run step holding no credential fetches it once more, both through the live poller's client, which refuses any hop off the Court's host; each payload is only scanned for the event's outcome, never stored or handed to the cell |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store; the text-coverage mode reads wider on the same terms — a document-manifest round trip per live-slice case plus each stored document's text body |

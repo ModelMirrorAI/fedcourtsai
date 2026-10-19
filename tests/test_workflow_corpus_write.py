@@ -87,6 +87,13 @@ KNOWN_WRITER_JOBS = {
 }
 
 
+# A writer job whose switch is not the literal "true", and the one value it may
+# carry instead.
+REMOTE_WRITES_VALUES = {
+    ("run-repair.yml", "repair"): "${{ inputs.repair_mode == 'apply' && 'true' || '' }}",
+}
+
+
 def _load(path: Path) -> dict[Any, Any]:
     data = yaml.safe_load(path.read_text())
     assert isinstance(data, dict), path
@@ -194,9 +201,12 @@ def sets_remote_writes(job: dict[Any, Any]) -> bool:
 def test_exactly_the_writer_jobs_enable_remote_writes() -> None:
     """The switch is what a non-writer job's corpus writes meet before its
     role does, so it is set where permissions are reviewed: on each writer
-    job's own ``env:``, as the literal ``"true"`` rather than an expression a
-    dispatch could turn off or on, by every job that assumes the read-write
-    role and by no other. A job-level setting keeps it off every other job."""
+    job's own ``env:``, by every job that assumes the read-write role and by no
+    other. A job-level setting keeps it off every other job. Its value is the
+    literal ``"true"`` rather than an expression a dispatch could turn on,
+    except on run-repair's corpus job, whose dry run holds the read-only role
+    and keeps its local dedupe on the runner: there it is on for an apply
+    alone, and that one expression is the only one admitted."""
     enabled = {(name, job_name) for name, job_name, job, _ in _jobs() if sets_remote_writes(job)}
     assert enabled == KNOWN_WRITER_JOBS, (
         f"`{REMOTE_WRITES}` must be set by exactly the corpus writer jobs: "
@@ -205,9 +215,70 @@ def test_exactly_the_writer_jobs_enable_remote_writes() -> None:
     not_literal = {
         f"{name}:{job_name}": job["env"][REMOTE_WRITES]
         for name, job_name, job, _ in _jobs()
-        if sets_remote_writes(job) and job["env"][REMOTE_WRITES] != "true"
+        if sets_remote_writes(job)
+        and job["env"][REMOTE_WRITES] != REMOTE_WRITES_VALUES.get((name, job_name), "true")
     }
     assert not not_literal, f'`{REMOTE_WRITES}` must be the literal "true": {not_literal}'
+
+
+def _repair_job() -> dict[Any, Any]:
+    job = _load(WORKFLOWS / "run-repair.yml")["jobs"]["repair"]
+    assert isinstance(job, dict)
+    return job
+
+
+def _repair_step(name: str) -> dict[Any, Any]:
+    (step,) = [step for step in _steps(_repair_job()) if step.get("name") == name]
+    return step
+
+
+def test_a_repair_dry_run_holds_the_read_only_role_and_no_write_credential() -> None:
+    """A dry run is read before an apply is decided, so it holds what a read
+    needs and nothing more: the read-only role, no App token, no git identity,
+    and not the `corpus-write` lock a scheduled writer window queues on. Each
+    write grant is gated on an apply and each read-only grant on its negation,
+    so exactly one role is assumed at the opening and at the OCR re-mint."""
+    apply = "inputs.repair_mode == 'apply'"
+    for name in (
+        "Mint app token",
+        "Configure git identity",
+        "Configure AWS credentials (corpus S3 remote, read-write)",
+        "Mint app token (OCR pass)",
+        "Configure AWS credentials (corpus S3 remote, read-write, OCR pass)",
+        "Produce + publish the corpus validation verdict",
+    ):
+        assert apply in _repair_step(name)["if"], name
+    for name in (
+        "Configure AWS credentials (corpus S3 remote, read-only)",
+        "Configure AWS credentials (corpus S3 remote, read-only, OCR pass)",
+    ):
+        step = _repair_step(name)
+        assert "inputs.repair_mode != 'apply'" in step["if"], name
+        assert step["with"]["role-to-assume"] == "${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}"
+    group = _repair_job()["concurrency"]["group"]
+    assert f"&& {apply} && 'corpus-write' ||" in group
+
+
+APPLY_ONLY = 'if [ "${REPAIR_MODE}" = "apply" ]; then'
+
+
+def test_a_repair_dry_run_pushes_nothing() -> None:
+    """Every step that pushes reaches its push only on an apply: the two
+    prerequisites that apply locally on a dry run exit before `corpus-push`,
+    and no step authenticates git until it knows the run is an apply — a dry
+    run has no token to authenticate with."""
+    for step in _steps(_repair_job()):
+        run = str(step.get("run") or "")
+        if "push_with_retry.sh" not in run and "corpus-push" not in run:
+            continue
+        name = step["name"]
+        assert step["env"].get("REPAIR_MODE") == "${{ inputs.repair_mode }}", name
+        guard = run.find('if [ "${REPAIR_MODE}" != "apply" ]')
+        assert guard != -1, name
+        assert -1 < guard < run.find("corpus-push"), name
+        for setup in re.finditer("gh auth setup-git", run):
+            preceding = run[: setup.start()].rstrip().splitlines()[-1].strip()
+            assert setup.start() > guard or preceding == APPLY_ONLY, name
 
 
 def test_the_switch_is_named_nowhere_but_a_writer_jobs_own_env() -> None:
