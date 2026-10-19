@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "releases": [
+    {
+      "slug": "ot2026-longconf",
+      "label": "Release 1",
+      "tag": "results/ot2026-longconf",
+      "published": "2026-10-09",
+      "covers": "The Supreme Court’s first conference of the October 2026 Term: which petitions it would take up",
+      "summary": "docs/release-ot2026-public-summary.md",
+      "audit": "docs/release-ot2026-long-conference.md",
+      "data_doi": "10.5281/zenodo.23263986",
+      "code_doi": "10.5281/zenodo.22966596"
+    }
+  ]
+}
