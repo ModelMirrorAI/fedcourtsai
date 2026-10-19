@@ -1,0 +1,109 @@
+{
+  "$defs": {
+    "ScheduleEntry": {
+      "additionalProperties": false,
+      "description": "One pending, already-public docket's next scheduled conference.\n\nA row exists for every docket on the public set whose corpus row is\nunresolved and carries a conference it was distributed for. The date is\npublished as `next_conference` only while it falls on or after the\nschedule's `as_of`; once it has passed and the docket has not moved, the\nrow keeps the date it was distributed for and says why it is no longer a\nscheduled date, so a past conference is never shown as upcoming.",
+      "properties": {
+        "case_id": {
+          "description": "``<court>/<docket>`` of an already-public case",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "distributed_for_conference": {
+          "description": "The corpus `distributed_for_conference`: the date named by the docket's newest 'DISTRIBUTED for Conference of \u2026' entry, as the live channel last read it, whether or not it has passed",
+          "format": "date",
+          "title": "Distributed For Conference",
+          "type": "string"
+        },
+        "last_live_polled": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the live channel last read this docket \u2014 the per-case vintage of `distributed_for_conference`, which `as_of` is not",
+          "title": "Last Live Polled"
+        },
+        "next_conference": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The conference the docket is distributed for, when it falls on or after `as_of`; null exactly when `stale_reason` is set",
+          "title": "Next Conference"
+        },
+        "stale_reason": {
+          "anyOf": [
+            {
+              "const": "conference_passed",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why the row carries no `next_conference`: `conference_passed` (the conference is before `as_of` and the docket shows no newer distribution or a decision yet). Null while the date is still ahead",
+          "title": "Stale Reason"
+        }
+      },
+      "required": [
+        "case_id",
+        "next_conference",
+        "distributed_for_conference"
+      ],
+      "title": "ScheduleEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``data/schedule/schedule.json`` \u2014 the next scheduled conference, public set only.\n\nWritten by the live poll from the corpus it already holds, after each cycle,\nfor the dockets the repository already discloses under ``data/cases``: it is\nenumerated from that committed tree alone and never from a corpus scan, the\nsame compilation-extent boundary as the scope manifest. Display data for\nthe public site: it is not a prediction-ledger record (a schedule moves on\nevery relist), nothing predicts, evaluates or scores on it, and no cell is\nprovisioned with it. ``skipped`` is set, with no entries, when no corpus was\npresent.",
+  "properties": {
+    "as_of": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The UTC day the schedule was built on, which decides whether a conference has passed; null on a skipped build",
+      "title": "As Of"
+    },
+    "entries": {
+      "description": "One entry per pending public docket with a conference it was distributed for, in case_id order",
+      "items": {
+        "$ref": "#/$defs/ScheduleEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "skipped": {
+      "default": false,
+      "description": "True when no corpus was present; nothing was read",
+      "title": "Skipped",
+      "type": "boolean"
+    }
+  },
+  "title": "Schedule",
+  "type": "object"
+}

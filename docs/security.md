@@ -1607,15 +1607,19 @@ The cloud-session user's runbook (maintainer):
 
 The code holds the same line without relying on the credential. A corpus
 write mirrors to the content store only inside a GitHub Actions job (a marker
-the runner sets in every job) and only from the configured corpus file, so a
-writer pass run locally, or a script that seeds a temporary database through
-the corpus write helpers, never attempts a store write even where the
-environment names production's store. The marker is a guard against
-accidents, not a control — anyone can set it — so outside Actions the
-read-only role remains what refuses a write; the marker only keeps a local
-writer run from attempting one. Inside Actions the role scoping above is what
-confines writes to the writer jobs. The mechanism is *Only an
-Actions job's writes to the corpus file reach the store* in
+the runner sets in every job), only in a job whose workflow enables remote
+writes, and only from the configured corpus file. The corpus writer jobs set
+the switch on their own `env:`, where their permissions are reviewed, a
+workflow test holds that exactly the jobs assuming the read-write role set it,
+and `corpus-push` refuses an Actions job without it. So a predict, evaluate or
+analytics job that held a writable credential by mistake still attempts no
+store write and publishes no blob, and a writer pass run locally, or a script
+that seeds a temporary database through the corpus write helpers, never
+attempts one even where the environment names production's store. The switch
+and the runner marker are guards against accidents, not authorizations:
+anything that can run code in a job can set either, so the role scoping above
+is still what confines writes to the writer jobs, inside Actions and out. The mechanism is *Only a
+writer job's writes to the corpus file reach the store* in
 [data-pipeline.md](data-pipeline.md).
 
 Every role's OIDC trust is scoped to named environments of this repo
@@ -1952,15 +1956,17 @@ Court's docket number for it — the same pair the qp-topic artifacts and the
 release dataset publish; for the application back-fill, the Term's highest
 stored application serial and its live-owned serials, which say how far the
 corpus's rows reach and which of them the live channel polls; for the
-opinion record, the (Term, listing number) of each document already recorded,
-the row key of the Court's own opinions listing. Each says something about the
+opinion record, the (Term, listing number) of each document it already holds
+whole and of each signed decision it holds without a bench row, the row key of
+the Court's own opinions listing. Each says something about the
 compilation extent — which public dockets the pipeline holds — on the footing
 argued above, and nothing about their contents. `repair-plan-<run_id>`, on an
 apply only, carries what the parse read: for the vote passes, each planned
 record (votes, provenance, writing roles — the fields the writer commits to
 public git anyway); for the opinion record, each document's opinion rows read
 off the Court's listing and PDF (kind, author, joiners, word counts, the
-printed header sentence) with the case id left for the writer to resolve. The
+printed header sentence) and the bench and non-participation its syllabus
+prints, with the case id left for the writer to resolve. The
 application back-fill's plan carries each served docket JSON verbatim —
 party contact blocks included, a self-represented applicant's address,
 telephone and prisoner number among them — with the ledger's structured

@@ -69,17 +69,26 @@ bound volume (every row before OT2020 on the Court's listings, and some of
 OT2020's) is skipped unfetched; a document whose text does not extract is
 refused.
 
-**Fill-only.** A recorded document is never read again, so a new
-:data:`WORD_RULE_VERSION` or reader version reaches stored rows only through a
-pass built to replace them, which does not exist yet; each row says which
-versions it was read under.
+**Who sat.** Each read signed decision also gets one ``opinion_benches`` row:
+the bench and the Justices who took no part, read off its syllabus lineup
+where that lineup is complete and agrees with the listing (:func:`participation`),
+and null otherwise. A per curiam gets none. A signed decision recorded before
+its bench row is read once more for it; the row is added only where the
+re-read writings are the stored ones, and a re-read that reads them
+differently gets a null row instead, since its bench describes other writings.
+
+**Fill-only.** A whole document (:func:`complete_documents`) is never read
+again, so a new :data:`WORD_RULE_VERSION` or reader version reaches stored rows
+only through a pass built to replace them, which does not exist yet; each row
+says which versions it was read under.
 
 **Nothing a cell sees reads this.** The table is read by no ``query``
 retrieval row, provisioning step, outcome, mint or scoring gate.
 
 **Split across a credential boundary.** On run-repair the PDF parse runs in a
-job holding no credential: a read-only job writes the documents the table
-already records (:class:`OpinionRecordProjection`); the credential-free job
+job holding no credential: a read-only job writes the documents the record
+already holds whole, and those it holds without a bench row
+(:class:`OpinionRecordProjection`); the credential-free job
 fetches and reads every other listed document against it and writes the
 readings (:class:`OpinionRecordPlan`); and on an apply the writer job, holding
 the corpus lock and the read-write role, re-validates every reading
@@ -96,7 +105,7 @@ import json
 import re
 import sqlite3
 from collections import Counter
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Container, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Final, Literal, Protocol
@@ -108,6 +117,7 @@ from pypdf.errors import PyPdfError
 
 from .. import corpus
 from ..handoff import HandoffRefused
+from ..schemas import VoteValue
 from .documents import extract_pdf_text
 from .justices import KNOWN_SURNAMES, bench_on, chief_on_bench, resolve_surname
 from .lineup import LEAD_KINDS, Join, Lineup, Writing, WritingKind
@@ -612,6 +622,16 @@ class OpinionDocumentReading(BaseModel):
     source_format: str | None = None
     lineup: str | None = Field(default=None, description="'<reader>/<version>' of the writings")
     opinions: list[OpinionEntry] = Field(default_factory=list)
+    bench: list[str] | None = Field(
+        default=None,
+        description="The Justices the reader seated, where the syllabus lineup accounts for "
+        "every one of them; None where participation was not observed",
+    )
+    took_no_part: list[str] | None = Field(
+        default=None,
+        description="The bench members the syllabus says took no part; recorded with `bench` "
+        "and None with it",
+    )
 
 
 _DOCKET_TOKEN_RE = re.compile(r"\b\d{2}-\d+\b|\b\d{2}A\d+\b|\b\d+,\s*Orig\.", re.I)
@@ -751,11 +771,14 @@ def read_document(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
     lineup: Lineup | None = None
     argued: date | None = None
     decided = entry.decided
+    seated: dict[str, list[str]] = {}
     if not per_curiam:
         reading, lineup = read_lineup(entry, plain.text, truncated=plain.truncated)
         argued, decided = reading.argued, reading.decided or entry.decided
         if lineup is None:
             return _base(entry, status="refused", reason=f"syllabus lineup: {reading.reason}")
+        if reading.votes is not None:
+            seated = participation(lineup)
     try:
         bench = lineup.bench if lineup is not None else bench_on(decided)
     except ValueError as exc:
@@ -785,7 +808,25 @@ def read_document(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
     base = {"argued": argued, "source_format": fmt, "lineup": stamp}
     if problems or len(writings) != len(sections):
         return _base(entry, status="refused", reason="; ".join(problems), **base)
-    return _base(entry, status="read", opinions=_entries(writings, sections), **base)
+    return _base(entry, status="read", opinions=_entries(writings, sections), **base, **seated)
+
+
+def participation(lineup: Lineup) -> dict[str, list[str]]:
+    """A complete lineup's bench and the members of it who took no part.
+
+    Read only off a lineup the merits vote source would stamp from — complete,
+    and agreeing with the listing — because that is when every Justice on the
+    bench is accounted for, so a name missing from ``took_no_part`` is observed
+    to have sat.
+    """
+    return {
+        "bench": list(lineup.bench),
+        "took_no_part": [
+            justice
+            for justice in lineup.bench
+            if lineup.votes.get(justice) is VoteValue.did_not_participate
+        ],
+    }
 
 
 def skip_reason(entry: OpinionListing) -> str | None:
@@ -823,19 +864,80 @@ def _row_key(term: int, listing_number: str) -> tuple[int, str]:
     return term, listing_number
 
 
+def _keys(conn: corpus.ReadConnection, sql: str) -> set[tuple[int, str]]:
+    """The (Term, listing number) pairs ``sql`` selects; empty where its table is missing."""
+    try:
+        rows = conn.execute(sql).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" not in str(exc):
+            raise
+        return set()
+    return {_row_key(int(row[0]), str(row[1])) for row in rows}
+
+
 def recorded_documents(conn: corpus.ReadConnection) -> set[tuple[int, str]]:
     """The (Term, listing number) of every document the table already records.
 
     Empty where the table does not exist yet — a corpus written before it was
     added and opened read-only, so nothing created it.
     """
+    return _keys(conn, "SELECT DISTINCT term, listing_number FROM opinions")
+
+
+def complete_documents(conn: corpus.ReadConnection) -> set[tuple[int, str]]:
+    """The recorded documents the pass has nothing left to read for.
+
+    A recorded per curiam (its headers say nothing of who sat), and a recorded
+    signed decision with a bench row, observed or not. A signed decision
+    recorded without one is read once more, so its bench row can be added
+    beside the rows it already has; nothing else about it changes.
+    """
+    benched = _keys(conn, "SELECT term, listing_number FROM opinion_benches")
+    per_curiam = _keys(
+        conn,
+        "SELECT term, listing_number FROM opinions WHERE position = 1 AND kind = 'per-curiam'",
+    )
+    return recorded_documents(conn) & (benched | per_curiam)
+
+
+def rebench_documents(conn: corpus.ReadConnection) -> set[tuple[int, str]]:
+    """The recorded signed decisions with no bench row: read once more, for it alone."""
+    return recorded_documents(conn) - complete_documents(conn)
+
+
+_Writing = tuple[str, str | None, str, str, str | None]
+
+
+def _entry_writings(opinions: Iterable[OpinionEntry]) -> tuple[_Writing, ...]:
+    return tuple(
+        (
+            o.kind.value,
+            o.author,
+            json.dumps(o.coauthors),
+            json.dumps([j.model_dump() for j in o.joins]),
+            o.scope,
+        )
+        for o in sorted(opinions, key=lambda o: o.position)
+    )
+
+
+def stored_writings(conn: corpus.ReadConnection) -> dict[tuple[int, str], tuple[_Writing, ...]]:
+    """Each recorded document's writings as stored, in position order, for the bench check."""
     try:
-        rows = conn.execute("SELECT DISTINCT term, listing_number FROM opinions").fetchall()
+        rows = conn.execute(
+            "SELECT term, listing_number, kind, author, coauthors, joins, scope "
+            "FROM opinions ORDER BY term, listing_number, position"
+        ).fetchall()
     except sqlite3.OperationalError as exc:
         if "no such table" not in str(exc):
             raise
-        return set()
-    return {_row_key(int(row[0]), str(row[1])) for row in rows}
+        return {}
+    found: dict[tuple[int, str], list[_Writing]] = {}
+    for row in rows:
+        found.setdefault(_row_key(int(row[0]), str(row[1])), []).append(
+            (str(row[2]), row[3], str(row[4]), str(row[5]), row[6])
+        )
+    return {key: tuple(writings) for key, writings in found.items()}
 
 
 def case_ids_by_docket(conn: corpus.ReadConnection, dockets: Iterable[str]) -> dict[str, str]:
@@ -865,6 +967,20 @@ class OpinionRecordResult(BaseModel):
     inserted: int = Field(
         default=0, ge=0, description="Rows the apply actually inserted (0 on a dry run)"
     )
+    benches: int = Field(
+        default=0,
+        ge=0,
+        description="Bench rows the readings yield: one per read signed decision, a recorded "
+        "one that had none included; `bench` is null on those whose lineup is not complete",
+    )
+    benches_inserted: int = Field(
+        default=0, ge=0, description="Bench rows the apply actually inserted (0 on a dry run)"
+    )
+    bench_conflicts: list[str] = Field(
+        default_factory=list,
+        description="Recorded documents whose re-read writings differ from the stored rows, "
+        "so no bench is added to them",
+    )
     refused: bool = Field(
         default=False,
         description="Apply was asked for but the rows exceed the bound; nothing written",
@@ -877,14 +993,18 @@ def read_opinion_record(
     *,
     terms: Sequence[int],
     recorded: set[tuple[int, str]],
+    rebench: Container[tuple[int, str]] = frozenset(),
     dockets: Sequence[str] = (),
 ) -> OpinionRecordResult:
     """Fetch and read every listing row of ``terms`` not in ``recorded``, as a dry run.
 
     The fetch-and-parse half, which touches no corpus: ``recorded`` is the
-    (Term, listing number) of each document already stored, from the corpus
-    or its projection. Case ids are left unresolved; the caller holding the
-    corpus resolves them.
+    (Term, listing number) of each document there is nothing left to read for
+    (:func:`complete_documents`), and ``rebench`` each one recorded without its
+    bench row (:func:`rebench_documents`), from the corpus or its projection. A
+    ``rebench`` document's opinion rows are stored already, so its reading
+    counts toward the bench rows alone. Case ids are left unresolved; the
+    caller holding the corpus resolves them.
     """
     result = OpinionRecordResult(applied=False, terms=list(terms))
     wanted = {n for d in dockets if (n := corpus.normalize_docket_number(d)) is not None}
@@ -903,8 +1023,23 @@ def read_opinion_record(
                 result.already_recorded += 1
                 continue
             result.readings.append(read_listing_entry(entry, fetcher))
-    result.rows = sum(len(r.opinions) for r in result.readings if r.status == "read")
+    result.rows = sum(
+        len(r.opinions)
+        for r in result.readings
+        if r.status == "read" and _row_key(r.term, r.listing_number) not in rebench
+    )
+    result.benches = sum(1 for r in result.readings if _seats(r))
     return result
+
+
+def _seats(reading: OpinionDocumentReading) -> bool:
+    """Whether a reading yields a bench row: any read signed decision."""
+    return reading.status == "read" and reading.opinions[0].kind is not WritingKind.per_curiam
+
+
+Pairs = list[tuple[OpinionDocumentReading, OpinionEntry]]
+#: Inserts opinion rows and bench rows in one transaction; returns how many of each it wrote.
+RecordWriter = Callable[[Pairs, list[OpinionDocumentReading]], tuple[int, int]]
 
 
 def _land(
@@ -913,24 +1048,50 @@ def _land(
     *,
     apply: bool,
     max_rows: int | None,
-    write: Callable[[list[tuple[OpinionDocumentReading, OpinionEntry]]], int] | None,
+    write: RecordWriter | None,
 ) -> OpinionRecordResult:
-    """Resolve each reading's case id from ``conn``, then insert within the bound."""
+    """Resolve each reading's case id from ``conn``, then insert within the bound.
+
+    A reading of a document ``conn`` already records adds only its bench row,
+    and fills it only where its writings are the stored ones: a bench says who
+    sat for the writings it was read with, so beside rows read differently it
+    would describe a decision the table does not hold. Such a document gets a
+    null row instead — read, participation not observed for what is stored —
+    which also ends its re-reading, and is reported in ``bench_conflicts``.
+    """
     ids = case_ids_by_docket(conn, (r.dockets[0] for r in result.readings if r.dockets))
     for reading in result.readings:
         if reading.dockets:
             reading.case_id = ids.get(corpus.normalize_docket_number(reading.dockets[0]) or "")
-    pairs = [(r, o) for r in result.readings if r.status == "read" for o in r.opinions]
+    stored = stored_writings(conn)
+    pairs: Pairs = []
+    benches: list[OpinionDocumentReading] = []
+    result.bench_conflicts = []
+    for reading in (r for r in result.readings if r.status == "read"):
+        key = _row_key(reading.term, reading.listing_number)
+        if key not in stored:
+            pairs.extend((reading, o) for o in reading.opinions)
+        elif stored[key] != _entry_writings(reading.opinions):
+            if _seats(reading):
+                result.bench_conflicts.append(
+                    f"backfill-opinion-record: OT{key[0]} listing row {key[1]}: the re-read "
+                    "writings differ from the stored rows, so its bench row records none"
+                )
+                benches.append(reading.model_copy(update={"bench": None, "took_no_part": None}))
+            continue
+        if _seats(reading):
+            benches.append(reading)
     result.rows = len(pairs)
+    result.benches = len(benches)
     result.applied = apply
     if not apply:
         return result
-    if max_rows is not None and result.rows > max_rows:
+    if max_rows is not None and result.rows + result.benches > max_rows:
         result.refused = True
         result.applied = False
         return result
-    if write is not None and pairs:
-        result.inserted = write(pairs)
+    if write is not None and (pairs or benches):
+        result.inserted, result.benches_inserted = write(pairs, benches)
     return result
 
 
@@ -942,25 +1103,31 @@ def build_opinion_record(
     dockets: Sequence[str] = (),
     apply: bool = False,
     max_rows: int | None = None,
-    write: Callable[[list[tuple[OpinionDocumentReading, OpinionEntry]]], int] | None = None,
+    write: RecordWriter | None = None,
 ) -> OpinionRecordResult:
-    """Read every unrecorded listing row of ``terms`` into the per-opinion record.
+    """Read every listing row of ``terms`` the per-opinion record does not hold whole.
 
-    Fill-only and idempotent: a document the table already records is not
-    fetched again, and nothing stored is ever changed. ``max_rows`` bounds an
-    apply by the opinion rows it would insert; over it nothing is written and
-    ``refused`` is set. ``write`` performs the insert (the caller's writable
-    connection) and returns the rows it wrote; a dry run never calls it, and an
-    apply without it is a caller error.
+    Fill-only and idempotent: a complete document (:func:`complete_documents`)
+    is not fetched again, and nothing stored is ever changed — a recorded
+    signed decision with no bench row is read again only to add one.
+    ``max_rows`` bounds an apply by the opinion rows plus the bench rows it
+    would insert; over it nothing is written and ``refused`` is set. ``write``
+    performs the insert (the caller's writable connection) and returns the
+    rows of each kind it wrote; a dry run never calls it, and an apply without
+    it is a caller error.
 
-    A recorded document is never read again, whatever the counting rule or
-    reader version it was recorded under: a version bump reaches stored rows
-    only through a pass built to replace them, which does not exist yet.
+    A whole document is never read again, whatever the counting rule or reader
+    version it was recorded under: a version bump reaches stored rows only
+    through a pass built to replace them, which does not exist yet.
     """
     if apply and write is None:
         raise ValueError("an apply needs a writer")
     result = read_opinion_record(
-        fetcher, terms=terms, recorded=recorded_documents(conn), dockets=dockets
+        fetcher,
+        terms=terms,
+        recorded=complete_documents(conn),
+        rebench=rebench_documents(conn),
+        dockets=dockets,
     )
     return _land(conn, result, apply=apply, max_rows=max_rows, write=write)
 
@@ -976,7 +1143,7 @@ _TEXT_CAP: Final = 2_000
 
 
 class RecordedDocument(BaseModel):
-    """One document the table already records, by the Court's own listing key."""
+    """One document the pass has nothing left to read for, by the Court's own listing key."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -985,7 +1152,12 @@ class RecordedDocument(BaseModel):
 
 
 class OpinionRecordProjection(BaseModel):
-    """The one corpus fact the parse needs: which listed documents are already recorded.
+    """The one corpus fact the parse needs: which listed documents are complete.
+
+    Complete is :func:`complete_documents`: recorded, and either a per curiam
+    or carrying its bench row. ``rebench`` lists the signed decisions recorded
+    without one (:func:`rebench_documents`), which are read again for it, so
+    the parse counts their stored opinion rows out of what it would insert.
 
     Public: a (Term, listing number) pair is the row key of the Court's own
     opinions listing, which anyone can read at supremecourt.gov. It says the
@@ -996,9 +1168,10 @@ class OpinionRecordProjection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     format: Literal["fedcourts/opinion-record-projection"] = "fedcourts/opinion-record-projection"
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     terms: list[int] = Field(max_length=100)
     recorded: list[RecordedDocument] = Field(max_length=_MAX_DOCUMENTS)
+    rebench: list[RecordedDocument] = Field(default_factory=list, max_length=_MAX_DOCUMENTS)
 
 
 class OpinionRecordPlan(BaseModel):
@@ -1006,7 +1179,8 @@ class OpinionRecordPlan(BaseModel):
 
     Public: every field of an :class:`OpinionDocumentReading` is read off the
     Court's listing or the opinion PDF itself — kind, author, joiners, word
-    counts and the printed header sentence — with ``case_id`` left empty, to be
+    counts, the printed header sentence, and the bench and non-participation
+    the syllabus states — with ``case_id`` left empty, to be
     resolved by the writer from its own corpus. The refused rows' reasons
     quote at most a header's opening words.
     """
@@ -1014,7 +1188,7 @@ class OpinionRecordPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     format: Literal["fedcourts/opinion-record-plan"] = "fedcourts/opinion-record-plan"
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     terms: list[int] = Field(max_length=100)
     listed: int = Field(ge=0)
     already_recorded: int = Field(ge=0)
@@ -1029,13 +1203,18 @@ def opinion_record_projection(
 ) -> OpinionRecordProjection:
     """The recorded-documents projection for ``terms``."""
     wanted = set(terms)
+
+    def listed(keys: set[tuple[int, str]]) -> list[RecordedDocument]:
+        return [
+            RecordedDocument(term=term, listing_number=number)
+            for term, number in sorted(keys)
+            if term in wanted
+        ]
+
     return OpinionRecordProjection(
         terms=list(terms),
-        recorded=[
-            RecordedDocument(term=term, listing_number=number)
-            for term, number in sorted(recorded_documents(conn))
-            if term in wanted
-        ],
+        recorded=listed(complete_documents(conn)),
+        rebench=listed(rebench_documents(conn)),
     )
 
 
@@ -1048,6 +1227,11 @@ def projected_recorded(
             f"the projection was read for Terms {projection.terms}, not {list(terms)}"
         )
     return {_row_key(doc.term, doc.listing_number) for doc in projection.recorded}
+
+
+def projected_rebench(projection: OpinionRecordProjection) -> set[tuple[int, str]]:
+    """The projection's recorded-without-a-bench-row keys."""
+    return {_row_key(doc.term, doc.listing_number) for doc in projection.rebench}
 
 
 def opinion_record_plan(result: OpinionRecordResult) -> OpinionRecordPlan:
@@ -1088,6 +1272,33 @@ def _opinions_problem(reading: OpinionDocumentReading) -> str | None:  # noqa: P
         texts = [o.header, o.scope or "", *(j.qualifier or "" for j in o.joins)]
         if any(len(text) > _TEXT_CAP for text in texts):
             return f"carries an over-long text field in opinion {o.position}"
+    return _bench_problem(reading)
+
+
+def _bench_problem(reading: OpinionDocumentReading) -> str | None:  # noqa: PLR0911 - one return per check
+    """Why a read document's bench is not one a complete syllabus lineup yields."""
+    bench, absent = reading.bench, reading.took_no_part
+    if bench is None or absent is None:
+        return None if bench is None and absent is None else "carries half a bench"
+    if reading.opinions[0].kind is WritingKind.per_curiam:
+        return "carries a bench on a per curiam, whose headers do not observe one"
+    if (why := _names_problem(bench)) is not None:
+        return f"bench {why}"
+    try:
+        seated = list(bench_on(reading.decided))
+    except ValueError:
+        return "carries a bench for a date the seat roster does not cover"
+    if sorted(bench) != sorted(seated):
+        return "carries a bench other than the one the seat roster gives its decision date"
+    if len(set(absent)) != len(absent) or not set(absent) <= set(bench):
+        return "names a Justice off its bench, or one twice"
+    signing = {
+        name
+        for o in reading.opinions
+        for name in (o.author, *o.coauthors, *(j.justice for j in o.joins))
+    }
+    if signing & set(absent) or not signing <= set(bench):
+        return "has a Justice who took no part, or one off the bench, sign a writing"
     return None
 
 
@@ -1128,7 +1339,7 @@ def apply_opinion_record_plan(
     terms: Sequence[int],
     apply: bool,
     max_rows: int | None = None,
-    write: Callable[[list[tuple[OpinionDocumentReading, OpinionEntry]]], int] | None = None,
+    write: RecordWriter | None = None,
 ) -> OpinionRecordResult:
     """Re-validate a plan, then resolve and insert it into the corpus ``conn`` holds.
 
@@ -1136,8 +1347,9 @@ def apply_opinion_record_plan(
     PDFs — so it must be for exactly ``terms``, name each listing row once, and
     every reading must pass :func:`reading_problems`; any departure refuses the
     whole plan with :class:`HandoffRefused` before anything is written. A
-    document the corpus has recorded since the plan was read is counted as
-    already recorded and not inserted again. Then the one-process apply's own
+    document the corpus has completed since the plan was read is counted as
+    already recorded and not inserted again, and a recorded one gains only its
+    bench, where its writings are the stored ones. Then the one-process apply's own
     steps: each case id is resolved from ``conn``, the bound refuses above
     ``max_rows``, and the insert is fill-only. Fetches nothing.
     """
@@ -1153,7 +1365,7 @@ def apply_opinion_record_plan(
         seen.add(key)
         if (why := reading_problems(reading, terms=terms)) is not None:
             raise HandoffRefused(f"the plan's OT{key[0]} listing row {key[1]!r} {why}")
-    recorded = recorded_documents(conn)
+    recorded = complete_documents(conn)
     fresh = [r for r in plan.readings if _row_key(r.term, r.listing_number) not in recorded]
     result = OpinionRecordResult(
         applied=False,
@@ -1167,12 +1379,19 @@ def apply_opinion_record_plan(
 
 
 _INSERT_COLUMNS: Final = tuple(corpus.OPINIONS_COLUMN_DDL)
+_BENCH_COLUMNS: Final = tuple(corpus.OPINION_BENCHES_COLUMN_DDL)
 
 
 def insert_opinions(
-    conn: sqlite3.Connection, pairs: Sequence[tuple[OpinionDocumentReading, OpinionEntry]]
-) -> int:
-    """Insert opinion rows, never replacing one: the fill-only write. Returns rows written."""
+    conn: sqlite3.Connection,
+    pairs: Sequence[tuple[OpinionDocumentReading, OpinionEntry]],
+    benches: Sequence[OpinionDocumentReading] = (),
+) -> tuple[int, int]:
+    """Insert opinion rows and bench rows, never replacing one: the fill-only write.
+
+    One transaction for both, so a document's rows and its bench land
+    together. Returns the opinion rows and the bench rows written.
+    """
     stamp = datetime.now(UTC).replace(microsecond=0).isoformat()
     rule = f"{WORD_RULE}/{WORD_RULE_VERSION}"
     values = [
@@ -1202,9 +1421,29 @@ def insert_opinions(
         }
         for reading, opinion in pairs
     ]
+    seated = [
+        {
+            "term": reading.term,
+            "listing_number": reading.listing_number,
+            "bench": None if reading.bench is None else json.dumps(reading.bench),
+            "took_no_part": (
+                None if reading.took_no_part is None else json.dumps(reading.took_no_part)
+            ),
+            "lineup": reading.lineup or "",
+            "read_at": stamp,
+        }
+        for reading in benches
+    ]
     columns = ", ".join(_INSERT_COLUMNS)
     marks = ", ".join(f":{c}" for c in _INSERT_COLUMNS)
+    bench_columns = ", ".join(_BENCH_COLUMNS)
+    bench_marks = ", ".join(f":{c}" for c in _BENCH_COLUMNS)
     with conn:
         before = conn.total_changes
         conn.executemany(f"INSERT OR IGNORE INTO opinions ({columns}) VALUES ({marks})", values)
-        return conn.total_changes - before
+        rows = conn.total_changes - before
+        conn.executemany(
+            f"INSERT OR IGNORE INTO opinion_benches ({bench_columns}) VALUES ({bench_marks})",
+            seated,
+        )
+        return rows, conn.total_changes - before - rows
