@@ -993,12 +993,13 @@ passes are (*S3 / the private stores* below). Configure it with:
 **Re-provisioning keeps this order: protect the environment and widen the
 trust first, move the jobs second, narrow the trust last.** Create the
 environment with the policy and names above and add
-`environment:corpus-write` to both corpus roles' trusts, keeping the old
-subject on the read-write role; promote the workflows that bind
-`corpus-write`; then, once a writer window has succeeded under it, remove the
-old subject from the read-write role's trust. Narrowing first fails every
-writer window; narrowing never leaves a `prod` job able to mint a token the
-read-write role accepts. The
+`environment:corpus-write` to both corpus roles' trusts, keeping
+`environment:prod` (or whichever subject the writer jobs bind until then) on
+the read-write role; promote the workflows that bind
+`corpus-write`; then, once a writer window has succeeded under it, remove that
+subject from the read-write role's trust. Narrowing first fails every
+writer window; skipping the last step leaves a `prod` job able to mint a token
+the read-write role accepts. The
 promotion gate's `contexts` stage checks the environment whenever it runs
 (`fedcourts assert-corpus-write-environment`): it exists,
 its branch policy admits exactly `main`, it holds every name above but the
@@ -1209,15 +1210,15 @@ privileged workflow keys on an `issues` or `issue_comment` trigger.)
 **The staging read-write role adds a write to that radius, and it is the
 kind that does not move the integrity bound.** Its trust names the `staging`
 environment itself, the one every staging reader binds too. Production is
-narrower by design — its read-write role's trust is to name `corpus-write`
-alone, which only the writer jobs bind, a maintainer IAM step the gate cannot
-read (*`corpus-write` holds the production read-write role* above) — and
+narrower by design — its read-write role's trust names `corpus-write`
+alone, which only the writer jobs bind, an IAM statement the gate cannot
+read and the maintainer keeps (*`corpus-write` holds the production read-write role* above) — and
 staging deliberately is
 not: what staging-head code can write is the disposable staging pair, so
 review of what reaches the branch stays the control there, and a change that
 wrongly writes from a reader job fails *visibly here*, in the testing the
-maintainer reads before promotion, while in production, once that trust is
-narrowed, the same write fails its AssumeRole. What staging-head
+maintainer reads before promotion, while in production the same write fails
+its AssumeRole. What staging-head
 code can now write is the staging pair: a lean slice of real cases, rebuilt
 from production by one dispatch. It buys **no production write path** (the
 role is read-only on the production stores by policy) and **no new read
@@ -1547,7 +1548,7 @@ Access mirrors each workflow's role in the pipeline:
 
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
-| `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus job; decision-record job on an apply; application back-fill and opinion-record writers) | read-write | corpus writers (`corpus-push` + content-store mirror); each of these jobs binds `corpus-write`, the one environment the role's trust is to name |
+| `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus job; decision-record job on an apply; application back-fill and opinion-record writers) | read-write | corpus writers (`corpus-push` + content-store mirror); each of these jobs binds `corpus-write`, the one environment the role's trust names |
 | `run-predict`, `run-evaluate` — plan jobs  | read-only     | each derives its own backlog — a scan over every open (resolved) event, so it pulls the index rather than reading it in place |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-repair` — `handoff-projection` job | read-only | the credential split's first job, for the vote, application back-fill and opinion-record passes: a full index `corpus-pull`, then the pass's public projection (docket numbers, stored serials, recorded listing keys) as a one-day artifact; it fetches nothing from the Court |
@@ -2158,8 +2159,8 @@ the repoint. Read step 5's two ordering notes before doing either.
    mode reads as a missing policy. No new environment is created; the write
    role's trust
    deliberately names the environment the integration scenarios already bind
-   (production's read-write role's trust is to name the writer-only
-   `corpus-write` environment instead, once the maintainer narrows it; on staging, what a wrongly-writing change reaches is
+   (production's read-write role's trust names the writer-only
+   `corpus-write` environment instead; on staging, what a wrongly-writing change reaches is
    the disposable pair, so review of what reaches the branch is the control,
    and such a change fails visibly here before promotion). The branch policy is the gate, and what it enforces is code
    provenance: only code that passed a pull request and the `staging`

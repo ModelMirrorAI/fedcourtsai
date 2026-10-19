@@ -256,7 +256,7 @@ jobs:
       # push fresh forward facts into the corpus on the S3 remote. The role
       # grants get/put/list but no delete, so a run can add corpus objects but
       # never wipe them. No static keys; the role ARN and region come from the
-      # `corpus-write` environment, the only one the role's trust is to name
+      # `corpus-write` environment, the only one the role's trust names
       # (docs/security.md, *`corpus-write` holds the production read-write role*).
       - name: Configure AWS credentials (corpus S3 remote, read-write)
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
