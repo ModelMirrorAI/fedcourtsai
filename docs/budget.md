@@ -79,8 +79,9 @@ case-summary round skips the maintainer's release only while measured spend
 over the trailing 30 days (the committed `usage.json` ledger plus each
 committed summary's recorded usage), plus an allowance for rounds released in
 the last day, plus the round's own estimate, stays within
-`auto_release_budget_usd` in `config/review-hold.yaml`, set to this monthly
-figure; past it, every round waits for a human release. The `spend` backstop
+`auto_release_budget_usd` in `config/review-hold.yaml`, set $500 above this
+monthly figure so a campaign's spend still in the window does not hold every
+routine round; past it, every round waits for a human release. The `spend` backstop
 in `config/tracking.yaml` sits above the budget and stops minting outright
 ([pipeline.md](pipeline.md), *Auto-release*).
 
