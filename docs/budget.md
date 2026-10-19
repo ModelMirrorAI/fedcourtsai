@@ -26,8 +26,8 @@ Model spend is `events × cost per event`, and two dials set it:
   runs rather than the `P + 3P` a per-(predictor, evaluator) grading would cost:
   adding a predictor buys one more prediction run and makes each of the three
   grading runs a little larger. So `P` raises the cost *per event*, by an amount
-  that depends on which model is added: prediction runs span roughly $0.58 to
-  $3.04 across the current three.
+  that depends on which model is added: prediction runs spanned roughly $0.58 to
+  $3.04 across the three as last measured.
 
 At today's `P = 3` with three evaluators, one fully predicted and evaluated
 event costs roughly **$10**. The claude pair's share of that is priced rather
@@ -37,7 +37,16 @@ prediction (251 runs) and $1.16 a grading run (118 runs) — on the assumption
 that Opus spends the same tokens, which the first round's `fedcourts
 usage-summary` replaces with a measurement. The other four figures are
 measured means: about $3.04 and $0.58 a prediction and $2.90 and $0.73 a
-grading run for codex and gemini. The evaluator count holds at 3 as `P` grows.
+grading run for codex and gemini, measured on `gpt-6-astra` and
+`gemini-3.1-pro-preview`. Those pairs now run `gpt-6.1-sol` and
+`gemini-4-argon`. Priced over the same token counts, codex comes to about
+$0.44 a prediction and $0.42 a grading run, and gemini to about $0.46 and
+$0.55 at Argon's introductory rate, or $0.92 and $1.11 from 2026-12-01, when
+that rate doubles. That puts a fully predicted and evaluated event near $4.50,
+or $5.50 from December, but it is a projection that assumes each new model
+spends the same tokens. The $10 figure and everything below that scales from
+it stay on the measured basis until the first rounds on the new models are
+measured. The evaluator count holds at 3 as `P` grows.
 Per-run token usage and cost are recorded on the ledger (`usage.json`, rolled
 up by `fedcourts usage-summary`), so the rates can be re-anchored from
 measurement rather than assumed. Re-anchoring is a deliberate edit to the pinned

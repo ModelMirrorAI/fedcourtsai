@@ -49,7 +49,10 @@ as over one window's, never as an average of window figures. It treats a
 `predictor_id` as one forecaster whose process evolves, model changes included,
 and its figure as that forecaster's record, not a property of its current
 process or model: `claude-baseline`'s `proc-v8` (`claude-fable-5-1`) and
-`proc-v9` (`claude-opus-5-5`) windows are one pooled record. Each counted
+`proc-v9` (`claude-opus-5-5`) windows are one pooled record, as are
+`codex-baseline`'s `proc-v8` (`gpt-6-astra`) and `proc-v10` (`gpt-6.1-sol`)
+windows and `gemini-baseline`'s `proc-v8` (`gemini-3.1-pro-preview`) and
+`proc-v10` (`gemini-4-argon`) windows. Each counted
 forecast was registered before its outcome existed and no later window can
 replace it, so the pooled record is out-of-sample however the process changed.
 No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
@@ -203,7 +206,8 @@ On the leaderboard the readings ride beside the pooled value:
   count.
 
 The per-rubric reading is the claimable figure. Every judge's evaluate digest
-moved at `proc-v9`, `claude-judge`'s with its model, so a pooled value spanning
+moved at `proc-v9`, `claude-judge`'s with its model, and `codex-judge`'s and
+`gemini-judge`'s moved again with their models at `proc-v10`, so a pooled value spanning
 more than one digest of one evaluator mixes judge rubrics: it is coverage,
 never a claimable figure or a comparison. A `rubrics` list naming one evaluator
 twice is the sign. The claim judge-validation tau-b, the ops reasoning-quality

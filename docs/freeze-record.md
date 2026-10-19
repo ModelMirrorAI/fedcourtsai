@@ -10931,3 +10931,164 @@ freeze commit is recorded here.
   either side of it reads the two regimes separately. The comparison of the
   first conferences after it against those before it is recorded by a later
   entry, once those conferences have been selected.
+
+- **`proc-v10`: the codex pair moves to `gpt-6.1-sol` and the gemini pair to
+  `gemini-4-argon`, and the claude pair carries forward unchanged; recorded
+  2026-10-18.** Carried to `main` by `<FILL: promotion tag>` (merge
+  `<FILL: merge sha>`, `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v10`**. The first label registered under the merge-stamped
+  rule the 2026-10-14 entry declared, so its counting instant, its four bless
+  moments and every window edge it moves are the carrying merge's committer
+  time, with no hand-set gap. It is two supersession shapes at one carrying
+  promotion ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
+  - **the third shape, for `codex-baseline` and `gemini-baseline`.** Their
+    digests move because their engines' default models, a digest input
+    (`pricing.DEFAULT_MODELS`), are `gpt-6.1-sol` and `gemini-4-argon`. Their
+    `proc-v8` windows **close** at this label's instant and a `proc-v10`
+    window opens there for each new digest. Nothing is de-counted and nothing
+    is re-owed: every cell counted in either `proc-v8` window keeps counting
+    under `proc-v8`.
+  - **the second shape, for `codex-judge` and `gemini-judge`.** Their digests
+    move with the same two models. The instant is **not** held, because the
+    predictor half moves too.
+
+  `claude-baseline` and `claude-judge` are **byte-identical** to `proc-v9`:
+  no prompt byte moves in this label and the claude engine default is
+  unchanged. They keep `proc-v9`'s bless moments verbatim, and
+  `claude-baseline` keeps one unbroken window, still labelled `proc-v9`. The
+  predictor-prompt amendments the `proc-v9` entry deferred are deferred again,
+  so that this label breaks no claude window.
+
+  **Digests** (`uv run fedcourts process-digest --all`, before this change on
+  `staging` `e5a68224b` and at it):
+
+  | Actor | `proc-v9` | `proc-v10` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734` | same, carried forward |
+  | `codex-baseline` | `sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c` | `sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4` (new) |
+  | `gemini-baseline` | `sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f` | `sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434` (new) |
+  | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | same, carried forward |
+  | `codex-judge` | `sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` (new) |
+  | `gemini-judge` | `sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` (new) |
+
+  **Step 0.** At `origin/main` `c5ba7a273` (`2026-10-18T23:14:47Z`), `git grep
+  -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of
+  the four newly blessed digests, and the wider census, `git grep -l
+  '"process_version": {' origin/main -- data/cases | wc -l`, is **2689**
+  stamped cells. At the carrying merge the newly blessed predictor digests
+  stamp <FILL: census predictions digest=7ab92dd4,bee46e92> committed
+  predictions and the evaluator digests
+  <FILL: census evaluations digest=a8610eec,6a88d3dc> committed evaluations.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`1a0b2bef…`, `claude-fable-5-1`) | `proc-v8` | `2026-09-16T00:26:04Z` | `2026-10-11T12:00:00Z` |
+  | `codex-baseline` (`70fee158…`, `gpt-6-astra`) | `proc-v8` | `2026-09-16T00:26:04Z` | this label's instant (was open) |
+  | `gemini-baseline` (`a9033e56…`, `gemini-3.1-pro-preview`) | `proc-v8` | `2026-09-16T00:26:04Z` | this label's instant (was open) |
+  | `claude-baseline` (`605201bd…`, `claude-opus-5-5`) | `proc-v9` | `2026-10-11T12:00:00Z` | open |
+  | `codex-baseline` (`7ab92dd4…`, `gpt-6.1-sol`) | `proc-v10` | this label's instant | open (new) |
+  | `gemini-baseline` (`bee46e92…`, `gemini-4-argon`) | `proc-v10` | this label's instant | open (new) |
+
+  **What the close owes, provisional.** `successor-disclosures` reads only
+  stamped windows, so a pending registration prints nothing. These lines were
+  run with this commit's pending rows stamped by hand at a provisional
+  instant, `2026-10-19T00:00:00Z`, in a scratch copy of the registry, over
+  `origin/main`'s ledger at `c5ba7a273`. `uv run fedcourts
+  successor-disclosures --closed proc-v8 --successor proc-v10`:
+
+  ```
+  successor proc-v10 closes proc-v8 at 2026-10-19T00:00:00+00:00
+    closed proc-v8 claude-baseline: 252 counted event(s) — 110 resolved, 142 pending at close
+    closed proc-v8 codex-baseline: 296 counted event(s) — 138 resolved, 158 pending at close
+    closed proc-v8 gemini-baseline: 295 counted event(s) — 137 resolved, 158 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    graded by claude-judge @ sha256:167b7d71…: 81 grading(s), 0 at or after the instant
+    graded by claude-judge @ sha256:fbc0e9c3…: 329 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:18a76b93…: 81 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:9670e1c1…: 329 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:22558044…: 81 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:dbdc9064…: 329 grading(s), 0 at or after the instant
+  ```
+
+  The `claude-baseline` line is the window `proc-v9` closed, which the
+  command lists because it too carries the `proc-v8` label; this label does
+  not move it. Outcomes and gradings keep landing until the instant, so these
+  lines are re-run once the carrying merge has stamped the registry, and a
+  dated follow-up entry quotes that run. The per-engine partition of the
+  successor's counted events (failed, uncounted, not reached, missing) prints
+  nothing before a `proc-v10` window holds a cell, so the same follow-up entry
+  quotes those four buckets from a run made once both `proc-v10` windows hold
+  counted cells, and before any figure over either window is published.
+  **Split events can now arise.** Unlike `proc-v9`, this label closes two
+  engines' windows, and an event on which one of them counts under `proc-v8`
+  while the other counts under `proc-v10` has no complete grid, since the two
+  windows never ran together. The follow-up entry states that count.
+
+  **What a reading across engines can be after this label.** The like-for-like
+  reading of the two new models is the complete grid of (`claude-baseline`
+  `proc-v9`, `codex-baseline` `proc-v10`, `gemini-baseline` `proc-v10`). The
+  registered pooled reading keeps each predictor's `proc-v8` and `proc-v10`
+  windows as one record, model change included
+  ([metrics/README.md](../metrics/README.md)), so a pooled codex or gemini
+  figure spanning this boundary pools two models, and its composition says
+  so. Every OT2026 long-conference release figure was built at the refresh
+  commit `0918fb18e` before `proc-v9`, so this label moves none of them.
+
+  **Evidence for the change other than the closed windows' boards.** The close
+  is decided while 138 of `codex-baseline`'s 296 and 137 of
+  `gemini-baseline`'s 295 counted `proc-v8` events have resolved, so it rests
+  on nothing those outcomes say:
+  - **When it was decided.** The gemini move was proposed on 2026-10-02, to
+    wait only on the model being served in the API; the codex move was proposed on
+    2026-10-12, for cost. Neither proposal cites a score; both cite the
+    published rates and the vendors' capability claims.
+  - **Cost.** Re-pricing the committed token counts on `main` at `c5ba7a273`
+    at the published rates: the 296 `codex-baseline` predictions on
+    `gpt-6-astra` average $3.08 as recorded and $0.44 at `gpt-6.1-sol`'s $2 /
+    $10 ($0.10 cached input); the 153 `codex-judge` gradings $2.86 and $0.42.
+    The 522 `gemini-baseline` predictions on `gemini-3.1-pro-preview` average
+    $0.58 as recorded and $0.46 at `gemini-4-argon`'s introductory $2 / $10
+    ($0.10 cached), or $0.92 at the $4 / $20 rate scheduled from 2026-12-01;
+    the 174 `gemini-judge` gradings $0.71, $0.55 and $1.11. These are priced,
+    not measured: they assume each new model spends the same tokens.
+  - **Published capability.** OpenAI describes `gpt-6.1-sol` as close to
+    `gpt-6-astra` on agentic work, and Google describes `gemini-4-argon` as
+    its new frontier model. Those are the vendors' claims, not measurements
+    here.
+  - **Availability.** Both ids are generally available in their vendors' APIs
+    by public report: `gpt-6.1-sol` since 2026-09-29 and `gemini-4-argon`
+    since 2026-10-13. Neither has been called on this project's keys before
+    this entry, so the staging rehearsal is the first check that each serves.
+
+  **The evaluator half.** An evaluator digest records and never partitions, so
+  every `codex-judge` and `gemini-judge` grading series pools across this
+  rubric boundary, and the grader model is what moves at it. The `proc-v8`
+  and `proc-v9` cells still collecting gradings after the carrying promotion
+  are graded by the new models; the successor-disclosures lines above count
+  those "at or after the instant". A pooled judge-dependent figure spanning
+  this boundary is coverage, and its per-rubric reading is the claimable one
+  ([metrics/README.md](../metrics/README.md)).
+
+  **Disclosed with the label, moving no digest:**
+  - **The engine CLIs do not name either model.** The pinned codex CLI
+    (0.144.1) lists neither `gpt-6-astra` nor `gpt-6.1-sol` in its model
+    catalog and runs both on its fallback model metadata, as it has run every
+    `gpt-6-astra` cell. The pinned gemini CLI (0.49.0) does not list
+    `gemini-4-argon` in its known-model set, and neither does the newest
+    release, 0.64.0; the model id is passed through as `--model`. Neither pin
+    moves in this label.
+  - **Effort is unchanged.** Codex cells keep `effort: high`; gemini cells set
+    no thinking budget and take the model's default.
+  - **The Argon rate is introductory.** `MODEL_RATES` prices `gemini-4-argon`
+    at $2 / $10 ($0.10 cached), and `usage.json` records the rate in force when
+    the cell is recorded, so a gemini cost series crossing 2026-12-01 crosses a
+    rate change as well as any token change.
+  - **The planning rates are not re-anchored.** The pinned per-cell table the
+    spend plans price against keeps its pre-cutover codex and gemini rows, so
+    a plan's codex line projects high and, from 2026-12-01, its gemini line
+    projects low. The re-anchor waits for measured `proc-v10` cells.
+  - **The blinding scrub gains two terms.** `gpt-6.1-sol` and
+    `gemini-4-argon` join the rate table, so the evaluate cell's identity
+    scrub masks them. Only prose naming those models is affected.

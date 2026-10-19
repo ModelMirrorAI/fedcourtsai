@@ -20,23 +20,24 @@ def test_default_models_have_rates() -> None:
 
 
 def test_gemini_default_model_and_rate() -> None:
-    # The Pro tier is the like-for-like comparator against the other engines'
-    # frontier defaults; the rate is the standard <=200k-context tier.
-    assert DEFAULT_MODELS["gemini"] == "gemini-3.1-pro-preview"
-    rate = MODEL_RATES["gemini-3.1-pro-preview"]
-    assert (rate.input_per_mtok, rate.output_per_mtok) == (2.0, 12.0)
+    # The frontier tier is the like-for-like comparator against the other
+    # engines' defaults; the rate is Google's introductory one, with its own
+    # cached-input rate rather than the uniform multiplier.
+    assert DEFAULT_MODELS["gemini"] == "gemini-4-argon"
+    assert MODEL_RATES["gemini-4-argon"] == ModelRate(2.0, 10.0, cache_read_per_mtok=0.10)
 
 
 def test_codex_default_model_and_rate() -> None:
-    assert DEFAULT_MODELS["codex"] == "gpt-6-astra"
-    rate = MODEL_RATES["gpt-6-astra"]
-    assert (rate.input_per_mtok, rate.output_per_mtok) == (10.0, 50.0)
+    assert DEFAULT_MODELS["codex"] == "gpt-6.1-sol"
+    assert MODEL_RATES["gpt-6.1-sol"] == ModelRate(2.0, 10.0, cache_read_per_mtok=0.10)
 
 
 def test_superseded_production_models_stay_priceable() -> None:
     # record-usage exits non-zero on a model absent from MODEL_RATES, so a
     # re-recorded old cell (explicit --model) needs the superseded production
     # models to keep their entries.
+    assert MODEL_RATES["gpt-6-astra"] == ModelRate(10.0, 50.0)
+    assert MODEL_RATES["gemini-3.1-pro-preview"] == ModelRate(2.0, 12.0)
     assert "gpt-5.6-sol" in MODEL_RATES
     assert "gpt-5.5" in MODEL_RATES
     assert "gemini-3.5-flash" in MODEL_RATES

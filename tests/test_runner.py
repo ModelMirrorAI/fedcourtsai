@@ -254,7 +254,7 @@ def test_codex_runner_gets_the_inline_identifier_kickoff(tmp_path: Path) -> None
     runner = CodexRunner(command_runner=recorder)
     runner.run(_predict_request(tmp_path / "data", actor=PREDICTOR))
     assert recorder.argv[:2] == ["codex", "exec"]
-    assert "gpt-6-astra" in recorder.argv
+    assert "gpt-6.1-sol" in recorder.argv
     # Codex gets the same kickoff as the other engines (as the workflow's
     # `prompt` input does): the template by reference, the identifiers inline.
     kickoff = recorder.argv[-1]
@@ -413,7 +413,7 @@ def test_gemini_runner_builds_the_headless_yolo_call(
 
     # The command reproduces run-predict.yml's headless Gemini invocation.
     assert recorder.argv[:2] == ["gemini", "--yolo"]
-    assert "gemini-3.1-pro-preview" in recorder.argv
+    assert "gemini-4-argon" in recorder.argv
     assert recorder.argv[-2:] == ["--output-format", "json"]
     # The kickoff prompt rides on --prompt: the template by reference, ids inline,
     # because Gemini's CLI strips the env-var channel from the agent's shell.
@@ -423,7 +423,7 @@ def test_gemini_runner_builds_the_headless_yolo_call(
     # A headless run must trust the workspace or the CLI exits 55; auth
     # (GEMINI_API_KEY) is inherited from the ambient environment, never set here.
     assert recorder.env["GEMINI_CLI_TRUST_WORKSPACE"] == "true"
-    assert recorder.env["MODEL_ID"] == "gemini-3.1-pro-preview"
+    assert recorder.env["MODEL_ID"] == "gemini-4-argon"
     # It reports the artifacts the agent left at the canonical paths.
     events = CasePaths(tmp_path / "data", COURT, DOCKET).event(EVENT)
     assert written == _predict_artifacts(events)
