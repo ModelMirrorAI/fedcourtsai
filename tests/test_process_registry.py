@@ -102,6 +102,8 @@ _PROMOTION_1001 = "b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b"
 _PROMOTION_1003 = "41d003e28da4232d772031bf142a773afea52ff5"
 _PROMOTION_1010 = "6460e93061a0f4d6a06c14b5b1526346aba7a353"
 _PROMOTION_1011_2 = "c432a95a9073bcae6651eb6b75fddd30aefbd8d8"
+_PROMOTION_1016 = "1c1cd1f257e1bcbcd4f5339173fff2dab68ed317"
+_PROMOTION_1018 = "dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c"
 _SR: BoundaryReach = "self-represented dockets"
 
 GOLDEN_BOUNDARIES = (
@@ -190,6 +192,42 @@ GOLDEN_BOUNDARIES = (
         datetime(2026, 10, 11, 23, 41, 22, tzinfo=UTC),
         None,
         "granted dockets",
+        gradual=True,
+    ),
+    HarnessBoundary(
+        "scrub-withheld-petitioner-block",
+        _PROMOTION_1016,
+        datetime(2026, 10, 16, 20, 17, 17, tzinfo=UTC),
+        None,
+        _SR,
+    ),
+    HarnessBoundary(
+        "single-entry-trigger-placement",
+        _PROMOTION_1016,
+        datetime(2026, 10, 16, 20, 17, 17, tzinfo=UTC),
+        None,
+        "all",
+    ),
+    HarnessBoundary(
+        "query-clock-prior-last-pull-mask",
+        _PROMOTION_1016,
+        datetime(2026, 10, 16, 20, 17, 17, tzinfo=UTC),
+        None,
+        "all",
+    ),
+    HarnessBoundary(
+        "scrub-scanned-caption-residuals",
+        _PROMOTION_1018,
+        datetime(2026, 10, 18, 1, 6, 13, tzinfo=UTC),
+        None,
+        _SR,
+    ),
+    HarnessBoundary(
+        "interim-pool-one-row-per-number",
+        _PROMOTION_1018,
+        datetime(2026, 10, 18, 1, 6, 13, tzinfo=UTC),
+        None,
+        "all",
         gradual=True,
     ),
 )

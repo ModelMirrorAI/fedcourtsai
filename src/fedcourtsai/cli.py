@@ -9841,7 +9841,12 @@ def registry_gate_cmd(
     instants, a pending digest that already stamps a committed cell on main,
     an unregistered enabled actor, a predictor with more than one open window,
     more than one label new to main or one whose ``prereg/`` tag already
-    exists, a repeated boundary name, and a pending row already on main. Tags
+    exists, a repeated boundary name, a pending row already on main, and a
+    batch that changes, drops or reorders a row main has stamped or does not
+    keep main's blessing labels as a prefix (three-way against the merge
+    bases; a pending close on a window no live predictor computes, a blessing
+    that left the fleet, and a revocation of a closed window dated at or after
+    the head pass). Tags
     are read locally, so the caller fetches them first
     (``git fetch origin --tags``).
     """

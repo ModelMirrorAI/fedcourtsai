@@ -553,7 +553,22 @@ refuses a batch whose registrations its merge could not stamp honestly:
   close counts as a close);
 - more than one label new to `main` (one label per promotion), or such a
   label whose `prereg/` tag already exists;
-- a repeated boundary name, or a pending row already sitting on `main`.
+- a repeated boundary name, or a pending row already sitting on `main`;
+- a row `main` has stamped (a label, blessing, window or boundary) that the
+  batch changes, drops or reorders (labels, windows and boundaries, whose
+  order a reader takes as meaning); a `merge_stamping_declared` other than
+  `main`'s; or an evaluator digest whose blessing labels on `main` the batch
+  does not keep as a prefix, or extends with a label `main` already holds.
+  The batch fills pending rows and appends new ones; un-stamped, a row would
+  be stamped again at the next merge's instant, moving cells across a line
+  already published. The comparison is three-way against every merge base,
+  so a row the batch left as a base had it passes (the merge keeps `main`'s
+  stamp, synced back or not). Three changes pass: `register-process`'s own
+  two, a pending close on a window no live predictor computes and a blessing
+  dropped once its digest left the fleet (a predictor's only with its window
+  closed); and a revocation, on a window already closed and dated at or after
+  the head's commit. Step 0 does not look for the revocation's freeze-record
+  entry; that reading is the maintainer's.
 
 A `main` with no registry **file** yet holds every label the record moved in
 from code, whose `prereg/` tags were made by hand; a registry file that is

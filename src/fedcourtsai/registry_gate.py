@@ -32,6 +32,25 @@ on the promotion PR and the maintainer's pre-flight read the same facts:
 7. **Nothing pending already sits on ``main``.** A row a merge carried and no
    writer stamped leaves its cells uncounted indefinitely
    (:func:`fedcourtsai.promotion_record.pending_carried_problems`).
+8. **What ``main`` stamped stays as it is.** Every label, blessing, window and
+   boundary stamped on ``main`` reaches the merge field for field and in
+   ``main``'s order (labels, windows and boundaries, whose order a reader
+   takes as meaning), ``merge_stamping_declared`` stays as ``main`` set it,
+   and each evaluator digest's blessing labels keep ``main``'s as a prefix,
+   growing only by a label new to ``main``: a batch fills pending rows and
+   appends new ones. An un-stamped row would be stamped again at the next
+   merge's instant, and an edited one would move cells across a published
+   line. The comparison is three-way, against every merge base, so a field
+   the batch left as a base had it passes — the merge keeps ``main``'s stamp
+   there whether or not a sync has carried it back; where a criss-cross
+   history leaves several bases, the batch must match all of them. Rows new
+   to ``main`` follow every row it stamped. Three changes pass:
+   ``register-process``'s own two, a pending close on a window no live
+   predictor computes and a blessing dropped once its digest left the fleet
+   (a predictor's with its window closed); and a revocation, on a window
+   already closed, at or after the batch head's commit. A revocation's
+   dated freeze-record entry is the maintainer's to read; this check does
+   not look for it.
 
 The batch must hold a registry that loads under its own last label, refusing
 what :func:`fedcourtsai.process_version.load_process_registry` refuses; where
@@ -43,8 +62,9 @@ from __future__ import annotations
 
 import tempfile
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -57,7 +77,9 @@ from .promotion_record import (
     _declared,
     _registry,
     _tags,
+    committer_time,
     digest_census,
+    git,
     labels_new_to,
     pending_carried_problems,
     pending_registrations,
@@ -159,6 +181,16 @@ def registry_gate(
     problems += _label_problems(repo, registry, main_registry if main_text is not None else None)
     problems += _boundary_problems(registry)
     problems += pending_carried_problems(repo, main_ref)
+    if main_text is not None:
+        bases = git(repo, "merge-base", "--all", main_ref, at).split()
+        problems += _Stamped(
+            main=main_registry,
+            bases=[_registry(show_at(repo, base, REGISTRY_PATH), base) for base in bases],
+            batch=registry,
+            live=frozenset(actor.digest for actor in actors),
+            live_predictors=frozenset(a.digest for a in actors if a.role == "predictor"),
+            head_time=committer_time(repo, at),
+        ).problems()
     return RegistryGateResult(pending=len(pending), problems=problems)
 
 
@@ -249,3 +281,195 @@ def _boundary_problems(registry: Mapping[str, Any]) -> list[str]:
         for name, count in sorted(counts.items())
         if count > 1
     ]
+
+
+#: Each kind of row: its section, how it is named, and whether ``main`` stamped it.
+_ROWS: tuple[
+    tuple[str, str, Callable[[Mapping[str, Any]], str], Callable[[Mapping[str, Any]], bool]], ...
+] = (
+    (
+        "labels",
+        "label",
+        lambda row: str(row["label"]),
+        lambda row: row["since"]["merge"] is not None,
+    ),
+    (
+        "blessings",
+        "blessing",
+        lambda row: str(row["digest"]),
+        lambda row: row["blessed"]["merge"] is not None,
+    ),
+    (
+        "windows",
+        "window",
+        lambda row: f"{row['label']} {row['digest']}",
+        lambda row: row["opens"]["merge"] is not None,
+    ),
+    (
+        "harness_boundaries",
+        "boundary",
+        lambda row: str(row["name"]),
+        lambda row: row["merge"] is not None,
+    ),
+)
+#: The sections whose order a reader takes as meaning: the last label row is
+#: the counting instant, and windows and boundaries publish in registry order.
+_ORDERED = frozenset({"labels", "windows", "harness_boundaries"})
+_PENDING = {"at": None, "merge": None, "source": "merge"}
+_MISSING = object()
+
+
+@dataclass(frozen=True)
+class _Stamped:
+    """What check 8 compares: ``main``, its merge bases with the batch, and the batch.
+
+    ``live`` and ``live_predictors`` are the digests the head's enabled actors
+    compute; ``head_time`` is the head's committer time, which the carrying
+    merge follows.
+    """
+
+    main: Mapping[str, Any]
+    bases: Sequence[Mapping[str, Any]]
+    batch: Mapping[str, Any]
+    live: frozenset[str]
+    live_predictors: frozenset[str]
+    head_time: datetime
+
+    def problems(self) -> list[str]:
+        problems: list[str] = []
+        declared = self.main.get("merge_stamping_declared")
+        if declared is not None and not self._kept(
+            self.batch.get("merge_stamping_declared"),
+            declared,
+            [base.get("merge_stamping_declared") for base in self.bases],
+        ):
+            problems.append(
+                f"main declares merge-stamped instants on {declared} and the batch makes it "
+                f"{self.batch.get('merge_stamping_declared')}"
+            )
+        for section, kind, name, stamped in _ROWS:
+            problems += self._section_problems(section, kind, name, stamped)
+        return problems + self._blessing_label_problems()
+
+    @staticmethod
+    def _kept(value: Any, main_value: Any, base_values: Sequence[Any]) -> bool:
+        # Every base, not any: on a criss-cross history the bases disagree on a
+        # field main stamped after one of them, and the merge keeps main's
+        # stamp only where the batch holds what every base held.
+        return bool(value == main_value) or (
+            bool(base_values) and all(value == was for was in base_values)
+        )
+
+    def _section_problems(
+        self,
+        section: str,
+        kind: str,
+        name: Callable[[Mapping[str, Any]], str],
+        stamped: Callable[[Mapping[str, Any]], bool],
+    ) -> list[str]:
+        base_rows = [{name(row): row for row in base.get(section, [])} for base in self.bases]
+        batch_rows = {name(row): row for row in self.batch.get(section, [])}
+        held = [name(row) for row in self.main.get(section, []) if stamped(row)]
+        problems: list[str] = []
+        for row in self.main.get(section, []):
+            if not stamped(row):
+                continue
+            ident = name(row)
+            was = [rows[ident] for rows in base_rows if ident in rows]
+            now = batch_rows.get(ident)
+            if now is None:
+                if was and not self._may_leave(section, row):
+                    problems.append(f"{kind} {ident} is stamped on main and the batch drops it")
+                continue
+            changed = sorted(
+                key for key in set(row) | set(now) if not self._field_kept(key, row, now, was)
+            )
+            if changed:
+                problems.append(
+                    f"{kind} {ident} is stamped on main and the batch changes its "
+                    f"{', '.join(changed)}: a stamped row reaches main as main holds it"
+                )
+        if section in _ORDERED:
+            order = [ident for ident in batch_rows if ident in set(held)]
+            expected = [ident for ident in held if ident in batch_rows]
+            if order != expected and not (
+                base_rows
+                and all(
+                    order == [ident for ident in rows if ident in set(order)] for rows in base_rows
+                )
+            ):
+                problems.append(
+                    f"the batch reorders the {section} main has stamped: "
+                    f"{', '.join(order)} where main holds {', '.join(expected)}"
+                )
+            on_main = {name(row) for row in self.main.get(section, [])}
+            idents = list(batch_rows)
+            first_new = next((n for n, i in enumerate(idents) if i not in on_main), len(idents))
+            early = [i for i in order if idents.index(i) > first_new]
+            if early:
+                problems.append(
+                    f"the batch places {idents[first_new]} ahead of {', '.join(early)} in "
+                    f"{section}: rows new to main follow every row main has stamped"
+                )
+        return problems
+
+    def _may_leave(self, section: str, row: Mapping[str, Any]) -> bool:
+        """A blessing whose digest left the fleet, its predictor window closed, may go."""
+        if section != "blessings" or row["digest"] in self.live:
+            return False
+        if row["role"] != "predictor":
+            return True
+        return all(
+            window["closes"] is not None or window["revoked_at"] is not None
+            for window in self.batch.get("windows", [])
+            if window["digest"] == row["digest"]
+        )
+
+    def _field_kept(
+        self,
+        key: str,
+        row: Mapping[str, Any],
+        now: Mapping[str, Any],
+        was: Sequence[Mapping[str, Any]],
+    ) -> bool:
+        value = now.get(key, _MISSING)
+        main_value = row.get(key, _MISSING)
+        if self._kept(value, main_value, [base.get(key, _MISSING) for base in was]):
+            return True
+        if key == "closes" and main_value is None:
+            # register-process closes, pending, the window no live predictor computes.
+            return value == _PENDING and row["digest"] not in self.live_predictors
+        if key == "revoked_at" and main_value is None and isinstance(value, str):
+            # A revocation: only on a closed window, at or after the carrying merge.
+            return now.get("closes") is not None and _instant(value) >= self.head_time
+        return False
+
+    def _blessing_label_problems(self) -> list[str]:
+        """Each evaluator digest whose labels on ``main`` the batch does not keep as a prefix.
+
+        What the batch appends is a label new to ``main``: the one it registers.
+        """
+        known = {entry["label"] for entry in self.main.get("labels", [])}
+        batch_labels = self.batch.get("evaluate_blessing_labels", {})
+        problems: list[str] = []
+        for digest, labels in self.main.get("evaluate_blessing_labels", {}).items():
+            now = batch_labels.get(digest)
+            if self.bases and all(
+                now == base.get("evaluate_blessing_labels", {}).get(digest) for base in self.bases
+            ):
+                continue
+            if (
+                now is not None
+                and now[: len(labels)] == labels
+                and not known & set(now[len(labels) :])
+            ):
+                continue
+            problems.append(
+                f"evaluator digest {digest} blesses {labels} on main and the batch makes it "
+                f"{now}: blessing labels are append-only, and only a label new to main is appended"
+            )
+        return problems
+
+
+def _instant(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
