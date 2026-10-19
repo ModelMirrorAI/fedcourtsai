@@ -51,9 +51,9 @@ class ModelRate:
 # Keyed by the model id the engine actually ran. The production models are
 # claude-opus-5-5 (predict/evaluate), gpt-6.1-sol, and gemini-4-argon (each
 # engine's frontier tier, the like-for-like comparators). The Argon rate is
-# Google's introductory one, scheduled to double to $4 / $20 ($0.40 cached) on
-# 2026-12-01; re-price the row then, since record-usage prices every cell at
-# the table's current rate. The
+# Google's introductory one, scheduled to double to $4 / $20 on 2026-12-01
+# (the cached rate assumed to double with it); re-price the row then, since
+# record-usage prices every cell at the table's current rate. The
 # table is deliberately wider than what the registries route: the cheaper tier of each
 # engine is priced too — claude-sonnet-4-6 and claude-haiku-4-5, gpt-5.6-terra
 # and gpt-5.6-luna, gemini-3.7-flash (the newest stable Flash) and the

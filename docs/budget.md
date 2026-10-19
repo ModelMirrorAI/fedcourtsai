@@ -38,13 +38,18 @@ that Opus spends the same tokens, which the first round's `fedcourts
 usage-summary` replaces with a measurement. The other four figures are
 measured means: about $3.04 and $0.58 a prediction and $2.90 and $0.73 a
 grading run for codex and gemini, measured on `gpt-6-astra` and
-`gemini-3.1-pro-preview`. Those pairs now run `gpt-6.1-sol` and
-`gemini-4-argon`. Priced over the same token counts, codex comes to about
+`gemini-3.1-pro-preview`. The codex and gemini engine defaults are
+`gpt-6.1-sol` and `gemini-4-argon`. Priced over the token counts of every
+committed codex and gemini cell on those earlier models (296 and 153 codex,
+522 and 174 gemini, on `main` at 2026-10-18), codex comes to about
 $0.44 a prediction and $0.42 a grading run, and gemini to about $0.46 and
-$0.55 at Argon's introductory rate, or $0.92 and $1.11 from 2026-12-01, when
-that rate doubles. That puts a fully predicted and evaluated event near $4.50,
+$0.55 at Argon's introductory rate ($2 / $10, $0.10 cached), or $0.92 and
+$1.11 from 2026-12-01, when that rate doubles. That puts a fully predicted and evaluated event near $4.50,
 or $5.50 from December, but it is a projection that assumes each new model
-spends the same tokens. The $10 figure and everything below that scales from
+spends the same tokens, and it carries the claude pair at its priced figure:
+the first measured Opus 5.5 rounds on `main` (44 predictions at about $0.62,
+29 grading runs at about $0.64) come in near half of it, a small sample that
+would put the event nearer $3.10. The $10 figure and everything below that scales from
 it stay on the measured basis until the first rounds on the new models are
 measured. The evaluator count holds at 3 as `P` grows.
 Per-run token usage and cost are recorded on the ledger (`usage.json`, rolled

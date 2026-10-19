@@ -61,6 +61,11 @@ from tests.test_counting_windows import CLOSED, SUCCESSOR, T2, _pv, _seed
 
 ROOT = Path(__file__).resolve().parents[1]
 PENDING = {"at": None, "merge": None, "source": "merge"}
+#: The fixture ``main``'s last counting instant. The committed registry is
+#: shifted so its newest label lands here, and every fixture commit and merge
+#: time is an offset from it: the fixtures stay consistent with each other and
+#: in the past, however many labels the real registry gains or when they merge.
+ANCHOR = datetime(2026, 10, 11, 12, tzinfo=UTC)
 
 
 def _iso(at: datetime) -> str:
@@ -78,6 +83,20 @@ def _stamp_pending(node: Any, at: str) -> Any:
     return node
 
 
+def _shifted(node: Any, delta: timedelta) -> Any:
+    """``node`` with every registered instant moved by ``delta``."""
+    if isinstance(node, dict):
+        return {
+            key: _iso(datetime.fromisoformat(value) + delta)
+            if key in ("at", "revoked_at") and isinstance(value, str)
+            else _shifted(value, delta)
+            for key, value in node.items()
+        }
+    if isinstance(node, list):
+        return [_shifted(value, delta) for value in node]
+    return node
+
+
 def _label_instants(document: dict[str, Any]) -> list[datetime]:
     return [
         datetime.fromisoformat(entry["since"]["at"])
@@ -86,25 +105,31 @@ def _label_instants(document: dict[str, Any]) -> list[datetime]:
     ]
 
 
+def _fixture_main(live: dict[str, Any]) -> dict[str, Any]:
+    """The committed registry as a ``main`` that holds it fully stamped, at ``ANCHOR``.
+
+    A pending boundary is left out, since these fixtures build their own
+    pending rows on top and a carried one would be a second batch's. A pending
+    label cannot be left out (its registration replaced the blessings it
+    moved), so it is stamped an hour after the last carried label's instant,
+    as the merge that carries it would. Then every instant moves together so
+    the newest label's lands on ``ANCHOR``.
+    """
+    stamped = _stamp_pending(
+        {
+            **live,
+            "harness_boundaries": [b for b in live["harness_boundaries"] if b["merge"] is not None],
+        },
+        _iso(max(_label_instants(live)) + timedelta(hours=1)),
+    )
+    shifted: dict[str, Any] = _shifted(stamped, ANCHOR - max(_label_instants(stamped)))
+    return shifted
+
+
 _LIVE = json.loads((ROOT / REGISTRY_PATH).read_text(encoding="utf-8"))
-#: The committed registry as a ``main`` that holds it fully stamped. A pending
-#: boundary is left out, since these fixtures build their own pending rows on
-#: top and a carried one would be a second batch's. A pending label cannot be
-#: left out (its registration replaced the blessings it moved), so it is
-#: stamped an hour after the last carried label's instant, as the merge that
-#: carries it would.
-COMMITTED = _stamp_pending(
-    {
-        **_LIVE,
-        "harness_boundaries": [b for b in _LIVE["harness_boundaries"] if b["merge"] is not None],
-    },
-    _iso(max(_label_instants(_LIVE)) + timedelta(hours=1)),
-)
-#: The last label the fixture ``main`` holds, and its counting instant. Every
-#: fixture commit and merge time is an offset from that instant, so a label the
-#: committed registry carries later never dates a fixture merge before it.
+COMMITTED = _fixture_main(_LIVE)
+#: The last label the fixture ``main`` holds.
 LAST_LABEL = str(COMMITTED["labels"][-1]["label"])
-ANCHOR = max(_label_instants(COMMITTED))
 
 
 def _at(hours: float) -> datetime:
@@ -125,7 +150,6 @@ NEW_JUDGE = "sha256:" + "d" * 64
 NEW_LABEL = _next_label()
 MERGED_AT = _at(51) + timedelta(minutes=4, seconds=5)
 MERGED_DAY = MERGED_AT.strftime("%Y-%m-%d")
-PENDING = {"at": None, "merge": None, "source": "merge"}
 
 
 def _live_fleet(*, claude: str = NEW_CLAUDE, judge: str | None = None) -> list[LiveActor]:
@@ -230,7 +254,9 @@ def test_a_pending_boundary_is_registered_but_splits_nothing() -> None:
     )
     registry = load_process_registry(dump_registry(document))
     assert registry.harness_boundaries[-1].pending
-    assert harness_boundaries(registry) == harness_boundaries(load_process_registry())
+    assert harness_boundaries(registry) == harness_boundaries(
+        load_process_registry(dump_registry(COMMITTED))
+    )
 
 
 def test_a_pending_boundary_does_not_block_a_label() -> None:

@@ -122,12 +122,16 @@ def test_proc_v8_predictor_digests_never_leave_the_registry_without_a_close() ->
 
 
 def _closing_digests() -> set[str]:
-    """Digests whose window carries a close in the registry, a pending one included.
+    """Digests whose window's close is pending in the registry.
 
     A pending close reads as open in ``COUNTING_WINDOWS`` until the carrying
-    merge stamps it, so the registry rows are what say a successor closed it.
+    merge stamps it, so the registry rows are what say a successor closes it.
     """
-    return {w.digest for w in process_version._REGISTRY.windows if w.closes is not None}
+    return {
+        w.digest
+        for w in process_version._REGISTRY.windows
+        if w.closes is not None and w.closes.at is None
+    }
 
 
 def _label_since(label: str) -> datetime | None:

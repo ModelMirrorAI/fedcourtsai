@@ -18063,9 +18063,10 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "engine's default is now gpt-6.1-sol ($2/$10), roughly a third of "
         + "the cost at equal token counts. The gemini row was measured on "
         + "gemini-3.1-pro-preview ($2/$12); gemini-4-argon lists at $2/$10 "
-        + "until 2026-12-01 and $4/$20 after, when the row projects LOW by "
-        + "about half. Both are list-price projections, and only the first "
-        + "measured post-cutover runs re-anchor the rows.",
+        + "until 2026-12-01, when the row projects HIGH by about a fifth, and "
+        + "$4/$20 after, when it projects LOW by about a third. Both are "
+        + "list-price projections, and only the first measured post-cutover "
+        + "runs re-anchor the rows.",
     ],
     "evaluate": [
         "An ASSUMPTION, not a measurement: these rates scale a pre-freeze "

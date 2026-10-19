@@ -11014,26 +11014,42 @@ freeze commit is recorded here.
 
   The `claude-baseline` line is the window `proc-v9` closed, which the
   command lists because it too carries the `proc-v8` label; this label does
-  not move it. Outcomes and gradings keep landing until the instant, so these
+  not move it, and its resolved and pending counts are at its own close,
+  `2026-10-11T12:00:00Z`, not at this label's instant. Outcomes and gradings keep landing until the instant, so these
   lines are re-run once the carrying merge has stamped the registry, and a
   dated follow-up entry quotes that run. The per-engine partition of the
   successor's counted events (failed, uncounted, not reached, missing) prints
   nothing before a `proc-v10` window holds a cell, so the same follow-up entry
   quotes those four buckets from a run made once both `proc-v10` windows hold
-  counted cells, and before any figure over either window is published.
+  counted cells. The board publishes per-window `by_protocol` figures as soon
+  as a window holds graded cells, which a hand-written entry cannot reliably
+  precede, so the promise is narrower than `proc-v9`'s: the follow-up lands
+  before any `proc-v10` window figure is quoted outside the committed board.
+  The `proc-v9` entry's equivalent follow-up has not landed; its buckets, from
+  `uv run fedcourts successor-disclosures --closed proc-v8 --successor
+  proc-v9` over `origin/main` at `c5ba7a273`, read `claude-baseline: 44
+  successor-counted event(s); earlier window proc-v8: 0 failed, 0 uncounted
+  cell, 6 missing, 38 not reached before the close`.
   **Split events can now arise.** Unlike `proc-v9`, this label closes two
-  engines' windows, and an event on which one of them counts under `proc-v8`
-  while the other counts under `proc-v10` has no complete grid, since the two
-  windows never ran together. The follow-up entry states that count.
+  engines' windows. An event on which one of codex and gemini counts under
+  `proc-v8` while the other counts under `proc-v10` has no complete grid,
+  since the two windows never ran together; so has an event on which
+  `claude-baseline` counts under its closed `proc-v8` window while codex or
+  gemini counts under `proc-v10`, which arises where that engine left the
+  event uncounted in `proc-v8`. The follow-up entry states both counts.
 
-  **What a reading across engines can be after this label.** The like-for-like
-  reading of the two new models is the complete grid of (`claude-baseline`
-  `proc-v9`, `codex-baseline` `proc-v10`, `gemini-baseline` `proc-v10`). The
-  registered pooled reading keeps each predictor's `proc-v8` and `proc-v10`
-  windows as one record, model change included
-  ([metrics/README.md](../metrics/README.md)), so a pooled codex or gemini
-  figure spanning this boundary pools two models, and its composition says
-  so. Every OT2026 long-conference release figure was built at the refresh
+  **What a reading across engines can be after this label.** The registered
+  pooled reading keeps each predictor's `proc-v8` and `proc-v10` windows as
+  one record, model change included, and the registered engine comparison is
+  over paired events from whichever windows
+  ([metrics/README.md](../metrics/README.md)). So both a pooled codex or
+  gemini figure and the board's paired rank span this model change, and the
+  composition says so. The grid of (`claude-baseline` `proc-v9`,
+  `codex-baseline` `proc-v10`, `gemini-baseline` `proc-v10`) is a cut, read
+  from the per-window `by_protocol` entries; no surface computes it as a
+  paired figure today. Its population is the events the `proc-v8` windows did
+  not reach, which is selected, so the cut is never a measurement that the
+  change helped. Every OT2026 long-conference release figure was built at the refresh
   commit `0918fb18e` before `proc-v9`, so this label moves none of them.
 
   **Evidence for the change other than the closed windows' boards.** The close
@@ -11042,7 +11058,10 @@ freeze commit is recorded here.
   on nothing those outcomes say:
   - **When it was decided.** The gemini move was proposed on 2026-10-02, to
     wait only on the model being served in the API; the codex move was proposed on
-    2026-10-12, for cost. Neither proposal cites a score; both cite the
+    2026-10-12, for cost. At that proposal (`2026-10-12T22:10:12Z`, the same
+    scratch-registry run stamped there), 110 of `codex-baseline`'s 256 and
+    109 of `gemini-baseline`'s 253 counted `proc-v8` events had resolved,
+    upper bounds since resolution is read by UTC day. Neither proposal cites a score; both cite the
     published rates and the vendors' capability claims.
   - **Cost.** Re-pricing the committed token counts on `main` at `c5ba7a273`
     at the published rates: the 296 `codex-baseline` predictions on
@@ -11050,25 +11069,41 @@ freeze commit is recorded here.
     $10 ($0.10 cached input); the 153 `codex-judge` gradings $2.86 and $0.42.
     The 522 `gemini-baseline` predictions on `gemini-3.1-pro-preview` average
     $0.58 as recorded and $0.46 at `gemini-4-argon`'s introductory $2 / $10
-    ($0.10 cached), or $0.92 at the $4 / $20 rate scheduled from 2026-12-01;
+    ($0.10 cached), or $0.92 at the $4 / $20 ($0.20 cached) rate scheduled
+    from 2026-12-01 (the doubled cached rate is assumed from the doubled
+    input rate; the reports below do not state it);
     the 174 `gemini-judge` gradings $0.71, $0.55 and $1.11. These are priced,
-    not measured: they assume each new model spends the same tokens.
+    not measured: they assume each new model spends the same tokens. The
+    gemini move is not a cost move: from 2026-12-01 it prices about 1.6x the
+    model it replaces, so its outcome-free evidence is the vendor's claim and
+    the decision date alone.
   - **Published capability.** OpenAI describes `gpt-6.1-sol` as close to
     `gpt-6-astra` on agentic work, and Google describes `gemini-4-argon` as
     its new frontier model. Those are the vendors' claims, not measurements
     here.
+  - **Sources, checked 2026-10-18.** `gpt-6.1-sol` and its $2 / $10 ($0.10
+    cached) rate: OpenAI's launch post
+    (`openai.com/index/introducing-gpt-6-1-sol`), released 2026-09-29 per
+    `llm-stats.com`. `gemini-4-argon`, generally available in the Gemini API
+    from 2026-10-13 at $2 / $10 ($0.10 cached) through 2026-11-30 and $4 /
+    $20 after: press reports (VentureBeat, technology.org on 2026-10-14) that
+    quote Google's pricing page; the page itself was not read here.
   - **Availability.** Both ids are generally available in their vendors' APIs
-    by public report: `gpt-6.1-sol` since 2026-09-29 and `gemini-4-argon`
-    since 2026-10-13. Neither has been called on this project's keys before
+    by those reports. Neither has been called on this project's keys before
     this entry, so the staging rehearsal is the first check that each serves.
 
   **The evaluator half.** An evaluator digest records and never partitions, so
   every `codex-judge` and `gemini-judge` grading series pools across this
-  rubric boundary, and the grader model is what moves at it. The `proc-v8`
-  and `proc-v9` cells still collecting gradings after the carrying promotion
-  are graded by the new models; the successor-disclosures lines above count
-  those "at or after the instant". A pooled judge-dependent figure spanning
-  this boundary is coverage, and its per-rubric reading is the claimable one
+  rubric boundary, and the grader model is what moves at it. Cells in the
+  closed `proc-v8` windows still collecting gradings after the carrying
+  promotion are graded by `codex-judge` and `gemini-judge` on the new models,
+  and the successor-disclosures lines above count those "at or after the
+  instant". The open `claude-baseline` `proc-v9` window (44 counted events on
+  `origin/main` at `c5ba7a273`) is graded the same way, and no command prints
+  that count, since the window is not closed: its judge-dependent figures
+  then pool two `codex-judge` and two `gemini-judge` rubrics. A pooled
+  judge-dependent figure spanning this boundary is coverage, and its
+  per-rubric reading is the claimable one
   ([metrics/README.md](../metrics/README.md)).
 
   **Disclosed with the label, moving no digest:**
@@ -11087,8 +11122,8 @@ freeze commit is recorded here.
     rate change as well as any token change.
   - **The planning rates are not re-anchored.** The pinned per-cell table the
     spend plans price against keeps its pre-cutover codex and gemini rows, so
-    a plan's codex line projects high and, from 2026-12-01, its gemini line
-    projects low. The re-anchor waits for measured `proc-v10` cells.
+    a plan's codex line projects high, and its gemini line projects high by
+    about a fifth until 2026-12-01 and low by about a third after. The re-anchor waits for measured `proc-v10` cells.
   - **The blinding scrub gains two terms.** `gpt-6.1-sol` and
     `gemini-4-argon` join the rate table, so the evaluate cell's identity
     scrub masks them. Only prose naming those models is affected.
