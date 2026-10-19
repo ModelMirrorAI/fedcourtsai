@@ -66,6 +66,7 @@ from .process_version import (
     window_label,
     window_of,
 )
+from .schedule import schedule_path
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
     AnalyticsReport,
@@ -79,6 +80,7 @@ from .schemas import (
     BigCaseProvenance,
     BigCaseRead,
     BigCaseRow,
+    BigCaseScheduled,
     Disposition,
     DispositionShare,
     DocketPack,
@@ -93,6 +95,7 @@ from .schemas import (
     QpTopicLabel,
     QpTopicLabels,
     QpTopicSupport,
+    Schedule,
     Stage,
     StatPack,
     StatPackCoverage,
@@ -3306,6 +3309,19 @@ _BIG_CASE_ASKING_RULE = (
 )
 
 
+_BIG_CASE_SCHEDULE_RULE = (
+    "`scheduled` is joined by case id from the committed `data/schedule/schedule.json`, which "
+    "the live poll writes from the conference each pending public docket's newest "
+    "'DISTRIBUTED for Conference of ...' entry names. It is null where the case is not on "
+    "the schedule (decided, never distributed, or not read by the live channel) and where "
+    "the conference had already passed on the day the schedule was built. The row carries no "
+    "build day, so the board moves only when a case's date does; a reader rendering on a "
+    "later day drops a date that has since passed rather than show it as upcoming. A "
+    "schedule moves on every relist, so the field is display-only and never a ledger record: "
+    "nothing predicts, evaluates or scores on it, and no cell is provisioned with it."
+)
+
+
 def _big_case_provenance(
     *, process_scope: str = "all", cases_out_of_scope: int = 0
 ) -> BigCaseProvenance:
@@ -3330,6 +3346,7 @@ def _big_case_provenance(
         short_caption_rule=_BIG_CASE_SHORT_CAPTION_RULE,
         docket_rule=_BIG_CASE_DOCKET_RULE,
         asking_rule=_BIG_CASE_ASKING_RULE,
+        schedule_rule=_BIG_CASE_SCHEDULE_RULE,
         process_label=CURRENT_PROCESS_LABEL,
     )
 
@@ -3632,6 +3649,33 @@ def _committed_docket_numbers(data_root: Path) -> dict[str, str]:
     return {entry.case_id: entry.docket_number.strip() for entry in labels.entries}
 
 
+def _committed_schedule(data_root: Path) -> dict[str, BigCaseScheduled]:
+    """Case id to its next scheduled date, from the committed schedule.
+
+    Only the rows the schedule itself still holds upcoming: a row whose
+    conference had passed when the schedule was written carries no date, and
+    joins as none. Absent when no live poll has written it, and an unreadable
+    file degrades the same way, loudly: a display field is not worth the board.
+    """
+    path = schedule_path(data_root)
+    if not path.is_file():
+        return {}
+    try:
+        committed = read_model(path, Schedule)
+    except (ValueError, OSError) as exc:
+        print(
+            f"big-cases: warning: {path} unreadable ({type(exc).__name__}); "
+            "rows publish no scheduled date",
+            file=sys.stderr,
+        )
+        return {}
+    return {
+        entry.case_id: BigCaseScheduled(kind="conference", date=entry.next_conference)
+        for entry in committed.entries
+        if entry.next_conference is not None
+    }
+
+
 @dataclass(frozen=True)
 class _CaptionIndex:
     """Every committed event title's two first-named parties, and each case's dates.
@@ -3901,9 +3945,10 @@ def build_big_case_board(
 
     Ledger-only: it reads ``data/`` and nothing else — the predictions, the
     committed qp-topic labels for the docket numbers a CourtListener id does not
-    carry, and every committed event definition's caption for the cross-petition
-    test — with no corpus, no network, no credentials, no clock, so it runs
-    anywhere a checkout exists and reruns over
+    carry, every committed event definition's caption for the cross-petition
+    test, and the committed schedule for each row's next conference — with no
+    corpus, no network, no credentials, no clock, so it runs anywhere a
+    checkout exists and reruns over
     an unchanged ledger reproduce the artifact byte for byte. That is also why it
     stamps no time and no commit: the board's vintage is the commit that wrote
     it.
@@ -3945,6 +3990,7 @@ def build_big_case_board(
     leakage = _leakage_index(data_root, predictions)
     docket_numbers = _committed_docket_numbers(data_root)
     captions = _committed_caption_index(data_root)
+    scheduled = _committed_schedule(data_root)
     rows = [
         board_row
         for case_id in sorted(by_case)
@@ -3961,6 +4007,14 @@ def build_big_case_board(
             )
         )
         is not None
+    ]
+    # The schedule is joined after the collapse: it is a fact about the docket,
+    # not about any read, so it plays no part in which cases make the board.
+    rows = [
+        row.model_copy(update={"scheduled": scheduled.get(row.case_id)})
+        if row.case_id in scheduled
+        else row
+        for row in rows
     ]
     rows.sort(key=lambda row: (-row.mean_big_case_score, -row.n, row.case_id))
     # Two different facts, kept apart: a case whose in-scope reads carry no number

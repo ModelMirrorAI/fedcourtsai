@@ -2921,6 +2921,20 @@ the rendered table) and
   the other display fields, these are never read by a predictor, an evaluator
   or a metric, and `metrics/big-cases.md` does not render them.
 
+  **The next scheduled date.** Like `docket_number`, `scheduled` is read from
+  committed data outside the prediction ledger: the board joins it by case id
+  from `data/schedule/schedule.json`, which the live poll writes from the
+  conference each pending public docket's newest "DISTRIBUTED for Conference
+  of …" entry names (`fedcourts schedule`). It is `{kind, date}` with `kind`
+  `conference`, and null where the case is not on the schedule (decided,
+  granted, or never distributed) or its conference had already passed on the
+  day the schedule was built. The row carries no build day, so the board moves
+  only when a case's date does; a site rendering later drops a date that has
+  since passed rather than show it as upcoming. A schedule moves on every
+  relist, so it is display-only like the fields above and never a ledger
+  record: nothing predicts, evaluates or scores on it. The `schedule_rule`
+  provenance string states the rule in the artifact.
+
   **Process scope, and why the default is version-blind.** `process_scope` says
   which process versions a **current read** may come from. The default is
   `all`: every committed run is eligible, shakedown, pre-freeze,
