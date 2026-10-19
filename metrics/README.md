@@ -1630,8 +1630,10 @@ Three cell-grain reasons exist, and one claim-grain reason (below):
   petition: the cells forecast from a moment the petition had not reached.
   The reading needs the docket entries, so these events are **listed** in the
   same file, each row naming the run minted before the petition's
-  distribution. The fan-out no longer mints such a cell: it waits for the
-  petition's own distribution (`store.petition_distributed`).
+  distribution. The fan-out mints no such cell; it waits for the petition's
+  own distribution (`store.petition_distributed`). A row sets aside every
+  cell on its event, and no later cell is minted on it for a predictor that
+  already holds a counted one.
 
 **`increment-run-day`**, the claim grain. One claim inside a cell is set aside
 and the cell stays counted: a resolved `cvsg-increment`,

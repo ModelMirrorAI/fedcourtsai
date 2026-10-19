@@ -11364,9 +11364,20 @@ freeze commit is recorded here.
   baseline predictor, are run `20261006T142731Z`, stamped `proc-v8` inside
   each predictor's `proc-v8` counting window (`process_version.window_of`),
   forward, with a provisioned `distribution_count` of 0. Like every listed
-  row it sets aside every cell on the event, including any later cell minted
-  on the petition's own distribution: the conservative reading, since the
-  event's first forecasts already stand at the wrong moment.
+  row it sets aside every cell on the event; `minted_run_id` is the census
+  row's record and no reader keys on it. **No later cell on the event is
+  minted for these three predictors**, whenever the petition is distributed or
+  relisted: each holds a counted `proc-v8` cell, so the fan-out's
+  already-predicted skip (`matrix.predict_matrix`) drops it and the re-predict
+  rule does not re-owe it (`store.predictor_holds_no_counted_prediction` reads
+  false for all three). Run against this ledger, `predict_matrix` over the
+  event with `reopen_events` naming it plans no cell. Two paths could still
+  mint one, and the event grain would sweep it out of the default with the
+  rest: a predictor enabled later, which holds no cell and is minted its
+  first, and a revocation of the `proc-v8` window, which de-counts these
+  cells and re-owes the event once the petition's own distribution opens its
+  moment. Either such cell would be a legitimate forecast set aside by this
+  row, and a later dated entry is owed to say so if one is minted.
 
   **The census.** It is the one recorded by the landed 2026-10-19 entry above
   that mints a distribution-moment cell only on the petition's own

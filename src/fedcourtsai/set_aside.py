@@ -25,7 +25,12 @@ the fact comes from:
   appended from the corpus by a reviewed edit, so the boards stay offline and
   deterministic. A listed row's shape is its reason's
   (:data:`~fedcourtsai.schemas.ListedSetAsideEvent`), and it sets aside every
-  cell on its event.
+  cell on its event: its run field records the census, and nothing keys on it.
+  For a pre-distribution row that grain reaches no later cell from a predictor
+  already holding a counted one, since the fan-out's already-predicted skip
+  drops it and the re-predict rule does not re-owe it; a predictor enabled
+  later, or a revocation that de-counts the listed cells, can mint one, and
+  the row sets that legitimate cell aside too.
 
 **Adding a reason** is three edits here and one in the schema: a new
 ``SetAsideReason`` value, its predicate, a branch in :func:`set_aside_reason`
