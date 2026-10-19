@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "Resolves a four-circuit split on how race-neutral proxies in selective K-12 admissions are tested after SFFA; affects many large districts' admissions policies.",
+  "big_case_score": 0.8,
+  "case_id": "scotus/9026000012",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.82
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-20",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-19",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-19T17:08:50Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-19.json",
+  "judgment": "vacated",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.82,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+    "label": "proc-v9",
+    "pipeline_sha": "e1b48eb552e2c65573ce72455c6ef930280061da",
+    "stamped_at": "2026-10-19T17:09:51.417955Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261019T170308Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that under Arlington Heights a plaintiff challenging a facially neutral admissions policy need not show that the targeted racial group's overall admission share fell below its share of the applicant pool; because the Equal Protection Clause protects individuals, it suffices that the policy was adopted at least in part because of its adverse effect on members of the group (e.g., a before-and-after decline or burden on individual applicants), rejecting the Fourth Circuit's Coalition for TJ aggregate benchmark."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is narrow in reach: the Court rejects only the aggregate-underrepresentation threshold as a categorical precondition and expressly declines to decide whether this complaint plausibly alleges discriminatory intent, remanding that question to the Fourth Circuit, and does not hold that race-neutral proxies adopted to change racial composition are per se subject to strict scrutiny."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

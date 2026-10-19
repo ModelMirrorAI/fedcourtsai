@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "High-profile case concerning the use of race-neutral proxies in competitive school admissions, closely watched following the Students for Fair Admissions decision.",
+  "big_case_score": 0.85,
+  "case_id": "scotus/9026000012",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.9
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-20",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-19",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-19T17:03:08Z",
+  "engine": "gemini",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-19.json",
+  "judgment": "reversed",
+  "model": "gemini-3.1-pro-preview",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.9,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
+    "label": "proc-v9",
+    "pipeline_sha": "e1b48eb552e2c65573ce72455c6ef930280061da",
+    "stamped_at": "2026-10-19T17:13:13.966000Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261019T170308Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Equal Protection Clause does not require a threshold showing of disparate impact before a court may consider whether a facially neutral admissions policy was adopted with discriminatory intent."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "A categorical rule that evidence of discriminatory intent must be considered in an Equal Protection challenge regardless of whether an aggregate disparate impact on a racial group is demonstrated."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

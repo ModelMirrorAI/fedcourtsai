@@ -1,0 +1,3 @@
+- Used `cat metrics/statpack.md` to review the base rate for the `baseline` band.
+- Attempted `uv run fedcourts query --era 2020s "harmless error jury instruction Ruan Neder circuit split contested element"` but it failed due to invalid arguments.
+- Used CourtListener MCP tool (`search` endpoint) with query `"Neder" AND "harmless error" AND "Ruan"` (Type: Opinion) to find recent circuit split cases, surfacing *United States v. Kahn*, *United States v. Qureshi*, *United States v. Smithers*, *United States v. Heaton*, and *United States v. Capistrano*.

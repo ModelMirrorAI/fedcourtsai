@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "The challenge tests constitutional limits on federal tax-enforcement regulation and criminal restrictions on home distilling. Its implications extend beyond hobby distillers, but a narrow tax-administration holding would limit its broader impact.",
+  "big_case_score": 0.64,
+  "case_id": "scotus/9026000204",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.82
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-20",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-19",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-19T17:19:32.793572Z",
+  "engine": "codex",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-19.json",
+  "judgment": "reversed",
+  "model": "gpt-6-astra",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.82,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v9",
+    "pipeline_sha": "e1b48eb552e2c65573ce72455c6ef930280061da",
+    "stamped_at": "2026-10-19T17:20:08.398822Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261019T170308Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will uphold the home-distilling location restriction as necessary and proper to collection of the distilled-spirits excise tax because channeling production into inspectable premises reasonably prevents evasion, rejecting the Fifth Circuit's premise that a restriction reducing some taxable production cannot serve tax collection."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will confine its holding to production-site restrictions on an already-taxed commodity within the historically established spirits-revenue scheme, rather than announce a general congressional power to prohibit home activity whenever it might conceal taxable conduct."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Samuel Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Neil Gorsuch",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Brett Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

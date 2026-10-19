@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "The threshold for challenging alleged racial proxies in selective public-school admissions has nationwide importance after SFFA, though the limited question does not itself decide the legality of all socioeconomic admissions policies.",
+  "big_case_score": 0.8,
+  "case_id": "scotus/9026000012",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.84
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-20",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-19",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-19T17:12:02Z",
+  "engine": "codex",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-19.json",
+  "judgment": "vacated",
+  "model": "gpt-6-astra",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.84,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+    "label": "proc-v9",
+    "pipeline_sha": "e1b48eb552e2c65573ce72455c6ef930280061da",
+    "stamped_at": "2026-10-19T17:14:55.088882Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261019T170308Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that aggregate admissions success relative to a racial group's share of the applicant pool does not foreclose an Arlington Heights intentional-discrimination claim alleging that individual applicants were disadvantaged because of race."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will announce a rule applicable beyond Montgomery County rejecting a mandatory aggregate applicant-pool benchmark, but leave the challenged lottery's discriminatory purpose and ultimate constitutionality for further proceedings rather than invalidate socioeconomic admissions criteria categorically."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

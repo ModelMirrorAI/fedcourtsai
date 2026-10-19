@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000204",
+  "run_id": "20261019T170308Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot", "provisioned documents", "metrics/statpack.md merits section"],
+  "helpful": ["The merits section's per-Term disturbed rates gave a direct anchor for the pooled rate.", "The cert reply clarified that the government waived its commerce-power defense."],
+  "gaps": ["No disturbed-rate cut by petitioner type (for example, SG-as-petitioner) or by lower court; either would sharpen the anchor for this posture.", "The Fifth Circuit opinion itself was not provisioned as a document."],
+  "notes": "The petition was truncated at the text cap; the reasons-for-granting section was intact."
+}
