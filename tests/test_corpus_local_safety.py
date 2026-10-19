@@ -552,3 +552,17 @@ def test_corpus_push_refuses_an_actions_job_without_the_switch(
     result = runner.invoke(app, ["corpus-push"])
     assert result.exit_code == 1
     assert "does not enable remote writes" in result.output
+
+
+def test_corpus_push_passes_the_switch_check_in_a_writer_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The control for the refusal above: with the switch set, the command gets
+    past it and stops at the next refusal, the pointer override."""
+    _as_writer_job(monkeypatch)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_POINTER", "{}")
+    _configure_corpus_root(monkeypatch, tmp_path / "corpus")
+    result = runner.invoke(app, ["corpus-push"])
+    assert result.exit_code == 1
+    assert "does not enable remote writes" not in result.output
+    assert "pointer override is set" in result.output

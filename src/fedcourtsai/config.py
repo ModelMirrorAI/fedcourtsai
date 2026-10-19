@@ -130,11 +130,12 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("FEDCOURTS_CORPUS_SERVICE_URL"),
     )
-    # Whether this job may write the remote corpus estate at all: the
-    # content-store mirror and `corpus-push`. Set only by the corpus writer
-    # jobs (run-pull, run-seed, run-repair), in the workflow files where their
-    # permissions are reviewed, and a workflow test holds that no other job
-    # sets it. A guard against accidents rather than an authorization (the
+    # Whether this job may write the production corpus estate through the
+    # ambient seams: the content-store mirror and `corpus-push`
+    # (`corpus-seed-slice` writes the stores it is handed, outside it). Set
+    # only by the corpus writer jobs (run-pull, run-seed, run-repair), in the
+    # workflow files where their permissions are reviewed, and a workflow test
+    # holds that no other job sets it. A guard against accidents rather than an authorization (the
     # role a job holds is that): unset, an Actions job's corpus writes stay
     # local whatever credential it holds by mistake. Blank reads as off.
     remote_writes: bool = Field(

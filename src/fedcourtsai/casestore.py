@@ -438,7 +438,7 @@ def _mirror_transport() -> ObjectTransport | None:
        once per process: such a job's corpus writes are local by design, and a
        writer job that lost the switch is refused by ``corpus-push`` instead.
 
-    An injected transport (:func:`set_active_transport`) skips gate 3: the code
+    An injected transport (:func:`set_active_transport`) skips gates 3 and 4: the code
     chose that store itself, which is what tests and explicit wiring do.
     """
     transport = active_transport()
