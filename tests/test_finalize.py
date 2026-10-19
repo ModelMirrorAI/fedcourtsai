@@ -8,6 +8,7 @@ artifact rather than only the materialized ``event.yaml`` scaffold.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -16,12 +17,15 @@ from typer.testing import CliRunner
 from fedcourtsai.cli import app
 from fedcourtsai.finalize import (
     FinalizeRole,
+    JudgeFileOutcome,
+    JudgeFileSettlement,
     OutputSnapshot,
     agent_produced_output,
     reset_output_root,
+    settle_judge_level_outputs,
     snapshot_output_root,
 )
-from fedcourtsai.paths import CasePaths
+from fedcourtsai.paths import CasePaths, EventPaths
 
 
 def _produced(role: FinalizeRole, data_root: Path, actor: str) -> bool:
@@ -183,3 +187,119 @@ def test_a_snapshot_rewritten_to_name_another_root_is_refused(
     )
     assert result.exit_code == 1
     assert (precious / "src").is_dir()
+
+
+# --- the judge-level pair -------------------------------------------------------
+
+
+def _judge_cell(tmp_path: Path, predictors: tuple[str, ...] = ("p-a", "p-b", "p-c")) -> EventPaths:
+    """A graded evaluate cell: one evaluation per predictor, no judge-level pair."""
+    events = CasePaths(tmp_path, "scotus", 1).event("evt-x")
+    for predictor in predictors:
+        evaluation = events.evaluation("gemini-judge", predictor, "R")
+        evaluation.parent.mkdir(parents=True)
+        evaluation.write_text("{}\n")
+    return events
+
+
+def _settle(events: EventPaths) -> dict[str, JudgeFileSettlement]:
+    settled = settle_judge_level_outputs(events, evaluator="gemini-judge", run_id="R")
+    return {item.name: item for item in settled}
+
+
+def test_a_pair_copied_into_every_candidate_moves_up_once(tmp_path: Path) -> None:
+    """The shape gemini-judge left on main: the same report under each candidate,
+    differing only in a trailing newline or indentation, and none at the judge
+    level. One copy moves up and the rest go."""
+    events = _judge_cell(tmp_path)
+    for n, predictor in enumerate(("p-a", "p-b", "p-c")):
+        run_dir = events.evaluation_dir("gemini-judge", predictor, "R")
+        (run_dir / "retrieval.md").write_text("Nothing beyond the record." + "\n" * n)
+        (run_dir / "tooling.json").write_text(
+            json.dumps({"used_corpus_query": False}, indent=n or None)
+        )
+    settled = _settle(events)
+    assert settled["retrieval.md"] == JudgeFileSettlement(
+        "retrieval.md", JudgeFileOutcome.relocated, removed=3, left=0
+    )
+    assert settled["tooling.json"].outcome is JudgeFileOutcome.relocated
+    assert events.evaluation_retrieval("gemini-judge", "R").read_text().strip() == (
+        "Nothing beyond the record."
+    )
+    assert json.loads(events.evaluation_tooling("gemini-judge", "R").read_text()) == {
+        "used_corpus_query": False
+    }
+    leftovers = [
+        path.name
+        for path in events.evaluator_dir("gemini-judge").glob("*/R/*")
+        if path.name != "evaluation.json"
+    ]
+    assert leftovers == []
+    # Settled is settled: a second pass finds both in place and touches nothing.
+    again = _settle(events)
+    assert {item.outcome for item in again.values()} == {JudgeFileOutcome.in_place}
+
+
+def test_copies_that_disagree_are_left_where_the_judge_wrote_them(tmp_path: Path) -> None:
+    """Three different retrieval accounts: none is the cell's, so none moves."""
+    events = _judge_cell(tmp_path)
+    for predictor in ("p-a", "p-b", "p-c"):
+        run_dir = events.evaluation_dir("gemini-judge", predictor, "R")
+        (run_dir / "retrieval.md").write_text(f"What I read for {predictor}.\n")
+    item = _settle(events)["retrieval.md"]
+    assert item == JudgeFileSettlement("retrieval.md", JudgeFileOutcome.ambiguous, 0, 3)
+    assert not events.evaluation_retrieval("gemini-judge", "R").exists()
+    for predictor in ("p-a", "p-b", "p-c"):
+        assert (events.evaluation_dir("gemini-judge", predictor, "R") / "retrieval.md").is_file()
+
+
+def test_a_duplicate_of_the_judge_level_file_goes_and_a_differing_one_stays(
+    tmp_path: Path,
+) -> None:
+    events = _judge_cell(tmp_path, ("p-a", "p-b"))
+    judge_level = events.evaluation_retrieval("gemini-judge", "R")
+    judge_level.parent.mkdir(parents=True)
+    judge_level.write_text("The record only.\n")
+    (events.evaluation_dir("gemini-judge", "p-a", "R") / "retrieval.md").write_text(
+        "The record only."
+    )
+    (events.evaluation_dir("gemini-judge", "p-b", "R") / "retrieval.md").write_text(
+        "Something else.\n"
+    )
+    item = _settle(events)["retrieval.md"]
+    assert item == JudgeFileSettlement("retrieval.md", JudgeFileOutcome.stray, 1, 1)
+    assert judge_level.read_text() == "The record only.\n"
+    assert not (events.evaluation_dir("gemini-judge", "p-a", "R") / "retrieval.md").exists()
+    assert (events.evaluation_dir("gemini-judge", "p-b", "R") / "retrieval.md").is_file()
+
+
+def test_a_pair_written_nowhere_is_missing(tmp_path: Path) -> None:
+    events = _judge_cell(tmp_path)
+    assert {item.outcome for item in _settle(events).values()} == {JudgeFileOutcome.missing}
+
+
+def test_a_cell_that_graded_nothing_has_nothing_to_settle(tmp_path: Path) -> None:
+    """A failed cell is reported as failed elsewhere, not as missing its pair."""
+    events = CasePaths(tmp_path, "scotus", 1).event("evt-x")
+    assert settle_judge_level_outputs(events, evaluator="gemini-judge", run_id="R") == []
+
+
+def test_settling_reads_only_this_runs_directories(tmp_path: Path) -> None:
+    """An earlier committed run's files are not this cell's to move."""
+    events = _judge_cell(tmp_path)
+    earlier = events.evaluation_dir("gemini-judge", "p-a", "EARLIER")
+    earlier.mkdir(parents=True)
+    (earlier / "retrieval.md").write_text("An earlier run's account.\n")
+    assert _settle(events)["retrieval.md"].outcome is JudgeFileOutcome.missing
+    assert (earlier / "retrieval.md").is_file()
+
+
+def test_a_symlinked_copy_is_neither_followed_nor_moved(tmp_path: Path) -> None:
+    events = _judge_cell(tmp_path, ("p-a",))
+    outside = tmp_path / "outside.md"
+    outside.write_text("Not the cell's.\n")
+    link = events.evaluation_dir("gemini-judge", "p-a", "R") / "retrieval.md"
+    link.symlink_to(outside)
+    assert _settle(events)["retrieval.md"].outcome is JudgeFileOutcome.missing
+    assert link.is_symlink()
+    assert not events.evaluation_retrieval("gemini-judge", "R").exists()

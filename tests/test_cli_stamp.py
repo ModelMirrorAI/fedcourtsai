@@ -3540,6 +3540,19 @@ def test_an_off_vocabulary_severity_no_longer_fails_an_evaluate_cell(_data_root:
             }
         )
     )
+    # The judge-level pair is in place, so the only notes are the flag's own.
+    event_paths.evaluation_retrieval("gemini-judge", "RID").write_text("The record only.\n")
+    write_json(
+        event_paths.evaluation_tooling("gemini-judge", "RID"),
+        AgentToolingFeedback(
+            case_id="scotus/73521973",
+            run_id="RID",
+            role=UsageRole.evaluator,
+            actor_id="gemini-judge",
+            used_corpus_query=False,
+            used_base_rates=False,
+        ),
+    )
     before = validate_ledger(_data_root)
     assert any("flags.json" in problem for problem in before.problems)
 
@@ -3576,3 +3589,99 @@ def test_a_regrade_leaves_an_off_vocabulary_flags_file_byte_identical(
     assert result.exit_code == 0, result.output
     assert flags_path.read_text() == written
     assert "normalised it" not in result.output
+
+
+def test_stamp_moves_a_misfiled_judge_pair_up_and_says_so(_data_root: Path) -> None:
+    """The gemini-judge shape: the judge-level pair copied into each candidate's
+    directory. The stamp moves one copy to the judge level, where the collect
+    roll-ups read it, and leaves an `info` note in the cell's flags; a second
+    stamp neither moves nor notes anything more."""
+    event = "evt-petition-disposition"
+    predictors = ("claude-baseline", "codex-baseline", "gemini-baseline")
+    event_paths = CasePaths(_data_root, "scotus", 5).event(event)
+    tooling = AgentToolingFeedback(
+        case_id="scotus/5",
+        run_id="RID",
+        role=UsageRole.evaluator,
+        actor_id="gemini-judge",
+        used_corpus_query=False,
+        used_base_rates=True,
+    )
+    for predictor in predictors:
+        seed_evaluation(
+            _data_root,
+            "scotus",
+            5,
+            event,
+            evaluator_id="gemini-judge",
+            predictor_id=predictor,
+            run_id="RID",
+        )
+        run_dir = event_paths.evaluation_dir("gemini-judge", predictor, "RID")
+        (run_dir / "retrieval.md").write_text("No retrieval beyond the provisioned inputs.\n")
+        write_json(run_dir / "tooling.json", tooling)
+
+    result = _stamp("evaluator", "gemini-judge", 5, event, "RID")
+    assert result.exit_code == 0, result.output
+    assert "judge-level tooling.json: relocated" in result.output
+    assert read_model(event_paths.evaluation_tooling("gemini-judge", "RID"), AgentToolingFeedback)
+    assert event_paths.evaluation_retrieval("gemini-judge", "RID").is_file()
+    for predictor in predictors:
+        run_dir = event_paths.evaluation_dir("gemini-judge", predictor, "RID")
+        assert sorted(path.name for path in run_dir.iterdir()) == ["evaluation.json"]
+    flags = read_model(event_paths.evaluation_flags("gemini-judge", "RID"), AgentFlags)
+    assert [(flag.severity, flag.source) for flag in flags.flags] == [
+        (FlagSeverity.info, FlagSource.harness),
+        (FlagSeverity.info, FlagSource.harness),
+    ]
+    assert all(flag.message.startswith("Harness check: the judge-level") for flag in flags.flags)
+    assert validate_ledger(_data_root).ok
+
+    again = _stamp("evaluator", "gemini-judge", 5, event, "RID")
+    assert again.exit_code == 0, again.output
+    assert "judge-level" not in again.output
+    assert read_model(event_paths.evaluation_flags("gemini-judge", "RID"), AgentFlags) == flags
+
+
+def test_stamp_flags_a_judge_pair_written_nowhere(_data_root: Path) -> None:
+    """A judge that wrote neither report anywhere gets a warning per file, appended
+    after the cell's own flags rather than over them."""
+    event = "evt-petition-disposition"
+    seed_evaluation(_data_root, "scotus", 6, event, evaluator_id="claude-judge", run_id="RID")
+    event_paths = CasePaths(_data_root, "scotus", 6).event(event)
+    own = AgentFlag(
+        category=FlagCategory.other,
+        severity=FlagSeverity.info,
+        message="The judge's own note.",
+        event_id=event,
+    )
+    write_json(
+        event_paths.evaluation_flags("claude-judge", "RID"),
+        AgentFlags(
+            case_id="scotus/6",
+            run_id="RID",
+            role=UsageRole.evaluator,
+            actor_id="claude-judge",
+            flags=[own],
+        ),
+    )
+    result = _stamp("evaluator", "claude-judge", 6, event, "RID")
+    assert result.exit_code == 0, result.output
+    flags = read_model(event_paths.evaluation_flags("claude-judge", "RID"), AgentFlags).flags
+    assert flags[0] == own
+    assert [flag.severity for flag in flags[1:]] == [FlagSeverity.warning] * 2
+    assert "retrieval.md is missing" in flags[1].message
+    assert "tooling.json is missing" in flags[2].message
+
+
+def test_a_predictor_stamp_does_not_look_for_a_judge_pair(_data_root: Path) -> None:
+    seed_prediction(_data_root, "scotus", 7, "evt-y", run_id="RID")
+    result = _stamp("predictor", "claude-baseline", 7, "evt-y", "RID")
+    assert result.exit_code == 0, result.output
+    assert "judge-level" not in result.output
+    assert (
+        not CasePaths(_data_root, "scotus", 7)
+        .event("evt-y")
+        .prediction_flags("claude-baseline", "RID")
+        .exists()
+    )
