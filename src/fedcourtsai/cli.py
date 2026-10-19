@@ -7920,7 +7920,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     each candidate's directory up to where the contract keys it
     (:func:`fedcourtsai.finalize.settle_judge_level_outputs`), then normalises
     ``flags.json`` and ``tooling.json``, then notes in ``flags.json`` any part of
-    the pair it moved or could not find in place.
+    the pair it moved, found nowhere, or found beside a differing candidate copy.
 
     The digest is resolved from the working tree (:func:`process_version.digest_for_actor`):
     the actor's prompt-template bytes plus its resolved registry config. A missing
