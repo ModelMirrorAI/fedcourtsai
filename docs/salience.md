@@ -1187,6 +1187,9 @@ petitions to the state its docket disclosed at a chosen cutoff
 — petition **arrival**, the **first distribution**, or the **last
 pre-resolution distribution** — and runs the same selection core the live pass
 runs (`plan_cohorts`) over the projection, into `metrics/salience-replay.json`.
+The replay reads no stored snapshots and passes the core no reserve release,
+so where the live pass freed an interim reserve slot because the occupant's
+stored docket read as disposed, the replay does not reproduce that fill.
 
 The projection layer (`fedcourtsai.pipeline.asof`) is the honesty mechanism:
 time-invariant identity (docket number, fee class, originating court, sampling
@@ -1717,12 +1720,18 @@ by which the rotation reached more recently, and any change in how the
 proceedings text is read reaches the pending cohort one poll at a time rather
 than all at once. A selected application occupies its slot until
 it resolves (the sticky latch never de-selects), so the reserve bounds
-*concurrent* live interim predictions and a slot frees only on resolution —
-where "resolves"
-means the machine-matched resolution the accumulation rule below requires, so
-an application decided in language the vocabulary misses pins its slot until a
-maintainer resolves the residue;
-it is visible as the application rotation's long-unresolved tail. The slots in
+*concurrent* live interim predictions. A slot frees on the machine-matched
+resolution the accumulation rule below requires, or earlier, when the
+occupant's newest stored snapshot already reads as an interim disposal
+(`outcome.interim_disposal_signal`, the high-recall scan the forward queue's
+decided-guard reads). The resolver's vocabulary is exact-match, so an
+application decided in language it misses stays unresolved; its outcome is
+legible in the snapshot, no forward cell will be minted for it, and it keeps
+its latch but not its slot. An application whose stored docket shows no
+disposal at all — an upstream docket that never updated, or a disposition the
+corpus has not yet pulled — still holds its slot until a pull records one;
+`reconcile-salience-selection` lists every occupant with its filing date and
+the snapshot read, so a slot held for months is visible. The slots in
 use lower the cert **rank-fill limit** one-for-one in the **latest
 conference cohort of the pass** — never a carve-out — so the reserve is defined
 inside `N`. Whether it *spends* inside `N` depends on the cohort: a lowered
