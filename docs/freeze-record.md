@@ -11417,3 +11417,150 @@ freeze commit is recorded here.
   prints `pre-distribution-mint`, and once the event resolves and the metrics
   refresh runs, `jq '.set_aside.by_reason' metrics/leaderboard.json` carries
   a `pre-distribution-mint` count.
+- **The merits-judgment parser reads summary dispositions, lower-court rulings,
+  in-order Rule 46 decrees and each consolidated docket's own clause; recorded
+  2026-10-19.** A **scoring-baseline** entry that is also a **conditioning**
+  one, under unchanged digests: no prompt byte, registry digest field or
+  `salience_version` moves, and `uv run fedcourts process-digest --all` at
+  this change prints `proc-v10` and the six digests it prints at its parent
+  (`605201bd…`, `7ab92dd4…`, `bee46e92…`, `167b7d71…`, `a8610eec…`,
+  `6a88d3dc…`). What moves is which rows the registered merits base rate pools
+  and with which judgment, and the `merits_judgment` a merits cell reads.
+
+  **What moved** (`pipeline.judgment`; its writers are the judgment backfill
+  and the live poll's latch, and its direct readers beyond them are
+  `pipeline.outcome.forward_leakage`, `pipeline.outcome.disposition_route` and
+  `pipeline.decision_record`).
+  - **A judgment that follows the entry's own grant recital** after a comma or
+    "and" parses (`Petition for certiorari GRANTED, judgment REVERSED.`). A
+    rehearing petition's grant is not a recital.
+  - **The lower-court ruling certiorari ran to** is a disposition subject,
+    admitted by an allow-list only: the en banc order, an order dated in front
+    of the noun, or an order or determination "of" a named court other than
+    this one (`The en banc order of the United States Court of Appeals ... is
+    vacated`, `Determination of United States Court of Appeals ...
+    REVERSED`). The Court's own orders ("The order heretofore entered by ...",
+    "The order of October 2, 2023 consolidating the cases ...") stay
+    unmatched. The veto on an interlocutory order ("granting", "staying",
+    "denying", "heretofore", "entered by" between the noun and the verb)
+    applies to the ruling subject only, and an application's own disposition
+    entry reads no ruling subject. A judgment subject carries no veto.
+  - **The single-verb shape's subject-verb gap is 120 characters**, wide
+    enough for a judgment recital that names the lower court's own docket
+    numbers. The in-part and equally-divided shapes keep their gaps.
+  - **A consolidated entry is read for the row's own docket**: the clause
+    naming its number (every number of a listed citation counts), else the
+    clause naming none, else the whole entry. A sentence opening on a
+    companion's number ("No. 25-406, judgment REVERSED") is that companion's.
+  - **The Court's Rule 46 decree inside a longer order** is a
+    `voluntary-dismissal` termination (`... and the petitions in Nos. 20-429,
+    20-454, and 20-539 are dismissed pursuant to Rule 46.1.`), the petition
+    spelling gated on the row's recorded grant as the Clerk's spelling is. A
+    termination match that cites docket numbers counts only where the row's
+    own number is among them. The provisioning scan's terminal regex reads
+    "petitions" as well as "petition", so it refuses the decree too.
+  - **A parsed judgment clears a stored termination**, in the backfill's write
+    (`corpus.set_merits_judgment`) and in the ingestion upsert alike. The
+    clear is one-way: a parse later retracted restores no termination.
+
+  **What it moves**, read ranged against the index pointer `44ca3bca…`
+  (latest pull 2026-10-19), every granted SCOTUS row's latest stored snapshot,
+  the parent's parser against this change's: 1253 granted rows, 1247 with a
+  snapshot, 15 whose reading changes, 14 of them in the merits population.
+  That final regression run is the record of this entry, and each changed row
+  was read against its own disposition entry. An earlier run against
+  `4f55f94d…` found the same 15 rows.
+  - **Enter the pool as disturbed**: 18-589 (`affirmed-in-part-reversed-in-part`),
+    20-37 and 20-38 (`vacated`), each at `judgment-issued` before. 20-37 and
+    20-38 are Munsingwear mootness vacaturs, and count as disturbed like any
+    parsed vacatur.
+  - **Flips**: 22-331 from `affirmed` to `reversed`. Its copy of the
+    consolidated entry opens with No. 22-23's affirmance.
+  - **Excluded by the gap-0 guard**: seven decisions dated on their own grant,
+    17-193, 17-467, 20-507, 20-927 and 20-1539 (`reversed`), 17-654 and
+    21-1609 (`vacated`). Each leaves `judgment-issued` for a parsed judgment
+    that `judgment_rode_the_grant_order` keeps out of the pool, as it does
+    every summary disposition.
+  - **Terminated, outside the pool**: 20-429, 20-454 and 20-539, from no
+    merits record to `voluntary-dismissal`.
+  - **Decision record only**: 19-122, labelled `gvr` and outside the merits
+    population, gains a parsed `vacated` its decision-record reading takes.
+
+  **The counts, projected** from the committed `metrics/statpack.json` and
+  `metrics/statpack.md` at `main` `ac757d745`, not re-read from a refreshed
+  pack: each row above moved by hand onto the committed section.
+  - The pooled disturbed rate, over the ten grant Terms OT2016–25 (the pack
+    carries OT2017–25): 540 → 543 parsed, 377 → 381 disturbed, 69.8% → 70.2%.
+    Over OT2015–24: 516 → 519 parsed, 360 → 364 disturbed, 69.8% → 70.1%.
+  - Pack-wide `granted` 596 → 589 and `excluded` 66 → 73: the seven same-day
+    decisions leave the cohort for the excluded count.
+  - Per grant Term: OT2017 `granted` 56 → 53 and `excluded` 3 → 6 (17-193,
+    17-467, 17-654); OT2018 `parsed` 75 → 76, `disturbed` 50 → 51 (18-589);
+    OT2020 `granted` 79 → 77, `excluded` 2 → 4, `parsed` 69 → 71,
+    `disturbed` 57 → 59 (20-507, 20-927 out; 20-37, 20-38 in); OT2021
+    `granted` 67 → 65, `excluded` 1 → 3 (20-1539, 21-1609); OT2022
+    `affirmed` 22 → 21, `reversed` 23 → 24, `disturbed` 50 → 51 (22-331).
+  - The decision census's terminations: 10 fewer `judgment-issued`, 3 more
+    `voluntary-dismissal`.
+
+  **The summary-route claim.** `disposition_route` reads the same parser, so
+  the `summary-disposition-route` claim moves with it.
+  - Five committed `evt-petition-disposition` outcomes carry `plenary` and now
+    contradict the parser, which reads each as a same-day judgment:
+    `scotus/6217670`, `scotus/6351957`, `scotus/7022587`, `scotus/59772701`
+    and `scotus/60653327`. Two carry no route: `scotus/29114262` and
+    `scotus/72470952`.
+  - None of the seven has a prediction, so no graded claim moves. They are
+    left as recorded: no sweep re-derives a route other than to `gvr`, and
+    they carry no graded claim to correct.
+  - From the carrying merge on, a resolution through these shapes resolves the
+    claim to 1.
+  - `summary_route_base_rate` counts only the `gvr` and `summary-reversal`
+    labels, so every same-day judgment under a plain `granted` label that the
+    route now reads as summary widens the downward bias
+    `docs/outcome-decomposition.md` describes.
+
+  **No resolved merits event moves.** None of these dockets carries a resolved
+  merits event or a graded merits cell. The three Title X dockets (20-429,
+  20-454, 20-539) each carry an open `evt-order-judgment` with no committed
+  prediction (failed attempts only, run `20260816T170829Z`). A termination
+  resolves no merits event, so those events stay open.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** As the 2026-10-17
+  interim-pool entry reads that rule, a scoring-baseline change that is also a
+  conditioning one joins the boundary registry through its conditioning half.
+  This change moves the merits base rate a merits cell is provisioned with,
+  and `merits_judgment` on the retrieval surface, so it joins.
+  - **The registry row** is `merits-judgment-parser-summary-ruling-consolidated`.
+    It applies to every predictor, its reach is `granted dockets`, and it is
+    **gradual**: the corpus moves at the first run-seed window after the
+    carrying merge, and the pool a cell anchors on at the statpack refresh
+    after that, not at the merge itself. It is registered **pending** in this
+    change's own PR (`fedcourts register-boundary`), under the 2026-10-14
+    merge-stamping declaration. Its `merge` and `at` stay null until the
+    promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before the
+    backfill window or the statpack refresh still read the parent's columns
+    and pool, so the after-side `n` is an upper bound on exposure.
+
+  **How it lands.** Nothing is written by this change. The run-seed window's
+  daily `backfill-merits-judgments --apply` re-derives the rows on its first
+  run after the change reaches `main`, and the decision-record sweep then
+  fills the rows the cleared termination returns to its population. The pool
+  moves at the statpack refresh after that window.
+
+  The runnable effect check once it is live:
+  - after that window, where the corpus is pulled, `uv run fedcourts
+    backfill-merits-judgments` (a dry run) reports `updated` 0 and
+    `terminations_written` 0;
+  - after the next statpack refresh, `jq '.merits | [.parsed, .disturbed,
+    .granted, .cert_order_excluded]' metrics/statpack.json` prints `[543, 381,
+    589, 73]` as projected from the committed pack, or values that differ
+    from it only by judgments and grants landed since;
+  - `uv run pytest tests/test_judgment.py tests/test_outcome.py -k "ruling or
+    consolidated or decree or companion or clears or summary_reversal or
+    own_clause"` is green, and `uv run fedcourts process-digest --all` prints
+    the same label and six digests at the carrying merge as at its first
+    parent.

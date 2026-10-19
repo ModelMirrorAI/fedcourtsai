@@ -361,6 +361,14 @@
       "predictors": null,
       "reach": "self-represented dockets",
       "gradual": false
+    },
+    {
+      "name": "merits-judgment-parser-summary-ruling-consolidated",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "granted dockets",
+      "gradual": true
     }
   ]
 }
