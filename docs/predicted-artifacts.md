@@ -475,18 +475,25 @@ agent's own.
 
 The **lane audit** is one of those notes. On a predict cell the stamp reads the
 cell's `retrieval_log.json` (`fedcourtsai.cell_access`) and adds one `warning`
-per kind of logged call that left the cell's lane: a call naming
-`data/qp-topics/`, the cert-outcome oracle removed from the agent's tree; a
-call naming a committed `predictions/` or `evaluations/` path other than the
-cell's own run directory (another predictor's output, an earlier run, or a glob
-over them); and a file tool or shell redirection writing under `data/` or a
-case `record/` outside that directory. A path named only to exclude it
-(`-not -path`, `grep -v`, `--exclude`, a `!` glob or an `:(exclude)` pathspec)
-does not count, nor does a search, a fetch, an MCP call or a subagent's prompt.
-The log records that a call *named* a path, not what it returned, and it sees
-only the captured query slice: a path past the capture cut, a relative path
-after a `cd`, or a path reached through a variable is missed. Read the note as
-a pointer to the transcript, not as a finding of a read.
+per kind of logged call that left the cell's lane: a call naming `qp-topics`,
+the cert-outcome oracle removed from the agent's tree; a call naming a committed
+`predictions/` or `evaluations/` path other than the cell's own run directory
+(another predictor's output, an earlier run, a glob over them, or the whole
+directory read from git history); and a file tool, shell redirection or `tee`
+writing under `data/` or a case `record/` outside that directory, which a path
+naming another case or event is, even under the same run id. A path named only
+to exclude it (`-not -path`, `--exclude`, a `!` glob or an `:(exclude)`
+pathspec) does not count, nor does a search, a fetch, an MCP call or a
+subagent's prompt. A `grep -v` over output a command already opened does
+count, as the evaluate prompt grades it. The log records that a call *named* a
+path, not what it returned, and it sees only the captured query slice: a path
+past the capture cut, a relative path after a `cd`, a path reached through a
+variable or a glob over the hidden name itself (`qp-top*`), a write made by
+`cp`, `mv`, `sed -i` or an interpreter, and a file tool's write whose target
+the capture cut off behind a long `content` are all missed. Read the note as a
+pointer to the transcript, not as a finding of a read. What a call's slice
+shows depends on how its engine logs it, so the note is engine-shaped: counts
+of it per engine compare logging as much as behaviour.
 
 The roll-up groups flags by case, event, source and theme. The theme is the
 tracked theme a flag's message matches in `src/fedcourtsai/flag_themes.json`

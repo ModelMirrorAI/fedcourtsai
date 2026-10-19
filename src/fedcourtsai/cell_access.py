@@ -5,15 +5,16 @@ starts: ``data/qp-topics/``, whose membership encodes cert outcomes, and the
 committed ``predictions/`` and ``evaluations/`` trees, which carry every other
 predictor's forecasts and their gradings. Both stay reachable on purpose
 through git history, and a cell's own writes are confined by its prompt rather
-than by the tree. So the only witness to a cell that went looking — or wrote
-beside its own output — is its ``retrieval_log.json``, and until a harness
-check reads it, the witness is a judge reading the log by hand.
+than by the tree. So the witness to a cell that went looking — or wrote
+beside its own output — is its ``retrieval_log.json``, read twice: by this
+check, which leaves a harness note in the cell's ``flags.json``, and by the
+judges who grade the cell.
 
 :func:`audit_cell_access` is that check. It reads the captured query slice of
 each call the cell could have touched its tree with (a shell, a file tool, or a
 call the capture could not classify) and reports three kinds of hit:
 
-* **oracle** — the call names ``qp-topics/``;
+* **oracle** — the call names ``qp-topics``;
 * **cell record** — the call names an ``evaluations/`` tree, or a
   ``predictions/<id>/`` path that is not this cell's own run directory (another
   predictor's, this predictor's earlier run, or a glob over them);
@@ -21,14 +22,25 @@ call the capture could not classify) and reports three kinds of hit:
   a case ``record/`` outside this cell's own run directory.
 
 A path named only to exclude it — ``find … -not -path 'data/qp-topics/*'``,
-``grep -v``, ``--exclude``, a ``:(exclude)`` pathspec, a ``-prune`` — is no
-access, and is stripped before matching.
+``--exclude``, a ``!`` glob, a ``:(exclude)`` pathspec, a ``-prune`` — is no
+access, and is stripped before matching. An inverted ``grep -v`` is not an
+exclusion: it filters output a command already opened, which is the evaluate
+prompt's reading too.
 
 What it cannot see bounds what a clean audit means. The query slice is cut at
-capture, so a path past the cut is missed; a relative path is matched as
+capture, so a path past the cut is missed — and capture serializes a file
+tool's params in sorted key order, so a long ``content`` pushes a write
+tool's target past the cut on most such calls, leaving those writes seen
+only where the path survives; a relative path is matched as
 written, so a write after a ``cd`` into the case directory names no ``data/``;
-and a call that reads through an indirection (a variable, a script file) names
-nothing at all. A hit is evidence that a call *named* the path, not that it
+a call that reads through an indirection (a variable, a script file) or a
+glob over the hidden name itself (``qp-top*``) names nothing the patterns
+match; a write is seen only through a file tool or a shell redirection or
+``tee`` — ``cp``, ``mv``, ``sed -i`` or an interpreter's own writes are not;
+and a write is matched to the cell's own run directory by its
+``predictions/<id>/<run>`` segment and, where the path names one, its case and
+event, so a write into another case of the same run is caught only when its
+path is written out in full. A hit is evidence that a call *named* the path, not that it
 read anything — a ``git status`` that lists the deletion names it too, which
 is why the hidden paths are marked skip-worktree before the agent runs.
 """
@@ -36,12 +48,14 @@ is why the hidden paths are marked skip-worktree before the agent runs.
 from __future__ import annotations
 
 import json
+import posixpath
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
 from .blinding import neutral_tool_class
+from .retrieval import QUERY_CAP
 from .schemas import RetrievalCall
 
 
@@ -82,10 +96,11 @@ _EXCLUSIONS = tuple(
         rf"-i?(?:path|name|wholename)\s+{_ARG}\s+-prune",
         # grep/rsync/tar-style exclusions: `--exclude=X`, `--exclude-dir X`
         rf"--exclude(?:-dir|-from)?(?:=|\s+){_ARG}",
-        # an inverted grep: `grep -v X`, `grep -vE X`, `rg -v X`
-        rf"\b(?:e?grep|rg)\s+(?:-[A-Za-z]+\s+)*-[A-Za-z]*v[A-Za-z]*\s+{_ARG}",
-        # a negated glob or pathspec: `-g '!X'`, `':!X'`, `':^X'`, `':(exclude)X'`
-        r"""['"]?:?(?:\(exclude\)|!|\^)[^\s'"]+['"]?""",
+        # git's excluding pathspec magic: `':!X'`, `':^X'`, `':(exclude)X'`
+        r"""['"]?:(?:\(exclude\)|!|\^)[^\s'"]+['"]?""",
+        # a negated glob opening its own argument: `-g '!X'`, `--glob=!X`; never
+        # a `^` or `!` inside a revision such as `HEAD^:path`
+        r"""(?:(?<=\s)|(?<==)|^)['"]?![^\s'"]+['"]?""",
     )
 )
 
@@ -93,15 +108,17 @@ _EXCLUSIONS = tuple(
 # shell delimiter.
 _TOKEN = r"[^\s'\"`;|&<>()\\]*"
 _ORACLE = re.compile(rf"{_TOKEN}qp-topics\b{_TOKEN}")
-_EVALUATIONS = re.compile(rf"{_TOKEN}(?<![\w-])evaluations/{_TOKEN}")
+_EVALUATIONS = re.compile(rf"{_TOKEN}(?<![\w-])evaluations\b{_TOKEN}")
+# A git command that reads the committed tree rather than the working one.
+_HISTORY = re.compile(r"\bgit\s+(?:-C\s+\S+\s+)?(?:log|show|diff|grep|ls-tree|cat-file|archive)\b")
 # `predictions/<id>[/<run>]`, where either segment may be a glob.
 _PREDICTIONS = re.compile(r"(?:^|[^\w-])predictions/([^/\s'\"`;|&)\\]*)(?:/([^/\s'\"`;|&)\\]*))?")
 _GLOB = re.compile(r"[*?\[{]")
 
 # Where a file tool's target sits in its captured slice, when the slice is JSON.
 _PATH_KEYS = ("file_path", "path", "absolute_path", "notebook_path")
-# The slice may be cut mid-object, so the key is also looked for as text.
-_PATH_FIELD = re.compile(r'"(?:file_path|path|absolute_path|notebook_path)"\s*:\s*"([^"]+)"')
+# The slice may be cut mid-object, so a target key is also looked for as text.
+_PATH_FIELD = re.compile(rf'"(?:{"|".join(_PATH_KEYS)})"\s*:\s*"([^"]+)"')
 # codex's apply_patch names each file it touches on a header line.
 _PATCH_TARGET = re.compile(r"\*\*\* (?:Add|Update|Delete) File: (\S+)")
 # A shell redirection's or tee's target. `2>&1` and `>&2` are not files.
@@ -127,30 +144,42 @@ def _touches_tree(call: RetrievalCall) -> bool:
     )
 
 
-def _own_run(actor_id: str, run_id: str) -> str:
-    return f"predictions/{actor_id}/{run_id}"
+@dataclass(frozen=True)
+class _OwnRun:
+    case_id: str
+    event_id: str
+    actor_id: str
+    run_id: str
 
 
-def _is_own_run(path: str, actor_id: str, run_id: str) -> bool:
-    return _own_run(actor_id, run_id) in path
+def _is_own_run(path: str, own: _OwnRun) -> bool:
+    marker = f"predictions/{own.actor_id}/{own.run_id}"
+    if marker not in path:
+        return False
+    prefix = path.split(marker, 1)[0]
+    # A path that names its event says whose it is: it must be this cell's.
+    return "events/" not in prefix or prefix.endswith(f"{own.case_id}/events/{own.event_id}/")
 
 
-def _record_reads(text: str, actor_id: str, run_id: str) -> Iterable[str]:
+def _record_reads(text: str, own: _OwnRun, *, cut: bool) -> Iterable[str]:
     """The ``predictions/`` and ``evaluations/`` paths ``text`` names that are not this cell's."""
     yield from _EVALUATIONS.findall(text)
     for match in _PREDICTIONS.finditer(text):
-        if match.end() == len(text):
-            # Cut at capture: a segment that runs to the slice's end may be a
-            # prefix of this cell's own run directory.
+        if cut and match.end() == len(text):
+            # The capture cut this slice: a segment that runs to its end may be
+            # a prefix of this cell's own run directory.
             continue
         predictor, run = match.group(1), match.group(2)
         named = match.group(0).lstrip("/ \t'\"=")
         if not predictor:
-            # The bare directory: the parent of this cell's own, which the
-            # hidden tree leaves holding only that.
+            # The bare directory: in the working tree, the parent of this
+            # cell's own, which the hidden tree leaves holding only that; in
+            # history, every predictor's committed output.
+            if _HISTORY.search(text):
+                yield named
             continue
-        other_predictor = _GLOB.search(predictor) is not None or predictor != actor_id
-        other_run = bool(run) and (_GLOB.search(run) is not None or run != run_id)
+        other_predictor = _GLOB.search(predictor) is not None or predictor != own.actor_id
+        other_run = bool(run) and (_GLOB.search(run) is not None or run != own.run_id)
         if other_predictor or other_run:
             yield named
 
@@ -173,21 +202,23 @@ def _write_targets(call: RetrievalCall) -> list[str]:
     return [*_REDIRECT.findall(text), *_TEE.findall(text)]
 
 
-def _guarded_write(path: str, actor_id: str, run_id: str) -> bool:
-    if path.startswith("/dev/") or path.startswith("/tmp/"):
+def _guarded_write(path: str, own: _OwnRun) -> bool:
+    path = posixpath.normpath(path)
+    if path.startswith(("/dev/", "/tmp/")):
         return False
-    return _GUARDED_WRITE.search(path) is not None and not _is_own_run(path, actor_id, run_id)
+    return _GUARDED_WRITE.search(path) is not None and not _is_own_run(path, own)
 
 
 def audit_cell_access(
-    calls: Sequence[RetrievalCall], *, actor_id: str, run_id: str
+    calls: Sequence[RetrievalCall], *, case_id: str, event_id: str, actor_id: str, run_id: str
 ) -> list[AccessHit]:
     """Every call in a predict cell's log that named a hidden path or wrote outside its run.
 
-    One hit per (call, kind, path), in call order. ``actor_id`` and ``run_id``
-    name the cell's own run directory, the one place under ``predictions/`` it
-    may name and the one place under ``data/`` it may write.
+    One hit per (call, kind, path), in call order. The four coordinates name
+    the cell's own run directory, the one place under ``predictions/`` it may
+    name and the one place under ``data/`` it may write.
     """
+    own = _OwnRun(case_id=case_id, event_id=event_id, actor_id=actor_id, run_id=run_id)
     hits: list[AccessHit] = []
     for call in calls:
         if not call.query or not _touches_tree(call):
@@ -196,12 +227,10 @@ def audit_cell_access(
         found: list[tuple[AccessKind, str]] = [
             (AccessKind.oracle, path) for path in _ORACLE.findall(text)
         ]
-        found += [(AccessKind.cell_record, path) for path in _record_reads(text, actor_id, run_id)]
-        found += [
-            (AccessKind.write, path.strip("'\"`"))
-            for path in _write_targets(call)
-            if _guarded_write(path, actor_id, run_id)
-        ]
+        cut = len(call.query) >= QUERY_CAP
+        found += [(AccessKind.cell_record, path) for path in _record_reads(text, own, cut=cut)]
+        targets = [path.strip("'\"`") for path in _write_targets(call)]
+        found += [(AccessKind.write, path) for path in targets if _guarded_write(path, own)]
         hits += [
             AccessHit(kind=kind, tool=call.tool, path=path) for kind, path in dict.fromkeys(found)
         ]

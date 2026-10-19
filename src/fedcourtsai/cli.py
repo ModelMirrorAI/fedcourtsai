@@ -8940,8 +8940,10 @@ _CELL_ACCESS_WHAT: dict[AccessKind, str] = {
 
 
 def _cell_access_note(kind: AccessKind, hits: list[AccessHit], event_id: str) -> AgentFlag:
-    paths = list(dict.fromkeys(_one_line(hit.path)[:_CELL_ACCESS_PATH_CHARS] for hit in hits))
-    shown = ", ".join(repr(path) for path in paths[:_CELL_ACCESS_EXAMPLES])
+    # Quoted before the cut, so an escape-heavy path cannot outgrow its share
+    # of the message; the whole is clamped to the schema's cap besides.
+    paths = list(dict.fromkeys(ascii(hit.path)[:_CELL_ACCESS_PATH_CHARS] for hit in hits))
+    shown = ", ".join(paths[:_CELL_ACCESS_EXAMPLES])
     more = (
         f" and {len(paths) - _CELL_ACCESS_EXAMPLES} more"
         if len(paths) > _CELL_ACCESS_EXAMPLES
@@ -8955,7 +8957,7 @@ def _cell_access_note(kind: AccessKind, hits: list[AccessHit], event_id: str) ->
             + f"e.g. {shown}{more}. Read from retrieval_log.json, which records that a "
             + "call named the path, not what it returned; check the transcript before "
             + "treating it as a read."
-        ),
+        )[:_FLAG_MESSAGE_LIMIT],
         event_id=event_id,
         source=FlagSource.harness,
     )
@@ -8978,7 +8980,13 @@ def _flag_cell_access(event_paths: EventPaths, where: CellCoordinates, event_id:
         log = RetrievalLog.model_validate_json(log_path.read_text())
     except (OSError, ValueError):
         return
-    hits = audit_cell_access(log.calls, actor_id=where.actor_id, run_id=where.run_id)
+    hits = audit_cell_access(
+        log.calls,
+        case_id=where.case_id,
+        event_id=event_id,
+        actor_id=where.actor_id,
+        run_id=where.run_id,
+    )
     notes: list[AgentFlag] = []
     for kind in AccessKind:
         of_kind = [hit for hit in hits if hit.kind is kind]

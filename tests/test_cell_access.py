@@ -12,12 +12,15 @@ from fedcourtsai.schemas import RetrievalCall
 ACTOR = "gemini-baseline"
 RUN = "20261014T174020Z"
 CASE_DIR = "data/cases/scotus/73500219"
-OWN = f"{CASE_DIR}/events/evt-petition-disposition/predictions/{ACTOR}/{RUN}"
+EVENT = "evt-petition-disposition"
+OWN = f"{CASE_DIR}/events/{EVENT}/predictions/{ACTOR}/{RUN}"
 
 
 def _audit(*calls: tuple[str, str]) -> list[AccessHit]:
     return audit_cell_access(
         [RetrievalCall(tool=tool, query=query) for tool, query in calls],
+        case_id="scotus/73500219",
+        event_id=EVENT,
         actor_id=ACTOR,
         run_id=RUN,
     )
@@ -45,9 +48,8 @@ def test_a_restore_of_the_oracle_is_caught() -> None:
         "find data -name AGENTS.md -not -path 'data/qp-topics/*'",
         "find data ! -path data/qp-topics/x -type f",
         "find data -path data/qp-topics -prune -o -print",
-        "git status --short | grep -v '^ D data/qp-topics'",
-        'git status --short | grep -vE "^ D data/qp-topics"',
         "rg -n foo --glob '!data/qp-topics/**'",
+        "rg -n foo -g !data/qp-topics/**",
         "grep -r foo data --exclude-dir=qp-topics",
         "git ls-files -- data ':(exclude)data/qp-topics'",
         "git ls-files -- data ':!data/qp-topics'",
@@ -79,7 +81,9 @@ def test_another_cells_committed_output_is_a_cell_record_hit(path: str) -> None:
 
 def test_a_slice_cut_inside_a_predictions_path_is_not_read_as_another_run() -> None:
     """The capture cut can end mid-segment; that prefix is not evidence."""
-    cut = '{"file_path": "' + OWN[: OWN.index(ACTOR) + 5]
+    target = OWN[: OWN.index(ACTOR) + 5]
+    head, tail = '{"content": "', '", "file_path": "'
+    cut = head + "x" * (500 - len(head) - len(tail) - len(target)) + tail + target
     assert _audit(("write_file", cut)) == []
 
 
@@ -131,3 +135,49 @@ def test_calls_that_cannot_touch_the_tree_are_not_audited(tool: str) -> None:
 def test_one_hit_per_call_kind_and_path() -> None:
     query = "cat data/qp-topics/a.json; cat data/qp-topics/a.json"
     assert len(_audit(("Bash", query), ("Bash", query))) == 2
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git show HEAD^:data/qp-topics/labels.json",
+        "git show abc123^:data/qp-topics/labels.json",
+        "grep -rn foo data | grep -v qp-topics",
+    ],
+)
+def test_a_revision_or_an_output_filter_is_not_an_exclusion(command: str) -> None:
+    """`^` in a revision is not pathspec magic, and filtering output a command
+    already opened is a read, as the evaluate prompt grades it."""
+    assert AccessKind.oracle in _kinds(("Bash", command))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"ls {CASE_DIR}/events/evt-x/predictions/*/",
+        f"ls {CASE_DIR}/events/evt-x/predictions/codex-baseline",
+        f"ls {CASE_DIR}/events/evt-x/evaluations",
+        f"git log -p -- {CASE_DIR}/events/evt-x/predictions/",
+    ],
+)
+def test_a_short_command_ending_in_a_cell_path_is_still_read(command: str) -> None:
+    """Only a slice the capture cut is spared at its end; a history read of the
+    bare directory reaches every predictor's output."""
+    assert _kinds(("Bash", command)) == [AccessKind.cell_record]
+
+
+def test_another_case_under_the_same_run_is_not_this_cells_own() -> None:
+    """Every cell of a run shares its run id, so the case and event decide."""
+    other = f"data/cases/scotus/1/events/{EVENT}/predictions/{ACTOR}/{RUN}/prediction.json"
+    assert _kinds(("Write", json.dumps({"file_path": other}))) == [AccessKind.write]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "echo x > 'data/cases/scotus/1/notes.json'",
+        "echo x > /tmp/../data/cases/scotus/1/notes.json",
+    ],
+)
+def test_a_quoted_or_dotted_write_target_is_still_seen(command: str) -> None:
+    assert _kinds(("Bash", command)) == [AccessKind.write]

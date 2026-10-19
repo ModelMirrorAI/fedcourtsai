@@ -115,7 +115,7 @@ from .usage import (
 # redaction window below rather than to this cut. So coverage of what was
 # called never depended on this width, and the narrow cut costs only how much
 # of the surrounding program a reader sees.
-_QUERY_CAP = 500
+QUERY_CAP = 500
 # How much of a params payload is redacted before that slice is cut. A tool
 # call's arguments are unbounded — a file write carries its whole body — and
 # scanning all of it per call is work an agent chooses the size of, so the
@@ -126,9 +126,6 @@ _QUERY_CAP = 500
 _REDACT_WINDOW = 16 * 1024
 # Keys that carry the query-ish part of a tool's params, most specific first.
 _QUERY_KEYS = ("q", "query", "search", "citation", "prompt", "command", "url", "endpoint")
-# The keys a file tool names its target with, led with when a call's params are
-# serialized whole.
-_PATH_KEYS = ("file_path", "path", "dir_path", "absolute_path", "notebook_path")
 # The keys ahead of ``prompt`` in that order: a call carrying one keeps it, even
 # where a ``url`` and a ``prompt`` sit beside it.
 _OUTRANKS_PROMPT = _QUERY_KEYS[: _QUERY_KEYS.index("prompt")]
@@ -241,7 +238,7 @@ def _query_slice(params: Any) -> str | None:
     candidate = _query_candidate(params)
     if not candidate:
         return None
-    return redact_credentials(candidate[:_REDACT_WINDOW])[:_QUERY_CAP]
+    return redact_credentials(candidate[:_REDACT_WINDOW])[:QUERY_CAP]
 
 
 def _query_candidate(params: Any) -> str | None:
@@ -256,13 +253,8 @@ def _query_candidate(params: Any) -> str | None:
             value = params.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
-        # A file tool's target leads, so the slice cut keeps the path a long
-        # `content` would otherwise push past it — the path is what an audit of
-        # the cell's writes reads (fedcourtsai.cell_access).
-        ordered = {key: params[key] for key in _PATH_KEYS if key in params}
-        ordered.update(sorted((key, value) for key, value in params.items() if key not in ordered))
         try:
-            return json.dumps(ordered, default=str)
+            return json.dumps(params, sort_keys=True, default=str)
         except (TypeError, ValueError):
             return None
     return None

@@ -3806,3 +3806,30 @@ def test_stamp_leaves_a_predict_cell_in_its_lane_without_a_note(_data_root: Path
     result = _stamp("predictor", "claude-baseline", 12, "evt-y", "RID")
     assert result.exit_code == 0, result.output
     assert not event_paths.prediction_flags("claude-baseline", "RID").exists()
+
+
+def test_the_lane_audit_leaves_a_cell_without_a_readable_log_alone(_data_root: Path) -> None:
+    """Capture reports its own failures; the audit adds nothing over them."""
+    seed_prediction(_data_root, "scotus", 13, "evt-y", run_id="RID")
+    event_paths = CasePaths(_data_root, "scotus", 13).event("evt-y")
+    result = _stamp("predictor", "claude-baseline", 13, "evt-y", "RID")
+    assert result.exit_code == 0, result.output
+    log_path = event_paths.prediction_retrieval_log("claude-baseline", "RID")
+    log_path.write_text("{not json")
+    result = _stamp("predictor", "claude-baseline", 13, "evt-y", "RID")
+    assert result.exit_code == 0, result.output
+    assert not event_paths.prediction_flags("claude-baseline", "RID").exists()
+
+
+def test_the_lane_audit_bounds_a_note_quoting_escape_heavy_paths(_data_root: Path) -> None:
+    """Paths are the agent's to choose; however they quote, the note stays
+    inside the schema's cap and the stamp completes."""
+    event_paths = _seed_cell_log(
+        _data_root,
+        14,
+        *(f"cat data/qp-topics/{i}{chr(0xE0001) * 200}" for i in range(4)),
+    )
+    result = _stamp("predictor", "claude-baseline", 14, "evt-y", "RID")
+    assert result.exit_code == 0, result.output
+    flags = read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+    assert all(len(flag.message) <= _FLAG_MESSAGE_LIMIT for flag in flags.flags)
