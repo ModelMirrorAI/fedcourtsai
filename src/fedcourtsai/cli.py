@@ -1378,7 +1378,10 @@ def reconcile_salience_selection_cmd(
     `salience_selected` on each conference cohort's top-N by score plus the
     always-include carve-outs (CVSG, above-floor). The latch is one-way (sticky), so
     a re-run never de-selects a case that later drifts below the cap. Dry-run by
-    default; `--apply` writes (the run-seed walk then pushes the corpus). Prints a
+    default; `--apply` writes (the run-seed walk then pushes the corpus). Lists the
+    interim reserve's occupants — each latched, still-pending application with its
+    filing date, the stored snapshot read, and whether it still holds a slot (one
+    whose snapshot already reads as an interim disposal does not). Prints a
     `SalienceSelectionResult`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
@@ -1398,6 +1401,17 @@ def reconcile_salience_selection_cmd(
         f"scored {result.scored}, newly selected {result.newly_selected} "
         f"across {result.conferences} conference(s)"
     )
+    held = sum(o.holds_slot for o in result.reserve_occupants)
+    typer.echo(
+        f"interim reserve: {held} of {config.interim_reserve_slots} slot(s) held, "
+        f"{len(result.reserve_occupants) - held} occupant(s) released as disposed"
+    )
+    for occupant in result.reserve_occupants:
+        typer.echo(
+            f"  {occupant.case_id} {occupant.docket_number} filed {occupant.date_filed} "
+            f"snapshot {occupant.snapshot_date} "
+            f"{'holds a slot' if occupant.holds_slot else 'released: snapshot reads disposed'}"
+        )
     typer.echo(result.model_dump_json())
 
 

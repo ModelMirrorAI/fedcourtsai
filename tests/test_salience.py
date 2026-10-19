@@ -964,6 +964,122 @@ def test_reserve_slots_are_occupied_until_resolution(tmp_path: Path) -> None:
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002"}
 
 
+def _store_proceedings(db: Path, case_id: str, *texts: str) -> None:
+    """Store one live-shaped snapshot carrying ``texts`` as its proceedings."""
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(
+            conn,
+            case_id,
+            date(2026, 10, 1),
+            {"ProceedingsandOrder": [{"Date": "Oct 01 2026", "Text": text} for text in texts]},
+        )
+
+
+def test_reserve_releases_an_occupant_whose_snapshot_reads_disposed(tmp_path: Path) -> None:
+    # The resolver's exact vocabulary misses a disposal phrased around the
+    # relief, so the row stays unresolved; its stored docket reads as disposed
+    # under the high-recall scan the forward queue trusts, so the slot frees
+    # for the newcomer. The released occupant keeps its latch.
+    db = _seed(
+        tmp_path,
+        [
+            _application("scotus/9525000001", "25A1", selected=True),
+            _application("scotus/9525000002", "25A2", requested=True),
+        ],
+    )
+    _store_proceedings(
+        db,
+        "scotus/9525000001",
+        "Application (25A1) for a stay, submitted to Justice Kagan.",
+        "Stay granted pending disposition of the petition for a writ of certiorari.",
+    )
+    config = SalienceConfig(interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+    assert result.newly_selected == 1
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002"}
+    assert [(o.case_id, o.holds_slot, o.snapshot_date) for o in result.reserve_occupants] == [
+        ("scotus/9525000001", False, date(2026, 10, 1))
+    ]
+
+
+@pytest.mark.parametrize(
+    "texts",
+    [
+        (),  # no stored snapshot at all
+        ("Application (25A1) for a stay, submitted to Justice Kagan.",),
+        (  # a side-motion order is not a disposal of the application
+            "Application (25A1) for a stay, submitted to Justice Kagan.",
+            "Motion for leave to file amicus brief granted.",
+        ),
+    ],
+)
+def test_reserve_occupant_without_a_disposal_holds_its_slot(
+    tmp_path: Path, texts: tuple[str, ...]
+) -> None:
+    db = _seed(
+        tmp_path,
+        [
+            _application("scotus/9525000001", "25A1", selected=True),
+            _application("scotus/9525000002", "25A2", requested=True),
+        ],
+    )
+    if texts:
+        _store_proceedings(db, "scotus/9525000001", *texts)
+    config = SalienceConfig(interim_reserve_slots=1)
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=False)
+    assert result.newly_selected == 0
+    assert [(o.case_id, o.holds_slot) for o in result.reserve_occupants] == [
+        ("scotus/9525000001", True)
+    ]
+
+
+def test_reserve_occupant_holds_its_slot_when_the_snapshot_read_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A content-store failure leaves the reserve as full as it was rather than
+    # failing the pass (which in the live window precedes the corpus push).
+    db = _seed(
+        tmp_path,
+        [
+            _application("scotus/9525000001", "25A1", selected=True),
+            _application("scotus/9525000002", "25A2", requested=True),
+        ],
+    )
+
+    def _unreadable(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("store unavailable")
+
+    monkeypatch.setattr(corpus, "latest_snapshot", _unreadable)
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), SalienceConfig(interim_reserve_slots=1), apply=False
+        )
+    assert result.newly_selected == 0
+    assert [(o.holds_slot, o.snapshot_date) for o in result.reserve_occupants] == [(True, None)]
+
+
+def test_plan_cohorts_frees_only_the_occupants_it_releases() -> None:
+    # The connection-free core: with no `released` test (the gate replay) every
+    # pending occupant holds its slot; releasing one frees exactly that slot.
+    rows = [
+        _application("scotus/9525000001", "25A1", selected=True),
+        _application("scotus/9525000002", "25A2", selected=True),
+        _application("scotus/9525000003", "25A3", requested=True),
+    ]
+    config = SalienceConfig(interim_reserve_slots=2)
+    asked: list[str] = []
+
+    def released(row: corpus.CorpusRow) -> bool:
+        asked.append(row.case_id)
+        return row.case_id == "scotus/9525000002"
+
+    assert plan_cohorts(rows, config)[1] == []
+    assert plan_cohorts(rows, config, released=released)[1] == ["scotus/9525000003"]
+    assert asked == ["scotus/9525000001", "scotus/9525000002"]  # occupants only
+
+
 def test_reserve_displaces_only_the_current_conference(tmp_path: Path) -> None:
     # The application is live in the cycle whose conference the pass is
     # filling — the latest cohort — so an earlier conference's fill is intact.

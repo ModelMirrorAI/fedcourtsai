@@ -9772,6 +9772,32 @@ class DecisionDateConvergenceResult(_Strict):
     )
 
 
+class ReserveOccupant(_Strict):
+    """One latched, still-pending application the interim reserve weighed.
+
+    ``holds_slot`` is False when the application's newest stored snapshot
+    already reads as an interim disposal
+    (:func:`fedcourtsai.pipeline.outcome.interim_disposal_signal`): the row is
+    still unresolved in the corpus, but the pass no longer counts it against
+    ``interim_reserve_slots``. ``date_filed`` dates the occupancy, so a slot held
+    for months is visible in the ledger.
+    """
+
+    case_id: str
+    docket_number: str = ""
+    date_filed: date | None = None
+    snapshot_date: date | None = Field(
+        default=None, description="The newest stored snapshot read; None when none is stored"
+    )
+    holds_slot: bool = Field(
+        default=True,
+        description=(
+            "False when the stored snapshot already reads as an interim disposal, "
+            "which frees the slot while the row awaits a resolver"
+        ),
+    )
+
+
 class SalienceSelectionResult(_Strict):
     """``reconcile-salience-selection`` result: what the salience pass scored and picked.
 
@@ -9800,6 +9826,13 @@ class SalienceSelectionResult(_Strict):
         description="Cases newly latched selected (the one-way latch never removes)",
     )
     sample_selected: list[str] = Field(default_factory=list)
+    reserve_occupants: list[ReserveOccupant] = Field(
+        default_factory=list,
+        description=(
+            "Every latched, still-pending application the interim reserve weighed, "
+            "with whether it still holds a slot"
+        ),
+    )
 
 
 class CaptionCensusClass(_Strict):

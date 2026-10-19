@@ -231,8 +231,8 @@ already-selected one.
 
 A **substantive application** (stay or injunction) runs a parallel, simpler
 lifecycle under the interim stage: docketed → holds or waits for one of the
-bounded reserve slots (ladder order above; a slot frees only when an occupant
-resolves) → predicted on its interim baseline, re-forecast when the Court
+bounded reserve slots (ladder order above; a slot frees when an occupant
+resolves, or when its stored docket already reads as disposed) → predicted on its interim baseline, re-forecast when the Court
 requests a response and when that response arrives → resolved through the
 interim disposition vocabulary and evaluated. The stage's baseline is registered
 and wired — the substantive slice pooled over application-Terms strictly before
