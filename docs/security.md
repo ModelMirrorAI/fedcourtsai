@@ -1913,17 +1913,17 @@ run-seed's OCR sweep runs the split too, with its own two files:
 `ocr-worklist-<run_id>`, one window's slice of the recovery class as case
 ids, document kinds, the Court's URLs and page counts, and
 `ocr-plan-<run_id>`, the text the credential-free parse read off those
-filings, which would cross under a proposed carve-out in
+filings, which crosses under the OCR sweep's carve-out in
 [data-sources.md](data-sources.md) (*PII stance*) on the same terms as the
 application back-fill's: the Court's own public filings, nothing from our
 stores, one artifact, one day, never committed and never printed. On this
 public repository any signed-in user can download either artifact while it
 exists, four windows a day; deleting the plan once the writer has read it
 would need `actions: write` on the writer, a trade left to the maintainer.
-The recovered text also meets the contact scrub with an open residual: OCR
-output can lay contact details out in shapes the scrub misses; on one scanned
-filing (scotus/9026000314) they survived a scrub reporting
-`contact_scrubbed: true`.
+The recovered text also meets the contact scrub, whose shapes OCR output does
+not always match. The residual detector records such a document as not
+scrubbed and keeps it out of the summary stage, but the cell is still staged
+it (*PII stance* in [data-sources.md](data-sources.md)).
 The writer reads both files as untrusted input. Every identifier in them is
 pattern-checked on read (a SCOTUS case id, a recoverable kind, a single
 https Court link, a failure reason from a closed set), so a forged file is
