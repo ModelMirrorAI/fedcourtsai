@@ -480,17 +480,10 @@ def _judgment_counts(rows: list[corpus.CorpusRow]) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
-def decision_census(
+def _assigned(
     conn: corpus.ReadConnection, *, first_term: int, last_term: int
-) -> DecisionCensus:
-    """Count the decision record per October Term, from the index alone.
-
-    Read-only, and it reads no snapshot: what it counts is what the columns
-    hold, so a NULL is a gap in the record, not a fact about the case. The
-    population is every SCOTUS modern cert docket with a cert-grant date and a
-    granted label, assigned to its :func:`decision_term`; a row carrying
-    `merits_terminated` is counted apart by reason, in no Term.
-    """
+) -> tuple[dict[int, list[corpus.CorpusRow]], int, Counter[str]]:
+    """The census population by assigned Term, with the pending and terminated rows apart."""
     by_term: dict[int, list[corpus.CorpusRow]] = {t: [] for t in range(first_term, last_term + 1)}
     pending = 0
     terminations: Counter[str] = Counter()
@@ -510,6 +503,43 @@ def decision_census(
             pending += 1
         elif term in by_term:
             by_term[term].append(row)
+    return by_term, pending, terminations
+
+
+def plenary_decided_dockets(
+    conn: corpus.ReadConnection, *, first_term: int, last_term: int
+) -> dict[int, list[str]]:
+    """Each Term's decided rows that did not ride the cert order, by normalized docket number.
+
+    The census's own population and Term assignment, narrowed to what
+    :class:`DecisionTermCensus` counts as decided less ``order_riding``: the
+    docket a merits opinion is written for. A row with no readable docket
+    number is left out.
+    """
+    by_term, _, _ = _assigned(conn, first_term=first_term, last_term=last_term)
+    return {
+        term: sorted(
+            number
+            for row in members
+            if decision_date(row) is not None and not _rode_the_order(row)
+            if (number := corpus.normalize_docket_number(row.docket_number)) is not None
+        )
+        for term, members in by_term.items()
+    }
+
+
+def decision_census(
+    conn: corpus.ReadConnection, *, first_term: int, last_term: int
+) -> DecisionCensus:
+    """Count the decision record per October Term, from the index alone.
+
+    Read-only, and it reads no snapshot: what it counts is what the columns
+    hold, so a NULL is a gap in the record, not a fact about the case. The
+    population is every SCOTUS modern cert docket with a cert-grant date and a
+    granted label, assigned to its :func:`decision_term`; a row carrying
+    `merits_terminated` is counted apart by reason, in no Term.
+    """
+    by_term, pending, terminations = _assigned(conn, first_term=first_term, last_term=last_term)
     terms = []
     for term, members in by_term.items():
         methods = Counter(row.merits_decision_method or "unclassified" for row in members)

@@ -1299,6 +1299,43 @@ def _migrate_opinions(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE opinions ADD COLUMN {column} {ddl}")
 
 
+# Per-column DDL for `opinion_benches`, who sat on each signed decision the
+# per-opinion record holds (`pipeline.opinion_record`): one row per listing row,
+# keyed as `opinions` is, carrying the bench the reader seated and the Justices
+# the syllabus says took no part. The one fact a decision's writings do not
+# carry, and the one the merits lineups (`pipeline.merits_lineups`) need beside
+# them to account for a Justice who signs nothing. Written only by the
+# `backfill-opinion-record` pass, fill-only. Both lists are read only off a
+# complete syllabus lineup and are NULL otherwise — "read, and participation
+# not observed", never "nobody was absent" — so the row also says the pass has
+# nothing left to read for the document.
+OPINION_BENCHES_COLUMN_DDL: dict[str, str] = {
+    "term": "INTEGER NOT NULL",
+    "listing_number": "TEXT NOT NULL",
+    "bench": "TEXT",
+    "took_no_part": "TEXT",
+    "lineup": "TEXT NOT NULL",
+    "read_at": "TEXT NOT NULL",
+}
+
+
+def _migrate_opinion_benches(conn: sqlite3.Connection) -> None:
+    """Create `opinion_benches` from its DDL map, and add any column added since.
+
+    Idempotent, and like `opinions` reached only by a writer's connection: a
+    read-only open of a blob written before the table existed reads it as empty.
+    """
+    columns = ", ".join(f"{name} {ddl}" for name, ddl in OPINION_BENCHES_COLUMN_DDL.items())
+    conn.execute(
+        f"CREATE TABLE IF NOT EXISTS opinion_benches ({columns}, "
+        "PRIMARY KEY (term, listing_number))"
+    )
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(opinion_benches)")}
+    for column, ddl in OPINION_BENCHES_COLUMN_DDL.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE opinion_benches ADD COLUMN {column} {ddl}")
+
+
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
 _DN_WHITESPACE = re.compile(r"\s+")
 # A display annotation the Court appends to some docket numbers, most often
@@ -1430,6 +1467,7 @@ def _apply_schema(conn: sqlite3.Connection) -> None:
     _migrate_events(conn)
     _migrate_documents(conn)
     _migrate_opinions(conn)
+    _migrate_opinion_benches(conn)
 
 
 def _schema_entries(conn: sqlite3.Connection) -> list[tuple[str, str, str]]:

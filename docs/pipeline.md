@@ -1182,16 +1182,19 @@ sees moves: both columns are
 withheld from the `query` rows, and no gate, mint or outcome reads them.
 
 `opinion-record` builds the per-opinion record — each opinion's kind, author,
-joiners and word count — into the corpus `opinions` table (`fedcourts
-backfill-opinion-record`) for OT2020–OT2025, a range pinned in the workflow rather
+joiners and word count — into the corpus `opinions` table, with who sat on each
+signed decision in `opinion_benches` (`fedcourts
+backfill-opinion-record`), for OT2020–OT2025, a range pinned in the workflow rather
 than taken as an input (OT2017–OT2019 list only whole volumes, which the pass
-skips). It fetches each unrecorded document the Court's opinions listing links
-from supremecourt.gov at about one request a second and inserts fill-only, and
+skips). It fetches each document the Court's opinions listing links that the
+record does not yet hold whole — unrecorded, or a signed decision recorded
+without its bench row — from supremecourt.gov at about one request a second and
+inserts fill-only, and
 it writes nothing under `data/`, so its commit is the corpus pointer alone. The
 PDFs are fetched and parsed in the credential-free parse job; the writer pulls
 the corpus fresh under the lock, re-validates the readings, resolves each case
 id, inserts and pushes, and mints the App token only after the push. The
-bound is the dry run's opinion-row count. Each run fetches again, so an apply does not lead
+bound is the dry run's "would insert N": opinion rows and bench rows together. Each run fetches again, so an apply does not lead
 with a dry run, and a re-dispatched dry run after the apply is the control.
 Nothing a cell sees moves: the table is no part of a `query` row, and no gate,
 mint, outcome or score reads it.

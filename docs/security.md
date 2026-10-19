@@ -1952,15 +1952,17 @@ Court's docket number for it — the same pair the qp-topic artifacts and the
 release dataset publish; for the application back-fill, the Term's highest
 stored application serial and its live-owned serials, which say how far the
 corpus's rows reach and which of them the live channel polls; for the
-opinion record, the (Term, listing number) of each document already recorded,
-the row key of the Court's own opinions listing. Each says something about the
+opinion record, the (Term, listing number) of each document it already holds
+whole and of each signed decision it holds without a bench row, the row key of
+the Court's own opinions listing. Each says something about the
 compilation extent — which public dockets the pipeline holds — on the footing
 argued above, and nothing about their contents. `repair-plan-<run_id>`, on an
 apply only, carries what the parse read: for the vote passes, each planned
 record (votes, provenance, writing roles — the fields the writer commits to
 public git anyway); for the opinion record, each document's opinion rows read
 off the Court's listing and PDF (kind, author, joiners, word counts, the
-printed header sentence) with the case id left for the writer to resolve. The
+printed header sentence) and the bench and non-participation its syllabus
+prints, with the case id left for the writer to resolve. The
 application back-fill's plan carries each served docket JSON verbatim —
 party contact blocks included, a self-represented applicant's address,
 telephone and prisoner number among them — with the ledger's structured
