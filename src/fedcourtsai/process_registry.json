@@ -377,6 +377,14 @@
       "predictors": null,
       "reach": "all",
       "gradual": true
+    },
+    {
+      "name": "direct-appeal-plenary-review-grant",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
     }
   ]
 }

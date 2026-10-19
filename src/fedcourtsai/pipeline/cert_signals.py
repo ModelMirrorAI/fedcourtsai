@@ -29,6 +29,17 @@ stays a miss — because a decided grant otherwise only wastes a forward-predict
 cell each cycle (its event never resolves to be scored); its denial and
 dismissal siblings, whose miss costs nothing but a triage parking, stay
 routing-only.
+
+A mandatory-jurisdiction direct appeal reaches the same table. Its
+plenary-review orders — probable jurisdiction noted, and jurisdiction postponed
+to the hearing on the merits — read as ``granted`` and its vacate-and-remand as
+``gvr``, the grant side of :class:`~fedcourtsai.schemas.Disposition`'s
+convention. Its summary affirmance and its dismissal for want of a substantial
+federal question are deliberate misses, left to maintainer triage. Until those
+exits are read, a direct appeal can reach the base-rate pools only on the grant
+side, which is why the corpus's hollow direct-appeal rows are left for a
+re-serve once the exits land rather than onboarded now (``docs/freeze-record.md``,
+the 2026-10-19 direct-appeal entry).
 """
 
 from __future__ import annotations
@@ -132,7 +143,52 @@ _ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
     ),
     (re.compile(r"\bcertiorari denied\b", re.IGNORECASE), Disposition.denied, "cert denied"),
     (re.compile(r"\bcertiorari granted\b", re.IGNORECASE), Disposition.granted, "cert granted"),
+    # The mandatory-jurisdiction direct appeal's plenary-review order, on the
+    # grant side by the Disposition convention: it sets the appeal for briefing
+    # and argument exactly as a cert grant does, so the merits proceeding opens
+    # behind it. Two forms carry it — "Probable jurisdiction NOTED." (with or
+    # without the copula, a limiting clause, or the argument-setting tail), and
+    # the postponement, "Further consideration of the question of jurisdiction
+    # [in this case] is POSTPONED to the hearing of the case on the merits.",
+    # which the Court enters where it doubts its appellate jurisdiction: the
+    # case is briefed and argued in full and the jurisdictional question is
+    # decided with the merits, so it opens the same proceeding the noting does
+    # (Rucho v. Common Cause, Trump v. New York). Both rows read only where the
+    # phrase opens its sentence and the sentence names no docket number
+    # (:func:`_off_its_sentence`): an order opens with the phrase, while a stay
+    # order's "In the event probable jurisdiction is noted, ..." or a party
+    # paper urging the noting opens with something else, and a combined order
+    # naming "No. 21-1086" may be noting a different docket than the one whose
+    # entry carries it. The non-order guard still runs on every match, so the
+    # recital that does open with the phrase ("... noted filed.") is refused as
+    # well. The appeal's opening filing ("Statement as to jurisdiction filed.")
+    # and a motion to dismiss or affirm carry neither phrase.
+    (
+        re.compile(r"\bprobable\s+jurisdiction\s+(?:is\s+(?:hereby\s+)?)?noted\b", re.IGNORECASE),
+        Disposition.granted,
+        "probable jurisdiction noted",
+    ),
+    (
+        re.compile(
+            r"\bfurther\s+consideration\s+of\s+(?:the\s+)?question\s+of\s+(?:the\s+)?jurisdiction"
+            + r"(?:\s+of\s+this\s+court)?(?:\s+in\s+this\s+case)?"
+            + r"\s+(?:is\s+(?:hereby\s+)?)?postponed\s+(?:to|until)\s+(?:the\s+)?hearing\s+"
+            + r"(?:of\s+(?:the\s+|this\s+)?case\s+)?on\s+(?:the\s+)?merits\b",
+            re.IGNORECASE,
+        ),
+        Disposition.granted,
+        "jurisdiction postponed to the merits",
+    ),
 )
+
+#: The rows that read only as the opening of a sentence naming no docket number
+#: (:func:`_off_its_sentence`) — the direct appeal's plenary-review orders.
+_SENTENCE_INITIAL_LABELS: frozenset[str] = frozenset(
+    {"probable jurisdiction noted", "jurisdiction postponed to the merits"}
+)
+# A docket number in the sentence ("No. 21-1086", "Nos. 24-109 and 24-110"):
+# the order may be disposing of another docket than the one whose entry it is.
+_DOCKET_NUMBER_RE = re.compile(r"\bNos?\.\s*\d", re.IGNORECASE)
 
 # The GVR upgrade's tail: an order sentence, elsewhere in a granted entry,
 # that vacates and remands the judgment. Matched per sentence and anchored to
@@ -322,6 +378,25 @@ def _containing_sentence(text: str, position: int) -> str:
     return text[start : later[0] if later else len(text)]
 
 
+def _off_its_sentence(text: str, start: int, label: str) -> bool:
+    """Whether a sentence-initial row's match at ``start`` is not read at all.
+
+    True for a row in :data:`_SENTENCE_INITIAL_LABELS` whose match does not
+    open its sentence — anything but whitespace sits between the sentence
+    start the walker finds (:func:`_sentence_boundaries`) and the match — or
+    whose sentence names a docket number. False for every other row. A match
+    skipped here is neither read nor refused: it is not an order on this
+    docket, so it is no grant a parser ever stood behind either, and
+    :func:`refused_grant_sentence` passes over it rather than quoting it.
+    """
+    if label not in _SENTENCE_INITIAL_LABELS:
+        return False
+    sentence_start = max(s for s in _sentence_boundaries(text) if s <= start)
+    if text[sentence_start:start].strip():
+        return True
+    return bool(_DOCKET_NUMBER_RE.search(_containing_sentence(text, start)))
+
+
 def _is_non_order_sentence(sentence: str) -> bool:
     """Whether disposition words in this sentence decide nothing (see above)."""
     if _FILED_RECITAL_RE.search(sentence) or _CONDITIONAL_PETITION_RE.search(sentence):
@@ -364,13 +439,15 @@ def refused_grant_sentence(text: str) -> str | None:
     which is why it comes back as prose rather than as a
     :class:`~fedcourtsai.schemas.Disposition`.
     """
-    for pattern, disposition, _label in _ENTRY_SIGNALS:
+    for pattern, disposition, label in _ENTRY_SIGNALS:
         if disposition not in GRANTED_DISPOSITIONS:
             continue
         position = 0
         while (match := pattern.search(text, position)) is not None:
             sentence = _containing_sentence(text, match.start())
-            if _is_non_order_sentence(sentence):
+            if not _off_its_sentence(text, match.start(), label) and _is_non_order_sentence(
+                sentence
+            ):
                 return " ".join(sentence.split())
             position = match.end()
     return None
@@ -424,10 +501,12 @@ def mootness_disposition(text: str) -> bool:
     denial followed by a separate sentence discussing mootness stays a merits
     disposition. False when no disposition matches at all.
     """
-    for pattern, matched_disposition, _label in _ENTRY_SIGNALS:
+    for pattern, matched_disposition, label in _ENTRY_SIGNALS:
         position = 0
         while (match := pattern.search(text, position)) is not None:
-            if _is_refused(_containing_sentence(text, match.start()), matched_disposition):
+            if _off_its_sentence(text, match.start(), label) or _is_refused(
+                _containing_sentence(text, match.start()), matched_disposition
+            ):
                 position = match.end()
                 continue
             # The GVR patterns can span sentences ("Petition GRANTED. Judgment
@@ -496,7 +575,9 @@ def match_disposition_signal(text: str) -> tuple[Disposition, str, str] | None:
     for pattern, disposition, label in _ENTRY_SIGNALS:
         position = 0
         while (match := pattern.search(text, position)) is not None:
-            if _is_refused(_containing_sentence(text, match.start()), disposition):
+            if _off_its_sentence(text, match.start(), label) or _is_refused(
+                _containing_sentence(text, match.start()), disposition
+            ):
                 position = match.end()
                 continue
             start = max(0, match.start() - _SNIPPET_PAD)
