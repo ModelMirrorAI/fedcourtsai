@@ -148,7 +148,8 @@
           "enum": [
             "interim-decision-day",
             "post-conference-first-forecast",
-            "increment-run-day"
+            "increment-run-day",
+            "pre-distribution-mint"
           ],
           "title": "Reason",
           "type": "string"

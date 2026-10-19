@@ -1583,7 +1583,7 @@ default-only, and so are `claim-scores.json`'s judge-agreement pairs
 per-band or judge-agreement figure is read without the set-aside cells. The default is
 the headline; a sensitivity line is a disclosure, never a rank key, and never
 stacked with another departure. Each reason is a dated freeze-record entry.
-Two cell-grain reasons exist, and one claim-grain reason (below):
+Three cell-grain reasons exist, and one claim-grain reason (below):
 
 - **`interim-decision-day`** — a forward interim cell whose harness clock,
   dated in Court time (America/New_York, the clock `resolved_at` is dated in),
@@ -1622,6 +1622,18 @@ Two cell-grain reasons exist, and one claim-grain reason (below):
   of its last census: a row the census later finds owed is appended with its
   own dated freeze-record entry, and the list is closed once the census reports
   no owed row with the guard live.
+- **`pre-distribution-mint`** — every cell on a cert distribution event whose
+  forward frozen-scope distribution-moment cells were minted when the docket
+  carried a distribution by their run day but none of the petition itself,
+  only an ancillary paper's (a motion for leave under a linked M-number, a
+  sealing motion), so `store.petition_distributed` read false of the
+  petition: the cells forecast from a moment the petition had not reached.
+  The reading needs the docket entries, so these events are **listed** in the
+  same file, each row naming the run minted before the petition's
+  distribution. The fan-out mints no such cell; it waits for the petition's
+  own distribution (`store.petition_distributed`). A row sets aside every
+  cell on its event, and no later cell is minted on it for a predictor that
+  already holds a counted one.
 
 **`increment-run-day`**, the claim grain. One claim inside a cell is set aside
 and the cell stays counted: a resolved `cvsg-increment`,
