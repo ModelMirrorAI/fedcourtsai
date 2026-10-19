@@ -987,10 +987,255 @@ def test_cli_names_the_arm_and_the_fields_it_moves(tmp_path: Path, monkeypatch) 
     result = runner.invoke(app, ["converge-disposition-labels"])
 
     assert result.exit_code == 0, result.output
-    assert "(0 gvr, 1 disowned-grant)" in result.output
+    assert "(0 gvr, 1 disowned-grant, 0 restored-grant)" in result.output
     assert "[disowned-grant]: granted -> denied" in result.output
     assert "grant bit 1 -> 0, resolution re-dated to 2019-04-22" in result.output
     # Both texts, so the maintainer choosing `--max-relabels` reads the warrant
     # for the withdrawal as well as the order that replaces it.
     assert "read from 'The motions to extend the time" in result.output
     assert "'Petition DENIED.'" in result.output
+
+
+# --- the `restored-grant` arm: a recorded exit read off text that decided nothing ---
+
+_PARTIAL_RULE_46 = (
+    "Petition for writ of certiorari dismissed under Rule 46 only as to petitioner "
+    + "Acme Resources Company."
+)
+_STAY_CONDITIONAL = (
+    "The application to recall and stay the mandate is granted pending the timely filing "
+    + "and disposition of a petition for a writ of certiorari. Should the petition for a "
+    + "writ of certiorari be denied, this stay shall terminate automatically. In the event "
+    + "the petition for a writ of certiorari is granted, the stay shall terminate upon the "
+    + "sending down of the judgment of this Court."
+)
+
+
+def _seed_exit(tmp_path: Path, disposition: Disposition, resolved_at: date) -> Path:
+    """A committed `denied` / `dismissed` cert baseline, dated to its recording entry."""
+    paths = CasePaths(_data_root(tmp_path), "scotus", _DOCKET).event(_BASELINE)
+    write_json(
+        paths.outcome,
+        Outcome(
+            case_id=_CASE,
+            event_id=_BASELINE,
+            resolved_at=resolved_at,
+            actual_disposition=disposition,
+            actual_granted=0,
+            signals=ResolutionSignals(distribution_count=2),
+        ),
+    )
+    return paths.outcome
+
+
+@contextmanager
+def _seeded_row(
+    tmp_path: Path, snapshot_date: date, payload: dict[str, Any], *, row_disposition: str | None
+) -> Iterator[sqlite3.Connection]:
+    """One case whose corpus row carries ``row_disposition``, with one snapshot."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow.model_validate(
+                    {"case_id": _CASE, "court": "scotus", "disposition": row_disposition}
+                )
+            ],
+        )
+        corpus.upsert_snapshot(conn, _CASE, snapshot_date, payload)
+        yield conn
+
+
+def test_a_partial_rule_46_dismissal_before_a_grant_is_restored(tmp_path: Path) -> None:
+    """The class this arm exists for: the exit was scoped to one petitioner."""
+    dismissed_on, granted_on = date(2025, 6, 2), date(2025, 6, 16)
+    path = _seed_exit(tmp_path, Disposition.dismissed, dismissed_on)
+    payload = _snapshot(
+        (dismissed_on.isoformat(), _PARTIAL_RULE_46),
+        (granted_on.isoformat(), "Petition GRANTED."),
+        ("2026-04-17", "Judgment VACATED and case REMANDED."),
+    )
+    with _seeded_row(tmp_path, date(2026, 8, 3), payload, row_disposition="granted") as conn:
+        result = converge_disposition_labels(conn, _data_root(tmp_path), apply=True, max_relabels=1)
+
+    assert [entry.arm for entry in result.relabeled] == ["restored-grant"]
+    relabel = result.relabeled[0]
+    assert relabel.was is Disposition.dismissed and relabel.now is Disposition.granted
+    assert relabel.recital is not None and "only as to petitioner" in relabel.recital
+    written = read_model(path, Outcome)
+    assert written.actual_disposition == Disposition.granted
+    assert written.actual_granted == 1
+    assert written.resolved_at == granted_on
+    # The signal block was frozen at the partial dismissal; the date moved past it.
+    assert written.signals is None
+
+
+def test_a_stay_conditional_read_as_a_denial_is_restored_to_the_gvr(tmp_path: Path) -> None:
+    stayed_on, gvr_on = date(2018, 8, 29), date(2019, 1, 11)
+    path = _seed_exit(tmp_path, Disposition.denied, stayed_on)
+    payload = _snapshot(
+        (stayed_on.isoformat(), _STAY_CONDITIONAL),
+        (gvr_on.isoformat(), _GVR_TEXT),
+    )
+    with _seeded_row(tmp_path, date(2026, 8, 17), payload, row_disposition="gvr") as conn:
+        result = converge_disposition_labels(conn, _data_root(tmp_path), apply=True, max_relabels=1)
+
+    # Pre-era on purpose: the warrant is the refused sentence, not the calendar.
+    assert [entry.arm for entry in result.relabeled] == ["restored-grant"]
+    assert result.relabeled[0].recital is not None
+    assert result.relabeled[0].recital.startswith("Should the petition")
+    written = read_model(path, Outcome)
+    assert written.actual_disposition == Disposition.gvr and written.actual_granted == 1
+    assert written.resolved_at == gvr_on
+
+
+def test_a_real_denial_vacated_on_rehearing_is_left_alone(tmp_path: Path) -> None:
+    """The exit on its own day still parses: it is the confirming entry, and agrees."""
+    denied_on = date(2024, 6, 24)
+    path = _seed_exit(tmp_path, Disposition.denied, denied_on)
+    payload = _snapshot(
+        (denied_on.isoformat(), "Petition DENIED."),
+        ("2025-06-30", "The petition for rehearing is granted. " + _GVR_TEXT),
+    )
+    with _seeded_row(tmp_path, date(2026, 8, 16), payload, row_disposition="gvr") as conn:
+        result = converge_disposition_labels(conn, _data_root(tmp_path), apply=True, max_relabels=5)
+
+    assert result.relabeled == []
+    assert result.skipped and "the label agrees" in result.skipped[0][1]
+    assert read_model(path, Outcome).actual_disposition == Disposition.denied
+
+
+def test_a_partial_dismissal_ending_in_a_denial_is_reported_not_relabeled(tmp_path: Path) -> None:
+    """A different exit moves no binary, and this sweep's exit remit is the grant."""
+    dismissed_on = date(2023, 12, 14)
+    path = _seed_exit(tmp_path, Disposition.dismissed, dismissed_on)
+    payload = _snapshot(
+        (dismissed_on.isoformat(), _PARTIAL_RULE_46),
+        ("2025-06-30", "Petition DENIED."),
+    )
+    with _seeded_row(tmp_path, date(2026, 8, 16), payload, row_disposition="granted") as conn:
+        result = converge_disposition_labels(conn, _data_root(tmp_path), apply=True, max_relabels=5)
+
+    assert result.relabeled == []
+    assert "outside this sweep's remit for a recorded exit" in result.skipped[0][1]
+    assert read_model(path, Outcome).actual_disposition == Disposition.dismissed
+
+
+def test_an_exit_whose_corpus_row_records_no_grant_is_screened(tmp_path: Path) -> None:
+    """The exit majority of the ledger never costs a docket read."""
+    dismissed_on = date(2025, 6, 2)
+    _seed_exit(tmp_path, Disposition.dismissed, dismissed_on)
+    payload = _snapshot(
+        (dismissed_on.isoformat(), _PARTIAL_RULE_46),
+        ("2025-06-16", "Petition GRANTED."),
+    )
+    with _seeded_row(tmp_path, date(2026, 8, 3), payload, row_disposition="dismissed") as conn:
+        result = converge_disposition_labels(conn, _data_root(tmp_path), apply=False)
+
+    assert result.relabeled == [] and result.skipped == []
+    assert result.screened == 1 and result.checkable == 0
+
+
+def test_a_restored_grant_is_idempotent(tmp_path: Path) -> None:
+    dismissed_on = date(2025, 6, 2)
+    path = _seed_exit(tmp_path, Disposition.dismissed, dismissed_on)
+    payload = _snapshot(
+        (dismissed_on.isoformat(), _PARTIAL_RULE_46),
+        ("2025-06-16", "Petition GRANTED."),
+    )
+    with _seeded_row(tmp_path, date(2026, 8, 3), payload, row_disposition="granted") as conn:
+        first = converge_disposition_labels(conn, _data_root(tmp_path), apply=True, max_relabels=1)
+        second = converge_disposition_labels(conn, _data_root(tmp_path), apply=True, max_relabels=1)
+
+    assert len(first.relabeled) == 1 and second.relabeled == []
+    assert read_model(path, Outcome).actual_disposition == Disposition.granted
+
+
+def test_cli_names_the_restored_grant_and_its_warrant(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    dismissed_on = date(2025, 6, 2)
+    _seed_exit(tmp_path, Disposition.dismissed, dismissed_on)
+    payload = _snapshot(
+        (dismissed_on.isoformat(), _PARTIAL_RULE_46),
+        ("2025-06-16", "Petition GRANTED."),
+    )
+    with _seeded_row(tmp_path, date(2026, 8, 3), payload, row_disposition="granted"):
+        pass
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(_data_root(tmp_path)))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = runner.invoke(app, ["converge-disposition-labels"])
+
+    assert result.exit_code == 0, result.output
+    assert "(0 gvr, 0 disowned-grant, 1 restored-grant)" in result.output
+    assert "[restored-grant]: dismissed -> granted" in result.output
+    assert "grant bit 0 -> 1, resolution re-dated to 2025-06-16" in result.output
+    assert (
+        "read from 'Petition for writ of certiorari dismissed under Rule 46 only" in result.output
+    )
+
+
+def test_a_recorded_exit_with_nothing_on_its_day_to_read_it_from_is_reported(
+    tmp_path: Path,
+) -> None:
+    """The restore warrant fails when the recorded day carries no exit-shaped text."""
+    denied_on = date(2020, 3, 11)
+    path = _seed_exit(tmp_path, Disposition.denied, denied_on)
+    payload = _snapshot(
+        (denied_on.isoformat(), "Brief of respondent in opposition filed."),
+        ("2020-10-19", "Petition GRANTED."),
+    )
+    with _seeded_row(tmp_path, date(2026, 8, 17), payload, row_disposition="granted") as conn:
+        result = converge_disposition_labels(conn, _data_root(tmp_path), apply=True, max_relabels=5)
+
+    assert result.relabeled == []
+    assert "no entry dated the recorded resolution carries text a denial" in result.skipped[0][1]
+    assert read_model(path, Outcome).actual_disposition == Disposition.denied
+
+
+def test_an_exit_still_parsing_on_its_recorded_day_blocks_the_restore(tmp_path: Path) -> None:
+    """A same-day grant read ahead of a standing exit is no warrant to overturn it."""
+    decided_on = date(2021, 2, 22)
+    path = _seed_exit(tmp_path, Disposition.denied, decided_on)
+    payload = _snapshot(
+        (decided_on.isoformat(), "Petition GRANTED."),
+        (decided_on.isoformat(), "Petition DENIED."),
+    )
+    with _seeded_row(tmp_path, date(2026, 8, 17), payload, row_disposition="granted") as conn:
+        result = converge_disposition_labels(conn, _data_root(tmp_path), apply=True, max_relabels=5)
+
+    assert result.relabeled == []
+    assert "still parses as an exit" in result.skipped[0][1]
+    assert read_model(path, Outcome).actual_disposition == Disposition.denied
+
+
+def test_an_agreeing_label_with_a_later_confirming_entry_names_the_date_gap(
+    tmp_path: Path,
+) -> None:
+    """No arm moves a date alone, so the dry run has to say the date is off."""
+    recorded_on, granted_on = date(2023, 5, 5), date(2024, 1, 22)
+    _seed_ancillary_grant(tmp_path, recorded_on)
+    payload = _snapshot(
+        (recorded_on.isoformat(), "Application for stay granted."),
+        (granted_on.isoformat(), "Petition GRANTED."),
+    )
+    with _seeded_at(tmp_path, date(2026, 8, 17), payload) as conn:
+        result = converge_disposition_labels(conn, _data_root(tmp_path), apply=False)
+
+    assert result.relabeled == []
+    reason = result.skipped[0][1]
+    assert "the label agrees" in reason
+    assert "dated 2024-01-22, not the recorded 2023-05-05" in reason
+
+
+def test_the_exit_screen_counts_cert_stage_outcomes_only(tmp_path: Path) -> None:
+    """A merits-stage `dismissed` is out of population, not a screened exit."""
+    _write_outcome(_data_root(tmp_path), _CASE, _DOCKET, _MERITS, Disposition.dismissed)
+    with _seeded_row(
+        tmp_path,
+        date(2026, 8, 17),
+        _snapshot(("2026-05-11", "Petition GRANTED.")),
+        row_disposition="dismissed",
+    ) as conn:
+        result = converge_disposition_labels(conn, _data_root(tmp_path), apply=False)
+
+    assert result.screened == 0 and result.skipped == []

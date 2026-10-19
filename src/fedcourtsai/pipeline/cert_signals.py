@@ -43,6 +43,14 @@ from dateutil import parser as date_parser
 
 from ..schemas import GRANTED_DISPOSITIONS, Disposition
 
+# The cert noun the plain order rows read. Longest spelling first, so the short
+# "petition for (a writ of) certiorari" form is taken whole rather than leaving
+# its "for certiorari" in the verb gap.
+_CERT_NOUN = (
+    r"(?:petitions?\s+for\s+(?:a\s+)?(?:writs?\s+of\s+)?certiorari"
+    r"|writs?\s+of\s+certiorari|cert\.?|petitions?)"
+)
+
 # Docket-entry text patterns that signal a concrete cert disposition. Each maps the
 # matched phrase to a :class:`Disposition` and a short human label; the first match
 # (scanned in order) wins, so the more specific GVR patterns precede bare "granted".
@@ -76,18 +84,24 @@ _ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
         Disposition.gvr,
         "GVR",
     ),
+    # The three plain order rows share one cert noun (:data:`_CERT_NOUN`): the
+    # petition in either number ("Petition DENIED.", "the petitions are
+    # GRANTED."), the writ, the abbreviation, and the short "petition for
+    # certiorari" the clerk writes without the writ ("The petition for
+    # certiorari is GRANTED.") — whose "for certiorari" would otherwise sit
+    # between the noun and the verb where the one-word gap cannot span it.
     (
-        re.compile(r"(?:writ of certiorari|cert\.?|petition)\s+\w*\s*?denied", re.IGNORECASE),
+        re.compile(_CERT_NOUN + r"\s+\w*\s*?denied", re.IGNORECASE),
         Disposition.denied,
         "cert denied",
     ),
     (
-        re.compile(r"(?:writ of certiorari|cert\.?|petition)\s+\w*\s*?dismiss\w*", re.IGNORECASE),
+        re.compile(_CERT_NOUN + r"\s+\w*\s*?dismiss\w*", re.IGNORECASE),
         Disposition.dismissed,
         "cert dismissed",
     ),
     (
-        re.compile(r"(?:writ of certiorari|cert\.?|petition)\s+\w*\s*?grant\w*", re.IGNORECASE),
+        re.compile(_CERT_NOUN + r"\s+\w*\s*?grant\w*", re.IGNORECASE),
         Disposition.granted,
         "cert granted",
     ),
@@ -156,7 +170,8 @@ _SNIPPET_PAD = 40
 
 # Sentence-level rejections for pending-docket text that carries disposition
 # words without deciding anything, derived from a survey of every matched entry
-# in the corpus. Two shapes exist in the wild or in the clerk's known repertoire:
+# in the corpus. Three shapes exist in the wild or in the clerk's known repertoire
+# (the third, the conditional, is described with its pattern below):
 #   - a docketing *recital* — the sentence ends in "filed", so any disposition
 #     words inside are quoted or conditional, never an order ("Motion of
 #     petitioner to expedite consideration of the petition ... in the event the
@@ -235,6 +250,48 @@ _CONJOINED_PETITION_RE = re.compile(
     r"|writs?\s+of\s+certiorari|certiorari)\b",
     re.IGNORECASE,
 )
+# A **conditional** on the petition's fate decides nothing about it. A stay or
+# recall-of-mandate order pending certiorari ends with the clerk's standard
+# termination clause — "Should the petition for a writ of certiorari be denied,
+# this stay shall terminate automatically. In the event the petition for a writ
+# of certiorari is granted, the stay shall terminate upon the sending down of
+# the judgment of this Court." — which puts the cert noun beside both verbs
+# without ordering either; read as an order, its first sentence dates a denial
+# to the stay order on a docket the Court goes on to grant. The conditional opens
+# the clause the cert noun sits in, so the guard keys on the conjunction running
+# into the noun through at most one determiner ("both petitions" on a stay
+# covering two dockets), wherever in the sentence it falls — the clause trails
+# as often as it leads ("... shall terminate automatically if the petition is
+# denied").
+_CONDITIONAL_PETITION_RE = re.compile(
+    r"\b(?:should|if|unless|in\s+the\s+event(?:\s+that)?)\s+"
+    r"(?:(?:the|a|such|that|any|both|either|each|these|those)\s+)?"
+    r"(?:petitions?|writs?|certiorari)\b",
+    re.IGNORECASE,
+)
+# A **partial** exit is not the petition's disposition. The clerk marks one with
+# its scope — "Petition for writ of certiorari dismissed under Rule 46 only as to
+# petitioner Smith.", "The petition ... is dismissed only with respect to the
+# judgment in ...", "Petition DENIED as to Question 2" beside a grant limited to
+# Question 1 — and the petition stays live for the rest: the docket goes on to
+# its grant, its GVR or its denial. Read on the denial and dismissal rows only,
+# where a scoped order would otherwise record the whole petition's exit; a grant
+# limited in scope is still a grant. The same partial/whole line
+# :mod:`fedcourtsai.pipeline.judgment` draws for a merits termination.
+# A party scope counts only where the clerk marks it as partial — "only", or a
+# party named after the role ("as to petitioner Smith") — because the bare role
+# is also how a whole exit is written on a one-petitioner docket ("Petition
+# dismissed as to the petitioner pursuant to Rule 46."). A question scope always
+# counts: a petition has no single question to be the whole of.
+_PARTIAL_SCOPE_RE = re.compile(
+    r"\bonly\s+(?:as\s+to|with\s+respect\s+to)\b"
+    r"|\bas\s+to\s+(?:petitioners?|respondents?|appellants?|appellees?)\s+(?-i:[A-Z])"
+    r"|\bas\s+to\s+(?:the\s+)?questions?\b",
+    re.IGNORECASE,
+)
+#: The rows a partial scope vetoes — the exits, never the grant family.
+_EXIT_DISPOSITIONS: frozenset[Disposition] = frozenset({Disposition.denied, Disposition.dismissed})
+
 # Candidate sentence boundaries; a semicolon counts so a trailing "...filed"
 # clause never swallows the genuine order before it ("Petition GRANTED;
 # statement of Justice Alito filed.").
@@ -267,9 +324,21 @@ def _containing_sentence(text: str, position: int) -> str:
 
 def _is_non_order_sentence(sentence: str) -> bool:
     """Whether disposition words in this sentence decide nothing (see above)."""
-    if _FILED_RECITAL_RE.search(sentence):
+    if _FILED_RECITAL_RE.search(sentence) or _CONDITIONAL_PETITION_RE.search(sentence):
         return True
     return bool(_MOTION_OPEN_RE.match(sentence)) and not _CONJOINED_PETITION_RE.search(sentence)
+
+
+def _is_refused(sentence: str, disposition: Disposition) -> bool:
+    """Whether a ``disposition`` match in this sentence is refused as an order.
+
+    The non-order guard for every row, plus the partial-scope veto for the
+    exits (:data:`_EXIT_DISPOSITIONS`): a scoped denial or dismissal is a step
+    on a docket that goes on, not the petition's disposition.
+    """
+    if _is_non_order_sentence(sentence):
+        return True
+    return disposition in _EXIT_DISPOSITIONS and bool(_PARTIAL_SCOPE_RE.search(sentence))
 
 
 def refused_grant_sentence(text: str) -> str | None:
@@ -277,10 +346,12 @@ def refused_grant_sentence(text: str) -> str | None:
 
     The inverse of :func:`match_disposition_signal` over the grant family: it
     returns the sentence that carries a grant-shaped match and is refused by
-    :func:`_is_non_order_sentence` — the ancillary motion order, or the docketing
-    recital — whitespace-collapsed for quoting. ``None`` when no grant-shaped
-    match is refused here, which includes every entry whose grant *does* read
-    (that one is :func:`match_disposition_signal`'s answer, not this one).
+    :func:`_is_non_order_sentence` — the ancillary motion order, the docketing
+    recital, or a conditional on the petition's fate (a stay order's "In the
+    event the petition ... is granted") — whitespace-collapsed for quoting.
+    ``None`` when no grant-shaped match is refused here, which includes every
+    entry whose grant *does* read (that one is
+    :func:`match_disposition_signal`'s answer, not this one).
 
     It exists because a committed ``granted`` label is a claim about text, and
     the only way to tell a **parse gap** from a faithful record of an older
@@ -300,6 +371,35 @@ def refused_grant_sentence(text: str) -> str | None:
         while (match := pattern.search(text, position)) is not None:
             sentence = _containing_sentence(text, match.start())
             if _is_non_order_sentence(sentence):
+                return " ".join(sentence.split())
+            position = match.end()
+    return None
+
+
+def refused_exit_sentence(text: str) -> str | None:
+    """The sentence in ``text`` a denial or dismissal would be read out of but for the guards.
+
+    :func:`refused_grant_sentence`'s twin over the exits: the sentence carrying a
+    denial- or dismissal-shaped match that the order guard or the partial-scope
+    veto refuses (:func:`_is_refused`) — the stay order's termination
+    conditional, the Rule 46 dismissal "only as to" one petitioner —
+    whitespace-collapsed for quoting. ``None`` when no exit-shaped match is
+    refused here.
+
+    The convergence sweep's warrant for restoring a grant
+    (:func:`fedcourtsai.disposition_convergence._recorded_exit`): a committed
+    ``denied`` or ``dismissed`` dated to an entry whose only exit words are
+    this sentence was read out of text today's parser does not stand behind.
+    Like its twin it is a *refused* read, surfaced for audit, never a
+    disposition.
+    """
+    for pattern, disposition, _label in _ENTRY_SIGNALS:
+        if disposition not in _EXIT_DISPOSITIONS:
+            continue
+        position = 0
+        while (match := pattern.search(text, position)) is not None:
+            sentence = _containing_sentence(text, match.start())
+            if _is_refused(sentence, disposition):
                 return " ".join(sentence.split())
             position = match.end()
     return None
@@ -327,7 +427,7 @@ def mootness_disposition(text: str) -> bool:
     for pattern, matched_disposition, _label in _ENTRY_SIGNALS:
         position = 0
         while (match := pattern.search(text, position)) is not None:
-            if _is_non_order_sentence(_containing_sentence(text, match.start())):
+            if _is_refused(_containing_sentence(text, match.start()), matched_disposition):
                 position = match.end()
                 continue
             # The GVR patterns can span sentences ("Petition GRANTED. Judgment
@@ -396,7 +496,7 @@ def match_disposition_signal(text: str) -> tuple[Disposition, str, str] | None:
     for pattern, disposition, label in _ENTRY_SIGNALS:
         position = 0
         while (match := pattern.search(text, position)) is not None:
-            if _is_non_order_sentence(_containing_sentence(text, match.start())):
+            if _is_refused(_containing_sentence(text, match.start()), disposition):
                 position = match.end()
                 continue
             start = max(0, match.start() - _SNIPPET_PAD)

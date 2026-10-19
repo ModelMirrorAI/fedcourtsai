@@ -11610,3 +11610,197 @@ freeze commit is recorded here.
     own_clause"` is green, and `uv run fedcourts process-digest --all` prints
     the same label and six digests at the carrying merge as at its first
     parent.
+
+- **The cert resolver stops reading a stay order's termination conditional or a
+  partial exit as the petition's disposition, and reads the plural and short
+  cert nouns; recorded 2026-10-19.** A **scoring-baseline** entry and a
+  **conditioning** one through the same numbers. It moves the realized cert
+  record: the corpus rows the statpack's per-Term grant counts and per-band
+  segment pools are built from, and the committed `evt-petition-disposition`
+  outcomes the cert figures are graded against. The statpack's segment pools
+  are what a cert cell is provisioned with and what its `segment_base_rate` is
+  stamped from, so the same change moves a cell's input. It moves no digest:
+  no prompt template, neither agent config and not
+  `src/fedcourtsai/process_version.py` changes, and `uv run fedcourts
+  process-digest --all` prints `proc-v10` and the same digests before and
+  after the change. It registers one harness boundary, below. The carrying
+  merge writes nothing to the corpus or the ledger; the repair below is a
+  separate, bounded writer-lane run.
+
+  **The pattern change** (`src/fedcourtsai/pipeline/cert_signals.py`). Three
+  rules, each covering one shape the census below found:
+  - a sentence whose cert noun sits under a conditional, wherever in the
+    sentence the conditional falls ("Should the petition for a writ of
+    certiorari be denied, this stay shall terminate automatically", "In the
+    event the petition … is granted", "… shall terminate if the petition is
+    denied", and "both petitions" / "either petition"), is a non-order sentence
+    for every row, so a stay order pending certiorari records neither a denial
+    nor a grant;
+  - a denial or dismissal scoped to part of the case is not the petition's
+    exit, so the first-match scan steps past it to the docket's real
+    disposition. A party scope counts where the clerk marks it as partial
+    ("only as to", "only with respect to", or a named party: "as to petitioner
+    Smith"); a bare role ("dismissed as to the petitioner pursuant to Rule 46")
+    is still a whole exit. A question scope ("DENIED as to Question 2") always
+    counts. A grant limited in scope is still a grant;
+  - the plain order rows read the petition in either number ("the petitions are
+    GRANTED") and the short "petition for certiorari" spelling.
+
+  `converge-disposition-labels` gains a third arm, `restored-grant`, the
+  mirror of `disowned-grant`. It applies to a committed `denied` / `dismissed`
+  outcome whose recording day carries only a refused exit sentence and whose
+  confirming entry is a grant. It moves `actual_granted` 0 → 1 and re-dates the
+  resolution to the grant. It reads only cert-stage outcomes whose corpus row
+  already records the grant.
+
+  **The census.** It was read at blob
+  `4f55f94d9263d1e257b1f27616a87efad96af5a8974d184097afc8f1cda736f1`
+  (`freshness: latest pull 2026-10-19, latest snapshot 2026-07-13`, read ranged
+  under that pointer, each docket's latest live snapshot from the content
+  store) against the ledger at `origin/main` `e1b48eb55`. It covers 19,866
+  OT2017–OT2025 cert-form rows with a stored live snapshot, re-parsed with
+  `ingest._live_resolution` before and after the change. It does not reach
+  the 25,093 OT2017–OT2024 cert-form rows that have never been live-polled,
+  which hold no snapshot. 23 rows change reading. Grouped by what they move:
+  - **A grant gained** (stored `denied` / `dismissed` / NULL, now a grant), 15:
+    17-1272, 18-1323, 18-481, 18-483, 18-557, 19-1212, 19-1328, 19-715,
+    20-74, 20-746, 21-386, 24-1246, 24-813 (*Chevron USA v. Plaquemines
+    Parish*), and the consolidated 25-1083 / 25-1084;
+  - **a grant lost**, 1: 22-6500, recorded `granted` off the "either petition
+    … is granted" half of a two-docket stay order, now `dismissed` (moot,
+    2025-03-10);
+  - **label or date only**, binary unchanged, 6: 20-8, 21-5511, 23-492 and
+    24-5160 (`dismissed` → `denied`), 21-186 (`denied` → `dismissed`), 22-7466
+    (grant re-dated from the stay order to 2024-01-22);
+  - **already right**, 1: 20-826 (stored `granted`; the old parse read the stay
+    conditional as a denial).
+
+  Three more rows hold a value no current parse produces: 19-840 and 20-449
+  are stored `denied` where the docket parses as a grant, and 20-450 is stored
+  `denied` where it parses as dismissed. They were written before the
+  ancillary-order guard and sit out of the live rotation, so the same re-read
+  converges them.
+
+  **What it moves, once the repair lands.**
+  - **Statpack grants** on `metrics/statpack.json`, by docket Term, after the
+    refresh below and the next statpack build: OT2017 163 → 164, OT2018
+    146 → 150, OT2019 155 → 159, OT2020 161 → 164, OT2021 152 → 153, OT2022
+    109 → 108, OT2024 116 → 118, OT2025 103 → 105, or values that differ only
+    by rows landed since. OT2019 and OT2020 include the stale 19-840 and
+    20-449. These are the committed pack's counts with each refreshed row's
+    stored reading replaced by the branch parser's over the same snapshot.
+  - **The merits section** gains 3 rows carrying 2 judgments: 24-813
+    vacated, and the consolidated 25-1083 / 25-1084 reversed by one judgment.
+  - **The ledger.** A `restored-grant` dry run over the affected cases'
+    outcomes at `e1b48eb55`, against rows re-derived with the branch parser
+    from the same snapshots, restores 13: 17-1272, 18-1323, 18-481, 19-715,
+    19-1212, 19-1328, 19-840, 20-74, 20-449, 20-746, 21-386, 24-1246 and
+    24-813. 20-74, 20-746 and 21-386 become `gvr`. Every one resolved before
+    `PARSED_ORDER_TEXT_SINCE`, so all 13 cross the era boundary, each on the
+    same-day refused-sentence warrant (a stay conditional, a partial Rule 46
+    dismissal, or for 19-840 and 20-449 a motion order the ancillary-order
+    guard refuses), never on the calendar. 22-6500 has no ledger directory,
+    so its lost grant moves the corpus only.
+  - **Forward resolutions.** A restoration moves `resolved_at` later, by
+    between 0 days (24-1246) and about eight months. A resolution date is what
+    places a cell in the forward or retrospective stratum, so a restoration
+    under a cell on one of these events would be a dated break in the forward
+    series under an unchanged digest. No committed predict or evaluate output
+    sits under any of the 13 at `e1b48eb55`, so none moves today; the break is
+    dated here for any reading that spans the apply.
+
+  **Residuals the repair leaves.** These are reported, not rewritten.
+  - Ledger and corpus disagree on the label after the refresh for 20-8 and
+    23-492 (ledger `dismissed`, corpus `denied`), 21-186 (ledger `denied`,
+    corpus `dismissed`) and 20-450 (ledger `denied`, corpus `dismissed`).
+    A different exit moves no binary, and the convergence sweep's exit remit is
+    the grant.
+  - A label the docket text agrees with keeps its date even where the
+    confirming entry is later. 20-826's ledger reads `granted` on 2021-01-04,
+    an extension order's day, against the grant on 2021-04-05. The dry run
+    names the gap ("its confirming entry is dated 2021-04-05, not the recorded
+    2021-01-04"). No arm moves a date alone. 22-7466's grant dated to the stay
+    order is the same shape in the corpus; it has no ledger directory.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The 2026-10-11
+  entry settling the pooled default's implementation choices names this class:
+  a scoring-baseline change that is also a conditioning one joins the boundary
+  registry through its conditioning half. The 2026-10-17 interim-pool entry is
+  the precedent for a statpack-pool change. This change moves the cert segment
+  pools cert cells are provisioned with, so it joins.
+  - **The registry row.** The boundary is `cert-exit-guard-and-plural-nouns`.
+    It applies to every predictor and is **gradual**, because the input a cell
+    reads moves at the statpack refresh that follows the repair, not at the
+    merge. Its reach is `all`. It is registered **pending** in this change's
+    own PR (`fedcourts register-boundary`), under the 2026-10-14
+    merge-stamping declaration. Its `merge` and `at` stay null until the
+    promotion merge that carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before the
+    refresh still anchored on the under-counted pool, so the after-side `n` is
+    an upper bound on exposure. The anchoring side is read from the cell's
+    provisioning run id against the refresh commit's time, as the 2026-10-12
+    entry reads it.
+
+  **Timing.** The pools move at the first statpack refresh on `main` after
+  the corpus refresh below lands, not at the carrying merge. Cert skill is read
+  keyed on the stamped `segment_base_rate`, as the 2026-10-12 entry registers,
+  so that refresh is one more dated, digest-silent break in the series. A cell
+  provisioned before the refresh and graded after it anchored on one pool and
+  is scored against the other.
+
+  **Release 1 disclosure.** The tagged release (`results/ot2026-longconf`)
+  reads its own tag and does not move. Its cert skill figures were scored
+  against band pools that under-count grants. Every pool moves the same way:
+  15 grants gained against 1 lost, the loss outside the paid scored segment.
+  So its anchors were slightly low. A low anchor understates Brier skill on a
+  denial and overstates it on a grant-family event. Per band, the exact
+  `risk_set` anchors before and after are below, from `uv run fedcourts
+  segment-anchors --term 2025 --term 2026`. "Before" is the committed
+  `metrics/statpack.json` at `e1b48eb55`. "After" is that pack with the
+  refreshed rows' segment and prefix slices replaced by the branch parser's
+  reading over the same snapshots (the 23 refresh dockets below plus
+  25-1083 / 25-1084). The pool `n` is the weighted resolved denominator:
+  - docket Term 2025 (pools OT2017–OT2024): federal 72.93% → 75.69%
+    (n=181); high 34.97% → 35.30% (n=898); state 22.70% → 23.21%
+    (n=392); elevated 17.22% → 17.37% (n=2810); baseline 5.12% → 5.19%
+    (n=11580);
+  - docket Term 2026 (pools OT2017–OT2025): federal 70.59% → 73.17%
+    (n=204 → 205); high 35.43% → 35.74% (n=971); state 23.46% → 23.93%
+    (n=422); elevated 16.85% → 16.98% (n=3122); baseline 5.00% → 5.07%
+    (n=12883 → 12884).
+
+  The exact after-values are the post-repair statpack's, which can differ by
+  rows landed since. No committed `evaluation.json` is rewritten: a stamped
+  cell keeps the rate it was stamped with, and a re-grade is a separate
+  dispatch.
+
+  **The repair route.** Corpus first, then the ledger, as separate dispatches:
+  1. `run-seed` with `refresh_dockets` set to these 23 dockets:
+     `17-1272 18-1323 18-481 18-483 18-557 19-1212 19-1328 19-715 19-840
+     20-74 20-746 20-8 20-449 20-450 21-186 21-386 21-5511 22-6500 22-7466
+     23-492 24-1246 24-5160 24-813`. Each is re-served through the shared
+     ingest seam, so the unlatched `disposition` / `date_cert_granted` /
+     `date_decided` columns take the fresh parse. All of them except 22-6500
+     are rows no rotation revisits, because each carries a disposition and
+     either a termination date or no open merits event. 22-6500 is still in
+     the rotation through its recorded grant and an open merits event, but
+     each poll would re-derive it only by the same parse, so it is named here
+     to land with the rest. 25-1083 and 25-1084 are in the live rotation and
+     converge on its next poll; they may be appended.
+  2. `run-repair` with `repair=disposition-convergence` and
+     `repair_mode=dry-run`. Its header states the relabel count across all
+     three arms.
+  3. The same with `repair_mode=apply`, and `repair_bound` set to the dry
+     run's total relabel count across all arms (not the `restored-grant`
+     count alone).
+
+  A row whose refresh drops its grant date while an open merits event sits on
+  it (22-6500, if one was minted) is `merits-phantom-removal`'s.
+
+  The runnable effect check once it is live: where the corpus is pulled, `uv
+  run fedcourts converge-disposition-labels` prints a header naming
+  `restored-grant`. After the repair, its dry run lists no `restored-grant`
+  relabel, and `jq '.terms[] | select(.term == 2024) | .grants'
+  metrics/statpack.json` reads 118 at the next statpack refresh, or a value
+  that differs only by rows landed since.

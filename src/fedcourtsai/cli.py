@@ -3337,14 +3337,15 @@ def converge_disposition_labels_cmd(
         ),
     ] = False,
 ) -> None:
-    """Re-resolve committed `granted` cert outcomes against their stored docket text.
+    """Re-resolve committed cert outcomes against their stored docket text.
 
     A deterministic **ledger** convergence sweep for the labels no re-resolution
     reaches: `record_outcomes` is idempotent-by-filter, so a resolved event is
     never revisited. Over each committed cert-stage outcome labeled `granted`,
+    and each labeled `denied` / `dismissed` whose corpus row records a grant,
     the sweep reads the case's latest stored snapshot, parses the earliest
     disposing entry at or after the recorded resolution date, and relabels only
-    where that parse confirms one of **two arms**.
+    where that parse confirms one of **three arms**.
 
     `gvr` — the same order read more finely: an order granting, vacating and
     remanding in one breath, which `match_disposition_signal` reads through its
@@ -3358,6 +3359,19 @@ def converge_disposition_labels_cmd(
     petition-stage Rule 46 dismissal — was recorded nowhere. This arm moves the
     grant binary 1 → 0 and re-dates the resolution to the confirming entry.
 
+    `restored-grant` — the mirror, on a recorded `denied` / `dismissed`: the
+    exit was read off text that decides nothing about the petition — a stay
+    order's termination conditional ("Should the petition ... be denied, this
+    stay shall terminate automatically"), a Rule 46 dismissal "only as to" one
+    petitioner — while the docket went on to its grant or GVR. It fires only
+    where the confirming entry is a grant, nothing dated the recorded
+    resolution still parses as an exit, and an entry that day carries the
+    refused exit sentence, quoted as the warrant. It moves the binary 0 → 1 and
+    re-dates the resolution to the grant. The exit population is screened on
+    the corpus row first (a row the parser now reads as granted), so it reaches
+    only dockets the live poll or `refresh-dockets` has re-read — run that
+    re-read first.
+
     The era boundary is the separation the forward-convention rule needs: before
     it, a cert label was normalized from upstream record fields and never passed
     through the disposition parser, so its `granted` is the older vocabulary's
@@ -3370,28 +3384,32 @@ def converge_disposition_labels_cmd(
     with a date on it. A resolution date the snapshot carries no entry for, or a
     docket that still carries a grant order somewhere (the real grant whose Rule
     46 exit or mootness dismissal comes later), is reported and never rewritten.
+    The `restored-grant` arm reaches back on its own warrant, scoped to the
+    recorded day: an entry dated the recorded resolution carries a refused exit
+    sentence and nothing that day still parses as an exit.
 
     Candidates carrying committed predict/evaluate output are **held back by
     default**, because an `evaluation.json` is stamped with a `correct` bit
     computed from the outcome; `--include-scored` opts in and reports, per
     relabel, how many stamped evaluations it puts in the re-grade backlog that
-    `stamp-cell --regrade` is the follow-through for. On a `disowned-grant` that
-    backlog is not the whole debt. `resolved_at` only ever moves **later** (the
-    confirming entry is at or after the recorded resolution), so a withdrawal
-    can only push an already-scored cell from the retrospective stratum toward
-    `forward` — the leaderboard's rank key — and can only clear a recorded
-    forward-claim breach, never the reverse. Both are correct where the
-    withdrawal is, but the direction is one-sided and flattering, so read the
-    dry run for it; neither lands through `--regrade` — they arrive on the next
-    board build.
+    `stamp-cell --regrade` is the follow-through for. On the two binary arms
+    (`disowned-grant`, `restored-grant`) that backlog is not the whole debt.
+    `resolved_at` only ever moves **later** (the confirming entry is at or after
+    the recorded resolution), so a relabel on either can only push an
+    already-scored cell from the retrospective stratum toward `forward` — the
+    leaderboard's rank key — and can only clear a recorded forward-claim breach,
+    never the reverse. Both are correct where the relabel is, but the direction
+    is one-sided and flattering, so read the dry run for it; neither lands
+    through `--regrade` — they arrive on the next board build.
 
     Self-confirming, so the report is the point: every relabel is printed with
     the arm that authorized it, every population member not relabeled with its
     reason, and the header carries the honest denominators — how many
     candidates were actually checkable, how many
     had no readable text, how many the sweep declines to judge, and how the
-    relabels split between the two arms, since the `disowned-grant` count is the
-    one that moves grant rates — in the ledger. **The corpus is a separate
+    relabels split between the three arms, since the `disowned-grant` and
+    `restored-grant` counts are the ones that move grant rates — in the ledger,
+    and how many exit outcomes the corpus screen passed over. **The corpus is a separate
     store and does not follow**: base rates and every published disposition
     figure are built from it, so until it is corrected too a withdrawn row reads
     0 here while still counting as a grant in the denominators those cells are
@@ -3403,8 +3421,8 @@ def converge_disposition_labels_cmd(
     fabricated grant that opened no merits event is not. Those owe a curated
     corpus write, and corpus writes belong to the writer jobs' upsert path.
 
-    Idempotent (neither a `gvr` nor a `denied`/`dismissed` outcome reads
-    `granted`). Dry-run by default.
+    Idempotent (a `gvr` leaves the population, and a withdrawn or restored label
+    re-reads the entry it was re-dated to and agrees with it). Dry-run by default.
     `--apply` writes and **requires** `--max-relabels`, so the number applied is
     one the maintainer read in the dry run rather than a default nobody chose;
     it refuses above that bound, since the population this sweep converges is
@@ -3448,16 +3466,20 @@ def converge_disposition_labels_cmd(
         )
         raise typer.Exit(code=1)
     verb = "relabeled" if apply else "would relabel"
-    # Split by arm in the header: the two carry different risk — `gvr` sharpens a
-    # label the binary keeps, `disowned-grant` withdraws the grant outright — so
-    # the count a maintainer approves with `--max-relabels` has to say which.
+    # Split by arm in the header: they carry different risk — `gvr` sharpens a
+    # label the binary keeps, `disowned-grant` withdraws the grant outright and
+    # `restored-grant` restores one — so the count a maintainer approves with
+    # `--max-relabels` has to say which.
     withdrawals = sum(1 for entry in result.relabeled if entry.arm == "disowned-grant")
+    restorations = sum(1 for entry in result.relabeled if entry.arm == "restored-grant")
     typer.echo(
         f"converge-disposition-labels ({'applied' if apply else 'dry-run'}): "
         f"{verb} {len(result.relabeled)} of {result.checkable} checkable candidate(s) "
-        f"({len(result.relabeled) - withdrawals} gvr, {withdrawals} disowned-grant); "
+        f"({len(result.relabeled) - withdrawals - restorations} gvr, {withdrawals} "
+        f"disowned-grant, {restorations} restored-grant); "
         f"{result.uncheckable} uncheckable (no readable docket text); "
-        f"{result.out_of_scope} out of scope"
+        f"{result.out_of_scope} out of scope; "
+        f"{result.screened} denied/dismissed screened out (corpus row records no grant)"
     )
     for entry in result.relabeled:
         backlog = (
@@ -3465,26 +3487,28 @@ def converge_disposition_labels_cmd(
             if entry.stamped_evaluations
             else ""
         )
-        # The `disowned-grant` arm moves the grant binary and re-dates the
-        # resolution, so its line says both out loud rather than leaving a
-        # reviewer to infer them from the label: those are the two fields a
-        # relabel here can put out of step with anything already scored or
-        # plotted against the old date.
-        withdrawal = (
-            f"; grant bit 1 -> 0, resolution re-dated to {entry.entry_filed.isoformat()}"
-            if entry.arm == "disowned-grant"
+        # The two binary arms move the grant bit and re-date the resolution, so
+        # their lines say both out loud rather than leaving a reviewer to infer
+        # them from the label: those are the two fields a relabel there can put
+        # out of step with anything already scored or plotted against the old
+        # date.
+        flips = {"disowned-grant": "1 -> 0", "restored-grant": "0 -> 1"}
+        binary_move = (
+            f"; grant bit {flips[entry.arm]}, resolution re-dated to "
+            f"{entry.entry_filed.isoformat()}"
+            if entry.arm in flips
             else ""
         )
-        # A withdrawal rests on two pieces of text, not one, and the *refused*
+        # A binary relabel rests on two pieces of text, not one, and the *refused*
         # sentence is the half a reviewer cannot reconstruct: it is why the
-        # stored grant is a parse gap rather than a record to leave alone.
+        # stored label is a parse gap rather than a record to leave alone.
         # Printed first, since the arm is only warranted if it convinces.
         recital = f" — read from {entry.recital!r}" if entry.recital else ""
         typer.echo(
             f"  {verb} {entry.ref} [{entry.arm}]: {entry.was.value} -> {entry.now.value} "
             f"({entry.basis}) [entry {entry.entry_filed.isoformat()}, resolved "
             f"{entry.resolved_at.isoformat()}, snapshot {entry.snapshot_date.isoformat()}]"
-            f"{withdrawal}{backlog}{recital} — {entry.evidence!r}"
+            f"{binary_move}{backlog}{recital} — {entry.evidence!r}"
         )
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")

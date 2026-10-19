@@ -1606,19 +1606,28 @@ rather than folding it into an undifferentiated "granted."
   label normalized from the upstream record's own fields, which never passed
   through the disposition parser at all, so `granted` there is a faithful record
   of what the older vocabulary could say. It does not cover a resolution the
-  parser itself recorded by reading the docket's order text and got wrong. Two
+  parser itself recorded by reading the docket's order text and got wrong. Three
   shapes do that. The **prose GVR** names the lower court between the grant and
   the vacatur, and fell to the cert-before-judgment grant row until
   `cert_signals._gvr_tail_sentence` closed the gap. The **ancillary-order grant**
-  is read off text that decides nothing about the petition, in either of the two
+  is read off text that decides nothing about the petition, in any of the three
   shapes `cert_signals._is_non_order_sentence` refuses: an order *about* the
   petition rather than one on it — an extension of time to respond, a delayed
-  distribution, an unsealing — or a docketing recital, whose disposition word is
-  quoted or conditional inside a sentence ending "filed". Both disagree with their own
+  distribution, an unsealing — a conditional on the petition's fate (a stay
+  order's "In the event the petition ... is granted"), or a docketing recital, whose disposition word is
+  quoted or conditional inside a sentence ending "filed". The **refused exit**
+  is its mirror on a recorded `denied` or `dismissed`: the exit was read off
+  text that names the petition's fate without deciding it — the termination
+  conditional a stay order pending certiorari ends with ("Should the petition
+  ... be denied, this stay shall terminate automatically"), which
+  `cert_signals._is_non_order_sentence` refuses, or a Rule 46 dismissal scoped
+  "only as to" one petitioner, which the partial-scope veto refuses on the exit
+  rows — while the docket went on to its grant. All three disagree with their own
   order text rather than with a superseded convention, and one order can sit
-  behind both labels, so leaving them makes the ledger contradict itself about a
-  single day's work. `converge-disposition-labels` converges them, re-resolving
-  the stored docket text and rewriting only what the parser confirms.
+  behind more than one label, so leaving them makes the ledger contradict itself
+  about a single day's work. `converge-disposition-labels` converges them,
+  re-resolving the stored docket text and rewriting only what the parser
+  confirms.
 
   The separation is enforced in its predicate, not left to which snapshots
   happen to be stored, and each shape meets it on its own terms. For the prose
@@ -1637,10 +1646,16 @@ rather than folding it into an undifferentiated "granted."
   entry sharing its date. The warrant fails two ways, each reported as the one
   it was: the docket still parses a grant somewhere, or the label's provenance
   cannot be established at all — no entry on the recorded date, or entries with
-  nothing a grant could have been read from. The warrant is the
+  nothing a grant could have been read from. The refused exit carries the same
+  kind of proof, scoped to its own day: an entry dated the recorded resolution
+  carries an exit-shaped sentence the parser refuses
+  (`cert_signals.refused_exit_sentence`), nothing that day still parses as an
+  exit, and the confirming entry is a grant. A refused exit whose docket ends in
+  a different exit (a partial dismissal followed by the real denial) moves no
+  binary and is reported rather than relabeled. Each warrant is its
   arm's whole licence, so a fuller snapshot store buys text to judge and never a
-  way past it. The penalization worry does not reach either
-  class — their labels were the parser's reading of an order, not the best word
+  way past it. The penalization worry does not reach any of the three
+  classes — their labels were the parser's reading of an order, not the best word
   an earlier vocabulary offered — and any candidate already carrying committed
   predict *or* evaluate output is held back by default, since an evaluation's
   `correct` bit was stamped from the label being corrected; `--include-scored`

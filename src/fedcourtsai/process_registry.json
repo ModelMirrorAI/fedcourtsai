@@ -369,6 +369,14 @@
       "predictors": null,
       "reach": "granted dockets",
       "gradual": true
+    },
+    {
+      "name": "cert-exit-guard-and-plural-nouns",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
     }
   ]
 }
