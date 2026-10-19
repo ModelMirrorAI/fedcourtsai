@@ -31,6 +31,7 @@ from fedcourtsai.leaderboard import (
 )
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import cert_signals
+from fedcourtsai.process_version import window_of
 from fedcourtsai.schemas import (
     DocketPollRecord,
     Engine,
@@ -40,6 +41,7 @@ from fedcourtsai.schemas import (
     Outcome,
     Prediction,
     PredictionContext,
+    PreDistributionSetAsideEvent,
     SetAsideEvent,
     Stage,
     UsageRole,
@@ -156,7 +158,7 @@ def _listed(case_id: str, event_id: str = "evt-petition-disposition") -> SetAsid
     )
 
 
-def _registry(*rows: SetAsideEvent) -> str:
+def _registry(*rows: SetAsideEvent | PreDistributionSetAsideEvent) -> str:
     return json.dumps(
         {"schema_version": "1.0", "events": [row.model_dump(mode="json") for row in rows]}
     )
@@ -197,15 +199,96 @@ def test_a_listed_event_is_set_aside_whatever_its_timing(
     )
 
 
+def _pre_distribution(case_id: str) -> PreDistributionSetAsideEvent:
+    return PreDistributionSetAsideEvent(
+        case_id=case_id,
+        event_id="evt-petition-disposition",
+        reason="pre-distribution-mint",
+        minted_run_id="20261006T142731Z",
+        declared=date(2026, 10, 19),
+    )
+
+
+def test_the_registry_reads_each_row_by_its_reason() -> None:
+    listed = set_aside.load_set_aside_events(
+        _registry(_listed("scotus/1"), _pre_distribution("scotus/2"))
+    )
+    assert isinstance(listed[("scotus/1", "evt-petition-disposition")], SetAsideEvent)
+    row = listed[("scotus/2", "evt-petition-disposition")]
+    assert isinstance(row, PreDistributionSetAsideEvent)
+    assert row.minted_run_id == "20261006T142731Z"
+
+
+def test_a_pre_distribution_row_carries_its_own_fields_only() -> None:
+    raw = json.loads(_registry(_pre_distribution("scotus/2")))
+    raw["events"][0]["conference"] = "2026-09-28"
+    with pytest.raises(ValidationError):
+        set_aside.load_set_aside_events(json.dumps(raw))
+    del raw["events"][0]["conference"], raw["events"][0]["minted_run_id"]
+    with pytest.raises(ValidationError):
+        set_aside.load_set_aside_events(json.dumps(raw))
+
+
+def test_a_pre_distribution_event_is_set_aside_with_its_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        set_aside,
+        "SET_ASIDE_EVENTS",
+        {("scotus/2", "evt-petition-disposition"): _pre_distribution("scotus/2")},
+    )
+    cell = _prediction(datetime(2026, 10, 6, 14, 54, tzinfo=UTC))
+    assert (
+        set_aside.set_aside_reason(
+            "scotus/2",
+            "evt-petition-disposition",
+            cell,
+            _outcome(date(2026, 10, 20)),
+            Stage.cert,
+            lambda: None,
+        )
+        == "pre-distribution-mint"
+    )
+
+
+def _listed_run(event: object) -> str:
+    if isinstance(event, PreDistributionSetAsideEvent):
+        return event.minted_run_id
+    assert isinstance(event, SetAsideEvent)
+    return event.first_forward_run_id
+
+
 @pytest.mark.reads_data
 def test_every_listed_event_names_a_committed_event_and_its_first_forward_run() -> None:
     for (case_id, event_id), event in set_aside.SET_ASIDE_EVENTS.items():
         base = Path("data/cases") / case_id / "events" / event_id
         assert (base / "event.yaml").is_file(), (case_id, event_id)
-        assert list(base.glob(f"predictions/*/{event.first_forward_run_id}/prediction.json")), (
-            case_id,
-            event.first_forward_run_id,
-        )
+        run_id = _listed_run(event)
+        assert list(base.glob(f"predictions/*/{run_id}/prediction.json")), (case_id, run_id)
+
+
+@pytest.mark.reads_data
+def test_every_pre_distribution_row_names_forward_frozen_cells_minted_undistributed() -> None:
+    # The committed half of the row's fact: the run it names holds forward,
+    # frozen-scope cells whose provisioned context counted no petition
+    # distribution. The corpus half (an ancillary paper was distributed by the
+    # run day) is the declaring entry's census.
+    rows = [
+        event
+        for event in set_aside.SET_ASIDE_EVENTS.values()
+        if isinstance(event, PreDistributionSetAsideEvent)
+    ]
+    assert rows, "no pre-distribution-mint row is listed"
+    for event in rows:
+        base = Path("data/cases") / event.case_id / "events" / event.event_id
+        cells = sorted(base.glob(f"predictions/*/{event.minted_run_id}/prediction.json"))
+        assert cells, (event.case_id, event.minted_run_id)
+        for path in cells:
+            prediction = Prediction.model_validate_json(path.read_text(encoding="utf-8"))
+            assert prediction.context is not None, path
+            assert prediction.context.mode == "forward", path
+            assert prediction.context.distribution_count == 0, path
+            assert window_of(prediction.process_version) is not None, path
 
 
 def _freeze_entries() -> list[str]:

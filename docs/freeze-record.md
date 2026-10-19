@@ -11258,3 +11258,72 @@ freeze commit is recorded here.
   `interim reserve:` line and one line per occupant, each saying whether it
   holds a slot, and every occupant it reports released is one whose stored
   docket the forward queue's decided-guard also reads as disposed.
+
+- **A cert distribution event whose frozen-scope cells were minted before the
+  petition itself was distributed is set aside from the ongoing boards'
+  default figures; recorded 2026-10-19.** A **membership-rule** entry under
+  unchanged digests: it adds one listed reason to the set-aside the 2026-10-16
+  entry registered and moves which cells the default figures count, no value
+  a cell reads. `uv run fedcourts process-digest --all` prints `proc-v10` and
+  the six digests `605201bd…` (claude-baseline), `7ab92dd4…`
+  (codex-baseline), `bee46e92…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `a8610eec…` (codex-judge) and `6a88d3dc…` (gemini-judge)
+  on either side of the change.
+
+  **`pre-distribution-mint`.** Every cell on a cert distribution event whose
+  forward frozen-scope distribution-moment cells were minted when the docket
+  carried a distribution by their run day but none of the petition itself —
+  only an ancillary paper's, such as a motion for leave under a linked
+  M-number — so the petition's own `distribution_count` (the `dist-v2` parse)
+  was zero at their run. Such a
+  cell forecasts from a moment the petition had not reached, and the record
+  cannot show what moment it stands at. Whether the petition was distributed
+  in its own right reads the docket entries, which live in the corpus, so the
+  event is **listed**, a `SetAsideReason` value with its own row shape
+  (`PreDistributionSetAsideEvent`: the event and `minted_run_id`, the
+  harness run of the cells minted before the petition's distribution).
+  `src/fedcourtsai/set_aside_events.json` lists one event under it:
+  `scotus/9026000455` `evt-petition-disposition`. Its three cells, one per
+  baseline predictor, are run `20261006T142731Z`, stamped `proc-v8` inside
+  each predictor's `proc-v8` counting window (`process_version.window_of`),
+  forward, with a provisioned `distribution_count` of 0. Like every listed
+  row it sets aside every cell on the event, including any later cell minted
+  on the petition's own distribution: the conservative reading, since the
+  event's first forecasts already stand at the wrong moment.
+
+  **The census.** It is the one recorded by the 2026-10-19 entry that makes a
+  distribution-moment cell wait for the petition's own distribution, at its
+  vintage: the production blob under `origin/main`'s pointer (sha256
+  `79e92043…`, latest pull 2026-10-19), each case's latest live snapshot.
+  Of 1077 committed `evt-petition-disposition` predict cells on 238 SCOTUS
+  cases, 6 cells on 2 cases were minted with a distribution on the docket
+  by their run day and none of the petition under `dist-v2`. The other three
+  are `scotus/9026000013`'s run `20260820T181919Z`, stamped `proc-v3`, the
+  declared-shakedown cohort: `window_of` places them in no counting window,
+  so they are in no frozen-scope figure and need no row. That event's later
+  cells, runs `20260918T195102Z` and `20260919T192714Z` (`proc-v8`), are not
+  in the census, which found the petition distributed by their run, so the
+  event is not listed and they stay counted. Of the committed forward
+  `evt-petition-disposition` cells, only `scotus/9026000455`'s three carry a
+  provisioned `distribution_count` of 0.
+
+  **What it moves.** Nothing yet: the event has no committed outcome at this
+  vintage, so no graded figure holds its cells. When it resolves, its
+  gradings leave the default `cert@distribution` figures on
+  `metrics/leaderboard.json` and `metrics/claim-scores.json` and are counted
+  back in their sensitivity lines, and the public update reads the event as
+  set aside meanwhile. One event cannot move a pooled figure by more than its
+  own gradings, and its outcome correlation is unknown in direction; both
+  readings are published, as for every reason. **Release 1 is unchanged**:
+  its figures build without the set-aside (`stratify(...,
+  apply_set_aside=False)`). No harness boundary is registered: that entry's
+  minting guard refuses such a cell from its carrying merge on,
+  and any committed before it is a row this reason owes, appended with its
+  own dated entry.
+
+  The runnable effect check once it is live: `uv run python -c "from
+  fedcourtsai.set_aside import SET_ASIDE_EVENTS as S;
+  print(S[('scotus/9026000455', 'evt-petition-disposition')].reason)"`
+  prints `pre-distribution-mint`, and once the event resolves and the metrics
+  refresh runs, `jq '.set_aside.by_reason' metrics/leaderboard.json` carries
+  a `pre-distribution-mint` count.

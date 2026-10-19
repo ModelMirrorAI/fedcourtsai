@@ -19,12 +19,18 @@ the fact comes from:
   it identically. :func:`interim_decision_day` is one.
 * **Listed** in ``set_aside_events.json`` (:data:`SET_ASIDE_EVENTS`), for a
   reason only the corpus can decide — the post-conference reason reads the
-  petition's docket entries. The list is a committed census, appended from the
-  corpus by a reviewed edit, so the boards stay offline and deterministic.
+  petition's docket entries, and the pre-distribution reason reads whether the
+  petition, not only an ancillary paper, was distributed before its
+  distribution-moment cells were minted. The list is a committed census,
+  appended from the corpus by a reviewed edit, so the boards stay offline and
+  deterministic. A listed row's shape is its reason's
+  (:data:`~fedcourtsai.schemas.ListedSetAsideEvent`), and it sets aside every
+  cell on its event.
 
 **Adding a reason** is three edits here and one in the schema: a new
 ``SetAsideReason`` value, its predicate, a branch in :func:`set_aside_reason`
-(or rows in the registry, for a listed reason), and its freeze-record entry.
+(or, for a listed reason, a row model in the schema's registry union and rows
+in the registry), and its freeze-record entry.
 Every board inherits it through :func:`fedcourtsai.store.stratify`, which
 publishes it in the ``set_aside`` block and the sensitivity lines with no
 further change. That grain is the scored cell.
@@ -65,10 +71,10 @@ from zoneinfo import ZoneInfo
 from .integrity import cell_clock
 from .schemas import (
     DocketPollRecord,
+    ListedSetAsideEvent,
     Outcome,
     PolledSignal,
     Prediction,
-    SetAsideEvent,
     SetAsideEventsRegistry,
     SetAsideReason,
     Stage,
@@ -88,7 +94,7 @@ def court_day(moment: datetime) -> date:
     return moment.astimezone(COURT_TIME).date()
 
 
-def load_set_aside_events(text: str | None = None) -> Mapping[tuple[str, str], SetAsideEvent]:
+def load_set_aside_events(text: str | None = None) -> Mapping[tuple[str, str], ListedSetAsideEvent]:
     """The listed set-aside events keyed ``(case_id, event_id)``; ``text`` overrides the file.
 
     Refuses an event listed twice: one key, one reason.
@@ -99,7 +105,7 @@ def load_set_aside_events(text: str | None = None) -> Mapping[tuple[str, str], S
         else files("fedcourtsai").joinpath(SET_ASIDE_EVENTS_RESOURCE).read_text(encoding="utf-8")
     )
     registry = SetAsideEventsRegistry.model_validate_json(raw)
-    listed: dict[tuple[str, str], SetAsideEvent] = {}
+    listed: dict[tuple[str, str], ListedSetAsideEvent] = {}
     for event in registry.events:
         key = (event.case_id, event.event_id)
         if key in listed:
@@ -109,7 +115,7 @@ def load_set_aside_events(text: str | None = None) -> Mapping[tuple[str, str], S
 
 
 #: The registry as loaded at import; :func:`set_aside_reason` reads it.
-SET_ASIDE_EVENTS: Final[Mapping[tuple[str, str], SetAsideEvent]] = load_set_aside_events()
+SET_ASIDE_EVENTS: Final[Mapping[tuple[str, str], ListedSetAsideEvent]] = load_set_aside_events()
 
 
 def interim_decision_day(
