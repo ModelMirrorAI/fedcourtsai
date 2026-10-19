@@ -4892,8 +4892,8 @@ class PreDistributionSetAsideEvent(_Strict):
     reason: Literal["pre-distribution-mint"] = Field(
         description="Why its cells are set aside. `pre-distribution-mint`: the event's "
         "forward frozen-scope distribution-moment cells were minted when the docket carried "
-        "a distribution by their run day but none of the petition itself (its own "
-        "`distribution_count` was zero)"
+        "a distribution by their run day but none of the petition itself "
+        "(`store.petition_distributed` reads false)"
     )
     minted_run_id: str = Field(
         description="The harness run id of the event's forward frozen-scope cells minted "

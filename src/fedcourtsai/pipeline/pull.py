@@ -49,6 +49,7 @@ from ..store import (
     forecastable_events,
     forward_refusal_reason_from_parts,
     live_payload_reader,
+    petition_distributed,
     predictor_holds_no_counted_prediction,
 )
 from ..voids import is_voided
@@ -720,10 +721,12 @@ def _reopenable_moment(
     (:func:`fedcourtsai.store.distribution_conference_considered`), so the two
     paths refuse one population: a conference day counts as sat, and a petition
     the conference did not consider — taken off it by a call for response or a
-    reschedule — stays open. A petition with no conference at all is refused
-    for the same reason the fan-out's own information-set precondition refuses
-    it (:func:`fedcourtsai.store._premature_distribution_cell`): the
-    distribution moment has not happened.
+    reschedule — stays open. A petition with no conference at all, or with only
+    an ancillary paper's distribution behind its conference
+    (:func:`fedcourtsai.store.petition_distributed`), is refused for the same
+    reason the fan-out's own information-set precondition refuses it
+    (:func:`fedcourtsai.store._premature_distribution_cell`): the distribution
+    moment has not happened.
 
     An **undeclared** event — an entry-pinned motion, a legacy baseline id —
     has no moment to check and is refused. The rule adds cells to a backlog
@@ -734,8 +737,10 @@ def _reopenable_moment(
     if spec is None or (spec.stage, spec.moment) not in REPREDICT_MOMENTS:
         return False
     if spec.moment is Moment.distribution:
-        return row.distributed_for_conference is not None and not (
-            distribution_conference_considered(row, day=day, payloads=payloads)
+        return (
+            petition_distributed(row)
+            and row.distributed_for_conference is not None
+            and not distribution_conference_considered(row, day=day, payloads=payloads)
         )
     return True
 

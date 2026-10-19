@@ -29,7 +29,7 @@
         },
         "reason": {
           "const": "pre-distribution-mint",
-          "description": "Why its cells are set aside. `pre-distribution-mint`: the event's forward frozen-scope distribution-moment cells were minted when the docket carried a distribution by their run day but none of the petition itself (its own `distribution_count` was zero)",
+          "description": "Why its cells are set aside. `pre-distribution-mint`: the event's forward frozen-scope distribution-moment cells were minted when the docket carried a distribution by their run day but none of the petition itself (`store.petition_distributed` reads false)",
           "title": "Reason",
           "type": "string"
         }

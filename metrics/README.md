@@ -1626,11 +1626,12 @@ Three cell-grain reasons exist, and one claim-grain reason (below):
   forward frozen-scope distribution-moment cells were minted when the docket
   carried a distribution by their run day but none of the petition itself,
   only an ancillary paper's (a motion for leave under a linked M-number, a
-  sealing motion), and the petition's own `distribution_count` (the `dist-v2`
-  parse) was zero: the cells forecast from a moment the petition had not
-  reached. The reading needs the docket entries, so these events are
-  **listed** in the same file, each row naming the run minted before the
-  petition's distribution.
+  sealing motion), so `store.petition_distributed` read false of the
+  petition: the cells forecast from a moment the petition had not reached.
+  The reading needs the docket entries, so these events are **listed** in the
+  same file, each row naming the run minted before the petition's
+  distribution. The fan-out no longer mints such a cell: it waits for the
+  petition's own distribution (`store.petition_distributed`).
 
 **`increment-run-day`**, the claim grain. One claim inside a cell is set aside
 and the cell stays counted: a resolved `cvsg-increment`,
