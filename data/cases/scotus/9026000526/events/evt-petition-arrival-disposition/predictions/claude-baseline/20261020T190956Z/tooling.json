@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/9026000526",
+  "run_id": "20261020T190956Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot", "provisioned petition text", "metrics/statpack.md"],
+  "helpful": ["Provisioned petition text with the QP cut out made the arrival-moment read fast", "The pooled baseline reached-rate table maps directly onto the arrival anchor"],
+  "gaps": ["The lower-court opinion is only in the petition appendix; a separate provisioned opinion-below file would make the merits check easier"]
+}

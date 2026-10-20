@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "Routine state criminal double-jeopardy dispute arising from an idiosyncratic mid-trial dismissal for an alleged compulsory-process violation; if granted, it would clarify the line between United States v. Scott procedural dismissals and Evans v. Michigan substantive acquittals.",
+  "big_case_score": 0.25,
+  "case_id": "scotus/9026000526",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.04
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.85
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.25
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.03
+    }
+  ],
+  "confidence": 0.85,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-21",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-21",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-20T19:15:00Z",
+  "engine": "gemini",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-21.json",
+  "judgment": null,
+  "model": "gemini-4-argon",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.04,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434",
+    "label": "proc-v10",
+    "pipeline_sha": "50b7eea526fff4f87362b35f3987efb0d2b75ddc",
+    "stamped_at": "2026-10-20T19:20:09.707805Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261020T190956Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

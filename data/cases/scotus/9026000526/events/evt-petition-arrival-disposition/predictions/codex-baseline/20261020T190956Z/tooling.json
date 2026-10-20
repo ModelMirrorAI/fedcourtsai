@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000526",
+  "gaps": [
+    "The initial citation-only CourtListener search returned unrelated cases; an exact case-name query succeeded.",
+    "General-authority web requests returned no usable content."
+  ],
+  "helpful": [
+    "Readable petition with trial and appellate opinions in its appendix",
+    "Explicit arrival moment and frozen zero-distribution conditioning",
+    "JSON reached-rate denominators for exact prior-Term pooling",
+    "Targeted search within the Scott majority opinion"
+  ],
+  "notes": "No opposition brief was provisioned at arrival; the appended appellate majority supplied the adverse analysis. The default uv cache was read-only; a temporary writable cache resolved the CLI issue. No target-case live retrieval was needed.",
+  "role": "predictor",
+  "run_id": "20261020T190956Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed statpack markdown and JSON",
+    "CourtListener MCP search and search_document",
+    "web search/open attempts with no usable content",
+    "fedcourts paths",
+    "local probability pooling and schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
