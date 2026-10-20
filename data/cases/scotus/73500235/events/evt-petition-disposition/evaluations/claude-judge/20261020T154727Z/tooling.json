@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500235",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Blinded staging with retrieval_log.json result_capture markers made the forward leakage check quick."],
+  "gaps": [],
+  "notes": "All three candidates froze a band, so the base rate is the harness's stamp; statpack not consulted."
+}

@@ -1,0 +1,112 @@
+{
+  "actor_id": "codex-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "2f336aa2d52f7a91",
+      "query": "{\"cmd\": \"sed -n '594,736p' .github/prompts/evaluate.md\", \"max_output_tokens\": 14000}",
+      "result_capture": "captured",
+      "result_digest": "cd8c64ce1ca541f8",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:18:51.425Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5d45c63ce5e5c566",
+      "query": "{\"cmd\": \"sed -n '648,676p' .github/prompts/evaluate.md; for alias in a b c; do base=\\\"data/cases/scotus/73265705/record/blinded/candidate-$alias\\\"; printf '\\\\n=== candidate-%s retrieval_log.json ===\\\\n' \\\"$alias\\\"; cat \\\"$base/retrieval_log.json\\\"; printf '\\\\n=== candidate-%s retrieval.md ===\\\\n' \\\"$alias\\\"; cat \\\"$base/retrieval.md\\\"; printf '\\\\n=== candidate-%s frozen context ===\\\\n' \\\"$alias\\\"; jq '{created_at, prediction_date, context}' \\\"$base/prediction.json\\\"; done\", \"max_output_tokens\": ",
+      "result_capture": "captured",
+      "result_digest": "ff57ed169c874400",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:18:56.159Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b1f08ff7eaa705e2",
+      "query": "{\"cmd\": \"base=data/cases/scotus/73265705/record/blinded/codex-baseline; jq '{mode,result_capture_coverage,call_count:(.calls|length)}' \\\"$base/retrieval_log.json\\\"; jq -r '.calls|to_entries[]|[.key,.value.timestamp,.value.tool,.value.result_capture,.value.result_status,(.value.retrieved_doc_date//\\\"null\\\"),.value.query]|@tsv' \\\"$base/retrieval_log.json\\\"; printf '\\\\n=== retrieval.md ===\\\\n'; cat \\\"$base/retrieval.md\\\"; printf '\\\\n=== frozen context ===\\\\n'; jq '{created_at,context}' \\\"$base/predict",
+      "result_capture": "captured",
+      "result_digest": "ce55d0a2db1f148b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:19:00.949Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "24d052eb6accabf5",
+      "query": "{\"cmd\": \"jq -r '.calls|to_entries[]|select(.key>=19 and .key<=26)|[.key,.value.tool,.value.result_capture,(.value.retrieved_doc_date//\\\"null\\\"),.value.query]|@tsv' data/cases/scotus/73265705/record/blinded/codex-baseline/retrieval_log.json; printf '\\\\n=== gemini-baseline summary and retrieval ===\\\\n'; jq '{mode,result_capture_coverage,call_count:(.calls|length)}' data/cases/scotus/73265705/record/blinded/gemini-baseline/retrieval_log.json; cat data/cases/scotus/73265705/record/blinded/gemini-baseline/retrieval",
+      "result_capture": "captured",
+      "result_digest": "dcad80f40fc49a2d",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:19:06.247Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d3f7eaa5e6e8970b",
+      "query": "{\"cmd\": \"jq -r '.calls|to_entries[]|[.key,.value.timestamp,.value.tool,.value.result_capture,.value.result_status,(.value.retrieved_doc_date//\\\"null\\\"),.value.query]|@tsv' data/cases/scotus/73265705/record/blinded/gemini-baseline/retrieval_log.json\", \"max_output_tokens\": 6500}",
+      "result_capture": "captured",
+      "result_digest": "f83c33fd26c9f638",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:19:10.827Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "157fb451cf7129ab",
+      "query": "{\"cmd\": \"jq '{mode,result_capture_coverage,call_count:(.calls|length)}' data/cases/scotus/73265705/record/blinded/claude-baseline/retrieval_log.json; jq -r '.calls|to_entries[]|select(.key<18)|[.key,.value.timestamp,.value.tool,.value.result_capture,.value.result_status,(.value.retrieved_doc_date//\\\"null\\\"),.value.query]|@tsv' data/cases/scotus/73265705/record/blinded/claude-baseline/retrieval_log.json\", \"max_output_tokens\": 6000}",
+      "result_capture": "captured",
+      "result_digest": "820b16181c6027f3",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:19:14.419Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "15e305090e193974",
+      "query": "{\"cmd\": \"jq -r '.calls|to_entries[]|select(.key>=18)|[.key,.value.timestamp,.value.tool,.value.result_capture,.value.result_status,(.value.retrieved_doc_date//\\\"null\\\"),.value.query]|@tsv' data/cases/scotus/73265705/record/blinded/claude-baseline/retrieval_log.json; printf '\\\\n=== claude-baseline retrieval.md ===\\\\n'; cat data/cases/scotus/73265705/record/blinded/claude-baseline/retrieval.md\", \"max_output_tokens\": 6000}",
+      "result_capture": "captured",
+      "result_digest": "aa78b57675ed6acc",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:19:18.048Z",
+      "tool": "exec_command"
+    }
+  ],
+  "case_id": "scotus/73265705",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

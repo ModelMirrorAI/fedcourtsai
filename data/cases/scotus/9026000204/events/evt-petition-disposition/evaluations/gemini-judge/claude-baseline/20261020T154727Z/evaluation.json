@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.65,
+    "notes": "Significant constitutional dispute testing the outer boundaries of Congress's taxing power and the Necessary and Proper Clause after NFIB v. Sebelius, invalidating a 160-year-old federal prohibition on home distilling (26 U.S.C. 5178(a)(1)(B)) with an acknowledged Fifth/Sixth Circuit split. Substantially more important than the median granted statutory case, though narrower in immediate regulatory sweep than the Term's marquee separation-of-powers or nationwide administrative challenges."
+  },
+  "brier_score": 0.006399999999999993,
+  "brier_skill_score": 0.9260160000000001,
+  "case_id": "scotus/9026000204",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7058823529411765,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.92,
+        "score": 0.08010519031141868
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.7,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.35400225479143177,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 0.12281759639741777
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.20292278670883646,
+    "total": 0.20292278670883646
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T15:52:00Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction made on 2026-10-05, prior to the October 9 and October 16 conferences and the 2026-10-19 grant order. Retrieval of the Fifth and Sixth Circuit opinions (dated April 2026) and the companion Ream docket (No. 26-93) prior to conference surfaced legitimate pre-decision forward signals, not outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261005T153213Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T17:04:21.125115Z"
+  },
+  "reasoning_quality": 0.95,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7058823529411765,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

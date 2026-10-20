@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73317900",
+  "gaps": [],
+  "helpful": [
+    "Blinded prediction directories and the provisioned outcome and docket snapshot supported all three evaluations without external retrieval.",
+    "Harness retrieval logs exposed forward mode and result-capture coverage for evidence-sensitive leakage assessment."
+  ],
+  "notes": "The frozen-band baseline and skill are reserved for the harness; no statpack rate was independently pooled. One candidate's entirely unobserved result capture limits direct retrieval verification, but the prompt explains how to assess visible queries without treating this standing telemetry shape as a defect.",
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "jsonschema",
+    "fedcourtsai.paths",
+    "fedcourtsai.serialize"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

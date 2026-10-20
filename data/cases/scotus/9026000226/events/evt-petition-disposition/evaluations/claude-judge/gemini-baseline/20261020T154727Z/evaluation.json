@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "A private, fact-bound protective-order dispute in an interlocutory posture from a high-profile adoption/custody litigation. The legal questions (appellate party presentation; a prior restraint sustained on an unbriefed national-security rationale) have some reach, but the vehicle is narrow, the circuit conflict is thin, and the petition was denied at its first conference without a called-for response. Public profile exceeds doctrinal stakes."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9599813642895721,
+  "case_id": "scotus/9026000226",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.04998835674920438,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.002398835810485727
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.35400225479143177,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.002398835810485727,
+    "total": 0.002398835810485727
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T17:02:28Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (retrieval_log mode forward, context.cutoff null, prediction created 2026-10-08, event resolved 2026-10-19). Scanned the log and prose for this petition's own disposition surfacing as decided: none. Retrieval: provisioned inputs and the statpack only (all log rows unobserved; queries are file reads of the provisioned record, prompt, schemas, and statpack). No read of data/qp-topics/.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261008T143010Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T17:03:43.670896Z"
+  },
+  "reasoning_quality": 0.4,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.04998835674920438,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

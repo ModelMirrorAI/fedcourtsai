@@ -1,0 +1,156 @@
+{
+  "actor_id": "claude-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "be5be192ea25b5ce",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; cat .github/prompts/evaluate.md; D=data/cases/scotus/9026000034/events/evt-petition-disposition; find $D | head -100",
+      "result_capture": "captured",
+      "result_digest": "b2b071ef00aee9f3",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:49:44.486Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "c0c571163cd7a3a1",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; sed -n 30,400p /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/08e4346f-b4eb-48d4-a16c-f07456ac2392/tool-results/b19rxhcqp.txt",
+      "result_capture": "captured",
+      "result_digest": "a457999f9c82e29c",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:49:49.293Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "736efc2c3eeff772",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; sed -n 400,900p /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/08e4346f-b4eb-48d4-a16c-f07456ac2392/tool-results/b19rxhcqp.txt",
+      "result_capture": "captured",
+      "result_digest": "3bdb3ffb38df6cd1",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:49:52.922Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f546e2d98a0a91b2",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; cat /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/08e4346f-b4eb-48d4-a16c-f07456ac2392/tool-results/b7aq6az8b.txt | sed -n 25,400p",
+      "result_capture": "captured",
+      "result_digest": "99ea728706ee8472",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:49:55.610Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "42b4398dee7810e8",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; sed -n 400,500p /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/08e4346f-b4eb-48d4-a16c-f07456ac2392/tool-results/b7aq6az8b.txt; C=data/cases/scotus/9026000034; ls -R $C | head -60; cat $C/events/evt-petition-disposition/event.yaml $C/events/evt-petition-disposition/outcome.json",
+      "result_capture": "captured",
+      "result_digest": "298852610de05425",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:49:58.923Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f8369ba01559bd7c",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; B=data/cases/scotus/9026000034/record/blinded; for a in a b c; do echo \"=== $a\"; python3 -c \"\nimport json;d=json.load(open('$B/candidate-$a/prediction.json'))\nfor k in ['probability','predicted_disposition','context','big_case_score','created_at']: print(k, d.get(k))\n\"; cat $B/candidate-$a/reasoning.md; echo ---RET; cat $B/candidate-$a/retrieval.md; python3 -c \"\nimport json;d=json.load(open('$B/candidate-$a/retrieval_log.json'))\nprint('mode',d.get('m",
+      "result_capture": "captured",
+      "result_digest": "da5ccdd22c7f3c58",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:50:03.559Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4a6e2360689249e7",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; grep -n -i \"relist\" metrics/statpack.md | head -30; python3 -c \"\nimport json;print(json.load(open('schemas/evaluation.schema.json'))['required'])\"; head -c 1500 data/cases/scotus/9026000034/record/documents/questions-presented.txt",
+      "result_capture": "captured",
+      "result_digest": "805e6bff715e2800",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:50:10.805Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8dfa4d945849b3e7",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; sed -n 100,116p metrics/statpack.md",
+      "result_capture": "captured",
+      "result_digest": "463301935ccf795b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:50:15.957Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "2b44a31903bd86f2",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; python3 - <<'EOF'\nimport json,os,datetime\nbase='data/cases/scotus/9026000034/events/evt-petition-disposition/evaluations/claude-judge'\nrun='20261020T154727Z'\nnow=datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')\nbig={\"evaluator_score\":0.3,\"notes\":\"A state AG petition to reinstate a narrow Missouri Halloween sign-posting mandate for registered sex offenders struck down as compelled speech by CA8; 16 States as amici and a comp",
+      "result_capture": "captured",
+      "result_digest": "36206b7cff6b3fb5",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:50:31.361Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "08016e8da5098bb7",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; B=data/cases/scotus/9026000034/events/evt-petition-disposition/evaluations/claude-judge; R=20261020T154727Z\nCOMMON=\"**Cell.** Cert stage, forward. Outcome: denied on 2026-10-19 (actual_granted 0, a noted dissent from denial, two distributions). The prediction froze band \\`state\\` (sal-v4), so the segment base rate, its basis and the Brier skill score are left for the harness to stamp. Where this note compares against a base rate, it means the stamped",
+      "result_capture": "captured",
+      "result_digest": "b19c1effe25fc6aa",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:50:52.210Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "6ece6b590c6efbd1",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; B=data/cases/scotus/9026000034/events/evt-petition-disposition/evaluations/claude-judge; R=20261020T154727Z; mkdir -p $B/$R\ncat > $B/$R/retrieval.md <<EOF\nNo retrieval beyond the provisioned inputs. Committed \\`metrics/statpack.md\\` (relist-count table) was read to check the candidates' relist-bucket citations; no \\`fedcourts query\\`, MCP, or web lookups.\nEOF\ncat > $B/$R/tooling.json <<EOF\n{\"case_id\":\"scotus/9026000034\",\"run_id\":\"$R\",\"role\":\"evaluato",
+      "result_capture": "captured",
+      "result_digest": "3f09d51cc58d5616",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:50:57.889Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000034",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281381",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with retrieval_log result_capture markers made forward-leakage checks quick",
+    "Frozen band on all three predictions means the base rate is stamped, not hand-pooled"
+  ],
+  "gaps": [],
+  "notes": "Cert cell, all candidates froze band 'elevated'; segment base rate and skill left to the harness stamp."
+}

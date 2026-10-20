@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000204",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell: provisioned artifact and schema reads",
+    "jq: masked retrieval-log inspection",
+    "apply_patch: evaluation output files",
+    "Python: Pydantic model validation and score checks"
+  ],
+  "helpful": [
+    "Blinded predictions and both prose documents",
+    "Per-call result-capture markers in retrieval logs",
+    "Provisioned outcome, docket snapshot, and source briefs",
+    "Local typed artifact validators"
+  ],
+  "gaps": [],
+  "notes": "No external retrieval or corpus query was needed. Frozen prediction bands leave baseline and skill computation to the harness. Unobserved predictor retrieval results were assessed from their queries, not treated as empty results. The optional jsonschema library was unavailable; validation uses the repository's Pydantic models."
+}

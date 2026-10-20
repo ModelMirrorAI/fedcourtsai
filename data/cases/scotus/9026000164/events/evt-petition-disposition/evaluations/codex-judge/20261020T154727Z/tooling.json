@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000164",
+  "gaps": [],
+  "helpful": [
+    "Blinded predictions and separate rationale and forecast documents",
+    "Per-call result-capture markers and mode",
+    "Provisioned opposition and questions presented",
+    "Explicit division between evaluator scores and harness-stamped baselines"
+  ],
+  "notes": "No external facts or corpus queries were needed. All predictions froze a band, so baseline pooling remains with the harness. Unobserved results limit verification of retrieval contents but are not themselves a tooling defect or evidence of leakage.",
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell reads of provisioned blinded inputs",
+    "jq for structured retrieval-log inspection",
+    "fedcourtsai.paths and fedcourtsai.serialize",
+    "JSON Schema and Pydantic validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

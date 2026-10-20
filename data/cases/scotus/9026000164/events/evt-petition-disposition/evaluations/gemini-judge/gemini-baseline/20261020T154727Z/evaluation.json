@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.65,
+    "notes": "High-profile custody and adoption dispute over an Afghan child orphaned in a U.S. military operation, drawing seven cert-stage amicus briefs (including former senior U.S. diplomats and military officers) and raising an open Fourteenth Amendment procedural-due-process question for nonparent caretakers reserved since Smith v. OFFER, though entangled in state-law preservation and intensely fact-bound equitable disputes."
+  },
+  "brier_score": 0.2025,
+  "brier_skill_score": -6.133773836545274,
+  "case_id": "scotus/9026000164",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.16848174247277387,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.45,
+        "score": -0.1741139024533379
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": 0.35400225479143177,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.1741139024533379,
+    "total": -0.1741139024533379
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T16:58:18Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction created on 2026-09-30 while the petition was pending before the October 16, 2026 conference (denied 2026-10-19). The retrieval log shows unobserved file reads of the snapshot, questions-presented.txt, documents.json, and statpack.md, plus one fedcourts query call with --decided-before 2026-09-30. No outcome material existed or was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260930T191800Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T17:00:17.937858Z"
+  },
+  "reasoning_quality": 0.42,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.16848174247277387,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

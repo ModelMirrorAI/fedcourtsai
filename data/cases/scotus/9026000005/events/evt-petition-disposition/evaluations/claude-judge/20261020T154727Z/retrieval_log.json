@@ -1,0 +1,211 @@
+{
+  "actor_id": "claude-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "6c5b4873e0bf30ec",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; cat .github/prompts/evaluate.md; D=data/cases/scotus/9026000005/events/evt-petition-disposition; find $D | head -100",
+      "result_capture": "captured",
+      "result_digest": "f61b9407d668ac18",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:14.416Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b1ead546663659f7",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; sed -n 1,400p /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/2cf87049-d235-4f28-be8d-e34c5599c164/tool-results/bior1yuyd.txt",
+      "result_capture": "captured",
+      "result_digest": "4b74bcddedca6576",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:23.456Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "6ee04aa47d37e2f8",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; sed -n 400,900p /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/2cf87049-d235-4f28-be8d-e34c5599c164/tool-results/bior1yuyd.txt",
+      "result_capture": "captured",
+      "result_digest": "48765e28a58d7f21",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:26.090Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "90e89b53dae5007e",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; cat /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/2cf87049-d235-4f28-be8d-e34c5599c164/tool-results/bd2w3lpoq.txt",
+      "result_capture": "captured",
+      "result_digest": "07b124220d6bea93",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:28.307Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b42abb460d54657f",
+      "query": "{\"file_path\": \"/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/2cf87049-d235-4f28-be8d-e34c5599c164/tool-results/bior1yuyd.txt\", \"limit\": 300, \"offset\": 425}",
+      "result_capture": "captured",
+      "result_digest": "48153004ffd47327",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:31.613Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ac5923e7b7c44252",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; ls data/cases/scotus/9026000005/; ls -R data/cases/scotus/9026000005/events/evt-petition-disposition data/cases/scotus/9026000005/record | head -60; git status --short | head",
+      "result_capture": "captured",
+      "result_digest": "1f1b733846d9086f",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:32.504Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "29111589c6c2fc3b",
+      "query": "{\"file_path\": \"/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/2cf87049-d235-4f28-be8d-e34c5599c164/tool-results/bior1yuyd.txt\", \"limit\": 300, \"offset\": 724}",
+      "result_capture": "captured",
+      "result_digest": "deec6ef60c149fef",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:38.463Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ce8ebbc7583adbd3",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/9026000005; cat $D/events/*/event.yaml $D/events/*/outcome.json $D/record/context.json; for c in a b c; do echo \"=== $c\"; cat $D/record/blinded/candidate-$c/prediction.json; done",
+      "result_capture": "captured",
+      "result_digest": "64b2bce943089b80",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:39.453Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "c065675f0708f499",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/9026000005/record/blinded; for c in a b c; do echo \"=================== $c\"; cat $D/candidate-$c/reasoning.md; echo \"--- retrieval.md\"; cat $D/candidate-$c/retrieval.md; done",
+      "result_capture": "captured",
+      "result_digest": "4719f11c4d9c9c99",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:43.397Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "0c5fc3f60a07f76f",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/9026000005/record/blinded; for c in a b c; do echo \"== $c\"; python3 -c \"\nimport json,sys,collections\nd=json.load(open('$D/candidate-$c/retrieval_log.json'))\nprint({k:v for k,v in d.items() if k!='calls'})\ncalls=d.get('calls',[])\nprint(len(calls), collections.Counter(x.get('tool') for x in calls))\nfor x in calls:\n  dt=x.get('retrieved_doc_date')\n  q=str(x.get('query',''))\n  if dt or 'qp-topics' in q or x.get('tool','').startswith((",
+      "result_capture": "captured",
+      "result_digest": "9e413ae3e2ef47a1",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:48.197Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "fe67ebebcc1915e8",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/9026000005/record/blinded; for c in a b c; do echo \"== $c\"; python3 -c \"\nimport json\nd=json.load(open('$D/candidate-$c/retrieval_log.json'))\nfor x in d['calls']:\n  if x['tool'] in ('shell','file-read','other','file-write'): print(x['tool'], str(x.get('query'))[:160])\n\"; done; grep -c qp-topics $D/*/retrieval_log.json",
+      "result_capture": "captured",
+      "result_digest": "bf0eec63724bf183",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:51.955Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "16be769f81eb5905",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; python3 -c \"\nimport json;s=json.load(open('schemas/evaluation.schema.json'));print(s.get('required'));print(list(s['properties']))\nprint(json.dumps(s['\\$defs'].get('LeakageAssessment',{}),indent=0)[:1500])\"; python3 -c \"\nimport json;s=json.load(open('schemas/agent_tooling.schema.json'));print(s.get('required'))\"",
+      "result_capture": "captured",
+      "result_digest": "c64726e6e2acd241",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:58.284Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "bd944abead3d1dfc",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; python3 - <<'PY'\nimport json, os, datetime\nbase=\"data/cases/scotus/9026000005/events/evt-petition-disposition/evaluations/claude-judge\"\nRUN=\"20261020T154727Z\"\nnow=datetime.datetime.now(datetime.timezone.utc).strftime(\"%Y-%m-%dT%H:%M:%SZ\")\nbig={\"evaluator_score\":0.55,\"notes\":\"Presidential removal power over NLRB members is a nationally important separation-of-powers and labor-law question, but after Trump v. Slaughter (June 2026) overruled Humphrey's ",
+      "result_capture": "captured",
+      "result_digest": "9cef1004a72776b0",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:42:11.108Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "77180eb849b3e846",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; python3 -c \"\nimport json;d=json.load(open('data/cases/scotus/9026000005/record/snapshots/2026-10-19.json'))\nprint(list(d))\nimport re\ns=json.dumps(d)\nfor m in re.finditer(r'\\\"(date_filed|description)\\\": \\\"([^\\\"]{0,160})',s): print(m.group(2))\n\" | tail -30",
+      "result_capture": "captured",
+      "result_digest": "27a5d8c7236c72ee",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:42:15.936Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f3d023d17fa8a157",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; python3 -c \"\nimport json;d=json.load(open('data/cases/scotus/9026000005/record/snapshots/2026-10-19.json'))\nfor p in d['ProceedingsandOrder']: print(p.get('Date'), '|', p.get('Text','')[:150])\"",
+      "result_capture": "captured",
+      "result_digest": "29265938c8a00f95",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:42:20.577Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "65ef7c618b9bd573",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; B=data/cases/scotus/9026000005/events/evt-petition-disposition/evaluations/claude-judge; R=20261020T154727Z\ncommon='## Outcome and quantitative scores\n\nThis is a **cert** cell (forward mode). The petition was distributed for the 9/28 conference, the Court requested a response on Aug 13, the opposition was filed Sep 14, and the petition was redistributed for the 10/16 conference. It was **denied on 2026-10-19** with no noted dissent (`actual_granted` ",
+      "result_capture": "captured",
+      "result_digest": "eded5e7488cca3fb",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:42:42.302Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000005",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

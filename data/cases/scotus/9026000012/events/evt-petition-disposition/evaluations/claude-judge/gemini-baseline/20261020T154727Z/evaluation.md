@@ -1,0 +1,11 @@
+# gemini-baseline — scotus/9026000012, evt-petition-disposition
+
+**Cell.** Cert stage (`stage: cert`, moment `distribution`), forward mode. Outcome: `granted` (plenary), resolved 2026-10-19 after three distributions; `actual_granted` = 1. The prediction froze `context.band` = `elevated` (sal-v4, Term 2026), so `segment_base_rate`, `brier_skill_score` and `base_rate_basis` are left null for the harness stamp; the comparison point is the stamped segment base rate. `correct` and `brier_score` are written as my independent read. No votes are scored at the cert stage.
+
+**Scores.** Predicted `granted` at P(grant) = 0.65 → `correct` = 1; Brier = (0.65 − 1)² = 0.1225.
+
+**Reasoning quality (0.58).** It got the direction right and for the right headline reasons: a mature 2–2 split on an important post-SFFA question, the Court calling for a response after a waiver, five cert-stage amici, and prior denials read as waiting for the split to deepen. The analysis is thin, though. It is three short paragraphs and never engages with the BIO's specific arguments: the alternative intent ground the Fourth Circuit did not reach, the unpublished per curiam, the pleading-stage posture, or the dispute over whether the split is about "sequencing". It names vehicle quality as its main uncertainty without weighing it. Moving from an approximately 14–20% anchor to 0.65 is a large jump, and the candidate asserts it rather than justifying it. "Highly probable" overstates what the signals it cites support. The outcome bears its judgement out, but the score reflects the soundness and depth of the argument as written, not the result.
+
+**Leakage.** Forward; prediction 2026-09-27, resolution 2026-10-19. The log's `result_capture_coverage` is 0.0, with every call unobserved. That is an engine shape, not evidence either way. The logged calls are reads of the provisioned inputs and file writes, with no web or MCP call classes, and the candidate says it retrieved nothing beyond the provisioned inputs and statpack. The reasoning does not read the outcome off anything. `not_applicable`, not suspected.
+
+**Big case (own read, 0.85).** A post-SFFA proxy-discrimination question in K-12 selective admissions, with an acknowledged circuit conflict, now granted for plenary review.

@@ -1,0 +1,22 @@
+# Evaluation of `claude-baseline` — `scotus/9026000013` (`evt-petition-disposition`)
+
+## Outcome and Quantitative Summary
+
+- **Stage:** `cert` (petition for a writ of certiorari in *Khalid Shaikh Mohammad, et al. v. United States*, No. 26-13).
+- **Actual outcome:** `denied` (`actual_granted = 0`) on October 19, 2026, after three total distributions (`distribution_count = 3`, `cvsg_date = null`, `noted_dissent_from_denial = false`; Justice Kavanaugh took no part in the consideration or decision of the petition).
+- **Prediction:** `predicted_disposition = "denied"`, `probability = 0.14` (`correct = 1`, `brier_score = 0.0196`).
+- **Base rate & skill:** Because the scored prediction carries a frozen `context.band` (`baseline` under `sal-v4`), `segment_base_rate`, `brier_skill_score`, and `base_rate_basis` are left null for the harness to stamp from the committed statpack risk-set pool. `claude-baseline` properly anchored on the stamped segment base rate before adjusting upward to 0.14 for case-specific cert signals while keeping denial strongly favored.
+
+## Reasoning Quality (`0.93`)
+
+`claude-baseline` delivered a comprehensive, well-structured, and legally sound analysis in `reasoning.md` that synthesized the quantitative baseline, the docket signals, and the competing arguments in the Petition and Brief in Opposition:
+
+1. **Proper base-rate anchoring:** `claude-baseline` explicitly started from the frozen `context.json` (`baseline` under `sal-v4`, Term 2026, one distribution) and pooled the strictly-prior Terms' risk-set rates in `metrics/statpack.md` corresponding to the stamped segment base rate, treating descriptive cuts (D.C. Circuit origin, capital marking) as qualitative context rather than compounding multipliers. It also correctly flagged the metadata mismatch between the petition's `CAPITAL CASE` cover header and the snapshot's `bCapitalCase: false` field.
+2. **Accurate synthesis of upward vs. downward cert factors:** It identified why the petition commanded serious Conference attention (which indeed produced two reschedulings and three distributions before denial): D.C. Circuit origin, Judge Wilkins' partial dissent below (143 F.4th 411), three cert-stage amicus briefs (Professor Vladeck, Professor Finkelstein, and 9/11 victim families), the companion petition (*bin 'Atash*, No. 25-1335), and the substantive tension under *Will v. United States* where the D.C. Circuit issued mandamus "in aid of" prospective jurisdiction without deciding whether 10 U.S.C. § 950g authorizes a government appeal from a final judgment.
+3. **Persuasive analysis of the decisive denial factors:** `claude-baseline` accurately explained why the Solicitor General's opposition would prevail: the BIO credibly dismantled the claimed circuit split by showing that *Kane*, *Dior*, *McVeigh*, and the Second Circuit decisions either recognized or assumed mandamus jurisdiction and denied relief on case-specific grounds; the sui generis military-commission appellate scheme (10 U.S.C. § 950g) and thin preservation below made the petition a poor vehicle for resolving civilian criminal mandamus questions under 18 U.S.C. § 3731; and the Court has consistently declined interlocutory intervention in Guantanamo military-commission litigation since *Boumediene* (*al-Nashiri*, *al Bahlul*, *Khadr*).
+4. **Validated recusal analysis:** `claude-baseline` noted Justice Kavanaugh's non-participation on the sealing motion (`25M91`), inferred he would remain recused on the petition—which the October 19, 2026 denial order confirmed—and rightly observed that requiring four votes out of an eight-Justice bench (with risk of a 4–4 merits affirmance) cut against granting review.
+
+## Leakage Assessment
+
+- **Mode:** `forward` (run on September 18, 2026 against `2026-09-18.json`, one month prior to the October 19, 2026 denial).
+- **Assessment:** `retrieved_outcome_material = false`, `influenced_prediction = "not_applicable"`, `leakage_suspected = false`. All 32 calls in `retrieval_log.json` are `captured` (`result_capture_coverage = 1.0`). External retrieval consisted of checking the companion *bin 'Atash* docket (No. 25-1335) on CourtListener and supremecourt.gov, checking the live No. 26-13 docket page on September 18 (which had no entries past September 9), reading pre-conference press coverage, and reading the petitioners' September 8 reply brief PDF. The case was genuinely unresolved when predicted, and no `data/qp-topics/` paths were accessed.

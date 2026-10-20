@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500235",
+  "gaps": [
+    "gemini-baseline has no captured tool results, limiting direct inspection of retrieved content.",
+    "The separately retrieved historical Dean opinion body is not included in the blinded log; its query and result metadata are visible."
+  ],
+  "helpful": [
+    "Blinded prediction files and fixed prose pointers preserve candidate anonymity.",
+    "Harness retrieval logs distinguish captured from unobserved results.",
+    "Outcome and dated docket snapshot establish forward timing and exact score inputs.",
+    "Provisioned question presented, petition and opposition permit checks of the competing legal arguments."
+  ],
+  "notes": "No corpus, CourtListener or web retrieval by this evaluator; no statpack rate consulted or pooled because every candidate froze a cert band. Read-only independent review audited supplied scoring facts and field ownership, not candidate identity or unseen result content. Full-ledger validation is deferred to the restoring/un-aliasing harness; output JSON is validated locally against committed schemas.",
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local provisioned-file reads",
+    "JSON Schema validation",
+    "read-only scoring-contract review subagent"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

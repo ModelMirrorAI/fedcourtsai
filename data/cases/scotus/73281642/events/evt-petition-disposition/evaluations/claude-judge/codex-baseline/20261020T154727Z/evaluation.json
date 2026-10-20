@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.45,
+    "notes": "Recurring constitutional question (Takings Clause compensation for police-inflicted damage to innocent owners) with an acknowledged circuit disagreement on the police-power exception and five cert-stage amici, but the Court has now passed on it repeatedly (Lech, Baker, Slaybaugh, and here after two relists, with no noted dissent). Modest individual stakes; significance is doctrinal and would have been meaningful if granted, not term-defining."
+  },
+  "brier_score": 0.09,
+  "brier_skill_score": -33.32023409706838,
+  "case_id": "scotus/73281642",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": -0.08737764026476474
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.44,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.24,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.08737764026476474,
+    "total": -0.08737764026476474
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T16:26:43Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (prediction 2026-09-16, before any conference on the petition; resolution 2026-10-19). Retrieval: statpack md/json, provisioned record, two unobserved site:supremecourt.gov searches and one PDF open for the 2024 Baker statement (precedent, not this case), and one CourtListener search for Baker that returned HTTP 429. A find excluded data/qp-topics via -not -path, which is not a read. No query targeted this petition's disposition; none could exist yet.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T16:27:46.691059Z"
+  },
+  "reasoning_quality": 0.72,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120898100172712,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

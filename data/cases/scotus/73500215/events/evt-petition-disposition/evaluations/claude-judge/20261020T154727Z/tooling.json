@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500215",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Blinded staging with retrieval_log call classes and result_capture markers made the forward leakage check quick", "Frozen context.band let the harness own the base-rate anchor, so no hand pooling was needed"],
+  "gaps": [],
+  "notes": "Cert cell, all three candidates forward with a frozen baseline band; no corpus lookups needed."
+}

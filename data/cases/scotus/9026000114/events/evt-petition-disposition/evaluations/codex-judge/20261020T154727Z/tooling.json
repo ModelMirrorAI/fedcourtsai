@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000114",
+  "gaps": [],
+  "helpful": [
+    "Blinded prediction and rationale pairs",
+    "Harness-captured retrieval queries and result-capture markers",
+    "Provisioned outcome, docket snapshot, and filed documents"
+  ],
+  "notes": "No external retrieval was needed. No statpack was consulted or baseline recomputed: every candidate froze a cert band, so the harness owns the anchor and skill. gemini-baseline's unobserved results and codex-baseline's two unobserved web results were assessed from queries without treating null dates as evidence of empty returns.",
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local file reads",
+    "jq",
+    "apply_patch",
+    "Pydantic validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

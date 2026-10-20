@@ -1,0 +1,11 @@
+# codex-baseline — scotus/9026000012, evt-petition-disposition
+
+**Cell.** Cert stage (`stage: cert`, moment `distribution`), forward mode. Outcome: `granted` (plenary), resolved 2026-10-19 after three distributions; `actual_granted` = 1. The prediction froze `context.band` = `elevated` (sal-v4, Term 2026), so `segment_base_rate`, `brier_skill_score` and `base_rate_basis` are left null for the harness stamp; the comparison point is the stamped segment base rate. `correct` and `brier_score` are written as my independent read. No votes are scored at the cert stage.
+
+**Scores.** Predicted `denied` at P(grant) = 0.22 → `correct` = 0; Brier = (0.22 − 1)² = 0.6084.
+
+**Reasoning quality (0.62).** A careful, well-sourced analysis. Strengths: it identified the two right upward signals, the Court calling for a response after a waiver and a real circuit conflict. It also checked the split against the primary Sargent opinion rather than relying on either brief, and correctly saw that the real disagreement is over what counts as discriminatory effect, not "sequencing". Its handling of the band anchor and its discount of the reschedule-inflated distribution count are disciplined. Where it went wrong: it weighted vehicle problems most heavily (the alternative intent ground, the unpublished per curiam, the COVID lottery facts) and the prior TJ/Boston denials, and so stayed well below even odds. The grant shows that the newly deepened split and three Justices' prior writings outweighed those vehicle concerns, which the candidate treated as decisive. It did not read the reply brief, and that brief answers the forfeiture point. Sound reasoning that underweighted the strongest signals. The miss was a judgement call, not an analytical error.
+
+**Leakage.** Forward; prediction 2026-09-27, resolution 2026-10-19. No retrieved document dated on or after resolution. External calls were the Sargent opinion (Feb 2026) and two unobserved general-doctrine web calls, graded on their queries (Arlington Heights), which do not target this case. Its prose discloses them openly. `not_applicable`, not suspected.
+
+**Big case (own read, 0.85).** A post-SFFA proxy-discrimination question in K-12 selective admissions, with an acknowledged circuit conflict, now granted for plenary review.

@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.42,
+    "notes": "The petition raises a genuine doctrinal question at the intersection of Miller v. Alabama, Montgomery v. Louisiana, and Jones v. Mississippi regarding whether an express or implicit sentencing finding of capacity for change bars juvenile life without parole under the Eighth Amendment. However, its practical reach and national significance are tempered by Utah's prospective abolition of JLWOP in 2016 (leaving only two Utah inmates affected), the ambiguous pre-Miller 2002 sentencing transcript, an interlocutory remand posture, the absence of multistate amicus support, and Respondent's consecutive Arizona life sentence."
+  },
+  "brier_score": 0.0256,
+  "brier_skill_score": 0.5033709885115516,
+  "case_id": "scotus/73281394",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.22704081632653061,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.16,
+        "score": 0.025947532278217406
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.025947532278217406,
+    "total": 0.025947532278217406
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T15:52:00Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction generated on 2026-09-16 against the 2026-09-15 snapshot, more than a month before the 2026-10-19 denial. In retrieval_log.json, 28 of 30 calls are captured (coverage 0.933); the two unobserved web-search calls queried only the 2021 Jones v. Mississippi opinion (No. 18-1259), which the candidate then read via CourtListener MCP (593 U.S. 98). No outcome-revealing material existed or was sought.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T16:30:14.753027Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.22704081632653061,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
