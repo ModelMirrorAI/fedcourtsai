@@ -590,8 +590,11 @@ jobs:
       # `actual_disposition`, and in both files a case's moment column names
       # its newest predicted event, where a merits moment discloses the grant
       # the way a merits event in the ledger does. (The standing cert
-      # back-test report, the other such file under `metrics/`, is held out by
-      # `cert-backtest` itself.) So both halves of the board leave the tree
+      # back-test report, another such file under `metrics/`, is held out by
+      # `cert-backtest` itself.) The weekly public update history,
+      # `metrics/updates/`, is a third: each week's resolved section prints
+      # decided events beside their outcome words, so it leaves the tree with
+      # the board, on the same terms, and comes back with it. So both halves of the board leave the tree
       # with the ledger, on the same terms and with the same residuals — a
       # fence against an incidental read, the committed copy one `git show`
       # away — plus one more: the board is published, and a cell's web tools
@@ -602,6 +605,9 @@ jobs:
       # restore below puts the files back from the commit before it runs.
       - name: Remove the big-case board from the replay's tree
         run: rm -f metrics/big-cases.json metrics/big-cases.md
+
+      - name: Remove the update history from the replay's tree
+        run: rm -rf metrics/updates
 
       # The replay provisions redacted snapshots from the corpus, so it must be
       # on disk; without a pointer there is nothing to back-test.
@@ -782,19 +788,25 @@ jobs:
       # report hand-off. `HEAD` rather than the index: a cell that staged its
       # own bytes for the paths would otherwise have them restored, and the
       # porcelain check refuses anything left differing from the commit.
-      - name: Restore the big-case board and assert it is pristine
+      - name: Restore the big-case board and the update history and assert both are pristine
         # `!cancelled()` for the same reason as the ledger restore above: the
         # steps after it read this checkout whether or not the replay failed.
         if: ${{ !cancelled() }}
         run: |
           set -euo pipefail
           git checkout HEAD -- metrics/big-cases.json metrics/big-cases.md
-          if [ -n "$(git status --porcelain -- metrics/big-cases.json metrics/big-cases.md)" ]; then
-            echo "::error::the big-case board is not pristine after the restore"
-            git status --porcelain -- metrics/big-cases.json metrics/big-cases.md
+          # The history directory exists on the commit only once its first week
+          # has merged; before that there is nothing to restore.
+          if [ -n "$(git ls-tree -d --name-only HEAD metrics/updates)" ]; then
+            git checkout HEAD -- metrics/updates
+          fi
+          if [ -n "$(git status --porcelain -- metrics/big-cases.json metrics/big-cases.md)" ] \
+            || [ -n "$(git status --porcelain -- metrics/updates)" ]; then
+            echo "::error::the big-case board or the update history is not pristine after the restore"
+            git status --porcelain -- metrics/big-cases.json metrics/big-cases.md metrics/updates
             exit 1
           fi
-          echo "big-case board restored pristine"
+          echo "big-case board and update history restored pristine"
 
       # The salience-gate mode replays the deterministic gate, not the
       # predictors: `fedcourts salience-replay` runs offline over the pulled

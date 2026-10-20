@@ -693,6 +693,13 @@ def test_the_composite_hands_merge_targets_through_a_step_output() -> None:
     assert armed.index("merge_targets+=") < armed.index("\n  fi\n")
 
 
+def test_the_update_history_job_merges_its_pr_with_the_committed_script() -> None:
+    job = _load(WORKFLOWS / "run-analytics.yml")["jobs"]["public-updates"]
+    step = next(s for s in _steps(job) if s.get("name") == "Open or update the history PR")
+    assert MERGE_SCRIPT_FROM_COMMIT in step["run"]
+    assert step["env"]["CHECKS_TOKEN"] == "${{ github.token }}"
+
+
 def test_the_board_job_merges_its_pr_with_the_committed_script() -> None:
     job = _load(WORKFLOWS / "run-analytics.yml")["jobs"]["big-cases"]
     step = next(s for s in _steps(job) if s.get("name") == "Open or update the board PR")

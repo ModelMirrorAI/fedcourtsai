@@ -46,7 +46,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates one Buttondown draft, never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -297,8 +297,9 @@ call, no branch write.
 
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a
-derived artifact is a mode here (dispatch `mode` input, or one of the two
-schedules — the weekly metrics refresh and the daily big-case board, each gated
+derived artifact is a mode here (dispatch `mode` input, or one of the three
+schedules — the weekly metrics refresh, the daily big-case board and the weekly
+update history, each gated
 on which cron fired rather than on the event class),
 each as its own least-privilege job holding only the credentials its mode needs.
 
@@ -311,7 +312,7 @@ run only there — bind `prod`, while
 forwards the out-of-band index pointer off `main`, since the committed
 pointer names the production blob; any other ref resolves its own name,
 which names no configured environment and binds nothing — fail-closed). The
-three publishing jobs' App-token mint, git-identity and PR steps are
+four publishing jobs' App-token mint, git-identity and PR steps are
 fenced to `main`-branch runs, so a staging dispatch is a **rehearsal**: it
 runs a mode as far as the staging pair's contents support — the labeling
 mode's extract enforces its reference-coverage floor against that corpus, so
@@ -391,8 +392,8 @@ queues behind the production run of the same mode. The modes:
   byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
   by the tested `metrics-refresh-plan` command: never a
   direct commit to `main`, never auto-merged. It mints the dev App token to do
-  so; `big-cases` and `qp-topic-publish` below are the only other jobs here that
-  do. The branch is fixed
+  so; `big-cases`, `public-updates` and `qp-topic-publish` below are the only
+  other jobs here that do. The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
   place by the next tick rather than stacking. It gates on the weekly cron by
   name (`github.event.schedule`), not on the event class, because a `schedule`
@@ -413,7 +414,8 @@ queues behind the production run of the same mode. The modes:
   [metrics/README.md](../metrics/README.md)'s section for the board; the short
   version is that a stakes read is neither scored nor ranked.
 
-  It is the **one PR lane here that merges unattended**, and the argument is about the
+  It is one of the **two PR lanes here that merge unattended** (with
+  `public-updates` below), and the argument is about the
   artifact rather than the cadence. The board is a byte-stable pure function of
   the committed ledger and the committed schedule (whose rows carry no build
   day, so it moves only when a case's conference does), so a day that changed
@@ -431,6 +433,25 @@ queues behind the production run of the same mode. The modes:
   waits for an approval. (That the job's own call does exercise it is
   unverified until its first production run; its summary says which.) The job arms it anyway, so where its own merge gives
   up the PR stays open and lands on the maintainer's approval.
+- **`public-updates`** (weekly schedule Mon 12:59 UTC, or dispatch) adds each
+  missing week's public update to the site's running history,
+  `metrics/updates/<YYYY-Www>.md`, with `fedcourts archive-public-updates`, and
+  lands it as a PR to `main` on the fixed, force-pushed `metrics/public-updates`
+  branch. Each file is the `public-update` render the email draft carries, with
+  its title as a heading; `post-public-update` drafts at 12:57, so the page and
+  the draft read the same `main` unless a commit lands between the two runs. The
+  history starts at the first week the list was sent and is write-once once
+  merged: a week on `main` is never re-rendered, not even for a later void or
+  set-aside (a correction is a reviewed PR), while a week whose PR has not
+  merged is rendered again by the next run. A week with nothing to show gets no
+  file and is looked at again each run, so a missed week, or one that later
+  gains a dated entry, is written when a run first finds it non-empty, rendered
+  from the ledger as it then stands. It reads `data/` only, like `big-cases`, and does not bind
+  `website`. It merges unattended on the board's argument, with a narrower
+  bound: the required `paths` check runs the tested `assert-update-paths` jail
+  on this branch, which admits added week files under `metrics/updates/` and
+  nothing else, no modify and no delete. A draft the maintainer edits before
+  sending, or never sends, is still archived as rendered.
 - **`tool-usage`** (dispatch) rolls every committed `retrieval_log.json` into an
   **offered-vs-called** report: which configured MCP tools were never called,
   which are used by some engines and not others, and call counts per tool /
@@ -1716,8 +1737,9 @@ The mechanics:
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, and salience-replay PRs, the qp-topic
   labeling run's `qp-topics/refresh` PR, the case-summary lane's
-  `summaries/refresh` PR, and the big-case board's
-  `metrics/big-cases` PR); on those
+  `summaries/refresh` PR, the big-case board's
+  `metrics/big-cases` PR and the update history's `metrics/public-updates`
+  PR); on those
   legitimate lanes it reports `skipped`, which satisfies the requirement. Its
   definition lives in `main`'s own ci.yml, so the context reports on every
   lane into `main` (docs/security.md inventories this).
@@ -2627,7 +2649,10 @@ discloses the grant the way a merits event in the ledger does. Nothing the
 replay runs reads either file. The salience-gate arm writes under `metrics/`
 in the same checkout, so the board comes back from the commit, asserted
 pristine, before that arm runs; and since only the arm's own report crosses
-to `publish`, its removal never reaches what the PR commits. The standing `metrics/cert-backtest.json` is withheld by
+to `publish`, its removal never reaches what the PR commits. The weekly public
+update history, `metrics/updates/`, leaves and comes back with the board on the
+same terms, because each week's resolved section names decided events beside
+their outcomes. The standing `metrics/cert-backtest.json` is withheld by
 `cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)).
 
 Two residuals ride that fence, and both are the reason it is described as

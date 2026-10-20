@@ -1,6 +1,6 @@
 """The unattended data-lane merge, driven against a stand-in for `gh`.
 
-`scripts/merge-when-green.sh` lands the collect and big-case-board PRs because
+`scripts/merge-when-green.sh` lands the collect, big-case-board and update-history PRs because
 armed auto-merge never exercises the dev App's approval bypass. Its contract is
 mostly about when it does *not* merge — a moved head, a failed check, a refusal
 nothing is still running to clear, a deadline — so each of those is driven

@@ -4,7 +4,7 @@ name: run-analytics
 # same mode at a glance, or a rehearsal reads as production history. Both
 # components are server-validated vocabulary: `mode` is a closed choice, and
 # the environment half is the same branch resolution the jobs bind.
-run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (startsWith(github.event.schedule, '41 ') && 'metrics-refresh (schedule)' || 'big-cases (schedule)') }} @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
+run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || (startsWith(github.event.schedule, '41 ') && 'metrics-refresh (schedule)' || startsWith(github.event.schedule, '59 ') && 'public-updates (schedule)' || 'big-cases (schedule)') }} @ ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
 
 # Corpus analysis & derived metrics. One surface for every task that reads the
 # corpus and answers a question or refreshes a derived artifact, selected by
@@ -43,6 +43,12 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      cron's job, because a website renders this board off `main`
 #                      and a weekly cadence would publish a stale one six days in
 #                      seven. The unattended merge is argued at the job.
+#   - public-updates:  add each missing week's public update to the site's
+#                      running history under `metrics/updates/` (`fedcourts
+#                      archive-public-updates`) and land it as an **unattended**
+#                      PR. Reads `data/` only, like big-cases. It is the Monday
+#                      cron's job, just after post-public-update drafts the
+#                      week's email. The unattended merge is argued at the job.
 #   - tool-usage:      roll the committed retrieval logs into an offered-vs-called
 #                      report (`fedcourts tool-usage`) — which configured MCP
 #                      tools cells actually call. Reads `data/` only, so unlike
@@ -61,17 +67,19 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # result goes to the Actions step summary and the run log, and the census's machine
 # JSON additionally to a run artifact, because a review of record has to outlive the
 # summary page it is read beside — and text-coverage's ledgers to an artifact for
-# the same reason. The three committing modes write only under their own
+# the same reason. The four committing modes write only under their own
 # paths — metrics-refresh under `metrics/` + `data/scope/`, big-cases under
-# `metrics/big-cases.*`, qp-topic-label under `data/qp-topics/` — and land the
-# change as a PR to `main`, reviewed except for the board's (argued at that job).
+# `metrics/big-cases.*`, public-updates under `metrics/updates/`, qp-topic-label
+# under `data/qp-topics/` — and land the change as a PR to `main`, reviewed
+# except for the board's and the update history's (argued at those jobs).
 # GitHub scopes permissions and tokens per **job**, so each mode runs as its own
 # least-privilege job gated on `mode` and none is ever granted another's credential:
 # corpus-stats, distribution-census, text-coverage and qp-topic-extract hold only the read-only S3
 # role; metrics-refresh holds that role *and* mints the dev App token (contents + PR
-# write) for its review PR; qp-topic-label and big-cases mint the same token but
-# assume no role at all — the first because it is the one job here that runs an
-# agent, the second because it reads nothing but the committed ledger; and
+# write) for its review PR; qp-topic-label, big-cases and public-updates mint the
+# same token but assume no role at all — the first because it is the one job here
+# that runs an agent, the other two because they read nothing but the committed
+# ledger; and
 # tool-usage binds no environment and assumes no role, having no PR to open.
 #
 # Every environment-binding job resolves its environment from the dispatching
@@ -88,7 +96,7 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # reference-coverage floor, which refuses a slice not carrying the reference
 # texts before the labeler ever starts (and with it, via `needs`, the labeler
 # job), itself a rehearsal observation — and never publication, which is a
-# production act. The three publishing jobs fence their App-token mint,
+# production act. The four publishing jobs fence their App-token mint,
 # git-identity and review-PR steps to runs on the `main` branch ref exactly
 # (`github.ref`, not `github.ref_name`, which a tag named `main` also
 # satisfies — the prod deployment-branch policy is the real gate; the fence
@@ -99,7 +107,7 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # run belongs on a staging ref.
 on:
   schedule:
-    # Two crons, and every scheduled job gates on **which** one fired
+    # Three crons, and every scheduled job gates on **which** one fired
     # (`github.event.schedule`): an `event_name == 'schedule'` gate is fail-open
     # on any cron it does not name, so a second entry would otherwise run the
     # weekly refresh daily. The mode-gated jobs stay skipped either way — a
@@ -113,6 +121,11 @@ on:
     # corpus, so it waits on no pull window; the slot is its own minute on the
     # repo's schedule grid, which keeps two workflows off one runner queue tick.
     - cron: "36 4 * * *"
+    # Weekly update history (Mon 12:59 UTC), two minutes after
+    # post-public-update drafts the week's email at 12:57, so both usually
+    # render the same `main`; its own minute keeps the two off one runner
+    # queue tick, and a dropped tick is caught up the next Monday.
+    - cron: "59 12 * * 1"
   workflow_dispatch:
     inputs:
       mode:
@@ -124,6 +137,7 @@ on:
           - text-coverage
           - metrics-refresh
           - big-cases
+          - public-updates
           - tool-usage
           - qp-topic-label
         default: corpus-stats
@@ -841,8 +855,8 @@ jobs:
     # nothing else. That is also why it can run daily at no cost and outside the
     # corpus-settled window the weekly refresh waits for.
     #
-    # It is the one PR lane here that **merges unattended**, and the reason is the
-    # artifact rather than the schedule. The board is a byte-stable pure function
+    # It is one of the two PR lanes here that **merge unattended** (with
+    # public-updates), and the reason is the artifact rather than the schedule. The board is a byte-stable pure function
     # of the committed ledger, so a day that changed nothing opens nothing, and a
     # day that changed something re-rolls committed cells by a command whose own
     # tests the required `gate` check re-runs on the PR — there is no judgement in
@@ -1025,6 +1039,164 @@ jobs:
               echo '```'
             else
               echo "The regenerate step did not succeed (outcome: ${REGENERATED}); no diff to report."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  public-updates:
+    needs: [authorize]
+    # The site's running history of weekly public updates (`fedcourts
+    # archive-public-updates`): one `metrics/updates/<YYYY-Www>.md` per week the
+    # email list was offered, which the website renders off `main` as its
+    # updates page. Each file is the `fedcourts public-update` render the email
+    # draft carries, with its title as a heading rather than a subject, rendered
+    # from the ledger as it stands when the file is first written.
+    #
+    # It reads `data/` only — no corpus, no network, no cloud credential — so,
+    # like big-cases, it assumes no role and the App token is for the PR alone.
+    # It does not bind `website`: the Buttondown key stays with the one job that
+    # drafts the email.
+    #
+    # It merges **unattended**, on the board's argument and a narrower bound. The
+    # file is a byte-stable pure function of the committed ledger, the history is
+    # write-once once merged (a week on `main` is never re-rendered; a week whose
+    # PR has not merged is rendered again by the next run), and a week with
+    # nothing to show gets no file — so a run adds the missing weeks' files or
+    # opens nothing. The required `paths` check runs the tested
+    # `assert-update-paths` jail on this branch: added `metrics/updates/` week
+    # files and nothing else, no modify and no delete. What it publishes is the
+    # ledger the site already shows, in the email's words; a draft the
+    # maintainer edits or never sends is still archived as rendered. A published
+    # week does not follow a later void or set-aside: correcting one is a
+    # reviewed PR, which this jail refuses by design.
+    if: >-
+      ${{ ((github.event_name == 'schedule' && startsWith(github.event.schedule, '59 ')) ||
+      inputs.mode == 'public-updates')
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-24.04
+    # The render takes seconds; the rest is the merge's wait for the PR's
+    # required checks, which the merge script bounds at 20.
+    timeout-minutes: 30
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    concurrency:
+      group: run-analytics-public-updates-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      checks: read # the merge lists the history PR's check runs (GITHUB_TOKEN)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Add the missing weeks to the update history
+        id: archive
+        run: |
+          set -euo pipefail
+          uv run fedcourts archive-public-updates | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Minted on `main`-ref runs only, on the board's terms: the dev App's
+      # credentials live on the prod environment alone, and a rehearsal
+      # publishes nothing.
+      - name: Mint app token
+        if: ${{ github.ref == 'refs/heads/main' }}
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.DEV_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEV_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Configure git identity
+        if: ${{ github.ref == 'refs/heads/main' }}
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # The board's PR step, on a fixed force-pushed branch. No secret scan:
+      # every string in an update is already public on `main` — captions from
+      # the deterministic writers' committed event records, predictor ids,
+      # probabilities and run paths from collect-scanned cells — plus fixed
+      # prose, so this lane opens no new channel.
+      # The title and body carry only the week count and fixed prose.
+      - name: Open or update the history PR
+        if: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CHECKS_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: metrics/public-updates
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          # The directory is absent until a week has something to show.
+          if [ -d metrics/updates ]; then git add -A metrics/updates; fi
+          if git diff --cached --quiet; then
+            echo "Update history is current; nothing to publish." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # The required `paths` check's jail, run here first, as the board does.
+          git diff --cached --name-status > update-changes.txt
+          uv run fedcourts assert-update-paths --name-status-file update-changes.txt
+          weeks=$(grep -c . update-changes.txt)
+          title="metrics: add ${weeks} week(s) to the public update history"
+          {
+            printf '%s\n\n' "Adds ${weeks} week(s) to \`metrics/updates/\`, rendered from the committed ledger by \`fedcourts archive-public-updates\` — the same render the week's email draft carries. The history is write-once, so this PR only adds files."
+            printf '%s\n\n' "**Not a performance surface.** An update states forecasts and outcomes side by side and computes no score (\`metrics/README.md\`). It merges unattended once the same required checks a reviewed PR faces pass."
+            printf '%s\n' "Run: ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}"
+          } > pr-body.md
+          git checkout -q -b "$BRANCH"
+          git commit -q -m "$title"
+          git -c http.extraHeader= -c "http.https://github.com/.extraHeader=" \
+            push --force "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" \
+            "HEAD:refs/heads/${BRANCH}"
+          existing=$(gh pr list --repo "$REPO" --head "$BRANCH" --base main --state open \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --repo "$REPO" --title "$title" --body-file pr-body.md
+            url=$(gh pr view "$existing" --repo "$REPO" --json url --jq '.url')
+            echo "Updated history PR #${existing} in place." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh pr create --base main --head "$BRANCH" \
+              --title "$title" --body-file pr-body.md)
+            echo "Opened history PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+          gh pr merge --auto --squash "$url" || {
+            echo "::warning::could not enable auto-merge on ${url}; merge it by hand"
+            echo "Auto-merge could not be enabled on ${url}; merge it by hand." \
+              >> "$GITHUB_STEP_SUMMARY"
+          }
+          # Landed by the job itself, as the board is: armed auto-merge waits for
+          # an approval the dev App's bypass covers only on a direct merge.
+          script="${RUNNER_TEMP}/merge-when-green.sh"
+          git show "${GITHUB_SHA}:scripts/merge-when-green.sh" > "$script"
+          bash "$script" "${url##*/}" "$(git rev-parse HEAD)" < /dev/null
+
+      - name: Report the rehearsal record (publish fenced off this ref)
+        if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
+        env:
+          ARCHIVED: ${{ steps.archive.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### public-updates rehearsal — publish fenced to main-branch runs"
+            echo
+            echo "The history PR mint did not run; nothing published from this dispatch."
+            if [ "$ARCHIVED" = "success" ]; then
+              if [ -d metrics/updates ]; then git add -A metrics/updates; fi
+              echo '```'
+              git diff --cached --stat -- metrics/
+              echo '```'
+            else
+              echo "The archive step did not succeed (outcome: ${ARCHIVED}); no diff to report."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -2338,7 +2510,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, corpus-stats, distribution-census, tool-usage, text-coverage, metrics-refresh, big-cases, qp-topic-extract, qp-topic-label, qp-topic-publish]
+    needs: [authorize, corpus-stats, distribution-census, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-extract, qp-topic-label, qp-topic-publish]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5

@@ -38,7 +38,7 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   `run-evaluate`; no job that runs an agent names it), the reviewed-PR openers (`run-backtest`'s publish job,
   `run-analytics`'s metrics-refresh and qp-topic-publish jobs, and
   `summarize`'s publish job),
-  `run-analytics`'s big-cases job (the one PR opener here that merges its own PR unattended),
+  `run-analytics`'s big-cases and public-updates jobs (the two PR openers here that merge their own PRs unattended),
   `sync-staging`, and the promotion train (`promotion-prep`'s `write` job),
   which cuts each frozen `promote/<date>` candidate, opens its PR and merges
   it on the configured approver's approval of exactly its head.
@@ -98,7 +98,8 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | `run-predict`, `run-evaluate` (`collect` job only) | dev | contents, pull-requests | the cell jobs name no App credential: a Claude cell's action gets the job's own token, capped at `contents: read` by the cell job's permissions, and the codex and gemini cells get none. The workflow commits, and `collect` merges its run PR once the required checks pass with a second workflow token minted for that step alone. The engine watchdog that brackets every engine step holds no token: it reports only on the runner, through the cell's own tail |
 | `run-backtest` (publish job only) | dev | contents, pull-requests | open the reviewed back-test PR. The replay job holds no App credential: it hands the arm's one report to the publish job as a one-day artifact, and the publish job, which runs no engine and assumes no role, checks that the hand-off holds that file alone, that the tree differs from the commit there alone, and scans the change and the PR prose for secrets, all before it mints. The `cadence` guard holds no App token either, only an ambient `actions: read` over this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
-| `run-analytics` (big-cases job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** big-case-board PR — the one PR opener in this repo that is not reviewed by a human, which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
+| `run-analytics` (big-cases job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** big-case-board PR — one of the two PR openers in this repo not reviewed by a human (with the public-updates row below), which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
+| `run-analytics` (public-updates job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** update-history PR, whose diff the required `paths` check bounds independently (`assert-update-paths`: added `metrics/updates/<YYYY-Www>.md` files, nothing else). The job assumes no role, holds no `id-token` and does not bind `website`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the rows above |
 | `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR, from a job that runs no agent and takes only the measured labels file and the measured block from `qp-topic-label`, as a one-day artifact handed off once the gate has passed. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
 | `promotion-prep` (`write` job only — the promotion train) | dev | contents, pull-requests | create a `promote/<date>` candidate branch at staging's tip (the one ref write; never an update, force push or deletion), open its draft PR into `main`, mark it ready, request the approvers' review, refresh the generated block of its body — and **merge it**, with a merge commit pinned to the head, using the dev App's `main: require approval` bypass. The merge runs only after the job re-reads, on the ambient token before minting, that the PR is open, ready and unchanged at the planned head, that an approver in `config/promotion-train.yaml` approved exactly that head with no change requested since, from every page of the reviews (`fedcourts promotion-train-approval`; a short or failed read is not approved), that no fan-out is in flight, and that the registry gate still passes; `main: require PR`'s required checks still bind the merge. The `plan` job before it decides and renders holding no write credential and no environment |
@@ -379,8 +380,8 @@ pre-registration record's commit ids.
     runs — and fails — only on a PR to `main` whose head
     is not a same-repo `staging` or non-feature lane, so a feature PR
     cannot ride around the promotion path by mistake. Those lanes are all
-    reviewed except the big-case board's, which merges unattended behind the `paths`
-    jail below. Rulesets cannot constrain
+    reviewed except the big-case board's and the weekly update history's, which
+    merge unattended behind the `paths` jail below. Rulesets cannot constrain
     a PR's source branch, which is why it is a check rather than a rule. Its
     job definition lives in `main`'s own `ci.yml`, so the context reports on
     every lane into `main`; adding a context like it goes through the *Adding
@@ -418,11 +419,14 @@ pre-registration record's commit ids.
     an engine added to `config/predictors.yaml` or `config/evaluators.yaml`
     brings its discovery names in the same change (review-enforced, not tested).
     The same check carries the
-    second unattended lane's jail: `run-analytics`'s daily `big-cases` job opens
+    other unattended lanes' jails: `run-analytics`'s daily `big-cases` job opens
     its board PR on the `metrics/big-cases` branch, and there `paths` runs
     `fedcourts assert-board-paths`, which admits writes of
-    `metrics/big-cases.{json,md}` and nothing else — one bounded diff per lane, so
-    neither unattended merge can carry a change a human never read. It is a no-op that
+    `metrics/big-cases.{json,md}` and nothing else; its weekly `public-updates`
+    job opens its PR on the `metrics/public-updates` branch, and there `paths`
+    runs `fedcourts assert-update-paths`, which admits added
+    `metrics/updates/<YYYY-Www>.md` files and nothing else — one bounded diff per
+    lane, so no unattended merge can carry a change a human never read. It is a no-op that
     passes on every other branch, so requiring it never blocks an ordinary PR. The
     same jail runs producer-side in each collect job; requiring it here enforces
     the guarantee independently of the workflow that produced the branch. Two
@@ -479,8 +483,8 @@ pre-registration record's commit ids.
   ineligible to. A train candidate's only push is the dev App's ref creation,
   never the maintainer's, so the rule would not block its approval either way;
   it stays off for the hand promotions. **Bypass**, each scoped to what it lands:
-  - the **dev App**, for pull requests only — the two unattended lanes
-    (`collect` and the big-case board) land without a human, still bound by
+  - the **dev App**, for pull requests only — the three unattended lanes
+    (`collect`, the big-case board and the weekly update history) land without a human, still bound by
     `main: require PR`'s checks and the `paths` jail, because that ruleset
     does not list it. They land by the job's own merge call
     (`scripts/merge-when-green.sh`), not by GitHub's auto-merge, which never
@@ -667,14 +671,14 @@ pre-registration record's commit ids.
 
 ## Repository merge settings
 
-Settings → General → Pull Requests. Two lanes ask GitHub to merge a PR when the
+Settings → General → Pull Requests. Three lanes ask GitHub to merge a PR when the
 required checks pass — the predict and evaluate `collect` jobs, one PR per run,
-and `run-analytics`'s daily big-case board; these settings are what let that
+`run-analytics`'s daily big-case board and its weekly update history; these settings are what let that
 happen and keep the branch list clean. To reproduce the repo (or use it as a template), set:
 
 | Setting | Value | Why |
 |---------|-------|-----|
-| **Allow auto-merge** | **on** | The `collect` job and the `big-cases` job each run `gh pr merge --auto --squash` before merging the PR themselves, so a PR their own merge gives up on (a slow check, a refusal) still lands the moment the maintainer approves it. With it off that call errors and both degrade gracefully (log a warning and carry on); the jobs' own merge does not depend on it. |
+| **Allow auto-merge** | **on** | The `collect`, `big-cases` and `public-updates` jobs each run `gh pr merge --auto --squash` before merging the PR themselves, so a PR their own merge gives up on (a slow check, a refusal) still lands the moment the maintainer approves it. With it off that call errors and both degrade gracefully (log a warning and carry on); the jobs' own merge does not depend on it. |
 | **Allow squash merging** | **on** | The run PR is squash-merged, so each run lands as one commit. |
 | **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. (It cannot touch `main`: GitHub skips the default branch, and `main: protect history` refuses deletion from anyone.) |
 | **Allow merge commits** | **on** | `sync-staging` merges `main` into `staging` with `--merge`. A squash or rebase would land a commit with no parent link to `main`'s tip, so the promotion gate's ancestry check would fail and the next sync would reopen the same PR forever. |
@@ -691,7 +695,8 @@ on the ruleset that requires them (above), so the checks bind; it bypasses only
 the approval requirement. A bounded diff is what makes merging unattended safe, and the `paths`
 check carries one per lane: the append-only `data/` jail for agent output, and
 `assert-board-paths` — the board's two files, written, nothing else — for the
-big-case board.
+big-case board, and `assert-update-paths` — added week files under
+`metrics/updates/`, nothing else — for the weekly update history.
 
 The predict/evaluate `collect` job latches each run's rolled-up agent flags onto
 one long-lived `agent-feedback` tracking issue — the durable, centralized home for
@@ -1565,6 +1570,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
+| `run-analytics` — public-updates          | none          | adds the committed `data/` ledger's missing weeks to the update history — no corpus, no network, no `id-token`. It binds the branch-resolved environment, never `website`, because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `summarize` — plan, stage                 | read-only     | the case-summary plan (full `corpus-pull`, then each predicted case's newest snapshot and document texts from the content store) and the staging of each planned case's record with `provision-snapshot`, handed to the generate job as a one-day artifact |
 | `summarize` — generate, publish           | none          | generate holds the environment's Anthropic API key, assumes no role, has no `id-token: write`, and asserts both the AWS and the OIDC variables are absent first; publish holds the dev App token on `main` only |

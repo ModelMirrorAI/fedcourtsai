@@ -134,6 +134,7 @@ from .collect import (
     ThrottleRollup,
     assert_board_within_jail,
     assert_cleanup_within_jail,
+    assert_updates_within_jail,
     assert_within_jail,
     attempted_corpus_query,
     cell_failures,
@@ -398,6 +399,7 @@ from .promotion_train import (
 )
 from .promotion_train import decide as promotion_train_decide
 from .public_update import (
+    archive_public_updates,
     build_public_update,
     last_complete_week,
     public_update_subject,
@@ -11111,6 +11113,48 @@ def public_update_cmd(
         )
 
 
+@app.command("archive-public-updates")
+def archive_public_updates_cmd(
+    *,
+    through: Annotated[
+        str,
+        typer.Option(
+            help="Last ISO week to archive, as YYYY-Www; defaults to the last complete week (UTC)."
+        ),
+    ] = "",
+) -> None:
+    """Add each missing week's update to the site's history under ``metrics/updates/``.
+
+    Write-once: a week already there is left alone, and a week with nothing to
+    send gets no file. Starts at the first week the email list was sent, so a
+    missed run is caught up on the next one. Exits 2 on a malformed week or one
+    not yet complete, else 0, printing what it wrote.
+    """
+    settings = get_settings()
+    latest = last_complete_week(datetime.now(UTC))
+    chosen = through or latest
+    try:
+        week_bounds(chosen)
+    except ValueError as exc:
+        typer.echo(f"archive-public-updates: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    # A week still in progress would be frozen half-written by the write-once rule.
+    if week_bounds(chosen)[0] > week_bounds(latest)[0]:
+        typer.echo(
+            f"archive-public-updates: {chosen} is not complete yet (the last complete week "
+            f"is {latest}).",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    result = archive_public_updates(settings.data_root, settings.metrics_root, chosen)
+    for week in result.written:
+        typer.echo(f"archive-public-updates: wrote {week}")
+    typer.echo(
+        f"archive-public-updates: through {chosen}: {len(result.written)} written, "
+        f"{len(result.present)} already archived, {len(result.empty)} with nothing to send"
+    )
+
+
 @app.command("post-public-update")
 def post_public_update_cmd(
     *,
@@ -21052,6 +21096,28 @@ def assert_board_paths_cmd(
         typer.echo(f"::error::{exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"board jail OK ({len(changes)} change(s))")
+
+
+@app.command("assert-update-paths")
+def assert_update_paths_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to check.")
+    ],
+) -> None:
+    """Enforce the weekly-update history's path jail; exit non-zero on any violation.
+
+    The history PR merges unattended, so its diff is bounded instead: new
+    `metrics/updates/<YYYY-Www>.md` files, added, and nothing else. CI runs this
+    as a required status check on the PR, independently of the workflow that
+    produced the branch.
+    """
+    changes = parse_name_status(name_status_file.read_text())
+    try:
+        assert_updates_within_jail(changes)
+    except PathJailError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"update jail OK ({len(changes)} change(s))")
 
 
 @app.command("collect-union")
