@@ -1001,7 +1001,7 @@ jobs:
           # disabled on the repo, or the ruleset declining it) leaves the PR open
           # for a manual merge rather than failing a run whose artifact is
           # already pushed.
-          gh pr merge --auto --squash "$url" || {
+          gh pr merge --auto --merge --subject "${title} (#${url##*/})" "$url" || {
             echo "::warning::could not enable auto-merge on ${url}; merge it by hand"
             # Also to the summary: a refused arm leaves the PR open and the
             # published board standing still, and an annotation alone expires
@@ -1169,7 +1169,7 @@ jobs:
               --title "$title" --body-file pr-body.md)
             echo "Opened history PR: ${url}" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
-          gh pr merge --auto --squash "$url" || {
+          gh pr merge --auto --merge --subject "${title} (#${url##*/})" "$url" || {
             echo "::warning::could not enable auto-merge on ${url}; merge it by hand"
             echo "Auto-merge could not be enabled on ${url}; merge it by hand." \
               >> "$GITHUB_STEP_SUMMARY"

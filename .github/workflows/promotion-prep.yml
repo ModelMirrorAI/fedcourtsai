@@ -214,9 +214,11 @@ jobs:
           # The last promotion merge on main's first-parent chain: the newest
           # merge whose second parent is on staging's first-parent chain. A cut
           # waits until staging holds it, i.e. until the post-promotion sync.
+          # The walk passes every data-run merge as well, several a day, so its
+          # bound is sized to months of those between two promotions.
           git rev-list --first-parent origin/staging > staging-chain.txt
           synced=yes
-          for merge in $(git rev-list --first-parent --merges --max-count=400 origin/main); do
+          for merge in $(git rev-list --first-parent --merges --max-count=4000 origin/main); do
             second=$(git rev-parse "${merge}^2")
             if grep -Fqx "$second" staging-chain.txt; then
               git merge-base --is-ancestor "$merge" origin/staging || synced=no

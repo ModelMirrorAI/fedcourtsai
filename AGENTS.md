@@ -77,12 +77,12 @@ non-interactive** container. Two consequences shape everything you do:
   `staging` PR is presumptively mergeable without the maintainer: every
   change is read again in the promotion batch before it reaches `main`. So
   once the required checks are green and you have resolved the reviewer
-  subagents' blockers, merge your own PR — merge commit or squash, whichever
-  suits the change — unless it falls in a class below that waits for the
-  maintainer. A feature PR is not ancestry-critical: its squash
-  commit's sole parent is `staging`'s previous tip, so it changes nothing about
-  how much of `main` `staging` already contains. Exactly two merges *are*, and
-  neither is yours: the **sync** (`main` → `staging`) and the **promotion**
+  subagents' blockers, merge your own PR with a merge commit — the rulesets
+  allow no other method — unless it falls in a class below that waits for the
+  maintainer. A feature PR is not ancestry-critical: its second parent is a
+  branch cut from `staging`, so it brings in nothing of `main` that `staging`
+  lacks. Exactly two merges *are*, and neither is
+  yours: the **sync** (`main` → `staging`) and the **promotion**
   (a promotion candidate → `main`). Both must be merge commits, or `main` and `staging`
   stop sharing history — and every later sync re-merges rewritten commits.
   Into `main`, never: `main` is the pre-registration record and reaches it only
@@ -309,8 +309,8 @@ staging  ──●──●────●────●────●──�
               feature branches: git switch -c <type>/<desc> origin/staging
 ```
 
-Both `main`→`staging` syncs and promotions to `main` are merge commits;
-your own feature PR may squash. Data commits bypass `staging` entirely. The
+Every merge is a merge commit: syncs, promotions, your own feature PRs and
+the data-run PRs alike. Data commits bypass `staging` entirely. The
 diagram is not a licence to self-merge everything: the five change classes named
 in the golden rules — the permission surface, the security posture, the
 promotion gate, the agent configs, the unattended-spend authority — wait for

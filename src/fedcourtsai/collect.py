@@ -1833,9 +1833,10 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
             else ""
         )
         # A round the review hold auto-released says so in the ready commit's
-        # subject and in the PR title, so `main` keeps it whichever of the two
-        # the squash merge takes: that committed history is what `hold-decision`
-        # counts the daily cap from, beside the `review-auto` deployment record.
+        # subject and in the PR title, which the merge commit takes as its
+        # subject, so `main` keeps it twice: that committed history is what
+        # `hold-decision` counts the daily cap from, beside the `review-auto`
+        # deployment record.
         released = f" {AUTO_RELEASED_MARKER}" if auto_released else ""
         ready_plan = PrPlan(
             branch=run_branch(role, run_id),

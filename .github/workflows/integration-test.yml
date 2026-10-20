@@ -2744,9 +2744,9 @@ jobs:
           # The PR surface: one PR per branch, auto-merge armed only on ready.
           [ "$(grep -c '^gh pr create' "$shim/log")" = 2 ] \
             || fail "expected exactly two PR creations"
-          grep -q "^gh pr merge --auto --squash ${ready_url}\$" "$shim/log" \
+          grep -q "^gh pr merge --auto --merge --subject .* (#${ready_url##*/}) ${ready_url}\$" "$shim/log" \
             || fail "auto-merge should be enabled on the ready PR"
-          if grep -q "merge --auto --squash ${partial_url}\$" "$shim/log"; then
+          if grep -q "^gh pr merge --auto .*${partial_url}\$" "$shim/log"; then
             fail "a draft PR must never arm auto-merge"
           fi
 
@@ -2811,7 +2811,7 @@ jobs:
             || fail "the rerun should update the draft PR in place"
           grep -q "^gh pr ready --undo ${partial_url}\$" <<< "$rerun" \
             || fail "the rerun must return the salvage PR to a draft"
-          grep -q "^gh pr merge --auto --squash ${ready_url}\$" <<< "$rerun" \
+          grep -q "^gh pr merge --auto --merge --subject .* (#${ready_url##*/}) ${ready_url}\$" <<< "$rerun" \
             || fail "the rerun should re-arm auto-merge on the ready PR"
 
           {

@@ -467,9 +467,9 @@ def test_union_of_a_symlinked_source_root_is_empty(tmp_path: Path) -> None:
 
 def test_an_auto_released_round_marks_its_ready_commit_and_nothing_else() -> None:
     """The daily auto-release cap is counted from `main`'s commit subjects, so
-    the mark rides the ready commit's subject (which a squash of the one-commit
-    PR keeps) and the title; a held round carries no mark, and the draft PR,
-    which never auto-merges, carries none either."""
+    the mark rides the ready commit's subject and the title, which the merge
+    commit takes as its subject; a held round carries no mark, and the draft
+    PR, which never auto-merges, carries none either."""
 
     cells = [_cell("claude-baseline"), _cell("codex-baseline", validated=False)]
     released = collect_plan(
@@ -482,9 +482,12 @@ def test_an_auto_released_round_marks_its_ready_commit_and_nothing_else() -> Non
     assert AUTO_RELEASED_MARKER not in held.ready.commit_message
     assert released.partial is not None
     assert AUTO_RELEASED_MARKER not in released.partial.commit_message
-    # The counter reads the subject exactly as a squash merge lands it.
-    assert count_auto_released([f"{released.ready.commit_message} (#2400)"]) == 1
-    assert count_auto_released([f"{held.ready.commit_message} (#2400)"]) == 0
+    # The counter reads both subjects exactly as the merge lands them: the
+    # merge commit's (the title and number) and the ready commit's beneath it.
+    merged = [f"{released.ready.title} (#2400)", released.ready.commit_message]
+    assert count_auto_released(merged) == 1
+    assert count_auto_released(merged[:1]) == count_auto_released(merged[1:]) == 1
+    assert count_auto_released([f"{held.ready.title} (#2400)", held.ready.commit_message]) == 0
 
 
 def test_all_ready_opens_one_ready_pr_no_draft() -> None:

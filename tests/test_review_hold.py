@@ -220,8 +220,9 @@ def test_one_run_id_in_two_lanes_is_two_rounds() -> None:
 
 
 def test_a_squash_that_takes_the_pr_title_is_counted_too() -> None:
-    # A collect PR with more than one commit squashes under its title, which
-    # puts the run id after the count rather than in the scope.
+    # A collect PR squashed under its title puts the run id after the count
+    # rather than in the scope; `main`'s history keeps the squashes already on
+    # it, and they stay inside the window's reach for as long as it looks back.
     subjects = [
         f"predict: 3 prediction(s) (run 20261012T141200Z) {AUTO_RELEASED_MARKER} (#2400)",
         f"predict(run 20261012T141200Z): 3 prediction(s) {AUTO_RELEASED_MARKER} (#2401)",
@@ -231,6 +232,45 @@ def test_a_squash_that_takes_the_pr_title_is_counted_too() -> None:
         f"evaluate(run 20261012T150000Z): 3 evaluation(s) {AUTO_RELEASED_MARKER}",
     ]
     assert count_auto_released(subjects) == 3
+
+
+def test_merge_commit_history_counts_each_round_once_whichever_commit_is_in_the_window() -> None:
+    # What the commits API returns for `main` once collect PRs land as merge
+    # commits: every commit reachable from `main` whose committer date is in
+    # the window, second parents included, newest first. The merge commit is
+    # dated when the PR landed and the ready commit when it was built, never
+    # later, so a PR that waited leaves the marked merge commit alone in the
+    # window; a ready commit alone is what an unmarked merge subject leaves.
+    # Either counts its round, and both together count it once.
+    both = [
+        f"predict: 3 prediction(s) (run 20261012T141200Z) {AUTO_RELEASED_MARKER} (#2400)",
+        "live: refresh corpus + outcomes (2026-10-12)",
+        f"predict(run 20261012T141200Z): 3 prediction(s) {AUTO_RELEASED_MARKER}",
+    ]
+    merge_only = [
+        f"evaluate: 2 evaluation(s) (run 20261012T150000Z) {AUTO_RELEASED_MARKER} (#2401)"
+    ]
+    ready_only = [f"predict(run 20261012T173600Z): 1 prediction(s) {AUTO_RELEASED_MARKER}"]
+    held = [
+        "predict: 4 prediction(s) (run 20261012T090000Z) (#2399)",
+        "predict(run 20261012T090000Z): 4 prediction(s)",
+    ]
+    assert count_auto_released(both) == 1
+    assert count_auto_released(merge_only) == 1
+    assert count_auto_released(ready_only) == 1
+    assert count_auto_released(held) == 0
+    assert count_auto_released(both + merge_only + ready_only + held) == 3
+
+
+def test_the_platforms_own_merge_subject_carries_no_round() -> None:
+    # A PR merged by hand under the default subject leaves only its ready
+    # commit to carry the mark; the default subject itself never counts.
+    subjects = [
+        "Merge pull request #2400 from ModelMirrorAI/run/predict-20261012T141200Z",
+        f"predict(run 20261012T141200Z): 3 prediction(s) {AUTO_RELEASED_MARKER}",
+    ]
+    assert count_auto_released(subjects[:1]) == 0
+    assert count_auto_released(subjects) == 1
 
 
 @pytest.mark.parametrize(
