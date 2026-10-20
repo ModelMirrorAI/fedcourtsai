@@ -10934,8 +10934,8 @@ freeze commit is recorded here.
 
 - **`proc-v10`: the codex pair moves to `gpt-6.1-sol` and the gemini pair to
   `gemini-4-argon`, and the claude pair carries forward unchanged; recorded
-  2026-10-18.** Carried to `main` by `<FILL: promotion tag>` (merge
-  `<FILL: merge sha>`, `<FILL: merged-at>`), to be tagged
+  2026-10-18.** Carried to `main` by `promotion/2026-10-20` (merge
+  `7d4f2c6c58e01b22f17adb850b5203418f71925e`, `2026-10-20T15:24:42Z`), to be tagged
   **`prereg/proc-v10`**. The first label registered under the merge-stamped
   rule the 2026-10-14 entry declared, so its counting instant, its four bless
   moments and every window edge it moves are the carrying merge's committer
@@ -10976,9 +10976,9 @@ freeze commit is recorded here.
   the four newly blessed digests, and the wider census, `git grep -l
   '"process_version": {' origin/main -- data/cases | wc -l`, is **2689**
   stamped cells. At the carrying merge the newly blessed predictor digests
-  stamp <FILL: census predictions digest=7ab92dd4,bee46e92> committed
+  stamp 0 committed
   predictions and the evaluator digests
-  <FILL: census evaluations digest=a8610eec,6a88d3dc> committed evaluations.
+  0 committed evaluations.
 
   **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
 
@@ -11455,8 +11455,8 @@ freeze commit is recorded here.
   skipped rows are pending, and so could contend, was not re-measured for
   this entry.
 
-  Carried to `main` by the promotion merge `<FILL: merge sha>`, merged
-  `<FILL: merged-at>`.
+  Carried to `main` by the promotion merge `7d4f2c6c58e01b22f17adb850b5203418f71925e`, merged
+  `2026-10-20T15:24:42Z`.
 
   The runnable effect check once it is live: `uv run pytest
   tests/test_salience.py -k "reserve or twice"` is green, and `uv run fedcourts
