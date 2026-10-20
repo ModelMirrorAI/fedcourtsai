@@ -1,10 +1,10 @@
 {
-  "cases": 308,
+  "cases": 310,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 274,
+      "cases": 276,
       "n": 3
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 922,
+  "current_reads": 928,
   "declared_no_view": 20,
   "frozen_process": {
     "digests": [
@@ -820,7 +820,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-13.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -866,7 +866,7 @@
               "run_id": "20260919T192714Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Khalid Shaikh Mohammad, et al. v. United States"
         }
       ],
@@ -892,7 +892,7 @@
       "score_min": 0.9,
       "score_range": 0.07,
       "short_caption": "Khalid Shaikh Mohammad v. United States",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": "short_form",
@@ -2492,7 +2492,7 @@
       "leakage_suspected": false,
       "mean_big_case_score": 0.8833,
       "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-08-28",
+      "moment_opened_at": "2026-10-13",
       "n": 3,
       "other_party": "Mi Familia Vota",
       "outcome_lines": [
@@ -2560,7 +2560,7 @@
       "docket_url": null,
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -2606,7 +2606,7 @@
               "run_id": "20261005T231540Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Walid bin \u2018Atash v. United States"
         }
       ],
@@ -2632,6 +2632,172 @@
       "score_min": 0.78,
       "score_range": 0.17,
       "short_caption": "Walid bin \u2018Atash v. United States",
+      "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Bird",
+      "caption": "Brenna Bird, Attorney General of Iowa v. Iowa Migrant Movement for Justice, et al.",
+      "caption_event_id": "evt-order-cvsg-disposition",
+      "case_id": "scotus/9026000049",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Whether states may enact parallel criminal illegal-reentry laws goes to the core of Arizona v. United States, and several states have similar laws; the Article III pre-enforcement standing question recurs too.",
+          "big_case_score": 0.8,
+          "event_id": "evt-order-cvsg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261019T170308Z"
+        },
+        {
+          "big_case_rationale": "The petition concerns state criminal immigration enforcement, federal preemption, and pre-enforcement standing. Review could affect several states' parallel immigration laws and the federal-state allocation of removal authority, well beyond the individual parties.",
+          "big_case_score": 0.88,
+          "event_id": "evt-order-cvsg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261019T170308Z"
+        },
+        {
+          "big_case_rationale": null,
+          "big_case_score": 0.95,
+          "event_id": "evt-order-cvsg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261019T170308Z"
+        }
+      ],
+      "docket_id": 9026000049,
+      "docket_number": "26-49",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-49.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-cvsg-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Whether states may enact parallel criminal illegal-reentry laws goes to the core of Arizona v. United States, and several states have similar laws; the Article III pre-enforcement standing question recurs too.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9026000049/events/evt-order-cvsg-disposition/predictions/claude-baseline/20261019T170308Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000049/events/evt-order-cvsg-disposition/predictions/claude-baseline/20261019T170308Z",
+              "confidence": 0.55,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.55,
+              "run_id": "20261019T170308Z"
+            },
+            {
+              "big_case_rationale": "The petition concerns state criminal immigration enforcement, federal preemption, and pre-enforcement standing. Review could affect several states' parallel immigration laws and the federal-state allocation of removal authority, well beyond the individual parties.",
+              "big_case_score": 0.88,
+              "cell_path": "data/cases/scotus/9026000049/events/evt-order-cvsg-disposition/predictions/codex-baseline/20261019T170308Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000049/events/evt-order-cvsg-disposition/predictions/codex-baseline/20261019T170308Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.58,
+              "run_id": "20261019T170308Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000049/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20261019T170308Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000049/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20261019T170308Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.75,
+              "run_id": "20261019T170308Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Brenna Bird, Attorney General of Iowa v. Iowa Migrant Movement for Justice, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Whether States may enact and enforce their own illegal-reentry crimes mirroring 8 U.S.C. 1326 is a live federalism fight across at least four States (Texas, Oklahoma, Florida, Iowa), backed here by 25 States and two Senators; a merits decision either way would be a major immigration-preemption ruling in the Arizona v. United States line.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9026000049/events/evt-petition-disposition/predictions/claude-baseline/20261005T212916Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000049/events/evt-petition-disposition/predictions/claude-baseline/20261005T212916Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.38,
+              "run_id": "20261005T212916Z"
+            },
+            {
+              "big_case_rationale": "The scope for independent state illegal-reentry and removal regimes has national immigration and federalism consequences; the standing question also reaches pre-enforcement challenges beyond immigration.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000049/events/evt-petition-disposition/predictions/codex-baseline/20261005T212916Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000049/events/evt-petition-disposition/predictions/codex-baseline/20261005T212916Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.4,
+              "run_id": "20261005T212916Z"
+            },
+            {
+              "big_case_rationale": "This case presents a direct challenge to the scope of federal immigration preemption (Arizona v. United States), a highly salient national issue with 24 states participating as amici.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000049/events/evt-petition-disposition/predictions/gemini-baseline/20261005T231540Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000049/events/evt-petition-disposition/predictions/gemini-baseline/20261005T231540Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.55,
+              "run_id": "20261005T231540Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Brenna Bird, Attorney General of Iowa v. Iowa Migrant Movement for Justice, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.8767,
+      "moment": "evt-order-cvsg-disposition",
+      "moment_opened_at": "2026-10-19",
+      "n": 3,
+      "other_party": "Iowa Migrant Movement for Justice",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Bird's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Bird's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.95,
+      "score_min": 0.8,
+      "score_range": 0.15,
+      "short_caption": "Bird v. Iowa Migrant Movement for Justice",
       "status": "pending"
     },
     {
@@ -2749,122 +2915,6 @@
       "score_range": 0.05,
       "short_caption": "Allen v. Caster",
       "status": "resolved"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Bird",
-      "caption": "Brenna Bird, Attorney General of Iowa v. Iowa Migrant Movement for Justice, et al.",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/9026000049",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Whether States may enact and enforce their own illegal-reentry crimes mirroring 8 U.S.C. 1326 is a live federalism fight across at least four States (Texas, Oklahoma, Florida, Iowa), backed here by 25 States and two Senators; a merits decision either way would be a major immigration-preemption ruling in the Arizona v. United States line.",
-          "big_case_score": 0.8,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261005T212916Z"
-        },
-        {
-          "big_case_rationale": "The scope for independent state illegal-reentry and removal regimes has national immigration and federalism consequences; the standing question also reaches pre-enforcement challenges beyond immigration.",
-          "big_case_score": 0.85,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261005T212916Z"
-        },
-        {
-          "big_case_rationale": "This case presents a direct challenge to the scope of federal immigration preemption (Arizona v. United States), a highly salient national issue with 24 states participating as amici.",
-          "big_case_score": 0.95,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261005T231540Z"
-        }
-      ],
-      "docket_id": 9026000049,
-      "docket_number": "26-49",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-49.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Whether States may enact and enforce their own illegal-reentry crimes mirroring 8 U.S.C. 1326 is a live federalism fight across at least four States (Texas, Oklahoma, Florida, Iowa), backed here by 25 States and two Senators; a merits decision either way would be a major immigration-preemption ruling in the Arizona v. United States line.",
-              "big_case_score": 0.8,
-              "cell_path": "data/cases/scotus/9026000049/events/evt-petition-disposition/predictions/claude-baseline/20261005T212916Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000049/events/evt-petition-disposition/predictions/claude-baseline/20261005T212916Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.38,
-              "run_id": "20261005T212916Z"
-            },
-            {
-              "big_case_rationale": "The scope for independent state illegal-reentry and removal regimes has national immigration and federalism consequences; the standing question also reaches pre-enforcement challenges beyond immigration.",
-              "big_case_score": 0.85,
-              "cell_path": "data/cases/scotus/9026000049/events/evt-petition-disposition/predictions/codex-baseline/20261005T212916Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000049/events/evt-petition-disposition/predictions/codex-baseline/20261005T212916Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.4,
-              "run_id": "20261005T212916Z"
-            },
-            {
-              "big_case_rationale": "This case presents a direct challenge to the scope of federal immigration preemption (Arizona v. United States), a highly salient national issue with 24 states participating as amici.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9026000049/events/evt-petition-disposition/predictions/gemini-baseline/20261005T231540Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000049/events/evt-petition-disposition/predictions/gemini-baseline/20261005T231540Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.55,
-              "run_id": "20261005T231540Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Brenna Bird, Attorney General of Iowa v. Iowa Migrant Movement for Justice, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.8667,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-07-13",
-      "n": 3,
-      "other_party": "Iowa Migrant Movement for Justice",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Bird's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Bird's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.95,
-      "score_min": 0.8,
-      "score_range": 0.15,
-      "short_caption": "Bird v. Iowa Migrant Movement for Justice",
-      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -4185,6 +4235,177 @@
       "score_range": 0.1,
       "short_caption": "Novotny v. Moore",
       "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Association for Education Fairness",
+      "caption": "Association for Education Fairness v. Montgomery County Board of Education, et al.",
+      "caption_event_id": "evt-order-judgment",
+      "case_id": "scotus/9026000012",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Resolves a four-circuit split on how race-neutral proxies in selective K-12 admissions are tested after SFFA; affects many large districts' admissions policies.",
+          "big_case_score": 0.8,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261019T170308Z"
+        },
+        {
+          "big_case_rationale": "The threshold for challenging alleged racial proxies in selective public-school admissions has nationwide importance after SFFA, though the limited question does not itself decide the legality of all socioeconomic admissions policies.",
+          "big_case_score": 0.8,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261019T170308Z"
+        },
+        {
+          "big_case_rationale": "High-profile case concerning the use of race-neutral proxies in competitive school admissions, closely watched following the Students for Fair Admissions decision.",
+          "big_case_score": 0.85,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261019T170308Z"
+        }
+      ],
+      "docket_id": 9026000012,
+      "docket_number": "26-12",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-12.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Resolves a four-circuit split on how race-neutral proxies in selective K-12 admissions are tested after SFFA; affects many large districts' admissions policies.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9026000012/events/evt-order-judgment/predictions/claude-baseline/20261019T170308Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000012/events/evt-order-judgment/predictions/claude-baseline/20261019T170308Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.82,
+              "run_id": "20261019T170308Z"
+            },
+            {
+              "big_case_rationale": "The threshold for challenging alleged racial proxies in selective public-school admissions has nationwide importance after SFFA, though the limited question does not itself decide the legality of all socioeconomic admissions policies.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9026000012/events/evt-order-judgment/predictions/codex-baseline/20261019T170308Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000012/events/evt-order-judgment/predictions/codex-baseline/20261019T170308Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.84,
+              "run_id": "20261019T170308Z"
+            },
+            {
+              "big_case_rationale": "High-profile case concerning the use of race-neutral proxies in competitive school admissions, closely watched following the Students for Fair Admissions decision.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000012/events/evt-order-judgment/predictions/gemini-baseline/20261019T170308Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000012/events/evt-order-judgment/predictions/gemini-baseline/20261019T170308Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.9,
+              "run_id": "20261019T170308Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Association for Education Fairness v. Montgomery County Board of Education, et al."
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A grant would set the nationwide evidentiary standard for proving intentional race discrimination through facially neutral 'proxy' admissions criteria after SFFA, touching selective K-12 admissions in the largest districts and drawing sustained advocacy-group and press attention; a denial leaves a live circuit split and would likely draw a noted dissent. Stakes are high for a cert-stage docket but the underlying facts (a pandemic-era lottery) are modest.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9026000012/events/evt-petition-disposition/predictions/claude-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000012/events/evt-petition-disposition/predictions/claude-baseline/20260927T182226Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.22,
+              "run_id": "20260927T182226Z"
+            },
+            {
+              "big_case_rationale": "The question could govern proof of intentional racial discrimination in selective public-school admissions nationwide, with consequences for facially neutral substitutes for racial preferences. The particular lottery and pleading posture limit this vehicle's reach.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9026000012/events/evt-petition-disposition/predictions/codex-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000012/events/evt-petition-disposition/predictions/codex-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.22,
+              "run_id": "20260927T182226Z"
+            },
+            {
+              "big_case_rationale": "Presents a mature 2-2 circuit split on applying Arlington Heights to facially neutral school admissions, a major post-SFFA question.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000012/events/evt-petition-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000012/events/evt-petition-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.65,
+              "run_id": "20260927T182226Z"
+            }
+          ],
+          "resolved_at": "2026-10-19",
+          "title": "Association for Education Fairness v. Montgomery County Board of Education, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.8167,
+      "moment": "evt-order-judgment",
+      "moment_opened_at": "2026-10-19",
+      "n": 3,
+      "other_party": "Montgomery County Board of Education",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "The Association for Education Fairness wins in the Court; the lower court's decision is overturned, and any remaining issues go back to it.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "The Montgomery County Board of Education wins in the Court; the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to it, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "score_max": 0.85,
+      "score_min": 0.8,
+      "score_range": 0.05,
+      "short_caption": "Association for Education Fairness v. Montgomery County Board of Education",
+      "status": "partly_resolved"
     },
     {
       "asking_declined": null,
@@ -6150,122 +6371,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Association for Education Fairness",
-      "caption": "Association for Education Fairness v. Montgomery County Board of Education, et al.",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/9026000012",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A grant would set the nationwide evidentiary standard for proving intentional race discrimination through facially neutral 'proxy' admissions criteria after SFFA, touching selective K-12 admissions in the largest districts and drawing sustained advocacy-group and press attention; a denial leaves a live circuit split and would likely draw a noted dissent. Stakes are high for a cert-stage docket but the underlying facts (a pandemic-era lottery) are modest.",
-          "big_case_score": 0.62,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        },
-        {
-          "big_case_rationale": "The question could govern proof of intentional racial discrimination in selective public-school admissions nationwide, with consequences for facially neutral substitutes for racial preferences. The particular lottery and pleading posture limit this vehicle's reach.",
-          "big_case_score": 0.78,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        },
-        {
-          "big_case_rationale": "Presents a mature 2-2 circuit split on applying Arlington Heights to facially neutral school admissions, a major post-SFFA question.",
-          "big_case_score": 0.95,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        }
-      ],
-      "docket_id": 9026000012,
-      "docket_number": "26-12",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-12.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A grant would set the nationwide evidentiary standard for proving intentional race discrimination through facially neutral 'proxy' admissions criteria after SFFA, touching selective K-12 admissions in the largest districts and drawing sustained advocacy-group and press attention; a denial leaves a live circuit split and would likely draw a noted dissent. Stakes are high for a cert-stage docket but the underlying facts (a pandemic-era lottery) are modest.",
-              "big_case_score": 0.62,
-              "cell_path": "data/cases/scotus/9026000012/events/evt-petition-disposition/predictions/claude-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000012/events/evt-petition-disposition/predictions/claude-baseline/20260927T182226Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.22,
-              "run_id": "20260927T182226Z"
-            },
-            {
-              "big_case_rationale": "The question could govern proof of intentional racial discrimination in selective public-school admissions nationwide, with consequences for facially neutral substitutes for racial preferences. The particular lottery and pleading posture limit this vehicle's reach.",
-              "big_case_score": 0.78,
-              "cell_path": "data/cases/scotus/9026000012/events/evt-petition-disposition/predictions/codex-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000012/events/evt-petition-disposition/predictions/codex-baseline/20260927T182226Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.22,
-              "run_id": "20260927T182226Z"
-            },
-            {
-              "big_case_rationale": "Presents a mature 2-2 circuit split on applying Arlington Heights to facially neutral school admissions, a major post-SFFA question.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9026000012/events/evt-petition-disposition/predictions/gemini-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000012/events/evt-petition-disposition/predictions/gemini-baseline/20260927T182226Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.65,
-              "run_id": "20260927T182226Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Association for Education Fairness v. Montgomery County Board of Education, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.7833,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-07-02",
-      "n": 3,
-      "other_party": "Montgomery County Board of Education",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up the Association for Education Fairness' case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "The Association for Education Fairness' petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.95,
-      "score_min": 0.62,
-      "score_range": 0.33,
-      "short_caption": "Association for Education Fairness v. Montgomery County Board of Education",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Mendenhall",
       "caption": "Michael Mendenhall v. City and County of Denver, Colorado",
       "caption_event_id": "evt-petition-disposition",
@@ -7157,7 +7262,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-164.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -7203,7 +7308,7 @@
               "run_id": "20260930T191800Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "A. A., et al. v. Joshua Mast, et al."
         }
       ],
@@ -7229,7 +7334,7 @@
       "score_min": 0.7,
       "score_range": 0.15,
       "short_caption": "A. A. v. Mast",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -7605,7 +7710,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-5.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -7651,7 +7756,7 @@
               "run_id": "20260930T191800Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Gwynne A. Wilcox v. Donald J. Trump, President of the United States, et al."
         }
       ],
@@ -7677,7 +7782,7 @@
       "score_min": 0.5,
       "score_range": 0.38,
       "short_caption": "Wilcox v. Trump",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -8357,172 +8462,6 @@
       "score_min": 0.6,
       "score_range": 0.25,
       "short_caption": "Youth 71Five Ministries v. Williams",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Department of Justice",
-      "caption": "Department of Justice, et al. v. Scott McNutt, et al.",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/9026000204",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A Solicitor General petition to restore a 160-year-old federal statute the Fifth Circuit struck down on enumerated-powers grounds, with a square CA5/CA6 split and a Necessary and Proper Clause question that reaches past home distilling into the taxing power's regulatory perimeter. Real constitutional-structure stakes and broad popular interest, but a narrower doctrinal footprint than the Term's marquee separation-of-powers cases.",
-          "big_case_score": 0.6,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261005T153213Z"
-        },
-        {
-          "big_case_rationale": "A constitutional challenge to a longstanding federal home-distilling prohibition presents consequential limits on tax-enforcement legislation and federal power, although the immediate regulated activity is relatively narrow.",
-          "big_case_score": 0.72,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261005T153213Z"
-        },
-        {
-          "big_case_rationale": "Involves the constitutionality of a long-standing federal statute regulating distilled spirits and the scope of Congress's taxing power.",
-          "big_case_score": 0.85,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261005T153213Z"
-        }
-      ],
-      "docket_id": 9026000204,
-      "docket_number": "26-204",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-204.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "First appellate invalidation of a federal statute on Necessary and Proper Clause grounds in years; a decision either way shapes the taxing-power/N&P doctrine, and the home-distilling subject is publicly resonant, though the direct economic stakes are modest.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260820T181919Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260820T181919Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.9,
-              "run_id": "20260820T181919Z"
-            },
-            {
-              "big_case_rationale": "The case could define Congress's Necessary and Proper authority to protect federal tax collection, though it arises from a narrow home-distilling restriction.",
-              "big_case_score": 0.68,
-              "cell_path": "data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260820T181919Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260820T181919Z",
-              "confidence": 0.9,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.95,
-              "run_id": "20260820T181919Z"
-            },
-            {
-              "big_case_rationale": "Involves the constitutionality of a 160-year-old federal statute restricting distillation, with a direct circuit split and DOJ petitioning.",
-              "big_case_score": 0.8,
-              "cell_path": "data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260820T181919Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260820T181919Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.95,
-              "run_id": "20260820T181919Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Department of Justice, et al. v. Scott McNutt, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A Solicitor General petition to restore a 160-year-old federal statute the Fifth Circuit struck down on enumerated-powers grounds, with a square CA5/CA6 split and a Necessary and Proper Clause question that reaches past home distilling into the taxing power's regulatory perimeter. Real constitutional-structure stakes and broad popular interest, but a narrower doctrinal footprint than the Term's marquee separation-of-powers cases.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/9026000204/events/evt-petition-disposition/predictions/claude-baseline/20261005T153213Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-petition-disposition/predictions/claude-baseline/20261005T153213Z",
-              "confidence": 0.8,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.92,
-              "run_id": "20261005T153213Z"
-            },
-            {
-              "big_case_rationale": "A constitutional challenge to a longstanding federal home-distilling prohibition presents consequential limits on tax-enforcement legislation and federal power, although the immediate regulated activity is relatively narrow.",
-              "big_case_score": 0.72,
-              "cell_path": "data/cases/scotus/9026000204/events/evt-petition-disposition/predictions/codex-baseline/20261005T153213Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-petition-disposition/predictions/codex-baseline/20261005T153213Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.96,
-              "run_id": "20261005T153213Z"
-            },
-            {
-              "big_case_rationale": "Involves the constitutionality of a long-standing federal statute regulating distilled spirits and the scope of Congress's taxing power.",
-              "big_case_score": 0.85,
-              "cell_path": "data/cases/scotus/9026000204/events/evt-petition-disposition/predictions/gemini-baseline/20261005T153213Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-petition-disposition/predictions/gemini-baseline/20261005T153213Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.95,
-              "run_id": "20261005T153213Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Department of Justice, et al. v. Scott McNutt, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.7233,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-08-18",
-      "n": 3,
-      "other_party": "McNutt",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up the Department of Justice's case; a grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "The Department of Justice's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "score_max": 0.85,
-      "score_min": 0.6,
-      "score_range": 0.25,
-      "short_caption": "Department of Justice v. McNutt",
       "status": "pending"
     },
     {
@@ -12927,7 +12866,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1158.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -12973,7 +12912,7 @@
               "run_id": "20260916T170237Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Amy Hadley v. City of South Bend, Indiana, et al."
         }
       ],
@@ -12999,7 +12938,7 @@
       "score_min": 0.55,
       "score_range": 0.15,
       "short_caption": "Hadley v. City of South Bend",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -13116,6 +13055,227 @@
       "score_range": 0.15,
       "short_caption": "Yonay v. Paramount Pictures",
       "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Department of Justice",
+      "caption": "Department of Justice, et al. v. Scott McNutt, et al.",
+      "caption_event_id": "evt-order-judgment",
+      "case_id": "scotus/9026000204",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "First Supreme Court test in years of the Necessary and Proper Clause's reach over the taxing power, with a square circuit split over a 160-year-old federal criminal statute. The practical stakes (hobby distilling) are narrow, but the doctrinal stakes are broad.",
+          "big_case_score": 0.6,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261019T170308Z"
+        },
+        {
+          "big_case_rationale": "The challenge tests constitutional limits on federal tax-enforcement regulation and criminal restrictions on home distilling. Its implications extend beyond hobby distillers, but a narrow tax-administration holding would limit its broader impact.",
+          "big_case_score": 0.64,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261019T170308Z"
+        },
+        {
+          "big_case_rationale": "Presents a significant constitutional question on the Necessary and Proper Clause, though home distilling itself is a niche issue.",
+          "big_case_score": 0.65,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261019T170308Z"
+        }
+      ],
+      "docket_id": 9026000204,
+      "docket_number": "26-204",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-204.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "First Supreme Court test in years of the Necessary and Proper Clause's reach over the taxing power, with a square circuit split over a 160-year-old federal criminal statute. The practical stakes (hobby distilling) are narrow, but the doctrinal stakes are broad.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000204/events/evt-order-judgment/predictions/claude-baseline/20261019T170308Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-order-judgment/predictions/claude-baseline/20261019T170308Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.73,
+              "run_id": "20261019T170308Z"
+            },
+            {
+              "big_case_rationale": "The challenge tests constitutional limits on federal tax-enforcement regulation and criminal restrictions on home distilling. Its implications extend beyond hobby distillers, but a narrow tax-administration holding would limit its broader impact.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/9026000204/events/evt-order-judgment/predictions/codex-baseline/20261019T170308Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-order-judgment/predictions/codex-baseline/20261019T170308Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.82,
+              "run_id": "20261019T170308Z"
+            },
+            {
+              "big_case_rationale": "Presents a significant constitutional question on the Necessary and Proper Clause, though home distilling itself is a niche issue.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9026000204/events/evt-order-judgment/predictions/gemini-baseline/20261019T170308Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-order-judgment/predictions/gemini-baseline/20261019T170308Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261019T170308Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Department of Justice, et al. v. Scott McNutt, et al."
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "First appellate invalidation of a federal statute on Necessary and Proper Clause grounds in years; a decision either way shapes the taxing-power/N&P doctrine, and the home-distilling subject is publicly resonant, though the direct economic stakes are modest.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260820T181919Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260820T181919Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.9,
+              "run_id": "20260820T181919Z"
+            },
+            {
+              "big_case_rationale": "The case could define Congress's Necessary and Proper authority to protect federal tax collection, though it arises from a narrow home-distilling restriction.",
+              "big_case_score": 0.68,
+              "cell_path": "data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260820T181919Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260820T181919Z",
+              "confidence": 0.9,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.95,
+              "run_id": "20260820T181919Z"
+            },
+            {
+              "big_case_rationale": "Involves the constitutionality of a 160-year-old federal statute restricting distillation, with a direct circuit split and DOJ petitioning.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260820T181919Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260820T181919Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.95,
+              "run_id": "20260820T181919Z"
+            }
+          ],
+          "resolved_at": "2026-10-19",
+          "title": "Department of Justice, et al. v. Scott McNutt, et al."
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A Solicitor General petition to restore a 160-year-old federal statute the Fifth Circuit struck down on enumerated-powers grounds, with a square CA5/CA6 split and a Necessary and Proper Clause question that reaches past home distilling into the taxing power's regulatory perimeter. Real constitutional-structure stakes and broad popular interest, but a narrower doctrinal footprint than the Term's marquee separation-of-powers cases.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000204/events/evt-petition-disposition/predictions/claude-baseline/20261005T153213Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-petition-disposition/predictions/claude-baseline/20261005T153213Z",
+              "confidence": 0.8,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.92,
+              "run_id": "20261005T153213Z"
+            },
+            {
+              "big_case_rationale": "A constitutional challenge to a longstanding federal home-distilling prohibition presents consequential limits on tax-enforcement legislation and federal power, although the immediate regulated activity is relatively narrow.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000204/events/evt-petition-disposition/predictions/codex-baseline/20261005T153213Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-petition-disposition/predictions/codex-baseline/20261005T153213Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.96,
+              "run_id": "20261005T153213Z"
+            },
+            {
+              "big_case_rationale": "Involves the constitutionality of a long-standing federal statute regulating distilled spirits and the scope of Congress's taxing power.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000204/events/evt-petition-disposition/predictions/gemini-baseline/20261005T153213Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000204/events/evt-petition-disposition/predictions/gemini-baseline/20261005T153213Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.95,
+              "run_id": "20261005T153213Z"
+            }
+          ],
+          "resolved_at": "2026-10-19",
+          "title": "Department of Justice, et al. v. Scott McNutt, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.63,
+      "moment": "evt-order-judgment",
+      "moment_opened_at": "2026-10-19",
+      "n": 3,
+      "other_party": "McNutt",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "The Department of Justice wins in the Court; the lower court's decision is overturned, and any remaining issues go back to it.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "McNutt wins in the Court; the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to it, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "score_max": 0.65,
+      "score_min": 0.6,
+      "score_range": 0.05,
+      "short_caption": "Department of Justice v. McNutt",
+      "status": "partly_resolved"
     },
     {
       "asking_declined": null,
@@ -13894,7 +14054,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1163.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -13940,7 +14100,7 @@
               "run_id": "20260916T170237Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Carlos Pena v. City of Los Angeles, California"
         }
       ],
@@ -13966,7 +14126,7 @@
       "score_min": 0.55,
       "score_range": 0.1,
       "short_caption": "Pena v. City of Los Angeles",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -16430,7 +16590,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1098.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -16476,7 +16636,7 @@
               "run_id": "20260916T170237Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Ryan O'Donnell, et al. v. City of Chicago, Illinois, et al."
         }
       ],
@@ -16502,7 +16662,7 @@
       "score_min": 0.5,
       "score_range": 0.15,
       "short_caption": "O'Donnell v. City of Chicago",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -18110,6 +18270,122 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Parasmo",
+      "caption": "Frank Parasmo v. United States",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000377",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A general Neder harmless-error rule for contested elements would reach every instructional-error appeal and the Ruan prescriber cohort, but it is a criminal-procedure standard rather than a headline issue.",
+          "big_case_score": 0.4,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261019T170308Z"
+        },
+        {
+          "big_case_rationale": "The question reaches appellate harmless-error review of disputed criminal elements, with immediate consequences for physician prosecutions after Ruan and potentially broad jury-trial implications; the vehicle remains an individual prosecution rather than a nationwide policy challenge.",
+          "big_case_score": 0.58,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261019T170308Z"
+        },
+        {
+          "big_case_rationale": null,
+          "big_case_score": 0.65,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261019T170308Z"
+        }
+      ],
+      "docket_id": 9026000377,
+      "docket_number": "26-377",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-377.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A general Neder harmless-error rule for contested elements would reach every instructional-error appeal and the Ruan prescriber cohort, but it is a criminal-procedure standard rather than a headline issue.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/9026000377/events/evt-petition-disposition/predictions/claude-baseline/20261019T170308Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000377/events/evt-petition-disposition/predictions/claude-baseline/20261019T170308Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.16,
+              "run_id": "20261019T170308Z"
+            },
+            {
+              "big_case_rationale": "The question reaches appellate harmless-error review of disputed criminal elements, with immediate consequences for physician prosecutions after Ruan and potentially broad jury-trial implications; the vehicle remains an individual prosecution rather than a nationwide policy challenge.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/9026000377/events/evt-petition-disposition/predictions/codex-baseline/20261019T170308Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000377/events/evt-petition-disposition/predictions/codex-baseline/20261019T170308Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261019T170308Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9026000377/events/evt-petition-disposition/predictions/gemini-baseline/20261019T170308Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000377/events/evt-petition-disposition/predictions/gemini-baseline/20261019T170308Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.35,
+              "run_id": "20261019T170308Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Frank Parasmo v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.5433,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-18",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Parasmo's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Parasmo's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.65,
+      "score_min": 0.4,
+      "score_range": 0.25,
+      "short_caption": "Parasmo v. United States",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Google",
       "caption": "Google LLC v. VirtaMove, Corp., et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -18150,7 +18426,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1230.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -18196,7 +18472,7 @@
               "run_id": "20260930T191800Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Google LLC v. VirtaMove, Corp., et al."
         }
       ],
@@ -18222,7 +18498,7 @@
       "score_min": 0.4,
       "score_range": 0.27,
       "short_caption": "Google v. VirtaMove",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -21614,7 +21890,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1115.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -21660,7 +21936,7 @@
               "run_id": "20260916T170237Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Utah v. Morris Thomas Mullins"
         }
       ],
@@ -21686,7 +21962,7 @@
       "score_min": 0.35,
       "score_range": 0.22,
       "short_caption": "Utah v. Morris Thomas Mullins",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -24039,7 +24315,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-34.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -24085,7 +24361,7 @@
               "run_id": "20261013T174813Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Catherine L. Hanaway, in Her Official Capacity as Attorney General of Missouri, et al. v. Thomas L. Sanderson"
         }
       ],
@@ -24111,7 +24387,7 @@
       "score_min": 0.3,
       "score_range": 0.2,
       "short_caption": "Hanaway v. Sanderson",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -25496,6 +25772,122 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Sprint",
+      "caption": "Sprint Corporation, nka Sprint LLC, et al. v. Federal Communications Commission, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73539054",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A $92M forfeiture against a major carrier, with CPNI-scope and Loper Bright/penalty-counting questions, and amicus support from CTIA and the Chamber; but it follows FCC v. AT&T, the location-data programs have ended, and there is no split, so stakes are moderate rather than landmark.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261019T142611Z"
+        },
+        {
+          "big_case_rationale": "Nationwide mobile-location privacy duties, over $92 million in penalties, and limits on agency penalty discretion give this substantial regulatory stakes; preservation issues and the already-decided constitutional framework narrow its reach.",
+          "big_case_score": 0.62,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261019T142611Z"
+        },
+        {
+          "big_case_rationale": "While the underlying data privacy issues and $92 million forfeiture are significant, the core legal questions were already settled in the recent FCC v. AT&T decision.",
+          "big_case_score": 0.2,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261019T142611Z"
+        }
+      ],
+      "docket_id": 73539054,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A $92M forfeiture against a major carrier, with CPNI-scope and Loper Bright/penalty-counting questions, and amicus support from CTIA and the Chamber; but it follows FCC v. AT&T, the location-data programs have ended, and there is no split, so stakes are moderate rather than landmark.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/73539054/events/evt-petition-disposition/predictions/claude-baseline/20261019T142611Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73539054/events/evt-petition-disposition/predictions/claude-baseline/20261019T142611Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.04,
+              "run_id": "20261019T142611Z"
+            },
+            {
+              "big_case_rationale": "Nationwide mobile-location privacy duties, over $92 million in penalties, and limits on agency penalty discretion give this substantial regulatory stakes; preservation issues and the already-decided constitutional framework narrow its reach.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/73539054/events/evt-petition-disposition/predictions/codex-baseline/20261019T142611Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73539054/events/evt-petition-disposition/predictions/codex-baseline/20261019T142611Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.18,
+              "run_id": "20261019T142611Z"
+            },
+            {
+              "big_case_rationale": "While the underlying data privacy issues and $92 million forfeiture are significant, the core legal questions were already settled in the recent FCC v. AT&T decision.",
+              "big_case_score": 0.2,
+              "cell_path": "data/cases/scotus/73539054/events/evt-petition-disposition/predictions/gemini-baseline/20261019T142611Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73539054/events/evt-petition-disposition/predictions/gemini-baseline/20261019T142611Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261019T142611Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Sprint Corporation, nka Sprint LLC, et al. v. Federal Communications Commission, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3733,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-06-26",
+      "n": 3,
+      "other_party": "FCC",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Sprint's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Sprint's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "score_max": 0.62,
+      "score_min": 0.2,
+      "score_range": 0.42,
+      "short_caption": "Sprint v. FCC",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Mast",
       "caption": "Joshua Mast, et al. v. John Doe, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -25536,7 +25928,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-226.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -25582,7 +25974,7 @@
               "run_id": "20261008T143010Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Joshua Mast, et al. v. John Doe, et al."
         }
       ],
@@ -25608,7 +26000,7 @@
       "score_min": 0.1,
       "score_range": 0.47,
       "short_caption": "Mast v. Doe",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -25652,7 +26044,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1231.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -25698,7 +26090,7 @@
               "run_id": "20260930T191800Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Hastings College Conservation Committee, et al. v. California, et al."
         }
       ],
@@ -25724,7 +26116,7 @@
       "score_min": 0.3,
       "score_range": 0.16,
       "short_caption": "Hastings College Conservation Committee v. California",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -26326,7 +26718,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1314.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -26372,7 +26764,7 @@
               "run_id": "20260916T170237Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Eric Gomez v. David Saccoccio"
         }
       ],
@@ -26398,7 +26790,7 @@
       "score_min": 0.25,
       "score_range": 0.17,
       "short_caption": "Gomez v. Saccoccio",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -26961,7 +27353,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-114.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -27007,7 +27399,7 @@
               "run_id": "20260930T191800Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Frederick L. Allen, et al. v. Joshua Stein, Governor of North Carolina, et al."
         }
       ],
@@ -27033,7 +27425,7 @@
       "score_min": 0.3,
       "score_range": 0.12,
       "short_caption": "Allen v. Stein",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": "in_re",
@@ -29347,7 +29739,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1269.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "gvr",
           "event_id": "evt-petition-disposition",
           "reads": [
             {
@@ -29393,7 +29785,7 @@
               "run_id": "20260916T201911Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-19",
           "title": "Burford German Funding LLC, et al. v. financialright claims GmbH"
         }
       ],
@@ -29419,7 +29811,7 @@
       "score_min": 0.12,
       "score_range": 0.31,
       "short_caption": "Burford German Funding v. financialright claims",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -39481,5 +39873,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.2",
-  "scored_reads": 888
+  "scored_reads": 894
 }
