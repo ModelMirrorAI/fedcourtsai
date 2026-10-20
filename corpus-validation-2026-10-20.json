@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2153598,
-      "detail": "2153598 rows vs baseline 2153598",
+      "checked": 2153599,
+      "detail": "2153599 rows vs baseline 2153598",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4310452,
+      "checked": 4310454,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 2153598,
+      "checked": 2153599,
       "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
       "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
@@ -41,15 +41,15 @@
       "problems": []
     },
     {
-      "checked": 664,
-      "detail": "granted before 2024-10-20 (730 days); 18 resolved by termination (1 abated, 1 dismissed-moot, 1 grant-vacated, 10 judgment-issued, 5 voluntary-dismissal); excepted (terminal off-docket): scotus/72466202, scotus/72466229, scotus/72466705",
+      "checked": 675,
+      "detail": "granted before 2024-10-20 (730 days); 12 resolved by termination (1 abated, 1 grant-vacated, 1 judgment-issued, 9 voluntary-dismissal)",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 2153598,
+      "checked": 2153599,
       "detail": "0 future-dated, 34 decided-before-filed vs accepted baseline 50 (as of 2026-10-20); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
       "failures": 34,
       "name": "case_dates_ordered",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4307379,
+      "checked": 4307381,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4310452,
+      "checked": 4310454,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -206,8 +206,8 @@
       "problems": []
     }
   ],
-  "corpus_events": 2153781,
-  "corpus_rows": 2153598,
+  "corpus_events": 2153782,
+  "corpus_rows": 2153599,
   "ok": true,
   "schema_version": "1.0",
   "skipped": false
