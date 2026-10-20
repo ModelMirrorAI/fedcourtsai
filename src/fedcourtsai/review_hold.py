@@ -148,12 +148,20 @@ def load_review_hold_config(config_root: Path) -> ReviewHoldConfig:
 _MARK = re.escape(AUTO_RELEASED_MARKER)
 
 #: An auto-released round's commit subject on `main`, one pattern per form.
-#: A predict or evaluate collect squash takes the commit message for a
-#: one-commit PR — ``predict(run <id>): N prediction(s) [auto-released] (#N)`` —
-#: and the PR title otherwise — ``evaluate: N evaluation(s) (run <id>)
-#: [auto-released] (#N)`` — so the run id is read wherever it sits, before the
-#: mark. A summarize publish commit names its Actions run:
-#: ``data(summaries): N plain-language case summaries (run <n>) [auto-released]``.
+#: A predict or evaluate collect PR lands as a merge commit whose subject is
+#: the PR title — ``evaluate: N evaluation(s) (run <id>) [auto-released] (#N)``
+#: — over the ready commit it merges, whose subject is the collect commit
+#: message — ``predict(run <id>): N prediction(s) [auto-released]``. The
+#: workflows read every commit reachable from `main` whose committer date is
+#: within the window, second parents included. The merge commit is dated when
+#: the PR landed and anchors the window; the ready commit, dated when it was
+#: built, counts on its own only beneath a merge subject that carries no mark.
+#: One run id is one round either way, and it is read wherever it sits,
+#: before the mark. A summarize publish commit names its Actions run —
+#: ``data(summaries): N plain-language case summaries (run <n>) [auto-released]``
+#: — and its review PR is merged by hand, under the repository's default merge
+#: subject, which is the PR title (docs/security.md) so the mark lands dated at
+#: the merge as the unattended lanes' does.
 _AUTO_RELEASED_SUBJECTS = (
     re.compile(
         r"^(?P<lane>predict|evaluate)\b.*?\brun (?P<run>\d{8}T\d{6}Z)\b.*" + _MARK,

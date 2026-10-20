@@ -354,11 +354,14 @@ section: active, aimed at the refs named here with no carve-out, the rules
 named here, and bypass lists holding exactly the actors and modes named here,
 with the maintainers team and the two Apps resolved by name at run time. It
 runs only when the maintainer runs it, so an edit between runs goes unseen. Every require-PR ruleset pins
-`allowed_merge_methods` to **`merge, squash`**: `merge` because the sync and the
-promotion must keep `main` and `staging` sharing history, `squash` because the
-data-run `collect` PRs are merged with it, and no rebase because replaying
-commits onto either branch would break that shared history and rewrite the
-pre-registration record's commit ids.
+`allowed_merge_methods` to **`merge`** alone: the sync and the promotion must
+keep `main` and `staging` sharing history, and a squash of either one by hand
+would break it, so the platform refuses a squash outright. Every other PR lands the same way, the unattended data-run PRs
+included. No rebase either, because replaying commits onto either branch
+would break that shared history and rewrite the pre-registration record's
+commit ids. The admin-read check reads the methods on `main: require approval`
+alone and accepts any non-empty subset of `merge, squash`, so it is looser than
+this policy.
 
 - **`main: require PR`** — requires a pull request plus the status checks below
   to merge. **Bypass: the data App only**, so the deterministic writer jobs
@@ -678,13 +681,14 @@ happen and keep the branch list clean. To reproduce the repo (or use it as a tem
 
 | Setting | Value | Why |
 |---------|-------|-----|
-| **Allow auto-merge** | **on** | The `collect`, `big-cases` and `public-updates` jobs each run `gh pr merge --auto --squash` before merging the PR themselves, so a PR their own merge gives up on (a slow check, a refusal) still lands the moment the maintainer approves it. With it off that call errors and both degrade gracefully (log a warning and carry on); the jobs' own merge does not depend on it. |
-| **Allow squash merging** | **on** | The run PR is squash-merged, so each run lands as one commit. |
+| **Allow auto-merge** | **on** | The `collect`, `big-cases` and `public-updates` jobs each run `gh pr merge --auto --merge` before merging the PR themselves, so a PR their own merge gives up on (a slow check, a refusal) still lands the moment the maintainer approves it. With it off that call errors and both degrade gracefully (log a warning and carry on); the jobs' own merge does not depend on it. |
+| **Allow squash merging** | **off** | No lane squashes. A data-run PR lands as a merge commit whose subject is the PR's title and number when its job or the armed auto-merge lands it (`scripts/merge-when-green.sh`, and the same subject on the auto-merge arm), so `main`'s first-parent log reads one line per run and carries the auto-released mark the review hold counts its daily cap from. A hand merge — every summaries review PR, and a data PR whose own merge gave up — takes the default subject the next row sets to the same title. |
+| **Default merge commit message** | **Pull request title** | A hand-merged PR's merge commit takes `<title> (#N)` as its subject, the subject the jobs' own merges set. With the platform's `Merge pull request #N from <branch>` instead, an auto-released round merged by hand keeps its mark only on the branch commit beneath, dated when it was built rather than when it landed, so a PR that waited a day under review drops out of the review hold's daily count. |
 | **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. (It cannot touch `main`: GitHub skips the default branch, and `main: protect history` refuses deletion from anyone.) |
-| **Allow merge commits** | **on** | `sync-staging` merges `main` into `staging` with `--merge`. A squash or rebase would land a commit with no parent link to `main`'s tip, so the promotion gate's ancestry check would fail and the next sync would reopen the same PR forever. |
+| **Allow merge commits** | **on** | The only method. `sync-staging` merges `main` into `staging` with `--merge`. A squash or rebase would land a commit with no parent link to `main`'s tip, so the promotion gate's ancestry check would fail and the next sync would reopen the same PR forever. |
 
 Rebase-merge is not used by the pipeline, and every require-PR ruleset pins
-`allowed_merge_methods` to `merge, squash` — so it is refused on `main` and
+`allowed_merge_methods` to `merge` — so it is refused on `main` and
 `staging` regardless of the repo-level toggle. A rebase-merge of either
 ancestry-critical merge would replay commits onto the target, breaking the
 shared history *and* rewriting the pre-registration record's commit ids; no
