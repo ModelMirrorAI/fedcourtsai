@@ -825,7 +825,7 @@ or whitespace-only under the same predicate provisioning stamps as
 `empty_text`, split on the salience gate's paid modern-cert segment, and names
 whether the blob or the per-case content store served the reads, since a
 blob-only read of a split corpus undercounts. The counts stay per kind because
-the causes differ: an empty petition or brief in opposition is the scan; a
+the causes differ: an empty petition or brief in opposition is usually the scan; a
 near-zero count on any of the four merits kinds is the shape of the granted
 slice, since nothing selects them before a grant, rather than a coverage gap
 (and the two reply rows are narrower again, bounded by the granted cases whose
@@ -940,9 +940,9 @@ layer, the class optical character recognition can repair. Over the cut the
 salience gate scores replay candidates on, 0 of 6,842 read empty; the one
 empty petition is among the other 3,012. Those are stored documents, not
 cells. A document whose text leaf never mirrored to the content store reads
-back empty too and is indistinguishable from a scan, so the scan count bounds
-both from above — and its zero rules out such a leaf on any stored petition
-with pages.
+back empty too and is indistinguishable from a scan, so the scan count is an
+upper bound on scans and unmirrored leaves together — and its zero rules out
+such a leaf on any stored petition with pages.
 
 **The other kinds** (the `text frame:` lines, the same segments). Briefs in
 opposition read empty on 1 row, 0 of 2,708 in the scored cut and 1 of 275 in
@@ -954,7 +954,8 @@ frame itself is a **reach count**, not a failure rate: the pass read documents
 for 9,919 of the 25,831 live-slice cases it walked, and most of the rest were
 never fetched for — a historical-Term row, or a petition outside the upstream
 link window. The four merits rows are counted over granted cases alone, so
-their small `n` is the size of the granted slice and not a coverage gap. The
+their `n` (near zero outside the scored cut) is the size of the granted slice
+and not a coverage gap. The
 report's case-id ledger names every empty row by case and kind: the 49 rows
 above, on 49 cases.
 
@@ -969,17 +970,20 @@ cell is minted over. Of the 393 such cases, 362 are cert-form and 31 are
 interim application dockets, and the two partition it.
 **21 of the 362** cert-form cases hold no petition row; **0 of the 31**
 application dockets lack their application. The wide count — 10,948 of 20,722
-distributed cases with no petition row — is an unfiltered stock of rows
-distributed before the document channel existed and never fetched for, so the
-queued count is the one that says what is recoverable now. No extraction fix
+distributed cases with no petition row — is an unfiltered stock, largely rows nothing
+was ever fetched for (distributed before the document channel existed, a
+historical-Term row, or outside the upstream link window), which the report
+does not split by cause — so the queued count is the one that says what is recoverable now. No extraction fix
 reaches any of these; that is a fetch question, and the document back-fill
 contracted below is the fetch-path answer to it — bounded, form-keyed, and
 reporting apart the part of the class no fetch reaches. The report draws that
 line itself, beside each gap: of the cases in it, how many hold a stored docket
 carrying the opening entry with **no document behind it**, which is a paper
-filing the Court posted no PDF for and a structural floor. On this blob **all
+filing the Court posted no PDF for or a docket that carries no links at all,
+and a structural floor. On this blob **all
 21** of the cert-form gap are that floor and the application gap is empty, so
-nothing in either is left for the back-fill to drain. The floor is read off
+nothing in either is left for the back-fill to drain, as read off payloads
+stored no later than 2026-07-13. The floor is read off
 the stored payload, so a case upstream has since posted a link for stays
 counted there until a pass fetches it. A case matching *no* opening entry
 is deliberately outside that floor and stays in the unexplained remainder — on
@@ -999,7 +1003,7 @@ cell with the respondent's whole argument missing, which is the half of the
 case a forecast is least able to guess, while the fetch and the recognition
 are the same work on either. The repair is therefore a **bounded local-OCR
 recovery pass** over the empty rows of every *fetched* kind, contracted below.
-Local tesseract only — at this share a metered OCR service cannot be
+Local tesseract only — at a share this small a metered OCR service cannot be
 justified, and the pass's own cost is held down by the per-dispatch bound in
 the contract rather than by a service bill.
 
