@@ -924,66 +924,84 @@ same reason (verified live at implementation).
 
 ### How large the degradation is, and what is done about it
 
-Measured on the blob the corpus pointer named on 2026-08-28 (`b16b856f…` — the
-pointer is a content digest, which `corpus-info` does not print; its freshness
-pair is a 2026-08-28 pull stamp and a 2026-07-13 newest stored snapshot, and
-the documents were served by the per-case content store). Every figure below
-taken over the queued population is on the **stamp-only** denominator — the
-rows carrying a `predict_queued_at` — which is what the report counted at the
-time. It now counts the union of that with the cases the git ledger holds a
-committed prediction for, because a schedule-derived mint leaves no stamp, so a
-re-run today reports a wider denominator than these numbers were taken over. Of the 9,231 stored
-petitions, 271 carry no text: **2.94%** over both segments pooled, and **2.90%**
-(192 of 6,613) over the cut the salience gate scores replay candidates on.
-Those are stored documents, not cells. On the 242 cases queued for prediction —
-where a missing petition costs a forward cell — **6** hold a petition that read
-back empty, which the report did not print but its case-id ledger gave when
-intersected with the rows carrying a `predict_queued_at` (the reconstruction
-that the widened denominator retires: it is the ledger's predicted set the
-count now also spans). Of the 271, 270 have
-a page count and no text layer, the class optical character recognition can
-repair, and one is a PDF the extractor could not open at all, which it cannot.
-The 270 is an upper bound: a document whose text leaf never mirrored to the
-content store reads back empty here too and is indistinguishable from a scan.
-Briefs in opposition read empty on 34 rows (0.74% of the scored cut against
-6.15% of the rest, on 244 rows), and the derived questions-presented rows on
-37 — that column being structurally unable to carry a scan, since such a row is
-written only where the petition has text.
+Measured on the blob `a75d7dee…` (the corpus pointer is a content digest,
+which `corpus-info` does not print), by the `run-analytics` `text-coverage`
+mode on 2026-10-20: its freshness pair is a 2026-10-20 pull stamp and a
+2026-07-13 newest stored snapshot, and the documents were served by the
+per-case content store. Each figure below is over the population the report's
+own line names, so read it against that denominator and no other.
 
-The larger gap on the queued population is a different one: 29 of those 242
-cases hold no stored petition at all — itself the recoverable-now cut of a much
-wider stock of distributed rows nothing was ever fetched for. That 29 is
-undifferentiated, and the report is not: it measures each docket form against
-the document that opens it, counts the two classes apart and enumerates both,
-so a read of the same population prints a cert-form gap, an application-form
-gap, and the case ids in each. No extraction fix reaches any of them; that is a
-fetch question, and the document back-fill contracted below is the fetch-path
-answer to it — bounded, form-keyed, and reporting apart the part of the class no
-fetch reaches. The report draws that second line itself, beside each gap: of the
-cases in it, how many hold a stored docket carrying the opening entry with **no
-document behind it**, which is a paper filing the Court posted no PDF for and a
-structural floor. The rest is what the back-fill drains, so the headline stops
-reading as an unexplained provisioning gap the moment it has been worked. A case
-matching *no* opening entry is deliberately outside that floor and stays in the
-unexplained remainder — on a modern docket it is a filing shape the selector
-cannot see, which is a defect to fix rather than a floor to accept, and the
-back-fill's own ledger names those cases.
+**Stored petitions** (the `text coverage:` line). `petition` is the
+case-opening filing on any cert-form docket — certiorari, certiorari before
+judgment, mandamus, habeas corpus, or a direct appeal's jurisdictional
+statement. Of the 9,854 stored, **1** carries no text (**0.01%**), and it is a
+PDF the extractor could not open at all; **0** have a page count and no text
+layer, the class optical character recognition can repair. Over the cut the
+salience gate scores replay candidates on, 0 of 6,842 read empty; the one
+empty petition is among the other 3,012. Those are stored documents, not
+cells. A document whose text leaf never mirrored to the content store reads
+back empty too and is indistinguishable from a scan, so the scan count bounds
+both from above — and its zero rules out such a leaf on any stored petition
+with pages.
 
-So the scanned class is small on every population, and on this blob it is a
-bounded 270 petitions and 34 briefs in opposition, each named in the report's
-case-id ledger alongside the other kinds' empties. Six of the 271 empty
-petitions sit on cases queued for prediction today; the rest pay off wherever
-the gate later mints a cell over them. And the
-degradation persists where it lands: a filing that reached the corpus as a
-scan is unreadable for every cell minted over that case until it is
-re-fetched at a new URL, and no other path repairs it. What it costs differs by
-kind and the repair does not: an empty opposition leaves a cert cell with the
-respondent's whole argument missing, which is the half of the case a forecast
-is least able to guess, while the fetch and the recognition are the same work
-on either. The decision is therefore a **bounded local-OCR recovery pass** over
-the empty rows of every *fetched* kind, contracted below. Local tesseract only — at this share a metered OCR service
-cannot be justified, and the pass's own cost is held down by the per-dispatch
-bound in the contract rather than by a service bill.
+**The other kinds** (the `text frame:` lines, the same segments). Briefs in
+opposition read empty on 1 row, 0 of 2,708 in the scored cut and 1 of 275 in
+the rest; every other fetched kind reads empty on none. The derived
+questions-presented rows read empty on 47 — 26 of 6,667 scored (0.39%) and 21
+of 2,043 in the rest (1.03%) — and that column is structurally unable to carry
+a scan, since such a row is written only where the petition has text. The
+frame itself is a **reach count**, not a failure rate: the pass read documents
+for 9,919 of the 25,831 live-slice cases it walked, and most of the rest were
+never fetched for — a historical-Term row, or a petition outside the upstream
+link window. The four merits rows are counted over granted cases alone, so
+their small `n` is the size of the granted slice and not a coverage gap. The
+report's case-id ledger names every empty row by case and kind: the 49 rows
+above, on 49 cases.
+
+**Missing documents** (the `missing documents:` line). This is the larger gap,
+and a different one: a case holding no stored opening document at all. The
+report measures each docket form against the document that opens it, over the
+**queued-or-predicted** population — the live-slice cases carrying a
+`predict_queued_at` stamp together with those the git ledger holds a committed
+prediction for, since a schedule-derived mint leaves no stamp. A stamped case
+can still be dropped by a later gate, so this is an upper bound on the cases a
+cell is minted over. Of the 393 such cases, 362 are cert-form and 31 are
+interim application dockets, and the two partition it.
+**21 of the 362** cert-form cases hold no petition row; **0 of the 31**
+application dockets lack their application. The wide count — 10,948 of 20,722
+distributed cases with no petition row — is an unfiltered stock of rows
+distributed before the document channel existed and never fetched for, so the
+queued count is the one that says what is recoverable now. No extraction fix
+reaches any of these; that is a fetch question, and the document back-fill
+contracted below is the fetch-path answer to it — bounded, form-keyed, and
+reporting apart the part of the class no fetch reaches. The report draws that
+line itself, beside each gap: of the cases in it, how many hold a stored docket
+carrying the opening entry with **no document behind it**, which is a paper
+filing the Court posted no PDF for and a structural floor. On this blob **all
+21** of the cert-form gap are that floor and the application gap is empty, so
+nothing in either is left for the back-fill to drain. The floor is read off
+the stored payload, so a case upstream has since posted a link for stays
+counted there until a pass fetches it. A case matching *no* opening entry
+is deliberately outside that floor and stays in the unexplained remainder — on
+a modern docket it is a filing shape the selector cannot see, which is a defect
+to fix rather than a floor to accept, and the back-fill's own ledger names
+those cases; on this blob that remainder is empty.
+
+So no stored petition on this blob is a scan, and what remains empty across
+the fetched kinds is one unopenable petition and one brief in opposition — the
+report splits scan from unopenable for petitions alone, so the opposition's
+class is not measured here. That is a measurement of the class's size at this
+vintage, not a reason to stop watching it: a filing that reaches the
+corpus as a scan is unreadable for every cell minted over that case until its
+text is recovered, and the degradation persists where it lands. What it costs
+differs by kind and the repair does not: an empty opposition leaves a cert
+cell with the respondent's whole argument missing, which is the half of the
+case a forecast is least able to guess, while the fetch and the recognition
+are the same work on either. The repair is therefore a **bounded local-OCR
+recovery pass** over the empty rows of every *fetched* kind, contracted below.
+Local tesseract only — at this share a metered OCR service cannot be
+justified, and the pass's own cost is held down by the per-dispatch bound in
+the contract rather than by a service bill.
 
 Three residuals stay open by design. The unopenable PDF is not OCR's to repair
 and stays counted as empty. A multi-respondent brief in opposition stays out
