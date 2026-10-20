@@ -18,9 +18,12 @@ on the promotion PR and the maintainer's pre-flight read the same facts:
    a cell carrying it ran before the blessing it would count under, which is
    retroactive blessing — the check the cutover's hand-run Step 0 made.
 3. **Every enabled actor is registered.** The digest each enabled actor
-   computes on the batch's tree must be in the batch's registry, stamped or
-   pending; a moved process with no registration would run unblessed from the
-   merge on.
+   computes on the batch's tree, with the batch's own engine defaults and
+   retrieval surfaces, must be in the batch's registry, stamped or pending;
+   a moved process with no registration would run unblessed from the merge
+   on. The rest of the digest's shape (the canonical keys, the config models)
+   is the running code's, so a batch that changes it is digested by the base's
+   shape until it lands.
 4. **One open window per predictor.** At most one of a predictor's windows is
    unrevoked with no close, a pending close counting as a close:
    ``register-process`` closes the predecessor pending, and a hand edit that
@@ -60,6 +63,7 @@ checks read the document's fields.
 
 from __future__ import annotations
 
+import ast
 import tempfile
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
@@ -91,6 +95,9 @@ from .registry import enabled_evaluators, enabled_predictors
 _CONFIG_ROOT = "config"
 _CONFIG_FILES = ("predictors.yaml", "evaluators.yaml")
 _CENSUS_KIND = {"predictor": "predictions", "evaluator": "evaluations"}
+#: Where each code-side digest input is assigned, as (repository path, name).
+_DEFAULT_MODELS_AT = ("src/fedcourtsai/pricing.py", "DEFAULT_MODELS")
+_ENGINE_RETRIEVAL_AT = ("src/fedcourtsai/process_version.py", "ENGINE_RETRIEVAL")
 
 
 @dataclass(frozen=True)
@@ -105,9 +112,11 @@ def live_actors_at(repo: Path, rev: str) -> list[LiveActor]:
     """Every enabled actor's process digest on ``rev``'s tree, as ``process-digest --all`` reads it.
 
     Writes ``rev``'s two actor registries and each enabled actor's prompt file
-    into a scratch root and digests them there, so the answer is ``rev``'s
-    whatever tree the caller has checked out.
+    into a scratch root and digests them there with ``rev``'s code-side inputs
+    (its engine defaults and retrieval surfaces, read from its source), so the
+    answer is ``rev``'s whatever code and tree the caller has checked out.
     """
+    code = code_inputs_at(repo, rev)
     with tempfile.TemporaryDirectory() as scratch:
         root = Path(scratch)
         config_root = root / _CONFIG_ROOT
@@ -124,9 +133,90 @@ def live_actors_at(repo: Path, rev: str) -> list[LiveActor]:
         for _role, _actor, prompt in rows:
             _write_at(repo, rev, str(prompt), root)
         return [
-            LiveActor(role, actor, process_version.digest_for_actor(root, config_root, role, actor))
+            LiveActor(
+                role, actor, process_version.digest_for_actor(root, config_root, role, actor, code)
+            )
             for role, actor, _prompt in rows
         ]
+
+
+def code_inputs_at(repo: Path, rev: str) -> process_version.CodeInputs:
+    """``rev``'s code-side digest inputs, read from its source without running it."""
+    models = _literal_at(repo, rev, *_DEFAULT_MODELS_AT)
+    retrieval = _literal_at(repo, rev, *_ENGINE_RETRIEVAL_AT)
+    if not _str_map(models) or not all(
+        isinstance(v, tuple | list) and all(isinstance(x, str) for x in v)
+        for v in retrieval.values()
+    ):
+        raise PromotionRecordError(
+            f"{_DEFAULT_MODELS_AT[1]} or {_ENGINE_RETRIEVAL_AT[1]} at {rev} has an unexpected shape"
+        )
+    return process_version.CodeInputs(models, {k: tuple(v) for k, v in retrieval.items()})
+
+
+def _str_map(value: dict[Any, Any]) -> bool:
+    return all(isinstance(k, str) and isinstance(v, str) for k, v in value.items())
+
+
+def _literal_at(repo: Path, rev: str, path: str, name: str) -> dict[Any, Any]:
+    """The literal dict module-level ``name`` is assigned in ``path`` at ``rev``.
+
+    Parsed, never imported: the gate runs the base's code and must not execute
+    the candidate's. Anything but one literal dict with string keys is refused.
+    """
+    text = show_at(repo, rev, path)
+    if text is None:
+        raise PromotionRecordError(f"{path} is missing at {rev}")
+    try:
+        body = ast.parse(text, filename=path).body
+    except (SyntaxError, ValueError, RecursionError) as exc:
+        raise PromotionRecordError(f"{path} at {rev} does not parse") from exc
+    found: list[ast.expr] = []
+    for node in body:
+        value = _assigned(node, name)
+        if value is not None:
+            found.append(value)
+        elif _mutates(node, name):
+            raise PromotionRecordError(
+                f"{name} in {path} at {rev} is changed after its assignment; the gate reads "
+                "only one literal"
+            )
+    if len(found) != 1:
+        raise PromotionRecordError(
+            f"{name} is assigned {len(found)} times in {path} at {rev}; the gate reads exactly one"
+        )
+    try:
+        value = ast.literal_eval(found[0])
+    except (ValueError, TypeError, SyntaxError, RecursionError) as exc:
+        raise PromotionRecordError(f"{name} in {path} at {rev} is not a literal") from exc
+    if not isinstance(value, dict) or not all(isinstance(k, str) for k in value):
+        raise PromotionRecordError(f"{name} in {path} at {rev} is not a dict keyed by engine")
+    return value
+
+
+def _assigned(node: ast.stmt, name: str) -> ast.expr | None:
+    """The value a module-level statement plainly assigns ``name``, if it does."""
+    if isinstance(node, ast.AnnAssign):
+        named = isinstance(node.target, ast.Name) and node.target.id == name
+        return node.value if named else None
+    if isinstance(node, ast.Assign):
+        named = any(isinstance(t, ast.Name) and t.id == name for t in node.targets)
+        return node.value if named else None
+    return None
+
+
+def _mutates(node: ast.stmt, name: str) -> bool:
+    """Whether a module-level statement changes ``name`` other than by plain assignment."""
+    if isinstance(node, ast.AugAssign):
+        targets: list[ast.expr] = [node.target]
+    elif isinstance(node, ast.Assign | ast.AnnAssign | ast.Delete):
+        targets = list(node.targets) if not isinstance(node, ast.AnnAssign) else [node.target]
+        targets = [t for t in targets if not isinstance(t, ast.Name)]
+    elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+        targets = [node.value.func]
+    else:
+        return False
+    return any(isinstance(sub, ast.Name) and sub.id == name for t in targets for sub in ast.walk(t))
 
 
 def _write_at(repo: Path, rev: str, path: str, root: Path) -> None:

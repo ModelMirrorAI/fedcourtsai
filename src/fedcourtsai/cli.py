@@ -10259,8 +10259,9 @@ def registry_gate_cmd(
 ) -> None:
     """The promotion gate's Step 0: refuse a batch whose process registrations cannot be stamped.
 
-    Reads the registry, config and prompts at ``--at`` and the ledger, registry
-    and tags of ``--main-ref``, from git alone, whatever tree is checked out.
+    Reads the registry, config, prompts and code-side digest inputs at ``--at``
+    and the ledger, registry and tags of ``--main-ref``, from git alone,
+    whatever tree is checked out.
     Refuses first a batch with no registry or one that does not load; then
     pending registrations on a main that does not declare merge-stamped
     instants, a pending digest that already stamps a committed cell on main,
