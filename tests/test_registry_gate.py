@@ -516,11 +516,13 @@ def test_an_empty_registry_file_bootstraps_nothing() -> None:
 
 
 def _carry_fleet(repo: Path) -> list[str]:
-    """Commit ROOT's actor registries and each enabled actor's prompt into ``repo``."""
+    """Commit ROOT's actor registries, each enabled actor's prompt and the two
+    source files carrying the code-side digest inputs into ``repo``."""
     config = ROOT / "config"
     paths = ["config/predictors.yaml", "config/evaluators.yaml"]
     paths += [str(p.prompt) for p in enabled_predictors(config / "predictors.yaml")]
     paths += [str(e.prompt) for e in enabled_evaluators(config / "evaluators.yaml")]
+    paths += [_PRICING, _PROCESS_VERSION]
     for path in paths:
         _write(repo, path, (ROOT / path).read_bytes().decode("utf-8"))
     return paths
@@ -542,6 +544,60 @@ def test_the_live_digests_are_read_from_the_commits_own_tree(tmp_path: Path) -> 
     _write(repo, paths[2], "moved\n")
     _commit(repo, "move", STAGING_AT)
     assert [(a.role, a.actor_id, a.digest) for a in live_actors_at(repo, at)] == expected
+
+
+_PRICING = "src/fedcourtsai/pricing.py"
+_PROCESS_VERSION = "src/fedcourtsai/process_version.py"
+
+
+def test_the_engine_defaults_are_read_from_the_commits_own_source(tmp_path: Path) -> None:
+    """A batch that bumps an engine's default model is digested with its own
+    default, not the running package's, so the base's gate agrees with the
+    candidate's."""
+    repo = _init(tmp_path)
+    _carry_fleet(repo)
+    pricing = (ROOT / _PRICING).read_text(encoding="utf-8")
+    codex = process_version.RUNNING_CODE_INPUTS.default_models["codex"]
+    assert pricing.count(f'"codex": "{codex}"') == 1
+    _write(repo, _PRICING, pricing.replace(f'"codex": "{codex}"', '"codex": "a-bumped-model"'))
+    at = _commit(repo, "bump", MAIN_AT)
+    moved = process_version.CodeInputs(
+        {**process_version.RUNNING_CODE_INPUTS.default_models, "codex": "a-bumped-model"},
+        process_version.RUNNING_CODE_INPUTS.engine_retrieval,
+    )
+    live = {(a.role, a.actor_id): a.digest for a in live_actors_at(repo, at)}
+    for p in enabled_predictors(ROOT / "config/predictors.yaml"):
+        running = process_version.digest_for_actor(ROOT, ROOT / "config", "predictor", p.id)
+        bumped = process_version.digest_for_actor(ROOT, ROOT / "config", "predictor", p.id, moved)
+        assert live[("predictor", p.id)] == bumped
+        assert (bumped != running) == (p.engine == "codex" and p.model is None)
+
+
+@pytest.mark.parametrize(
+    ("path", "source", "match"),
+    [
+        (_PRICING, "DEFAULT_MODELS = {'codex': model()}\n", "not a literal"),
+        (_PRICING, "OTHER = {}\n", "assigned 0 times"),
+        (_PRICING, "DEFAULT_MODELS = {}\nDEFAULT_MODELS = {}\n", "assigned 2 times"),
+        (_PRICING, "DEFAULT_MODELS = ['codex']\n", "not a dict"),
+        (_PRICING, "DEFAULT_MODELS = {'codex': 1}\n", "unexpected shape"),
+        (_PROCESS_VERSION, "ENGINE_RETRIEVAL = {'codex': 'web'}\n", "unexpected shape"),
+        (_PRICING, "DEFAULT_MODELS = {}\nDEFAULT_MODELS['codex'] = 'x'\n", "changed after"),
+        (_PRICING, "DEFAULT_MODELS = {}\nDEFAULT_MODELS |= {'codex': 'x'}\n", "changed after"),
+        (_PRICING, "DEFAULT_MODELS = {}\nDEFAULT_MODELS.update(codex='x')\n", "changed after"),
+        (_PRICING, "DEFAULT_MODELS = {[]: 1}\n", "not a literal"),
+        (_PRICING, "DEFAULT_MODELS = {\n", "does not parse"),
+    ],
+)
+def test_a_code_side_input_the_gate_cannot_read_is_refused(
+    tmp_path: Path, path: str, source: str, match: str
+) -> None:
+    repo = _init(tmp_path)
+    _carry_fleet(repo)
+    _write(repo, path, source)
+    at = _commit(repo, "fleet", MAIN_AT)
+    with pytest.raises(PromotionRecordError, match=match):
+        live_actors_at(repo, at)
 
 
 def test_a_tree_missing_a_prompt_is_refused(tmp_path: Path) -> None:

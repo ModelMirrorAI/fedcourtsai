@@ -486,18 +486,39 @@ def compute_process_digest(prompt_bytes: bytes, config_canonical: dict[str, obje
     return "sha256:" + hashlib.sha256(body).hexdigest()
 
 
-def _resolved_model(engine: str, model: str | None) -> str:
+@dataclass(frozen=True)
+class CodeInputs:
+    """The digest inputs that live in code rather than in the config and prompts.
+
+    The running package's own values by default. A caller digesting another
+    revision's tree passes that revision's values, read from its source, so a
+    batch that bumps an engine default is digested as the batch would run it.
+    """
+
+    default_models: Mapping[str, str]
+    engine_retrieval: Mapping[str, Sequence[str]]
+
+
+#: The running package's code-side digest inputs.
+RUNNING_CODE_INPUTS: Final = CodeInputs(DEFAULT_MODELS, ENGINE_RETRIEVAL)
+
+
+def _resolved_model(
+    engine: str, model: str | None, default_models: Mapping[str, str] = DEFAULT_MODELS
+) -> str:
     """The model that actually ran: the registry override, else the engine default.
 
     Hash the resolved value, not the raw ``model`` field — a null that falls back
     to ``DEFAULT_MODELS`` must move the digest when that default is bumped, or a
     model change would silently ride under the same process version.
     """
-    return model or DEFAULT_MODELS[engine]
+    return model or default_models[engine]
 
 
 def _config_canonical(
-    registry_path: Path, actor: PredictorConfig | EvaluatorConfig
+    registry_path: Path,
+    actor: PredictorConfig | EvaluatorConfig,
+    code: CodeInputs = RUNNING_CODE_INPUTS,
 ) -> dict[str, object]:
     """The resolved registry subset that defines an actor's process.
 
@@ -505,14 +526,14 @@ def _config_canonical(
     both. Resolves the model (registry override, else engine default), the
     engine's retrieval surface, and the pinned MCP manifest *entries* (not just
     the ids a pin bump would leave unchanged), so any of them moving is a new
-    process.
+    process. ``code`` supplies the engine defaults and retrieval surfaces.
     """
     servers = resolve_mcp_servers(load_mcp_servers(registry_path), actor.mcp_servers)
     return {
         "engine": actor.engine,
-        "model": _resolved_model(actor.engine, actor.model),
+        "model": _resolved_model(actor.engine, actor.model, code.default_models),
         "prompt_path": actor.prompt,
-        "retrieval": list(ENGINE_RETRIEVAL[actor.engine]),
+        "retrieval": list(code.engine_retrieval[actor.engine]),
         # Exclude `description` — a manifest comment is documentation, not a
         # process input. Folding it in would bump every actor's version on a
         # cosmetic edit, and the actor-level description is already excluded
@@ -522,11 +543,18 @@ def _config_canonical(
     }
 
 
-def digest_for_actor(repo_root: Path, config_root: Path, role: str, actor_id: str) -> str:
+def digest_for_actor(
+    repo_root: Path,
+    config_root: Path,
+    role: str,
+    actor_id: str,
+    code: CodeInputs = RUNNING_CODE_INPUTS,
+) -> str:
     """Resolve one actor's process digest from the working tree.
 
     ``role`` is ``"predictor"`` or ``"evaluator"``. Loads the registry entry,
-    reads its prompt-template bytes (``repo_root``-relative), and hashes both.
+    reads its prompt-template bytes (``repo_root``-relative), and hashes both,
+    with ``code`` as the code-side inputs (the running package's by default).
     Raises ``KeyError`` if the actor is not a registry id and ``OSError`` if its
     prompt file is missing — a genuine config inconsistency must fail loudly,
     never ship a cell with a fabricated-looking process version.
@@ -542,7 +570,7 @@ def digest_for_actor(repo_root: Path, config_root: Path, role: str, actor_id: st
     else:
         raise ValueError(f"role must be predictor or evaluator, not {role!r}")
     prompt_bytes = (repo_root / entry.prompt).read_bytes()
-    return compute_process_digest(prompt_bytes, _config_canonical(registry_path, entry))
+    return compute_process_digest(prompt_bytes, _config_canonical(registry_path, entry, code))
 
 
 def _find(
