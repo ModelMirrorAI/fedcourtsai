@@ -1,0 +1,11 @@
+# claude-baseline — scotus/9026000012, evt-petition-disposition
+
+**Cell.** Cert stage (`stage: cert`, moment `distribution`), forward mode. Outcome: `granted` (plenary), resolved 2026-10-19 after three distributions; `actual_granted` = 1. The prediction froze `context.band` = `elevated` (sal-v4, Term 2026), so `segment_base_rate`, `brier_skill_score` and `base_rate_basis` are left null for the harness stamp; the comparison point is the stamped segment base rate. `correct` and `brier_score` are written as my independent read. No votes are scored at the cert stage.
+
+**Scores.** Predicted `denied` at P(grant) = 0.22 → `correct` = 0; Brier = (0.22 − 1)² = 0.6084.
+
+**Reasoning quality (0.66).** The most complete of the three analyses. It read the petitioner's reply and used it to correct the BIO's forfeiture claim. It checked the distribution histories of the two prior petitions, recognised that the second distribution was a reschedule, and explained explicitly why the split has matured since Boston Parent ("percolation has happened"). It also named the swing votes needed. Its "where to discount me" section is honest about double-counting risk. It still landed at 0.22, putting heavy weight on vehicle weakness (pleading stage, unpublished per curiam, a lottery adopted by different officials, the alternative ground) and on foreseeable better vehicles. The grant suggests the Court accepted this vehicle, and the candidate's own observation that the split had crystallised and that three Justices were already on record deserved more weight than it got. Well reasoned, but miscalibrated on the balance.
+
+**Leakage.** Forward; prediction 2026-09-27, resolution 2026-10-19. Retrieved dates were 2023-12-08 (prior CA4 opinion) and 2026-02-02 (Sargent). Web fetches were the 9/10/2026 reply brief and the docket pages of Nos. 23-170 and 23-1137. All of this predates resolution and is legitimate forward signal, and the candidate disclosed it in full. Nothing about this petition's disposition surfaced. `not_applicable`, not suspected.
+
+**Big case (own read, 0.85).** A post-SFFA proxy-discrimination question in K-12 selective admissions, with an acknowledged circuit conflict, now granted for plenary review.

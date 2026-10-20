@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "Paid FAA petition from the Third Circuit asking whether a court with jurisdiction over a pending 28 U.S.C. 1782 discovery application may entertain Section 3/4 motions to stay and compel arbitration. First-impression, no split, private cross-border litigation-funding dispute; the Court disposed of it by GVR in light of Jules v. Andre Balazs Properties rather than plenary review, so it sets no doctrine of its own. Modest significance for the arbitration/1782 bar only."
+  },
+  "brier_score": 0.10239999999999996,
+  "brier_skill_score": 0.8862480562658722,
+  "case_id": "scotus/73317900",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.68,
+        "score": 0.7978043977317811
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.7,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": 0.4166636436078696
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 1.2144680413396507,
+    "total": 1.2144680413396507
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T16:32:38Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward, prediction 2026-09-16, event resolved 2026-10-19). Retrieval: CourtListener search/read of Jules v. Andre Balazs Properties (No. 25-83, decided 2026-05-14, a different case predating the prediction), and two unobserved web-search/open calls aimed at the Jules slip opinion (graded on query: Jules only, not this petition). One shell command names data/qp-topics only as a find -not -path exclusion, which is not a read. No retrieved_doc_date on or after resolution; no query for this petition's disposition; reasoning treats the petition as pending. No outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T16:33:31.240040Z"
+  },
+  "reasoning_quality": 0.75,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120898100172712,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

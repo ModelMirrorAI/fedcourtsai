@@ -1,0 +1,123 @@
+{
+  "actor_id": "codex-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4a96738676f9c275",
+      "query": "{\"cmd\": \"cat .claude/agents/stats-reviewer.md; printf '\\\\n--- EVALUATION RULES ---\\\\n'; cat .github/prompts/evaluate.md\", \"max_output_tokens\": 18000}",
+      "result_capture": "captured",
+      "result_digest": "fa8978222b8ae433",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:50:52.546Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "9dfe9dc02ea36ac5",
+      "query": "{\"cmd\": \"printf '\\\\n--- STATS CHECKLIST ---\\\\n'; nl -ba .claude/agents/stats-reviewer.md | sed -n '75,240p'; printf '\\\\n--- PROMPT INDEX ---\\\\n'; rg -n '^#|Brier|reasoning_quality|big.case|baseline|skill|sal-v4|forecast|claim|correct|votes|judgment|semantic|reasoning.md|state' .github/prompts/evaluate.md; printf '\\\\n--- EVENT ---\\\\n'; nl -ba data/cases/scotus/9026000034/events/evt-petition-disposition/event.yaml; printf '\\\\n--- OUTCOME ---\\\\n'; nl -ba data/cases/scotus/9026000034/events/evt-peti",
+      "result_capture": "captured",
+      "result_digest": "1c267330833e8145",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:50:58.152Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "936d680239d89994",
+      "query": "{\"cmd\": \"printf '\\\\n--- REVIEW REPORT RULES ---\\\\n'; sed -n '137,190p' .claude/agents/stats-reviewer.md; printf '\\\\n--- EVALUATION RULES 1 ---\\\\n'; nl -ba .github/prompts/evaluate.md | sed -n '1,230p'; printf '\\\\n--- PERMITTED CANDIDATE PATHS ---\\\\n'; rg --files --hidden -g '**/record/blinded/candidate-[abc]/prediction.json' -g '**/record/blinded/candidate-[abc]/reasoning.md' -g '!**/.git/**'\", \"max_output_tokens\": 14500}",
+      "result_capture": "captured",
+      "result_digest": "bb007a273a0bc095",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:51:05.147Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "78948fa294904d5d",
+      "query": "{\"cmd\": \"printf '\\\\n--- SCORING CONTRACT ---\\\\n'; nl -ba .github/prompts/evaluate.md | sed -n '225,405p'; for candidate in a b c; do printf '\\\\n--- %s PREDICTION ---\\\\n' \\\"$candidate\\\"; nl -ba \\\"data/cases/scotus/9026000034/record/blinded/candidate-$candidate/prediction.json\\\"; printf '\\\\n--- %s REASONING ---\\\\n' \\\"$candidate\\\"; nl -ba \\\"data/cases/scotus/9026000034/record/blinded/candidate-$candidate/reasoning.md\\\"; done\", \"max_output_tokens\": 20500}",
+      "result_capture": "captured",
+      "result_digest": "7fe06d1f4c5f909f",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:51:09.449Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "50fe42b25ea6edb4",
+      "query": "{\"cmd\": \"nl -ba .github/prompts/evaluate.md | sed -n '315,395p'; printf '\\\\n--- A PREDICTION ---\\\\n'; nl -ba data/cases/scotus/9026000034/record/blinded/claude-baseline/prediction.json; printf '\\\\n--- A REASONING ---\\\\n'; nl -ba data/cases/scotus/9026000034/record/blinded/claude-baseline/reasoning.md\", \"max_output_tokens\": 7000}",
+      "result_capture": "captured",
+      "result_digest": "4e33d45f8032b1f1",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:51:13.437Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ddf7645bdc3c784c",
+      "query": "{\"cmd\": \"nl -ba .github/prompts/evaluate.md | sed -n '378,465p'; printf '\\\\n--- B PREDICTION ---\\\\n'; nl -ba data/cases/scotus/9026000034/record/blinded/gemini-baseline/prediction.json\", \"max_output_tokens\": 5000}",
+      "result_capture": "captured",
+      "result_digest": "024ed34510521ed2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:51:17.144Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "76885034be2ba95e",
+      "query": "{\"cmd\": \"printf '\\\\n--- B REASONING ---\\\\n'; nl -ba data/cases/scotus/9026000034/record/blinded/gemini-baseline/reasoning.md; printf '\\\\n--- C PREDICTION ---\\\\n'; nl -ba data/cases/scotus/9026000034/record/blinded/codex-baseline/prediction.json; printf '\\\\n--- C REASONING ---\\\\n'; nl -ba data/cases/scotus/9026000034/record/blinded/codex-baseline/reasoning.md\", \"max_output_tokens\": 6500}",
+      "result_capture": "captured",
+      "result_digest": "76a5d0b3cd5853c4",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:51:20.490Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "e6727dea8f3b6829",
+      "query": "{\"cmd\": \"printf '\\\\n--- INPUT / DO-NOT-SCORE RULES ---\\\\n'; nl -ba .github/prompts/evaluate.md | sed -n '105,160p'; printf '\\\\n--- C ANCHOR ---\\\\n'; nl -ba data/cases/scotus/9026000034/record/blinded/codex-baseline/reasoning.md | sed -n '9,15p'; printf '\\\\n--- INDEPENDENT ARITHMETIC ---\\\\n'; python - <<'PY'\\nimport json\\nfrom decimal import Decimal\\nfrom pathlib import Path\\ncase = Path('data/cases/scotus/9026000034')\\noutcome = json.loads((case / 'events/evt-petition-disposition/outcome.json').rea",
+      "result_capture": "captured",
+      "result_digest": "7e2ed5c08d516077",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:51:27.485Z",
+      "tool": "exec_command"
+    }
+  ],
+  "case_id": "scotus/9026000034",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

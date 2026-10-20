@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000226",
+  "gaps": [
+    "Result digests and query slices do not expose full retrieved content; one candidate has no captured results."
+  ],
+  "helpful": [
+    "Blinded candidates retain frozen context, both prose documents, retrieval notes, and harness-captured query slices.",
+    "The dated outcome, petition appendix, and docket snapshot support independent accuracy and reasoning checks.",
+    "Result-capture markers distinguish unavailable telemetry from observed empty results."
+  ],
+  "notes": "All three candidates were graded without external retrieval or corpus queries. No committed statpack was consulted by this evaluator; baseline-use comments concern the candidates' stated methods, while frozen-band anchor fields remain for harness stamping. Unobserved results were not treated as proof of empty responses.",
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned-input inspection",
+    "jq: structured prediction and transcript inspection",
+    "apply_patch: cell output creation",
+    "fedcourtsai.paths and fedcourtsai.serialize: output paths and serialization",
+    "JSON Schema and Pydantic: output validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

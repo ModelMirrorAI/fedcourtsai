@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.8,
+    "notes": "The question concerns the proof required for intentional racial discrimination in facially neutral public-school admissions, with national consequences beyond this district. The October 19 grant isolates the aggregate-impact requirement; the particular lottery and unresolved intent allegations limit the vehicle. This is a stakes assessment, not a forecast of the merits."
+  },
+  "brier_score": 0.6084,
+  "brier_skill_score": 0.12007506131277002,
+  "case_id": "scotus/9026000012",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.16848174247277387,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.22,
+        "score": 0.08302261260111443
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.55,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": 0.35400225479143177,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": 0.11531759639741776
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.55,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.1983402089985322,
+    "total": 0.1983402089985322
+  },
+  "correct": 0,
+  "created_at": "2026-10-20T16:45:58Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The September 27 prediction predates the October 19 resolution. The captured log and reasoning show provisioned inputs, base-rate analysis, and a separate February 2026 Sargent opinion, not this petition's disposition. Two unobserved general Arlington Heights web calls cannot be treated as empty results, but their queries do not target this case or its outcome. No evidence of already-decided forward provisioning.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T16:48:30.999925Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.16848174247277387,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73281642",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with retrieval_log.json result_capture markers made the forward leakage check quick"
+  ],
+  "gaps": [],
+  "notes": "Cert cell with frozen bands on all three candidates, so the base-rate anchor is the harness's; no statpack or corpus consultation was needed."
+}

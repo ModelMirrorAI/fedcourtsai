@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000013",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Blinded staging with retrieval_log.json call classes and result_capture markers made the forward leakage check quick."],
+  "gaps": [],
+  "notes": "Frozen-band cert cell: base rate and skill left to the harness stamp, so the statpack was only glanced at for its caption."
+}

@@ -1,0 +1,112 @@
+{
+  "actor_id": "codex-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b5e400d27a31ebcd",
+      "query": "{\"cmd\": \"cat .github/prompts/evaluate.md; printf '\\\\n--- scoped instructions ---\\\\n'; for directory in data data/cases data/cases/scotus data/cases/scotus/9026000005 data/cases/scotus/9026000005/record data/cases/scotus/9026000005/record/blinded data/cases/scotus/9026000005/record/blinded/gemini-baseline; do if [ -f \\\"$directory/AGENTS.md\\\" ]; then printf '\\\\n--- %s/AGENTS.md ---\\\\n' \\\"$directory\\\"; cat \\\"$directory/AGENTS.md\\\"; fi; done; printf '\\\\n--- candidate files ---\\\\n'; rg --files --hidden d",
+      "result_capture": "captured",
+      "result_digest": "8efeb7487552fcf1",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:36.057Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d452d6985005de34",
+      "query": "{\"cmd\": \"printf '\\\\n--- root contract remainder ---\\\\n'; sed -n '/## Change review/,$p' AGENTS.md; printf '\\\\n--- rubric part 1 ---\\\\n'; sed -n '75,250p' .github/prompts/evaluate.md; printf '\\\\n--- rubric part 2 ---\\\\n'; sed -n '250,430p' .github/prompts/evaluate.md; printf '\\\\n--- schema ---\\\\n'; cat schemas/evaluation.schema.json; printf '\\\\n--- nested instructions ---\\\\n'; find data/cases/scotus/9026000005/record/blinded/gemini-baseline -name AGENTS.md -print; printf '\\\\n--- event ---\\\\n'; cat da",
+      "result_capture": "captured",
+      "result_digest": "8e063eb666cb3c2e",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:42.724Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d675279871a853f4",
+      "query": "{\"cmd\": \"printf '\\\\n--- scoring and leakage rule locations ---\\\\n'; rg -n 'reasoning_quality|rubric|leak|replay|forward|retrieval_log|transcript|0\\\\.0|0\\\\.25|0\\\\.5|0\\\\.75|1\\\\.0' .github/prompts/evaluate.md; printf '\\\\n--- rubric ---\\\\n'; sed -n '170,310p' .github/prompts/evaluate.md; printf '\\\\n--- candidate complete retrieval log ---\\\\n'; cat data/cases/scotus/9026000005/record/blinded/gemini-baseline/retrieval_log.json; printf '\\\\n--- candidate prediction ---\\\\n'; cat data/cases/scotus/9026000005/",
+      "result_capture": "captured",
+      "result_digest": "4fba8694f58a3cc8",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:49.271Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "708ee8b899e8a2c8",
+      "query": "{\"cmd\": \"sed -n '90,150p' .github/prompts/evaluate.md; sed -n '380,425p' .github/prompts/evaluate.md; sed -n '590,722p' .github/prompts/evaluate.md; sed -n '738,770p' .github/prompts/evaluate.md\", \"max_output_tokens\": 6800}",
+      "result_capture": "captured",
+      "result_digest": "959a322d4b929f02",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:41:53.891Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d2722830ae4a7125",
+      "query": "{\"cmd\": \"sed -n '388,407p' .github/prompts/evaluate.md; sed -n '594,659p' .github/prompts/evaluate.md; printf '\\\\n--- log 1 ---\\\\n'; sed -n '1,125p' data/cases/scotus/9026000005/record/blinded/gemini-baseline/retrieval_log.json\", \"max_output_tokens\": 4800}",
+      "result_capture": "captured",
+      "result_digest": "45518d41f6e77402",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:42:00.457Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ed6db7421c8cc9af",
+      "query": "{\"cmd\": \"sed -n '115,240p' data/cases/scotus/9026000005/record/blinded/gemini-baseline/retrieval_log.json\", \"max_output_tokens\": 3500}",
+      "result_capture": "captured",
+      "result_digest": "c900f19c5533b7a9",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:42:03.188Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "1e50d94d7ac01c88",
+      "query": "{\"cmd\": \"sed -n '235,364p' data/cases/scotus/9026000005/record/blinded/gemini-baseline/retrieval_log.json; printf '\\\\n--- complete log audit summary ---\\\\n'; jq '{mode,run_id,result_capture_coverage,calls_total:(.calls|length),tool_counts:(.calls|group_by(.tool)|map({tool:.[0].tool,count:length})),capture_counts:(.calls|group_by(.result_capture)|map({capture:.[0].result_capture,count:length})),first_call:.calls[0].timestamp,last_call:.calls[-1].timestamp,dated_results:[.calls[]|select(.retrieved_doc",
+      "result_capture": "captured",
+      "result_digest": "d4affff0169fccd7",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-20T16:42:07.632Z",
+      "tool": "exec_command"
+    }
+  ],
+  "case_id": "scotus/9026000005",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

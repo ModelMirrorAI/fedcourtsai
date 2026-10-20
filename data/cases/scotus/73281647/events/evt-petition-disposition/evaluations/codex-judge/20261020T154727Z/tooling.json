@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281647",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "local file reads", "JSON inspection", "local schema validation"],
+  "helpful": ["Blinded candidate documents and captured retrieval-query logs", "Authoritative event and outcome with dated provisioned snapshot", "Explicit frozen-band baseline ownership rules"],
+  "gaps": ["Captured result digests do not expose result bodies; one candidate has entirely unobserved call results"],
+  "notes": "No external research or corpus lookup was needed. Frozen-band baseline and skill fields are reserved for the harness. Unobserved results were assessed by query intent, not treated as empty results or as a telemetry defect."
+}

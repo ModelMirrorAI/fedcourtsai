@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.22,
+    "notes": "Although the underlying dispute stems from litigation funding of European truck-cartel claims, the petition presented a narrow procedural question at the intersection of 28 U.S.C. 1782 discovery applications and FAA Sections 3 and 4 jurisdiction, and the Court disposed of it by summary GVR in light of Jules v. Andre Balazs Properties, 608 U.S. 200 (2026), without merits briefing or argument."
+  },
+  "brier_score": 0.7224999999999999,
+  "brier_skill_score": 0.19740449855559228,
+  "case_id": "scotus/73317900",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05120898100172712,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.15,
+        "score": 0.17770439773178115
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.93,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": 0.4075636436078696
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.5852680413396507,
+    "total": 0.5852680413396507
+  },
+  "correct": 0,
+  "created_at": "2026-10-20T15:52:00Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction executed on 2026-09-16 (run 20260916T201911Z) over one month before the petition resolved via GVR on 2026-10-19. The captured retrieval log shows reads of the provisioned record, statpack, corpus queries, CourtListener lookups of Jules v. Andre Balazs Properties, and fetches of pre-cutoff filings (the June 16 supplemental brief, Sept. 14 BIO, and petition appendix) from supremecourt.gov. The case was genuinely open at prediction time and no outcome material existed.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T201911Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T16:39:47.004746Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05120898100172712,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.7,
+    "notes": "The question concerns constitutional limits on using the taxing power and Necessary and Proper Clause to regulate production locations. An acknowledged circuit conflict and invalidation of federal legislation give it national structural significance, but the immediate home-distilling restriction is specialized; a cert grant does not establish a broad merits holding."
+  },
+  "brier_score": 0.001600000000000003,
+  "brier_skill_score": 0.9815039999999999,
+  "case_id": "scotus/9026000204",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7058823529411765,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": 0.08490519031141866
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.72,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.35400225479143177,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.035,
+        "score": 0.12409259639741776
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.4,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.20899778670883642,
+    "total": 0.20899778670883642
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T17:01:26Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 5 prediction precedes the October 19 grant. Captured queries read provisioned inputs and the committed statpack; the two unobserved web calls concern general Supreme Court rules and do not name this petition. Unobserved results are not credited as empty despite the candidate's report that no usable content returned. Neither the queries nor the rationale reveal this case's eventual disposition or indicate an already-decided case provisioned forward.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261005T153213Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T17:03:41.178724Z"
+  },
+  "reasoning_quality": 0.94,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7058823529411765,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

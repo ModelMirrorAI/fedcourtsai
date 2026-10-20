@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73266074",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Blinded staging with the frozen context block made the forward-mode and stamped-baseline routing unambiguous."],
+  "gaps": [],
+  "notes": "Frozen-band cert cell: the harness stamps the base rate, so the statpack was not consulted."
+}

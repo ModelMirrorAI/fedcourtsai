@@ -1,0 +1,21 @@
+# Evaluation of `codex-baseline` — `scotus/9026000013` (`evt-petition-disposition`)
+
+## Outcome and Quantitative Summary
+
+- **Stage:** `cert` (petition for a writ of certiorari in *Khalid Shaikh Mohammad, et al. v. United States*, No. 26-13).
+- **Actual outcome:** `denied` (`actual_granted = 0`) on October 19, 2026, after three total distributions (`distribution_count = 3`, `cvsg_date = null`, `noted_dissent_from_denial = false`; Justice Kavanaugh took no part in the consideration or decision of the petition).
+- **Prediction:** `predicted_disposition = "denied"`, `probability = 0.16` (`correct = 1`, `brier_score = 0.0256`).
+- **Base rate & skill:** Because the scored prediction carries a frozen `context.band` (`baseline` under `sal-v4`), `segment_base_rate`, `brier_skill_score`, and `base_rate_basis` are left null for the harness to stamp from the committed statpack risk-set pool. `codex-baseline` anchored directly on the stamped segment base rate from the prior-Term risk set before making a reasoned upward adjustment to 0.16 while keeping `denied` as the clear modal forecast.
+
+## Reasoning Quality (`0.94`)
+
+`codex-baseline` produced a rigorous, disciplined, and closely cited legal analysis in `reasoning.md`:
+
+1. **Methodological discipline on base rates and docket posture:** `codex-baseline` properly anchored on the frozen `sal-v4` `baseline` risk set over the prior Terms corresponding to the stamped segment base rate, explicitly refusing to compound terminal descriptive cuts (originating circuit, relist count, CVSG) or to treat the United States as a federal petitioner when it appeared as respondent at the cert stage despite having sought mandamus below. It also carefully distinguished the June 10 distribution and June 29 grant of the linked sealing motion (`25M91`) from distributions of the cert petition itself, and noted the discrepancy between the `CAPITAL CASE` designation on the briefs and `bCapitalCase: false` in the snapshot.
+2. **Primary-source verification of *Will v. United States*:** Rather than relying solely on the parties' characterizations, `codex-baseline` retrieved and checked *Will v. United States*, 389 U.S. 90, 95 n.4, 97–98 (1967), via CourtListener. It accurately showed that *Will* both reserved the question of mandamus over non-dismissal procedural orders in criminal cases (undercutting petitioners' broadest categorical framing of Question 1) and warned against using mandamus to circumvent statutory limits on government criminal appeals (giving weight to petitioners' supervisory argument).
+3. **Granular assessment of both Questions Presented and vehicle obstacles:** With pinpoint citations to the Petition, Appendix, and BIO, `codex-baseline` explained why the alleged circuit split on Question 1 was imperfect (*Kane* recognized jurisdiction; Second Circuit cases assumed it) and why vehicle problems—limited development of the jurisdictional argument before the D.C. Circuit panel, the unresolved question of final-judgment government appeal under the Military Commissions Act, and the distinctive military-commission statutory framework—weighed heavily against certiorari. On Question 2, it examined the panel opinion's footnote addressing *United States v. Dean* (Pet. App. 40a–41a n.10) and explained why the dispute over whether petitioners had begun "performance" under the pretrial agreements prior to entering formal pleas looked like fact-specific application of the shared "clear and indisputable" standard rather than a clean doctrinal conflict.
+
+## Leakage Assessment
+
+- **Mode:** `forward` (run on September 18, 2026 against `2026-09-18.json`, one month prior to the October 19, 2026 denial).
+- **Assessment:** `retrieved_outcome_material = false`, `influenced_prediction = "not_applicable"`, `leakage_suspected = false`. In `retrieval_log.json`, 46 of 48 calls were `captured` (`result_capture_coverage = 0.9583`); the two `unobserved` web-search calls sought only Supreme Court Rule 10 text (`site.supremecourt.gov "Rule 10" "Considerations Governing Review"` and `2023RulesoftheCourt.pdf`). External retrieval was confined to checking the 1967 *Will v. United States* opinion via CourtListener MCP. No post-resolution facts existed at prediction time, and no `data/qp-topics/` paths were accessed.

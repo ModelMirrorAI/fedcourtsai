@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281642",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "run_shell_command",
+    "write_file"
+  ],
+  "helpful": [
+    "Staged blinded candidate directories with captured retrieval_log.json made forward-mode verification and depth-of-reading checks straightforward.",
+    "Provisioned questions-presented.txt, documents.json, and docket snapshot provided complete context to verify candidate factual claims."
+  ],
+  "gaps": [],
+  "notes": "All three candidates carried a frozen context.band ('baseline' under 'sal-v4'), so segment_base_rate and brier_skill_score are left null for stamp-cell to populate."
+}
