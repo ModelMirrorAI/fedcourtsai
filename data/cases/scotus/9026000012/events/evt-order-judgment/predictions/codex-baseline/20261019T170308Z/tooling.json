@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000012",
+  "gaps": [
+    "Web search and direct PDF-open attempts returned no usable content.",
+    "The initial citation-only CourtListener search returned an unrelated case; court and case-name constraints located the authority.",
+    "The default uv cache was read-only; a temporary writable cache allowed the CLI to run.",
+    "The consulted statpack section does not expose a corpus freshness timestamp."
+  ],
+  "helpful": [
+    "The snapshot preserves the limited question in the grant order.",
+    "The provisioned appendix and cert reply distinguish the appellate holding from the district court's alternative intent rationale.",
+    "The merits statpack publishes excluded counts and per-Term parsed coverage.",
+    "CourtListener supports bounded precedent retrieval without querying this case."
+  ],
+  "notes": "No merits briefs are expected at this grant moment. The forecast uses cert-stage advocacy, the lower decisions, the limited grant, and older precedent; it does not infer the content of future merits briefs. No durable input defect or outcome exposure required flags.json.",
+  "role": "predictor",
+  "run_id": "20261019T170308Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned-file reads and local base-rate arithmetic",
+    "fedcourts paths",
+    "CourtListener search",
+    "CourtListener search_document",
+    "web search and open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

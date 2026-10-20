@@ -1,0 +1,14 @@
+case_id: scotus/9026000032
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-07-08'
+resolved: true
+schema_version: '1.0'
+stage: cert
+title: Breayonna Aaron, Individually and on Behalf of Richie Terrell Aaron, Jr., Deceased,
+  and Her Minor Children, M. A., R. A. and L. A., et al. v. National Railroad Passenger
+  Corporation, dba Amtrak

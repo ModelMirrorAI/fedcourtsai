@@ -1,0 +1,112 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "497889413ba5dcfe",
+      "query": "{\"cmd\": \"cat .claude/agents/stats-reviewer.md; printf '\\\\n--- SCOPED FILE SIZES ---\\\\n'; wc -l metrics/statpack.md metrics/statpack.json .github/prompts/predict.md schemas/prediction.schema.json data/cases/scotus/9026000049/record/context.json\", \"max_output_tokens\": 6500}",
+      "result_capture": "captured",
+      "result_digest": "ea85e482231e7cb2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-19T17:10:32.298Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "abe4fc734cd528ec",
+      "query": "{\"cmd\": \"cat data/cases/scotus/9026000049/record/context.json; cat metrics/statpack.md; rg -n 'anchor|bracket|prior|summary|dissent|increment|CVSG|cvsg|relist|base.rate|hazard|conditional|sal-v4|term' .github/prompts/predict.md schemas/prediction.schema.json; jq 'keys' metrics/statpack.json\", \"max_output_tokens\": 13500}",
+      "result_capture": "captured",
+      "result_digest": "77384c1915eb7ec2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-19T17:10:36.530Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "70518cedb1002a28",
+      "query": "{\"cmd\": \"nl -ba metrics/statpack.md | sed -n '102,215p'; nl -ba .github/prompts/predict.md | sed -n '35,115p;665,705p;790,870p;900,918p'; jq '.sections | type, (if type == \\\"object\\\" then keys else map(keys) end)' metrics/statpack.json; rg -n 'probability|summary-disposition|cvsg-increment|relist-increment|dissent-from|grant' schemas/prediction.schema.json\", \"max_output_tokens\": 9500}",
+      "result_capture": "captured",
+      "result_digest": "f4d3445136fc636e",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-19T17:10:40.211Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f390a9f3cab03bd2",
+      "query": "{\"cmd\": \"nl -ba metrics/statpack.md | sed -n '173,258p'; jq '.sections | map({key,title,dimension,fields:(keys)})' metrics/statpack.json; jq '.terms | type, (.[0] // .)' metrics/statpack.json | head -150; rg -n 'anchor|bracket|prior.Term|prefix|lookback|any grant' .github/prompts/predict.md\", \"max_output_tokens\": 6500}",
+      "result_capture": "captured",
+      "result_digest": "8ee00dacf0b8958c",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-19T17:10:44.682Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a24a0fbf0bd3e477",
+      "query": "{\"cmd\": \"nl -ba .github/prompts/predict.md | sed -n '234,283p;768,785p;812,865p;900,918p'; jq '{terms_type:(.terms|type),term0_keys:(.terms[0]|keys),sections: (.sections|map({title,key,dimension,fields:keys}))}' metrics/statpack.json\", \"max_output_tokens\": 4500}",
+      "result_capture": "captured",
+      "result_digest": "7acd8c5a0ed1fe1e",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-19T17:10:48.473Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "728a886131e58574",
+      "query": "{\"cmd\": \"jq '[.terms[] | select(.term >= 2017 and .term <= 2025) | .term as $term | .salience_version as $version | .segments[] | select(.band==\\\"high\\\") | {term:$term,version:$version,n:.prefix_weighted_resolved,rate:.prefix_est_grant_rate,numerator:(.prefix_weighted_resolved*.prefix_est_grant_rate)}] | {rows:., numerator:(map(.numerator)|add), denominator:(map(.n)|add), rate:((map(.numerator)|add)/(map(.n)|add))}' metrics/statpack.json; jq '.sections[] | select(.group_by==\\\"cvsg\\\" or (.title|c",
+      "result_capture": "captured",
+      "result_digest": "3616b99054379d23",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-19T17:10:55.888Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "58f3a46540f1d4a1",
+      "query": "{\"cmd\": \"jq '.sections[] | select(.title==\\\"Cert petitions by CVSG status (paid scored segment)\\\" or .title==\\\"Cert petitions by relist count (paid scored segment)\\\") | .title as $title | .buckets[] | select(($title|contains(\\\"CVSG\\\")) and .key==\\\"cvsg\\\" or ($title|contains(\\\"relist\\\")) and .key==\\\"2\\\") | {title:$title,bucket:.key,weighted_resolved:.resolved,grant_family_count:([.dispositions[]|select(.disposition==\\\"granted\\\" or .disposition==\\\"gvr\\\")|.count]|add)} | . + {percent:(100*.grant_fa",
+      "result_capture": "captured",
+      "result_digest": "6f1e880df0a4ab50",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-19T17:11:05.013Z",
+      "tool": "exec_command"
+    }
+  ],
+  "case_id": "scotus/9026000049",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261019T170308Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

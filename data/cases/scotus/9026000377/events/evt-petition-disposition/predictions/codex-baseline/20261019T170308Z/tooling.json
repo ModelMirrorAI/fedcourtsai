@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000377",
+  "run_id": "20261019T170308Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "jq", "CourtListener search", "CourtListener search_document", "web.run", "apply_patch"],
+  "helpful": [
+    "Provisioned petition and appellate appendix allowed the asserted split to be checked against both the majority and dissent.",
+    "Exact reached-band denominators in statpack.json supported pooling all displayed prior Terms.",
+    "CourtListener snippet search verified the narrow precedent passages without retrieving target-case history."
+  ],
+  "gaps": [
+    "No opposition brief yet available; the response deadline is after the snapshot.",
+    "Appendix is truncated, although the relevant appellate reasoning is present.",
+    "Web search and open attempts returned no usable content.",
+    "A citation-only CourtListener search returned a reporter-mismatched case; case-name and court constraints located the intended precedent."
+  ],
+  "notes": "The default uv cache was read-only; a temporary writable cache and --no-sync allowed the existing environment to run. The high distribution-increment forecast reflects redistribution following a response request, not strong evidence of a substantive relist. No live corpus or target-case outcome retrieval was used."
+}

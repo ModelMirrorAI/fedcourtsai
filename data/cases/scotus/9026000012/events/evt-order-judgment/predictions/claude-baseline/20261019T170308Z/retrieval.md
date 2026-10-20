@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. I also read the committed `metrics/statpack.md` (merits docket section) for the base rate. I made no `fedcourts query` calls, no CourtListener MCP calls, and no web searches.

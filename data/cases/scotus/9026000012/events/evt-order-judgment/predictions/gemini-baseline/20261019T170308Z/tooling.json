@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/9026000012",
+  "run_id": "20261019T170308Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "run_shell_command",
+    "grep"
+  ],
+  "helpful": [
+    "The statpack.md file provides a clear quantitative baseline for merits outcomes."
+  ],
+  "gaps": [],
+  "notes": "No live corpus queries or CourtListener fetches were required because the merits baseline and provisioned petition text were sufficient to form a prediction."
+}
