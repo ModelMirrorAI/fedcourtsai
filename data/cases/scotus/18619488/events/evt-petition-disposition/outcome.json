@@ -1,11 +1,18 @@
 {
-  "actual_disposition": "denied",
-  "actual_granted": 0,
+  "actual_disposition": "granted",
+  "actual_granted": 1,
   "case_id": "scotus/18619488",
   "disposition_basis": "standard",
+  "disposition_route": null,
   "event_id": "evt-petition-disposition",
-  "resolved_at": "2020-01-24",
+  "interim_signals": null,
+  "judgment": null,
+  "noted_dissent_from_denial": null,
+  "resolved_at": "2020-03-02",
   "schema_version": "1.0",
+  "signals": null,
   "source": null,
-  "votes": []
+  "vote_provenance": null,
+  "votes": [],
+  "writing_roles": null
 }

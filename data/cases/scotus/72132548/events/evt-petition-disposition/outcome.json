@@ -1,6 +1,6 @@
 {
-  "actual_disposition": "dismissed",
-  "actual_granted": 0,
+  "actual_disposition": "granted",
+  "actual_granted": 1,
   "case_id": "scotus/72132548",
   "disposition_basis": "standard",
   "disposition_route": null,
@@ -8,13 +8,9 @@
   "interim_signals": null,
   "judgment": null,
   "noted_dissent_from_denial": null,
-  "resolved_at": "2025-06-02",
+  "resolved_at": "2025-06-16",
   "schema_version": "1.0",
-  "signals": {
-    "cvsg_date": null,
-    "distribution_count": 4,
-    "distribution_parse": "dist-v2"
-  },
+  "signals": null,
   "source": null,
   "vote_provenance": null,
   "votes": [],
