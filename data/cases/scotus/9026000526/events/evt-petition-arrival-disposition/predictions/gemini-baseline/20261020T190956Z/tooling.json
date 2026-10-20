@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000526",
+  "run_id": "20261020T190956Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "provisioned petition.txt with full lower-court appendix opinions",
+    "metrics/statpack.md sal-v4 segment base rate table",
+    "record/context.json pre-stamped baseline conditioning fields"
+  ],
+  "gaps": [
+    "topic or keyword filter on fedcourts query to locate doctrinally similar resolved cert petitions"
+  ],
+  "notes": "Provisioned petition.txt included the complete en banc Mississippi Court of Appeals opinion and trial court order in the appendix, providing full factual and procedural context at arrival."
+}
