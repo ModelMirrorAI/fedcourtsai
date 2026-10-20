@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2153599,
-      "detail": "2153599 rows vs baseline 2153598",
+      "checked": 2153602,
+      "detail": "2153602 rows vs baseline 2153599",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4310454,
+      "checked": 4310460,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 2153599,
+      "checked": 2153602,
       "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
       "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
@@ -49,7 +49,7 @@
       "problems": []
     },
     {
-      "checked": 2153599,
+      "checked": 2153602,
       "detail": "0 future-dated, 34 decided-before-filed vs accepted baseline 50 (as of 2026-10-20); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
       "failures": 34,
       "name": "case_dates_ordered",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4307381,
+      "checked": 4307387,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4310454,
+      "checked": 4310460,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 17222,
+      "checked": 17384,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 28983,
+      "checked": 29001,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -118,7 +118,7 @@
       "problems": []
     },
     {
-      "checked": 1557,
+      "checked": 1719,
       "detail": "",
       "failures": 0,
       "name": "evaluation_targets_prediction",
@@ -126,7 +126,7 @@
       "problems": []
     },
     {
-      "checked": 1104,
+      "checked": 1266,
       "detail": "",
       "failures": 0,
       "name": "base_rate_basis_carries_version",
@@ -174,7 +174,7 @@
       "problems": []
     },
     {
-      "checked": 1557,
+      "checked": 1719,
       "detail": "",
       "failures": 0,
       "name": "vote_accuracy_only_on_merits_events",
@@ -190,7 +190,7 @@
       "problems": []
     },
     {
-      "checked": 498,
+      "checked": 552,
       "detail": "",
       "failures": 0,
       "name": "evaluation_correct_agrees",
@@ -206,8 +206,8 @@
       "problems": []
     }
   ],
-  "corpus_events": 2153782,
-  "corpus_rows": 2153599,
+  "corpus_events": 2153785,
+  "corpus_rows": 2153602,
   "ok": true,
   "schema_version": "1.0",
   "skipped": false
